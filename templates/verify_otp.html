@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="store-otp-page" data-page="verify-otp">
+  <style>
+    /* ========================================
+       VERIFY OTP — MATCH STORE DASHBOARD THEME
+       ✅ NO route/logic changes
+       ✅ ONLY design/theme replacement
+       ✅ Keep same form + input name + pattern + JS
+       ✅ Mobile/App + Web responsive
+       Scoped to .store-otp-page
+       ======================================== */
+
+    /* Font imports (page-scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    /* ✅ Page tokens + full-bleed like dashboard */
+    .store-otp-page{
+      --crimson: #8B0000;
+      --black: #000000;
+      --off-white: #FAF9F6;
+      --light-crimson: #FFF5F5;
+      --border-standard: 4px;
+      --transition-speed: 0.3s;
+
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+       font-weight: bold;
+      background-color: var(--off-white);
+      color: var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.125rem;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    .store-otp-page,
+    .store-otp-page *{ box-sizing: border-box; }
+
+    /* Reset only inside page */
+    .store-otp-page *{
+      margin: 0;
+      padding: 0;
+      border-radius: 0 !important;
+    }
+
+    /* ✅ Cursor (same as dashboard) */
+    .store-otp-page,
+    .store-otp-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
+    }
+    .store-otp-page a,
+    .store-otp-page button,
+    .store-otp-page input{ cursor: pointer; }
+
+    .store-otp-page ::selection{
+      background-color: var(--crimson);
+      color: #fff;
+    }
+
+    /* ========================================
+       FILM GRAIN
+       ======================================== */
+    .store-otp-page .grain-overlay{
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.12;
+      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* ========================================
+       TOP BAR + HERO
+       ======================================== */
+    .store-otp-page .top-bar{
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+    }
+
+    .store-otp-page .hero-section{
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 5.25rem 2rem 4.25rem;
+      border-bottom: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+    }
+
+    .store-otp-page .hero-title{
+      font-family: 'Dancing Script', cursive;
+      font-size: clamp(3rem, 10vw, 6rem);
+      color: var(--crimson);
+      font-style: italic;
+      font-weight: 700;
+      margin: 0 0 0.75rem 0;
+      line-height: 1.15;
+      text-transform: uppercase;
+    }
+
+    .store-otp-page .hero-subtitle{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+      margin-bottom: 1.75rem;
+    }
+
+    .store-otp-page .hero-divider{
+      width: 6rem;
+      height: 4px;
+      background: var(--crimson);
+      margin: 0 auto;
+    }
+
+    /* ========================================
+       MAIN CONTAINER
+       ======================================== */
+    .store-otp-page .main-container{
+      position: relative;
+      z-index: 2;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    /* ========================================
+       PANEL + HEADER
+       ======================================== */
+    .store-otp-page .panel{
+      border: var(--border-standard) solid var(--black);
+      padding: 2rem;
+      margin-bottom: 2.75rem;
+      background: var(--light-crimson);
+    }
+
+    .store-otp-page .section-header{
+      display: flex;
+      align-items: start;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .store-otp-page .icon-box{
+      width: 48px;
+      height: 48px;
+      background: var(--crimson);
+      border: var(--border-standard) solid var(--black);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #fff;
+      font-family: 'Italiana', serif;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    .store-otp-page .section-title{
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+
+    .store-otp-page .section-description{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      opacity: 0.85;
+    }
+
+    .store-otp-page .muted{ color: rgba(0,0,0,.65); }
+
+    /* ========================================
+       FORM (keep same form/input)
+       ======================================== */
+    .store-otp-page form.form{
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .store-otp-page .form{
+      margin-top: 0.5rem;
+    }
+
+    .store-otp-page .form label{
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      font-family: 'Italiana', serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--crimson);
+      margin-bottom: 1.15rem;
+    }
+
+    .store-otp-page input[name="code"]{
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      padding: 0.95rem 1rem;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--black);
+      width: 100%;
+      text-align: center;
+    }
+
+    .store-otp-page input[name="code"]::placeholder{
+      letter-spacing: 0.25em;
+      opacity: .35;
+    }
+
+    .store-otp-page input:focus{
+      outline: 3px solid var(--crimson);
+      outline-offset: 3px;
+    }
+
+    /* ========================================
+       BUTTONS (keep class names .btn and .btn-ghost)
+       ======================================== */
+    .store-otp-page a{ color: inherit; text-decoration: none; }
+
+    .store-otp-page .btn{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .6rem;
+      border: var(--border-standard) solid var(--black);
+      background: var(--crimson);
+      color: #fff;
+      padding: 0.95rem 1.35rem;
+      font-family: 'Italiana', serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      transition: all var(--transition-speed);
+      box-shadow: 4px 4px 0 var(--black);
+      white-space: nowrap;
+      width: 100%;
+    }
+    .store-otp-page .btn:hover{
+      transform: translateY(-4px);
+    }
+
+    .store-otp-page .btn-ghost{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      color: var(--black);
+      padding: 0.95rem 1.35rem;
+      font-family: 'Italiana', serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      transition: all var(--transition-speed);
+      white-space: nowrap;
+      width: 100%;
+      margin-top: 0.9rem;
+    }
+    .store-otp-page .btn-ghost:hover{
+      background: var(--black);
+      color: #fff;
+      transform: translateY(-4px);
+    }
+
+    /* Accessibility */
+    .store-otp-page *:focus-visible{
+      outline: 3px solid var(--crimson);
+      outline-offset: 3px;
+    }
+
+    /* ========================================
+       RESPONSIVE
+       ======================================== */
+    @media (max-width: 768px){
+      .store-otp-page .main-container{ padding: 2rem 1rem; }
+      .store-otp-page .top-bar{
+        padding: 1rem;
+        font-size: 0.625rem;
+        letter-spacing: 0.35em;
+      }
+      .store-otp-page .hero-section{ padding: 4rem 1rem 3rem; }
+      .store-otp-page .panel{ padding: 1.25rem; }
+      .store-otp-page form.form{ max-width: 100%; }
+      .store-otp-page input[name="code"]{ font-size: 1.35rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .store-otp-page *,
+      .store-otp-page *::before,
+      .store-otp-page *::after{
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+
+  <!-- Film Grain Overlay -->
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <!-- Hero -->
+  <header class="hero-section">
+    <h1 class="hero-title">Verify OTP</h1>
+    <p class="hero-subtitle">Secure Login</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <main class="main-container">
+    <section class="panel" aria-label="Verify OTP">
+      <div class="section-header">
+        <div class="icon-box" aria-hidden="true">🔒</div>
+        <div>
+          <h3 class="section-title">Enter OTP</h3>
+          <p class="section-description">Type the 6-digit code sent to your number</p>
+        </div>
+      </div>
+
+      <!-- ✅ SAME FORM + INPUT (unchanged logic) -->
+      <form method="post" class="form">
+        <label>Enter 6-digit OTP
+          <input name="code" pattern="\d{6}" maxlength="6" required inputmode="numeric" autocomplete="one-time-code">
+        </label>
+        <button class="btn" type="submit">Verify</button>
+      </form>
+
+      <!-- ✅ SAME BUTTON + SAME ID (JS uses it) -->
+      <button class="btn-ghost" id="resendBtn" type="button">Resend OTP</button>
+
+      <script>
+      document.getElementById('resendBtn').addEventListener('click', async () => {
+        const res = await fetch('{{ url_for("resend_otp") }}', {method:'POST'});
+        const data = await res.json();
+        alert(data.ok ? 'OTP resent!' : (data.msg || 'Failed to resend'));
+      });
+      </script>
+    </section>
+  </main>
+</section>
+
+{% endblock %}

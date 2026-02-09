@@ -1,0 +1,817 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="cart-page" data-page="cart">
+  <style>
+    /* =========================================
+       CART — MATCH STORE DASHBOARD THEME
+       ✅ NO route/logic/JS behavior changes
+       ✅ Keeps your HTML structure + your JS exactly
+       ✅ Fully responsive (mobile + web)
+       Scoped to .cart-page
+       ========================================= */
+
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    .cart-page{
+      --crimson:#8B0000;
+      --black:#000;
+      --off-white:#FAF9F6;
+      --light-crimson:#FFF5F5;
+      --border:4px;
+      --t:.28s;
+
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      background: var(--off-white);
+      color: var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      min-height: 75vh;
+      position: relative;
+       font-weight: bold;
+      overflow-x: hidden;
+      padding-bottom: 2.5rem;
+    }
+    .cart-page,
+    .cart-page *{ box-sizing:border-box; border-radius:0 !important; }
+
+    /* Spoon cursor */
+    .cart-page,
+    .cart-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
+    }
+    .cart-page a,
+    .cart-page button,
+    .cart-page input{ cursor:pointer; }
+
+    .cart-page ::selection{ background: var(--crimson); color:#fff; }
+
+    /* Film grain */
+    .cart-page .grain{
+      position: fixed;
+      inset: 0;
+      pointer-events:none;
+      z-index: 1;
+      opacity: .12;
+      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* Top bar */
+    .cart-page .top-bar{
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      padding: 1rem 2rem;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap: 12px;
+      border-bottom: var(--border) solid var(--black);
+      background: var(--off-white);
+      font-family: 'Italiana', serif;
+      font-size: .85rem;
+      letter-spacing: .45em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+      overflow: hidden;
+    }
+    .cart-page .top-bar span{ white-space: nowrap; }
+
+    /* Hero */
+    .cart-page .hero{
+      position: relative;
+      z-index: 2;
+      text-align:center;
+      padding: 4.25rem 2rem 3.25rem;
+      border-bottom: var(--border) solid var(--black);
+      background: var(--off-white);
+    }
+    .cart-page .hero-title{
+      font-family: 'Dancing Script', cursive;
+      font-size: clamp(2.2rem, 8vw, 5rem);
+      color: var(--crimson);
+      font-style: italic;
+      font-weight: 700;
+      text-transform: uppercase;
+      line-height: 1.12;
+      margin: 0 0 .65rem 0;
+    }
+    .cart-page .hero-sub{
+      font-family: 'Italiana', serif;
+      font-size: .85rem;
+      letter-spacing: .45em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+      margin: 0 0 1.35rem 0;
+    }
+    .cart-page .hero-divider{
+      width: 6rem;
+      height: 4px;
+      background: var(--crimson);
+      margin: 0 auto;
+    }
+
+    .cart-page .wrap{
+      position: relative;
+      z-index: 2;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem 2rem 0;
+    }
+
+    /* ---------- Content shell / responsive layout ---------- */
+    .cart-page .cart-container{
+      max-width: 1000px;
+      margin: 0;
+      border: var(--border) solid var(--black);
+      background: var(--off-white);
+      box-shadow: none;
+      padding: 0;
+      overflow-x: auto;
+    }
+
+    /* Title */
+    .cart-page .cart-section{
+      background: transparent !important;
+      padding: 0 !important;
+      min-height: auto !important;
+    }
+    .cart-page .cart-title{
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.35rem, 3.6vw, 2rem);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      text-align: left;
+      color: var(--black);
+      margin: 0 0 1rem 0;
+    }
+
+    /* Empty */
+    .cart-page .cart-empty{
+      text-align:center;
+      padding: 2rem 1rem;
+      border: var(--border) solid var(--black);
+      background: var(--light-crimson);
+    }
+    .cart-page .cart-empty img{
+      width: min(170px, 58vw);
+      opacity: 1;
+      margin-bottom: 1rem;
+      filter: grayscale(100%) contrast(1.05);
+      height: auto;
+    }
+    .cart-page .cart-empty p{
+      margin: 0 0 1.1rem 0;
+      font-weight: 700;
+    }
+
+    /* Buttons */
+    .cart-page .btn-primary{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.5rem;
+      text-decoration:none;
+      border: var(--border) solid var(--black);
+      background: var(--crimson);
+      color: #fff;
+      padding: .95rem 1.1rem;
+      font-family: 'Italiana', serif;
+      font-size: .78rem;
+      letter-spacing: .32em;
+      text-transform: uppercase;
+      font-weight: 900;
+      box-shadow: 6px 6px 0 var(--black);
+      transition: transform var(--t), background var(--t), box-shadow var(--t);
+      width: auto;
+    }
+    .cart-page .btn-primary:hover{
+      transform: translateY(-4px);
+      background: var(--black);
+      box-shadow: 8px 8px 0 var(--crimson);
+    }
+    .cart-page .btn-primary:active{ transform: translateY(-1px) scale(.99); }
+
+    /* Table */
+    .cart-page .cart-table{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 1rem;
+      background: var(--off-white);
+      min-width: 720px; /* allows scroll on small screens without breaking */
+    }
+    .cart-page .cart-table thead{
+      background: var(--black);
+      color: #fff;
+    }
+    .cart-page .cart-table th{
+      text-align:left;
+      padding: 14px 12px;
+      border-bottom: 2px solid var(--black);
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      font-weight: 900;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .cart-page .cart-table td{
+      padding: 16px 12px;
+      border-bottom: 2px solid rgba(0,0,0,.18);
+      vertical-align: middle;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .cart-page .cart-row:hover{ background: var(--light-crimson); }
+
+    /* Product */
+    .cart-page .thumb-link{
+      display:flex;
+      align-items:center;
+      gap: 12px;
+      color: inherit;
+      text-decoration:none;
+      min-width: 240px;
+      white-space: normal;
+    }
+    .cart-page .thumb-link img{
+      width: 64px;
+      height: 64px;
+      object-fit: cover;
+      border: 2px solid var(--black);
+      box-shadow: 6px 6px 0 var(--black);
+      transition: transform var(--t);
+      flex: 0 0 auto;
+    }
+    .cart-page .thumb-link:hover img{ transform: translateY(-2px); }
+
+    .cart-page .item-info{ line-height: 1.25; }
+    .cart-page .item-name{
+      font-weight: 900;
+      font-family: 'Playfair Display', serif;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+    }
+    .cart-page .item-store{
+      margin-top: 2px;
+      font-size: .95rem;
+      opacity: .85;
+    }
+
+    /* Qty */
+    .cart-page .qty-wrap{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      border: 2px solid var(--black);
+      background: #fff;
+      padding: 6px;
+      white-space: nowrap;
+    }
+    .cart-page .btn-qty{
+      width: 38px;
+      height: 38px;
+      border: 2px solid var(--black);
+      background: var(--off-white);
+      color: var(--black);
+      font-size: 18px;
+      font-weight: 900;
+      transition: transform var(--t), background var(--t), color var(--t);
+      display:grid;
+      place-items:center;
+      line-height: 1;
+    }
+    .cart-page .btn-qty:hover{
+      background: var(--black);
+      color: #fff;
+      transform: translateY(-2px);
+    }
+    .cart-page .btn-qty:active{ transform: translateY(-1px) scale(.98); }
+
+    .cart-page .qty-input{
+      width: 76px;
+      border: 0;
+      border-left: 2px dashed rgba(0,0,0,.4);
+      border-right: 2px dashed rgba(0,0,0,.4);
+      background: transparent;
+      text-align: center;
+      font-weight: 900;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      color: var(--black);
+      outline: none;
+      padding: 2px 6px;
+    }
+    .cart-page .qty-hint{
+      margin-top: 6px;
+      font-family: 'Italiana', serif;
+      font-size: .68rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      opacity: .8;
+    }
+
+    /* Remove */
+    .cart-page .btn-remove{
+      border: 2px solid var(--black);
+      background: #fff;
+      color: var(--crimson);
+      font-weight: 900;
+      width: 40px;
+      height: 40px;
+      transition: transform var(--t), background var(--t), color var(--t);
+      display:grid;
+      place-items:center;
+      line-height: 1;
+    }
+    .cart-page .btn-remove:hover{
+      background: var(--crimson);
+      color: #fff;
+      transform: translateY(-2px);
+    }
+
+    /* Summary */
+    .cart-page .cart-summary{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap: 12px;
+      padding: 1.1rem 1.25rem;
+      border: var(--border) solid var(--black);
+      border-top: 0;
+      background: var(--black);
+      color: #fff;
+      flex-wrap: wrap;
+    }
+    .cart-page .total{
+      margin: 0;
+      font-family: 'Italiana', serif;
+      font-size: .82rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      font-weight: 900;
+      display:flex;
+      align-items:baseline;
+      gap: 10px;
+    }
+    .cart-page #grandTotal{
+      font-family: 'Playfair Display', serif;
+      font-size: 1.18rem;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+
+    /* ---------------- MOBILE: true responsive cards (no horizontal scroll needed) ---------------- */
+    @media (max-width: 820px){
+      .cart-page .wrap{ padding: 1.5rem 1rem 0; }
+      .cart-page .cart-title{ text-align:center; }
+
+      .cart-page .top-bar{
+        padding: .9rem 1rem;
+        font-size: .62rem;
+        letter-spacing: .28em;
+      }
+      .cart-page .hero{
+        padding: 3.25rem 1rem 2.5rem;
+      }
+      .cart-page .hero-sub{
+        letter-spacing: .32em;
+        font-size: .75rem;
+      }
+
+      /* Remove min-width table and swap to mobile cards without changing markup */
+      .cart-page .cart-container{ overflow: visible; }
+
+      .cart-page .cart-table{
+        min-width: 0;
+        width: 100%;
+      }
+      .cart-page .cart-table thead{ display:none; }
+
+      .cart-page .cart-table,
+      .cart-page .cart-table tbody,
+      .cart-page .cart-table tr,
+      .cart-page .cart-table td{
+        display:block;
+        width:100%;
+      }
+
+      .cart-page .cart-table tr.cart-row{
+        border: var(--border) solid var(--black);
+        background: var(--off-white);
+        padding: 12px 12px 10px;
+        margin: 0 0 12px 0;
+      }
+
+      .cart-page .cart-table td{
+        border: none;
+        padding: 10px 0;
+        white-space: normal;
+      }
+
+      /* Row sections inside a card */
+      .cart-page .cart-table td:first-child{
+        padding-top: 2px;
+        border-bottom: 2px dashed rgba(0,0,0,.25);
+        padding-bottom: 12px;
+        margin-bottom: 6px;
+      }
+
+      .cart-page .thumb-link{
+        min-width: 0;
+        gap: 10px;
+      }
+      .cart-page .thumb-link img{
+        width: 58px;
+        height: 58px;
+        box-shadow: 5px 5px 0 var(--black);
+      }
+      .cart-page .item-name{ font-size: 1.02rem; }
+      .cart-page .item-store{ font-size: .95rem; }
+
+      /* Make the remaining 3 lines a clean grid */
+      .cart-page .cart-table td:nth-child(2),
+      .cart-page .cart-table td:nth-child(3),
+      .cart-page .cart-table td:nth-child(4),
+      .cart-page .cart-table td:nth-child(5){
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap: 10px;
+      }
+
+      /* Labels injected via CSS (no markup change) */
+      .cart-page .cart-table td:nth-child(2)::before{
+        content:"Weight";
+        font-family:'Italiana', serif;
+        font-size:.68rem;
+        letter-spacing:.22em;
+        text-transform:uppercase;
+        font-weight:900;
+        color: var(--crimson);
+      }
+      .cart-page .cart-table td:nth-child(3)::before{
+        content:"Rate";
+        font-family:'Italiana', serif;
+        font-size:.68rem;
+        letter-spacing:.22em;
+        text-transform:uppercase;
+        font-weight:900;
+        color: var(--crimson);
+      }
+      .cart-page .cart-table td:nth-child(4)::before{
+        content:"Subtotal";
+        font-family:'Italiana', serif;
+        font-size:.68rem;
+        letter-spacing:.22em;
+        text-transform:uppercase;
+        font-weight:900;
+        color: var(--crimson);
+      }
+      .cart-page .cart-table td:nth-child(5)::before{
+        content:"Remove";
+        font-family:'Italiana', serif;
+        font-size:.68rem;
+        letter-spacing:.22em;
+        text-transform:uppercase;
+        font-weight:900;
+        color: var(--crimson);
+      }
+
+      .cart-page .qty-wrap{ padding: 5px; gap: 6px; }
+      .cart-page .btn-qty{ width: 36px; height: 36px; }
+      .cart-page .qty-input{ width: 74px; }
+
+      .cart-page .cart-summary{
+        flex-direction: column;
+        text-align:center;
+        gap: 10px;
+        padding: 1rem;
+      }
+      .cart-page .btn-primary{ width: 100%; }
+    }
+
+    /* Small phones */
+    @media (max-width: 420px){
+      .cart-page{ font-size: 1rem; }
+      .cart-page .hero-title{ font-size: 2.1rem; }
+      .cart-page .top-bar{ letter-spacing: .22em; }
+      .cart-page .btn-primary{ font-size: .72rem; letter-spacing: .28em; padding: .9rem 1rem; }
+      .cart-page .qty-hint{ letter-spacing: .18em; }
+    }
+
+    /* Large screens: keep clean center */
+    @media (min-width: 1240px){
+      .cart-page .wrap{ padding-left: 2.25rem; padding-right: 2.25rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .cart-page *{ transition:none !important; }
+    }
+
+    /* ✅ Toast popup */
+.cart-page .cart-toast{
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%) translateY(18px);
+  z-index: 9999;
+  background: var(--black);
+  color: #fff;
+  border: var(--border) solid var(--crimson);
+  box-shadow: 8px 8px 0 var(--crimson);
+  padding: .85rem 1.05rem;
+  font-family: 'Italiana', serif;
+  font-size: .78rem;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t), transform var(--t);
+  max-width: min(92vw, 520px);
+  text-align: center;
+}
+
+.cart-page .cart-toast.show{
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+  </style>
+
+  <div class="grain" aria-hidden="true"></div>
+
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <header class="hero">
+    <h1 class="hero-title">Your Cart</h1>
+    <p class="hero-sub">Review & Checkout</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <div class="wrap">
+
+    <!-- ✅ YOUR ORIGINAL MARKUP (UNCHANGED) -->
+    <section class="cart-section">
+      <h2 class="cart-title">🛒 Your Cart</h2>
+
+      {% if not items %}
+        <div class="cart-empty">
+          <img src="{{ url_for('static', filename='images/empty-cart.svg') }}" alt="Empty cart" />
+          <p>No items yet. Add some delicious meat to your cart!</p>
+          <a href="{{ url_for('products') }}" class="btn-primary">Shop Now</a>
+        </div>
+      {% else %}
+      <div class="cart-container">
+        <table class="cart-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Weight (kg)</th>
+              <th>₹/kg</th>
+              <th>Subtotal</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="cartBody">
+            {% for i in items %}
+            {% set pid = i['product_id'] %}
+            {% set cart_item_id = i['cart_item_id'] %}
+            {% set img = '/' + i['image_path'] if i['image_path'] else url_for('static', filename='placeholder.png') %}
+            {% set name = i['name'] %}
+            {% set price = i['price_per_kg'] or 0 %}
+            {% set w = i['weight_kg'] or 0 %}
+            {% set stock = i['stock_kg'] or 0 %}
+            {% set store_name = i['store_name'] %}
+            <tr class="cart-row"
+                data-pid="{{ pid }}"
+                data-item-id="{{ cart_item_id }}"
+                data-price="{{ '%.2f'|format(price) }}"
+                data-stock="{{ '%.2f'|format(stock) }}">
+              <td>
+                <a href="{{ url_for('product_detail', pid=pid) }}" class="thumb-link">
+                  <img src="{{ img }}" alt="{{ name }}">
+                  <div class="item-info">
+                    <div class="item-name">{{ name }}</div>
+                    <div class="item-store">{{ store_name }}</div>
+                  </div>
+                </a>
+              </td>
+
+              <td>
+                <div class="qty-wrap">
+                  <button type="button" class="btn-qty btn-minus" aria-label="Decrease">−</button>
+                  <input class="qty-input" type="text"
+                         value="{{ '%.2f'|format(w) }}"
+                         inputmode="decimal" autocomplete="off">
+                  <button type="button" class="btn-qty btn-plus" aria-label="Increase">+</button>
+                </div>
+                <div class="qty-hint">Step: 0.25 kg</div>
+              </td>
+
+              <td>₹ {{ '%.2f'|format(price) }}</td>
+              <td class="cell-subtotal">₹ {{ '%.2f'|format(w * price) }}</td>
+
+              <td>
+                <form class="inline" method="post" action="{{ url_for('api_cart_remove') }}">
+                  <input type="hidden" name="item_id" value="{{ cart_item_id }}">
+                  <button class="btn-remove" title="Remove item">✕</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <div class="cart-summary">
+          <p class="total">Total: <strong id="grandTotal">₹ {{ '%.2f'|format(total) }}</strong></p>
+          <a class="btn-primary" href="{{ url_for('checkout') }}">Proceed to Checkout →</a>
+        </div>
+      </div>
+      {% endif %}
+    </section>
+    <!-- ✅ YOUR ORIGINAL MARKUP ENDS -->
+
+  </div>
+  <!-- ✅ Toast -->
+<div id="cartToast" class="cart-toast" role="status" aria-live="polite" aria-atomic="true">
+  <span class="cart-toast-text" id="cartToastText">Removed</span>
+</div>
+
+</section>
+
+<!-- ✅ YOUR ORIGINAL JS (UNCHANGED) -->
+<script>
+
+    // ✅ Toast helper
+  const toast = document.getElementById('cartToast');
+  const toastText = document.getElementById('cartToastText');
+  let toastT;
+  function showToast(msg){
+    if(!toast) return;
+    if(toastText) toastText.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(()=>toast.classList.remove('show'), 1700);
+  }
+
+(function(){
+  const STEP=0.25,MIN=0.25;
+  const body=document.getElementById('cartBody');
+  const elGrand=document.getElementById('grandTotal');
+  function round2(x){return Math.round(x*100)/100;}
+  function fmtINR(x){return '₹ '+Number(x).toFixed(2);}
+  function recomputeRow(tr){
+    const price=Number(tr.dataset.price||0);
+    const input=tr.querySelector('.qty-input');
+    const w=Number(input.value||0);
+    const sub=tr.querySelector('.cell-subtotal');
+    if(sub)sub.textContent=fmtINR(price*w);
+  }
+  function recomputeTotal(){
+    let sum=0;
+    document.querySelectorAll('tr.cart-row').forEach(tr=>{
+      const price=Number(tr.dataset.price||0);
+      const w=Number(tr.querySelector('.qty-input').value||0);
+      sum+=price*w;
+    });
+    if(elGrand)elGrand.textContent=fmtINR(sum);
+  }
+  async function saveRow(tr){
+    const pid=tr.dataset.pid;
+    const stock=Number(tr.dataset.stock||0);
+    const input=tr.querySelector('.qty-input');
+    let w=Number(input.value||0);
+    if(!isFinite(w))w=MIN;
+    w=Math.max(MIN,w);
+    if(stock>0)w=Math.min(w,stock);
+    w=Math.max(MIN,Math.round(w/STEP)*STEP);
+    w=round2(w);
+    input.value=w.toFixed(2);
+    const fd=new FormData();
+    fd.append('product_id',pid);
+    fd.append('weight_kg',String(w));
+    try{
+      const r=await fetch('{{ url_for("api_cart_add") }}',{method:'POST',body:fd});
+      const j=await r.json();
+      if(!j.ok){alert(j.error||'Could not update item.');}
+    }catch(e){console.error(e);}
+    recomputeRow(tr);recomputeTotal();
+  }
+  body?.addEventListener('click',ev=>{
+    const btn=ev.target.closest('.btn-qty');
+    if(!btn)return;
+    const tr=ev.target.closest('tr.cart-row');
+    if(!tr)return;
+    const input=tr.querySelector('.qty-input');
+    const stock=Number(tr.dataset.stock||0);
+    let v=Number(input.value||0);
+    if(!isFinite(v)||v<=0)v=MIN;
+    if(btn.classList.contains('btn-plus'))v+=STEP;
+    if(btn.classList.contains('btn-minus'))v-=STEP;
+    if(stock>0)v=Math.min(v,stock);
+    v=Math.max(MIN,v);
+    v=Math.round(v/STEP)*STEP;
+    v=round2(v);
+    input.value=v.toFixed(2);
+    saveRow(tr);
+  });
+  body?.addEventListener('keydown',ev=>{
+    if(ev.key!=='Enter')return;
+    const input=ev.target.closest('.qty-input');
+    if(!input)return;
+    ev.preventDefault();
+    const tr=ev.target.closest('tr.cart-row');
+    if(tr)saveRow(tr);
+  });
+  body?.addEventListener('blur',ev=>{
+    const input=ev.target.closest('.qty-input');
+    if(!input)return;
+    const tr=ev.target.closest('tr.cart-row');
+    if(tr)saveRow(tr);
+  },true);
+
+    // ✅ REMOVE ITEM: prevent full page JSON navigation
+ // ✅ REMOVE ITEM: prevent full page JSON navigation + JSON-safe parsing
+    // ✅ REMOVE ITEM: prevent full page JSON navigation + JSON-safe parsing
+    document.querySelectorAll('form.inline[action="{{ url_for("api_cart_remove") }}"]').forEach(form=>{
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+
+        const tr = form.closest('tr.cart-row');
+        const fd = new FormData(form);
+
+        try{
+          const r = await fetch(form.action, {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+          });
+
+          const ct = (r.headers.get('content-type') || '').toLowerCase();
+
+          if (r.redirected) {
+            alert('Session expired. Please login again.');
+            window.location.href = r.url;
+            return;
+          }
+
+          if (!ct.includes('application/json')) {
+            const text = await r.text();
+            console.error('Remove returned non-JSON:', text.slice(0, 200));
+            alert('Server did not return JSON. Check login / error logs.');
+            return;
+          }
+
+          const j = await r.json();
+
+          if(!r.ok || !j.ok){
+            alert(j.msg || j.error || 'Could not remove item.');
+            return;
+          }
+
+          // ✅ remove row
+          if(tr) tr.remove();
+
+          // ✅ totals
+          recomputeTotal();
+
+          // ✅ toast
+          showToast('Removed');
+
+          // ✅ GLOBAL cart icon update
+          document.dispatchEvent(
+            new CustomEvent("cart:updated", {
+              detail: { count: j.cart_count ?? 0 }
+            })
+          );
+
+          // ✅ empty cart -> reload
+          if(document.querySelectorAll('tr.cart-row').length === 0){
+            window.location.reload();
+          }
+
+        }catch(e){
+          console.error(e);
+          alert('Network error while removing item.');
+        }
+      });
+    });
+
+})();   // ✅ IMPORTANT: closes (function(){ ... })();
+</script>
+
+{% endblock %}
+

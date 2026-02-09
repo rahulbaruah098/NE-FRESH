@@ -1,0 +1,1320 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Realtime alerts (safe to keep even if included elsewhere) -->
+<script defer src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+
+<section class="dashboard-page" data-page="store-dashboard">
+
+  <!-- Fonts + Lucide (ideally move to base.html <head>, but safe here) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Playfair+Display:wght@700;900&family=Italiana&family=Cormorant+Garamond:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* =========================
+       DASHBOARD (SCOPED CSS)
+       ========================= */
+    .dashboard-page{
+      --crimson: #8B0000;
+      --black: #000000;
+      --off-white: #FAF9F6;
+      --light-crimson: #FFF5F5;
+
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      font-weight: bold;
+      background: var(--off-white);
+      color: var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    .dashboard-page, .dashboard-page * { box-sizing: border-box; }
+    .dashboard-page * { margin: 0; padding: 0; }
+
+    .dashboard-page{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path fill="%238B0000" d="M16 4 L12 8 L14 8 L14 16 L10 16 L16 24 L22 16 L18 16 L18 8 L20 8 Z"/></svg>'), auto;
+    }
+    .dashboard-page button,
+    .dashboard-page a,
+    .dashboard-page input,
+    .dashboard-page select,
+    .dashboard-page label{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path fill="%238B0000" d="M16 4 L12 8 L14 8 L14 16 L10 16 L16 24 L22 16 L18 16 L18 8 L20 8 Z"/></svg>'), pointer;
+    }
+
+    .dashboard-page .app-container{
+      max-width: 428px;
+      margin: 0 auto;
+      position: relative;
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* Film Grain Overlay */
+    .dashboard-page .film-grain{
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.15;
+      z-index: 9999;
+      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* Custom Scrollbar */
+    .dashboard-page ::-webkit-scrollbar { width: 12px; }
+    .dashboard-page ::-webkit-scrollbar-track {
+      background: var(--off-white);
+      border: 4px solid var(--black);
+    }
+    .dashboard-page ::-webkit-scrollbar-thumb {
+      background: var(--crimson);
+      border: 4px solid var(--black);
+    }
+
+    /* Top Bar */
+    .dashboard-page .top-bar{
+      background: var(--off-white);
+      border-bottom: 4px solid var(--black);
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      font-family: 'Italiana', serif;
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+    }
+    .dashboard-page .divider{ color: var(--crimson); }
+
+    /* Hero Section */
+    .dashboard-page .hero-section{
+      padding: 32px 16px;
+      text-align: center;
+      background: var(--off-white);
+      border-bottom: 8px solid var(--crimson);
+    }
+    .dashboard-page .hero-title{
+      font-family: 'Dancing Script', cursive;
+      font-size: 48px;
+      font-weight: 700;
+      font-style: italic;
+      color: var(--crimson);
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+    .dashboard-page .hero-subtitle{
+      font-family: 'Italiana', serif;
+      font-size: 12px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+      margin-bottom: 16px;
+    }
+    .dashboard-page .crimson-divider{
+      width: 80px;
+      height: 4px;
+      background: var(--crimson);
+      margin: 0 auto 16px;
+    }
+    .dashboard-page .live-badge{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--crimson);
+      color: white;
+      padding: 8px 16px;
+      border: 4px solid var(--black);
+      font-family: 'Italiana', serif;
+      font-size: 12px;
+      letter-spacing: 0.3em;
+      font-variant: small-caps;
+    }
+    .dashboard-page .pulse-dot{
+      width: 8px;
+      height: 8px;
+      background: white;
+      display: block;
+      animation: dashboardPulse 2s ease-in-out infinite;
+    }
+    @keyframes dashboardPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* KPI Container */
+    .dashboard-page .kpi-container{ display: flex; flex-direction: column; }
+
+    /* KPI Card */
+    .dashboard-page .kpi-card{
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 24px 16px;
+      border-bottom: 4px solid var(--black);
+    }
+    .dashboard-page .kpi-card-white{ background: var(--off-white); }
+    .dashboard-page .kpi-card-crimson{ background: var(--light-crimson); }
+    .dashboard-page .kpi-icon{
+      width: 64px;
+      height: 64px;
+      background: var(--crimson);
+      border: 4px solid var(--black);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      flex-shrink: 0;
+    }
+    .dashboard-page .kpi-content{ flex: 1; }
+    .dashboard-page .kpi-number{
+      font-family: 'Playfair Display', serif;
+      font-size: 36px;
+      font-weight: 900;
+      color: var(--crimson);
+      line-height: 1;
+      margin-bottom: 8px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+    .dashboard-page .kpi-label{
+      font-family: 'Italiana', serif;
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      font-variant: small-caps;
+      margin-bottom: 4px;
+    }
+    .dashboard-page .kpi-subtitle{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      color: #666;
+    }
+
+    /* Section Styles */
+    .dashboard-page .section{
+      padding: 24px 16px;
+      border-bottom: 4px solid var(--black);
+    }
+    .dashboard-page .section-header{
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .dashboard-page .section-header svg{
+      color: var(--crimson);
+      width: 24px;
+      height: 24px;
+    }
+    .dashboard-page .section-header h2{
+      font-family: 'Italiana', serif;
+      font-size: 16px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+    }
+
+    /* Export Section */
+    .dashboard-page .export-section{ background: var(--light-crimson); }
+    .dashboard-page .export-buttons{
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+    }
+    .dashboard-page .btn-export{
+      flex-shrink: 0;
+      padding: 12px 20px;
+      background: white;
+      border: 4px solid var(--black);
+      font-family: 'Italiana', serif;
+      font-size: 12px;
+      letter-spacing: 0.3em;
+      font-variant: small-caps;
+      transition: transform 0.2s;
+      min-height: 44px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dashboard-page .btn-export:active{ transform: translateY(2px); }
+
+    /* Action Buttons */
+    .dashboard-page .action-buttons{
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border-bottom: 4px solid var(--black);
+    }
+    .dashboard-page .btn-action{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 24px;
+      border: 4px solid var(--black);
+      font-family: 'Italiana', serif;
+      font-size: 12px;
+      letter-spacing: 0.3em;
+      font-variant: small-caps;
+      min-height: 56px;
+      transition: transform 0.2s;
+      text-decoration: none;
+    }
+    .dashboard-page .btn-action svg{ width: 20px; height: 20px; }
+    .dashboard-page .btn-action:active{ transform: translateY(2px); }
+    .dashboard-page .btn-crimson{
+      background: var(--crimson);
+      color: white;
+      box-shadow: 4px 4px 0 var(--black);
+    }
+    .dashboard-page .btn-white{ background: white; color: var(--black); }
+
+    /* Product Form */
+    .dashboard-page .add-product-section{ background: var(--light-crimson); }
+    .dashboard-page .product-form{
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .dashboard-page .form-group{
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .dashboard-page .form-group label{
+      font-family: 'Italiana', serif;
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      font-variant: small-caps;
+    }
+    .dashboard-page .form-group input{
+      padding: 14px;
+      border: 4px solid var(--black);
+      background: white;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      min-height: 48px;
+    }
+    .dashboard-page .form-group input:focus{
+      outline: 4px solid var(--crimson);
+      outline-offset: -4px;
+    }
+    .dashboard-page .form-row{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* Image Upload */
+    .dashboard-page .image-upload-container{
+      position: relative;
+      width: 100%;
+      height: 200px;
+      border: 4px dashed var(--black);
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dashboard-page .upload-box{
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      height: 100%;
+      color: var(--crimson);
+      font-family: 'Italiana', serif;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      font-variant: small-caps;
+      transition: background 0.2s;
+    }
+    .dashboard-page .upload-box:hover{ background: var(--light-crimson); }
+    .dashboard-page .upload-hint{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 12px;
+      color: #666;
+      letter-spacing: normal;
+      text-transform: none;
+      font-variant: normal;
+    }
+    .dashboard-page .image-preview{ position: relative; width: 100%; height: 100%; }
+    .dashboard-page .image-preview img{ width: 100%; height: 100%; object-fit: cover; }
+    .dashboard-page .remove-image-btn{
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--crimson);
+      color: white;
+      border: 4px solid var(--black);
+      padding: 8px 12px;
+      font-family: 'Italiana', serif;
+      font-size: 16px;
+      line-height: 1;
+      min-width: 44px;
+      min-height: 44px;
+      transition: transform 0.2s;
+    }
+    .dashboard-page .remove-image-btn:active{ transform: translateY(2px); }
+
+    .dashboard-page .btn-submit{
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 24px;
+      background: var(--crimson);
+      color: white;
+      border: 4px solid var(--black);
+      font-family: 'Italiana', serif;
+      font-size: 12px;
+      letter-spacing: 0.3em;
+      font-variant: small-caps;
+      min-height: 56px;
+      box-shadow: 4px 4px 0 var(--black);
+      transition: transform 0.2s;
+    }
+    .dashboard-page .btn-submit svg{ width: 20px; height: 20px; }
+    .dashboard-page .btn-submit:active{
+      transform: translateY(2px);
+      box-shadow: 2px 2px 0 var(--black);
+    }
+
+    /* Product Grid */
+    .dashboard-page .product-grid{
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .dashboard-page .product-card{
+      background: white;
+      border: 4px solid var(--black);
+      padding: 16px;
+    }
+    .dashboard-page .product-image{
+      width: 100%;
+      height: 200px;
+      border: 4px solid var(--black);
+      margin-bottom: 16px;
+      overflow: hidden;
+      background: #e0e0e0;
+    }
+    .dashboard-page .product-image img{ width: 100%; height: 100%; object-fit: cover; }
+    .dashboard-page .product-image-placeholder{
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+    }
+    .dashboard-page .product-image-placeholder svg{ width: 48px; height: 48px; }
+
+    .dashboard-page .product-header{
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+    .dashboard-page .product-name{
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      font-weight: 700;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .dashboard-page .low-badge{
+      display: inline-block;
+      padding: 4px 8px;
+      background: var(--crimson);
+      color: white;
+      font-family: 'Italiana', serif;
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      font-variant: small-caps;
+      border: 2px solid var(--black);
+    }
+    .dashboard-page .status-badge{
+      padding: 6px 12px;
+      font-family: 'Italiana', serif;
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      font-variant: small-caps;
+      border: 4px solid var(--black);
+      flex-shrink: 0;
+    }
+    .dashboard-page .status-active{ background: var(--crimson); color: white; }
+    .dashboard-page .status-inactive{ background: #ccc; color: var(--black); }
+
+    .dashboard-page .product-info{
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+      padding: 12px 0;
+      border-top: 4px solid var(--black);
+      border-bottom: 4px solid var(--black);
+    }
+    .dashboard-page .info-item{
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .dashboard-page .info-label{
+      font-family: 'Italiana', serif;
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      font-variant: small-caps;
+    }
+    .dashboard-page .info-value{
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--crimson);
+    }
+    .dashboard-page .product-actions{
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .dashboard-page .action-btn,
+    .dashboard-page .action-link{
+      flex: 1;
+      padding: 12px;
+      border: 4px solid var(--black);
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      transition: transform 0.2s;
+      text-decoration: none;
+      color: inherit;
+      font-family: 'Italiana', serif;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
+    .dashboard-page .action-btn svg{ width: 16px; height: 16px; }
+    .dashboard-page .action-btn:active,
+    .dashboard-page .action-link:active{ transform: translateY(2px); }
+    .dashboard-page .action-btn-toggle{ color: var(--crimson); }
+    .dashboard-page .action-btn-add{ color: var(--black); }
+    .dashboard-page .action-link-edit{ color: var(--black); }
+
+    .dashboard-page .inline-form{
+      flex: 1;
+      display: flex;
+      gap: 8px;
+    }
+    .dashboard-page .inline-form input[type="number"]{
+      flex: 1;
+      padding: 10px 12px;
+      border: 4px solid var(--black);
+      background: white;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      min-height: 44px;
+    }
+    .dashboard-page .inline-form button{
+      width: 64px;
+      border: 4px solid var(--black);
+      background: var(--crimson);
+      color: white;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Filter Chips */
+    .dashboard-page .filter-chips{
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 20px;
+      padding-bottom: 8px;
+    }
+    .dashboard-page .filter-chip{
+      flex-shrink: 0;
+      padding: 10px 16px;
+      background: white;
+      border: 4px solid var(--black);
+      font-family: 'Italiana', serif;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      font-variant: small-caps;
+      min-height: 44px;
+      transition: all 0.2s;
+    }
+    .dashboard-page .filter-chip.active{
+      background: var(--crimson);
+      color: white;
+    }
+
+    /* Orders */
+    .dashboard-page .order-grid{
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .dashboard-page .order-card{
+      background: white;
+      border: 4px solid var(--black);
+      padding: 20px;
+    }
+    .dashboard-page .order-header{
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 4px solid var(--black);
+    }
+    .dashboard-page .order-number{
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--crimson);
+    }
+    .dashboard-page .order-time{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      color: #666;
+    }
+    .dashboard-page .order-customer{ margin-bottom: 12px; }
+    .dashboard-page .customer-name{
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .dashboard-page .customer-phone{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      color: #666;
+    }
+    .dashboard-page .order-address{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: var(--light-crimson);
+      border: 4px solid var(--black);
+      white-space: pre-line;
+    }
+    .dashboard-page .order-breakdown{
+      margin-bottom: 16px;
+      padding: 12px;
+      border: 4px solid var(--black);
+    }
+    .dashboard-page .breakdown-row{
+      display: flex;
+      justify-content: space-between;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    .dashboard-page .breakdown-row:last-child{ margin-bottom: 0; }
+    .dashboard-page .breakdown-total{
+      font-family: 'Playfair Display', serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--crimson);
+      padding-top: 8px;
+      border-top: 4px solid var(--black);
+      margin-top: 8px;
+    }
+    .dashboard-page .order-footer{
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .dashboard-page .payment-badge{
+      padding: 8px 16px;
+      font-family: 'Italiana', serif;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      font-variant: small-caps;
+      border: 4px solid var(--black);
+      flex-shrink: 0;
+    }
+    .dashboard-page .payment-paid{ background: var(--crimson); color: white; }
+    .dashboard-page .payment-pending{ background: #ffc107; color: var(--black); }
+
+    .dashboard-page .status-select{
+      flex: 1;
+      padding: 10px 12px;
+      border: 4px solid var(--black);
+      background: white;
+      font-family: 'Italiana', serif;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      font-variant: small-caps;
+      min-height: 44px;
+      appearance: none;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path fill="%23000" d="M6 9L1 4h10z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+    .dashboard-page .status-select:focus{
+      outline: 4px solid var(--crimson);
+      outline-offset: -4px;
+    }
+
+    .dashboard-page .order-actions{
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+    .dashboard-page .order-link{
+      flex: 1;
+      border: 4px solid var(--black);
+      background: white;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      color: var(--black);
+      font-family: 'Italiana', serif;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
+    .dashboard-page .order-link:active{ transform: translateY(2px); }
+
+    /* Toast */
+    .dashboard-page .toast{
+      position: fixed;
+      top: 24px;
+      right: 16px;
+      background: white;
+      border: 4px solid var(--black);
+      padding: 16px 20px;
+      max-width: calc(100vw - 32px);
+      z-index: 10000;
+      animation: dashboardSlideIn 0.3s ease-out;
+      box-shadow: 4px 4px 0 var(--black);
+    }
+    .dashboard-page .toast-border{
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--crimson);
+    }
+    .dashboard-page .toast-content{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      font-weight: 600;
+      padding-left: 12px;
+    }
+    @keyframes dashboardSlideIn{
+      from{ transform: translateX(120%); opacity: 0; }
+      to{ transform: translateX(0); opacity: 1; }
+    }
+
+    /* Back to Top */
+    .dashboard-page .back-to-top{
+      position: fixed;
+      bottom: 24px;
+      right: 16px;
+      width: 56px;
+      height: 56px;
+      background: var(--crimson);
+      color: white;
+      border: 4px solid var(--black);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 4px 4px 0 var(--black);
+      z-index: 1000;
+      transition: transform 0.2s;
+    }
+    .dashboard-page .back-to-top svg{ width: 24px; height: 24px; }
+    .dashboard-page .back-to-top:active{
+      transform: translateY(2px);
+      box-shadow: 2px 2px 0 var(--black);
+    }
+
+    /* Small screens */
+    @media (max-width: 375px){
+      .dashboard-page .hero-title{ font-size: 40px; }
+      .dashboard-page .form-row{ grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <div class="app-container" id="dashboardApp">
+    <div class="film-grain" aria-hidden="true"></div>
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <span>EST. 2018</span>
+      <span class="divider">|</span>
+      <span>MIZORAM, INDIA</span>
+    </div>
+
+    <!-- Hero Section -->
+    <div class="hero-section">
+      <h1 class="hero-title">{{ store.store_name }}</h1>
+      <p class="hero-subtitle">STORE MANAGEMENT DASHBOARD</p>
+      <div class="crimson-divider"></div>
+      <div class="live-badge" aria-label="Live dashboard">
+        <span class="pulse-dot" aria-hidden="true"></span>
+        <span>LIVE</span>
+      </div>
+    </div>
+
+    <!-- 🔔 New order alert sound (same file as desktop template) -->
+    <audio id="ding" preload="auto">
+      <source src="{{ url_for('static', filename='ding.mp3') }}" type="audio/mpeg">
+    </audio>
+
+    <!-- KPI Cards (server-rendered) -->
+    <div class="kpi-container" id="kpiContainer">
+      <div class="kpi-card kpi-card-white">
+        <div class="kpi-icon">
+          <i data-lucide="shopping-cart" style="width: 32px; height: 32px;"></i>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-number" id="kpiTotalOrders">{{ metrics.total_orders }}</div>
+          <div class="kpi-label">TOTAL ORDERS</div>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-card-crimson">
+        <div class="kpi-icon">
+          <i data-lucide="dollar-sign" style="width: 32px; height: 32px;"></i>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-number" id="kpiPaidTotal">₹{{ '%.2f'|format(metrics.paid_total) }}</div>
+          <div class="kpi-label">PAID TRANSACTIONS</div>
+          <div class="kpi-subtitle" id="kpiTxnCount">{{ metrics.txn_count }} transactions</div>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-card-white">
+        <div class="kpi-icon">
+          <i data-lucide="bar-chart-3" style="width: 32px; height: 32px;"></i>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-number" id="kpiGmv">₹{{ '%.2f'|format(metrics.gmv_total) }}</div>
+          <div class="kpi-label">GROSS MERCHANDISE VALUE</div>
+          <div class="kpi-subtitle">Total revenue</div>
+        </div>
+      </div>
+
+      <div class="kpi-card kpi-card-crimson">
+        <div class="kpi-icon">
+          <i data-lucide="users" style="width: 32px; height: 32px;"></i>
+        </div>
+        <div class="kpi-content">
+          <div class="kpi-number" id="kpiUniqueCustomers">{{ metrics.unique_customers }}</div>
+          <div class="kpi-label">UNIQUE CUSTOMERS</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export Section (real links) -->
+    <div class="section export-section">
+      <div class="section-header">
+        <i data-lucide="download"></i>
+        <h2>EXPORT REPORTS</h2>
+      </div>
+      <div class="export-buttons">
+        <a class="btn-export" href="{{ url_for('store_txn_csv') }}?range=day">DAILY CSV</a>
+        <a class="btn-export" href="{{ url_for('store_txn_csv') }}?range=week">WEEKLY CSV</a>
+        <a class="btn-export" href="{{ url_for('store_txn_csv') }}?range=month">MONTHLY CSV</a>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+      <!-- Reuse same ID idea (enable sound + notif permission on click) -->
+      <button class="btn-action btn-crimson" id="enableSound" type="button">
+        <i data-lucide="bell"></i>
+        <span id="notificationText">ENABLE NOTIFICATIONS</span>
+      </button>
+
+      <a class="btn-action btn-white" href="{{ url_for('store_delivered_orders') }}">
+        <i data-lucide="eye"></i>
+        <span>DELIVERED ORDERS</span>
+      </a>
+    </div>
+
+    <!-- Add Product Form (real POST) -->
+    <div class="section add-product-section">
+      <div class="section-header">
+        <i data-lucide="plus-circle"></i>
+        <h2>ADD NEW PRODUCT</h2>
+      </div>
+
+      <form class="product-form" id="productForm"
+            method="post"
+            action="{{ url_for('store_product_new') }}"
+            enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="productName">PRODUCT NAME</label>
+          <input type="text" id="productName" name="name" placeholder="e.g., Chicken Breast" required />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="pricePerKg">PRICE PER KG</label>
+            <input type="number" id="pricePerKg" name="price_per_kg" step="0.01" min="0" placeholder="₹280" required />
+          </div>
+          <div class="form-group">
+            <label for="stockKg">STOCK (KG)</label>
+            <input type="number" id="stockKg" name="stock_kg" step="0.01" min="0" placeholder="45" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>UPLOAD IMAGE</label>
+          <div class="image-upload-container" id="imageUploadContainer">
+            <label for="image-upload" class="upload-box" id="uploadBox">
+              <i data-lucide="upload" style="width: 32px; height: 32px;"></i>
+              <span>TAP TO UPLOAD</span>
+              <span class="upload-hint">JPG, PNG (MAX 5MB)</span>
+            </label>
+            <input
+              id="image-upload"
+              type="file"
+              name="image"
+              accept="image/*"
+              capture="environment"
+              style="display: none;"
+            />
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit">
+          <i data-lucide="plus"></i>
+          <span>ADD PRODUCT</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Product Inventory (server-rendered cards + real forms) -->
+    <div class="section inventory-section">
+      <div class="section-header">
+        <i data-lucide="package"></i>
+        <h2>PRODUCT INVENTORY</h2>
+      </div>
+
+      <div class="product-grid" id="productGrid">
+        {% if products and products|length %}
+          {% for p in products %}
+            {% set low = (p.stock_kg is not none and p.stock_kg < 10) %}
+            <div class="product-card"
+                 data-product-id="{{ p.id }}"
+                 data-stock-kg="{{ '%.2f'|format(p.stock_kg or 0) }}"
+                 data-active="{{ 1 if p.is_active else 0 }}">
+              <div class="product-image">
+                {% if p.image_path %}
+                  <img src="/{{ p.image_path }}" alt="{{ p.name }}">
+                {% else %}
+                  <div class="product-image-placeholder">
+                    <i data-lucide="image" style="width: 48px; height: 48px;"></i>
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="product-header">
+                <div class="product-name">
+                  {{ p.name }}
+                  {% if low %}<span class="low-badge">LOW</span>{% endif %}
+                </div>
+                <div class="status-badge {{ 'status-active' if p.is_active else 'status-inactive' }}">
+                  {{ 'ACTIVE' if p.is_active else 'INACTIVE' }}
+                </div>
+              </div>
+
+              <div class="product-info">
+                <div class="info-item">
+                  <span class="info-label">PRICE/KG:</span>
+                  <span class="info-value">₹{{ '%.2f'|format(p.price_per_kg or 0) }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">STOCK:</span>
+                  <span class="info-value">{{ '%.2f'|format(p.stock_kg or 0) }} kg</span>
+                </div>
+              </div>
+
+              <div class="product-actions">
+                <!-- Toggle active -->
+                <form method="post" action="{{ url_for('store_product_toggle', pid=p.id) }}" style="flex:1;">
+                  <button class="action-btn action-btn-toggle" type="submit" aria-label="Toggle active">
+                    <i data-lucide="power"></i>
+                  </button>
+                </form>
+
+                <!-- Add stock -->
+                <form method="post"
+                      action="{{ url_for('store_product_add_stock', pid=p.id) }}"
+                      class="inline-form"
+                      aria-label="Add stock">
+                  <input name="add_kg" type="number" step="0.01" min="0.01" placeholder="+0.50" required>
+                  <button type="submit" aria-label="Add">
+                    <i data-lucide="plus" style="width:16px;height:16px;"></i>
+                  </button>
+                </form>
+
+                <!-- Edit -->
+                <a class="action-link action-link-edit"
+                   href="{{ url_for('store_product_edit', pid=p.id) }}">
+                  EDIT
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="product-card">
+            <div class="product-name">No products yet</div>
+            <div style="margin-top:8px;color:#666;">Add your first product above.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Order Management -->
+    <div class="section order-section">
+      <div class="section-header">
+        <i data-lucide="shopping-cart"></i>
+        <h2>ORDER MANAGEMENT</h2>
+      </div>
+
+      <!-- IMPORTANT: backend uses PLACED / CONFIRMED / OUT_FOR_DELIVERY / DELIVERED / CANCELLED -->
+      <div class="filter-chips" id="filterChips" aria-label="Order filters">
+        <button class="filter-chip active" type="button" data-filter="ALL">All</button>
+        <button class="filter-chip" type="button" data-filter="PLACED">Placed</button>
+        <button class="filter-chip" type="button" data-filter="CONFIRMED">Confirmed</button>
+        <button class="filter-chip" type="button" data-filter="OUT_FOR_DELIVERY">Out for Delivery</button>
+        <button class="filter-chip" type="button" data-filter="DELIVERED">Delivered</button>
+        <button class="filter-chip" type="button" data-filter="CANCELLED">Cancelled</button>
+      </div>
+
+      <div class="order-grid" id="orderGrid">
+        {% if orders and orders|length %}
+          {% for o in orders %}
+            {% set total_payable = (o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0) %}
+            <div class="order-card"
+                 data-order-id="{{ o.id }}"
+                 data-created-at="{{ o.created_at }}"
+                 data-status="{{ o.status }}"
+                 data-payment="{{ o.payment_status }}"
+                 data-total-payable="{{ '%.2f'|format(total_payable) }}">
+              <div class="order-header">
+                <div class="order-number">#{{ o.id }}</div>
+                <div class="order-time" data-time-iso="{{ o.created_at }}">—</div>
+              </div>
+
+              <div class="order-customer">
+                <div class="customer-name">{{ o.customer_name }}</div>
+                <div class="customer-phone">{{ o.customer_phone or '—' }}</div>
+              </div>
+
+              <div class="order-address">
+                {% if o.addr_line1 %}
+{{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %}
+{{ o.addr_city }}, {{ o.addr_state }} {{ o.addr_pincode }}
+{% if o.addr_lat is not none and o.addr_lng is not none %}({{ o.addr_lat }}, {{ o.addr_lng }}){% endif %}
+                {% else %}
+—
+                {% endif %}
+              </div>
+
+              <div class="order-breakdown">
+                <div class="breakdown-row">
+                  <span>TOTAL PAYABLE:</span>
+                  <span>₹{{ '%.2f'|format(total_payable) }}</span>
+                </div>
+                {% if o.tip_amount and o.tip_amount > 0 %}
+                  <div class="breakdown-row">
+                    <span>TIP:</span>
+                    <span>₹{{ '%.2f'|format(o.tip_amount) }}</span>
+                  </div>
+                {% endif %}
+                <div class="breakdown-row breakdown-total">
+                  <span>STATUS:</span>
+                  <span>{{ o.status }}</span>
+                </div>
+              </div>
+
+              <div class="order-footer">
+                <div class="payment-badge payment-{{ (o.payment_status or 'PENDING')|lower }}">
+                  {{ o.payment_status }}
+                </div>
+
+                <form method="post"
+                      action="{{ url_for('store_order_status', oid=o.id) }}"
+                      style="flex:1;display:flex;gap:8px;align-items:center;">
+                  <select class="status-select" name="status" aria-label="Update order status">
+                    <option {{ 'selected' if o.status=='PLACED' }}>PLACED</option>
+                    <option {{ 'selected' if o.status=='CONFIRMED' }}>CONFIRMED</option>
+                    <option {{ 'selected' if o.status=='OUT_FOR_DELIVERY' }}>OUT_FOR_DELIVERY</option>
+                    <option {{ 'selected' if o.status=='DELIVERED' }}>DELIVERED</option>
+                    <option {{ 'selected' if o.status=='CANCELLED' }}>CANCELLED</option>
+                  </select>
+                  <button class="btn-export" type="submit" style="padding:10px 14px; min-height:44px;">
+                    UPDATE
+                  </button>
+                </form>
+              </div>
+
+              <div class="order-actions" style="margin-top:12px;">
+                <a class="order-link" href="{{ url_for('order_track', oid=o.id) }}">VIEW & TRACK</a>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="order-card">
+            <div class="order-number">No orders yet</div>
+            <div style="margin-top:8px;color:#666;">New orders will appear here instantly.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+
+    <!-- Back to Top Button -->
+    <button class="back-to-top" id="dashboardBackToTop" type="button" aria-label="Back to top" style="display:none;">
+      <i data-lucide="arrow-up"></i>
+    </button>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const root = document.querySelector('.dashboard-page');
+      if (!root) return;
+
+      function qs(sel) { return root.querySelector(sel); }
+      function qsa(sel) { return root.querySelectorAll(sel); }
+
+      
+     
+
+      // -------------------------
+      // Toast
+      // -------------------------
+      let toastIdCounter = 0;
+      function showToast(message) {
+        const container = qs('#toastContainer');
+        if (!container) return;
+
+        const id = toastIdCounter++;
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.id = `toast-${id}`;
+        toast.innerHTML = `
+          <div class="toast-border"></div>
+          <div class="toast-content">${escapeHtml(message)}</div>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      }
+
+      function escapeHtml(s){
+        return (s||"").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+      }
+
+      // -------------------------
+      // Icons + time labels
+      // -------------------------
+      function renderIcons(){
+        if (window.lucide) lucide.createIcons();
+      }
+
+      function timeAgoFromISO(iso){
+        if (!iso) return '—';
+        const t = Date.parse(iso);
+        if (Number.isNaN(t)) return '—';
+        const minutes = Math.floor((Date.now() - t) / 60000);
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        return `${Math.floor(hours / 24)}d ago`;
+      }
+
+      function refreshTimeAgo(){
+        qsa('.order-time[data-time-iso]').forEach(el => {
+          el.textContent = timeAgoFromISO(el.getAttribute('data-time-iso'));
+        });
+      }
+
+      // -------------------------
+      // Filters
+      // -------------------------
+      let orderFilter = 'ALL';
+
+      function updateFilterChips() {
+        qsa('.filter-chip').forEach(chip => {
+          chip.classList.toggle('active', chip.getAttribute('data-filter') === orderFilter);
+        });
+      }
+
+      function applyOrderFilter(){
+        qsa('.order-card[data-order-id]').forEach(card => {
+          const status = (card.getAttribute('data-status') || '').toUpperCase();
+          const show = (orderFilter === 'ALL') || (status === orderFilter);
+          card.style.display = show ? '' : 'none';
+        });
+      }
+
+      // -------------------------
+      // Notifications (sound + browser notif)
+      // -------------------------
+      const enableBtn = qs('#enableSound');
+      const notifText = qs('#notificationText');
+      const ding = qs('#ding');
+
+      let notificationsEnabled = false;
+
+      async function askNotif() {
+        try {
+          if ("Notification" in window && Notification.permission === "default") {
+            await Notification.requestPermission();
+          }
+        } catch (e) {}
+      }
+
+
+      // -------------------------
+      // KPI recompute from cards (so it stays updated when new orders arrive)
+      // NOTE: This uses visible DOM order cards + data attributes.
+      // -------------------------
+      function recomputeKPIsFromCards(){
+        const cards = Array.from(qsa('.order-card[data-order-id]'));
+
+        const totalOrders = cards.length;
+
+        let paidTotal = 0;
+        let txnCount = 0;
+        let gmv = 0;
+        const customers = new Set();
+
+        for (const c of cards) {
+          const payment = (c.getAttribute('data-payment') || '').toUpperCase();
+          const totalPayable = Number(c.getAttribute('data-total-payable') || 0);
+          gmv += totalPayable;
+
+          // customer name: read from DOM (safe)
+          const nameEl = c.querySelector('.customer-name');
+          if (nameEl && nameEl.textContent) customers.add(nameEl.textContent.trim());
+
+          if (payment === 'PAID') {
+            txnCount += 1;
+            paidTotal += totalPayable;
+          }
+        }
+
+        const elTotal = qs('#kpiTotalOrders');
+        const elPaid = qs('#kpiPaidTotal');
+        const elTxn = qs('#kpiTxnCount');
+        const elGmv = qs('#kpiGmv');
+        const elUniq = qs('#kpiUniqueCustomers');
+
+        if (elTotal) elTotal.textContent = String(totalOrders);
+        if (elPaid) elPaid.textContent = '₹' + paidTotal.toFixed(2);
+        if (elTxn) elTxn.textContent = `${txnCount} transactions`;
+        if (elGmv) elGmv.textContent = '₹' + gmv.toFixed(2);
+        if (elUniq) elUniq.textContent = String(customers.size);
+      }
+
+      // -------------------------
+      // Image upload preview (UX only; actual upload posts file)
+      // -------------------------
+      function displayImagePreview(imageData) {
+        const container = qs('#imageUploadContainer');
+        if (!container) return;
+        container.innerHTML = `
+          <div class="image-preview">
+            <img src="${imageData}" alt="Product preview" />
+            <button type="button" class="remove-image-btn" data-action="remove-image" aria-label="Remove image">✕</button>
+          </div>
+        `;
+        renderIcons();
+      }
+
+      function resetImagePicker() {
+        const container = qs('#imageUploadContainer');
+        if (!container) return;
+        container.innerHTML = `
+          <label for="image-upload" class="upload-box" id="uploadBox">
+            <i data-lucide="upload" style="width: 32px; height: 32px;"></i>
+            <span>TAP TO UPLOAD</span>
+            <span class="upload-hint">JPG, PNG (MAX 5MB)</span>
+          </label>
+          <input
+            id="image-upload"
+            type="file"
+            name="image"
+            accept="image/*"
+            capture="environment"
+            style="display:none;"
+          />
+        `;
+        renderIcons();
+      }
+
+      function handleImageUpload(file) {
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+          showToast('Image too large (max 5MB)');
+          resetImagePicker();
+          return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = function () {
+          displayImagePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+      }
+
+      
+      
+    })();
+  </script>
+
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    if (window.initAlerts) window.initAlerts({ role: "store" });
+  });
+</script>
+
+
+  <noscript>
+    <div style="padding:16px;border:4px solid #000;background:#fff;">
+      This dashboard needs JavaScript enabled.
+    </div>
+  </noscript>
+
+</section>
+
+{% endblock %}

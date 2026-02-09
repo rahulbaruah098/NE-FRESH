@@ -1,0 +1,660 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="cc-complaints-page" data-page="complaints">
+  <style>
+    /* =========================================
+       COMPLAINTS — MATCH STORE DASHBOARD THEME
+       ✅ NO route/logic changes
+       ✅ Keeps your markup + JS behavior
+       ✅ FULLY responsive (web + mobile/app)
+       Scoped to .cc-complaints-page
+       ========================================= */
+
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    .cc-complaints-page{
+      --crimson:#8B0000;
+      --black:#000;
+      --off-white:#FAF9F6;
+      --light-crimson:#FFF5F5;
+      --line: rgba(0,0,0,.22);
+      --border:4px;
+      --t:.28s;
+
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      background: var(--off-white);
+      color: var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      min-height: 75vh;
+       font-weight: bold;
+      position: relative;
+      overflow-x: hidden;
+      padding-bottom: 2.75rem;
+    }
+    .cc-complaints-page,
+    .cc-complaints-page *{ box-sizing:border-box; border-radius:0 !important; }
+
+    /* Spoon cursor */
+    .cc-complaints-page,
+    .cc-complaints-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
+    }
+    .cc-complaints-page a,
+    .cc-complaints-page button,
+    .cc-complaints-page input,
+    .cc-complaints-page select{ cursor:pointer; }
+
+    .cc-complaints-page ::selection{ background: var(--crimson); color:#fff; }
+
+    /* Grain */
+    .cc-complaints-page .grain{
+      position: fixed;
+      inset: 0;
+      pointer-events:none;
+      z-index: 1;
+      opacity: .12;
+      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* Top bar */
+    .cc-complaints-page .top-bar{
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      padding: 1rem 2rem;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap: 12px;
+      border-bottom: var(--border) solid var(--black);
+      background: var(--off-white);
+      font-family: 'Italiana', serif;
+      font-size: .85rem;
+      letter-spacing: .45em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+      overflow: hidden;
+    }
+    .cc-complaints-page .top-bar span{ white-space: nowrap; }
+
+    /* Hero */
+    .cc-complaints-page .hero{
+      position: relative;
+      z-index: 2;
+      text-align:center;
+      padding: 3.75rem 2rem 3rem;
+      border-bottom: var(--border) solid var(--black);
+      background: var(--off-white);
+    }
+    .cc-complaints-page .hero-title{
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.55rem, 4.2vw, 2.35rem);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin: 0 0 .4rem 0;
+    }
+    .cc-complaints-page .hero-title b{
+      color: var(--crimson);
+      font-family: 'Dancing Script', cursive;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+      font-style: italic;
+      margin-left: .2rem;
+    }
+    .cc-complaints-page .hero-sub{
+      margin: 0 auto 1.25rem;
+      max-width: 880px;
+      opacity: .9;
+      font-weight: 600;
+    }
+    .cc-complaints-page .hero-divider{
+      width: 6rem;
+      height: 4px;
+      background: var(--crimson);
+      margin: 0 auto;
+    }
+
+    .cc-complaints-page .wrap{
+      position: relative;
+      z-index: 2;
+      max-width: 1250px;
+      margin: 0 auto;
+      padding: 1.75rem 2rem 0;
+    }
+
+    /* Re-skin your existing classes */
+    .cc-complaints-page h2{
+      display:none; /* We render hero title instead (no logic change) */
+    }
+    .cc-complaints-page p.muted{
+      display:none; /* shown in hero-sub */
+    }
+
+    /* KPIs */
+    .cc-complaints-page .kpis{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap: 12px;
+      margin: 0 0 14px 0;
+    }
+    .cc-complaints-page .kpi{
+      border: var(--border) solid var(--black);
+      background: var(--off-white);
+      padding: 12px 14px;
+    }
+    .cc-complaints-page .kpi:nth-child(odd){ background: var(--light-crimson); }
+    .cc-complaints-page .kpi .label{
+      font-family: 'Italiana', serif;
+      font-size: .72rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      font-weight: 900;
+      color: var(--crimson);
+    }
+    .cc-complaints-page .kpi .value{
+      font-family: 'Playfair Display', serif;
+      font-size: 1.55rem;
+      font-weight: 900;
+      margin-top: 6px;
+    }
+    .cc-complaints-page .tnum{ font-variant-numeric: tabular-nums; }
+
+    /* Toolbar / filters */
+    .cc-complaints-page .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin: 10px 0 14px;
+      align-items:center;
+    }
+    .cc-complaints-page .toolbar input,
+    .cc-complaints-page .toolbar select{
+      padding: 10px 12px;
+      border: 2px solid var(--black);
+      background: #fff;
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 700;
+      font-size: 1rem;
+      outline: none;
+      min-height: 44px; /* app-friendly touch */
+      transition: transform var(--t), background var(--t);
+    }
+    .cc-complaints-page .toolbar input{
+      flex: 1 1 320px;
+      min-width: 240px;
+    }
+    .cc-complaints-page .toolbar select{
+      flex: 0 0 auto;
+      min-width: 160px;
+    }
+    .cc-complaints-page .toolbar input:focus,
+    .cc-complaints-page .toolbar select:focus{
+      background: var(--light-crimson);
+      transform: translateY(-1px);
+    }
+    .cc-complaints-page .filter-note{
+      margin-left:auto;
+      font-family: 'Italiana', serif;
+      font-size: .72rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      font-weight: 900;
+      color: var(--crimson);
+      white-space: nowrap;
+    }
+
+    /* Table shell */
+    .cc-complaints-page .table{
+      width:100%;
+      border-collapse:collapse;
+      background: var(--off-white);
+      border: var(--border) solid var(--black);
+      overflow: hidden;
+    }
+    .cc-complaints-page .table th,
+    .cc-complaints-page .table td{
+      border-bottom: 2px solid rgba(0,0,0,.18);
+      padding: 14px 12px;
+      text-align:left;
+      vertical-align: top;
+      font-weight: 650;
+    }
+    .cc-complaints-page .table th{
+      background: var(--black);
+      color: #fff;
+      font-family: 'Italiana', serif;
+      font-weight: 900;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .cc-complaints-page .table tr:hover td{ background: var(--light-crimson); }
+
+    .cc-complaints-page .small{ font-size: .98rem; color: rgba(0,0,0,.78); }
+    .cc-complaints-page .wrap{ white-space: normal; word-break: break-word; }
+    .cc-complaints-page .nowrap{ white-space: nowrap; }
+
+    /* Badge */
+    .cc-complaints-page .badge{
+      display:inline-block;
+      padding: 4px 10px;
+      border: 2px solid var(--black);
+      background: #fff;
+      font-family: 'Italiana', serif;
+      font-size: .72rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      font-weight: 900;
+    }
+
+    /* Status dots */
+    .cc-complaints-page .status-dot{
+      display:inline-block;width:9px;height:9px;border-radius:50%;
+      margin-right:8px;vertical-align:middle;
+      border: 2px solid var(--black);
+      background:#fff;
+    }
+    .cc-complaints-page .dot-open{ background:#ef4444; }
+    .cc-complaints-page .dot-review{ background:#f59e0b; }
+    .cc-complaints-page .dot-resolved{ background:#10b981; }
+
+    /* Evidence thumb */
+    .cc-complaints-page .thumb{
+      width: 72px;height: 72px;object-fit: cover;
+      border: 2px solid var(--black);
+      box-shadow: 6px 6px 0 var(--black);
+      transition: transform var(--t);
+      display:block;
+    }
+    .cc-complaints-page a:hover .thumb{ transform: translateY(-2px); }
+
+    /* Actions */
+    .cc-complaints-page .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .cc-complaints-page select.status{
+      padding: 10px 12px;
+      border: 2px solid var(--black);
+      background:#fff;
+      min-height: 44px;
+      font-weight: 800;
+    }
+    .cc-complaints-page button{
+      padding: 10px 14px;
+      border: var(--border) solid var(--black);
+      background: var(--crimson);
+      color:#fff;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      font-weight: 900;
+      box-shadow: 6px 6px 0 var(--black);
+      transition: transform var(--t), box-shadow var(--t), background var(--t);
+      min-height: 44px;
+    }
+    .cc-complaints-page button:hover{
+      transform: translateY(-2px);
+      background: var(--black);
+      box-shadow: 8px 8px 0 var(--crimson);
+    }
+    .cc-complaints-page button:active{ transform: translateY(-1px) scale(.99); }
+
+    /* ---------- Responsive: tablet ---------- */
+    @media (max-width: 980px){
+      .cc-complaints-page .top-bar{ padding: .95rem 1rem; font-size: .62rem; letter-spacing: .32em; }
+      .cc-complaints-page .hero{ padding: 3.1rem 1rem 2.5rem; }
+      .cc-complaints-page .wrap{ padding: 1.35rem 1rem 0; }
+
+      .cc-complaints-page .kpis{ grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .cc-complaints-page .toolbar input{ flex: 1 1 100%; min-width: 0; }
+      .cc-complaints-page .toolbar select{ min-width: 0; flex: 1 1 160px; }
+      .cc-complaints-page .filter-note{ margin-left: 0; flex: 1 1 100%; text-align: right; }
+    }
+
+    /* ---------- Responsive: mobile/app — turn table into cards (NO markup changes) ---------- */
+    @media (max-width: 760px){
+      .cc-complaints-page .kpis{ grid-template-columns: 1fr; }
+
+      /* Table -> card list */
+      .cc-complaints-page .table{
+        border: 0;
+        background: transparent;
+      }
+      .cc-complaints-page .table thead{ display:none; }
+      .cc-complaints-page .table,
+      .cc-complaints-page .table tbody,
+      .cc-complaints-page .table tr,
+      .cc-complaints-page .table td{
+        display:block;
+        width:100%;
+      }
+      .cc-complaints-page .table tbody tr{
+        border: var(--border) solid var(--black);
+        background: var(--off-white);
+        padding: 12px 12px 10px;
+        margin: 0 0 12px 0;
+      }
+      .cc-complaints-page .table td{
+        border: none;
+        padding: 10px 0;
+      }
+      .cc-complaints-page .table tbody tr:hover td{ background: transparent; }
+
+      /* Make first cell a strong header strip */
+      .cc-complaints-page .table td:nth-child(1){
+        padding-top: 2px;
+        border-bottom: 2px dashed rgba(0,0,0,.25);
+        padding-bottom: 12px;
+        margin-bottom: 6px;
+        font-family: 'Playfair Display', serif;
+        font-weight: 900;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+      }
+
+      /* Inject labels with CSS (no HTML change) */
+      .cc-complaints-page .table td:nth-child(2),
+      .cc-complaints-page .table td:nth-child(3),
+      .cc-complaints-page .table td:nth-child(4),
+      .cc-complaints-page .table td:nth-child(5),
+      .cc-complaints-page .table td:nth-child(6),
+      .cc-complaints-page .table td:nth-child(7){
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        gap: 12px;
+      }
+
+      .cc-complaints-page .table td:nth-child(2)::before{content:"When"; }
+      .cc-complaints-page .table td:nth-child(3)::before{content:"Order/Target"; }
+      .cc-complaints-page .table td:nth-child(4)::before{content:"Customer"; }
+      .cc-complaints-page .table td:nth-child(5)::before{content:"Message"; }
+      .cc-complaints-page .table td:nth-child(6)::before{content:"Status"; }
+      .cc-complaints-page .table td:nth-child(7)::before{content:"Action"; }
+
+      .cc-complaints-page .table td:nth-child(2)::before,
+      .cc-complaints-page .table td:nth-child(3)::before,
+      .cc-complaints-page .table td:nth-child(4)::before,
+      .cc-complaints-page .table td:nth-child(5)::before,
+      .cc-complaints-page .table td:nth-child(6)::before,
+      .cc-complaints-page .table td:nth-child(7)::before{
+        flex: 0 0 auto;
+        min-width: 110px;
+        font-family: 'Italiana', serif;
+        font-size: .68rem;
+        letter-spacing: .22em;
+        text-transform: uppercase;
+        font-weight: 900;
+        color: var(--crimson);
+        padding-top: 2px;
+      }
+
+      /* Let values wrap nicely */
+      .cc-complaints-page .table td:nth-child(n+2) > *{
+        max-width: calc(100% - 120px);
+      }
+
+      /* Action form full width */
+      .cc-complaints-page .actions{
+        width: 100%;
+        justify-content:flex-end;
+      }
+      .cc-complaints-page select.status{ flex: 1 1 220px; }
+      .cc-complaints-page button{ width: auto; }
+
+      /* Thumb smaller on mobile */
+      .cc-complaints-page .thumb{
+        width: 64px;
+        height: 64px;
+        box-shadow: 5px 5px 0 var(--black);
+      }
+    }
+
+    @media (max-width: 420px){
+      .cc-complaints-page{ font-size: 1rem; }
+      .cc-complaints-page .hero-title{ font-size: 1.45rem; }
+      .cc-complaints-page .top-bar{ letter-spacing: .22em; }
+      .cc-complaints-page .table td:nth-child(n+2) > *{ max-width: calc(100% - 105px); }
+      .cc-complaints-page .table td:nth-child(2)::before,
+      .cc-complaints-page .table td:nth-child(3)::before,
+      .cc-complaints-page .table td:nth-child(4)::before,
+      .cc-complaints-page .table td:nth-child(5)::before,
+      .cc-complaints-page .table td:nth-child(6)::before,
+      .cc-complaints-page .table td:nth-child(7)::before{
+        min-width: 96px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .cc-complaints-page *{ transition:none !important; }
+    }
+  </style>
+
+  <div class="grain" aria-hidden="true"></div>
+
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <header class="hero">
+    <div class="hero-title">Complaints <b>Console</b></div>
+    <p class="hero-sub">Review, search, and update complaint status. Use filters to narrow by target and status.</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <div class="wrap">
+
+    <!-- ✅ ORIGINAL CONTENT (UNCHANGED) -->
+    <h2>Complaints</h2>
+    <p class="muted">Review, search, and update complaint status. Use filters to narrow by target and status.</p>
+
+    <style>
+      /* keep your original style block present (but overridden by scoped theme above) */
+      .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 14px}
+      .toolbar input,.toolbar select{padding:8px 10px;border:1px solid var(--line);border-radius:10px}
+      .table{width:100%;border-collapse:collapse;background:#fff;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+      .table th,.table td{border-bottom:1px solid #eee;padding:10px 12px;text-align:left;vertical-align:top}
+      .table th{background:#fafafa;font-weight:600;color:#555}
+      .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#f2f2f2;font-size:.85rem}
+      .small{font-size:.9rem;color:#666}
+      .wrap{white-space:normal;word-break:break-word}
+      .actions{display:flex;gap:8px;align-items:center}
+      select.status{padding:6px 8px;border:1px solid #ddd;border-radius:8px}
+      button{padding:6px 10px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:#fff}
+      .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+      .dot-open{background:#ef4444}
+      .dot-review{background:#f59e0b}
+      .dot-resolved{background:#10b981}
+      .filter-note{margin-left:auto;color:#666}
+      .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:14px 0 18px}
+      .kpi{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff}
+      .kpi .label{color:#666;font-size:.9rem}
+      .kpi .value{font-size:1.4rem;font-weight:700;margin-top:4px}
+      .tnum{font-variant-numeric:tabular-nums}
+      .thumb{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #eee}
+      .nowrap{white-space:nowrap}
+    </style>
+
+    <!-- Summary KPIs (computed in JS from the table) -->
+    <div class="kpis" id="kpiRow" hidden>
+      <div class="kpi"><div class="label">Total Complaints</div><div class="value tnum" id="kpiTotal">0</div></div>
+      <div class="kpi"><div class="label">Open</div><div class="value tnum" id="kpiOpen">0</div></div>
+      <div class="kpi"><div class="label">In Review</div><div class="value tnum" id="kpiReview">0</div></div>
+      <div class="kpi"><div class="label">Resolved</div><div class="value tnum" id="kpiResolved">0</div></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="toolbar">
+      <input id="q" type="search" placeholder="Search message / customer / ids …" />
+      <select id="fTarget">
+        <option value="">All targets</option>
+        <option value="store">Store</option>
+        <option value="delivery">Delivery</option>
+        <option value="product">Product</option>
+      </select>
+      <select id="fStatus">
+        <option value="">All status</option>
+        <option value="OPEN">OPEN</option>
+        <option value="REVIEWING">REVIEWING</option>
+        <option value="RESOLVED">RESOLVED</option>
+        <option value="DISMISSED">DISMISSED</option>
+      </select>
+      <span class="filter-note" id="rowCount"></span>
+    </div>
+
+    <table class="table" id="complaintsTable">
+      <thead>
+        <tr>
+          <th class="nowrap">#</th>
+          <th>When</th>
+          <th>Order / Target</th>
+          <th>Customer</th>
+          <th>Message & Evidence</th>
+          <th>Status</th>
+          <th class="nowrap">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in complaints %}
+        {% set kind = c['target_kind'] %}
+        <tr data-target="{{ kind }}" data-status="{{ c.status }}">
+          <td class="tnum">C{{ c.id }}</td>
+          <td class="small">{{ c.created_at }}</td>
+          <td class="small">
+            {% if c.order_id %}
+              <div>Order: <strong>#{{ c.order_id }}</strong></div>
+            {% endif %}
+            <div>
+              Target:
+              <span class="badge">{{ kind|upper }}</span>
+              {% if kind == 'store' %}
+                → <strong>{{ c.store_id }}</strong> <span class="small muted">{{ c.store_name or '' }}</span>
+              {% elif kind == 'delivery' %}
+                → <strong>{{ c.delivery_partner_id }}</strong> <span class="small muted">{{ c.delivery_partner_name or '' }}</span>
+              {% elif kind == 'product' %}
+                → <strong>{{ c.product_id }}</strong> <span class="small muted">{{ c.product_name or '' }}</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="small">
+            <div>{{ c.reporter_name or '—' }}</div>
+          </td>
+          <td class="wrap">
+            {% if c.title %}<div><strong>{{ c.title }}</strong></div>{% endif %}
+            <div>{{ c.description }}</div>
+            {% if c.image_path %}
+              <div style="margin-top:8px">
+                <a href="{{ '/' + c.image_path }}" target="_blank" rel="noopener">
+                  <img class="thumb" src="{{ '/' + c.image_path }}" alt="evidence">
+                </a>
+              </div>
+            {% endif %}
+          </td>
+          <td>
+            {% set s = c.status %}
+            {% if s == 'OPEN' %}
+              <span class="status-dot dot-open"></span><strong>OPEN</strong>
+            {% elif s == 'REVIEWING' %}
+              <span class="status-dot dot-review"></span><strong>REVIEWING</strong>
+            {% elif s == 'RESOLVED' %}
+              <span class="status-dot dot-resolved"></span><strong>RESOLVED</strong>
+            {% elif s == 'DISMISSED' %}
+              <strong>DISMISSED</strong>
+            {% else %}
+              <strong>{{ s }}</strong>
+            {% endif %}
+          </td>
+          <td>
+            <form class="actions" method="post" action="{{ url_for('admin_complaint_set_status', cid=c.id) }}">
+              <select name="status" class="status">
+                <option value="OPEN" {{ 'selected' if c.status=='OPEN' }}>OPEN</option>
+                <option value="REVIEWING" {{ 'selected' if c.status=='REVIEWING' }}>REVIEWING</option>
+                <option value="RESOLVED" {{ 'selected' if c.status=='RESOLVED' }}>RESOLVED</option>
+                <option value="DISMISSED" {{ 'selected' if c.status=='DISMISSED' }}>DISMISSED</option>
+              </select>
+              <button type="submit">Update</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="small">No complaints found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <script>
+    (function(){
+      const q = document.getElementById('q');
+      const fTarget = document.getElementById('fTarget');
+      const fStatus = document.getElementById('fStatus');
+      const table = document.getElementById('complaintsTable');
+      const rows = Array.from(table.querySelectorAll('tbody tr'));
+      const rowCount = document.getElementById('rowCount');
+
+      const kpi = {
+        wrap: document.getElementById('kpiRow'),
+        total: document.getElementById('kpiTotal'),
+        open: document.getElementById('kpiOpen'),
+        review: document.getElementById('kpiReview'),
+        resolved: document.getElementById('kpiResolved'),
+      };
+
+      function normalize(s){ return (s || '').toLowerCase(); }
+
+      function computeKPIs(visibleRows){
+        kpi.total.textContent = String(visibleRows.length);
+        let open=0, review=0, resolved=0;
+        for (const r of visibleRows){
+          const st = r.getAttribute('data-status');
+          if (st === 'OPEN') open++;
+          else if (st === 'REVIEWING') review++;
+          else if (st === 'RESOLVED') resolved++;
+        }
+        kpi.open.textContent = String(open);
+        kpi.review.textContent = String(review);
+        kpi.resolved.textContent = String(resolved);
+        kpi.wrap.hidden = false;
+      }
+
+      function applyFilters(){
+        const qv = normalize(q.value);
+        const target = fTarget.value;
+        const status = fStatus.value;
+
+        let visible = 0;
+        const visibleRows = [];
+
+        for (const r of rows){
+          const text = normalize(r.innerText);
+          const hitQ = !qv || text.includes(qv);
+          const hitTarget = !target || r.getAttribute('data-target') === target;
+          const hitStatus = !status || r.getAttribute('data-status') === status;
+          const show = hitQ && hitTarget && hitStatus;
+          r.style.display = show ? '' : 'none';
+          if (show){ visible++; visibleRows.push(r); }
+        }
+        rowCount.textContent = visible + ' shown';
+        computeKPIs(visibleRows);
+      }
+
+      q.addEventListener('input', applyFilters);
+      fTarget.addEventListener('change', applyFilters);
+      fStatus.addEventListener('change', applyFilters);
+      applyFilters();
+    })();
+    </script>
+    <!-- ✅ ORIGINAL CONTENT ENDS -->
+
+  </div>
+</section>
+{% endblock %}

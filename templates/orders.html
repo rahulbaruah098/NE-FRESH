@@ -1,0 +1,857 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="my-orders-page" data-page="my-orders">
+  <style>
+    /* ========================================
+       MY ORDERS — MATCH STORE DASHBOARD THEME
+       ✅ NO logic/route changes
+       ✅ Keep your HTML structure (table + cards + classes)
+       ✅ Only replace theme/design
+       ✅ Mobile/App + Web responsive
+       Scoped to .my-orders-page
+       ======================================== */
+
+    /* Font imports (page-scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    /* ✅ Page tokens + full-bleed like dashboard */
+    .my-orders-page{
+      --crimson: #8B0000;
+      --black: #000000;
+      --off-white: #FAF9F6;
+      --light-crimson: #FFF5F5;
+      --border-standard: 4px;
+      --transition-speed: 0.3s;
+
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+
+      background: var(--off-white);
+      color: var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.125rem;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+      font-weight: bold;
+    }
+
+    .my-orders-page,
+    .my-orders-page *{ box-sizing: border-box; }
+
+    /* Reset only inside page */
+    .my-orders-page *{
+      margin: 0;
+      padding: 0;
+      border-radius: 0 !important;
+    }
+
+    /* ✅ Cursor (same as dashboard) */
+    .my-orders-page,
+    .my-orders-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
+    }
+    .my-orders-page a,
+    .my-orders-page button{ cursor: pointer; }
+
+    .my-orders-page ::selection{ background: var(--crimson); color: #fff; }
+
+    /* ========================================
+       FILM GRAIN OVERLAY
+       ======================================== */
+    .my-orders-page .grain-overlay{
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.12;
+      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* ========================================
+       TOP BAR + HERO (dashboard style)
+       ======================================== */
+    .my-orders-page .top-bar{
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+    }
+
+    .my-orders-page .hero-section{
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 5.25rem 2rem 4.25rem;
+      border-bottom: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+    }
+
+    .my-orders-page .hero-title{
+      font-family: 'Dancing Script', cursive;
+      font-size: clamp(3rem, 10vw, 6rem);
+      color: var(--crimson);
+      font-style: italic;
+      font-weight: 700;
+      margin: 0 0 0.75rem 0;
+      line-height: 1.15;
+      text-transform: uppercase;
+    }
+
+    .my-orders-page .hero-subtitle{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+      margin-bottom: 1.75rem;
+    }
+
+    .my-orders-page .hero-divider{
+      width: 6rem;
+      height: 4px;
+      background: var(--crimson);
+      margin: 0 auto;
+    }
+
+    /* ========================================
+       MAIN CONTAINER
+       ======================================== */
+    .my-orders-page .main-container{
+      position: relative;
+      z-index: 2;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    /* Keep your original wrapper but make it full width + theme */
+    .my-orders-page .orders-container{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0;
+    }
+
+    /* Header (keep classes) */
+    .my-orders-page .orders-header{
+      margin-bottom: 1.75rem;
+      text-align: center;
+    }
+    .my-orders-page .orders-header h2{
+      font-family: 'Playfair Display', serif;
+      font-size: 2.2rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--black);
+    }
+    .my-orders-page .orders-subtitle{
+      margin-top: .35rem;
+      font-family: 'Cormorant Garamond', serif;
+      color: rgba(0,0,0,.7);
+      font-size: 1.05rem;
+    }
+
+    .my-orders-page .muted{ color: rgba(0,0,0,.65); }
+
+    /* ========================================
+       TABLE SHELL (desktop/tablet) — dashboard table style
+       ======================================== */
+    .my-orders-page .table-responsive{
+      overflow-x: auto;
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      box-shadow: none;
+    }
+
+    .my-orders-page .orders-table{
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+      background: var(--off-white);
+    }
+
+    .my-orders-page .orders-table thead{
+      background: var(--black);
+      color: #fff;
+    }
+
+    .my-orders-page .orders-table th{
+      padding: 1rem;
+      text-align: left;
+      font-family: 'Italiana', serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      font-weight: 800;
+      border-right: 2px solid var(--crimson);
+      white-space: nowrap;
+    }
+    .my-orders-page .orders-table th:last-child{ border-right: none; }
+
+    .my-orders-page .orders-table td{
+      padding: 1rem;
+      border-bottom: 2px solid var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      color: var(--black);
+      vertical-align: top;
+    }
+
+    .my-orders-page .order-row:nth-child(even){
+      background: var(--light-crimson);
+    }
+
+    .my-orders-page .order-row:hover{
+      background: var(--light-crimson);
+    }
+
+    .my-orders-page .order-id{ font-weight: 900; white-space: nowrap; }
+    .my-orders-page .store-name{ font-weight: 700; }
+    .my-orders-page .order-total{ font-weight: 900; }
+    .my-orders-page .order-date{ color: rgba(0,0,0,.7); font-size: .95rem; }
+
+    /* ========================================
+       BADGES (keep same class names)
+       ======================================== */
+    .my-orders-page .status-badge,
+    .my-orders-page .payment-badge{
+      display: inline-flex;
+      align-items: center;
+      padding: .28rem .75rem;
+      font-family: 'Italiana', serif;
+      font-size: .625rem;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      border: 2px solid var(--black);
+      background: var(--off-white);
+      color: var(--black);
+      white-space: nowrap;
+    }
+
+    /* Status variations (still deterministic, on-theme) */
+    .my-orders-page .status-placed{ background: var(--off-white); color: var(--black); }
+    .my-orders-page .status-confirmed{ background: var(--light-crimson); color: var(--black); }
+    .my-orders-page .status-out-for-delivery{ background: var(--black); color: #fff; border-color: var(--crimson); }
+    .my-orders-page .status-delivered{ background: var(--crimson); color: #fff; border-color: var(--black); }
+    .my-orders-page .status-cancelled{ background: #fff; color: var(--crimson); border-color: var(--crimson); }
+    .my-orders-page .status-processing{ background: var(--light-crimson); color: var(--black); }
+    .my-orders-page .status-completed{ background: var(--crimson); color: #fff; }
+    .my-orders-page .status-shipped{ background: var(--black); color: #fff; border-color: var(--crimson); }
+
+    /* Payment variations */
+    .my-orders-page .payment-paid{ background: var(--crimson); color:#fff; border-color: var(--black); }
+    .my-orders-page .payment-pending{ background: var(--off-white); color: var(--black); }
+    .my-orders-page .payment-failed{ background: #fff; color: var(--crimson); border-color: var(--crimson); }
+    .my-orders-page .payment-processing{ background: var(--light-crimson); color: var(--black); }
+
+    /* ========================================
+       ACTION BUTTONS (Track / Cancel) — dashboard buttons language
+       ======================================== */
+    .my-orders-page a{ color: inherit; text-decoration: none; }
+
+    .my-orders-page .btn-track{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .6rem;
+      border: var(--border-standard) solid var(--black);
+      background: var(--crimson);
+      color: #fff;
+      padding: .75rem 1rem;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      box-shadow: 4px 4px 0 var(--black);
+      transition: all var(--transition-speed);
+      white-space: nowrap;
+    }
+    .my-orders-page .btn-track svg{ stroke: currentColor; stroke-width: 2; }
+    .my-orders-page .btn-track:hover{ transform: translateY(-4px); }
+
+    .my-orders-page .btn-track.full{ width: 100%; }
+
+    .my-orders-page .btn-cancel{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      color: var(--black);
+      padding: .75rem 1rem;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      transition: all var(--transition-speed);
+      box-shadow: none;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .my-orders-page .btn-cancel:hover{
+      background: var(--black);
+      color: #fff;
+      transform: translateY(-4px);
+    }
+    .my-orders-page .btn-cancel.full{ width: 100%; }
+
+    /* ========================================
+       MOBILE CARDS — on-theme (keep structure)
+       ======================================== */
+    .my-orders-page .orders-cards{
+      display: grid;
+      gap: 16px;
+    }
+
+    .my-orders-page .order-card{
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      overflow: hidden;
+      box-shadow: none;
+    }
+
+    .my-orders-page .order-card .card-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      padding: 14px 14px 10px 14px;
+      border-bottom: 2px solid var(--black);
+      background: var(--light-crimson);
+    }
+
+    .my-orders-page .order-card .left .oid{
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      color: var(--black);
+      letter-spacing: .03em;
+    }
+    .my-orders-page .order-card .left .store{
+      margin-top: 4px;
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 700;
+      color: rgba(0,0,0,.75);
+    }
+
+    .my-orders-page .order-card .card-body{
+      padding: 12px 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .my-orders-page .order-card .row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap: 12px;
+      border-bottom: 1px dashed rgba(0,0,0,.35);
+      padding-bottom: 10px;
+    }
+    .my-orders-page .order-card .row:last-child{
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .my-orders-page .order-card .label{
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      color: var(--crimson);
+      white-space: nowrap;
+    }
+    .my-orders-page .order-card .value{
+      font-family: 'Cormorant Garamond', serif;
+      color: var(--black);
+      text-align: right;
+    }
+    .my-orders-page .order-card .value.strong{
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+    }
+
+    .my-orders-page .order-card .card-actions{
+      padding: 12px 14px 14px;
+      border-top: 2px solid var(--black);
+      background: var(--light-crimson);
+    }
+
+    /* ========================================
+       EMPTY STATE — on-theme
+       ======================================== */
+    .my-orders-page .empty-state{
+      text-align: center;
+      padding: 3rem 1rem;
+      border: var(--border-standard) solid var(--black);
+      background: var(--light-crimson);
+      margin-top: 1.5rem;
+    }
+    .my-orders-page .empty-icon{
+      margin-bottom: .75rem;
+      color: var(--black);
+      opacity: .65;
+    }
+    .my-orders-page .empty-state h3{
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: .35rem;
+    }
+    .my-orders-page .empty-state p{
+      color: rgba(0,0,0,.75);
+      max-width: 520px;
+      margin: 0.35rem auto 0;
+    }
+
+    /* Visibility helpers (keep behavior) */
+    .my-orders-page .desktop-only{ display:block; }
+    .my-orders-page .mobile-only{ display:none; }
+
+    /* Accessibility */
+    .my-orders-page *:focus-visible{
+      outline: 3px solid var(--crimson);
+      outline-offset: 3px;
+    }
+
+    /* ========================================
+       ✅ CUSTOM POPUP MODAL (replaces browser confirm)
+       ======================================== */
+    .my-orders-page .cc-modal{
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+    }
+    .my-orders-page .cc-modal.is-open{ display: flex; }
+
+    .my-orders-page .cc-modal .cc-backdrop{
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+    }
+
+    .my-orders-page .cc-modal .cc-dialog{
+      position: relative;
+      width: min(520px, 100%);
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      box-shadow: 6px 6px 0 var(--black);
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .my-orders-page .cc-modal .cc-head{
+      padding: 14px 16px;
+      border-bottom: 2px solid var(--black);
+      background: var(--light-crimson);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .my-orders-page .cc-modal .cc-title{
+      font-family: 'Italiana', serif;
+      font-size: .85rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      color: var(--black);
+      font-weight: 800;
+    }
+    .my-orders-page .cc-modal .cc-x{
+      border: 2px solid var(--black);
+      background: var(--off-white);
+      color: var(--black);
+      width: 38px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Italiana', serif;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      transition: all var(--transition-speed);
+    }
+    .my-orders-page .cc-modal .cc-x:hover{
+      background: var(--black);
+      color: #fff;
+    }
+
+    .my-orders-page .cc-modal .cc-body{
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .my-orders-page .cc-modal .cc-body .msg{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.15rem;
+      color: rgba(0,0,0,.85);
+      line-height: 1.5;
+    }
+    .my-orders-page .cc-modal .cc-body .meta{
+      font-family: 'Italiana', serif;
+      font-size: .7rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(0,0,0,.75);
+    }
+    .my-orders-page .cc-modal .cc-actions{
+      padding: 14px 16px 16px;
+      border-top: 2px solid var(--black);
+      background: var(--light-crimson);
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .my-orders-page .cc-modal .cc-btn{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+      padding: .75rem 1rem;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      border: var(--border-standard) solid var(--black);
+      transition: all var(--transition-speed);
+      white-space: nowrap;
+      background: var(--off-white);
+      color: var(--black);
+    }
+    .my-orders-page .cc-modal .cc-btn:hover{
+      transform: translateY(-3px);
+    }
+
+    .my-orders-page .cc-modal .cc-btn.secondary:hover{
+      background: var(--black);
+      color: #fff;
+    }
+
+    .my-orders-page .cc-modal .cc-btn.danger{
+      background: var(--crimson);
+      color: #fff;
+      box-shadow: 4px 4px 0 var(--black);
+    }
+    .my-orders-page .cc-modal .cc-btn.danger:hover{
+      transform: translateY(-4px);
+    }
+
+    /* Responsive */
+    @media (max-width: 992px){
+      .my-orders-page .main-container{ padding: 2.5rem 1.25rem; }
+    }
+
+    @media (max-width: 768px){
+      .my-orders-page .main-container{ padding: 2rem 1rem; }
+      .my-orders-page .top-bar{
+        padding: 1rem;
+        font-size: 0.625rem;
+        letter-spacing: 0.35em;
+      }
+      .my-orders-page .hero-section{ padding: 4rem 1rem 3rem; }
+      .my-orders-page .desktop-only{ display:none; }
+      .my-orders-page .mobile-only{ display:grid; }
+      .my-orders-page .orders-header h2{ font-size: 1.75rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .my-orders-page *,
+      .my-orders-page *::before,
+      .my-orders-page *::after{
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+
+  <!-- Film Grain Overlay -->
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <!-- Hero -->
+  <header class="hero-section">
+    <h1 class="hero-title">My Orders</h1>
+    <p class="hero-subtitle">Order History & Tracking</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <main class="main-container">
+
+    <!-- ✅ YOUR ORIGINAL HTML STARTS (kept) -->
+    <div class="orders-container">
+      <div class="orders-header">
+        <h2>My Orders</h2>
+        <p class="orders-subtitle">View and track your order history</p>
+      </div>
+
+      <!-- Desktop / Tablet table -->
+      <div class="table-responsive desktop-only">
+        <table class="table orders-table">
+          <thead>
+            <tr>
+              <th scope="col">Order #</th>
+              <th scope="col">Store</th>
+              <th scope="col">Total (₹)</th>
+              <th scope="col">Status</th>
+              <th scope="col">Payment</th>
+              <th scope="col">Placed</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in orders %}
+            <tr class="order-row">
+              <td class="order-id">#{{ o.id }}</td>
+              <td class="store-name">{{ o.store_name }}</td>
+              <td class="order-total">₹{{ '%.2f'|format(o.total_amount) }}</td>
+              <td class="order-status">
+                <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
+                  {{ o.status.replace('_',' ') }}
+                </span>
+              </td>
+              <td class="payment-status">
+                <span class="payment-badge payment-{{ o.payment_status|lower|replace(' ', '-')|replace('_','-') }}">
+                  {{ o.payment_status }}
+                </span>
+              </td>
+              <td class="order-date">{{ o.created_at }}</td>
+              <td class="order-actions">
+                <a class="btn-track" href="{{ url_for('order_track', oid=o.id) }}">
+                  <span>Track Order</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </a>
+
+                {% if o.status in ['PLACED', 'CONFIRMED'] %}
+                <form class="cancel-form" method="post" action="{{ url_for('order_cancel', oid=o.id) }}" style="display:inline">
+                  <button class="btn-cancel" type="submit"
+                          data-cancel="1"
+                          data-order-id="{{ o.id }}"
+                          data-store="{{ o.store_name|e }}"
+                          data-total="₹{{ '%.2f'|format(o.total_amount) }}">
+                    Cancel
+                  </button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile cards -->
+      <div class="orders-cards mobile-only">
+        {% for o in orders %}
+        <article class="order-card">
+          <div class="card-head">
+            <div class="left">
+              <div class="oid">#{{ o.id }}</div>
+              <div class="store">{{ o.store_name }}</div>
+            </div>
+            <div class="right">
+              <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
+                {{ o.status.replace('_',' ') }}
+              </span>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="row">
+              <span class="label">Total</span>
+              <span class="value strong">₹{{ '%.2f'|format(o.total_amount) }}</span>
+            </div>
+            <div class="row">
+              <span class="label">Payment</span>
+              <span class="value">
+                <span class="payment-badge payment-{{ o.payment_status|lower|replace(' ', '-')|replace('_','-') }}">
+                  {{ o.payment_status }}
+                </span>
+              </span>
+            </div>
+            <div class="row">
+              <span class="label">Placed</span>
+              <span class="value muted">{{ o.created_at }}</span>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <a class="btn-track full" href="{{ url_for('order_track', oid=o.id) }}">
+              <span>Track Order</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </a>
+
+            {% if o.status in ['PLACED', 'CONFIRMED'] %}
+            <form class="cancel-form" method="post" action="{{ url_for('order_cancel', oid=o.id) }}" style="margin-top:8px;">
+              <button class="btn-cancel full" type="submit"
+                      data-cancel="1"
+                      data-order-id="{{ o.id }}"
+                      data-store="{{ o.store_name|e }}"
+                      data-total="₹{{ '%.2f'|format(o.total_amount) }}">
+                Cancel Order
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+
+      {% if not orders %}
+      <div class="empty-state">
+        <div class="empty-icon">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+        </div>
+        <h3>No orders yet</h3>
+        <p>You haven't placed any orders. Start shopping to see your orders here.</p>
+      </div>
+      {% endif %}
+    </div>
+    <!-- ✅ YOUR ORIGINAL HTML ENDS -->
+
+  </main>
+
+  <!-- ✅ Custom Cancel Confirmation Modal (replaces browser confirm prompt) -->
+  <div class="cc-modal" id="ccCancelModal" aria-hidden="true">
+    <div class="cc-backdrop" data-close="1"></div>
+    <div class="cc-dialog" role="dialog" aria-modal="true" aria-labelledby="ccTitle" aria-describedby="ccDesc">
+      <div class="cc-head">
+        <div class="cc-title" id="ccTitle">Cancel Order</div>
+        <button class="cc-x" type="button" data-close="1" aria-label="Close">X</button>
+      </div>
+      <div class="cc-body">
+        <div class="meta" id="ccMeta">ORDER</div>
+        <div class="msg" id="ccDesc">Are you sure you want to cancel this order?</div>
+      </div>
+      <div class="cc-actions">
+        <button class="cc-btn secondary" type="button" data-close="1">Keep Order</button>
+        <button class="cc-btn danger" type="button" id="ccConfirmBtn">Yes, Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Replace any browser confirm() prompt with a themed modal popup (Cancel Order)
+    (function(){
+      const page = document.querySelector('.my-orders-page[data-page="my-orders"]');
+      if(!page) return;
+
+      const modal = page.querySelector('#ccCancelModal');
+      const metaEl = page.querySelector('#ccMeta');
+      const descEl = page.querySelector('#ccDesc');
+      const confirmBtn = page.querySelector('#ccConfirmBtn');
+
+      let pendingForm = null;
+
+      function openModal(form, orderId, storeName, totalText){
+        pendingForm = form;
+
+        const safeStore = (storeName || '').trim();
+        const safeTotal = (totalText || '').trim();
+
+        metaEl.textContent = `ORDER #${orderId || ''}${safeStore ? ' • ' + safeStore : ''}`;
+        descEl.textContent = `Cancel this order${safeTotal ? ' (' + safeTotal + ')' : ''}? This action cannot be undone.`;
+
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+
+        // focus confirm for keyboard users
+        setTimeout(()=>{ confirmBtn && confirmBtn.focus(); }, 0);
+
+        // prevent background scroll
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeModal(){
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        pendingForm = null;
+
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+      }
+
+      // Intercept submit for cancel forms ONLY (no route/logic changes)
+      page.addEventListener('submit', function(e){
+        const form = e.target;
+        if(!form || !form.classList || !form.classList.contains('cancel-form')) return;
+
+        e.preventDefault();
+
+        const btn = form.querySelector('[data-cancel="1"]');
+        const orderId = btn ? btn.getAttribute('data-order-id') : '';
+        const store = btn ? btn.getAttribute('data-store') : '';
+        const total = btn ? btn.getAttribute('data-total') : '';
+
+        openModal(form, orderId, store, total);
+      }, true);
+
+      // Confirm cancel => submit original form
+      confirmBtn.addEventListener('click', function(){
+        if(pendingForm){
+          pendingForm.submit();
+        }
+      });
+
+      // Close actions
+      modal.addEventListener('click', function(e){
+        const t = e.target;
+        if(t && (t.getAttribute('data-close') === '1')){
+          closeModal();
+        }
+      });
+
+      // ESC closes
+      document.addEventListener('keydown', function(e){
+        if(e.key === 'Escape' && modal.classList.contains('is-open')){
+          closeModal();
+        }
+      });
+
+    })();
+  </script>
+
+</section>
+
+{% endblock %}

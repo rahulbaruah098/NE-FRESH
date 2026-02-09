@@ -1,0 +1,856 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="cc-delivery-page" data-page="delivery-dashboard">
+  <style>
+    /* =========================================
+       DELIVERY DASHBOARD — FULL-WIDTH (NO CONTAINER) + FULL RESPONSIVE
+       ✅ NO route/logic/JS changes
+       ✅ Keeps your HTML structure + scripts as-is
+       ✅ Data area uses full page width (removes "container" look)
+       ✅ Fully responsive (web + mobile/app)
+       Scoped to .cc-delivery-page
+       ========================================= */
+
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    .cc-delivery-page{
+      --crimson:#8B0000;
+      --black:#000;
+      --off-white:#FAF9F6;
+      --light-crimson:#FFF5F5;
+      --paper:#ffffff;
+      --border:4px;
+      --t:.28s;
+
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+      background:var(--off-white);
+      color:var(--black);
+      font-family:'Cormorant Garamond', serif;
+      font-size: 1.1rem;
+      line-height:1.6;
+      min-height:100vh;
+      position:relative;
+      overflow-x:hidden;
+       font-weight: bold;
+      padding-bottom:3rem;
+    }
+
+    .cc-delivery-page,
+    .cc-delivery-page *{ box-sizing:border-box; border-radius:0 !important; }
+
+    /* Spoon cursor */
+    .cc-delivery-page,
+    .cc-delivery-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
+    }
+    .cc-delivery-page a,
+    .cc-delivery-page button,
+    .cc-delivery-page input,
+    .cc-delivery-page select{ cursor:pointer; }
+
+    .cc-delivery-page ::selection{ background:var(--crimson); color:#fff; }
+
+    /* Grain */
+    .cc-delivery-page .grain{
+      position: fixed;
+      inset: 0;
+      pointer-events:none;
+      z-index: 1;
+      opacity: .12;
+      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* Top bar */
+    .cc-delivery-page .top-bar{
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      padding: 1rem 2rem;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap: 12px;
+      border-bottom: var(--border) solid var(--black);
+      background: var(--off-white);
+      font-family: 'Italiana', serif;
+      font-size: .85rem;
+      letter-spacing: .45em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+      overflow:hidden;
+    }
+    .cc-delivery-page .top-bar span{ white-space:nowrap; }
+
+    /* Hero */
+    .cc-delivery-page .hero{
+      position: relative;
+      z-index: 2;
+      text-align:center;
+      padding: 4.25rem 2rem 3.25rem;
+      border-bottom: var(--border) solid var(--black);
+      background: var(--off-white);
+    }
+    .cc-delivery-page .hero-title{
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.7rem, 4.4vw, 2.7rem);
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin: 0 0 .35rem 0;
+    }
+    .cc-delivery-page .hero-title b{
+      color: var(--crimson);
+      font-family: 'Dancing Script', cursive;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .02em;
+      font-style: italic;
+      margin-left: .15rem;
+    }
+    .cc-delivery-page .hero-sub{
+      margin: 0 auto 1.25rem;
+      max-width: 980px;
+      opacity: .9;
+      font-weight: 700;
+    }
+    .cc-delivery-page .hero-divider{
+      width: 6rem;
+      height: 4px;
+      background: var(--crimson);
+      margin: 0 auto;
+    }
+
+    /* ✅ FULL-WIDTH DATA AREA (no container look) */
+    .cc-delivery-page .wrap{
+      position: relative;
+      z-index: 2;
+
+      /* full-bleed like the page */
+      width: 100%;
+      max-width: none;
+      margin: 0;
+
+      /* comfortable gutters */
+      padding: 2rem clamp(1rem, 3vw, 2rem) 0;
+    }
+
+    /* Hide raw H2 visually (hero replaces it) */
+    .cc-delivery-page h2{ display:none; }
+
+    /* ===== Re-theme your existing classes ===== */
+    .cc-delivery-page .card{
+      border: var(--border) solid var(--black);
+      background: var(--off-white);
+      box-shadow: none;
+    }
+
+    /* Livebar */
+    .cc-delivery-page .livebar{
+      padding: 1.1rem 1.25rem;
+      margin: 0 0 1.25rem 0;
+      background: var(--light-crimson);
+
+      /* full width feel */
+      width: 100%;
+    }
+    .cc-delivery-page .livebar-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      align-items:center;
+      justify-content:flex-start;
+      margin-bottom: .5rem;
+    }
+    .cc-delivery-page .small{ font-size: .95rem; }
+    .cc-delivery-page .muted{ opacity:.85; }
+    .cc-delivery-page #gpsInfo{ font-variant-numeric: tabular-nums; }
+
+    /* Tags */
+    .cc-delivery-page .tag{
+      display:inline-flex;
+      align-items:center;
+      gap:.5rem;
+      padding: .35rem .65rem;
+      border: 2px solid var(--black);
+      background: #fff;
+      font-family:'Italiana', serif;
+      font-size: .72rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .cc-delivery-page .tag.tag-green{
+      background: #dcfce7;
+      border-color: var(--black);
+    }
+    .cc-delivery-page .pulse{
+      animation: ccPulse 1.2s infinite ease-in-out;
+    }
+
+    /* Buttons */
+    .cc-delivery-page .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.5rem;
+      border: var(--border) solid var(--black);
+      background: var(--crimson);
+      color:#fff;
+      padding: .85rem 1.05rem;
+      font-family:'Italiana', serif;
+      font-size: .78rem;
+      letter-spacing: .32em;
+      text-transform: uppercase;
+      font-weight: 900;
+      box-shadow: 6px 6px 0 var(--black);
+      transition: transform var(--t), background var(--t), box-shadow var(--t), opacity var(--t);
+      min-height: 44px;
+      white-space: nowrap;
+    }
+    .cc-delivery-page .btn:hover{
+      transform: translateY(-2px);
+      background: var(--black);
+      box-shadow: 8px 8px 0 var(--crimson);
+    }
+    .cc-delivery-page .btn:active{ transform: translateY(-1px) scale(.99); }
+    .cc-delivery-page .btn.small{
+      padding: .7rem .9rem;
+      font-size: .72rem;
+      letter-spacing: .28em;
+      min-height: 42px;
+      box-shadow: 5px 5px 0 var(--black);
+    }
+
+    .cc-delivery-page .btn-ghost{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.5rem;
+      border: var(--border) solid var(--black);
+      background: #fff;
+      color: var(--black);
+      padding: .8rem 1rem;
+      font-family:'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      font-weight: 900;
+      box-shadow: 6px 6px 0 var(--black);
+      transition: transform var(--t), background var(--t), color var(--t), box-shadow var(--t), opacity var(--t);
+      min-height: 44px;
+      text-decoration:none;
+      white-space: nowrap;
+    }
+    .cc-delivery-page .btn-ghost:hover{
+      transform: translateY(-2px);
+      background: var(--black);
+      color:#fff;
+      box-shadow: 8px 8px 0 var(--crimson);
+    }
+    .cc-delivery-page .btn-ghost:active{ transform: translateY(-1px) scale(.99); }
+    .cc-delivery-page .btn-ghost.small{
+      padding: .7rem .9rem;
+      font-size: .72rem;
+      letter-spacing: .22em;
+      min-height: 42px;
+      box-shadow: 5px 5px 0 var(--black);
+    }
+    .cc-delivery-page .btn-ghost[disabled]{
+      opacity:.55;
+      cursor:not-allowed;
+      transform:none;
+      box-shadow: 6px 6px 0 var(--black);
+    }
+
+    /* ✅ FULL-WIDTH TABLE AREA */
+    .cc-delivery-page .orders-wrap{
+      width: 100%;
+      border: var(--border) solid var(--black);
+      background: var(--off-white);
+      overflow-x:auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* keep desktop table readable; mobile switches to cards */
+    .cc-delivery-page .table{
+      width:100%;
+      border-collapse: collapse;
+      min-width: 1100px;
+      background: var(--off-white);
+    }
+
+    .cc-delivery-page .table thead{
+      background: var(--black);
+      color:#fff;
+    }
+    .cc-delivery-page .table th{
+      padding: 14px 12px;
+      text-align:left;
+      font-family:'Italiana', serif;
+      font-size: .72rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      font-weight: 900;
+      border-bottom: 2px solid rgba(255,255,255,.2);
+      white-space: nowrap;
+
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--black);
+    }
+    .cc-delivery-page .table td{
+      padding: 14px 12px;
+      border-bottom: 2px solid rgba(0,0,0,.18);
+      vertical-align: top;
+      font-weight: 600;
+      background: transparent;
+    }
+    .cc-delivery-page .order-row:hover{
+      background: var(--light-crimson);
+    }
+
+    /* Action column layout */
+    .cc-delivery-page .actions{
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+      align-items:flex-start;
+      min-width: 280px;
+    }
+    .cc-delivery-page .actions .inline{ display:inline-block; }
+    .cc-delivery-page .payable{
+      padding: 10px 12px;
+      border: 2px dashed rgba(0,0,0,.35);
+      background: #fff;
+      width: 100%;
+    }
+    .cc-delivery-page .payable strong{
+      font-family:'Playfair Display', serif;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+    .cc-delivery-page .payable .tag{
+      margin-left: 0;
+      margin-top: 8px;
+      display:inline-flex;
+      background: var(--light-crimson);
+      color: var(--black);
+    }
+
+    /* Select + checkbox */
+    .cc-delivery-page .select{
+      width: 100%;
+      border: 2px solid var(--black);
+      background: #fff;
+      padding: 10px 10px;
+      font-weight: 900;
+      font-family:'Cormorant Garamond', serif;
+      min-height: 44px;
+      outline:none;
+    }
+    .cc-delivery-page .select.small{ min-height: 42px; padding: 9px 10px; }
+    .cc-delivery-page .chk{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      font-weight: 800;
+      user-select:none;
+      flex-wrap: wrap;
+    }
+    .cc-delivery-page .chk input{
+      width: 18px;
+      height: 18px;
+      accent-color: var(--crimson);
+    }
+    .cc-delivery-page .chk.small{ font-size: .95rem; }
+
+    /* Phone pill */
+    .cc-delivery-page .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 10px;
+      border: 2px solid var(--black);
+      background:#fff;
+      font-weight: 900;
+      text-decoration:none;
+      color: var(--black);
+      transition: transform var(--t), background var(--t), color var(--t);
+      white-space: nowrap;
+    }
+    .cc-delivery-page .pill:hover{
+      transform: translateY(-2px);
+      background: var(--black);
+      color:#fff;
+    }
+
+    /* Quick Nav column */
+    .cc-delivery-page .orders-table th:nth-last-child(1),
+    .cc-delivery-page .orders-table td:nth-last-child(1){
+      white-space: nowrap;
+      min-width: 165px;
+    }
+
+    /* Mobile cards */
+    .cc-delivery-page .cards{
+      display:none;
+      gap: 14px;
+      padding: 14px;
+      background: var(--off-white);
+    }
+    .cc-delivery-page .order-card{
+      border: var(--border) solid var(--black);
+      background: var(--off-white);
+      padding: 12px;
+    }
+    .cc-delivery-page .order-card .card-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap: 10px;
+      padding-bottom: 10px;
+      border-bottom: 2px dashed rgba(0,0,0,.25);
+      margin-bottom: 10px;
+    }
+    .cc-delivery-page .order-card .card-head .id{
+      font-family:'Playfair Display', serif;
+      font-weight: 900;
+      letter-spacing: .02em;
+    }
+    .cc-delivery-page .order-card .card-head .status{
+      font-family:'Italiana', serif;
+      font-size: .72rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      font-weight: 900;
+      padding: 6px 8px;
+      border: 2px solid var(--black);
+      background:#fff;
+      white-space: nowrap;
+    }
+
+    .cc-delivery-page .order-card .row{
+      display:flex;
+      justify-content:space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-top: 2px dashed rgba(0,0,0,.18);
+    }
+    .cc-delivery-page .order-card .row:first-of-type{ border-top: none; }
+    .cc-delivery-page .order-card .row span{
+      font-family:'Italiana', serif;
+      font-size: .72rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      font-weight: 900;
+      opacity: .8;
+      min-width: 40%;
+    }
+    .cc-delivery-page .order-card .row strong{
+      text-align:right;
+      font-weight: 900;
+      max-width: 62%;
+      word-break: break-word;
+    }
+
+    .cc-delivery-page .order-card .addr{
+      margin-top: 6px;
+      padding-top: 10px;
+      border-top: 2px dashed rgba(0,0,0,.18);
+    }
+    .cc-delivery-page .order-card .addr .lbl{
+      font-family:'Italiana', serif;
+      font-size: .72rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      font-weight: 900;
+      margin-bottom: 6px;
+      opacity: .85;
+    }
+    .cc-delivery-page .order-card .addr .txt small{
+      display:inline-block;
+      margin-top: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cc-delivery-page .order-card .btns{
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .cc-delivery-page .order-card .status-form{
+      margin-top: 12px;
+      display:flex;
+      flex-wrap:wrap;
+      gap: 10px;
+      align-items:center;
+      padding-top: 12px;
+      border-top: 2px dashed rgba(0,0,0,.18);
+    }
+    .cc-delivery-page .order-card .status-form .select{
+      flex: 1 1 180px;
+      width: auto;
+    }
+
+    /* Animations */
+    .cc-delivery-page .bounce-in{ animation: ccBounce .35s ease; }
+    @keyframes ccBounce{
+      0%{ transform: scale(.98) translateY(2px) }
+      60%{ transform: scale(1.02) translateY(-1px) }
+      100%{ transform: scale(1) translateY(0) }
+    }
+    @keyframes ccPulse{
+      0%,100%{ box-shadow: 0 0 0 0 rgba(16,185,129,.0) }
+      50%{ box-shadow: 0 0 0 6px rgba(16,185,129,.15) }
+    }
+
+    /* ===== Responsive rules ===== */
+    @media (max-width: 980px){
+      .cc-delivery-page .top-bar{
+        padding: .95rem 1rem;
+        font-size: .62rem;
+        letter-spacing: .32em;
+      }
+      .cc-delivery-page .hero{
+        padding: 3.35rem 1rem 2.75rem;
+      }
+      .cc-delivery-page .wrap{
+        padding: 1.25rem 1rem 0;
+      }
+
+      /* switch to cards */
+      .cc-delivery-page .orders-wrap{ border: 0; }
+      .cc-delivery-page .orders-table{ display:none; }
+      .cc-delivery-page .cards{ display:grid; }
+    }
+
+    @media (max-width: 420px){
+      .cc-delivery-page .hero-title{ font-size: 1.55rem; }
+      .cc-delivery-page .btn,
+      .cc-delivery-page .btn-ghost{ width: 100%; }
+      .cc-delivery-page .livebar-row{ gap: 8px; }
+      .cc-delivery-page .tag{ letter-spacing: .18em; }
+      .cc-delivery-page .order-card .row span{ min-width: 42%; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .cc-delivery-page *{ transition:none !important; animation:none !important; }
+    }
+  </style>
+
+  <div class="grain" aria-hidden="true"></div>
+
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <header class="hero">
+    <div class="hero-title">Delivery <b>Dashboard</b></div>
+    <p class="hero-sub">Assign orders, update delivery status, and share live location during trips.</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <div class="wrap">
+
+    <!-- ✅ YOUR ORIGINAL MARKUP (UNCHANGED) -->
+    <h2>Delivery Dashboard</h2>
+
+    <!-- Live sharing status bar -->
+    <div class="card livebar">
+      <div class="livebar-row">
+        <button id="btnStopAll" class="btn-ghost" disabled>Stop Sharing</button>
+        <span id="statusBadge" class="tag">offline</span>
+        <span id="gpsInfo" class="muted"></span>
+      </div>
+      <div class="muted small">
+        Keep this page open while on a trip so your location keeps updating live.
+      </div>
+    </div>
+
+    <!-- Desktop table / Mobile cards -->
+    <div class="orders-wrap">
+      <table class="table orders-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Store</th>
+            <th>Customer</th>
+            <th>Phone</th> <!-- ✅ Added customer phone -->
+            <th>Total (₹)</th>
+            <th>Status</th>
+            <th>Address</th>
+            <th>Action</th>
+            <th>Quick Nav</th>
+          </tr>
+        </thead>
+
+        <!-- 🔁 Give tbody an ID so alerts.js can prepend new orders -->
+        <tbody id="orders-list">
+        {% for o in orders %}
+          <!-- 🔁 Add data-order-id for dedupe/insert logic -->
+          <tr class="order-row" data-order-id="{{ o.id }}">
+            <td data-label="#"> {{ o.id }} </td>
+            <td data-label="Store"> {{ o.store_name }} </td>
+            <td data-label="Customer"> {{ o.customer_name }} </td>
+            <td data-label="Phone">
+              {% if o.customer_phone %}
+                <a href="tel:{{ o.customer_phone }}" class="pill tel-pill">📞 {{ o.customer_phone }}</a>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td data-label="Total"> {{ '%.2f'|format(o.total_amount) }} </td>
+            <td data-label="Status"> {{ o.status }} </td>
+
+            <td data-label="Address" class="muted">
+              Deliver to:
+              {% if o.addr_line1 %}
+                {{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %},
+                {{ o.addr_city }}, {{ o.addr_state }} {{ o.addr_pincode }}
+                {% if o.addr_lat and o.addr_lng %} <br><small>({{ o.addr_lat }}, {{ o.addr_lng }})</small>{% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+
+            <!-- ✅ Action column -->
+            <td data-label="Action" class="actions">
+              {% if not o.delivery_partner_id %}
+                <form method="post" action="{{ url_for('delivery_assign', oid=o.id) }}" class="inline">
+                  <button class="btn bounce-in">Assign to me</button>
+                </form>
+              {% endif %}
+
+              <!-- Total payable -->
+              <div class="muted payable">
+                Total Payable:
+                <strong>₹ {{
+                  '%.2f'|format((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))
+                }}</strong>
+                {% if o.tip_amount and o.tip_amount > 0 %}
+                  <span class="tag">includes tip ₹{{ '%.2f'|format(o.tip_amount) }}</span>
+                {% endif %}
+              </div>
+
+              <!-- Share live location -->
+              <button class="btn-ghost share-btn" data-order-id="{{ o.id }}">
+                Share Live Location
+              </button>
+
+              <!-- COD confirmation + status -->
+              <form method="post" action="{{ url_for('delivery_status', oid=o.id) }}" class="inline">
+                <select name="status" class="select">
+                  <option value="OUT_FOR_DELIVERY" {% if o.status=='OUT_FOR_DELIVERY' %}selected{% endif %}>OUT_FOR_DELIVERY</option>
+                  <option value="DELIVERED" {% if o.status=='DELIVERED' %}selected{% endif %}>DELIVERED</option>
+                </select>
+                <label class="chk">
+                  <input type="checkbox" name="cod_received" value="1">
+                  Payment received
+                </label>
+                <button class="btn-ghost" type="submit">Update</button>
+              </form>
+            </td>
+
+            <td data-label="Quick Nav">
+              {% if o.addr_lat and o.addr_lng %}
+                <a class="btn-ghost" target="_blank"
+                   href="https://www.google.com/maps/dir/?api=1&destination={{ o.addr_lat }},{{ o.addr_lng }}">
+                   Open in Maps
+                </a>
+              {% else %}
+                <span class="muted">No coords</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- Mobile cards (visible on small screens) -->
+      <div class="cards" id="orders-cards">
+        {% for o in orders %}
+        <div class="card order-card" data-order-id="{{ o.id }}">
+          <div class="card-head">
+            <div class="id">#{{ o.id }}</div>
+            <div class="status">{{ o.status }}</div>
+          </div>
+
+          <div class="row"><span>Store</span><strong>{{ o.store_name }}</strong></div>
+          <div class="row"><span>Customer</span><strong>{{ o.customer_name }}</strong></div>
+          <div class="row">
+            <span>Phone</span>
+            <strong>
+              {% if o.customer_phone %}
+                <a href="tel:{{ o.customer_phone }}" class="pill tel-pill">📞 {{ o.customer_phone }}</a>
+              {% else %} — {% endif %}
+            </strong>
+          </div>
+
+          <div class="row">
+            <span>Total</span>
+            <strong>₹ {{
+              '%.2f'|format((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))
+            }}</strong>
+          </div>
+
+          <div class="addr">
+            <div class="lbl">Deliver to</div>
+            <div class="txt muted">
+              {% if o.addr_line1 %}
+                {{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %},
+                {{ o.addr_city }}, {{ o.addr_state }} {{ o.addr_pincode }}
+                {% if o.addr_lat and o.addr_lng %} <br><small>({{ o.addr_lat }}, {{ o.addr_lng }})</small>{% endif %}
+              {% else %}
+                —
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="btns">
+            {% if not o.delivery_partner_id %}
+              <form method="post" action="{{ url_for('delivery_assign', oid=o.id) }}" class="inline">
+                <button class="btn small bounce-in">Assign to me</button>
+              </form>
+            {% endif %}
+
+            <button class="btn-ghost small share-btn" data-order-id="{{ o.id }}">Share Location</button>
+
+            {% if o.addr_lat and o.addr_lng %}
+              <a class="btn-ghost small" target="_blank"
+                 href="https://www.google.com/maps/dir/?api=1&destination={{ o.addr_lat }},{{ o.addr_lng }}">
+                 Open in Maps
+              </a>
+            {% endif %}
+          </div>
+
+          <form method="post" action="{{ url_for('delivery_status', oid=o.id) }}" class="status-form">
+            <select name="status" class="select small">
+              <option value="OUT_FOR_DELIVERY" {% if o.status=='OUT_FOR_DELIVERY' %}selected{% endif %}>OUT_FOR_DELIVERY</option>
+              <option value="DELIVERED" {% if o.status=='DELIVERED' %}selected{% endif %}>DELIVERED</option>
+            </select>
+            <label class="chk small">
+              <input type="checkbox" name="cod_received" value="1"> Payment received
+            </label>
+            <button class="btn-ghost small" type="submit">Update</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 🔔 Optional local test sound (alerts.js has its own beep already) -->
+    <audio id="ding" preload="auto">
+      <source src="{{ url_for('static', filename='ding.mp3') }}" type="audio/mpeg">
+    </audio>
+
+    <!-- ✅ Shared real-time alerts (delivery role) -->
+    <script defer src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+    <script>
+      // Explicitly start the shared poller for the delivery dashboard.
+      document.addEventListener('DOMContentLoaded', () => {
+        if (window.initAlerts) {
+          window.initAlerts({ role: 'delivery' });
+        }
+      });
+    </script>
+
+    <!-- 🚚 Live location script -->
+    <script>
+    (() => {
+      const statusBadge = document.getElementById('statusBadge');
+      const btnStopAll  = document.getElementById('btnStopAll');
+      const gpsInfo     = document.getElementById('gpsInfo');
+      let watchId = null;
+      let activeOrderId = null;
+
+      function setOnlineUI(on, orderId) {
+        statusBadge.textContent = on ? `live: #${orderId}` : 'offline';
+        statusBadge.className = on ? 'tag tag-green pulse' : 'tag';
+        btnStopAll.disabled = !on;
+      }
+
+      async function postPing(orderId, coords) {
+        const body = {
+          order_id: orderId,
+          latitude:  coords.latitude,
+          longitude: coords.longitude,
+          heading:   (typeof coords.heading === 'number') ? coords.heading : null,
+          speed:     (typeof coords.speed === 'number')   ? coords.speed   : null
+        };
+        try {
+          await fetch('{{ url_for("delivery_update_location") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+            cache: 'no-store',
+            credentials: 'same-origin'
+          });
+        } catch (e) {
+          console.warn('Failed to send location', e);
+        }
+      }
+
+      function startSharing(orderId) {
+        if (!navigator.geolocation) {
+          alert('Geolocation is not supported by this browser.');
+          return;
+        }
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+        activeOrderId = orderId;
+        setOnlineUI(true, orderId);
+
+        watchId = navigator.geolocation.watchPosition(
+          pos => {
+            const c = pos.coords;
+            gpsInfo.textContent =
+              `lat ${c.latitude.toFixed(5)}, lng ${c.longitude.toFixed(5)}` +
+              (typeof c.speed === 'number' ? ` | speed ${(c.speed || 0).toFixed(1)} m/s` : '');
+            postPing(orderId, c);
+          },
+          err => {
+            console.warn('GPS error', err);
+            gpsInfo.textContent = 'location error';
+          },
+          { enableHighAccuracy: true, maximumAge: 4000, timeout: 10000 }
+        );
+      }
+
+      function stopSharing() {
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+        activeOrderId = null;
+        setOnlineUI(false);
+        gpsInfo.textContent = '';
+      }
+
+      document.querySelectorAll('.share-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const oid = parseInt(btn.dataset.orderId, 10);
+          startSharing(oid);
+        });
+      });
+      btnStopAll.addEventListener('click', stopSharing);
+      window.addEventListener('beforeunload', stopSharing);
+    })();
+    </script>
+    <!-- ✅ END ORIGINAL MARKUP -->
+
+  </div>
+</section>
+
+{% endblock %}

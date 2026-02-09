@@ -1,0 +1,1228 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+  /* =========================================================
+     ABOUT (Merged: index.html + styles.css) — Scoped for base.html
+     ========================================================= */
+
+  /* ✅ Google fonts (moved from <head> into scoped @import) */
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400;1,500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap');
+
+  /* Scope everything inside this page wrapper */
+  .about-page{
+    font-family: 'Cormorant Garamond', serif;
+    background-color: #FAF9F6;
+    color: #000;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Reset (scoped) */
+  .about-page *{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  /* Custom Chicken Cursor (scoped) */
+  .about-page,
+  .about-page *{
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='%23FF6B35'%3E%3Cellipse cx='16' cy='18' rx='10' ry='12' fill='%23FFDD67'/%3E%3Ccircle cx='16' cy='10' r='7' fill='%23FFDD67'/%3E%3Ccircle cx='13' cy='9' r='1.5' fill='%23000'/%3E%3Ccircle cx='19' cy='9' r='1.5' fill='%23000'/%3E%3Cpath d='M10 11 L6 10 L10 9 Z' fill='%23FF6B35'/%3E%3Cpath d='M14 13 L12 15 L16 14 Z' fill='%23FF9500'/%3E%3Cpath d='M16 25 L14 30 L15 25 Z' fill='%23FF9500'/%3E%3Cpath d='M16 25 L18 30 L17 25 Z' fill='%23FF9500'/%3E%3Cpath d='M12 6 L10 3 L11 6 L12 8 Z' fill='%23DC143C'/%3E%3Cpath d='M16 5 L15 2 L16 5 L17 7 Z' fill='%23DC143C'/%3E%3Cpath d='M20 6 L21 3 L20 6 L19 8 Z' fill='%23DC143C'/%3E%3C/g%3E%3C/svg%3E") 16 16, auto !important;
+  }
+
+  /* Grain Effect */
+  @keyframes grain {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-5%, -10%); }
+    20% { transform: translate(-15%, 5%); }
+    30% { transform: translate(7%, -25%); }
+    40% { transform: translate(-5%, 25%); }
+    50% { transform: translate(-15%, 10%); }
+    60% { transform: translate(15%, 0%); }
+    70% { transform: translate(0%, 15%); }
+    80% { transform: translate(3%, 35%); }
+    90% { transform: translate(-10%, 10%); }
+  }
+
+  .about-page .grain::after{
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    right: -50%;
+    bottom: -50%;
+    width: 200%;
+    height: 200vh;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='3.5' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    animation: grain 1s steps(10) infinite;
+    z-index: 100;
+  }
+
+  /* Typography helpers */
+  .about-page .playfair { font-family: 'Playfair Display', serif !important; }
+  .about-page .cursive { font-family: 'Dancing Script', cursive !important; font-style: italic; }
+  .about-page .italiana { font-family: 'Italiana', serif !important; }
+  .about-page .crimson { color: #8B0000 !important; }
+  .about-page .crimson-text { color: #8B0000; font-family: 'Playfair Display', serif; }
+.about-page{
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+  /* Container (scoped, avoids clashing with base.html .container) */
+  .about-page .container{
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+  
+
+  /* Animations */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideLeft { from { opacity: 0; transform: translateX(-50px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes slideRight { from { opacity: 0; transform: translateX(50px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .about-page .animate-fade-up { animation: fadeUp 0.8s ease-out 0.2s both; }
+  .about-page .animate-slide-left { animation: slideLeft 0.6s ease-out both; }
+  .about-page .animate-slide-right { animation: slideRight 0.6s ease-out both; }
+  .about-page .animate-fade-in { animation: fadeIn 0.8s ease-out 0.6s both; }
+
+  .about-page .scroll-reveal{
+    opacity: 0;
+    transform: translateY(50px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  }
+  .about-page .scroll-reveal.active{
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Hero Section */
+  .about-page .hero-section{
+    min-height: 100vh;
+    display:flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4rem 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .about-page .bg-text{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform: translate(-50%, -50%);
+    opacity: 0.02;
+    pointer-events:none;
+    white-space: nowrap;
+  }
+  .about-page .bg-text h1{
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 20vw;
+  }
+
+  .about-page .top-bar{
+    display:flex;
+    justify-content: space-between;
+    align-items:flex-start;
+  }
+
+  .about-page .est-text,
+  .about-page .location-text{
+    font-family: 'Italiana', serif;
+    font-size: .75rem;
+    letter-spacing: .3em;
+    margin-bottom: .5rem;
+  }
+
+  .about-page .divider-line{
+    height: 4px;
+    width: 6rem;
+    background-color: #8B0000;
+  }
+
+  .about-page .hero-content{
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .about-page .hero-title{
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: clamp(4.2rem, 10vw, 12rem);
+    line-height: 0.85;
+    margin-bottom: 3rem;
+  }
+
+  .about-page .title-line{ display:block; }
+
+  .about-page .hero-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    margin-top: 3rem;
+  }
+
+  .about-page .divider-line-small{
+    height: 4px;
+    width: 4rem;
+    background-color: #8B0000;
+    margin-bottom: 1.5rem;
+  }
+
+  .about-page .hero-tagline{
+    font-size: clamp(1.15rem, 2vw, 1.5rem);
+    line-height: 1.6;
+  }
+
+  .about-page .hero-right{ padding-left: 3rem; }
+
+  .about-page .hero-desc{
+    font-size: 1.125rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+  }
+
+  .about-page .hero-bottom{
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+    flex-wrap: wrap;
+    gap: 2rem;
+  }
+
+  .about-page .cta-button{
+    background-color: #8B0000;
+    color: #fff;
+    border: none;
+    padding: 1.5rem 3rem;
+    font-family: 'Italiana', serif;
+    font-size: 1.25rem;
+    display:flex;
+    align-items:center;
+    gap: 1rem;
+    transition: background-color .3s ease;
+  }
+  .about-page .cta-button:hover{ background-color: #000; }
+  .about-page .cta-button svg{ transition: transform .3s ease; }
+
+  .about-page .support-text{
+    font-family: 'Italiana', serif;
+    font-size: .875rem;
+    letter-spacing: .5em;
+  }
+
+  /* About Section */
+  .about-page .about-section{
+    padding: 4rem 2rem;
+    background-color: #8B0000;
+    color: #fff;
+  }
+  .about-page .about-grid{
+    display:grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 3rem;
+  }
+  .about-page .about-title{
+    font-family: 'Dancing Script', cursive;
+    font-weight: 700;
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-style: italic;
+    margin-bottom: 1.5rem;
+  }
+  .about-page .divider-line-small-white{
+    height: 4px;
+    width: 6rem;
+    background-color: #fff;
+    margin-bottom: 1.5rem;
+  }
+  .about-page .about-subtitle{
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.35rem, 3vw, 2rem);
+    line-height: 1.4;
+    margin-bottom: 1.5rem;
+  }
+  .about-page .about-text{
+    font-size: 1.25rem;
+    line-height: 1.6;
+    opacity: .9;
+  }
+
+  /* Mission Grid */
+  .about-page .mission-section{ padding: 4rem 2rem; }
+  .about-page .mission-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border: 4px solid #000;
+  }
+  .about-page .mission-card{
+    padding: 2.5rem;
+    border-right: 4px solid #000;
+    background-color: #fff;
+    transition: all .5s ease;
+  }
+  .about-page .mission-card:last-child{ border-right: none; }
+  .about-page .mission-card:hover{ background-color: #8B0000; color: #fff; }
+  .about-page .mission-icon{ margin-bottom: 2rem; transition: transform .5s ease; }
+  .about-page .mission-title{
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 2.5rem;
+    letter-spacing: .05em;
+    margin-bottom: .75rem;
+  }
+  .about-page .mission-divider{
+    height: 4px;
+    width: 4rem;
+    background-color: #8B0000;
+    margin-bottom: 1.5rem;
+    transition: all .5s ease;
+  }
+  .about-page .mission-card:hover .mission-divider{ background-color: #fff; width: 100%; }
+  .about-page .mission-subtitle{
+    font-size: 1.125rem;
+    font-style: italic;
+    margin-bottom: 1.5rem;
+  }
+  .about-page .mission-points{ display:flex; flex-direction: column; gap: .5rem; }
+  .about-page .point-item{ display:flex; align-items:center; gap: .75rem; }
+  .about-page .point-dot{ width: 8px; height: 8px; background-color: #8B0000; transition: background-color .5s ease; }
+  .about-page .mission-card:hover .point-dot{ background-color: #fff; }
+  .about-page .point-item span{
+    font-family: 'Italiana', serif;
+    font-size: .875rem;
+    letter-spacing: .3em;
+  }
+
+  /* Value Chain Section */
+  .about-page .value-chain-section{
+    padding: 4rem 2rem;
+    background-color: #000;
+    color: #fff;
+  }
+  .about-page .value-chain-header{ margin-bottom: 4rem; }
+  .about-page .value-chain-title{
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: clamp(2.2rem, 7vw, 5rem);
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+  }
+  .about-page .value-chain-subtitle{ font-size: 1.25rem; opacity: .8; }
+  .about-page .value-chain-list{ display:flex; flex-direction: column; }
+  .about-page .chain-item{
+    display:grid;
+    grid-template-columns: 1fr 3fr 2fr;
+    gap: 2rem;
+    border-top: 4px solid rgba(255,255,255,.2);
+    padding: 3rem 2rem;
+    transition: background-color .5s ease;
+  }
+  .about-page .chain-item:hover{ background-color: #8B0000; }
+  .about-page .chain-number{
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 4.5rem;
+    opacity: .2;
+    transition: opacity .5s ease;
+  }
+  .about-page .chain-item:hover .chain-number{ opacity: 1; }
+  .about-page .chain-icon{ margin-bottom: 1.5rem; transition: transform .5s ease; }
+  .about-page .chain-title{
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 2.5rem;
+    letter-spacing: .05em;
+    margin-bottom: .75rem;
+  }
+  .about-page .chain-subtitle{ font-size: 1.25rem; font-style: italic; opacity: .8; margin-bottom: 1rem; }
+  .about-page .chain-desc{ font-size: 1.125rem; opacity: .7; line-height: 1.6; }
+  .about-page .chain-image{
+    aspect-ratio: 4/3;
+    overflow:hidden;
+    border: 4px solid rgba(255,255,255,.3);
+    transition: border-color .5s ease;
+  }
+  .about-page .chain-item:hover .chain-image{ border-color: #fff; }
+  .about-page .chain-image img{
+    width:100%;
+    height:100%;
+    object-fit: cover;
+    filter: grayscale(100%);
+    transition: all .5s ease;
+    display:block;
+  }
+  .about-page .chain-item:hover .chain-image img{ filter: grayscale(0%); transform: scale(1.1); }
+
+  /* Timeline */
+  .about-page .timeline-section{ padding: 4rem 2rem; }
+  .about-page .timeline-header{
+    font-family: 'Dancing Script', cursive;
+    font-weight: 700;
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-style: italic;
+    margin-bottom: 4rem;
+  }
+  .about-page .timeline-grid{
+    display:grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+    margin-bottom: 4rem;
+  }
+  .about-page .timeline-card{
+    border: 4px solid #000;
+    padding: 2rem;
+    transition: all .3s ease;
+    background: transparent;
+  }
+  .about-page .timeline-card:hover{
+    background-color: #8B0000;
+    color: #fff;
+    border-color: #8B0000;
+  }
+  .about-page .timeline-year-row{ display:flex; align-items: baseline; gap: 1.5rem; margin-bottom: 1.5rem; }
+  .about-page .timeline-year{
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 3.75rem;
+    transition: transform .3s ease;
+  }
+  .about-page .timeline-line{ flex:1; height: 4px; background-color: #8B0000; transition: background-color .3s ease; }
+  .about-page .timeline-card:hover .timeline-line{ background-color: #fff; }
+  .about-page .timeline-title{
+    font-family: 'Italiana', serif;
+    font-size: 1.5rem;
+    letter-spacing: .3em;
+    margin-bottom: 1rem;
+  }
+  .about-page .timeline-desc{ font-size: 1.125rem; opacity: .8; line-height: 1.6; }
+
+  .about-page .whats-next{
+    border: 4px solid #000;
+    padding: 3rem;
+    background-color: #fff;
+  }
+  .about-page .whats-next-title{
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 3rem;
+    margin-bottom: 2rem;
+  }
+  .about-page .whats-next-text{
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+  .about-page .next-tags{ display:flex; flex-wrap:wrap; gap: 1rem; }
+  .about-page .next-tag{
+    padding: .75rem 1.5rem;
+    border: 2px solid #8B0000;
+    font-family: 'Italiana', serif;
+    font-size: .875rem;
+    letter-spacing: .3em;
+    transition: all .3s ease;
+  }
+  .about-page .next-tag:hover{ background-color: #8B0000; color: #fff; }
+
+  /* Stats */
+  .about-page .stats-section{
+    padding: 4rem 2rem;
+    background-color: #8B0000;
+    color: #fff;
+  }
+  .about-page .stats-header{
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: clamp(2.4rem, 8vw, 5rem);
+    line-height: 1.2;
+    margin-bottom: 4rem;
+  }
+  .about-page .stats-grid{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    border: 4px solid #fff;
+  }
+  .about-page .stat-card{
+    padding: 2rem;
+    text-align:center;
+    border-right: 4px solid #fff;
+    transition: background-color .3s ease;
+  }
+  .about-page .stat-card:last-child{ border-right: none; }
+  .about-page .stat-card:hover{ background-color: #000; }
+  .about-page .stat-value{
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: clamp(3rem, 7vw, 4.5rem);
+    margin-bottom: 1rem;
+  }
+  .about-page .stat-label{ font-size: .875rem; letter-spacing: .05em; opacity: .9; }
+
+  /* Support */
+  .about-page .support-section{
+    padding: 4rem 2rem;
+    background-color: #FAF9F6;
+  }
+  .about-page .support-header{ margin-bottom: 4rem; }
+  .about-page .support-title{
+    font-family: 'Dancing Script', cursive;
+    font-weight: 700;
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-style: italic;
+    margin-bottom: 1.5rem;
+  }
+  .about-page .support-subtitle{ font-size: 1.25rem; }
+  .about-page .support-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+    margin-bottom: 4rem;
+  }
+  .about-page .support-card{
+    border: 4px solid #000;
+    padding: 2rem;
+    text-align:center;
+    transition: all .3s ease;
+  }
+  .about-page .support-card:hover{ background-color: #000; color: #fff; }
+  .about-page .support-icon{ margin: 0 auto 1.5rem; transition: transform .3s ease; }
+  .about-page .support-name{
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 1.25rem;
+    letter-spacing: .05em;
+  }
+
+  /* Final Image */
+  .about-page .final-image{
+    position: relative;
+    border: 8px solid #8B0000;
+    overflow:hidden;
+    margin-bottom: 4rem;
+  }
+  .about-page .final-image img{
+    width:100%;
+    height:auto;
+    aspect-ratio: 21/9;
+    object-fit: cover;
+    filter: grayscale(100%);
+    display:block;
+  }
+  .about-page .final-overlay{
+    position:absolute;
+    inset:0;
+    background: linear-gradient(to top, rgba(0,0,0,.8) 0%, transparent 100%);
+    display:flex;
+    align-items:flex-end;
+    padding: 3rem;
+  }
+  .about-page .final-text{
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: clamp(1.2rem, 4vw, 2.5rem);
+    color:#fff;
+    max-width: 60rem;
+    line-height: 1.4;
+  }
+
+  /* Footer (page local; base.html footer remains separate) */
+  .about-page .footer{
+    text-align:center;
+    padding: 2rem 0;
+  }
+  .about-page .footer-stars{
+    display:inline-flex;
+    align-items:center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .about-page .footer-title{
+    font-family: 'Dancing Script', cursive;
+    font-weight: 700;
+    font-size: 2.5rem;
+    font-style: italic;
+    margin-bottom: 1rem;
+  }
+  .about-page .footer-location{
+    font-family: 'Italiana', serif;
+    font-size: .875rem;
+    letter-spacing: .5em;
+  }
+
+  /* Responsive */
+  @media (max-width: 1024px){
+    .about-page .hero-grid{ grid-template-columns: 1fr; }
+    .about-page .hero-right{ padding-left: 0; }
+    .about-page .about-grid{ grid-template-columns: 1fr; }
+    .about-page .mission-grid{ grid-template-columns: 1fr; }
+    .about-page .mission-card{ border-right: none; border-top: 4px solid #000; }
+    .about-page .mission-card:first-child{ border-top: none; }
+    .about-page .chain-item{ grid-template-columns: 1fr; }
+    .about-page .timeline-grid{ grid-template-columns: 1fr; }
+    .about-page .stats-grid{ grid-template-columns: repeat(2, 1fr); }
+    .about-page .stat-card:nth-child(2),
+    .about-page .stat-card:nth-child(4){ border-right: none; }
+    .about-page .stat-card:nth-child(1),
+    .about-page .stat-card:nth-child(2){ border-bottom: 4px solid #fff; }
+    .about-page .support-grid{ grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 768px){
+    .about-page .hero-section{ padding: 2rem 1rem; }
+    .about-page .top-bar{ flex-direction: column; gap: 1rem; }
+    .about-page .hero-bottom{ flex-direction: column; align-items: flex-start; }
+    .about-page .stats-grid{ grid-template-columns: 1fr; }
+    .about-page .stat-card{ border-right: none; border-bottom: 4px solid #fff; }
+    .about-page .stat-card:last-child{ border-bottom: none; }
+    .about-page .final-overlay{ padding: 1.5rem; }
+    .about-page .cta-button{ padding: 1.1rem 1.6rem; font-size: 1.05rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .about-page *{ scroll-behavior: auto !important; }
+    .about-page .scroll-reveal{ transition: none !important; }
+    .about-page .cta-button svg{ transition: none !important; }
+    .about-page .mission-icon,
+    .about-page .chain-icon,
+    .about-page .timeline-year,
+    .about-page .support-icon{ transition: none !important; }
+    .about-page .grain::after{ animation: none !important; }
+  }
+
+  /* =========================================================
+   TIMELINE – APP / MOBILE RESPONSIVE FIX
+   ========================================================= */
+
+@media (max-width: 680px){
+  .about-page .timeline-section{
+    padding: 3rem 1rem;
+  }
+
+  .about-page .timeline-grid{
+    gap: 1.25rem;
+  }
+
+  .about-page .timeline-card{
+    padding: 1.4rem;
+  }
+
+  .about-page .timeline-year-row{
+    gap: .75rem;
+    margin-bottom: 1rem;
+  }
+
+  .about-page .timeline-year{
+    font-size: 2.4rem;
+  }
+
+  .about-page .timeline-line{
+    height: 3px;
+  }
+
+  .about-page .timeline-title{
+    font-size: 1.1rem;
+    letter-spacing: .18em;
+  }
+
+  .about-page .timeline-desc{
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+}
+
+</style>
+
+<section class="about-page">
+  <div class="grain">
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <!-- Large Background Text -->
+      <div class="bg-text">
+        <h1>CHHIMPHEI</h1>
+      </div>
+
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <div class="top-left animate-slide-left">
+          <div class="est-text">EST. 2018</div>
+          <div class="divider-line"></div>
+        </div>
+
+        <div class="top-right animate-slide-right">
+          <div class="location-text">MIZORAM, INDIA</div>
+        </div>
+      </div>
+
+      <!-- Main Title -->
+      <div class="hero-content">
+        <div class="hero-main animate-fade-up">
+          <h1 class="hero-title">
+            <span class="title-line crimson">WOMEN</span>
+            <span class="title-line">POULTRY</span>
+            <span class="title-line cursive crimson">Revolution</span>
+          </h1>
+
+          <div class="hero-grid">
+            <div class="hero-left">
+              <div class="divider-line-small"></div>
+              <p class="hero-tagline">
+                Empowering women.<br>
+                Elevating poultry.<br>
+                Serving Mizoram—<br>
+                <strong>fresh, safe, and fair.</strong>
+              </p>
+            </div>
+
+            <div class="hero-right">
+              <p class="hero-desc">
+                <strong class="crimson-text playfair">
+                  Chhimphei Women Poultry Producer Company Limited (WPPCL)
+                </strong> is the <strong>first women poultry producer company of Mizoram</strong>, established in 2018.
+              </p>
+              <p class="hero-desc">
+                We are committed to transforming the livelihoods of smallholder producers through a <strong>farmer-focused poultry value chain</strong>.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom CTA -->
+      <div class="hero-bottom animate-fade-in">
+        <button class="cta-button" type="button" onclick="window.location.href='/products'">
+          SHOP FRESH POULTRY
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+        </button>
+
+        <div class="support-text">SUPPORTED BY MzSRLM</div>
+      </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="about-section scroll-reveal">
+      <div class="container">
+        <div class="about-grid">
+          <div class="about-left">
+            <h2 class="about-title">Who We Are</h2>
+          </div>
+
+          <div class="about-right">
+            <div class="divider-line-small-white"></div>
+            <p class="about-subtitle">Farmer-first poultry ecosystem for Mizoram</p>
+            <p class="about-text">
+              We build a <strong>farmer-focused poultry value chain</strong> that raises incomes, improves skills,
+              and delivers market access—empowering women producers to grow sustainably.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mission Grid -->
+    <section class="mission-section">
+      <div class="container">
+        <div class="mission-grid">
+          <div class="mission-card scroll-reveal" style="transition-delay: 0s">
+            <svg class="mission-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="6"/>
+              <circle cx="12" cy="12" r="2"/>
+            </svg>
+
+            <h3 class="mission-title">MISSION</h3>
+            <div class="mission-divider"></div>
+            <p class="mission-subtitle">Transform smallholder livelihoods</p>
+
+            <div class="mission-points">
+              <div class="point-item"><div class="point-dot"></div><span>GPP TRAINING</span></div>
+              <div class="point-item"><div class="point-dot"></div><span>VETERINARY SUPPORT</span></div>
+              <div class="point-item"><div class="point-dot"></div><span>MARKET LINKAGES</span></div>
+            </div>
+          </div>
+
+          <div class="mission-card scroll-reveal" style="transition-delay: 0.15s">
+            <svg class="mission-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+
+            <h3 class="mission-title">VISION</h3>
+            <div class="mission-divider"></div>
+            <p class="mission-subtitle">Fair, safe, and resilient poultry</p>
+
+            <div class="mission-points">
+              <div class="point-item"><div class="point-dot"></div><span>FOOD SAFETY</span></div>
+              <div class="point-item"><div class="point-dot"></div><span>AFFORDABILITY</span></div>
+              <div class="point-item"><div class="point-dot"></div><span>RESILIENCE</span></div>
+            </div>
+          </div>
+
+          <div class="mission-card scroll-reveal" style="transition-delay: 0.3s">
+            <svg class="mission-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+
+            <h3 class="mission-title">VALUES</h3>
+            <div class="mission-divider"></div>
+            <p class="mission-subtitle">Quality • Dignity • Transparency</p>
+
+            <div class="mission-points">
+              <div class="point-item"><div class="point-dot"></div><span>QUALITY</span></div>
+              <div class="point-item"><div class="point-dot"></div><span>DIGNITY</span></div>
+              <div class="point-item"><div class="point-dot"></div><span>TRANSPARENCY</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Value Chain -->
+    <section class="value-chain-section">
+      <div class="container">
+        <div class="value-chain-header scroll-reveal">
+          <h2 class="value-chain-title">
+            OUR <span class="cursive">FARMER-FOCUSED</span><br>
+            POULTRY VALUE CHAIN
+          </h2>
+          <p class="value-chain-subtitle">Designed to capture value for producers and trust for consumers</p>
+        </div>
+
+        <div class="value-chain-list">
+          <div class="chain-item scroll-reveal" style="transition-delay: 0s">
+            <div class="chain-number">01</div>
+
+            <div class="chain-content">
+              <svg class="chain-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              <h3 class="chain-title">Producer Services</h3>
+              <p class="chain-subtitle">Input & Training</p>
+              <p class="chain-desc">Feed, chicks, veterinary support & Good Poultry Practices (GPP) delivered to doorstep clusters.</p>
+            </div>
+
+            <div class="chain-image">
+              <img src="https://images.unsplash.com/photo-1709546599204-260ad1d8a3fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjB3b21lbiUyMGZhcm1lcnMlMjBwb3VsdHJ5fGVufDF8fHx8MTc2OTY4MDcwOXww&ixlib=rb-4.1.0&q=80&w=1080" alt="Producer Services" loading="lazy">
+            </div>
+          </div>
+
+          <div class="chain-item scroll-reveal" style="transition-delay: 0.2s">
+            <div class="chain-number">02</div>
+
+            <div class="chain-content">
+              <svg class="chain-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                <line x1="12" y1="22.08" x2="12" y2="12"/>
+              </svg>
+              <h3 class="chain-title">Processing</h3>
+              <p class="chain-subtitle">Fresh-Cut & Hygienic</p>
+              <p class="chain-desc">Sanitized preparation, cold-chain aware packing and weight-accurate labelling.</p>
+            </div>
+
+            <div class="chain-image">
+              <img src="https://images.unsplash.com/photo-1689356157351-4d2500740b89?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmcmVzaCUyMGNoaWNrZW4lMjBmYXJtJTIwaHlnaWVuaWN8ZW58MXx8fHwxNzY5NjgwNzEwfDA&ixlib=rb-4.1.0&q=80&w=1080" alt="Processing" loading="lazy">
+            </div>
+          </div>
+
+          <div class="chain-item scroll-reveal" style="transition-delay: 0.4s">
+            <div class="chain-number">03</div>
+
+            <div class="chain-content">
+              <svg class="chain-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="9" cy="21" r="1"/>
+                <circle cx="20" cy="21" r="1"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+              </svg>
+              <h3 class="chain-title">Market Access</h3>
+              <p class="chain-subtitle">Chhimpheichicken.com</p>
+              <p class="chain-desc">Direct-to-consumer e-commerce with fair pricing, COD, and same-day delivery.</p>
+            </div>
+
+           <div class="chain-image">
+ <div class="chain-image">
+ <img src="{{ url_for('static', filename='/chickenmeat.jpg') }}"
+     alt="Fresh chicken meat"
+     loading="lazy">
+
+</div>
+
+
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Timeline -->
+    <section class="timeline-section">
+      <div class="container">
+        <h2 class="timeline-header scroll-reveal">Milestones</h2>
+
+        <div class="timeline-grid">
+          <div class="timeline-card scroll-reveal" style="transition-delay: 0s">
+            <div class="timeline-year-row">
+              <div class="timeline-year">2018</div>
+              <div class="timeline-line"></div>
+            </div>
+            <h3 class="timeline-title">INCORPORATION</h3>
+            <p class="timeline-desc">First women poultry producer company of Mizoram established.</p>
+          </div>
+
+          <div class="timeline-card scroll-reveal" style="transition-delay: 0.1s">
+            <div class="timeline-year-row">
+              <div class="timeline-year">2019</div>
+              <div class="timeline-line"></div>
+            </div>
+            <h3 class="timeline-title">PRODUCER TRAINING</h3>
+            <p class="timeline-desc">Standardized GPP modules delivered across clusters.</p>
+          </div>
+
+          <div class="timeline-card scroll-reveal" style="transition-delay: 0.2s">
+            <div class="timeline-year-row">
+              <div class="timeline-year">2021</div>
+              <div class="timeline-line"></div>
+            </div>
+            <h3 class="timeline-title">HYGIENIC FRESH-CUT</h3>
+            <p class="timeline-desc">Upgraded processing for safe, sealed, and traceable packs.</p>
+          </div>
+
+          <div class="timeline-card scroll-reveal" style="transition-delay: 0.3s">
+            <div class="timeline-year-row">
+              <div class="timeline-year">2023</div>
+              <div class="timeline-line"></div>
+            </div>
+            <h3 class="timeline-title">D2C ROLL-OUT</h3>
+            <p class="timeline-desc">"chhimphei.com" launched to deliver fresh hygienic poultry to consumers.</p>
+          </div>
+        </div>
+
+        <div class="whats-next scroll-reveal">
+          <h3 class="whats-next-title">WHAT'S NEXT</h3>
+          <p class="whats-next-text">
+            Expanding producer base, strengthening cold-chain, and building last-mile delivery quality across Aizawl.
+          </p>
+          <div class="next-tags">
+            <div class="next-tag">COLD-CHAIN</div>
+            <div class="next-tag">TRACEABILITY</div>
+            <div class="next-tag">FAIR PRICING</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section scroll-reveal">
+      <div class="container">
+        <h2 class="stats-header">
+          IMPACT AT<br>
+          <span class="cursive">A Glance</span>
+        </h2>
+
+        <div class="stats-grid">
+          <div class="stat-card" style="transition-delay: 0s">
+            <div class="stat-value">1ST</div>
+            <div class="stat-label">Women Poultry Producer Co. in Mizoram</div>
+          </div>
+
+          <div class="stat-card" style="transition-delay: 0.1s">
+            <div class="stat-value">2018</div>
+            <div class="stat-label">Established</div>
+          </div>
+
+          <div class="stat-card" style="transition-delay: 0.2s">
+            <div class="stat-value">100%</div>
+            <div class="stat-label">Hygienic fresh-cut focus</div>
+          </div>
+
+          <div class="stat-card" style="transition-delay: 0.3s">
+            <div class="stat-value">COD</div>
+            <div class="stat-label">Convenient doorstep payments</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Support Section -->
+    <section class="support-section">
+      <div class="container">
+        <div class="support-header scroll-reveal">
+          <h2 class="support-title">Supported by</h2>
+          <p class="support-subtitle">Government & community partnerships</p>
+        </div>
+
+        <div class="support-grid">
+          <div class="support-card scroll-reveal" style="transition-delay: 0s">
+            <svg class="support-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="8" r="7"/>
+              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>
+            </svg>
+            <h3 class="support-name">MzSRLM, Govt. of Mizoram</h3>
+          </div>
+
+          <div class="support-card scroll-reveal" style="transition-delay: 0.15s">
+            <svg class="support-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <h3 class="support-name">Women Producer Collectives</h3>
+          </div>
+
+          <div class="support-card scroll-reveal" style="transition-delay: 0.3s">
+            <svg class="support-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <h3 class="support-name">Trusted Local Stores</h3>
+          </div>
+        </div>
+
+        <!-- Final Image -->
+        <div class="final-image scroll-reveal">
+          <img src="https://images.unsplash.com/photo-1759738101500-6d8d522b2681?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb21tdW5pdHklMjB3b21lbiUyMGdyb3VwJTIwcnVyYWx8ZW58MXx8fHwxNzY5NjgwNzEwfDA&ixlib=rb-4.1.0&q=80&w=1080" alt="Community" loading="lazy">
+          <div class="final-overlay">
+            <p class="final-text">Together, we're building a sustainable future for Mizoram's poultry industry</p>
+          </div>
+        </div>
+
+        <!-- Footer (page local content; base footer still exists) -->
+        <div class="footer scroll-reveal">
+          <div class="footer-stars" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#8B0000" stroke="#8B0000" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#8B0000" stroke="#8B0000" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#8B0000" stroke="#8B0000" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#8B0000" stroke="#8B0000" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#8B0000" stroke="#8B0000" stroke-width="2">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          </div>
+          <p class="footer-title">Chhimphei Women Poultry Producer Company Limited</p>
+          <p class="footer-location">MIZORAM • 2018 • INDIA</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</section>
+
+<script>
+  // =========================================================
+  // ABOUT (Merged: script.js) — Scoped to .about-page
+  // =========================================================
+
+  (function(){
+    const root = document.querySelector('.about-page');
+    if(!root) return;
+
+    // Scroll Reveal Animation
+    function reveal() {
+      const reveals = root.querySelectorAll('.scroll-reveal');
+
+      reveals.forEach(element => {
+        const windowHeight = window.innerHeight;
+        const elementTop = element.getBoundingClientRect().top;
+        const elementVisible = 150;
+
+        if (elementTop < windowHeight - elementVisible) {
+          element.classList.add('active');
+        } else {
+          element.classList.remove('active');
+        }
+      });
+    }
+
+    // Throttle function for better performance
+    function throttle(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+
+    // Initialize on page load
+    window.addEventListener('load', () => {
+      reveal();
+    });
+
+    // Scroll event listener with throttle
+    window.addEventListener('scroll', throttle(reveal, 100));
+
+    // Stat cards animation on scroll
+    const statCards = root.querySelectorAll('.stat-card');
+    let statsAnimated = false;
+
+    function animateStats() {
+      if (statsAnimated) return;
+
+      const statsSection = root.querySelector('.stats-section');
+      if (!statsSection) return;
+
+      const windowHeight = window.innerHeight;
+      const sectionTop = statsSection.getBoundingClientRect().top;
+
+      if (sectionTop < windowHeight - 200) {
+        statsAnimated = true;
+        statCards.forEach((card, index) => {
+          setTimeout(() => {
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.8)';
+
+            setTimeout(() => {
+              card.style.transition = 'all 0.5s ease-out';
+              card.style.opacity = '1';
+              card.style.transform = 'scale(1)';
+            }, 50);
+          }, index * 100);
+        });
+      }
+    }
+
+    window.addEventListener('scroll', throttle(animateStats, 100));
+
+    // CTA Button arrow animation
+    const ctaButton = root.querySelector('.cta-button');
+    if (ctaButton) {
+      ctaButton.addEventListener('mouseenter', () => {
+        const arrow = ctaButton.querySelector('svg');
+        if (arrow) arrow.style.transform = 'translateX(0.5rem)';
+      });
+
+      ctaButton.addEventListener('mouseleave', () => {
+        const arrow = ctaButton.querySelector('svg');
+        if (arrow) arrow.style.transform = 'translateX(0)';
+      });
+    }
+
+    // Mission card icon rotation on hover
+    const missionCards = root.querySelectorAll('.mission-card');
+    missionCards.forEach(card => {
+      const icon = card.querySelector('.mission-icon');
+      card.addEventListener('mouseenter', () => { if (icon) icon.style.transform = 'rotate(12deg)'; });
+      card.addEventListener('mouseleave', () => { if (icon) icon.style.transform = 'rotate(0deg)'; });
+    });
+
+    // Chain item icon scale on hover
+    const chainItems = root.querySelectorAll('.chain-item');
+    chainItems.forEach(item => {
+      const icon = item.querySelector('.chain-icon');
+      item.addEventListener('mouseenter', () => { if (icon) icon.style.transform = 'scale(1.1)'; });
+      item.addEventListener('mouseleave', () => { if (icon) icon.style.transform = 'scale(1)'; });
+    });
+
+    // Timeline card year scale on hover
+    const timelineCards = root.querySelectorAll('.timeline-card');
+    timelineCards.forEach(card => {
+      const year = card.querySelector('.timeline-year');
+      card.addEventListener('mouseenter', () => { if (year) year.style.transform = 'scale(1.1)'; });
+      card.addEventListener('mouseleave', () => { if (year) year.style.transform = 'scale(1)'; });
+    });
+
+    // Support card icon rotation on hover
+    const supportCards = root.querySelectorAll('.support-card');
+    supportCards.forEach(card => {
+      const icon = card.querySelector('.support-icon');
+      card.addEventListener('mouseenter', () => { if (icon) icon.style.transform = 'rotate(12deg)'; });
+      card.addEventListener('mouseleave', () => { if (icon) icon.style.transform = 'rotate(0deg)'; });
+    });
+
+    // Smooth scroll for any internal links (if added)
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        const href = this.getAttribute('href');
+        if(!href) return;
+        const target = document.querySelector(href);
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    // Image lazy loading fallback
+    const images = root.querySelectorAll('img');
+    images.forEach(img => {
+      img.addEventListener('error', function() {
+        this.style.backgroundColor = '#f0f0f0';
+        this.alt = 'Image unavailable';
+      });
+    });
+
+    // Parallax effect for background text
+    let lastScrollTop = 0;
+    const bgText = root.querySelector('.bg-text');
+
+    function parallaxScroll() {
+      if (!bgText) return;
+
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollDiff = scrollTop - lastScrollTop;
+
+      const currentTransform = bgText.style.transform || 'translate(-50%, -50%)';
+      const currentRotation = parseFloat((currentTransform.match(/rotate\(([-\d.]+)deg\)/) || [])[1] || 0);
+
+      const newRotation = currentRotation + (scrollDiff * 0.05);
+      bgText.style.transform = `translate(-50%, -50%) rotate(${newRotation}deg)`;
+
+      lastScrollTop = scrollTop;
+    }
+
+    window.addEventListener('scroll', throttle(parallaxScroll, 50));
+
+    // Initialize animations on load
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(reveal, 100);
+
+      setTimeout(() => {
+        const heroAnimations = root.querySelectorAll('.animate-fade-up, .animate-slide-left, .animate-slide-right, .animate-fade-in');
+        heroAnimations.forEach(el => {
+          el.style.opacity = '1';
+          el.style.transform = 'translateY(0) translateX(0)';
+        });
+      }, 100);
+    });
+
+    // Handle window resize
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { reveal(); }, 250);
+    });
+
+    // Console message
+    console.log('%c Chhimphei WPPCL ', 'background: #8B0000; color: white; font-size: 20px; padding: 10px;');
+    console.log('%c Empowering women. Elevating poultry. Serving Mizoram. ', 'font-size: 12px; color: #8B0000;');
+  })();
+</script>
+
+{% endblock %}

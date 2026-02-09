@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  main.container{
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* ============================================
+     ✅ LOGIN PAGE — BRUTALIST CRIMSON (MATCH CONTACT)
+     - Keeps your SAME HTML structure + SAME JS behavior
+     - Only restyles to match the contact-page-brutalist look
+     - Full-bleed inside base.html container
+     - Web + mobile/app responsive
+     ============================================ */
+
+  .login-page{
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    position: relative;
+    overflow-x: clip;
+ font-weight: bold;
+    background: #FAF9F6;
+    color: #000;
+    padding: clamp(28px, 4vw, 70px) 0;
+    font-family: 'Cormorant Garamond', serif;
+  }
+
+  /* Grain overlay */
+  .login-page::after{
+    content:"";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.08;
+    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="4" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    animation: grain 0.5s steps(6) infinite;
+  }
+
+  @keyframes grain{
+    0%,100%{transform:translate(0,0);}
+    10%{transform:translate(-5%,-10%);}
+    20%{transform:translate(-15%,5%);}
+    30%{transform:translate(7%,-25%);}
+    40%{transform:translate(-5%,25%);}
+    50%{transform:translate(-15%,10%);}
+    60%{transform:translate(15%,0%);}
+    70%{transform:translate(0%,15%);}
+    80%{transform:translate(3%,35%);}
+    90%{transform:translate(-10%,10%);}
+  }
+
+  /* Cursor (desktop only) */
+  @media (min-width: 481px){
+    .login-page,
+    .login-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 4c-2 0-3 1-4 2l-2 3c-1 1-2 2-2 4v6c0 2 1 3 2 4l2 3c1 1 2 2 4 2s3-1 4-2l2-3c1-1 2-2 2-4v-6c0-2-1-3-2-4l-2-3c-1-1-2-2-4-2zm0 2c1 0 2 1 3 2l2 2c1 1 1 2 1 3v6c0 1 0 2-1 3l-2 2c-1 1-2 2-3 2s-2-1-3-2l-2-2c-1-1-1-2-1-3v-6c0-1 0-2 1-3l2-2c1-1 2-2 3-2z" fill="%238B0000"/><circle cx="16" cy="12" r="1.5" fill="%238B0000"/><circle cx="16" cy="20" r="1.5" fill="%238B0000"/></svg>'), auto;
+    }
+    .login-page button,
+    .login-page a{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 4c-2 0-3 1-4 2l-2 3c-1 1-2 2-2 4v6c0 2 1 3 2 4l2 3c1 1 2 2 4 2s3-1 4-2l2-3c1-1 2-2 2-4v-6c0-2-1-3-2-4l-2-3c-1-1-2-2-4-2zm0 2c1 0 2 1 3 2l2 2c1 1 1 2 1 3v6c0 1 0 2-1 3l-2 2c-1 1-2 2-3 2s-2-1-3-2l-2-2c-1-1-1-2-1-3v-6c0-1 0-2 1-3l2-2c1-1 2-2 3-2z" fill="%238B0000"/><circle cx="16" cy="12" r="1.5" fill="%238B0000"/><circle cx="16" cy="20" r="1.5" fill="%238B0000"/><path d="M16 14l4 4h-8z" fill="%238B0000"/></svg>'), pointer !important;
+    }
+  }
+  @media (max-width: 480px){
+    .login-page,
+    .login-page *{ cursor:auto !important; }
+  }
+
+  /* No background circles/orbs */
+  .login-bg-orb{ display:none !important; }
+
+  .login-container{
+    max-width: none;
+    margin: 0;
+    padding: 0 clamp(14px, 3vw, 44px);
+    position: relative;
+    z-index: 1;
+  }
+
+  .login-header{
+    text-align:center;
+    margin: 0 auto clamp(18px, 4vw, 34px);
+    position: relative;
+    z-index: 1;
+  }
+
+  .login-title{
+    margin: 0;
+    display: inline-block;
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(42px, 7vw, 86px);
+    font-weight: 900;
+    line-height: .95;
+    text-transform: uppercase;
+    letter-spacing: clamp(-2px, -0.2vw, -4px);
+    border: 4px solid #000;
+    padding: clamp(10px, 2vw, 18px) clamp(16px, 4vw, 46px);
+    background: #FAF9F6;
+    transition: all .28s ease;
+    position: relative;
+  }
+  .login-title span{ color: #8B0000; }
+
+  /* ✅ Stronger hover for title */
+  .login-title:hover{
+    transform: translate(3px,3px);
+    box-shadow: -10px -10px 0 #8B0000;
+    background: #fff;
+  }
+
+  .login-subtitle{
+    margin: 16px auto 0;
+    max-width: 820px;
+    font-size: clamp(14px, 2vw, 18px);
+    font-weight: 600;
+    color: #333;
+    line-height: 1.6;
+    padding: 0 6px;
+  }
+
+  .form{
+    margin: 0 auto;
+    max-width: 720px;
+    border: 4px solid #000;
+    background: #FAF9F6;
+    border-radius: 0;
+    padding: clamp(18px, 3vw, 40px);
+    box-shadow: none;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .form-group{ margin-bottom: clamp(14px, 2.3vw, 22px); position: relative; }
+
+  .form-label{
+    display:block;
+    margin-bottom: 10px;
+    font-family: 'Italiana', serif;
+    font-size: 14px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #000;
+  }
+
+  .input-group{ position:relative; display:flex; align-items:center; }
+
+  .input-icon{
+    position:absolute;
+    left: 14px;
+    z-index:2;
+    pointer-events:none;
+    opacity: .95;
+    filter: none;
+  }
+
+  .form-input{
+    width:100%;
+    padding: 16px 20px 16px 54px;
+    border: 4px solid #000;
+    border-radius: 0;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    font-weight: 600;
+    background: #FAF9F6;
+    color: #000;
+    outline:none;
+    transition: all .28s ease;
+    min-height: 56px;
+  }
+
+  .form-input::placeholder{ color:#666; font-weight:400; }
+
+  .form-group.focused .input-icon{ transform: none; opacity: 1; }
+
+  .form-input:focus{
+    background:#fff;
+    border-color:#8B0000;
+    box-shadow: 10px 10px 0 #8B0000;
+    transform:none;
+  }
+
+  /* ✅ Stronger hover for inputs */
+  .form-input:hover{
+    background:#fff;
+    box-shadow: 10px 10px 0 rgba(0,0,0,.18);
+    transform: translate(-1px,-1px);
+  }
+
+  /* ✅ Eye toggle redesigned: less bold border, more "designed" */
+  .password-toggle{
+    position:absolute;
+    right: 10px;
+    background: #fff;
+    border: 2px solid #000;      /* less bold than inputs */
+    border-radius: 10px;         /* modern shape */
+    padding: 9px 11px;
+    color: #000;
+    z-index:2;
+    min-width:46px;min-height:46px;
+    display:flex;align-items:center;justify-content:center;
+    transition: all .22s ease;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 6px 6px 0 rgba(0,0,0,.14);  /* designed “card” feel */
+  }
+
+  /* ✅ Stronger hover for eye, still light themed */
+  .password-toggle:hover{
+    background:#FAF9F6;
+    transform: translate(2px,2px);
+    box-shadow: -8px -8px 0 rgba(139,0,0,.35);
+  }
+
+  .password-toggle:active{
+    transform: translate(0,0);
+    box-shadow: 4px 4px 0 rgba(0,0,0,.12);
+  }
+
+  .password-toggle svg{
+    width: 19px;
+    height: 19px;
+    display:block;
+  }
+
+  .features{
+    display:grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 10px;
+    margin: clamp(16px, 2.4vw, 22px) 0;
+    padding: 14px;
+    border: 4px solid #000;
+    background: #FAF9F6;
+  }
+
+  .feature{
+    text-align:center;
+    padding: 12px 10px;
+    border: 2px solid #000;
+    transition: all .25s ease;
+    background:#FAF9F6;
+    color:#000;
+  }
+
+  /* ✅ Stronger hover (still light) */
+  .feature:hover{
+    background:#fff;
+    transform: translate(3px,3px);
+    box-shadow: -10px -10px 0 rgba(139,0,0,.28);
+  }
+
+  .feature-icon{ font-size: 1.35rem; margin-bottom: 6px; display:block; min-height: 28px; }
+  .feature-text{
+    font-size: .9rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color:#333;
+  }
+
+  .security-note{
+    margin: 18px 0;
+    padding: 14px 14px;
+    border: 4px solid #000;
+    background: #FAF9F6;
+    color:#000;
+    text-align:center;
+    line-height: 1.45;
+    transition: all .25s ease;
+  }
+  .security-note strong{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-family:'Playfair Display', serif;
+    font-weight:900;
+    text-transform: uppercase;
+    letter-spacing: -.5px;
+  }
+  .security-note:hover{
+    background:#fff;
+    transform: translate(3px,3px);
+    box-shadow: -10px -10px 0 rgba(139,0,0,.28);
+  }
+
+  /* Submit button — keep existing hover behavior */
+  .login-container .btn{
+    width: 100%;
+    min-height: 58px;
+    border: 4px solid #000;
+    border-radius: 0;
+    background: #8B0000;
+    color: #FAF9F6;
+    font-family:'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.5px;
+    padding: 18px 22px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap: 10px;
+    transition: all .3s ease;
+    box-shadow: none;
+    margin-top: 10px;
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .login-container .btn:hover{
+    background:#000;
+    transform: translate(4px,4px);
+    box-shadow: -8px -8px 0 #8B0000;
+    filter:none;
+  }
+  .login-container .btn:active{ transform: translate(0,0); box-shadow:none; }
+
+  /* ✅ Fix: when hovering button, update BOTH text and icon (lord-icon inherits currentColor) */
+  .login-container .btn:hover .icon-inline,
+  .login-container .btn:hover lord-icon{
+    filter: none;
+  }
+  .login-container .btn lord-icon{
+    color: currentColor;
+  }
+
+
+  .form-footer{
+    max-width: 720px;
+    margin: 18px auto 0;
+    padding-top: 16px;
+    border-top: 4px solid #000;
+    text-align:center;
+  }
+
+  .login-container .muted{
+    margin: 0;
+    color:#333;
+    font-weight:700;
+    font-size: 1rem;
+  }
+
+  .links{
+    display:flex;
+    justify-content:center;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .link{
+    border: 4px solid #000;
+    border-radius: 0;
+    background:#FAF9F6;
+    color:#000;
+    font-family:'Playfair Display', serif;
+    font-weight:900;
+    text-transform: uppercase;
+    letter-spacing: -0.3px;
+    padding: 12px 16px;
+    display:inline-flex;
+    align-items:center;
+    gap: 8px;
+    min-height: 46px;
+    transition: all .25s ease;
+  }
+
+  /* ✅ Stronger light hover for links */
+  .link:hover{
+    background:#fff;
+    transform: translate(3px,3px);
+    box-shadow: -10px -10px 0 rgba(139,0,0,.28);
+  }
+  .link:active{ transform: translate(0,0); box-shadow:none; }
+
+  /* ✅ Also ensure link icons follow text color when hovered */
+  .link:hover lord-icon{ color: currentColor; }
+
+  @media (max-width: 768px){
+    .form{ max-width: 100%; }
+    .form-footer{ max-width: 100%; }
+    .links{ flex-direction: column; }
+    .link{ justify-content:center; width: 100%; }
+  }
+
+  @media (max-width: 480px){
+    .login-page{ padding: 22px 0; }
+    .features{ gap: 8px; padding: 12px; }
+    .feature{ padding: 10px 6px; }
+    .feature-icon{ font-size: 1.15rem; margin-bottom: 4px; min-height: 22px; }
+    .feature-text{ font-size: .78rem; word-break: break-word; }
+    .login-container .btn{ font-size: 18px; }
+    .password-toggle{ padding: 9px 10px; }
+  }
+
+  /* Touch devices: keep calmer (no hover lifts) */
+  @media (hover: none) and (pointer: coarse){
+    .login-title:hover,
+    .form-input:hover,
+    .feature:hover,
+    .link:hover,
+    .password-toggle:hover,
+    .security-note:hover{
+      transform:none;
+      box-shadow:none;
+    }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce){
+    .login-page::after{ animation:none !important; opacity:.05; }
+    .login-title, .form-input, .feature, .link, .password-toggle, .security-note, .login-container .btn{
+      transition:none !important;
+      animation:none !important;
+    }
+  }
+
+  /* keep your existing animations working */
+  @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+  .loading{ animation: spin 1s linear infinite; }
+  @keyframes success { 0%{transform:scale(1)} 50%{transform:scale(1.1)} 100%{transform:scale(1)} }
+  .success{ animation: success .6s ease; }
+</style>
+
+<div class="login-page">
+  <div class="login-container">
+    <div class="login-bg-orb orb-1"></div>
+    <div class="login-bg-orb orb-2"></div>
+
+    <div class="login-header">
+      <h1 class="login-title">Welcome <span>Back</span></h1>
+      <p class="login-subtitle">Sign in to your account to continue shopping</p>
+    </div>
+
+    <form method="post" class="form">
+      <!-- Email Field -->
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <div class="input-group">
+          <span class="input-icon">
+            <lord-icon src="https://cdn.lordicon.com/dhjqydqh.json" trigger="hover" colors="primary:#000000" style="width:20px;height:20px"></lord-icon>
+          </span>
+          <input name="email" type="email" class="form-input" placeholder="Enter your email" required autocomplete="email">
+        </div>
+      </div>
+
+      <!-- Password Field -->
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-group">
+          <input name="password" type="password" class="form-input" id="passwordInput" placeholder="Enter your password" required autocomplete="current-password">
+
+          <button type="button" class="password-toggle" id="passwordToggle" aria-label="Show password">
+            <!-- Eye closed (default) -->
+            <svg id="eyeClosed" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M4 4 20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <!-- Eye open (hidden until toggled) -->
+            <svg id="eyeOpen" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:none;">
+              <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Features Section -->
+      <div class="features">
+        <div class="feature">
+          <span class="feature-icon">🚚</span>
+          <div class="feature-text">Fast Delivery</div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">🔒</span>
+          <div class="feature-text">Secure Payment</div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">⭐</span>
+          <div class="feature-text">Quality Products</div>
+        </div>
+      </div>
+
+      <!-- Security Note -->
+      <div class="security-note">
+        <strong>
+          <lord-icon src="https://cdn.lordicon.com/ttioogfl.json" trigger="loop" delay="2000" style="width:16px;height:16px"></lord-icon>
+          Your security is our priority
+        </strong>
+        <div>We use advanced encryption to protect your data</div>
+      </div>
+
+      <!-- Submit Button -->
+      <button class="btn" type="submit" id="submitBtn">
+        <span class="icon-inline">
+          <lord-icon src="https://cdn.lordicon.com/kthelypq.json" trigger="loop" delay="2000" style="width:20px;height:20px"></lord-icon>
+        </span>
+        <span id="btnText">Sign In</span>
+      </button>
+    </form>
+
+    <div class="form-footer">
+      <p class="muted">Don't have an account?</p>
+      <div class="links">
+        <a href="{{ url_for('register') }}" class="link">
+          <lord-icon src="https://cdn.lordicon.com/mecwbjnp.json" trigger="hover" style="width:16px;height:16px"></lord-icon>
+          Create an account
+        </a>
+        <a href="{{ url_for('forgot_password') }}" class="link">
+          <lord-icon src="https://cdn.lordicon.com/ogkplaef.json" trigger="hover" style="width:16px;height:16px"></lord-icon>
+          Forgot password?
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const passwordInput = document.getElementById('passwordInput');
+    const passwordToggle = document.getElementById('passwordToggle');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const form = document.querySelector('.form');
+
+    const eyeClosed = document.getElementById('eyeClosed');
+    const eyeOpen = document.getElementById('eyeOpen');
+
+    // Add "focused" class for icon animation
+    document.querySelectorAll('.form-input').forEach(input => {
+      const group = input.closest('.form-group');
+      input.addEventListener('focus', () => group?.classList.add('focused'));
+      input.addEventListener('blur',  () => group?.classList.remove('focused'));
+    });
+
+    // Password visibility toggle
+    function togglePasswordVisibility() {
+      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordInput.setAttribute('type', type);
+
+      if (type === 'text') {
+        if (eyeClosed) eyeClosed.style.display = 'none';
+        if (eyeOpen) eyeOpen.style.display = 'block';
+        passwordToggle.setAttribute('aria-label', 'Hide password');
+      } else {
+        if (eyeClosed) eyeClosed.style.display = 'block';
+        if (eyeOpen) eyeOpen.style.display = 'none';
+        passwordToggle.setAttribute('aria-label', 'Show password');
+      }
+    }
+
+    passwordToggle.addEventListener('click', togglePasswordVisibility);
+    passwordToggle.addEventListener('touchend', function(e) {
+      e.preventDefault();
+      togglePasswordVisibility();
+    });
+
+    // Form submission loading state (keeps your behavior)
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const btnIcon = submitBtn.querySelector('lord-icon');
+
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.9';
+      btnIcon.setAttribute('src', 'https://cdn.lordicon.com/xjovhzzh.json');
+      btnIcon.classList.add('loading');
+      if (btnText) btnText.textContent = 'Signing In...';
+
+      setTimeout(() => {
+        btnIcon.classList.remove('loading');
+        btnIcon.setAttribute('src', 'https://cdn.lordicon.com/grnqjqrb.json');
+        btnIcon.classList.add('success');
+
+        setTimeout(() => form.submit(), 900);
+      }, 1200);
+    });
+  });
+</script>
+
+<script src="https://cdn.lordicon.com/lordicon.js"></script>
+{% endblock %}

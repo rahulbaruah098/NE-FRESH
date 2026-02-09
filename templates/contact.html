@@ -1,0 +1,1037 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  /* ============================================
+     BRUTALIST CONTACT PAGE - CRIMSON AESTHETIC
+     ✅ FIX 1: Mobile "Us" not touching "CONTACT" box
+     ✅ ADD 2: Google Maps open option (keeps current embedded map)
+     ✅ KEEP: All layout/animations/interactions same
+     ============================================ */
+
+  .contact-page-brutalist,
+  .contact-page-brutalist *{ box-sizing: border-box; }
+  .contact-page-brutalist{ margin:0; padding:0; }
+
+  .contact-page-brutalist{
+    width: 100vw;
+     font-weight: bold;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+ font-weight: bold;
+    min-height: 100vh;
+    background-color: #FAF9F6;
+    position: relative;
+    font-family: 'Cormorant Garamond', serif;
+    color: #000;
+
+    padding: clamp(22px, 3.2vw, 56px) 0;
+    overflow-x: clip;
+  }
+
+  .contact-page-brutalist img{max-width:100%;display:block;}
+  .contact-page-brutalist a{text-decoration:none;color:inherit;}
+
+  /* Custom Cursor (scoped) */
+  .contact-page-brutalist,
+  .contact-page-brutalist *{
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 4c-2 0-3 1-4 2l-2 3c-1 1-2 2-2 4v6c0 2 1 3 2 4l2 3c1 1 2 2 4 2s3-1 4-2l2-3c1-1 2-2 2-4v-6c0-2-1-3-2-4l-2-3c-1-1-2-2-4-2zm0 2c1 0 2 1 3 2l2 2c1 1 1 2 1 3v6c0 1 0 2-1 3l-2 2c-1 1-2 2-3 2s-2-1-3-2l-2-2c-1-1-1-2-1-3v-6c0-1 0-2 1-3l2-2c1-1 2-2 3-2z" fill="%238B0000"/><circle cx="16" cy="12" r="1.5" fill="%238B0000"/><circle cx="16" cy="20" r="1.5" fill="%238B0000"/></svg>'), auto;
+  }
+  .contact-page-brutalist button,
+  .contact-page-brutalist a{
+    cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 4c-2 0-3 1-4 2l-2 3c-1 1-2 2-2 4v6c0 2 1 3 2 4l2 3c1 1 2 2 4 2s3-1 4-2l2-3c1-1 2-2 2-4v-6c0-2-1-3-2-4l-2-3c-1-1-2-2-4-2zm0 2c1 0 2 1 3 2l2 2c1 1 1 2 1 3v6c0 1 0 2-1 3l-2 2c-1 1-2 2-3 2s-2-1-3-2l-2-2c-1-1-1-2-1-3v-6c0-1 0-2 1-3l2-2c1-1 2-2 3-2z" fill="%238B0000"/><circle cx="16" cy="12" r="1.5" fill="%238B0000"/><circle cx="16" cy="20" r="1.5" fill="%238B0000"/><path d="M16 14l4 4h-8z" fill="%238B0000"/></svg>'), pointer !important;
+  }
+
+  /* Film Grain Overlay */
+  .contact-page-brutalist .grain-overlay{
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.08;
+    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="4" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    animation: grain 0.5s steps(6) infinite;
+  }
+  @keyframes grain{
+    0%,100%{transform:translate(0,0);}
+    10%{transform:translate(-5%,-10%);}
+    20%{transform:translate(-15%,5%);}
+    30%{transform:translate(7%,-25%);}
+    40%{transform:translate(-5%,25%);}
+    50%{transform:translate(-15%,10%);}
+    60%{transform:translate(15%,0%);}
+    70%{transform:translate(0%,15%);}
+    80%{transform:translate(3%,35%);}
+    90%{transform:translate(-10%,10%);}
+  }
+
+  .contact-page-brutalist .contact-container{
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0 clamp(12px, 2.4vw, 36px);
+  }
+
+  /* Hero */
+  .contact-page-brutalist .contact-hero{
+    text-align:center;
+    margin-bottom: clamp(26px, 4vw, 62px);
+  }
+ .contact-page-brutalist .hero-title{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap: clamp(10px, 1.6vw, 18px); /* ✅ adds space between box + script */
+  margin:0;
+}
+
+  .contact-page-brutalist .title-main{
+    font-family:'Playfair Display', serif;
+    font-size: clamp(40px, 8.6vw, 130px);
+    font-weight: 900;
+    line-height: .9;
+    color:#000;
+    letter-spacing: clamp(-2px, -0.25vw, -4px);
+    text-transform: uppercase;
+    border: 4px solid #000;
+    padding: clamp(10px, 2vw, 16px) clamp(16px, 4.4vw, 50px);
+    background:#FAF9F6;
+    position:relative;
+    z-index:2;
+  }
+  .contact-page-brutalist .title-script{
+  font-family:'Dancing Script', cursive;
+  font-size: clamp(28px, 6.6vw, 92px);
+  font-weight:700;
+  color:#8B0000;
+
+  margin-top: 0;          /* ✅ stop pulling into the box */
+  padding-top: 0;
+  position:relative;
+  z-index:1;
+  line-height: 1.05;
+}
+
+
+  /* ✅ EXTRA MOBILE FIX: stop overlap on very small screens 
+   @media (max-width: 520px){
+    .contact-page-brutalist .title-script{
+       reduce negative overlap + add safe gap 
+      margin-top: -6px;
+      padding-top: 6px;
+    }
+  }
+  @media (max-width: 380px){
+    .contact-page-brutalist .title-script{
+      margin-top: -2px;
+      padding-top: 8px;
+    }
+  } */
+
+  .contact-page-brutalist .hero-subtitle{
+    font-family:'Cormorant Garamond', serif;
+    font-size: clamp(13px, 2vw, 18px);
+    font-weight:600;
+    color:#333;
+    margin-top: 14px;
+    max-width: 860px;
+    margin-left:auto;
+    margin-right:auto;
+    line-height:1.55;
+    padding: 0 6px;
+  }
+
+  /* Grid Layout */
+  .contact-page-brutalist .contact-grid{
+    display:grid;
+    grid-template-columns: minmax(260px, 400px) minmax(0, 1fr);
+    gap: clamp(16px, 2.6vw, 34px);
+    margin-bottom: clamp(22px, 4vw, 50px);
+    align-items: start;
+  }
+
+  /* Info Cards */
+  .contact-page-brutalist .info-cards{
+    display:flex;
+    flex-direction:column;
+    gap: 18px;
+  }
+  .contact-page-brutalist .info-card{ transition: transform .3s ease; }
+  .contact-page-brutalist .info-card:hover{ transform: translateY(-4px); }
+
+  .contact-page-brutalist .card-border{
+    border:4px solid #000;
+    background:#FAF9F6;
+    padding: clamp(14px, 2.1vw, 24px);
+    transition: all .3s ease;
+    position:relative;
+  }
+  .contact-page-brutalist .info-card:hover .card-border{
+    background:#8B0000;
+    color:#FAF9F6;
+  }
+
+  .contact-page-brutalist .card-icon{
+    width: 54px; height: 54px;
+    border:4px solid #000;
+    background:#FAF9F6;
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom: 16px;
+    color:#8B0000;
+    transition: all .3s ease;
+  }
+  .contact-page-brutalist .card-icon svg{ width: 22px; height: 22px; }
+  .contact-page-brutalist .info-card:hover .card-icon{
+    background:#8B0000;
+    color:#FAF9F6;
+    border-color:#FAF9F6;
+  }
+
+  .contact-page-brutalist .card-title{
+    font-family:'Playfair Display', serif;
+    font-size: clamp(16px, 1.9vw, 22px);
+    font-weight:900;
+     font-weight: bold;
+    margin:0 0 10px;
+    text-transform:uppercase;
+    letter-spacing:-.5px;
+  }
+  .contact-page-brutalist .card-detail{
+    font-family:'Cormorant Garamond', serif;
+    font-size: clamp(14px, 1.45vw, 17px);
+    font-weight:700;
+    margin: 7px 0;
+     font-weight: bold;
+    word-break: break-word;
+  }
+  .contact-page-brutalist .card-detail-small{
+    font-family:'Italiana', serif;
+    font-size: 13px;
+    font-weight:400;
+    margin: 10px 0 4px;
+     font-weight: bold;
+    text-transform:uppercase;
+    letter-spacing:1px;
+  }
+  .contact-page-brutalist .card-subdued{
+    font-family:'Italiana', serif;
+    font-size: 13px;
+    font-weight:400;
+     font-weight: bold;
+    margin: 4px 0 0;
+    opacity:.7;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    word-break: break-word;
+  }
+  .contact-page-brutalist .info-card:hover .card-subdued{ opacity:.9; }
+
+  /* Form */
+  .contact-page-brutalist .form-section{ position:relative; }
+  .contact-page-brutalist .form-container{
+    border:4px solid #000;
+    background:#FAF9F6;
+    overflow:hidden;
+  }
+  .contact-page-brutalist .form-header{
+    background:#8B0000;
+    color:#FAF9F6;
+    padding: clamp(16px, 2.6vw, 34px);
+    border-bottom:4px solid #000;
+  }
+  .contact-page-brutalist .form-title{
+    font-family:'Playfair Display', serif;
+    font-size: clamp(22px, 3vw, 40px);
+    font-weight:900;
+    margin:0 0 8px;
+    text-transform:uppercase;
+    letter-spacing:-1px;
+  }
+  .contact-page-brutalist .form-subtitle{
+    font-family:'Cormorant Garamond', serif;
+    font-size: clamp(13px, 1.6vw, 16px);
+    font-weight:600;
+    margin:0;
+    opacity:.95;
+  }
+
+  .contact-page-brutalist .success-message{
+    background:#16a34a;
+    color:#fff;
+    padding: 14px clamp(16px, 2.6vw, 34px);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:'Cormorant Garamond', serif;
+    font-size: 16px;
+    font-weight:700;
+    border-bottom:4px solid #000;
+  }
+
+  .contact-page-brutalist .contact-form{
+    padding: clamp(14px, 2.6vw, 34px);
+  }
+
+  .contact-page-brutalist .form-row{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(12px, 2.1vw, 24px);
+    margin-bottom: clamp(12px, 2.3vw, 24px);
+  }
+
+  .contact-page-brutalist .form-field{ display:flex; flex-direction:column; min-width: 0; }
+  .contact-page-brutalist .form-field.full-width{ margin-bottom: clamp(12px, 2.3vw, 24px); }
+
+  .contact-page-brutalist .form-field label{
+    font-family:'Italiana', serif;
+    font-size: 13px;
+    font-weight:400;
+     font-weight: bold;
+    text-transform:uppercase;
+    letter-spacing:1.4px;
+    margin-bottom:9px;
+    color:#000;
+  }
+
+  .contact-page-brutalist .form-field input,
+  .contact-page-brutalist .form-field select,
+  .contact-page-brutalist .form-field textarea{
+    font-family:'Cormorant Garamond', serif;
+    font-size: 17px;
+    font-weight:600;
+    border:4px solid #000;
+    background:#FAF9F6;
+    padding: 14px 18px;
+    outline:none;
+    transition: all .3s ease;
+    color:#000;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .contact-page-brutalist .form-field input::placeholder,
+  .contact-page-brutalist .form-field textarea::placeholder{
+    color:#666;
+    font-weight:400;
+  }
+
+  .contact-page-brutalist .form-field input:focus,
+  .contact-page-brutalist .form-field select:focus,
+  .contact-page-brutalist .form-field textarea:focus{
+    background:#fff;
+    border-color:#8B0000;
+    box-shadow: 8px 8px 0 #8B0000;
+  }
+
+  .contact-page-brutalist .form-field input.error,
+  .contact-page-brutalist .form-field select.error,
+  .contact-page-brutalist .form-field textarea.error{
+    border-color:#dc2626;
+    background:#fee;
+  }
+
+  .contact-page-brutalist .error-text{
+    font-family:'Italiana', serif;
+    font-size: 12px;
+    color:#dc2626;
+    margin-top:6px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    display:none;
+  }
+  .contact-page-brutalist .error-text.show{ display:block; }
+
+  .contact-page-brutalist .form-field textarea{
+    resize: vertical;
+    min-height: 160px;
+  }
+
+  .contact-page-brutalist .form-field select{
+    appearance:none;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5z" fill="%23000"/></svg>');
+    background-repeat:no-repeat;
+    background-position: right 16px center;
+    padding-right: 50px;
+  }
+
+  .contact-page-brutalist .form-footer{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding-top: 18px;
+    border-top: 4px solid #000;
+    gap: 14px;
+  }
+
+  .contact-page-brutalist .required-note{
+    font-family:'Italiana', serif;
+    font-size: 13px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:#666;
+    margin: 0;
+  }
+
+  .contact-page-brutalist .submit-btn{
+    font-family:'Playfair Display', serif;
+    font-size: 18px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:-.5px;
+    background:#8B0000;
+    color:#FAF9F6;
+    border:4px solid #000;
+    padding: 16px 44px;
+    transition: all .3s ease;
+    position:relative;
+    overflow:hidden;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .contact-page-brutalist .submit-btn:hover{
+    background:#000;
+    transform: translate(4px, 4px);
+    box-shadow: -8px -8px 0 #8B0000;
+  }
+  .contact-page-brutalist .submit-btn:active{
+    transform: translate(0,0);
+    box-shadow:none;
+  }
+  .contact-page-brutalist .submit-btn:disabled{
+    opacity:.6;
+    pointer-events:none;
+  }
+
+  /* Company Info */
+  .contact-page-brutalist .company-info{
+    display:grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+    gap: clamp(16px, 2.6vw, 34px);
+    margin-top: clamp(22px, 4vw, 50px);
+    align-items: stretch;
+  }
+
+  .contact-page-brutalist .company-border{
+    border:4px solid #000;
+    background:#FAF9F6;
+    padding: clamp(14px, 2.6vw, 34px);
+    transition: all .3s ease;
+  }
+
+  .contact-page-brutalist .company-card:hover .company-border{
+    box-shadow: 12px 12px 0 #8B0000;
+    transform: translate(-4px, -4px);
+  }
+
+  .contact-page-brutalist .company-badge{
+    display:inline-block;
+    font-family:'Italiana', serif;
+    font-size: 12px;
+    font-weight:400;
+    text-transform:uppercase;
+    letter-spacing:2px;
+    background:#8B0000;
+    color:#FAF9F6;
+    padding: 7px 18px;
+    border:4px solid #000;
+    margin-bottom: 16px;
+  }
+
+  .contact-page-brutalist .company-name{
+    font-family:'Playfair Display', serif;
+    font-size: clamp(18px, 2.1vw, 28px);
+    font-weight:900;
+    margin:0 0 22px;
+    line-height:1.2;
+    letter-spacing:-.5px;
+  }
+
+  .contact-page-brutalist .company-details{
+    border-top:4px solid #000;
+    padding-top: 16px;
+    margin-bottom: 22px;
+  }
+
+  .contact-page-brutalist .detail-row{
+    display:flex;
+    gap: 18px;
+    padding: 10px 0;
+    border-bottom: 2px solid #ddd;
+    flex-wrap: wrap;
+  }
+  .contact-page-brutalist .detail-row:last-child{ border-bottom:none; }
+
+  .contact-page-brutalist .detail-label{
+    font-family:'Italiana', serif;
+    font-size: 13px;
+    text-transform:uppercase;
+    letter-spacing:1.4px;
+    min-width: 112px;
+    color:#666;
+  }
+
+  .contact-page-brutalist .detail-value{
+    font-family:'Cormorant Garamond', serif;
+    font-size: 17px;
+    font-weight:700;
+    color:#000;
+    word-break: break-word;
+  }
+
+  .contact-page-brutalist .company-actions{
+    display:flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .contact-page-brutalist .action-btn{
+    font-family:'Playfair Display', serif;
+    font-size: 15px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:-.5px;
+    border:4px solid #000;
+    background:#FAF9F6;
+    color:#000;
+    padding: 12px 28px;
+    transition: all .3s ease;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .contact-page-brutalist .action-btn.primary{
+    background:#8B0000;
+    color:#FAF9F6;
+  }
+  .contact-page-brutalist .action-btn:hover{
+    background:#000;
+    color:#FAF9F6;
+    transform: translate(2px, 2px);
+    box-shadow: -6px -6px 0 #8B0000;
+  }
+  .contact-page-brutalist .action-btn:active{
+    transform: translate(0,0);
+    box-shadow:none;
+  }
+
+  /* Map */
+  .contact-page-brutalist .map-border{
+    border:4px solid #000;
+    overflow:hidden;
+    height: 100%;
+    min-height: clamp(260px, 42vw, 390px);
+    position:relative;
+    background:#FAF9F6;
+    transition: all .3s ease;
+  }
+  .contact-page-brutalist .map-container:hover .map-border{
+    box-shadow: 12px 12px 0 #8B0000;
+    transform: translate(-4px, -4px);
+  }
+
+  /* ✅ Map always color */
+  .contact-page-brutalist .map-frame{
+    width:100%;
+    height:100%;
+    border:none;
+    display:block;
+    filter: none !important;
+    transition: none !important;
+  }
+  .contact-page-brutalist .map-container:hover .map-frame{
+    filter: none !important;
+  }
+
+  /* ✅ NEW: Map actions row under iframe */
+  .contact-page-brutalist .map-actions{
+    border-top: 4px solid #000;
+    padding: 12px;
+    background:#FAF9F6;
+    display:flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items:center;
+    justify-content: space-between;
+  }
+  .contact-page-brutalist .map-actions .map-note{
+    font-family:'Italiana', serif;
+    font-size: 12px;
+    text-transform:uppercase;
+    letter-spacing:1.4px;
+    color:#666;
+    margin:0;
+  }
+  .contact-page-brutalist .map-actions .map-btn{
+    font-family:'Playfair Display', serif;
+    font-size: 14px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -.3px;
+    border: 4px solid #000;
+    background:#8B0000;
+    color:#FAF9F6;
+    padding: 10px 16px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap: 8px;
+    transition: all .3s ease;
+    white-space: nowrap;
+  }
+  .contact-page-brutalist .map-actions .map-btn:hover{
+    background:#000;
+    transform: translate(2px,2px);
+    box-shadow: -6px -6px 0 #8B0000;
+  }
+  .contact-page-brutalist .map-actions .map-btn:active{
+    transform:none;
+    box-shadow:none;
+  }
+
+  /* Reveal */
+  .contact-page-brutalist .reveal{
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity .6s ease, transform .6s ease;
+  }
+  .contact-page-brutalist .reveal.revealed{
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 1200px){
+    .contact-page-brutalist .contact-grid{
+      grid-template-columns: 1fr;
+      gap: clamp(16px, 4.5vw, 42px);
+    }
+    .contact-page-brutalist .info-cards{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 14px;
+    }
+  }
+
+  @media (max-width: 900px){
+    .contact-page-brutalist .company-info{
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px){
+    .contact-page-brutalist .info-cards{
+      grid-template-columns: 1fr;
+    }
+    .contact-page-brutalist .form-row{
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+    .contact-page-brutalist .form-footer{
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .contact-page-brutalist .submit-btn{
+      width: 100%;
+      padding-left: 18px;
+      padding-right: 18px;
+      text-align:center;
+      justify-content:center;
+    }
+    .contact-page-brutalist .company-actions{
+      flex-direction: column;
+    }
+    .contact-page-brutalist .action-btn{
+      width: 100%;
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    /* map actions stack nicely */
+    .contact-page-brutalist .map-actions{
+      justify-content: center;
+      text-align:center;
+    }
+    .contact-page-brutalist .map-actions .map-note{
+      flex: 1 1 100%;
+    }
+    .contact-page-brutalist .map-actions .map-btn{
+      width: 100%;
+      justify-content:center;
+    }
+  }
+
+  @media (max-width: 480px){
+    .contact-page-brutalist,
+    .contact-page-brutalist *{
+      cursor: auto !important;
+    }
+
+    .contact-page-brutalist .card-icon{
+      width: 48px;
+      height: 48px;
+    }
+
+    .contact-page-brutalist .form-field input,
+    .contact-page-brutalist .form-field select,
+    .contact-page-brutalist .form-field textarea{
+      font-size: 16px;
+      padding: 12px 14px;
+    }
+
+    .contact-page-brutalist .detail-label{
+      min-width: 96px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .contact-page-brutalist .grain-overlay{ animation: none; opacity: .05; }
+    .contact-page-brutalist .reveal,
+    .contact-page-brutalist .reveal.revealed{ transition: none; transform: none; opacity: 1; }
+    .contact-page-brutalist .info-card,
+    .contact-page-brutalist .action-btn,
+    .contact-page-brutalist .submit-btn,
+    .contact-page-brutalist .map-actions .map-btn{ transition: none; }
+  }
+
+  /* ✅ Map always in color */
+.contact-page-brutalist .map-frame{
+  filter: none !important;
+}
+
+/* ✅ Google Maps button row */
+.contact-page-brutalist .map-actions{
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.contact-page-brutalist .map-action-btn{
+  font-family:'Playfair Display', serif;
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -.4px;
+
+  border: 4px solid #000;
+  background: #FAF9F6;
+  color: #000;
+  padding: 12px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .3s ease;
+}
+
+.contact-page-brutalist .map-action-btn:hover{
+  background:#000;
+  color:#FAF9F6;
+  transform: translate(2px,2px);
+  box-shadow: -6px -6px 0 #8B0000;
+}
+
+@media (max-width: 768px){
+  .contact-page-brutalist .map-actions{ justify-content: stretch; }
+  .contact-page-brutalist .map-action-btn{ width: 100%; }
+}
+
+</style>
+
+<section class="contact-page-brutalist">
+  <div class="grain-overlay"></div>
+
+  <div class="contact-container">
+    <header class="contact-hero reveal">
+      <h1 class="hero-title">
+        <span class="title-main">GET IN TOUCH </span>
+        <span class="title-script">Feel Free To Contact</span>
+      </h1>
+      <p class="hero-subtitle">
+        We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+      </p>
+    </header>
+
+    <div class="contact-grid">
+      <aside class="info-cards">
+        <div class="info-card reveal">
+          <div class="card-border">
+            <div class="card-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M12 22s7-7.75 7-13a7 7 0 1 0-14 0c0 5.25 7 13 7 13Z" stroke="currentColor" stroke-width="3"/>
+                <path d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <h3 class="card-title">Visit Our Store</h3>
+            <p class="card-detail">SHG Mart, Tuikual North</p>
+            <p class="card-subdued">Aizawl, Mizoram, 796001</p>
+          </div>
+        </div>
+
+        <div class="info-card reveal">
+          <div class="card-border">
+            <div class="card-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.8.3 1.6.6 2.4a2 2 0 0 1-.5 2.1L8 9.4a16 16 0 0 0 6.6 6.6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.6.5 2.4.6A2 2 0 0 1 22 16.9Z" stroke="currentColor" stroke-width="3"/>
+              </svg>
+            </div>
+            <h3 class="card-title">Call Us</h3>
+            <p class="card-detail">+91 8798042242 Michael</p>
+            <p class="card-subdued">Mon-Sun: 6AM - 10PM</p>
+          </div>
+        </div>
+
+        <div class="info-card reveal">
+          <div class="card-border">
+            <div class="card-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M4 6h16v12H4V6Z" stroke="currentColor" stroke-width="3"/>
+                <path d="m4 7 8 6 8-6" stroke="currentColor" stroke-width="3"/>
+              </svg>
+            </div>
+            <h3 class="card-title">Email Us</h3>
+            <p class="card-detail-small">For normal queries:</p>
+            <p class="card-detail">cwpcl.mizo@gmail.com</p>
+            <p class="card-detail-small">For technical support:</p>
+            <p class="card-detail">ites@sdsindia.in</p>
+          </div>
+        </div>
+
+        <div class="info-card reveal">
+          <div class="card-border">
+            <div class="card-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M12 22a10 10 0 1 0-10-10 10 10 0 0 0 10 10Z" stroke="currentColor" stroke-width="3"/>
+                <path d="M12 7v6l4 2" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <h3 class="card-title">Delivery Hours</h3>
+            <p class="card-detail">6:00 AM - 10:00 PM</p>
+            <p class="card-subdued">7 days a week</p>
+          </div>
+        </div>
+      </aside>
+
+      <section class="form-section reveal">
+        <div class="form-container">
+          <div class="form-header">
+            <h2 class="form-title">Send a Message</h2>
+            <p class="form-subtitle">Fill out the form and we'll get back to you</p>
+          </div>
+
+          <div class="success-message" id="successMessage" style="display:none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            Message sent successfully!
+          </div>
+
+     <form
+  id="contactForm"
+  class="contact-form"
+  method="POST"
+  action="{{ url_for('contact') }}"
+>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label for="fullName">Full Name *</label>
+               <input type="text" id="fullName" name="name" placeholder="Enter your name here"/>
+
+                <span class="error-text" id="fullNameError"></span>
+              </div>
+
+              <div class="form-field">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" name="email" placeholder="abc@example.com"/>
+                <span class="error-text" id="emailError"></span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label for="phone">Phone Number</label>
+                <input type="tel" id="phone" name="phone" placeholder="+91 (555) 123-4567"/>
+              </div>
+
+              <div class="form-field">
+                <label for="subject">Subject *</label>
+                <select id="subject" name="subject">
+                  <option value="">Select a topic</option>
+                  <option value="order">Order Issue</option>
+                  <option value="delivery">Delivery Question</option>
+                  <option value="product">Product Inquiry</option>
+                  <option value="business">Business / Bulk</option>
+                  <option value="other">Other</option>
+                </select>
+                <span class="error-text" id="subjectError"></span>
+              </div>
+            </div>
+
+            <div class="form-field full-width">
+              <label for="message">Message *</label>
+              <textarea id="message" name="message" placeholder="Tell us about your inquiry..." rows="6"></textarea>
+              <span class="error-text" id="messageError"></span>
+            </div>
+
+            <div class="form-footer">
+              <p class="required-note">* Required fields</p>
+              <button type="submit" class="submit-btn" id="submitBtn">Send Message</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <section class="company-info reveal">
+      <div class="company-card">
+        <div class="company-border">
+          <span class="company-badge">Office</span>
+          <h3 class="company-name">Chhimphei Women Poultry Producer Company Limited</h3>
+
+          <div class="company-details">
+            <div class="detail-row">
+              <span class="detail-label">Address</span>
+              <span class="detail-value">Melriat, Aizawl, Mizoram</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Phone</span>
+              <span class="detail-value">8132831406</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Website</span>
+              <span class="detail-value">chhimpheichicken.com</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">FSSAI</span>
+              <span class="detail-value">21825102002418</span>
+            </div>
+          </div>
+
+          <div class="company-actions">
+           <a href="{{ url_for('products') }}" class="action-btn primary">
+  Shop Fresh Now
+</a>
+
+           
+          </div>
+        </div>
+      </div>
+
+      <div class="map-container">
+  <div class="map-border">
+    <iframe
+      title="Melriat, Aizawl, Mizoram"
+      src="https://www.openstreetmap.org/export/embed.html?bbox=92.676%2C23.65%2C92.76%2C23.76&layer=mapnik&marker=23.72%2C92.72"
+      class="map-frame"
+      loading="lazy"></iframe>
+  </div>
+
+  <!-- ✅ Action row OUTSIDE map-border so it never gets clipped -->
+  <div class="map-actions">
+    <a
+      class="map-action-btn"
+      href="https://www.google.com/maps?q=23.72,92.72"
+      target="_blank"
+      rel="noopener noreferrer">
+      Open in Google Maps
+    </a>
+  </div>
+</div>
+
+      </div>
+    </section>
+  </div>
+</section>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+
+    // SCROLL REVEAL
+    const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -50px 0px' };
+    const observer = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){ entry.target.classList.add('revealed'); }
+      });
+    }, observerOptions);
+
+    const revealElements = document.querySelectorAll('.contact-page-brutalist .reveal');
+    revealElements.forEach(function(el){ observer.observe(el); });
+
+    // FORM
+    const contactForm = document.getElementById('contactForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const successMessage = document.getElementById('successMessage');
+
+    const fullNameInput = document.getElementById('fullName');
+    const emailInput = document.getElementById('email');
+    const subjectSelect = document.getElementById('subject');
+    const messageTextarea = document.getElementById('message');
+
+    const fullNameError = document.getElementById('fullNameError');
+    const emailError = document.getElementById('emailError');
+    const subjectError = document.getElementById('subjectError');
+    const messageError = document.getElementById('messageError');
+
+    fullNameInput.addEventListener('input', function(){ clearError(fullNameInput, fullNameError); });
+    emailInput.addEventListener('input', function(){ clearError(emailInput, emailError); });
+    subjectSelect.addEventListener('change', function(){ clearError(subjectSelect, subjectError); });
+    messageTextarea.addEventListener('input', function(){ clearError(messageTextarea, messageError); });
+
+    contactForm.addEventListener('submit', function(e){
+  if(!validateForm()){
+    e.preventDefault(); // only stop if invalid
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Sending...';
+});
+
+
+    function validateForm(){
+      let ok = true;
+
+      if(!fullNameInput.value.trim()){
+        showError(fullNameInput, fullNameError, 'Name is required'); ok = false;
+      }
+      if(!emailInput.value.trim()){
+        showError(emailInput, emailError, 'Email is required'); ok = false;
+      } else if(!isValidEmail(emailInput.value.trim())){
+        showError(emailInput, emailError, 'Invalid email format'); ok = false;
+      }
+      if(!subjectSelect.value){
+        showError(subjectSelect, subjectError, 'Please select a subject'); ok = false;
+      }
+      if(!messageTextarea.value.trim()){
+        showError(messageTextarea, messageError, 'Message is required'); ok = false;
+      } else if(messageTextarea.value.trim().length < 10){
+        showError(messageTextarea, messageError, 'Message must be at least 10 characters'); ok = false;
+      }
+      return ok;
+    }
+
+    function showError(input, el, msg){
+      input.classList.add('error');
+      el.textContent = msg;
+      el.classList.add('show');
+    }
+    function clearError(input, el){
+      input.classList.remove('error');
+      el.textContent = '';
+      el.classList.remove('show');
+    }
+    function isValidEmail(email){
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    // SHOP BUTTON (kept as-is)
+    const shopButtons = document.querySelectorAll('.contact-page-brutalist .action-btn.primary');
+    shopButtons.forEach(function(btn){
+      btn.addEventListener('click', function(){
+        console.log('Shop Fresh Now clicked');
+        // Example: window.location.href = '/products';
+      });
+    });
+
+  });
+</script>
+
+{% endblock %}

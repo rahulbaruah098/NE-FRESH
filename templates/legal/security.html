@@ -1,0 +1,982 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="security-page" data-page="security">
+  <style>
+    /* =========================================================
+       SECURITY (Single-file: HTML + CSS + JS) — Scoped inside base.html
+       UPDATED:
+       ✅ Footer stars + footer title match Privacy page
+       ✅ TOC sidebar sticky behavior matches Privacy page
+       ✅ Fully responsive (web + mobile) improvements
+       ========================================================= */
+
+    /* Google Fonts Import (scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Dancing+Script:wght@400;500;600;700&family=Italiana&family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
+
+    /* Color Variables */
+    .security-page{
+      --crimson: #8B0000;
+      --black: #000000;
+      --off-white: #FAF9F6;
+      --light-crimson: #FFF5F5;
+      --crimson-hover: #a00000;
+
+      min-height: 100vh;
+      background-color: var(--off-white);
+      font-family: 'Cormorant Garamond', serif;
+      color: var(--black);
+      line-height: 1.6;
+      font-size: 1.125rem;
+
+      /* Full-bleed inside base.html container */
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      position: relative;
+      overflow: visible; /* allow sticky + shadows safely */
+    }
+
+    /* Custom Chicken Cursor (scoped) */
+    .security-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M12 4c-2 0-3 1-3 3v2c-2 0-3 1-3 3v3c0 2 1 3 3 3h1v8c0 1 1 2 2 2h4c1 0 2-1 2-2v-8h1c2 0 3-1 3-3v-3c0-2-1-3-3-3V7c0-2-1-3-3-3h-4zm2 3h2v2h-2V7zm-4 4h8v2h-8v-2z" fill="%238B0000" stroke="%23000" stroke-width="1"/></svg>'), auto !important;
+    }
+    .security-page button,
+    .security-page a{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M12 4c-2 0-3 1-3 3v2c-2 0-3 1-3 3v3c0 2 1 3 3 3h1v8c0 1 1 2 2 2h4c1 0 2-1 2-2v-8h1c2 0 3-1 3-3v-3c0-2-1-3-3-3V7c0-2-1-3-3-3h-4zm2 3h2v2h-2V7zm-4 4h8v2h-8v-2z" fill="%238B0000" stroke="%23000" stroke-width="1"/></svg>'), pointer !important;
+    }
+
+    /* Film Grain Overlay (scoped) */
+    .security-page::before{
+      content:'';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px),
+        repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
+      opacity: 0.5;
+      animation: securityGrain 8s steps(10) infinite;
+    }
+    @keyframes securityGrain{
+      0%, 100% { transform: translate(0, 0); }
+      10% { transform: translate(-5%, -10%); }
+      20% { transform: translate(-15%, 5%); }
+      30% { transform: translate(7%, -25%); }
+      40% { transform: translate(-5%, 25%); }
+      50% { transform: translate(-15%, 10%); }
+      60% { transform: translate(15%, 0%); }
+      70% { transform: translate(0%, 15%); }
+      80% { transform: translate(3%, 35%); }
+      90% { transform: translate(-10%, 10%); }
+    }
+
+    /* Reset-ish (scoped) */
+    .security-page *{ margin:0; padding:0; box-sizing:border-box; }
+    .security-page img{ max-width:100%; display:block; }
+    .security-page a{ text-decoration:none; color:inherit; }
+    .security-page ul{ margin:0; padding:0; }
+
+    /* Top Bar */
+    .security-page .top-bar{
+      display:flex;
+      justify-content: space-between;
+      padding: 1.5rem 2rem;
+      border-bottom: 4px solid var(--black);
+      background-color: var(--off-white);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .security-page .top-bar-text{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      font-weight: 400;
+    }
+
+    /* Hero Section */
+    .security-page .hero-section{
+      text-align: center;
+      padding: 5rem 2rem 4rem;
+      border-bottom: 4px solid var(--black);
+      background-color: var(--off-white);
+    }
+    .security-page .hero-title{
+      font-family: 'Dancing Script', cursive;
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 700;
+      color: var(--crimson);
+      margin-bottom: 1rem;
+      font-style: italic;
+    }
+    .security-page .hero-subtitle{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(1rem, 2vw, 1.5rem);
+      color: var(--black);
+      margin-bottom: 2rem;
+      font-weight: 400;
+    }
+    .security-page .hero-divider{
+      width: 6rem;
+      height: 4px;
+      background-color: var(--crimson);
+      margin: 2rem auto;
+    }
+    .security-page .hero-date{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--black);
+      margin-top: 1.5rem;
+    }
+
+    /* Main Content Layout */
+    .security-page .content-wrapper{
+      max-width: 1400px;
+      margin: 0 auto;
+      display:flex;
+      gap: 5%;
+      padding: 3rem 2rem;
+    }
+
+    /* TOC Sidebar — UPDATED to match Privacy sticky behavior */
+    .security-page .toc-sidebar{
+      width: 25%;
+      position: sticky;
+      top: 120px;                  /* stick below top-bar */
+      align-self: flex-start;
+      height: fit-content;         /* prevents stretching */
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+
+      border: 4px solid var(--black);
+      background-color: var(--off-white);
+      padding: 2rem;
+
+      z-index: 50;                 /* keeps it above sections */
+    }
+    .security-page .toc-title{
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1.5rem;
+      color: var(--black);
+    }
+    .security-page .toc-list{ list-style:none; }
+    .security-page .toc-item{ margin-bottom: 0.5rem; }
+    .security-page .toc-link{
+      display:block;
+      padding: 0.75rem 1rem;
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--black);
+      border: 2px solid transparent;
+      transition: all 0.3s ease;
+      word-break: break-word;
+    }
+    .security-page .toc-link:hover,
+    .security-page .toc-link.active{
+      background-color: var(--crimson);
+      color: var(--off-white);
+      border-color: var(--black);
+    }
+    .security-page .toc-number{
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      font-size: 1rem;
+      margin-right: 0.5rem;
+    }
+
+    /* Main */
+    .security-page .main-content{ width: 70%; }
+
+    /* Sections */
+    .security-page .content-section{
+      position: relative;
+      padding: 3rem 2rem;
+      border: 4px solid var(--black);
+      margin-bottom: 2rem;
+      background-color: var(--off-white);
+      border-left: 8px solid var(--crimson);
+      opacity: 0;
+      transform: translateY(50px);
+      transition: all 0.6s ease;
+    }
+    .security-page .content-section.visible{
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .security-page .content-section:nth-child(even){
+      background-color: var(--light-crimson);
+    }
+    .security-page .content-section:hover{
+      background-color: #fff0f0;
+    }
+
+    .security-page .section-number{
+      position:absolute;
+      top: 2rem;
+      left: -1rem;
+      font-family: 'Playfair Display', serif;
+      font-size: 4rem;
+      font-weight: 900;
+      color: var(--crimson);
+      opacity: 0.2;
+      line-height: 1;
+    }
+    .security-page .section-heading{
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1.5rem;
+      color: var(--black);
+      padding-left: 3rem;
+    }
+    .security-page .section-content{
+      font-size: 1.125rem;
+      line-height: 1.8;
+      color: var(--black);
+    }
+    .security-page .section-content p{ margin-bottom: 1.5rem; }
+    .security-page .section-content strong{ font-weight: 600; color: var(--crimson); }
+
+    /* Lists */
+    .security-page .section-content ul{
+      list-style:none;
+      padding-left: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .security-page .section-content li{
+      position: relative;
+      margin-bottom: 0.75rem;
+      padding-left: 1.5rem;
+    }
+    .security-page .section-content li::before{
+      content:'';
+      position:absolute;
+      left:0;
+      top: 0.6em;
+      width: 8px;
+      height: 8px;
+      background-color: var(--crimson);
+    }
+
+    /* Info Box */
+    .security-page .info-box{
+      background-color: var(--crimson);
+      color: var(--off-white);
+      padding: 2rem;
+      border: 4px solid var(--black);
+      margin: 2rem 0;
+      display:flex;
+      gap: 1.5rem;
+      align-items:flex-start;
+      transition: all 0.4s ease;
+    }
+    .security-page .info-box:hover{ background-color: var(--black); }
+    .security-page .info-box-icon{ font-size: 2.5rem; flex-shrink: 0; }
+    .security-page .info-box-content{ flex:1; }
+    .security-page .info-box-title{
+      font-family: 'Italiana', serif;
+      font-size: 1.125rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+      font-weight: 400;
+    }
+    .security-page .info-box-text{
+      font-size: 1.125rem;
+      line-height: 1.6;
+    }
+    .security-page .info-box-text a{
+      color: var(--off-white);
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+    .security-page .info-box:hover .info-box-text a{
+      color: var(--off-white);
+    }
+
+    /* Contact */
+    .security-page .contact-section{
+      border: 4px solid var(--black);
+      padding: 3rem;
+      background-color: var(--off-white);
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .security-page .contact-title{
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--black);
+    }
+    .security-page .contact-email{
+      font-size: 1.25rem;
+      color: var(--crimson);
+      display:inline-block;
+      margin-bottom: 2rem;
+      border-bottom: 2px solid transparent;
+      transition: border-color 0.3s ease;
+      word-break: break-word;
+    }
+    .security-page .contact-email:hover{ border-bottom-color: var(--crimson); }
+    .security-page .contact-button{
+      font-family: 'Italiana', serif;
+      font-size: 1rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      background-color: var(--crimson);
+      color: var(--off-white);
+      border: 4px solid var(--black);
+      padding: 1rem 2.5rem;
+      display:inline-block;
+      transition: all 0.4s ease;
+    }
+    .security-page .contact-button:hover{
+      background-color: var(--black);
+      color: var(--off-white);
+    }
+
+    /* Back to Top */
+    .security-page .back-to-top{
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      width: 60px;
+      height: 60px;
+      background-color: var(--crimson);
+      border: 4px solid var(--black);
+      border-radius: 50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color: var(--off-white);
+      transition: all 0.4s ease;
+      opacity: 0;
+      visibility: hidden;
+      z-index: 999;
+    }
+    .security-page .back-to-top.visible{
+      opacity: 1;
+      visibility: visible;
+    }
+    .security-page .back-to-top:hover{
+      transform: scale(1.1);
+      background-color: var(--black);
+    }
+    .security-page .back-to-top svg{
+      transform: rotate(0deg);
+      transition: transform 0.3s ease;
+    }
+    .security-page .back-to-top:hover svg{
+      transform: rotate(-15deg);
+    }
+
+    /* Footer — UPDATED to match Privacy page (stars + title styling) */
+    .security-page .footer{
+      border-top: 4px solid var(--black);
+      padding: 4rem 2rem;
+      text-align: center;
+      background-color: var(--off-white);
+    }
+    .security-page .footer-stars{
+      display:flex;
+      justify-content:center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+      color: var(--crimson);
+    }
+
+    .security-page .footer-title{
+      font-family: 'Dancing Script', cursive !important;
+      font-weight: 700;
+      font-style: italic;
+      color: var(--black);
+      margin-bottom: 1rem;
+      line-height: 1.15;
+      font-size: clamp(2.0rem, 3.4vw, 3.1rem);
+    }
+    .security-page .footer-fullname{
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .security-page .footer-subtitle{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      color: var(--black);
+      margin-bottom: 2rem;
+    }
+    .security-page .footer-nav{
+      display:flex;
+      justify-content:center;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .security-page .footer-link{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--black);
+      position: relative;
+      transition: color 0.3s ease;
+    }
+    .security-page .footer-link::after{
+      content:'';
+      position:absolute;
+      bottom:-4px;
+      left:0;
+      width:0;
+      height:2px;
+      background-color: var(--crimson);
+      transition: width 0.3s ease;
+    }
+    .security-page .footer-link:hover{ color: var(--crimson); }
+    .security-page .footer-link:hover::after{ width:100%; }
+
+    /* Mobile TOC Toggle */
+    .security-page .toc-mobile-toggle{
+      display:none;
+      width:100%;
+      padding: 1rem;
+      background-color: var(--crimson);
+      color: var(--off-white);
+      border: 4px solid var(--black);
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+      transition: all 0.3s ease;
+    }
+    .security-page .toc-mobile-toggle:hover{ background-color: var(--black); }
+
+    /* Responsive (Web + Mobile) */
+    @media (max-width: 1024px){
+      .security-page .content-wrapper{
+        flex-direction: column;
+        gap: 2rem;
+      }
+      .security-page .toc-sidebar{
+        width:100%;
+        position: static;
+        max-height: none;
+      }
+      .security-page .main-content{ width:100%; }
+      .security-page .section-heading{ font-size: 1.75rem; }
+    }
+
+    @media (max-width: 768px){
+      .security-page .top-bar{
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: center;
+        padding: 1rem;
+      }
+      .security-page .hero-section{
+        padding: 3rem 1rem 2rem;
+      }
+      .security-page .content-wrapper{
+        padding: 2rem 1rem;
+      }
+
+      .security-page .toc-sidebar{
+        padding: 1.5rem;
+      }
+      .security-page .toc-mobile-toggle{ display:block; }
+      .security-page .toc-list{ display:none; }
+      .security-page .toc-sidebar.open .toc-list{ display:block; }
+
+      .security-page .content-section{ padding: 2rem 1.5rem; }
+      .security-page .section-number{
+        font-size: 3rem;
+        left: 0;
+      }
+      .security-page .section-heading{
+        font-size: 1.5rem;
+        padding-left: 2rem;
+      }
+      .security-page .section-content{ font-size: 1rem; }
+
+      .security-page .info-box{
+        flex-direction: column;
+        padding: 1.5rem;
+      }
+
+      .security-page .back-to-top{
+        width: 50px;
+        height: 50px;
+        bottom: 1rem;
+        right: 1rem;
+      }
+
+      .security-page .footer-nav{
+        flex-direction: column;
+        gap: 1rem;
+      }
+    }
+
+    /* Print */
+    @media print{
+      .security-page::before{ display:none !important; }
+      .security-page .back-to-top,
+      .security-page .toc-sidebar{ display:none !important; }
+      .security-page .main-content{ width:100% !important; }
+      .security-page .content-section{
+        page-break-inside: avoid;
+        border-left-width: 4px !important;
+      }
+      .security-page *{ cursor: default !important; }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      .security-page::before{ animation: none !important; }
+      .security-page .content-section{
+        transition: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+      }
+      .security-page .back-to-top,
+      .security-page .toc-link,
+      .security-page .info-box,
+      .security-page .footer-link::after,
+      .security-page .contact-button,
+      .security-page .toc-mobile-toggle{
+        transition: none !important;
+      }
+    }
+  </style>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="top-bar-text">EST. 2018</div>
+    <div class="top-bar-text">MIZORAM, INDIA</div>
+  </div>
+
+  <!-- Hero Section -->
+  <header class="hero-section">
+    <h1 class="hero-title">Security</h1>
+    <p class="hero-subtitle">Your trust matters. Here's how we protect your data.</p>
+    <div class="hero-divider"></div>
+    <p class="hero-date">Last Updated: January 2026</p>
+  </header>
+
+  <!-- Content Wrapper -->
+  <div class="content-wrapper">
+    <!-- Table of Contents Sidebar -->
+    <aside class="toc-sidebar" id="tocSidebar">
+      <button class="toc-mobile-toggle" id="tocToggle" type="button">
+        Navigation Menu
+      </button>
+
+      <h2 class="toc-title">Contents</h2>
+      <ul class="toc-list" id="tocList">
+        <li class="toc-item">
+          <a href="#practices" class="toc-link" data-section="practices">
+            <span class="toc-number">01</span>
+            Practices
+          </a>
+        </li>
+        <li class="toc-item">
+          <a href="#payments" class="toc-link" data-section="payments">
+            <span class="toc-number">02</span>
+            Payments
+          </a>
+        </li>
+        <li class="toc-item">
+          <a href="#disclosure" class="toc-link" data-section="disclosure">
+            <span class="toc-number">03</span>
+            Disclosure
+          </a>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Section 1: Practices -->
+      <section id="practices" class="content-section">
+        <div class="section-number">01</div>
+        <h2 class="section-heading">Practices</h2>
+        <div class="section-content">
+          <p>
+            At Chhimphei WPPCL, we implement industry-leading security measures to ensure
+            your data remains protected at all times. Our comprehensive approach to security
+            encompasses multiple layers of protection and continuous monitoring.
+          </p>
+
+          <div class="info-box">
+            <div class="info-box-icon" aria-hidden="true">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              </svg>
+            </div>
+            <div class="info-box-content">
+              <h3 class="info-box-title">Core Security Principles</h3>
+              <p class="info-box-text">
+                We follow the principle of least privilege, ensuring that systems and users
+                only have access to the resources they absolutely need.
+              </p>
+            </div>
+          </div>
+
+          <p><strong>Our security practices include:</strong></p>
+
+          <ul>
+            <li>Least-privilege access for internal tools</li>
+            <li>Regular dependency updates and vulnerability scanning</li>
+            <li>Encrypted transport (HTTPS)</li>
+          </ul>
+
+          <p>
+            We continuously monitor our infrastructure for potential threats and apply
+            security patches promptly to maintain the highest level of protection for your data.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 2: Payments -->
+      <section id="payments" class="content-section">
+        <div class="section-number">02</div>
+        <h2 class="section-heading">Payments</h2>
+        <div class="section-content">
+          <p>
+            Your financial security is paramount to us. We've designed our payment systems
+            with multiple safeguards to protect your sensitive information throughout every
+            transaction.
+          </p>
+
+          <div class="info-box">
+            <div class="info-box-icon" aria-hidden="true">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <div class="info-box-content">
+              <h3 class="info-box-title">Payment Security</h3>
+              <p class="info-box-text">
+                We never store full card details on our servers. All payment processing
+                is handled by compliant third-party providers.
+              </p>
+            </div>
+          </div>
+
+          <p>
+            <strong>Cash-on-delivery by default;</strong> any online processing is handled
+            by compliant providers. We don't store full card details.
+          </p>
+
+          <p>
+            For online transactions, we partner with PCI-DSS compliant payment processors
+            who specialize in secure payment handling. This means your card information is
+            encrypted and processed through secure channels that meet the highest industry standards.
+          </p>
+
+          <p>
+            Our cash-on-delivery option provides an additional layer of security for customers
+            who prefer not to share payment information online, giving you complete control
+            over how and when you make your payment.
+          </p>
+        </div>
+      </section>
+
+      <!-- Section 3: Responsible Disclosure -->
+      <section id="disclosure" class="content-section">
+        <div class="section-number">03</div>
+        <h2 class="section-heading">Responsible Disclosure</h2>
+        <div class="section-content">
+          <p>
+            We take security vulnerabilities seriously and appreciate the efforts of security
+            researchers and ethical hackers who help us maintain a secure platform. If you
+            discover a potential security issue, we encourage you to report it responsibly.
+          </p>
+
+          <div class="info-box">
+            <div class="info-box-icon" aria-hidden="true">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+            </div>
+            <div class="info-box-content">
+              <h3 class="info-box-title">How to Report</h3>
+              <p class="info-box-text">
+                Report vulnerabilities to <strong><a href="mailto:security@chhimphei.local">security@chhimphei.local</a></strong>.
+                Please include steps to reproduce.
+              </p>
+            </div>
+          </div>
+
+          <p><strong>When reporting a vulnerability, please include:</strong></p>
+
+          <ul>
+            <li>A detailed description of the vulnerability</li>
+            <li>Steps to reproduce the issue</li>
+            <li>Potential impact of the vulnerability</li>
+            <li>Any proof-of-concept code (if applicable)</li>
+            <li>Your contact information for follow-up</li>
+          </ul>
+
+          <p>
+            We commit to acknowledging your report within 48 hours and will work diligently
+            to address valid security concerns. We ask that you give us reasonable time to
+            investigate and resolve the issue before public disclosure.
+          </p>
+
+          <p>
+            Please refrain from accessing or modifying user data, executing denial-of-service
+            attacks, or engaging in any activity that could harm our users or services during
+            your security research.
+          </p>
+        </div>
+      </section>
+
+      <!-- Contact Section -->
+      <section class="contact-section">
+        <h2 class="contact-title">Questions About Security?</h2>
+        <p>
+          <a href="mailto:security@chhimphei.local" class="contact-email">
+            security@chhimphei.local
+          </a>
+        </p>
+        <a href="mailto:security@chhimphei.local" class="contact-button">
+          Contact Us
+        </a>
+      </section>
+    </main>
+  </div>
+
+  <!-- Back to Top Button -->
+  <button class="back-to-top" id="backToTop" aria-label="Back to top" type="button">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="19" x2="12" y2="5"></line>
+      <polyline points="5 12 12 5 19 12"></polyline>
+    </svg>
+  </button>
+
+  <!-- Footer (UPDATED to match Privacy page) -->
+  <footer class="footer">
+    <div class="footer-stars" aria-hidden="true">
+      <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+    </div>
+
+    <h3 class="footer-title footer-fullname">
+      Chhimphei Women Poultry Producer Company Limited
+    </h3>
+
+    <p class="footer-subtitle">MIZORAM • 2018 • INDIA</p>
+
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="#" class="footer-link">Home</a>
+      <a href="#" class="footer-link">About</a>
+      <a href="#" class="footer-link">Shop</a>
+      <a href="#" class="footer-link">Contact</a>
+      <a href="#" class="footer-link">Security</a>
+    </nav>
+  </footer>
+
+  <script>
+    // =========================================================
+    // SECURITY (Single-file JS) — same behavior as your Security page
+    // =========================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      initScrollReveal();
+      initActiveSection();
+      initSmoothScroll();
+      initBackToTop();
+      initMobileToggle();
+
+      function initScrollReveal() {
+        const sections = document.querySelectorAll('.security-page .content-section');
+        if (!('IntersectionObserver' in window)) {
+          sections.forEach((s) => s.classList.add('visible'));
+          return;
+        }
+
+        const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -100px 0px' };
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) entry.target.classList.add('visible');
+          });
+        }, observerOptions);
+
+        sections.forEach((section) => observer.observe(section));
+      }
+
+      function initActiveSection() {
+        let scrollTimeout;
+
+        function updateActiveSection() {
+          const sections = document.querySelectorAll('.security-page .content-section');
+          const tocLinks = document.querySelectorAll('.security-page .toc-link');
+
+          let currentSection = null;
+          sections.forEach((section) => {
+            const rect = section.getBoundingClientRect();
+            if (rect.top <= 200 && rect.bottom >= 200) currentSection = section.id;
+          });
+
+          tocLinks.forEach((link) => {
+            const sectionId = link.getAttribute('data-section');
+            if (sectionId === currentSection) link.classList.add('active');
+            else link.classList.remove('active');
+          });
+        }
+
+        window.addEventListener('scroll', function() {
+          if (!scrollTimeout) {
+            scrollTimeout = setTimeout(function() {
+              updateActiveSection();
+              scrollTimeout = null;
+            }, 100);
+          }
+        });
+
+        updateActiveSection();
+      }
+
+      function initSmoothScroll() {
+        const tocLinks = document.querySelectorAll('.security-page .toc-link');
+
+        tocLinks.forEach((link) => {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            const sectionId = this.getAttribute('data-section');
+            const targetSection = document.getElementById(sectionId);
+
+            if (targetSection) {
+              const offset = 120;
+              const elementPosition = targetSection.getBoundingClientRect().top;
+              const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+              window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+
+              // Close mobile menu if open
+              const tocSidebar = document.getElementById('tocSidebar');
+              if (tocSidebar && tocSidebar.classList.contains('open')) {
+                tocSidebar.classList.remove('open');
+                updateToggleText(false);
+              }
+            }
+          });
+        });
+      }
+
+      function initBackToTop() {
+        const backToTopBtn = document.getElementById('backToTop');
+        if (!backToTopBtn) return;
+
+        let scrollTimeout;
+
+        function checkScroll() {
+          if (window.pageYOffset > 500) backToTopBtn.classList.add('visible');
+          else backToTopBtn.classList.remove('visible');
+        }
+
+        window.addEventListener('scroll', function() {
+          if (!scrollTimeout) {
+            scrollTimeout = setTimeout(function() {
+              checkScroll();
+              scrollTimeout = null;
+            }, 100);
+          }
+        });
+
+        backToTopBtn.addEventListener('click', function() {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        checkScroll();
+      }
+
+      function initMobileToggle() {
+        const tocToggle = document.getElementById('tocToggle');
+        const tocSidebar = document.getElementById('tocSidebar');
+        if (!tocToggle || !tocSidebar) return;
+
+        tocToggle.addEventListener('click', function() {
+          const isOpen = tocSidebar.classList.toggle('open');
+          updateToggleText(isOpen);
+        });
+      }
+
+      function updateToggleText(isOpen) {
+        const tocToggle = document.getElementById('tocToggle');
+        if (!tocToggle) return;
+        tocToggle.textContent = isOpen ? 'Close Menu' : 'Navigation Menu';
+      }
+    });
+
+    // Smooth scroll polyfill (optional enhancement, kept same)
+    if (!('scrollBehavior' in document.documentElement.style)) {
+      const originalScrollTo = window.scrollTo;
+      window.scrollTo = function(x, y) {
+        if (typeof x === 'object') {
+          if (x.behavior === 'smooth') smoothScrollTo(x.top || 0, 600);
+          else originalScrollTo.call(window, x.left || 0, x.top || 0);
+        } else {
+          originalScrollTo.call(window, x, y);
+        }
+      };
+
+      function smoothScrollTo(targetY, duration) {
+        const startY = window.pageYOffset;
+        const distance = targetY - startY;
+        const startTime = new Date().getTime();
+
+        function scroll() {
+          const currentTime = new Date().getTime();
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+
+          const easeInOutQuad = progress < 0.5
+            ? 2 * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+          originalScrollTo.call(window, 0, startY + distance * easeInOutQuad);
+
+          if (elapsed < duration) requestAnimationFrame(scroll);
+        }
+        scroll();
+      }
+    }
+
+    // Export helpers (kept same)
+    window.SecurityPage = {
+      scrollToSection: function(sectionId) {
+        const targetSection = document.getElementById(sectionId);
+        if (targetSection) {
+          const offset = 120;
+          const elementPosition = targetSection.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - offset;
+          window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+        }
+      },
+      scrollToTop: function() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+  </script>
+</section>
+
+{% endblock %}

@@ -1,0 +1,821 @@
+{# =========================
+   search.html (MATCH PRODUCT DETAIL PAGE EXACTLY)
+   - FIX: Stores column sticky works until Products column ends
+   - FIX: Results meta spacing not hidden
+   - NO logic changes, NO route changes, NO JS changes
+   ========================= #}
+
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="pd-heading" aria-label="Search">
+  <span class="pd-heading-sub">Search</span>
+  <span class="pd-heading-box">RESULTS</span>
+</h2>
+
+<style>
+  main.container{ padding: 0 !important; margin: 0 !important; max-width: none !important; }
+
+  :root{
+    --page:#FAF9F6;
+    --ink:#3a332f;
+    --muted:#2a2a2a;
+
+    --crimson:#8B0000;
+    --crimson-2:#b11212;
+
+    --card:#F6F0E7;
+    --card-2:#EFE6DA;
+
+    --shadow: -10px -10px 0 #d9cdbd;
+    --shadow-hover: -12px -12px 0 #cbbdad;
+
+    --radius: 14px;
+    --radius-sm: 12px;
+  }
+
+  html, body{ overflow-x: hidden; }
+
+  /* Grain overlay */
+  body::after{
+    content:"";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.08;
+    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="4" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    animation: grain 0.5s steps(6) infinite;
+  }
+  @keyframes grain{
+    0%,100%{transform:translate(0,0);}
+    10%{transform:translate(-5%,-10%);}
+    20%{transform:translate(-15%,5%);}
+    30%{transform:translate(7%,-25%);}
+    40%{transform:translate(-5%,25%);}
+    50%{transform:translate(-15%,10%);}
+    60%{transform:translate(15%,0%);}
+    70%{transform:translate(0%,15%);}
+    80%{transform:translate(3%,35%);}
+    90%{transform:translate(-10%,10%);}
+  }
+
+  /* Chicken cursor */
+  @media (min-width: 481px){
+    :root{
+      --chicken-cursor: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 64 64'>\
+  <defs>\
+    <linearGradient id='g1' x1='0' y1='0' x2='1' y2='1'>\
+      <stop offset='0' stop-color='%23c07a35'/>\
+      <stop offset='1' stop-color='%238b3c1b'/>\
+    </linearGradient>\
+    <linearGradient id='g2' x1='0' y1='0' x2='1' y2='1'>\
+      <stop offset='0' stop-color='%23f6e7d8'/>\
+      <stop offset='1' stop-color='%23e5d2bf'/>\
+    </linearGradient>\
+  </defs>\
+  <ellipse cx='30' cy='40' rx='18' ry='13' fill='%23000000' opacity='.12'/>\
+  <path d='M18 18c-7 7-9 20 0 28 9 8 27 6 34-3 7-9 2-23-7-29-9-6-21-3-27 4z' fill='url(%23g1)' stroke='%232b2623' stroke-width='1.6'/>\
+  <path d='M26 20c-6 4-8 14-2 20 5 5 16 5 22-1' fill='none' stroke='%23ffffff' stroke-width='2.2' opacity='.28' stroke-linecap='round'/>\
+  <path d='M46 44c4 4 7 6 10 5 3-1 4-5 1-8 2-3 1-7-2-8s-7 1-9 4' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6' stroke-linejoin='round'/>\
+  <circle cx='58' cy='39' r='3' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6'/>\
+  <circle cx='55' cy='49' r='3' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6'/>\
+</svg>") 8 8, auto;
+    }
+    #searchWrap .card,
+    #searchWrap .card *{ cursor: var(--chicken-cursor); }
+    #searchWrap a, #searchWrap button{ cursor: pointer !important; }
+    #searchWrap input{ cursor: text !important; }
+  }
+  @media (max-width: 480px){
+    #searchWrap, #searchWrap *{ cursor:auto !important; }
+  }
+
+  /* Heading like product.html */
+  .pd-heading{
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    background: var(--page);
+    padding: 22px clamp(14px, 3vw, 44px) 10px;
+    text-align:center;
+    margin-bottom: 10px;
+  }
+  .pd-heading-box{
+    display:inline-block;
+    border: 4px solid var(--ink);
+    padding: 18px clamp(18px, 3vw, 40px);
+    background: rgba(255,255,255,.40);
+    box-shadow: 0 0 0 10px rgba(0,0,0,.03) inset;
+
+    font-family: "Playfair Display","Times New Roman",serif;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    line-height: 1;
+    font-size: clamp(2.2rem, 5vw, 4.1rem);
+    color: var(--ink);
+  }
+  .pd-heading-sub{
+    display:block;
+    margin-top: 12px;
+    font-family: "Dancing Script","Brush Script MT",cursive;
+    color: var(--crimson);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 4.6vw, 3.6rem);
+    line-height: 1;
+  }
+
+  .search-wrap{
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    background: var(--page);
+    padding: 14px clamp(14px, 3vw, 44px) 26px;
+  }
+
+  .search-head{
+    max-width: 1300px;
+    margin: 0 auto;
+    display:flex;
+    flex-direction:column;
+    gap: 12px;
+    position: relative;
+    z-index: 5;
+    padding-bottom: 10px;
+  }
+
+  .search-bar{
+    display:flex;
+    gap: 10px;
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .search-bar input{
+    flex: 1 1 380px;
+    min-width: 220px;
+    padding: 12px 12px;
+    border: 4px solid var(--ink);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-weight: 1100;
+    background: var(--page);
+    color: var(--ink);
+    outline:none;
+    transition: box-shadow .18s ease, border-color .18s ease, background .18s ease;
+  }
+  .search-bar input:focus{
+    border-color: var(--crimson);
+    box-shadow: 6px 6px 0 var(--crimson);
+    background:#fff;
+  }
+
+  .search-bar button[type="submit"]{
+    flex: 0 0 auto;
+    padding: 11px 14px;
+    border: 4px solid var(--ink);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--crimson) 0%, var(--crimson-2) 100%);
+    color: var(--page);
+    font-weight: 1200;
+    font-size: .92rem;
+    text-transform: uppercase;
+    letter-spacing: -0.2px;
+    min-height: 44px;
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  .search-bar button[type="submit"]:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 4px rgba(139,0,0,.18);
+    filter: contrast(1.03);
+  }
+
+  .close-btn{
+    flex: 0 0 auto;
+    padding: 11px 14px;
+    border: 4px solid var(--ink);
+    border-radius: var(--radius-sm);
+    background: var(--page);
+    color: var(--ink);
+    font-weight: 1200;
+    font-size: .92rem;
+    text-transform: uppercase;
+    letter-spacing: -0.2px;
+    min-height: 44px;
+    transition: transform .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap: 8px;
+    user-select:none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .close-btn:hover{
+    background:#0b0b0b;
+    color: var(--page);
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 4px rgba(139,0,0,.18);
+  }
+  .close-icon{
+    width: 14px;
+    height: 14px;
+    position: relative;
+    display:inline-block;
+  }
+  .close-icon::before,
+  .close-icon::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:50%;
+    width: 14px;
+    height: 2.2px;
+    background: currentColor;
+    border-radius: 99px;
+    transform: translate(-50%,-50%) rotate(45deg);
+  }
+  .close-icon::after{
+    transform: translate(-50%,-50%) rotate(-45deg);
+  }
+
+  /* Results meta: never hidden */
+  .search-meta{
+    max-width: 1300px;
+    margin: 0 auto;
+    display:flex;
+    justify-content:center;
+    position: relative;
+    z-index: 6;
+    padding-bottom: 10px;
+  }
+  .search-meta .muted{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding: 8px 14px;
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    background: rgba(255,255,255,.55);
+    box-shadow: 3px 3px 0 var(--ink);
+    font-weight: 1100;
+    color: #222;
+    max-width: 100%;
+    text-align:center;
+  }
+
+  .muted{ color: var(--muted); font-weight: 850; }
+
+  .search-grid{
+    max-width: 1300px;
+    margin: 22px auto 0;
+    display:grid;
+    grid-template-columns: 2.15fr 1fr;
+    gap: 20px;
+    align-items:start;
+    position: relative;
+    z-index: 1;
+  }
+  @media (max-width: 980px){
+    .search-grid{ grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
+  }
+
+  /* ✅ IMPORTANT: sticky wrapper (NOT the card itself) */
+  @media (min-width: 981px){
+    .stores-sticky-wrap{
+      position: sticky;
+      top: 92px;
+      align-self: start;
+    }
+  }
+
+  .search-section{
+    border: 4px solid var(--ink);
+    border-radius: var(--radius);
+    background:
+      radial-gradient(140px 90px at 18% 0%, rgba(139,0,0,.10), transparent 60%),
+      linear-gradient(180deg, var(--card), var(--card-2));
+    box-shadow: var(--shadow);
+    overflow:hidden;
+    position:relative;
+    transition: transform .20s ease, box-shadow .20s ease;
+  }
+  .search-section:hover{ transform: scale(1.01); box-shadow: var(--shadow-hover); }
+
+  .section-head{
+    padding: 14px 16px;
+    border-bottom: 4px solid var(--ink);
+    background: rgba(0,0,0,.03);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .section-head h3{
+    margin:0;
+    font-size: 1.02rem;
+    font-weight: 1100;
+    color: var(--ink);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .section-body{ padding: 14px; }
+
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 14px;
+    align-items: stretch;
+  }
+  @media (max-width: 720px){
+    .grid{ grid-template-columns: 1fr; }
+  }
+
+  .card{
+    border: 4px solid var(--ink);
+    border-radius: var(--radius);
+    background:
+      radial-gradient(140px 90px at 18% 0%, rgba(139,0,0,.10), transparent 60%),
+      linear-gradient(180deg, var(--card), var(--card-2));
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    box-shadow: var(--shadow);
+    transition: transform .20s ease, box-shadow .20s ease, filter .20s ease;
+    will-change: transform;
+    min-height: 420px;
+  }
+  @media (max-width: 720px){
+    .card{ min-height: 400px; }
+  }
+
+  .card::before{
+    content:"";
+    position:absolute;
+    inset: 10px 10px auto 10px;
+    height: 52px;
+    border: 1px solid rgba(0,0,0,.12);
+    border-radius: calc(var(--radius) - 6px);
+    pointer-events:none;
+    opacity: .55;
+  }
+  .card:hover{ transform: scale(1.02); box-shadow: var(--shadow-hover); }
+
+  .card-link{ display:block; text-decoration:none; color:inherit; }
+
+  .card-media{
+    border-bottom: 4px solid var(--ink);
+    background: rgba(255,255,255,.25);
+    padding: 12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .card-media img{
+    width: 100%;
+    height: 230px;
+    object-fit: contain;
+    display:block;
+    transition: transform .20s ease, filter .20s ease;
+  }
+  .card:hover .card-media img{
+    transform: scale(1.02);
+    filter: contrast(106%);
+  }
+  @media (max-width: 600px){
+    .card-media img{ height: 200px; }
+  }
+
+  .stock-badge{
+    position:absolute;
+    top:12px;
+    right:12px;
+    background: #0b0b0b;
+    color: #d7ffe7;
+    border: 3px solid var(--ink);
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 1100;
+    text-transform: uppercase;
+    letter-spacing: .45px;
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+
+  .card-body{
+    padding: 12px 12px 12px;
+    display:flex;
+    flex-direction:column;
+    gap: 8px;
+    flex-grow:1;
+    text-align: center;
+    justify-content: space-between;
+  }
+
+  .title-line{
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    gap: 10px;
+  }
+  .title-line a{
+    font-weight: 1100;
+    color: var(--ink);
+    text-decoration:none;
+    font-size: 1rem;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: -0.2px;
+    text-align:center;
+    display:block;
+    width: 100%;
+  }
+
+  .store{
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    font-size: .90rem;
+    margin: 0 auto;
+    max-width: 100%;
+  }
+
+  .price-row{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    margin-top: 4px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .price{
+    font-size: 1.18rem;
+    font-weight: 1200;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+
+  .deal-row{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:8px;
+    margin-top: 2px;
+    flex-wrap: wrap;
+  }
+  .deal-row .mrp{
+    text-decoration: line-through;
+    color: #545454;
+    font-weight: 1100;
+    font-size: .90rem;
+  }
+  .deal-row .off{
+    background: #0b0b0b;
+    color: var(--page);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-weight: 1200;
+    font-size: .74rem;
+    line-height: 1.2;
+    letter-spacing: .3px;
+    box-shadow: 3px 3px 0 var(--ink);
+    text-transform: uppercase;
+  }
+
+  .btn-ghost{
+    padding: 10px 12px;
+    border: 4px solid var(--ink);
+    border-radius: var(--radius-sm);
+    background: var(--page);
+    color: var(--ink);
+    cursor:pointer;
+    font-weight: 1200;
+    font-size: .92rem;
+    text-align:center;
+    text-decoration:none;
+    transition: transform .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+    text-transform: uppercase;
+    letter-spacing: -0.2px;
+    min-height: 42px;
+  }
+  .btn-ghost:hover{
+    background:#0b0b0b;
+    color: var(--page);
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 4px rgba(139,0,0,.18);
+  }
+
+  .price-row .btn-ghost{
+    padding: 7px 12px;
+    font-size: .82rem;
+    flex: 0 0 auto;
+    min-height: 38px;
+  }
+
+  .store-list{ display:grid; gap: 14px; }
+
+  .store-card{
+    border: 4px solid var(--ink);
+    border-radius: var(--radius);
+    background: var(--page);
+    box-shadow: 3px 3px 0 var(--ink);
+    padding: 14px;
+    display:flex;
+    align-items:flex-start;
+    gap: 12px;
+    transition: transform .18s ease, box-shadow .18s ease;
+    min-height: 116px;
+  }
+  .store-card:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 4px rgba(139,0,0,.18);
+  }
+
+  .store-ico{
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-sm);
+    border: 4px solid var(--ink);
+    background: #0b0b0b;
+    color: var(--page);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 1.35rem;
+    box-shadow: 4px 4px 0 var(--ink);
+    flex: 0 0 auto;
+  }
+
+  .store-body{ flex: 1 1 auto; min-width: 0; }
+  .store-title{
+    display:block;
+    font-weight: 1100;
+    color: var(--ink);
+    text-decoration:none;
+    text-transform: uppercase;
+    letter-spacing: -0.2px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    font-size: .98rem;
+    line-height: 1.15;
+  }
+  .store-title:hover{ color: var(--crimson); }
+
+  .store-addr{
+    margin-top: 8px;
+    font-size: .92rem;
+    font-weight: 850;
+    color: #222;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .store-meta{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 980px){
+    .store-meta{
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .store-meta .btn-ghost{
+      width: 100%;
+      text-align:center;
+    }
+  }
+
+  .empty-state{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border-radius: var(--radius);
+    padding: 36px 18px;
+    border: 4px solid var(--ink);
+    box-shadow: -12px -12px 0 var(--crimson);
+  }
+  .empty-state .icon{
+    width: 70px;
+    height: 70px;
+    border-radius: var(--radius);
+    background: #0b0b0b;
+    color: var(--page);
+    border: 4px solid var(--ink);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 2rem;
+    margin-bottom: 14px;
+    box-shadow: -8px -8px 0 var(--crimson);
+  }
+  .empty-state h3{
+    margin: 0 0 8px 0;
+    font-size: 1.25rem;
+    font-weight: 1200;
+    color: var(--ink);
+    text-transform: uppercase;
+    letter-spacing: -0.3px;
+  }
+  .empty-state p{
+    margin: 0;
+    font-size: 1rem;
+    color: #222;
+    max-width: 520px;
+    font-weight: 850;
+    line-height: 1.55;
+  }
+
+  @media (hover:none) and (pointer:coarse){
+    .card:hover{ transform:none; box-shadow: var(--shadow); }
+    .search-section:hover{ transform:none; box-shadow: var(--shadow); }
+    .store-card:hover{ transform:none; box-shadow: 3px 3px 0 var(--ink); }
+    .btn-ghost:hover, .close-btn:hover{ transform:none; box-shadow:none; }
+  }
+</style>
+
+<div class="search-wrap" id="searchWrap">
+  <div class="search-head">
+    <form action="{{ url_for('search') }}" method="get" class="search-bar" role="search" aria-label="Search">
+      <input type="search" name="q" value="{{ q }}" placeholder="Search products or stores..." required>
+      <button type="submit">Search</button>
+
+      <button class="close-btn" id="searchCloseBtn" type="button" aria-label="Close search" title="Close">
+        <span class="close-icon" aria-hidden="true"></span>
+        <span style="font-weight:1200;">Close</span>
+      </button>
+    </form>
+
+    {% if q %}
+      <div class="search-meta">
+        <span class="muted">Results for “{{ q }}”</span>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="search-grid">
+    <!-- Products -->
+    <section class="search-section">
+      <div class="section-head">
+        <h3>Products</h3>
+      </div>
+
+      <div class="section-body">
+        {% if products %}
+          <div class="grid">
+            {% for p in products %}
+
+              {% set half_price = (p.price_per_kg or 0) / 2 %}
+              {% set mrp_half = half_price * 1.20 %}
+              {% set pct_off = ((1 - (half_price / (mrp_half or 1))) * 100) %}
+
+              <article class="card">
+                {% if p.stock_kg is not none and p.stock_kg > 0 %}
+                  <div class="stock-badge">In Stock</div>
+                {% else %}
+                  <div class="stock-badge" style="color:#ffb3b3;">Out of Stock</div>
+                {% endif %}
+
+                <a class="card-link"
+                   href="{{ url_for('product_detail', pid=p.id) }}?back={{ request.full_path|urlencode }}">
+                  <div class="card-media">
+                    <img
+                      src="{{ '/' + p.image_path if p.image_path else url_for('static', filename='placeholder.png') }}"
+                      alt="{{ p.name }}"
+                      loading="lazy">
+                  </div>
+                </a>
+
+                <div class="card-body">
+                  <div>
+                    <div class="title-line">
+                      <a href="{{ url_for('product_detail', pid=p.id) }}?back={{ request.full_path|urlencode }}">{{ p.name }}</a>
+                    </div>
+
+                    <p class="muted store">{{ p.store_name }}</p>
+                  </div>
+
+                  <div>
+                    <div class="price-row">
+                      <span class="price">₹ {{ '%.2f'|format(half_price) }}/½kg</span>
+                      <a class="btn-ghost" href="{{ url_for('product_detail', pid=p.id) }}?back={{ request.full_path|urlencode }}">View</a>
+                    </div>
+
+                    <div class="deal-row">
+                      <span class="mrp">₹ {{ '%.2f'|format(mrp_half) }}</span>
+                      <span class="off">{{ (pct_off | round(0, 'floor') | int) }}% OFF</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <div class="icon">📦</div>
+            <h3>No Products Found</h3>
+            <p>Try a different keyword or check back later.</p>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- Stores (✅ sticky wrapper outside the card) -->
+    <div class="stores-sticky-wrap">
+      <section class="search-section">
+        <div class="section-head">
+          <h3>Stores</h3>
+        </div>
+
+        <div class="section-body">
+          {% if stores %}
+            <div class="store-list">
+              {% for s in stores %}
+                <article class="store-card">
+                  <div class="store-ico">🏬</div>
+                  <div class="store-body">
+                    <a class="store-title"
+                       href="{{ url_for('store_catalog', sid=s.id) }}?back={{ request.full_path|urlencode }}">
+                      {{ s.store_name }}
+                    </a>
+
+                    {% if s.address %}
+                      <div class="store-addr">{{ s.address }}</div>
+                    {% endif %}
+
+                    <div class="store-meta">
+                      <span class="muted">{{ s.product_count }} products</span>
+                      <a class="btn-ghost"
+                         href="{{ url_for('store_catalog', sid=s.id) }}?back={{ request.full_path|urlencode }}">
+                        View store
+                      </a>
+                    </div>
+                  </div>
+                </article>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-state">
+              <div class="icon">🏪</div>
+              <h3>No Stores Found</h3>
+              <p>Try searching with a different store name.</p>
+            </div>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  (function(){
+    const btn = document.getElementById('searchCloseBtn');
+    if(!btn) return;
+
+    try{
+      const ref = document.referrer || '';
+      if(ref && !ref.includes('/search')){
+        sessionStorage.setItem('cc_search_prev', ref);
+      }
+    }catch(_){}
+
+    function closeSearch(){
+      try{
+        const prev = sessionStorage.getItem('cc_search_prev');
+        if(prev && prev !== location.href){
+          location.href = prev;
+          return;
+        }
+      }catch(_){}
+
+      if (window.history.length > 1){
+        window.history.back();
+        return;
+      }
+
+      window.location.href = "{{ url_for('products') }}";
+    }
+
+    btn.addEventListener('click', closeSearch);
+
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape') closeSearch();
+    });
+  })();
+</script>
+
+{% endblock %}

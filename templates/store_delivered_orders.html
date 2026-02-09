@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="store-delivered-page" data-page="store-delivered">
+  <style>
+    /* ========================================
+       STORE DELIVERED ORDERS — MATCH STORE DASHBOARD THEME
+       ✅ NO route/logic changes
+       ✅ ONLY design/theme replacement
+       ✅ Keep table as table (structure preserved)
+       ✅ Mobile/App + Web responsive
+       Scoped to .store-delivered-page
+       ======================================== */
+
+    /* Font imports (page-scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    /* ✅ Page-scoped tokens + full-bleed like dashboard */
+    .store-delivered-page{
+      --crimson: #8B0000;
+      --black: #000000;
+      --off-white: #FAF9F6;
+      --light-crimson: #FFF5F5;
+      --border-standard: 4px;
+      --border-accent: 8px;
+      --transition-speed: 0.3s;
+
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      font-weight: bold;
+      background-color: var(--off-white);
+      color: var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.125rem;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    .store-delivered-page,
+    .store-delivered-page *{ box-sizing: border-box; }
+
+    /* reset only inside page */
+    .store-delivered-page *{
+      margin: 0;
+      padding: 0;
+      border-radius: 0 !important;
+    }
+
+    /* ✅ Cursor (scoped, same as dashboard) */
+    .store-delivered-page,
+    .store-delivered-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
+    }
+    .store-delivered-page a,
+    .store-delivered-page button,
+    .store-delivered-page select,
+    .store-delivered-page input{ cursor: pointer; }
+
+    .store-delivered-page ::selection{
+      background-color: var(--crimson);
+      color: #fff;
+    }
+
+    /* ========================================
+       FILM GRAIN OVERLAY
+       ======================================== */
+    .store-delivered-page .grain-overlay{
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.12;
+      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* ========================================
+       TOP BAR + HERO (same style)
+       ======================================== */
+    .store-delivered-page .top-bar{
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+    }
+
+    .store-delivered-page .hero-section{
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 5.25rem 2rem 4.25rem;
+      border-bottom: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+    }
+
+    .store-delivered-page .hero-title{
+      font-family: 'Dancing Script', cursive;
+      font-size: clamp(3rem, 10vw, 6rem);
+      color: var(--crimson);
+      font-style: italic;
+      font-weight: 700;
+      margin: 0 0 0.75rem 0;
+      line-height: 1.15;
+      text-transform: uppercase;
+    }
+
+    .store-delivered-page .hero-subtitle{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+      margin-bottom: 1.75rem;
+    }
+
+    .store-delivered-page .hero-divider{
+      width: 6rem;
+      height: 4px;
+      background: var(--crimson);
+      margin: 0 auto;
+    }
+
+    /* ========================================
+       MAIN CONTAINER
+       ======================================== */
+    .store-delivered-page .main-container{
+      position: relative;
+      z-index: 2;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    /* ========================================
+       PANEL + HEADER (dashboard language)
+       ======================================== */
+    .store-delivered-page .panel{
+      border: var(--border-standard) solid var(--black);
+      padding: 2rem;
+      margin-bottom: 2.75rem;
+      background: var(--light-crimson);
+    }
+
+    .store-delivered-page .section-header{
+      display: flex;
+      align-items: start;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .store-delivered-page .icon-box{
+      width: 48px;
+      height: 48px;
+      background: var(--crimson);
+      border: var(--border-standard) solid var(--black);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #fff;
+      font-family: 'Italiana', serif;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+
+    .store-delivered-page .section-title{
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+
+    .store-delivered-page .section-description{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      opacity: 0.85;
+    }
+
+    /* ========================================
+       BACK BUTTON (keep class="btn" but reskin)
+       ======================================== */
+    .store-delivered-page a{ color: inherit; text-decoration: none; }
+
+    .store-delivered-page .btn{
+      display: inline-flex;
+      align-items: center;
+      gap: .6rem;
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      color: var(--black);
+      padding: 0.9rem 1.25rem;
+      font-family: 'Italiana', serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      transition: all var(--transition-speed);
+      box-shadow: 4px 4px 0 var(--black);
+    }
+    .store-delivered-page .btn:hover{
+      transform: translateY(-4px);
+      background: var(--black);
+      color: #fff;
+    }
+
+    /* ========================================
+       TABLES — keep table structure
+       ======================================== */
+    .store-delivered-page .table-shell{
+      margin-top: 1.25rem;
+      overflow-x: auto;
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+    }
+
+    .store-delivered-page table.table{
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 980px;
+      background: var(--off-white);
+    }
+
+    .store-delivered-page table.table thead{
+      background: var(--black);
+      color: #fff;
+    }
+
+    .store-delivered-page table.table th{
+      padding: 1rem;
+      text-align: left;
+      font-family: 'Italiana', serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      font-weight: 800;
+      border-right: 2px solid var(--crimson);
+      white-space: nowrap;
+    }
+    .store-delivered-page table.table th:last-child{ border-right: none; }
+
+    .store-delivered-page table.table tbody tr{
+      border-bottom: 2px solid var(--black);
+    }
+    .store-delivered-page table.table tbody tr:nth-child(even){
+      background: var(--light-crimson);
+    }
+
+    .store-delivered-page table.table td{
+      padding: 1rem;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      vertical-align: middle;
+    }
+
+    .store-delivered-page .muted{ color: rgba(0,0,0,.65); }
+
+    .store-delivered-page *:focus-visible{
+      outline: 3px solid var(--crimson);
+      outline-offset: 3px;
+    }
+
+    /* ========================================
+       RESPONSIVE
+       ======================================== */
+    @media (max-width: 768px){
+      .store-delivered-page .main-container{ padding: 2rem 1rem; }
+      .store-delivered-page .top-bar{
+        padding: 1rem;
+        font-size: 0.625rem;
+        letter-spacing: 0.35em;
+      }
+      .store-delivered-page .hero-section{ padding: 4rem 1rem 3rem; }
+      .store-delivered-page .panel{ padding: 1.25rem; }
+      .store-delivered-page .table-shell{ overflow-x: scroll; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .store-delivered-page *,
+      .store-delivered-page *::before,
+      .store-delivered-page *::after{
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+
+  <!-- Film Grain Overlay -->
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <!-- Hero -->
+  <header class="hero-section">
+    <h1 class="hero-title">{{ store.store_name }}</h1>
+    <p class="hero-subtitle">Delivered Orders</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <main class="main-container">
+    <section class="panel" aria-label="Delivered orders list">
+      <div class="section-header">
+        <div class="icon-box" aria-hidden="true">✓</div>
+        <div>
+          <h3 class="section-title">Order History</h3>
+          <p class="section-description">All orders marked as delivered</p>
+        </div>
+      </div>
+
+      <!-- ✅ SAME link, same route, same class name -->
+      <a class="btn" href="{{ url_for('store_dashboard') }}">← Back to Active Orders</a>
+
+      <!-- ✅ SAME table structure, only wrapped for styling -->
+      <div class="table-shell">
+        <table class="table" style="margin-top:16px">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Customer</th>
+              <th>Phone</th>
+              <th>Total (₹)</th>
+              <th>Delivered On</th>
+              <th>Payment</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% if orders and orders|length %}
+            {% for o in orders %}
+              <tr>
+                <td>{{ o.id }}</td>
+                <td>{{ o.customer_name }}</td>
+                <td>{{ o.customer_phone or '—' }}</td>
+                <td>{{ '%.2f'|format(o.total_amount or 0) }}</td>
+                <td>{{ o.created_at.split('T')[0] if o.created_at else '' }}</td>
+                <td>{{ o.payment_status }}</td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="6" class="muted" style="text-align:center">No delivered orders yet.</td></tr>
+          {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</section>
+
+{% endblock %}

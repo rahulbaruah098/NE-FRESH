@@ -1,0 +1,632 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- =========================
+     PROFILE PAGE (CLEAN + RESPONSIVE)
+     ✅ Full-bleed page (no container feeling)
+     ✅ Center aligned content
+     ✅ No sidebar / no stats / no orders / no numbering
+     ✅ Dashboard: only photo + name + email
+     ✅ Blank DP icon placeholder
+     ✅ Keeps your existing forms + routes + detectBtn logic
+     ✅ Detect Location now fills lat/lng + visible boxes + address fields (except Label)
+========================== -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Playfair+Display:wght@700;900&family=Cormorant+Garamond:wght@400;500;600&family=Italiana&display=swap" rel="stylesheet">
+
+<section class="pf-fullbleed">
+
+  <div class="pf-wrap">
+
+    <!-- Page Title -->
+    <header class="pf-header">
+      <h1 class="pf-title">My Profile</h1>
+      <p class="pf-subtitle">Manage your profile and addresses for faster checkout.</p>
+    </header>
+
+    <!-- DASHBOARD (only photo + name + email) -->
+    <section class="pf-card" aria-label="Profile summary">
+      <div class="pf-summary">
+        <div class="pf-avatar" aria-hidden="true">
+          {# ✅ Placeholder DP icon (no random image) #}
+          <svg viewBox="0 0 24 24" width="56" height="56" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M4 22c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <div class="pf-summary-text">
+          <div class="pf-name">{{ user.name }}</div>
+          <div class="pf-email">{{ user.email }}</div>
+        </div>
+      </div>
+
+      <div class="pf-note">
+       <!--  <span class="pf-pill">Photo upload</span>-->
+        <!-- <span class="pf-muted">You can add user photo upload later. For now, we show a blank DP icon.</span>-->
+      </div>
+    </section>
+
+    <!-- PROFILE FORM -->
+    <section class="pf-card" aria-label="Edit profile">
+      <h2 class="pf-h2">Edit Profile</h2>
+
+      <form method="post" class="pf-form">
+        <div class="pf-field">
+          <label class="pf-label">Name</label>
+          <input type="text" name="name" class="pf-input" value="{{ user.name }}" required>
+        </div>
+
+        <div class="pf-field">
+          <label class="pf-label">Email</label>
+          <input type="email" class="pf-input" value="{{ user.email }}" disabled>
+        </div>
+
+        <div class="pf-field">
+          <label class="pf-label">Phone</label>
+          <input type="text" name="phone" class="pf-input" value="{{ user.phone or '' }}">
+        </div>
+
+        <button class="pf-btn" type="submit">Save Profile</button>
+      </form>
+    </section>
+
+    <!-- ADDRESSES -->
+    <section class="pf-card" aria-label="Addresses">
+      <div class="pf-address-head">
+        <h2 class="pf-h2">Addresses</h2>
+
+        <!-- IMPORTANT: keep id="detectBtn" as your JS expects -->
+        <button type="button" class="pf-btn ghost" id="detectBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+         Detect Location
+</button>
+
+<div id="detectMsg" class="pf-detect-msg" aria-live="polite" hidden></div>
+      </div>
+
+      <form method="post" action="{{ url_for('address_new') }}" class="pf-form pf-address-form">
+        <div class="pf-grid">
+          <div class="pf-field">
+            <label class="pf-label">Label (Home/Work)</label>
+            <!-- ✅ must remain user-filled / not mandatory -->
+            <input type="text" name="label" id="addr_label" class="pf-input" placeholder="Home">
+          </div>
+
+          <div class="pf-field pf-col-2">
+            <label class="pf-label">Address line 1</label>
+            <input type="text" name="line1" id="addr_line1" class="pf-input" required>
+          </div>
+
+          <div class="pf-field pf-col-2">
+            <label class="pf-label">Address line 2</label>
+            <input type="text" name="line2" id="addr_line2" class="pf-input">
+          </div>
+
+          <div class="pf-field">
+            <label class="pf-label">City</label>
+            <input type="text" name="city" id="addr_city" class="pf-input">
+          </div>
+
+          <div class="pf-field">
+            <label class="pf-label">State</label>
+            <input type="text" name="state" id="addr_state" class="pf-input">
+          </div>
+
+          <div class="pf-field">
+            <label class="pf-label">Pincode</label>
+            <input type="text" name="pincode" id="addr_pincode" class="pf-input">
+          </div>
+
+          <!-- ✅ Visible lat/lng for users (auto-filled on Detect Location) -->
+         <!-- ✅ Visible lat/lng for users (auto-filled on Detect Location) -->
+<div class="pf-field">
+  <label class="pf-label">Latitude</label>
+  <input type="text" class="pf-input" id="lat_view" name="latitude"
+         placeholder="Auto-filled or type manually">
+</div>
+
+<div class="pf-field">
+  <label class="pf-label">Longitude</label>
+  <input type="text" class="pf-input" id="lng_view" name="longitude"
+         placeholder="Auto-filled or type manually">
+</div>
+
+        </div>
+
+        <!-- Keep hidden inputs exactly as your logic expects -->
+        <input type="hidden" id="lat">
+<input type="hidden" id="lng">
+
+        <label class="pf-check">
+          <input type="checkbox" name="is_default" value="1">
+          <span>Set as default</span>
+        </label>
+
+        <button class="pf-btn" type="submit">Save Address</button>
+      </form>
+
+      <!-- Address list -->
+      <div class="pf-tablewrap" role="region" aria-label="Saved addresses">
+        <table class="pf-table">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Address</th>
+              <th>Coords</th>
+              <th>Default</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if addresses and addresses|length %}
+              {% for a in addresses %}
+              <tr>
+                <td>{{ a.label }}</td>
+                <td>
+                  {{ a.line1 }}{% if a.line2 %}, {{ a.line2 }}{% endif %},
+                  {{ a.city }}, {{ a.state }} {{ a.pincode }}
+                </td>
+                <td>
+                  {% if a.latitude and a.longitude %}
+                    {{ a.latitude }}, {{ a.longitude }}
+                  {% else %}
+                    <span class="pf-muted">—</span>
+                  {% endif %}
+                </td>
+                <td>{{ 'Yes' if a.is_default else 'No' }}</td>
+                <td class="pf-actions">
+                  <form method="post" action="{{ url_for('address_delete', aid=a.id) }}">
+                    <button class="pf-btn tiny ghost" onclick="return confirm('Delete this address?')">Delete</button>
+                  </form>
+
+                  {% if not a.is_default %}
+                  <form method="post" action="{{ url_for('address_set_default', aid=a.id) }}">
+                    <button class="pf-btn tiny ghost">Set Default</button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              {# ✅ No "No orders yet" box anymore; only a small row for addresses #}
+              <tr>
+                <td colspan="5" class="pf-empty">No addresses saved yet.</td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+</section>
+<script>
+/* =========================
+   DETECT LOCATION + AUTOFILL ADDRESS (FINAL)
+   ✅ Live GPS via browser permission
+   ✅ Reverse geocode via OpenStreetMap Nominatim
+   ✅ Fills address fields (except Label)
+   ✅ Fills hidden + visible lat/lng
+   ✅ Uses inline popup (NO alert)
+========================== */
+(function(){
+  const btn = document.getElementById('detectBtn');
+  const msgBox = document.getElementById('detectMsg');
+
+  const latEl = document.getElementById('lat');
+  const lngEl = document.getElementById('lng');
+
+  // visible lat/lng
+  const latView = document.getElementById('lat_view');
+  const lngView = document.getElementById('lng_view');
+
+  // address inputs
+  const line1El = document.getElementById('addr_line1');
+  const line2El = document.getElementById('addr_line2');
+  const cityEl  = document.getElementById('addr_city');
+  const stateEl = document.getElementById('addr_state');
+  const pinEl   = document.getElementById('addr_pincode');
+
+  /* ---------- Inline popup helper ---------- */
+  function showDetectMsg(message, type="success"){
+    if (!msgBox) return;
+    msgBox.hidden = false;
+    msgBox.textContent = message;
+    msgBox.className = "pf-detect-msg " + type;
+
+    clearTimeout(msgBox._t);
+    msgBox._t = setTimeout(() => {
+      msgBox.hidden = true;
+    }, 4500);
+  }
+
+  function setBtnLoading(loading){
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.dataset.oldText = btn.dataset.oldText || btn.textContent.trim();
+    btn.textContent = loading ? "Detecting..." : btn.dataset.oldText;
+  }
+
+  function safeSet(el,val){
+    if(el) el.value = (val ?? "").toString();
+  }
+
+  function setLatLng(lat,lng){
+    safeSet(latEl, lat);
+    safeSet(lngEl, lng);
+    safeSet(latView, lat);
+    safeSet(lngView, lng);
+  }
+
+  function getPositionOnce(opts){
+    return new Promise((resolve,reject)=>{
+      navigator.geolocation.getCurrentPosition(resolve,reject,opts);
+    });
+  }
+
+  async function reverseGeocode(lat,lng){
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`;
+    const res = await fetch(url,{cache:"no-store"});
+    if(!res.ok) throw new Error();
+    return res.json();
+  }
+
+  function mapNominatim(j){
+    const a = j.address || {};
+    const road = a.road || a.pedestrian || "";
+    const house = a.house_number || "";
+    return {
+      line1: [house,road].filter(Boolean).join(" "),
+      line2: a.suburb || a.neighbourhood || "",
+      city: a.city || a.town || a.village || "",
+      state: a.state || "",
+      pincode: a.postcode || ""
+    };
+  }
+
+  async function ipFallback(){
+    try{
+      const r = await fetch("https://ipapi.co/json/",{cache:"no-store"});
+      const j = await r.json();
+      return j.latitude ? j : null;
+    }catch(e){ return null; }
+  }
+
+  async function detect(){
+    if(!btn) return;
+
+    setBtnLoading(true);
+
+    if(!("geolocation" in navigator)){
+      const ip = await ipFallback();
+      if(ip){
+        setLatLng(ip.latitude,ip.longitude);
+        safeSet(cityEl,ip.city);
+        safeSet(stateEl,ip.region);
+        safeSet(pinEl,ip.postal);
+        showDetectMsg("Approximate location detected (IP based).","warning");
+      }else{
+        showDetectMsg("Location not supported on this device.","error");
+      }
+      setBtnLoading(false);
+      return;
+    }
+
+    try{
+      const pos = await getPositionOnce({enableHighAccuracy:false,timeout:8000});
+      const {latitude,longitude} = pos.coords;
+      setLatLng(latitude,longitude);
+
+      try{
+        const j = await reverseGeocode(latitude,longitude);
+        const m = mapNominatim(j);
+        safeSet(line1El,m.line1);
+        safeSet(line2El,m.line2);
+        safeSet(cityEl,m.city);
+        safeSet(stateEl,m.state);
+        safeSet(pinEl,m.pincode);
+        showDetectMsg("📍 Live location detected and address auto-filled.","success");
+      }catch{
+        showDetectMsg("Live location detected. Please fill address manually.","warning");
+      }
+
+    }catch{
+      const ip = await ipFallback();
+      if(ip){
+        setLatLng(ip.latitude,ip.longitude);
+        safeSet(cityEl,ip.city);
+        safeSet(stateEl,ip.region);
+        safeSet(pinEl,ip.postal);
+        showDetectMsg("GPS blocked. Using approximate IP location.","warning");
+      }else{
+        showDetectMsg("Location permission denied or unavailable.","error");
+      }
+    }finally{
+      setBtnLoading(false);
+    }
+  }
+
+  btn?.addEventListener("click",detect);
+})();
+</script>
+
+
+<style>
+/* =========================
+   FULL-BLEED + CENTERED
+========================== */
+.pf-fullbleed{
+  width:100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  background:#FAF9F6;
+  color:#000;
+  font-family:'Cormorant Garamond', serif;
+  padding: 36px 16px 64px;
+}
+
+.pf-wrap{
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+/* Header */
+.pf-header{
+  text-align:center;
+  margin-bottom: 22px;
+}
+.pf-title{
+  font-family:'Dancing Script', cursive;
+  color:#8B0000;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  line-height:1.05;
+  margin: 6px 0 8px;
+}
+.pf-subtitle{
+  margin:0;
+  font-size: 1.05rem;
+  opacity:.85;
+}
+
+/* Cards */
+.pf-card{
+  border:4px solid #000;
+  background:#FFF5F5;
+  padding: 18px;
+  margin: 14px 0;
+}
+
+/* Dashboard summary */
+.pf-summary{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+.pf-avatar{
+  width:82px;height:82px;
+  border:4px solid #000;
+  background:#FAF9F6;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#8B0000;
+}
+.pf-summary-text{ min-width: 0; }
+.pf-name{
+  font-family:'Playfair Display', serif;
+  font-weight:900;
+  font-size: clamp(1.35rem, 2.8vw, 1.85rem);
+  margin:0 0 4px;
+}
+.pf-email{
+  font-family:'Italiana', serif;
+  letter-spacing:.08em;
+  text-transform: lowercase;
+  opacity:.9;
+  word-break: break-word;
+}
+
+.pf-note{
+  margin-top: 12px;
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  flex-wrap:wrap;
+}
+.pf-pill{
+  border:3px solid #000;
+  padding:6px 10px;
+  background:#FAF9F6;
+  font-family:'Italiana', serif;
+  text-transform:uppercase;
+  letter-spacing:.2em;
+  font-size:.78rem;
+}
+.pf-muted{ color:#64748b; }
+
+/* Headings */
+.pf-h2{
+  font-family:'Playfair Display', serif;
+  font-weight:900;
+  text-transform:uppercase;
+  margin:0 0 12px;
+}
+
+/* Form */
+.pf-form{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.pf-field{ display:flex; flex-direction:column; gap:6px; }
+.pf-label{
+  font-family:'Italiana', serif;
+  text-transform:uppercase;
+  letter-spacing:.35em;
+  font-size:.78rem;
+}
+.pf-input{
+  border:4px solid #000;
+  background:#FAF9F6;
+  padding: 12px 12px;
+  font-size: 1.05rem;
+}
+.pf-input:focus{
+  outline:none;
+  border-color:#8B0000;
+}
+.pf-input[disabled]{ opacity:.85; cursor:not-allowed; }
+
+.pf-btn{
+  border:4px solid #000;
+  background:#8B0000;
+  color:#FAF9F6;
+  padding: 12px 14px;
+  font-family:'Playfair Display', serif;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.pf-btn:hover{
+  background:#000;
+  box-shadow: 6px 6px 0 #8B0000;
+  transform: translateY(-1px);
+}
+.pf-btn.ghost{
+  background:#FAF9F6;
+  color:#8B0000;
+  font-family:'Italiana', serif;
+  letter-spacing:.18em;
+}
+.pf-btn.ghost:hover{
+  background:#000;
+  color:#FAF9F6;
+  box-shadow: 6px 6px 0 #8B0000;
+}
+
+/* Address grid */
+.pf-grid{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 12px;
+}
+.pf-col-2{ grid-column: span 2; }
+
+/* Checkbox */
+.pf-check{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size: 1.02rem;
+}
+.pf-check input{
+  width:18px;height:18px;
+  accent-color:#8B0000;
+}
+
+/* Table */
+.pf-tablewrap{
+  margin-top: 14px;
+  overflow-x:auto;
+  background:#FAF9F6;
+  border:4px solid #000;
+}
+.pf-table{
+  width:100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+.pf-table th, .pf-table td{
+  border-bottom:2px solid #000;
+  padding: 12px;
+  text-align:left;
+  vertical-align: top;
+}
+.pf-table th{
+  font-family:'Playfair Display', serif;
+  font-weight:900;
+  text-transform:uppercase;
+  font-size:.86rem;
+}
+.pf-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.pf-btn.tiny{
+  padding: 8px 10px;
+  border-width:3px;
+  font-size:.78rem;
+}
+.pf-empty{
+  padding: 18px !important;
+  text-align:center;
+  color:#64748b;
+}
+
+/* Responsive */
+@media (max-width: 900px){
+  .pf-grid{ grid-template-columns: 1fr; }
+  .pf-col-2{ grid-column: auto; }
+  .pf-summary{ flex-direction:column; align-items:center; text-align:center; }
+  .pf-note{ justify-content:center; }
+}
+@media (max-width: 520px){
+  .pf-card{ padding: 14px; }
+  .pf-avatar{ width:74px;height:74px; }
+  .pf-table{ min-width: 620px; }
+}
+
+/* =========================
+   Detect Location Inline Popup
+========================== */
+.pf-detect-msg{
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 3px solid #000;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.95rem;
+  background: #FAF9F6;
+  box-shadow: 4px 4px 0 #000;
+  animation: pfFadeSlide 0.25s ease-out;
+}
+
+.pf-detect-msg.success{
+  border-color: #15803d;
+  color: #14532d;
+  background: #ecfdf5;
+}
+
+.pf-detect-msg.warning{
+  border-color: #b45309;
+  color: #78350f;
+  background: #fff7ed;
+}
+
+.pf-detect-msg.error{
+  border-color: #b91c1c;
+  color: #7f1d1d;
+  background: #fef2f2;
+}
+
+@keyframes pfFadeSlide{
+  from{
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to{
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+</style>
+
+{% endblock %}

@@ -1,0 +1,773 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="terms-page" data-page="terms">
+  <style>
+    /* =========================================================
+       TERMS (Single-file: HTML + CSS + JS) — Scoped inside base.html
+       UPDATED (same fixes as Privacy/Security):
+       ✅ Footer stars + footer title match Privacy page
+       ✅ TOC sidebar sticky behavior matches Privacy page (top:120px, fit-content, max-height, z-index)
+       ✅ Full-bleed + overflow safe for sticky (overflow: visible)
+       ✅ Responsive: mobile TOC toggle + better small-screen behavior
+       ✅ Reduced motion + print safe
+       ========================================================= */
+
+    /* Google Fonts Import (scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Dancing+Script:wght@400;500;600;700&family=Italiana&family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
+
+    .terms-page{
+      --crimson: #8B0000;
+      --black: #000000;
+      --off-white: #FAF9F6;
+      --crimson-light: #FFF5F5;
+      --border-standard: 4px solid var(--black);
+      --border-accent: 8px solid var(--crimson);
+
+      /* Full-bleed inside base.html container */
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+
+      background-color: var(--off-white);
+      color: var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.125rem;
+      line-height: 1.6;
+
+      overflow-x: hidden;
+      overflow: visible; /* sticky safe */
+      position: relative;
+      min-height: 100vh;
+    }
+
+    .terms-page,
+    .terms-page *{ box-sizing: border-box; }
+    .terms-page *{ margin: 0; padding: 0; }
+
+    /* Custom Cursor */
+    .terms-page,
+    .terms-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 4c-2 0-4 1-5 3-1-1-3-1-4 0-2 2-2 5 0 7l9 9 9-9c2-2 2-5 0-7-1-1-3-1-4 0-1-2-3-3-5-3z" fill="%238B0000"/><circle cx="12" cy="10" r="1" fill="white"/><circle cx="20" cy="10" r="1" fill="white"/><path d="M14 14h4v2h-4z" fill="%23FFA500"/></svg>'), auto;
+    }
+    .terms-page button,
+    .terms-page a{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 4c-2 0-4 1-5 3-1-1-3-1-4 0-2 2-2 5 0 7l9 9 9-9c2-2 2-5 0-7-1-1-3-1-4 0-1-2-3-3-5-3z" fill="%238B0000"/><circle cx="12" cy="10" r="1" fill="white"/><circle cx="20" cy="10" r="1" fill="white"/><path d="M14 14h4v2h-4z" fill="%23FFA500"/></svg>'), pointer !important;
+    }
+
+    /* Grain Overlay */
+    .terms-page .grain-overlay{
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.03;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)"/></svg>');
+      animation: termsGrain 0.5s steps(6) infinite;
+    }
+    @keyframes termsGrain{
+      0%, 100% { transform: translate(0, 0); }
+      10% { transform: translate(-5%, -10%); }
+      20% { transform: translate(-15%, 5%); }
+      30% { transform: translate(7%, -25%); }
+      40% { transform: translate(-5%, 25%); }
+      50% { transform: translate(-15%, 10%); }
+      60% { transform: translate(15%, 0%); }
+      70% { transform: translate(0%, 15%); }
+      80% { transform: translate(3%, 25%); }
+      90% { transform: translate(-10%, 10%); }
+    }
+
+    /* Hero */
+    .terms-page .hero-section{
+      text-align: center;
+      padding: 4rem 2rem 6rem;
+      background-color: var(--off-white);
+      border-bottom: var(--border-standard);
+      position: relative;
+    }
+
+    /* Top Bar (sticky like other pages) */
+    .terms-page .top-bar{
+      display: flex;
+      justify-content: space-between;
+      max-width: 1400px;
+      margin: 0 auto 3rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid var(--black);
+
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--off-white);
+      padding-top: 1rem;
+    }
+    .terms-page .top-bar-text{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      font-weight: 400;
+    }
+
+    .terms-page .page-title{
+      font-family: 'Dancing Script', cursive;
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 700;
+      color: var(--crimson);
+      margin-bottom: 1rem;
+      line-height: 1.2;
+      font-style: italic;
+    }
+    .terms-page .page-subtitle{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      color: var(--black);
+      margin-bottom: 2rem;
+    }
+    .terms-page .title-divider{
+      width: 6rem;
+      height: 4px;
+      background-color: var(--crimson);
+      margin: 0 auto;
+    }
+
+    /* Layout */
+    .terms-page .content-container{
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 4rem 2rem;
+      display: grid;
+      grid-template-columns: 25% 1fr;
+      gap: 5%;
+      position: relative;
+    }
+
+    /* TOC Sidebar — UPDATED to match Privacy sticky behavior */
+    .terms-page .toc-sidebar{
+      width: 100%;
+      position: sticky;
+      top: 120px;                  /* below sticky top-bar */
+      align-self: flex-start;
+      height: fit-content;
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+
+      background-color: var(--off-white);
+      border: var(--border-standard);
+      padding: 2rem;
+
+      z-index: 50;
+    }
+
+    .terms-page .toc-title{
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1.5rem;
+      color: var(--black);
+      border-bottom: 2px solid var(--black);
+      padding-bottom: 0.75rem;
+    }
+
+    /* Mobile TOC Toggle (same idea as Privacy/Security) */
+    .terms-page .toc-mobile-toggle{
+      display: none;
+      width: 100%;
+      padding: 1rem;
+      background-color: var(--crimson);
+      color: var(--off-white);
+      border: var(--border-standard);
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      margin-bottom: 1.25rem;
+      transition: all 0.3s ease;
+    }
+    .terms-page .toc-mobile-toggle:hover{ background-color: var(--black); }
+
+    .terms-page .toc-list{ list-style: none; }
+    .terms-page .toc-list li{ margin-bottom: 0.5rem; }
+
+    .terms-page .toc-link{
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background: none;
+      border: 2px solid transparent;
+      width: 100%;
+      text-align: left;
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--black);
+      transition: all 0.3s ease;
+      position: relative;
+      cursor: pointer;
+      word-break: break-word;
+    }
+
+    .terms-page .toc-number{
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      font-size: 1rem;
+      color: var(--black);
+      min-width: 2.2rem;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .terms-page .toc-text{ flex: 1; letter-spacing: 0.25em; }
+
+    .terms-page .toc-link:hover,
+    .terms-page .toc-link.active{
+      background-color: var(--crimson);
+      color: var(--off-white);
+      border-color: var(--black);
+    }
+    .terms-page .toc-link:hover .toc-number,
+    .terms-page .toc-link.active .toc-number{ color: var(--off-white); }
+
+    /* Main */
+    .terms-page .main-content{ min-height: 100vh; }
+
+    /* Sections */
+    .terms-page .content-section{
+      position: relative;
+      padding: 3rem 2rem;
+      margin-bottom: 2rem;
+      border: var(--border-standard);
+      background-color: var(--off-white);
+      transition: background-color 0.3s ease;
+      overflow: hidden;
+    }
+    .terms-page .content-section:nth-child(even){ background-color: var(--crimson-light); }
+    .terms-page .content-section:hover{ background-color: #fff0f0; }
+
+    .terms-page .content-section::before{
+      content: '';
+      position: absolute;
+      left: 0; top: 0;
+      height: 100%;
+      width: 8px;
+      background-color: var(--crimson);
+    }
+
+    .terms-page .section-number{
+      font-family: 'Playfair Display', serif;
+      font-size: 4rem;
+      font-weight: 900;
+      color: var(--crimson);
+      opacity: 0.2;
+      position: absolute;
+      left: 2rem;
+      top: 1rem;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    .terms-page .section-content{
+      position: relative;
+      z-index: 1;
+      margin-left: 4rem;
+    }
+
+    .terms-page .section-heading{
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1.5rem;
+      color: var(--black);
+      line-height: 1.3;
+    }
+
+    .terms-page .section-body{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.125rem;
+      line-height: 1.8;
+      color: var(--black);
+    }
+
+    .terms-page .section-body p{ margin-bottom: 1.5rem; }
+    .terms-page .section-body p:last-child{ margin-bottom: 0; }
+
+    .terms-page .custom-list{
+      list-style: none;
+      margin: 1.5rem 0;
+      padding-left: 0;
+    }
+    .terms-page .custom-list li{
+      position: relative;
+      padding-left: 2rem;
+      margin-bottom: 0.75rem;
+    }
+    .terms-page .custom-list li::before{
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.6em;
+      width: 8px;
+      height: 8px;
+      background-color: var(--crimson);
+    }
+
+    /* Back to top */
+    .terms-page .back-to-top{
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background-color: var(--crimson);
+      color: var(--off-white);
+      border: var(--border-standard);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+    .terms-page .back-to-top.visible{ opacity: 1; visibility: visible; }
+    .terms-page .back-to-top:hover{
+      transform: scale(1.1);
+      background-color: var(--black);
+    }
+    .terms-page .back-to-top:hover svg{ transform: rotate(-15deg); }
+    .terms-page .back-to-top svg{
+      width: 24px;
+      height: 24px;
+      transition: transform 0.3s ease;
+    }
+
+    /* Footer — UPDATED to match Privacy page */
+    .terms-page .footer{
+      border-top: var(--border-standard);
+      padding: 4rem 2rem;
+      text-align: center;
+      background-color: var(--off-white);
+      margin-top: 4rem;
+    }
+
+    .terms-page .footer-stars{
+      display:flex;
+      justify-content:center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+      color: var(--crimson);
+    }
+
+    .terms-page .footer-title{
+      font-family: 'Dancing Script', cursive !important;
+      font-weight: 700;
+      font-style: italic;
+      color: var(--black);
+      margin-bottom: 1rem;
+      line-height: 1.15;
+      font-size: clamp(2.0rem, 3.4vw, 3.1rem);
+    }
+    .terms-page .footer-fullname{
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .terms-page .footer-subtitle{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      margin-bottom: 2rem;
+      color: var(--black);
+    }
+    .terms-page .footer-nav{
+      display:flex;
+      justify-content:center;
+      gap: 2rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .terms-page .footer-link{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--black);
+      position: relative;
+      transition: color 0.3s ease;
+    }
+    .terms-page .footer-link::after{
+      content:'';
+      position:absolute;
+      bottom:-4px;
+      left:0;
+      width:0;
+      height:2px;
+      background-color: var(--crimson);
+      transition: width 0.3s ease;
+    }
+    .terms-page .footer-link:hover{ color: var(--crimson); }
+    .terms-page .footer-link:hover::after{ width:100%; }
+
+    /* Reveal */
+    .terms-page .reveal{
+      opacity: 0;
+      transform: translateY(50px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .terms-page .reveal.revealed{
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px){
+      .terms-page .content-container{
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+      .terms-page .toc-sidebar{
+        position: static;
+        max-height: none;
+      }
+      .terms-page .section-content{ margin-left: 2rem; }
+      .terms-page .section-number{ font-size: 3rem; left: 1rem; }
+    }
+
+    @media (max-width: 768px){
+      .terms-page .hero-section{ padding: 2rem 1rem 4rem; }
+      .terms-page .top-bar{
+        flex-direction: column;
+        gap: 0.5rem;
+        text-align: center;
+      }
+      .terms-page .content-container{ padding: 2rem 1rem; }
+      .terms-page .toc-sidebar{ padding: 1.25rem; }
+
+      /* Mobile TOC collapsible */
+      .terms-page .toc-mobile-toggle{ display:block; }
+      .terms-page .toc-list{ display:none; }
+      .terms-page .toc-sidebar.open .toc-list{ display:block; }
+
+      .terms-page .content-section{ padding: 2rem 1rem; }
+      .terms-page .section-number{
+        font-size: 2.5rem;
+        left: 0.5rem;
+        top: 0.5rem;
+      }
+      .terms-page .section-content{
+        margin-left: 0;
+        margin-top: 2rem;
+      }
+      .terms-page .section-heading{ font-size: 1.5rem; }
+      .terms-page .section-body{ font-size: 1rem; }
+
+      .terms-page .back-to-top{
+        width: 50px; height: 50px;
+        bottom: 1rem; right: 1rem;
+      }
+
+      .terms-page .footer{ padding: 3rem 1rem; }
+      .terms-page .footer-nav{
+        flex-direction: column;
+        gap: 1rem;
+      }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      .terms-page .grain-overlay{ animation: none !important; }
+      .terms-page .reveal{
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+      }
+      .terms-page .back-to-top,
+      .terms-page .toc-link,
+      .terms-page .footer-link::after{
+        transition: none !important;
+      }
+    }
+
+    /* Print */
+    @media print{
+      .terms-page .grain-overlay,
+      .terms-page .toc-sidebar,
+      .terms-page .back-to-top,
+      .terms-page .footer-nav{ display:none !important; }
+      .terms-page .content-container{ grid-template-columns: 1fr; }
+      .terms-page .content-section{ page-break-inside: avoid; border: 1px solid #000; }
+      .terms-page .section-number{ opacity: 0.5; }
+      .terms-page{ background: white; color: black; }
+    }
+  </style>
+
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <header class="hero-section reveal">
+    <div class="top-bar">
+      <span class="top-bar-text">EST. 2018</span>
+      <span class="top-bar-text">MIZORAM, INDIA</span>
+    </div>
+    <h1 class="page-title">Terms of Service</h1>
+    <p class="page-subtitle">Last Updated: January 29, 2025</p>
+    <div class="title-divider"></div>
+  </header>
+
+  <div class="content-container">
+    <nav class="toc-sidebar" id="termsTocSidebar" aria-label="Table of contents">
+      <button class="toc-mobile-toggle" id="termsTocToggle" type="button">
+        Navigation Menu
+      </button>
+
+      <div class="toc-content">
+        <h2 class="toc-title">Contents</h2>
+        <ul class="toc-list" id="termsTocList">
+          <li><button class="toc-link active" data-section="overview" type="button"><span class="toc-number">01</span><span class="toc-text">Overview</span></button></li>
+          <li><button class="toc-link" data-section="accounts" type="button"><span class="toc-number">02</span><span class="toc-text">Accounts</span></button></li>
+          <li><button class="toc-link" data-section="orders" type="button"><span class="toc-number">03</span><span class="toc-text">Orders &amp; Delivery</span></button></li>
+          <li><button class="toc-link" data-section="returns" type="button"><span class="toc-number">04</span><span class="toc-text">Returns &amp; Issues</span></button></li>
+          <li><button class="toc-link" data-section="liability" type="button"><span class="toc-number">05</span><span class="toc-text">Liability</span></button></li>
+          <li><button class="toc-link" data-section="changes" type="button"><span class="toc-number">06</span><span class="toc-text">Changes</span></button></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <section id="overview" class="content-section reveal">
+        <div class="section-number">01</div>
+        <div class="section-content">
+          <h2 class="section-heading">Overview</h2>
+          <div class="section-body">
+            <p>By using Chhimphei Chicken, you agree to these Terms and our Privacy Policy.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="accounts" class="content-section reveal">
+        <div class="section-number">02</div>
+        <div class="section-content">
+          <h2 class="section-heading">Accounts</h2>
+          <div class="section-body">
+            <ul class="custom-list">
+              <li>Provide accurate information and safeguard your credentials</li>
+              <li>We may disable accounts that violate policies or applicable law</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="orders" class="content-section reveal">
+        <div class="section-number">03</div>
+        <div class="section-content">
+          <h2 class="section-heading">Orders &amp; Delivery</h2>
+          <div class="section-body">
+            <ul class="custom-list">
+              <li>Order details and fees are shown at checkout</li>
+              <li>Delivery availability depends on distance and stock</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="returns" class="content-section reveal">
+        <div class="section-number">04</div>
+        <div class="section-content">
+          <h2 class="section-heading">Returns &amp; Issues</h2>
+          <div class="section-body">
+            <p>Contact support for order issues. We'll work with the store to resolve them promptly.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="liability" class="content-section reveal">
+        <div class="section-number">05</div>
+        <div class="section-content">
+          <h2 class="section-heading">Liability</h2>
+          <div class="section-body">
+            <p>Services are provided “as is” to the fullest extent permitted by law.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="changes" class="content-section reveal">
+        <div class="section-number">06</div>
+        <div class="section-content">
+          <h2 class="section-heading">Changes</h2>
+          <div class="section-body">
+            <p>We may update these Terms; continued use means acceptance.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <button class="back-to-top" id="termsBackToTop" aria-label="Back to top" type="button">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="19" x2="12" y2="5"></line>
+      <polyline points="5 12 12 5 19 12"></polyline>
+    </svg>
+  </button>
+
+  <footer class="footer reveal">
+    <div class="footer-stars" aria-hidden="true">
+      <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+    </div>
+
+    <h2 class="footer-title footer-fullname">
+      Chhimphei Women Poultry Producer Company Limited
+    </h2>
+
+    <p class="footer-subtitle">MIZORAM • 2018 • INDIA</p>
+
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="/" class="footer-link">Home</a>
+      <a href="/about" class="footer-link">About</a>
+      <a href="/shop" class="footer-link">Shop</a>
+      <a href="/contact" class="footer-link">Contact</a>
+      <a href="/privacy" class="footer-link">Privacy</a>
+    </nav>
+  </footer>
+
+  <script>
+    (function() {
+      'use strict';
+
+      function ready(fn){
+        if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
+        else fn();
+      }
+
+      ready(function(){
+        const root = document.querySelector('.terms-page');
+        if(!root) return;
+
+        const hasIO = ('IntersectionObserver' in window);
+        const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        // Reveal
+        const revealElements = root.querySelectorAll('.reveal');
+
+        if(reduceMotion){
+          revealElements.forEach(el => {
+            el.classList.add('revealed');
+            el.style.transition = 'none';
+          });
+        } else if(hasIO){
+          const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+              if(entry.isIntersecting) entry.target.classList.add('revealed');
+            });
+          }, { threshold: 0.1, rootMargin: '0px 0px -100px 0px' });
+
+          revealElements.forEach(el => revealObserver.observe(el));
+        } else {
+          revealElements.forEach(el => el.classList.add('revealed'));
+        }
+
+        // Active TOC + smooth scroll (offset like other pages)
+        const contentSections = root.querySelectorAll('.content-section');
+        const tocLinks = root.querySelectorAll('.toc-link');
+
+        function setActive(id){
+          tocLinks.forEach(l => l.classList.remove('active'));
+          const active = root.querySelector('.toc-link[data-section="' + id + '"]');
+          if(active) active.classList.add('active');
+        }
+
+        function scrollToSection(sectionId){
+          const target = root.querySelector('#' + CSS.escape(sectionId));
+          if(!target) return;
+
+          const offset = 120;
+          const elementPosition = target.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+          window.scrollTo({ top: offsetPosition, behavior: (reduceMotion ? 'auto' : 'smooth') });
+
+          // Close mobile menu if open
+          const tocSidebar = document.getElementById('termsTocSidebar');
+          if (tocSidebar && tocSidebar.classList.contains('open')) {
+            tocSidebar.classList.remove('open');
+            updateToggleText(false);
+          }
+        }
+
+        if(hasIO){
+          const sectionObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+              if(entry.isIntersecting) setActive(entry.target.id);
+            });
+          }, { threshold: 0.35, rootMargin: '-120px 0px -55% 0px' });
+
+          contentSections.forEach(s => sectionObserver.observe(s));
+        }
+
+        tocLinks.forEach((link) => {
+          link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const sectionId = link.getAttribute('data-section');
+            if(sectionId) scrollToSection(sectionId);
+          });
+        });
+
+        // Back to top
+        const backToTopButton = document.getElementById('termsBackToTop');
+        if(backToTopButton){
+          function toggleBackToTop(){
+            if(window.scrollY > 500) backToTopButton.classList.add('visible');
+            else backToTopButton.classList.remove('visible');
+          }
+
+          let raf = null;
+          window.addEventListener('scroll', () => {
+            if(raf) cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(toggleBackToTop);
+          });
+
+          backToTopButton.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+          });
+
+          toggleBackToTop();
+        }
+
+        // Mobile TOC Toggle
+        const tocToggle = document.getElementById('termsTocToggle');
+        const tocSidebar = document.getElementById('termsTocSidebar');
+
+        function updateToggleText(isOpen){
+          if(!tocToggle) return;
+          tocToggle.textContent = isOpen ? 'Close Menu' : 'Navigation Menu';
+        }
+
+        if(tocToggle && tocSidebar){
+          tocToggle.addEventListener('click', function() {
+            const isOpen = tocSidebar.classList.toggle('open');
+            updateToggleText(isOpen);
+          });
+        }
+
+        // Export helpers (optional)
+        window.TermsPage = {
+          scrollToSection: scrollToSection,
+          scrollToTop: function(){ window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }); }
+        };
+      });
+    })();
+  </script>
+</section>
+
+{% endblock %}

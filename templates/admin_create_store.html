@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="admin-create-store-page" data-page="admin-create-store">
+  <style>
+    /* ========================================
+       ADMIN CREATE STORE — STORE DASHBOARD THEME
+       ✅ Keeps ALL existing form fields + names + IDs + JS intact
+       ✅ Design swap only (same vibe as your admin/store pages)
+       ✅ Web + Mobile/App responsive
+       Scoped to .admin-create-store-page
+       ======================================== */
+
+    /* Font imports (page-scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    .admin-create-store-page{
+      --crimson:#8B0000;
+      --black:#000;
+      --off-white:#FAF9F6;
+      --light-crimson:#FFF5F5;
+      --border-standard:4px;
+      --transition-speed:.3s;
+
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+
+      background:var(--off-white);
+      color:var(--black);
+      font-family:'Cormorant Garamond', serif;
+      font-size:1.125rem;
+      font-weight:bold;
+      line-height:1.6;
+      min-height:100vh;
+      overflow-x:hidden;
+      position:relative;
+      isolation:isolate;
+    }
+    .admin-create-store-page,
+    .admin-create-store-page *{ box-sizing:border-box; }
+
+    /* Page-only reset */
+    .admin-create-store-page *{
+      margin:0;
+      padding:0;
+      border-radius:0 !important;
+    }
+
+    .admin-create-store-page ::selection{ background:var(--crimson); color:#fff; }
+
+    /* Film grain overlay */
+    .admin-create-store-page .grain-overlay{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:1;
+      opacity:.12;
+      background-image:url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* Top bar */
+    .admin-create-store-page .top-bar{
+      position:relative;
+      z-index:2;
+      width:100%;
+      padding:1rem 2rem;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      border-bottom:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      font-family:'Italiana', serif;
+      font-size:.875rem;
+      letter-spacing:.5em;
+      text-transform:uppercase;
+      font-variant:small-caps;
+    }
+
+    /* Hero */
+    .admin-create-store-page .hero-section{
+      position:relative;
+      z-index:2;
+      text-align:center;
+      padding:5.25rem 2rem 4.25rem;
+      border-bottom:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+    }
+    .admin-create-store-page .hero-title{
+      font-family:'Dancing Script', cursive;
+      font-size:clamp(3rem, 10vw, 6rem);
+      color:var(--crimson);
+      font-style:italic;
+      font-weight:700;
+      margin:0 0 .75rem 0;
+      line-height:1.15;
+      text-transform:uppercase;
+    }
+    .admin-create-store-page .hero-subtitle{
+      font-family:'Italiana', serif;
+      font-size:.875rem;
+      letter-spacing:.5em;
+      text-transform:uppercase;
+      font-variant:small-caps;
+      margin-bottom:1.25rem;
+    }
+    .admin-create-store-page .hero-divider{
+      width:6rem;
+      height:4px;
+      background:var(--crimson);
+      margin:0 auto;
+    }
+
+    /* Main container */
+    .admin-create-store-page .main-container{
+      position:relative;
+      z-index:2;
+      max-width:1100px;
+      margin:0 auto;
+      padding:3rem 2rem;
+    }
+
+    /* Panel */
+    .admin-create-store-page .panel{
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      padding:2rem;
+    }
+    .admin-create-store-page .panel.soft{ background:var(--light-crimson); }
+
+    .admin-create-store-page .section-header{
+      display:flex;
+      align-items:start;
+      gap:1rem;
+      margin-bottom:1.25rem;
+    }
+    .admin-create-store-page .icon-box{
+      width:48px;height:48px;
+      background:var(--crimson);
+      border:var(--border-standard) solid var(--black);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+      color:#fff;
+      font-family:'Italiana', serif;
+      font-weight:700;
+      letter-spacing:.08em;
+    }
+    .admin-create-store-page h2{
+      font-family:'Playfair Display', serif;
+      font-size:1.8rem;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin:0;
+    }
+    .admin-create-store-page .muted{ color:rgba(0,0,0,.65); }
+    .admin-create-store-page p.muted{ font-weight:700; font-size:1rem; margin-top:.35rem; }
+
+    /* Form layout (keeps your same inputs/labels) */
+    .admin-create-store-page form.form{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:14px 16px;
+      margin-top:1.25rem;
+    }
+    .admin-create-store-page form.form label{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      font-family:'Italiana', serif;
+      font-size:.75rem;
+      letter-spacing:.3em;
+      text-transform:uppercase;
+      font-weight:900;
+      color:var(--black);
+    }
+
+    .admin-create-store-page input{
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      color:var(--black);
+      padding:.85rem .95rem;
+      font-family:'Cormorant Garamond', serif;
+      font-size:1.05rem;
+      font-weight:800;
+      outline:none;
+      width:100%;
+    }
+    .admin-create-store-page input::placeholder{
+      color:rgba(0,0,0,.55);
+      font-weight:800;
+    }
+
+    /* Make "Address" span full width (still same field) */
+    .admin-create-store-page form.form label:nth-of-type(7){
+      grid-column:1 / -1;
+    }
+
+    /* Your <hr> kept, themed */
+    .admin-create-store-page hr{
+      grid-column:1 / -1;
+      border:none;
+      height:2px;
+      background:var(--black);
+      opacity:.85 !important;
+      margin:12px 0 !important;
+    }
+
+    /* Store location block (same markup, just themed) */
+    .admin-create-store-page .loc-block{
+      grid-column:1 / -1;
+      border:var(--border-standard) solid var(--black) !important;
+      background:var(--light-crimson);
+      padding:16px !important;
+      max-width:none !important;
+    }
+    .admin-create-store-page .loc-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .admin-create-store-page .loc-head h3{
+      margin:0 !important;
+      font-family:'Playfair Display', serif;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      font-size:1.2rem;
+    }
+    .admin-create-store-page .loc-grid{
+      display:grid !important;
+      grid-template-columns:repeat(2, minmax(0,1fr)) !important;
+      gap:12px !important;
+      margin-top:12px !important;
+    }
+    .admin-create-store-page #locMsg{
+      display:block;
+      margin-top:10px;
+      font-family:'Cormorant Garamond', serif;
+      font-size:1rem;
+      font-weight:800;
+    }
+
+    /* Buttons (keep your .btn usage but scoped) */
+    .admin-create-store-page .btn,
+    .admin-create-store-page button{
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      color:var(--black);
+      padding:.75rem 1.1rem;
+      font-family:'Italiana', serif;
+      font-size:.75rem;
+      letter-spacing:.3em;
+      text-transform:uppercase;
+      font-weight:900;
+      transition:all var(--transition-speed);
+    }
+    .admin-create-store-page .btn:hover,
+    .admin-create-store-page button:hover{
+      background:var(--black);
+      color:#fff;
+    }
+
+    /* Submit button full width as you had */
+    .admin-create-store-page .submit-row{
+      grid-column:1 / -1;
+      margin-top:2px;
+    }
+    .admin-create-store-page .submit-row .btn{
+      width:100%;
+    }
+
+    /* focus */
+    .admin-create-store-page *:focus-visible{
+      outline:3px solid var(--crimson);
+      outline-offset:3px;
+    }
+
+    @media (max-width: 900px){
+      .admin-create-store-page .top-bar{ padding:1rem 1rem; letter-spacing:.35em; }
+      .admin-create-store-page .hero-section{ padding:3.5rem 1rem 3rem; }
+      .admin-create-store-page .main-container{ padding:2rem 1rem; }
+      .admin-create-store-page .panel{ padding:1.5rem; }
+
+      .admin-create-store-page form.form{
+        grid-template-columns:1fr;
+      }
+      .admin-create-store-page .loc-grid{
+        grid-template-columns:1fr !important;
+      }
+      .admin-create-store-page .loc-head .btn{
+        width:100%;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .admin-create-store-page *,
+      .admin-create-store-page *::before,
+      .admin-create-store-page *::after{
+        animation-duration:0.01ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:0.01ms !important;
+        scroll-behavior:auto !important;
+      }
+    }
+  </style>
+
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <header class="hero-section">
+    <h1 class="hero-title">Create Store</h1>
+    <p class="hero-subtitle">Owner • Store • Location</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <main class="main-container">
+    <section class="panel soft" aria-label="Create Store Form">
+      <div class="section-header">
+        <div class="icon-box" aria-hidden="true">🏪</div>
+        <div>
+          <h2>Create Store</h2>
+          <p class="muted">Fill owner details, store info, and capture precise coordinates.</p>
+        </div>
+      </div>
+
+      <!-- ✅ Your form content kept intact (same names/IDs/JS hooks) -->
+      <form method="post" class="form" id="createStoreForm">
+        <label>Owner Name <input name="name" required></label>
+        <label>Owner Email <input name="email" type="email" required></label>
+        <label>Owner Phone <input name="phone" type="tel" required></label>
+        <label>Temp Password <input name="password" type="text" required></label>
+        <label>Store Name <input name="store_name" required></label>
+        <label>Address <input name="address"></label>
+
+        <hr style="margin:18px 0; opacity:.25;">
+
+        <!-- Store Location (same content, wrapped with classes only) -->
+        <div class="loc-block" style="margin-top:16px; padding:14px; border:1px solid #e5e5e5; border-radius:12px; max-width:650px;">
+          <div class="loc-head" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <h3 style="margin:0;">Store Location</h3>
+            <button type="button" id="btnGetLoc" class="btn" style="padding:10px 14px;">
+              📍 Use Current Location
+            </button>
+          </div>
+
+          <div class="loc-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+            <label>
+              Latitude
+              <input id="storeLat" name="latitude" type="text" placeholder="e.g. 23.7271" required>
+            </label>
+
+            <label>
+              Longitude
+              <input id="storeLng" name="longitude" type="text" placeholder="e.g. 92.7176" required>
+            </label>
+          </div>
+
+          <small id="locMsg" style="display:block; margin-top:10px; color:#0a7a2f;"></small>
+        </div>
+
+        <div class="submit-row">
+          <button class="btn" style="margin-top:16px; width:100%;">Create</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script>
+  (function(){
+    const btn = document.getElementById("btnGetLoc");
+    const latInput = document.getElementById("storeLat");
+    const lngInput = document.getElementById("storeLng");
+    const msg = document.getElementById("locMsg");
+
+    if (!btn || !latInput || !lngInput) return;
+
+    btn.addEventListener("click", function(){
+      msg.textContent = "Getting location…";
+
+      if (!navigator.geolocation){
+        msg.textContent = "Geolocation not supported in this browser.";
+        msg.style.color = "crimson";
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const acc = pos.coords.accuracy;
+
+          // ✅ THIS is the important part: set input.value (not just display)
+          latInput.value = lat.toFixed(6);
+          lngInput.value = lng.toFixed(6);
+
+          msg.style.color = "#0a7a2f";
+          msg.textContent = `Location captured ✅ (Accuracy ~${Math.round(acc)}m)`;
+        },
+        (err) => {
+          msg.style.color = "crimson";
+          msg.textContent = "Location error: " + err.message;
+        },
+        { enableHighAccuracy:true, timeout:12000, maximumAge:0 }
+      );
+    });
+  })();
+  </script>
+</section>
+
+{% endblock %}

@@ -1,0 +1,615 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="admin-complaints-page" data-page="admin-complaints">
+  <style>
+    /* ========================================
+       ADMIN COMPLAINTS — STORE DASHBOARD THEME
+       ✅ Keeps ALL existing data + Jinja + routes + JS intact
+       ✅ Design swap only
+       ✅ Web + Mobile/App responsive
+       Scoped to .admin-complaints-page
+       ======================================== */
+
+    /* Font imports (page-scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    .admin-complaints-page{
+      --crimson:#8B0000;
+      --black:#000000;
+      --off-white:#FAF9F6;
+      --light-crimson:#FFF5F5;
+      --border-standard:4px;
+      --transition-speed:.3s;
+
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+
+      background:var(--off-white);
+      color:var(--black);
+      font-family:'Cormorant Garamond', serif;
+      font-size:1.125rem;
+      font-weight:bold;
+      line-height:1.6;
+      min-height:100vh;
+      overflow-x:hidden;
+      position:relative;
+      isolation:isolate;
+    }
+    .admin-complaints-page,
+    .admin-complaints-page *{ box-sizing:border-box; }
+
+    /* Page-only reset */
+    .admin-complaints-page *{
+      margin:0;
+      padding:0;
+      border-radius:0 !important;
+    }
+
+    .admin-complaints-page ::selection{ background:var(--crimson); color:#fff; }
+
+    /* Film grain overlay */
+    .admin-complaints-page .grain-overlay{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:1;
+      opacity:.12;
+      background-image:url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* Top bar */
+    .admin-complaints-page .top-bar{
+      position:relative;
+      z-index:2;
+      width:100%;
+      padding:1rem 2rem;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      border-bottom:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      font-family:'Italiana', serif;
+      font-size:.875rem;
+      letter-spacing:.5em;
+      text-transform:uppercase;
+      font-variant:small-caps;
+    }
+
+    /* Hero */
+    .admin-complaints-page .hero-section{
+      position:relative;
+      z-index:2;
+      text-align:center;
+      padding:5.25rem 2rem 4.25rem;
+      border-bottom:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+    }
+    .admin-complaints-page .hero-title{
+      font-family:'Dancing Script', cursive;
+      font-size:clamp(3rem, 10vw, 6rem);
+      color:var(--crimson);
+      font-style:italic;
+      font-weight:700;
+      margin:0 0 .75rem 0;
+      line-height:1.15;
+      text-transform:uppercase;
+    }
+    .admin-complaints-page .hero-subtitle{
+      font-family:'Italiana', serif;
+      font-size:.875rem;
+      letter-spacing:.5em;
+      text-transform:uppercase;
+      font-variant:small-caps;
+      margin-bottom:1.25rem;
+    }
+    .admin-complaints-page .hero-divider{
+      width:6rem;
+      height:4px;
+      background:var(--crimson);
+      margin:0 auto;
+    }
+
+    /* Main container */
+    .admin-complaints-page .main-container{
+      position:relative;
+      z-index:2;
+      max-width:1400px;
+      margin:0 auto;
+      padding:3rem 2rem;
+    }
+
+    /* Panels */
+    .admin-complaints-page .panel{
+      border:var(--border-standard) solid var(--black);
+      padding:2rem;
+      margin-bottom:2.25rem;
+      background:var(--off-white);
+    }
+    .admin-complaints-page .panel.soft{ background:var(--light-crimson); }
+
+    .admin-complaints-page .section-header{
+      display:flex;
+      align-items:start;
+      gap:1rem;
+      margin-bottom:1.25rem;
+    }
+    .admin-complaints-page .icon-box{
+      width:48px;height:48px;
+      background:var(--crimson);
+      border:var(--border-standard) solid var(--black);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+      color:#fff;
+      font-family:'Italiana', serif;
+      font-weight:700;
+      letter-spacing:.08em;
+    }
+    .admin-complaints-page h2{
+      font-family:'Playfair Display', serif;
+      font-size:1.8rem;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin:0;
+    }
+    .admin-complaints-page .muted{ color:rgba(0,0,0,.65); }
+
+    /* KPIs */
+    .admin-complaints-page .kpis{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:14px;
+      margin:0;
+    }
+    .admin-complaints-page .kpi{
+      border:var(--border-standard) solid var(--black);
+      padding:1.5rem;
+      background:var(--off-white);
+    }
+    .admin-complaints-page .kpi:nth-child(even){ background:var(--light-crimson); }
+    .admin-complaints-page .kpi .label{
+      font-family:'Italiana', serif;
+      font-size:.75rem;
+      letter-spacing:.3em;
+      text-transform:uppercase;
+      font-weight:900;
+      color:var(--crimson);
+    }
+    .admin-complaints-page .kpi .value{
+      font-family:'Playfair Display', serif;
+      font-size:clamp(1.4rem, 3vw, 2.2rem);
+      font-weight:900;
+      margin-top:.35rem;
+      line-height:1.15;
+    }
+    .admin-complaints-page .tnum{ font-variant-numeric:tabular-nums; }
+
+    /* Toolbar / Filters (keep IDs) */
+    .admin-complaints-page .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:end;
+      margin:0;
+    }
+    .admin-complaints-page .toolbar input,
+    .admin-complaints-page .toolbar select{
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      color:var(--black);
+      padding:.75rem .9rem;
+      font-family:'Cormorant Garamond', serif;
+      font-size:1rem;
+      font-weight:900;
+      outline:none;
+      min-width:220px;
+    }
+    .admin-complaints-page .toolbar input::placeholder{
+      color:rgba(0,0,0,.55);
+      font-weight:900;
+    }
+    .admin-complaints-page .filter-note{
+      margin-left:auto;
+      font-family:'Italiana', serif;
+      font-size:.75rem;
+      letter-spacing:.3em;
+      text-transform:uppercase;
+      font-weight:900;
+      color:rgba(0,0,0,.7);
+      padding:.1rem 0;
+      min-width:140px;
+      text-align:right;
+    }
+
+    /* Table shell */
+    .admin-complaints-page .table-shell{
+      margin-top:1.25rem;
+      overflow-x:auto;
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+    }
+
+    /* Table */
+    .admin-complaints-page table.table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:1200px; /* allow horizontal scroll on smaller screens */
+      background:transparent;
+      border:0;
+    }
+    .admin-complaints-page table.table thead{
+      background:var(--black);
+      color:#fff;
+    }
+    .admin-complaints-page table.table th{
+      padding:1rem;
+      text-align:left;
+      font-family:'Italiana', serif;
+      font-size:.75rem;
+      letter-spacing:.3em;
+      text-transform:uppercase;
+      font-weight:900;
+      border-right:2px solid var(--crimson);
+      white-space:nowrap;
+    }
+    .admin-complaints-page table.table th:last-child{ border-right:none; }
+
+    .admin-complaints-page table.table td{
+      padding:1rem;
+      font-family:'Cormorant Garamond', serif;
+      font-size:1rem;
+      font-weight:800;
+      vertical-align:top;
+      border-bottom:2px solid var(--black);
+    }
+    .admin-complaints-page table.table tbody tr:nth-child(even){
+      background:var(--light-crimson);
+    }
+
+    /* Your existing helper classes (kept) */
+    .admin-complaints-page .small{ font-size:.95rem; color:rgba(0,0,0,.75); font-weight:800; }
+    .admin-complaints-page .wrap{ white-space:normal; word-break:break-word; overflow-wrap:anywhere; }
+    .admin-complaints-page .nowrap{ white-space:nowrap; }
+
+    /* Badge */
+    .admin-complaints-page .badge{
+      display:inline-flex;
+      align-items:center;
+      padding:.25rem .75rem;
+      border:2px solid var(--black);
+      font-family:'Italiana', serif;
+      font-size:.625rem;
+      letter-spacing:.2em;
+      text-transform:uppercase;
+      font-weight:900;
+      background:var(--off-white);
+      color:var(--black);
+    }
+
+    /* Status dots (keep classes, just refine) */
+    .admin-complaints-page .status-dot{
+      display:inline-block;
+      width:10px;height:10px;
+      border:2px solid var(--black);
+      margin-right:8px;
+      vertical-align:middle;
+      background:#fff;
+    }
+    .admin-complaints-page .dot-open{ background:#ef4444; }
+    .admin-complaints-page .dot-review{ background:#f59e0b; }
+    .admin-complaints-page .dot-resolved{ background:#10b981; }
+    .admin-complaints-page .dot-dismissed{ background:#9ca3af; }
+
+    /* Actions */
+    .admin-complaints-page .actions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .admin-complaints-page select.status{
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      color:var(--black);
+      padding:.65rem .8rem;
+      font-family:'Cormorant Garamond', serif;
+      font-size:1rem;
+      font-weight:900;
+      outline:none;
+      min-width:190px;
+    }
+    .admin-complaints-page button{
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      color:var(--black);
+      padding:.65rem 1rem;
+      font-family:'Italiana', serif;
+      font-size:.7rem;
+      letter-spacing:.25em;
+      text-transform:uppercase;
+      font-weight:900;
+      cursor:pointer;
+      transition:all var(--transition-speed);
+      white-space:nowrap;
+    }
+    .admin-complaints-page button:hover{
+      background:var(--black);
+      color:#fff;
+    }
+
+    /* links */
+    .admin-complaints-page a{ color:inherit; text-decoration:none; border-bottom:2px solid rgba(0,0,0,.25); }
+    .admin-complaints-page a:hover{ border-bottom-color:var(--black); }
+
+    /* focus */
+    .admin-complaints-page *:focus-visible{
+      outline:3px solid var(--crimson);
+      outline-offset:3px;
+    }
+
+    @media (max-width: 900px){
+      .admin-complaints-page .top-bar{ padding:1rem 1rem; letter-spacing:.35em; }
+      .admin-complaints-page .hero-section{ padding:3.5rem 1rem 3rem; }
+      .admin-complaints-page .main-container{ padding:2rem 1rem; }
+      .admin-complaints-page .panel{ padding:1.5rem; }
+      .admin-complaints-page .toolbar input,
+      .admin-complaints-page .toolbar select{ min-width:100%; }
+      .admin-complaints-page .filter-note{ margin-left:0; text-align:left; width:100%; }
+      .admin-complaints-page table.table{ min-width:980px; }
+      .admin-complaints-page select.status{ min-width:100%; }
+      .admin-complaints-page button{ width:100%; justify-content:center; }
+      .admin-complaints-page .actions{ flex-direction:column; align-items:stretch; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .admin-complaints-page *,
+      .admin-complaints-page *::before,
+      .admin-complaints-page *::after{
+        animation-duration:0.01ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:0.01ms !important;
+        scroll-behavior:auto !important;
+      }
+    }
+  </style>
+
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <header class="hero-section">
+    <h1 class="hero-title">Complaints</h1>
+    <p class="hero-subtitle">Review • Filter • Update Status</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <main class="main-container">
+    <!-- Header/Intro (unchanged content) -->
+    <section class="panel soft" aria-label="Complaints intro">
+      <div class="section-header">
+        <div class="icon-box" aria-hidden="true">⚠</div>
+        <div>
+          <h2>Complaints</h2>
+          <p class="muted">Review, search, and update complaint status. Use filters to narrow by target and status.</p>
+        </div>
+      </div>
+
+      <!-- Summary KPIs (UNCHANGED) -->
+      <div class="kpis" id="kpiRow" hidden>
+        <div class="kpi">
+          <div class="label">Total Complaints</div>
+          <div class="value tnum" id="kpiTotal">0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Open</div>
+          <div class="value tnum" id="kpiOpen">0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">In Review</div>
+          <div class="value tnum" id="kpiReview">0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Resolved</div>
+          <div class="value tnum" id="kpiResolved">0</div>
+        </div>
+        <div class="kpi">
+          <div class="label">Dismissed</div>
+          <div class="value tnum" id="kpiDismissed">0</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters + Table (content unchanged) -->
+    <section class="panel" aria-label="Complaints table">
+      <!-- Filters (UNCHANGED IDs) -->
+      <div class="toolbar">
+        <input id="q" type="search" placeholder="Search message / customer / ids …" />
+        <select id="fTarget">
+          <option value="">All targets</option>
+          <option value="store">Store</option>
+          <option value="delivery">Delivery</option>
+          <option value="product">Product</option>
+        </select>
+        <select id="fStatus">
+          <option value="">All status</option>
+          <option value="OPEN">OPEN</option>
+          <option value="IN_REVIEW">IN_REVIEW</option>
+          <option value="RESOLVED">RESOLVED</option>
+          <option value="DISMISSED">DISMISSED</option>
+        </select>
+        <span class="filter-note" id="rowCount"></span>
+      </div>
+
+      <div class="table-shell">
+        <table class="table" id="complaintsTable">
+          <thead>
+            <tr>
+              <th class="nowrap">#</th>
+              <th>When</th>
+              <th>Order / Target</th>
+              <th>Customer</th>
+              <th>Message</th>
+              <th>Status</th>
+              <th class="nowrap">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in complaints %}
+            <tr
+              data-target="{{ (c.target_type or '')|lower }}"
+              data-status="{{ (c.status or 'OPEN')|upper }}"
+            >
+              <td class="tnum nowrap">C{{ c.id }}</td>
+              <td class="small">{{ c.created_at }}</td>
+              <td class="small">
+                {% if c.order_id %}
+                  <div>
+                    Order:
+                    <a href="{{ url_for('order_track', oid=c.order_id) }}"><strong>#{{ c.order_id }}</strong></a>
+                  </div>
+                {% endif %}
+
+                <div>
+                  Target:
+                  <span class="badge">{{ (c.target_type or '')|upper }}</span>
+                  →
+                  <strong>
+                    {% if c.target_type == 'store' %}
+                      {{ c.store_name or ('ID ' ~ c.target_id) }}
+                    {% elif c.target_type == 'delivery' %}
+                      {{ c.delivery_name or ('ID ' ~ c.target_id) }}
+                    {% elif c.target_type == 'product' %}
+                      {{ c.product_name or ('ID ' ~ c.target_id) }}
+                    {% else %}
+                      ID {{ c.target_id }}
+                    {% endif %}
+                  </strong>
+                </div>
+                <div class="muted small">Target ID: {{ c.target_id }}</div>
+              </td>
+
+              <td class="small">
+                <div>{{ c.customer_name or ('User ' ~ c.user_id) }}</div>
+                {% if c.customer_email %}<div class="muted">{{ c.customer_email }}</div>{% endif %}
+              </td>
+
+              <td class="wrap">{{ c.message }}</td>
+
+              <td class="nowrap">
+                {% set s = (c.status or 'OPEN') %}
+                {% if s == 'OPEN' %}
+                  <span class="status-dot dot-open"></span><strong>OPEN</strong>
+                {% elif s == 'IN_REVIEW' %}
+                  <span class="status-dot dot-review"></span><strong>IN_REVIEW</strong>
+                {% elif s == 'RESOLVED' %}
+                  <span class="status-dot dot-resolved"></span><strong>RESOLVED</strong>
+                {% elif s == 'DISMISSED' %}
+                  <span class="status-dot dot-dismissed"></span><strong>DISMISSED</strong>
+                {% else %}
+                  <strong>{{ s }}</strong>
+                {% endif %}
+              </td>
+
+              <td>
+                <form class="actions" method="post" action="{{ url_for('admin_complaint_set_status', cid=c.id) }}">
+                  <select name="status" class="status" required>
+                    <option value="OPEN" {{ 'selected' if s=='OPEN' }}>OPEN</option>
+                    <option value="IN_REVIEW" {{ 'selected' if s=='IN_REVIEW' }}>IN_REVIEW</option>
+                    <option value="RESOLVED" {{ 'selected' if s=='RESOLVED' }}>RESOLVED</option>
+                    <option value="DISMISSED" {{ 'selected' if s=='DISMISSED' }}>DISMISSED</option>
+                  </select>
+                  <button type="submit">Update</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="small">No complaints found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+  (function(){
+    const q = document.getElementById('q');
+    const fTarget = document.getElementById('fTarget');
+    const fStatus = document.getElementById('fStatus');
+    const table = document.getElementById('complaintsTable');
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const rowCount = document.getElementById('rowCount');
+
+    // KPIs
+    const kpi = {
+      wrap: document.getElementById('kpiRow'),
+      total: document.getElementById('kpiTotal'),
+      open: document.getElementById('kpiOpen'),
+      review: document.getElementById('kpiReview'),
+      resolved: document.getElementById('kpiResolved'),
+      dismissed: document.getElementById('kpiDismissed'),
+    };
+
+    function normalize(s){ return (s || '').toLowerCase(); }
+
+    function computeKPIs(visibleRows){
+      kpi.total.textContent = String(visibleRows.length);
+      let open=0, review=0, resolved=0, dismissed=0;
+      for (const r of visibleRows){
+        const st = (r.getAttribute('data-status') || '').toUpperCase();
+        if (st === 'OPEN') open++;
+        else if (st === 'IN_REVIEW') review++;
+        else if (st === 'RESOLVED') resolved++;
+        else if (st === 'DISMISSED') dismissed++;
+      }
+      kpi.open.textContent = String(open);
+      kpi.review.textContent = String(review);
+      kpi.resolved.textContent = String(resolved);
+      kpi.dismissed.textContent = String(dismissed);
+      kpi.wrap.hidden = false;
+    }
+
+    function applyFilters(){
+      const qv = normalize(q.value);
+      const target = (fTarget.value || '').toLowerCase();
+      const status = (fStatus.value || '').toUpperCase();
+
+      const visibleRows = [];
+
+      for (const r of rows){
+        const text = normalize(r.innerText);
+        const hitQ = !qv || text.includes(qv);
+
+        const rTarget = (r.getAttribute('data-target') || '').toLowerCase();
+        const rStatus = (r.getAttribute('data-status') || '').toUpperCase();
+
+        const hitTarget = !target || rTarget === target;
+        const hitStatus = !status || rStatus === status;
+
+        const show = hitQ && hitTarget && hitStatus;
+        r.style.display = show ? '' : 'none';
+        if (show){ visibleRows.push(r); }
+      }
+      rowCount.textContent = visibleRows.length + ' shown';
+      computeKPIs(visibleRows);
+    }
+
+    q.addEventListener('input', applyFilters);
+    fTarget.addEventListener('change', applyFilters);
+    fStatus.addEventListener('change', applyFilters);
+    applyFilters();
+  })();
+  </script>
+</section>
+
+{% endblock %}

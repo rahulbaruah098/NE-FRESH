@@ -1,0 +1,826 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="admin-dashboard-page" data-page="admin-dashboard">
+  <style>
+    /* ========================================
+       ADMIN DASHBOARD — STORE DASHBOARD THEME
+       ✅ Keeps ALL existing data + Jinja + links + JS
+       ✅ Design swap only (Store Dashboard look & feel)
+       ✅ FIX: Performance & Quality cards show FULL data (no inner scroll boxes)
+       Scoped to .admin-dashboard-page
+       ======================================== */
+
+    /* Font imports (page-scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    /* ✅ Page-scoped tokens (match store dashboard) */
+    .admin-dashboard-page{
+      --crimson:#8B0000;
+      --black:#000000;
+      --off-white:#FAF9F6;
+      --light-crimson:#FFF5F5;
+      --border-standard:4px;
+      --border-accent:8px;
+      --transition-speed:.3s;
+
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+
+      background:var(--off-white);
+      color:var(--black);
+      font-family:'Cormorant Garamond', serif;
+      font-size:1.125rem;
+      font-weight:bold;
+      line-height:1.6;
+      min-height:100vh;
+      overflow-x:hidden;
+      position:relative;
+      isolation:isolate;
+    }
+
+    .admin-dashboard-page,
+    .admin-dashboard-page *{ box-sizing:border-box; }
+
+    /* reset only inside page (like store dashboard) */
+    .admin-dashboard-page *{
+      margin:0;
+      padding:0;
+      border-radius:0 !important;
+    }
+
+    /* scoped cursor */
+    .admin-dashboard-page,
+    .admin-dashboard-page *{
+      cursor:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
+    }
+    .admin-dashboard-page a,
+    .admin-dashboard-page button,
+    .admin-dashboard-page select,
+    .admin-dashboard-page input{
+      cursor:pointer;
+    }
+
+    .admin-dashboard-page ::selection{ background:var(--crimson); color:#fff; }
+
+    /* film grain overlay (like store dashboard) */
+    .admin-dashboard-page .grain-overlay{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:1;
+      opacity:.12;
+      background-image:url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* Top bar */
+    .admin-dashboard-page .top-bar{
+      position:relative;
+      z-index:2;
+      width:100%;
+      padding:1rem 2rem;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      border-bottom:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      font-family:'Italiana', serif;
+      font-size:.875rem;
+      letter-spacing:.5em;
+      text-transform:uppercase;
+      font-variant:small-caps;
+    }
+
+    /* Hero */
+    .admin-dashboard-page .hero-section{
+      position:relative;
+      z-index:2;
+      text-align:center;
+      padding:5.25rem 2rem 4.25rem;
+      border-bottom:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+    }
+    .admin-dashboard-page .hero-title{
+      font-family:'Dancing Script', cursive;
+      font-size:clamp(3rem, 10vw, 6rem);
+      color:var(--crimson);
+      font-style:italic;
+      font-weight:700;
+      margin:0 0 .75rem 0;
+      line-height:1.15;
+      text-transform:uppercase;
+    }
+    .admin-dashboard-page .hero-subtitle{
+      font-family:'Italiana', serif;
+      font-size:.875rem;
+      letter-spacing:.5em;
+      text-transform:uppercase;
+      font-variant:small-caps;
+      margin-bottom:1.75rem;
+    }
+    .admin-dashboard-page .hero-divider{
+      width:6rem;
+      height:4px;
+      background:var(--crimson);
+      margin:0 auto;
+    }
+
+    /* Main container */
+    .admin-dashboard-page .main-container{
+      position:relative;
+      z-index:2;
+      max-width:1400px;
+      margin:0 auto;
+      padding:3rem 2rem;
+    }
+
+    /* KPI grid (use your existing .kpis/.kpi markup) */
+    .admin-dashboard-page .kpis{
+      margin-bottom:2.25rem;
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(250px, 1fr));
+      gap:1.5rem;
+    }
+    .admin-dashboard-page .kpi{
+      border:var(--border-standard) solid var(--black);
+      padding:2rem;
+      transition:all var(--transition-speed);
+      overflow:hidden;
+      background:var(--off-white);
+    }
+    .admin-dashboard-page .kpi:nth-child(even){ background:var(--light-crimson); }
+    .admin-dashboard-page .kpi:hover{ transform:translateY(-4px); }
+
+    .admin-dashboard-page .kpi .label{
+      font-family:'Italiana', serif;
+      font-size:.875rem;
+      letter-spacing:.5em;
+      text-transform:uppercase;
+      font-variant:small-caps;
+      margin-bottom:1rem;
+      color:var(--crimson);
+    }
+    .admin-dashboard-page .kpi .value{
+      font-family:'Playfair Display', serif;
+      font-size:clamp(1.5rem, 4vw, 2.5rem);
+      font-weight:900;
+      color:var(--black);
+      line-height:1.2;
+      margin-top:0;
+      margin-bottom:.5rem;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+    }
+    .admin-dashboard-page .kpi .sub{
+      font-family:'Cormorant Garamond', serif;
+      font-size:.95rem;
+      color:var(--black);
+      opacity:.75;
+      margin-top:.25rem;
+    }
+
+    /* Panels */
+    .admin-dashboard-page .panel{
+      border:var(--border-standard) solid var(--black);
+      padding:2rem;
+      margin-bottom:2.75rem;
+      background:var(--off-white);
+    }
+    .admin-dashboard-page .panel.soft{ background:var(--light-crimson); }
+    .admin-dashboard-page .panel.hard{ background:var(--off-white); }
+
+    .admin-dashboard-page .section-header{
+      display:flex;
+      align-items:start;
+      gap:1rem;
+      margin-bottom:1.5rem;
+    }
+    .admin-dashboard-page .icon-box{
+      width:48px;height:48px;
+      background:var(--crimson);
+      border:var(--border-standard) solid var(--black);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+      color:#fff;
+      font-family:'Italiana', serif;
+      font-weight:700;
+      letter-spacing:.08em;
+    }
+    .admin-dashboard-page .section-title{
+      font-family:'Playfair Display', serif;
+      font-size:1.5rem;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin-bottom:.25rem;
+    }
+    .admin-dashboard-page .section-description{
+      font-family:'Cormorant Garamond', serif;
+      font-size:1rem;
+      opacity:.85;
+    }
+
+    /* Links/buttons like store dashboard */
+    .admin-dashboard-page a{ color:inherit; text-decoration:none; }
+
+    .admin-dashboard-page .toolbar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:.75rem;
+      margin-top:1.25rem;
+    }
+    .admin-dashboard-page .toolbar a{
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      color:var(--black);
+      padding:.75rem 1.5rem;
+      font-family:'Italiana', serif;
+      font-size:.75rem;
+      letter-spacing:.3em;
+      text-transform:uppercase;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:.5rem;
+      transition:all var(--transition-speed);
+      box-shadow:0 0 0 transparent;
+    }
+    .admin-dashboard-page .toolbar a:hover{
+      background:var(--black);
+      color:#fff;
+    }
+
+    .admin-dashboard-page .muted{ color:rgba(0,0,0,.65); }
+    .admin-dashboard-page .nowrap{ white-space:nowrap; }
+    .admin-dashboard-page .tnum{ font-variant-numeric:tabular-nums; }
+
+    /* tables */
+    .admin-dashboard-page .table-shell{
+      margin-top:1.25rem;
+      overflow-x:auto;
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+    }
+    .admin-dashboard-page table.table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:980px; /* keep for large tables like Stores Performance */
+      background:transparent;
+      border:0;
+    }
+    .admin-dashboard-page table.table thead{
+      background:var(--black);
+      color:#fff;
+    }
+    .admin-dashboard-page table.table th{
+      padding:1rem;
+      text-align:left;
+      font-family:'Italiana', serif;
+      font-size:.75rem;
+      letter-spacing:.3em;
+      text-transform:uppercase;
+      font-weight:800;
+      border-right:2px solid var(--crimson);
+      white-space:nowrap;
+    }
+    .admin-dashboard-page table.table th:last-child{ border-right:none; }
+    .admin-dashboard-page table.table tbody tr{
+      border-bottom:2px solid var(--black);
+    }
+    .admin-dashboard-page table.table tbody tr:nth-child(even){
+      background:var(--light-crimson);
+    }
+    .admin-dashboard-page table.table td{
+      padding:1rem;
+      font-family:'Cormorant Garamond', serif;
+      font-size:1rem;
+      vertical-align:middle;
+      border-bottom:0;
+
+      /* ✅ allow full text visibility */
+      white-space:normal;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+    }
+
+    /* ratings */
+    .admin-dashboard-page .rating{
+      display:inline-flex;
+      gap:2px;
+      font-size:18px;
+      line-height:1;
+      vertical-align:middle;
+    }
+    .admin-dashboard-page .rating .dim{ opacity:.35; }
+
+    /* Performance grid cards */
+    .admin-dashboard-page .grid-perf{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:1.5rem;
+      margin-top:1.25rem;
+    }
+    .admin-dashboard-page .card{
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      padding:1.5rem;
+      overflow:visible; /* ✅ no inner clipping */
+    }
+    .admin-dashboard-page .card:nth-child(even){ background:var(--light-crimson); }
+
+    .admin-dashboard-page .h-row{
+      display:flex;
+      gap:10px;
+      align-items:baseline;
+      flex-wrap:wrap;
+    }
+    .admin-dashboard-page .h-row h4{
+      margin:0;
+      font-family:'Playfair Display', serif;
+      font-size:1.15rem;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .admin-dashboard-page .tag{
+      display:inline-flex;
+      align-items:center;
+      border:2px solid var(--black);
+      padding:.25rem .75rem;
+      font-family:'Italiana', serif;
+      font-size:.625rem;
+      letter-spacing:.2em;
+      text-transform:uppercase;
+      background:var(--black);
+      color:#fff;
+    }
+    .admin-dashboard-page .mini{
+      font-family:'Cormorant Garamond', serif;
+      font-size:1rem;
+      color:rgba(0,0,0,.65);
+    }
+    .admin-dashboard-page .error{ color:#b11212; }
+
+    /* ✅ FIX (YOUR IMAGE SECTION):
+       Make the 4 cards show FULL table without inner scroll bars.
+       - remove the .table-shell scrolling INSIDE cards
+       - remove min-width forcing scroll
+       - keep clean border/frame using a "frame" style
+    */
+    .admin-dashboard-page .grid-perf .table-shell{
+      overflow:visible;               /* no horizontal scrollbar inside cards */
+      border:var(--border-standard) solid var(--black);
+      margin-top:1rem;
+      background:transparent;
+    }
+    .admin-dashboard-page .grid-perf .table-shell table.table{
+      min-width:0;                    /* critical: stops forced scroll */
+      width:100%;
+    }
+    .admin-dashboard-page .grid-perf .table-shell table.table th,
+    .admin-dashboard-page .grid-perf .table-shell table.table td{
+      white-space:normal;             /* wrap inside cards */
+    }
+
+    /* On smaller screens, stack the 4 cards nicely */
+    @media (max-width: 1100px){
+      .admin-dashboard-page .grid-perf{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 680px){
+      .admin-dashboard-page .grid-perf{ grid-template-columns:1fr; }
+    }
+
+    /* On small screens, make the perf tables "card-like rows" (no horizontal scroll) */
+    @media (max-width: 720px){
+      /* keep Stores Performance table scrollable at section level */
+      .admin-dashboard-page section[aria-label="Stores performance"] table.table{ min-width:900px; }
+
+      /* convert ONLY the perf tables inside cards */
+      .admin-dashboard-page .grid-perf .table-shell{
+        border:0;
+      }
+      .admin-dashboard-page .grid-perf table.table{
+        min-width:0;
+      }
+      .admin-dashboard-page .grid-perf table.table thead{
+        display:none;
+      }
+      .admin-dashboard-page .grid-perf table.table,
+      .admin-dashboard-page .grid-perf table.table tbody,
+      .admin-dashboard-page .grid-perf table.table tr,
+      .admin-dashboard-page .grid-perf table.table td{
+        display:block;
+        width:100%;
+      }
+      .admin-dashboard-page .grid-perf table.table tr{
+        border:var(--border-standard) solid var(--black);
+        background:var(--off-white);
+        margin-top:12px;
+        padding:12px;
+      }
+      .admin-dashboard-page .grid-perf .card:nth-child(even) table.table tr{
+        background:var(--light-crimson);
+      }
+      .admin-dashboard-page .grid-perf table.table td{
+        padding:.55rem 0;
+        border:0;
+      }
+      .admin-dashboard-page .grid-perf table.table td::before{
+        content:attr(data-label);
+        display:block;
+        font-family:'Italiana', serif;
+        font-size:.70rem;
+        letter-spacing:.28em;
+        text-transform:uppercase;
+        color:rgba(0,0,0,.75);
+        margin-bottom:.15rem;
+      }
+    }
+
+    /* tips list */
+    .admin-dashboard-page ul{ padding-left:1.25rem; }
+    .admin-dashboard-page li{ margin:.35rem 0; }
+    .admin-dashboard-page strong{ font-weight:900; }
+
+    /* accessibility */
+    .admin-dashboard-page *:focus-visible{
+      outline:3px solid var(--crimson);
+      outline-offset:3px;
+    }
+
+    @media (max-width: 768px){
+      .admin-dashboard-page .top-bar{ padding:1rem 1rem; letter-spacing:.35em; }
+      .admin-dashboard-page .hero-section{ padding:3.5rem 1rem 3rem; }
+      .admin-dashboard-page .main-container{ padding:2rem 1rem; }
+      .admin-dashboard-page .kpi{ padding:1.5rem; }
+      .admin-dashboard-page .panel{ padding:1.5rem; }
+      .admin-dashboard-page .toolbar a{ width:100%; justify-content:center; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .admin-dashboard-page *,
+      .admin-dashboard-page *::before,
+      .admin-dashboard-page *::after{
+        animation-duration:0.01ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:0.01ms !important;
+        scroll-behavior:auto !important;
+      }
+    }
+
+    /* ================================
+   FIX: PERF CARD TABLE OVERFLOW
+   (Stops header lines/content from
+   leaking into adjacent cards)
+   ================================ */
+
+/* Only affect the 4 cards tables */
+.admin-dashboard-page .grid-perf .table-shell{
+  max-width:100%;
+  overflow:hidden; /* contain borders/lines within the card frame */
+}
+
+/* Force table to respect the card width */
+.admin-dashboard-page .grid-perf .table-shell table.table{
+  width:100%;
+  max-width:100%;
+  min-width:0 !important;
+  table-layout:fixed; /* critical */
+  border-collapse:collapse;
+}
+
+/* Allow wrapping inside cards (no nowrap here) */
+.admin-dashboard-page .grid-perf .table-shell table.table th,
+.admin-dashboard-page .grid-perf .table-shell table.table td{
+  white-space:normal !important;
+  word-break:break-word;
+  overflow-wrap:anywhere;
+}
+
+/* Reduce header spacing inside cards so columns don't explode */
+.admin-dashboard-page .grid-perf .table-shell table.table th{
+  letter-spacing:.18em; /* was .3em globally */
+  padding:.85rem .9rem;
+}
+
+/* Keep divider lines INSIDE without pushing width */
+.admin-dashboard-page .grid-perf .table-shell table.table th{
+  border-right:2px solid var(--crimson);
+}
+.admin-dashboard-page .grid-perf .table-shell table.table th:last-child{
+  border-right:none;
+}
+
+/* Ensure cells never "paint" outside */
+.admin-dashboard-page .grid-perf .table-shell table.table th,
+.admin-dashboard-page .grid-perf .table-shell table.table td{
+  overflow:hidden;
+}
+
+  </style>
+
+  <!-- Film Grain Overlay -->
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <!-- Top Bar (theme) -->
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <!-- Hero -->
+  <header class="hero-section">
+    <h1 class="hero-title">Admin Dashboard</h1>
+    <p class="hero-subtitle">System Overview & Controls</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <main class="main-container">
+    <!-- ======= KPI CARDS (UNCHANGED CONTENT) ======= -->
+    <div class="kpis">
+      <div class="kpi">
+        <div class="label">Users</div>
+        <div class="value tnum">{{ metrics.users }}</div>
+        <div class="sub">All roles</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Stores</div>
+        <div class="value tnum">{{ metrics.stores }}</div>
+        <div class="sub">Active + Pending</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Products</div>
+        <div class="value tnum">{{ metrics.products }}</div>
+        <div class="sub">Catalog size</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Orders</div>
+        <div class="value tnum">{{ metrics.orders }}</div>
+        <div class="sub">All-time</div>
+      </div>
+      <div class="kpi">
+        <div class="label">GMV</div>
+        <div class="value tnum">₹ {{ '%.2f'|format(metrics.gmv or 0) }}</div>
+        <div class="sub">Sum of order totals</div>
+      </div>
+    </div>
+
+    <!-- ======= QUICK ACTIONS (UNCHANGED CONTENT/LINKS) ======= -->
+    <section class="panel soft" aria-label="Quick actions">
+      <div class="section-header">
+        <div class="icon-box" aria-hidden="true">⚡</div>
+        <div>
+          <h3 class="section-title">Quick Actions</h3>
+          <p class="section-description">Jump to key admin workflows</p>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <a href="{{ url_for('admin_approvals') }}">Pending Approvals</a>
+        <a href="{{ url_for('admin_users') }}">Manage Users</a>
+        <a href="{{ url_for('admin_complaints') }}">Complaints</a>
+        <a href="{{ url_for('admin_create_store') }}">Create Store</a>
+        <a href="{{ url_for('admin_create_delivery') }}">Create Delivery Partner</a>
+        <a href="{{ url_for('admin_transactions_csv') }}">Export Transactions CSV</a>
+        <a href="{{ url_for('admin_contact_messages') }}"
+           class="btn btn-outline-primary">
+           📩 Contact Requests
+        </a>
+      </div>
+    </section>
+
+    <!-- ======= STORES PERFORMANCE (UNCHANGED CONTENT + JS HOOKS) ======= -->
+    <section class="panel hard" aria-label="Stores performance">
+      <div class="section-header">
+        <div class="icon-box" aria-hidden="true">★</div>
+        <div>
+          <h3 class="section-title">Stores Performance</h3>
+          <p class="section-description">
+            Revenue is from <em>order totals</em>. Rating loads automatically if store IDs are provided.
+          </p>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <table class="table" id="storesTable">
+          <thead>
+            <tr>
+              <th>Store</th>
+              <th class="nowrap">Orders</th>
+              <th class="nowrap">Revenue (₹)</th>
+              <th class="nowrap">Avg Rating</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in by_store %}
+            <tr
+              {% if 'store_id' in s.keys() %}
+                data-store-id="{{ s['store_id'] }}"
+              {% endif %}
+            >
+              <td>{{ s.store_name }}</td>
+              <td class="tnum">{{ s.orders }}</td>
+              <td class="tnum">{{ '%.2f'|format(s.revenue or 0) }}</td>
+              <td class="rating-cell">
+                <span class="muted">—</span>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="muted">No stores found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ======= PERFORMANCE & QUALITY (UNCHANGED CONTENT) ======= -->
+    <section class="panel soft" aria-label="Performance and quality">
+      <div class="section-header">
+        <div class="icon-box" aria-hidden="true">📊</div>
+        <div>
+          <h3 class="section-title">Performance & Quality</h3>
+          <p class="section-description">
+            <span class="mini">{{ complaints_window_label|default('(last 30 days)') }}</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="grid-perf">
+        <!-- Top Rated Stores -->
+        <div class="card">
+          <div class="h-row">
+            <h4>Top Rated Stores</h4>
+            <span class="tag">avg ⭐ with count</span>
+          </div>
+          <div class="table-shell" style="margin-top:12px;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Store</th>
+                  <th class="nowrap">Avg ⭐</th>
+                  <th>Ratings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set trs = top_rated_stores|default([]) %}
+                {% for s in trs %}
+                  <tr>
+                    <td data-label="Store">{{ s.store_name }}</td>
+                    <td data-label="Avg ⭐" class="tnum">{{ '%.2f'|format(s.avg_rating or 0) }}</td>
+                    <td data-label="Ratings" class="tnum">{{ s.rating_count or 0 }}</td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="3" class="muted">No store ratings yet.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Top Rated Products -->
+        <div class="card">
+          <div class="h-row">
+            <h4>Top Rated Products</h4>
+            <span class="tag">avg ⭐ with count</span>
+          </div>
+          <div class="table-shell" style="margin-top:12px;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th class="nowrap">Avg ⭐</th>
+                  <th>Ratings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set trp = top_rated_products|default([]) %}
+                {% for p in trp %}
+                  <tr>
+                    <td data-label="Product">{{ p.product_name }}</td>
+                    <td data-label="Avg ⭐" class="tnum">{{ '%.2f'|format(p.avg_rating or 0) }}</td>
+                    <td data-label="Ratings" class="tnum">{{ p.rating_count or 0 }}</td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="3" class="muted">No product ratings yet.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Most Complained Delivery Partners -->
+        <div class="card">
+          <div class="h-row">
+            <h4>Most Complained Delivery Partners</h4>
+            <span class="tag">complaints count</span>
+          </div>
+          <div class="table-shell" style="margin-top:12px;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Delivery Partner</th>
+                  <th>Complaints</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set tdc = top_delivery_complaints|default([]) %}
+                {% for d in tdc %}
+                  <tr>
+                    <td data-label="Delivery Partner">{{ d.delivery_name or ('ID ' ~ d.user_id) }}</td>
+                    <td data-label="Complaints" class="tnum error">{{ d.complaints or 0 }}</td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="2" class="muted">No delivery complaints in period.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Most Complained Stores -->
+        <div class="card">
+          <div class="h-row">
+            <h4>Most Complained Stores</h4>
+            <span class="tag">complaints count</span>
+          </div>
+          <div class="table-shell" style="margin-top:12px;">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Store</th>
+                  <th>Complaints</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set tsc = top_store_complaints|default([]) %}
+                {% for s in tsc %}
+                  <tr>
+                    <td data-label="Store">{{ s.store_name or ('ID ' ~ s.store_id) }}</td>
+                    <td data-label="Complaints" class="tnum error">{{ s.complaints or 0 }}</td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="2" class="muted">No store complaints in period.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======= TIPS (UNCHANGED CONTENT) ======= -->
+    <section class="panel hard" aria-label="Tips">
+      <div class="section-header">
+        <div class="icon-box" aria-hidden="true">i</div>
+        <div>
+          <h3 class="section-title">Tips</h3>
+          <p class="section-description">Quick operational reminders</p>
+        </div>
+      </div>
+
+      <ul class="muted" style="padding-left:1.25rem;">
+        <li>Use <strong>Complaints</strong> to review issues and change status (OPEN/IN_REVIEW/RESOLVED).</li>
+        <li>Use <strong>Manage Users</strong> to disable or delete (store/delivery/customer) accounts. Deletions are guarded when history exists.</li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+  // Gracefully enhance: if table rows have data-store-id, fetch ratings.
+  (async function(){
+    const rows = document.querySelectorAll('#storesTable tbody tr[data-store-id]');
+    if (!rows.length) return;
+    for (const tr of rows) {
+      const sid = tr.getAttribute('data-store-id');
+      try{
+        const res = await fetch(`/api/ratings/store/${encodeURIComponent(sid)}`, {cache:'no-store'});
+        if(!res.ok) continue;
+        const j = await res.json();
+        const cell = tr.querySelector('.rating-cell');
+        if(j && j.ok){
+          const avg = Number(j.avg || 0);
+          const count = Number(j.count || 0);
+          cell.innerHTML = renderStars(avg) + ` <span class="muted">(${count})</span>`;
+        }
+      }catch(_){}
+    }
+
+    function renderStars(avg){
+      const full = Math.floor(avg);
+      const stars = Array.from({length:5}, (_,i)=>{
+        const solid = i < full ? '' : 'dim';
+        return `<span class="${solid}">★</span>`;
+      }).join('');
+      return `<span class="rating" title="${avg.toFixed(2)} / 5">${stars}</span>`;
+    }
+  })();
+  </script>
+</section>
+
+{% endblock %}

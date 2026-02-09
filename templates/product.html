@@ -1,0 +1,874 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2 class="pd-heading" aria-label="Product Detail">
+  <span class="pd-heading-sub">Product</span>
+  <span class="pd-heading-box">DETAILS</span>
+</h2>
+
+<style>
+  /* ✅ remove container constraints */
+  main.container{ padding: 0 !important; margin: 0 !important; max-width: none !important; }
+
+  :root{
+    --page:#FAF9F6;
+    --ink:#3a332f;
+    --muted:#2a2a2a;
+
+    --crimson:#8B0000;
+    --crimson-2:#b11212;
+
+    --card:#F6F0E7;
+    --card-2:#EFE6DA;
+
+    --shadow: -10px -10px 0 #d9cdbd;
+    --shadow-hover: -12px -12px 0 #cbbdad;
+
+    --radius: 14px;
+    --radius-sm: 12px;
+  }
+
+  html, body{ overflow-x: hidden; }
+
+  /* Grain overlay */
+  body::after{
+    content:"";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.08;
+    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="4" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    animation: grain 0.5s steps(6) infinite;
+  }
+  @keyframes grain{
+    0%,100%{transform:translate(0,0);}
+    10%{transform:translate(-5%,-10%);}
+    20%{transform:translate(-15%,5%);}
+    30%{transform:translate(7%,-25%);}
+    40%{transform:translate(-5%,25%);}
+    50%{transform:translate(-15%,10%);}
+    60%{transform:translate(15%,0%);}
+    70%{transform:translate(0%,15%);}
+    80%{transform:translate(3%,35%);}
+    90%{transform:translate(-10%,10%);}
+  }
+
+  /* ✅ Chicken cursor (same as before) */
+  @media (min-width: 481px){
+    :root{
+      --chicken-cursor: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 64 64'>\
+  <defs>\
+    <linearGradient id='g1' x1='0' y1='0' x2='1' y2='1'>\
+      <stop offset='0' stop-color='%23c07a35'/>\
+      <stop offset='1' stop-color='%238b3c1b'/>\
+    </linearGradient>\
+    <linearGradient id='g2' x1='0' y1='0' x2='1' y2='1'>\
+      <stop offset='0' stop-color='%23f6e7d8'/>\
+      <stop offset='1' stop-color='%23e5d2bf'/>\
+    </linearGradient>\
+  </defs>\
+  <ellipse cx='30' cy='40' rx='18' ry='13' fill='%23000000' opacity='.12'/>\
+  <path d='M18 18c-7 7-9 20 0 28 9 8 27 6 34-3 7-9 2-23-7-29-9-6-21-3-27 4z' fill='url(%23g1)' stroke='%232b2623' stroke-width='1.6'/>\
+  <path d='M26 20c-6 4-8 14-2 20 5 5 16 5 22-1' fill='none' stroke='%23ffffff' stroke-width='2.2' opacity='.28' stroke-linecap='round'/>\
+  <path d='M46 44c4 4 7 6 10 5 3-1 4-5 1-8 2-3 1-7-2-8s-7 1-9 4' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6' stroke-linejoin='round'/>\
+  <circle cx='58' cy='39' r='3' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6'/>\
+  <circle cx='55' cy='49' r='3' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6'/>\
+</svg>") 8 8, auto;
+    }
+    .pd-wrap .card,
+    .pd-wrap .card *{ cursor: var(--chicken-cursor); }
+    .pd-wrap a, .pd-wrap button{ cursor: pointer !important; }
+    .pd-wrap input{ cursor: text !important; }
+  }
+  @media (max-width: 480px){
+    .pd-wrap, .pd-wrap *{ cursor:auto !important; }
+  }
+
+  /* ✅ full-bleed heading */
+  .pd-heading{
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    background: var(--page);
+    padding: 22px clamp(14px, 3vw, 44px) 10px;
+    text-align:center;
+    margin-bottom: 10px;
+  }
+  .pd-heading-box{
+    display:inline-block;
+    border: 4px solid var(--ink);
+    padding: 18px clamp(18px, 3vw, 40px);
+    background: rgba(255,255,255,.40);
+    box-shadow: 0 0 0 10px rgba(0,0,0,.03) inset;
+
+    font-family: "Playfair Display","Times New Roman",serif;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    line-height: 1;
+    font-size: clamp(2.2rem, 5vw, 4.1rem);
+    color: var(--ink);
+  }
+  .pd-heading-sub{
+    display:block;
+    margin-top: 12px;
+    font-family: "Dancing Script","Brush Script MT",cursive;
+    color: var(--crimson);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 4.6vw, 3.6rem);
+    line-height: 1;
+  }
+
+  /* ✅ full-bleed wrap */
+  .pd-wrap{
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    background: var(--page);
+    padding: 14px clamp(14px, 3vw, 44px) 26px;
+  }
+
+  .pd-grid{
+    display:grid;
+    grid-template-columns: 1.15fr .85fr;
+    gap: 18px;
+    max-width: 1300px;
+    margin: 0 auto;
+    align-items: start;
+  }
+  @media (max-width: 900px){
+    .pd-grid{ grid-template-columns: 1fr; gap: 14px; }
+  }
+
+  .card{
+    border: 4px solid var(--ink);
+    border-radius: var(--radius);
+    background:
+      radial-gradient(140px 90px at 18% 0%, rgba(139,0,0,.10), transparent 60%),
+      linear-gradient(180deg, var(--card), var(--card-2));
+    overflow:hidden;
+    position:relative;
+    box-shadow: var(--shadow);
+    transition: transform .20s ease, box-shadow .20s ease, filter .20s ease;
+  }
+  .card::before{
+    content:"";
+    position:absolute;
+    inset: 10px 10px auto 10px;
+    height: 56px;
+    border: 1px solid rgba(0,0,0,.12);
+    border-radius: calc(var(--radius) - 6px);
+    pointer-events:none;
+    opacity: .55;
+  }
+  .card:hover{ transform: scale(1.01); box-shadow: var(--shadow-hover); }
+  @media (hover:none) and (pointer:coarse){
+    .card:hover{ transform:none; box-shadow: var(--shadow); }
+  }
+
+  .pd-hero-inner{
+    display:grid;
+    grid-template-columns: 1fr 1.05fr;
+    gap: 0;
+    align-items: stretch;
+  }
+  @media (max-width: 900px){
+    .pd-hero-inner{ grid-template-columns: 1fr; }
+  }
+
+  /* ✅ FIX 1: Image always FULL + responsive (aspect-ratio based) */
+  .pd-hero-media{
+   border: 4px solid var(--ink);
+    position: relative;
+    overflow: hidden;
+    background: rgba(255,255,255,.25);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 14px;
+
+    width: 100%;
+    aspect-ratio: 4 / 3;           /* ✅ responsive box that adapts */
+    min-height: 240px;
+    max-height: 440px;
+  }
+  @media (max-width: 900px){
+    .pd-hero-media{
+      border-left: 0;
+      border-top: 4px solid var(--ink);
+      padding: 12px;
+      aspect-ratio: 1 / 1;         /* ✅ nicer on mobile */
+      min-height: 220px;
+      max-height: 360px;
+    }
+  }
+  @media (max-width: 480px){
+    .pd-hero-media{
+      min-height: 200px;
+      max-height: 320px;
+    }
+  }
+
+  .pd-hero-media img{
+    width: 100%;
+    height: 100%;
+    object-fit: contain;           /* ✅ NEVER crop */
+    display:block;
+    transition: transform .20s ease, filter .20s ease;
+  }
+  .card:hover .pd-hero-media img{
+    transform: scale(1.02);
+    filter: contrast(106%);
+  }
+
+  .pd-body{
+    padding: 12px 14px;
+    text-align:center;
+  }
+
+  .pd-title{
+    margin: 0 0 4px 0;
+    color: var(--ink);
+    text-transform: uppercase;
+    font-weight: 1100;
+    letter-spacing: -0.6px;
+    line-height: 1.05;
+    font-size: clamp(22px, 2.4vw, 34px);
+  }
+  .store{
+    margin:0 auto 6px;
+    color: var(--muted);
+    font-weight: 850;
+    font-size: .95rem;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    max-width: 100%;
+  }
+
+  .meta-row{ margin: 8px 0 4px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .price-section{ margin: 8px 0 4px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
+  .deal-row{ margin-top: 0; margin-bottom: 4px; display:flex; justify-content:center; gap:8px; flex-wrap:wrap; }
+  .rating-section{ margin: 8px 0 10px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
+
+  .badge, .rating-pill{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    background: var(--page);
+    color: var(--ink);
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: .76rem;
+    font-weight: 1100;
+    border: 3px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: .35px;
+  }
+
+  .price{
+    font-size: clamp(22px, 2.6vw, 32px);
+    font-weight: 1200;
+    color: var(--ink);
+    letter-spacing: -0.02em;
+  }
+  .small{ font-size: .9rem; font-weight: 850; color: var(--muted); }
+  .muted{ color: var(--muted); font-weight: 850; }
+
+  .deal-row .mrp{
+    text-decoration: line-through;
+    color: #545454;
+    font-weight: 1100;
+    font-size: .9rem;
+  }
+  .deal-row .off{
+    background: #0b0b0b;
+    color: var(--page);
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-weight: 1200;
+    font-size: .75rem;
+    box-shadow: 3px 3px 0 var(--ink);
+    text-transform: uppercase;
+  }
+
+  .stars{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-weight: 1100;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  .stars::before{ content:"⭐"; color:#f59e0b; }
+
+  .kvs{
+    display:grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 10px;
+    margin: 10px auto 10px;
+    max-width: 720px;
+  }
+  @media (max-width: 480px){ .kvs{ grid-template-columns:1fr; } }
+
+  .kvs .kv{
+    border: 4px solid var(--ink);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    background: var(--page);
+    box-shadow: 3px 3px 0 var(--ink);
+    text-align:center;
+  }
+  .kvs .kv .small{
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-weight: 1100;
+  }
+  .kvs .kv strong{ font-weight: 1200; }
+
+  h3{
+    margin: 10px 0 8px 0;
+    font-size: 1.02rem;
+    font-weight: 1100;
+    color: var(--ink);
+    text-transform: uppercase;
+    text-align:center;
+  }
+
+  /* ✅ FIX 2: About text alignment (icon + balanced lines) */
+  .pd-info-dot{
+    display:block;
+    width: 22px;
+    height: 22px;
+    margin: 0 auto 10px;
+    border-radius: 999px;
+    border: 3px solid var(--ink);
+    background: var(--page);
+    font-weight: 1200;
+    line-height: 18px;
+    text-align:center;
+  }
+
+  .pd-body h3{
+    margin: 14px 0 10px !important;
+    font-size: .95rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    border: 3px solid var(--ink);
+    border-radius: 999px;
+    background: rgba(255,255,255,.55);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+
+ /* ✅ Description box: left-aligned text, icon centered */
+.pd-desc{
+  margin: 0 auto;
+  max-width: 520px;
+  padding: 18px 18px;
+  border: 3px solid rgba(0,0,0,.20);
+  border-radius: 12px;
+  background: rgba(255,255,255,.35);
+  line-height: 1.75;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1f1f1f;
+  white-space: pre-wrap;
+
+  /* ✅ key part */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* centers the "content column" */
+}
+
+  .pd-desc.muted{
+    color: #2a2a2a;
+    opacity: .92;
+  }
+ /* ✅ About box: SAME on web + mobile */
+.pd-desc{
+  margin: 0 auto;
+  max-width: 520px;
+  padding: 18px 18px;
+  border: 3px solid rgba(0,0,0,.20);
+  border-radius: 12px;
+  background: rgba(255,255,255,.35);
+  line-height: 1.75;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1f1f1f;
+  white-space: pre-wrap;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* ✅ keep centered everywhere */
+  text-align: center;  /* ✅ important */
+}
+
+.pd-desc.muted{
+  color: #2a2a2a;
+  opacity: .92;
+}
+
+.pd-info-dot{
+  display:block;
+  width: 22px;
+  height: 22px;
+  margin: 0 auto 14px;
+  border-radius: 999px;
+  border: 3px solid var(--ink);
+  background: var(--page);
+  font-weight: 1200;
+  line-height: 16px;
+  text-align:center;
+}
+
+/* ✅ keep text centered like web view */
+.pd-desc-text{
+  width: min(420px, 100%);
+  text-align: center;  /* ✅ this is what you want */
+}
+
+/* ✅ Mobile: ONLY reduce padding (no alignment changes) */
+@media (max-width: 600px){
+  .pd-desc{
+    max-width: 100%;
+    padding: 16px 14px;
+  }
+}
+
+
+/* ✅ mobile: keep nice padding */
+
+
+  /* Buy card */
+  .buy-card{
+    padding: 14px;
+    position: sticky;
+    top: 24px;
+  }
+  @media (max-width: 900px){
+    .buy-card{ position: static; top:auto; }
+  }
+
+  .qty{ display:flex; flex-direction:column; gap:8px; margin-bottom: 10px; }
+  .qty label{
+    font-weight: 1100;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--ink);
+    font-size: .82rem;
+  }
+  .qty input{
+    width: 100%;
+    padding: 12px 12px;
+    border: 4px solid var(--ink);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-weight: 1100;
+    text-align: center;
+    background: var(--page);
+    transition: box-shadow .18s ease, border-color .18s ease, background .18s ease;
+  }
+  .qty input:focus{
+    outline:none;
+    border-color: var(--crimson);
+    box-shadow: 6px 6px 0 var(--crimson);
+    background:#fff;
+  }
+
+  .calculation-box{
+    margin: 12px 0;
+    padding: 12px;
+    border: 4px dashed rgba(0,0,0,.35);
+    border-radius: var(--radius-sm);
+    background: rgba(0,0,0,.03);
+    text-align:center;
+  }
+  .calculation-total{
+    font-size: 1.55rem;
+    font-weight: 1200;
+    color: var(--ink);
+    margin: 6px 0;
+  }
+
+  .actions{
+    display:flex;
+    gap:10px;
+    width:100%;
+    flex-wrap: wrap;
+    margin: 10px 0 6px;
+    align-items: flex-start;
+  }
+  @media (max-width: 480px){ .actions{ flex-direction: column; } }
+
+  .btn{
+    padding: 11px 12px;
+    border: 4px solid var(--ink);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--crimson) 0%, var(--crimson-2) 100%);
+    color: var(--page);
+    cursor:pointer;
+    font-weight: 1200;
+    font-size: .92rem;
+    text-align:center;
+    flex:1;
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+    text-transform: uppercase;
+    min-height: 44px;
+  }
+
+  .btn-ghost{
+    padding: 11px 12px;
+    border: 4px solid var(--ink);
+    border-radius: var(--radius-sm);
+    background: var(--page);
+    color: var(--ink);
+    cursor:pointer;
+    font-weight: 1200;
+    font-size: .92rem;
+    text-align:center;
+    text-decoration:none;
+    flex:1;
+    transition: transform .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+    text-transform: uppercase;
+    min-height: 44px;
+  }
+
+  .action-slot{
+    flex: 1;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-width: 180px;
+  }
+  @media (max-width: 480px){
+    .action-slot{ min-width: 100%; }
+  }
+
+  .action-popup{
+    display:none;
+    padding: 9px 10px;
+    border-radius: 12px;
+    font-weight: 1000;
+    border: 3px solid var(--ink);
+    box-shadow: 3px 3px 0 var(--ink);
+    letter-spacing: .1px;
+    line-height: 1.35;
+    background: rgba(11,11,11,.92);
+    color: var(--page);
+
+    font-size: .80rem;
+    text-transform: none;
+    word-break: break-word;
+  }
+  .action-popup.show{ display:block; }
+
+  .reviews-wrap{
+    max-width: 1300px;
+    margin: 14px auto 0;
+  }
+  .reviews-card{
+    border: 4px solid var(--ink);
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    padding: 16px;
+    box-shadow: var(--shadow);
+    transition: transform .20s ease, box-shadow .20s ease;
+  }
+
+  .rev-list{
+    list-style:none;
+    padding:0;
+    margin:0;
+    display:grid;
+    gap: 12px;
+  }
+  .rev-item{
+    border: 4px solid var(--ink);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    background: var(--page);
+    box-shadow: 3px 3px 0 var(--ink);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+
+  .review-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+    font-weight: 1100;
+    text-transform: uppercase;
+    letter-spacing: -.2px;
+  }
+</style>
+
+<div class="pd-wrap">
+  <div class="pd-grid">
+
+    <!-- Left product card -->
+    <div class="card pd-hero">
+      <div class="pd-hero-inner">
+
+        <div class="pd-body">
+          <div class="pd-title">{{ product.name }}</div>
+          <p class="store">{{ product.store_name }}</p>
+
+          {% set half_price = (product.price_per_kg or 0) / 2 %}
+          {% set mrp_half = half_price * 1.20 %}
+          {% set pct_off = ((1 - (half_price / (mrp_half or 1))) * 100) %}
+
+          <div class="meta-row">
+            <span class="badge">
+              {% if product.stock_kg is not none and product.stock_kg > 0 %}
+                In stock — {{ '%.2f'|format(product.stock_kg) }} kg
+              {% else %}
+                Out of stock
+              {% endif %}
+            </span>
+          </div>
+
+          <div class="price-section">
+            <div class="price">
+              ₹ {{ '%.2f'|format(product.price_per_kg / 2) }}
+              <span class="small">/½kg</span>
+            </div>
+          </div>
+
+          <div class="deal-row">
+            <span class="mrp">₹ {{ '%.2f'|format(mrp_half) }}</span>
+            <span class="off">{{ (pct_off | round(0, 'floor') | int) }}% OFF</span>
+          </div>
+
+          <div class="rating-section">
+            <span class="stars" title="{{ rating.avg }}/5">{{ '%.1f'|format(rating.avg) }}</span>
+            <span class="muted">({{ rating.count }} review{{ '' if rating.count == 1 else 's' }})</span>
+          </div>
+
+          <div class="kvs">
+            <div class="kv">
+              <div class="small muted">Price per ½ kg</div>
+              <div><strong>₹ {{ '%.2f'|format(product.price_per_kg / 2) }}</strong></div>
+            </div>
+            <div class="kv">
+              <div class="small muted">Store</div>
+              <div><strong>{{ product.store_name }}</strong></div>
+            </div>
+          </div>
+
+          {% if product.description %}
+            <h3>Description</h3>
+            <div class="pd-desc">{{ product.description }}</div>
+          {% else %}
+            <h3>About this item</h3>
+           <div class="pd-desc muted">
+  <span class="pd-info-dot">i</span>
+  <div class="pd-desc-text">
+    Fresh, hygienically processed chicken from {{ product.store_name }}. Cut-to-order and packed with care.
+  </div>
+</div>
+          {% endif %}
+        </div>
+
+        <div class="pd-hero-media">
+          <img src="{{ '/' + product.image_path if product.image_path else url_for('static', filename='placeholder.png') }}"
+               alt="{{ product.name }}">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right purchase box -->
+    <div class="card buy-card">
+      <h3 style="margin:0 0 12px 0">Buy Now</h3>
+
+      {% if user %}
+        <form id="buyForm" class="buy-form" onsubmit="return false;">
+          <input type="hidden" name="product_id" value="{{ product.id }}"/>
+
+          <div class="qty">
+            <label for="weight_kg" class="small">Weight (kg)</label>
+            <input id="weight_kg" name="weight_kg" type="number" step="0.25" min="0.25" value="1">
+          </div>
+
+          <div class="small muted" style="margin-bottom:10px;">
+            Minimum order 0.25 kg. Price updates automatically.
+          </div>
+
+          <div class="calculation-box">
+            <div class="small muted">Estimated item total</div>
+            <div class="calculation-total">
+              ₹ <span id="estTotal">0.00</span>
+            </div>
+            <div class="small muted">Delivery fee shown at checkout</div>
+          </div>
+
+          <div class="actions">
+            <div class="action-slot">
+              <button class="btn-ghost" id="btnAdd">Add to Cart</button>
+              <div class="action-popup" id="popupAdd" role="status" aria-live="polite"></div>
+            </div>
+
+            <div class="action-slot">
+              <button class="btn" id="btnBuy">Buy Now</button>
+              <div class="action-popup" id="popupBuy" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+        </form>
+
+        <div class="small muted" style="text-align:center; margin-top:6px">
+          Tip: Use "Buy Now" to proceed directly to checkout
+        </div>
+      {% else %}
+        <div class="actions">
+          <a class="btn" href="{{ url_for('login') }}">Login to buy</a>
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <div class="reviews-wrap">
+    <div class="reviews-card">
+      <h3 style="margin:0 0 14px 0">Customer Reviews</h3>
+
+      {% if reviews %}
+        <ul class="rev-list">
+          {% for r in reviews %}
+            <li class="rev-item">
+              <div class="review-header">
+                <strong>{{ r.reviewer_name or 'Customer' }}</strong>
+                <span class="small muted">{{ r.created_at }}</span>
+              </div>
+
+              <div style="margin:8px 0; font-weight:1100; text-transform:uppercase;">
+                <span style="color:#f59e0b;">⭐</span> {{ r.rating }}
+              </div>
+
+              {% if r.comment %}
+                <div style="white-space:pre-wrap; line-height:1.6; font-weight:700;">{{ r.comment }}</div>
+              {% else %}
+                <div class="small muted">No comment provided</div>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted" style="text-align:center; padding:24px 14px; margin:0;">
+          No reviews yet for this product.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  {% if user %}
+  const pricePerKg = {{ '%.2f'|format(product.price_per_kg) }};
+  const weightEl = document.getElementById('weight_kg');
+  const estTotalEl = document.getElementById('estTotal');
+  const btnAdd = document.getElementById('btnAdd');
+  const btnBuy = document.getElementById('btnBuy');
+
+  const popupAdd = document.getElementById('popupAdd');
+  const popupBuy = document.getElementById('popupBuy');
+
+  function calc(){
+    const kg = Math.max(0.25, parseFloat(weightEl.value||'1') || 1);
+    const total = kg * pricePerKg;
+
+    /* ✅ safeguard so JS never breaks if HTML changes */
+    if(estTotalEl) estTotalEl.textContent = total.toFixed(2);
+  }
+  weightEl.addEventListener('input', calc);
+  calc();
+
+  function clearPopup(el){
+    if(!el) return;
+    el.classList.remove('show');
+    el.textContent = '';
+    if(el._t) clearTimeout(el._t);
+    el._t = null;
+  }
+
+  function showPopup(el, msg){
+    if(!el) return;
+    clearPopup(el);
+    el.textContent = msg;
+    el.classList.add('show');
+    el._t = setTimeout(()=> clearPopup(el), 2600);
+  }
+
+  async function addToCart(redirectAfter=false){
+    const kg = Math.max(0.25, parseFloat(weightEl.value||'1') || 1);
+    const fd = new FormData();
+    fd.append('product_id', '{{ product.id }}');
+    fd.append('weight_kg', String(kg));
+
+    const activeBtn = redirectAfter ? btnBuy : btnAdd;
+    const activePopup = redirectAfter ? popupBuy : popupAdd;
+    const otherBtn = redirectAfter ? btnAdd : btnBuy;
+    const otherPopup = redirectAfter ? popupAdd : popupBuy;
+
+    clearPopup(otherPopup);
+
+    activeBtn.disabled = true;
+    otherBtn.disabled = true;
+
+    const originalActiveText = activeBtn.textContent;
+    const originalOtherText = otherBtn.textContent;
+
+    activeBtn.textContent = redirectAfter ? 'Processing...' : 'Adding...';
+    otherBtn.textContent = originalOtherText;
+
+    showPopup(activePopup, redirectAfter ? 'Processing…' : 'Adding…');
+
+    try{
+      const r = await fetch('{{ url_for("api_cart_add") }}', {
+        method:'POST',
+        body: fd,
+        credentials: 'same-origin'
+      });
+      const j = await r.json();
+
+      if(j && j.ok){
+        if(redirectAfter){
+          showPopup(activePopup, '✓ Added! Redirecting…');
+          window.location.href = '{{ url_for("checkout") }}';
+        }else{
+          showPopup(activePopup, '✓ Added to cart!');
+        }
+      }else{
+        showPopup(activePopup, j?.msg || j?.error || 'Failed to add to cart. Please try again.');
+      }
+    }catch(e){
+      showPopup(activePopup, 'Network error. Please check your connection.');
+    }finally{
+      activeBtn.disabled = false;
+      otherBtn.disabled = false;
+      activeBtn.textContent = originalActiveText;
+      otherBtn.textContent = originalOtherText;
+    }
+  }
+
+  btnAdd.addEventListener('click', (e)=>{ e.preventDefault(); addToCart(false); });
+  btnBuy.addEventListener('click', (e)=>{ e.preventDefault(); addToCart(true); });
+  {% endif %}
+})();
+</script>
+
+{% endblock %}

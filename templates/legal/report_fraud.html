@@ -1,0 +1,854 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="security-page" data-page="security">
+  <style>
+    /* =========================================================
+       SECURITY (Single-file: HTML + CSS + JS) — Scoped inside base.html
+       UPDATED (same fixes as Privacy + Terms):
+       ✅ Footer stars + footer title match Privacy page (5 stars + full legal name + italic black title)
+       ✅ TOC sidebar sticky matches Privacy (top:120px, fit-content, max-height, overflow-y, z-index)
+       ✅ Sticky works reliably (container overflow: visible)
+       ✅ Mobile TOC toggle + responsive layout like Privacy/Terms
+       ✅ Smooth-scroll uses offset (120px) like Privacy/Terms
+       ✅ Reduced motion + print safe
+       ========================================================= */
+
+    /* Google Fonts Import (scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Dancing+Script:wght@400;500;600;700&family=Italiana&family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
+
+    .security-page{
+      --crimson:#8B0000;
+      --black:#000000;
+      --off-white:#FAF9F6;
+      --crimson-light:#FFF5F5;
+      --border-standard: 4px solid var(--black);
+      --border-accent: 8px solid var(--crimson);
+
+      /* Full-bleed inside base.html container */
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+
+      background-color: var(--off-white);
+      color: var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.125rem;
+      line-height: 1.6;
+
+      overflow-x: hidden;
+      overflow: visible; /* sticky safe */
+      position: relative;
+      min-height: 100vh;
+    }
+
+    .security-page,
+    .security-page *{ box-sizing: border-box; }
+    .security-page *{ margin:0; padding:0; }
+
+    /* Chicken cursor */
+    .security-page,
+    .security-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 4c-2 0-4 1-5 3-1-1-3-1-4 0-2 2-2 5 0 7l9 9 9-9c2-2 2-5 0-7-1-1-3-1-4 0-1-2-3-3-5-3z" fill="%238B0000"/><circle cx="12" cy="10" r="1" fill="white"/><circle cx="20" cy="10" r="1" fill="white"/><path d="M14 14h4v2h-4z" fill="%23FFA500"/></svg>'), auto;
+    }
+    .security-page button,
+    .security-page a{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 4c-2 0-4 1-5 3-1-1-3-1-4 0-2 2-2 5 0 7l9 9 9-9c2-2 2-5 0-7-1-1-3-1-4 0-1-2-3-3-5-3z" fill="%238B0000"/><circle cx="12" cy="10" r="1" fill="white"/><circle cx="20" cy="10" r="1" fill="white"/><path d="M14 14h4v2h-4z" fill="%23FFA500"/></svg>'), pointer !important;
+    }
+
+    /* Grain overlay */
+    .security-page .grain-overlay{
+      position: fixed;
+      top:0; left:0;
+      width:100%; height:100%;
+      pointer-events:none;
+      z-index:9999;
+      opacity:.03;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)"/></svg>');
+      animation: secGrain .5s steps(6) infinite;
+    }
+    @keyframes secGrain{
+      0%,100%{transform:translate(0,0)}
+      10%{transform:translate(-5%,-10%)}
+      20%{transform:translate(-15%,5%)}
+      30%{transform:translate(7%,-25%)}
+      40%{transform:translate(-5%,25%)}
+      50%{transform:translate(-15%,10%)}
+      60%{transform:translate(15%,0%)}
+      70%{transform:translate(0%,15%)}
+      80%{transform:translate(3%,25%)}
+      90%{transform:translate(-10%,10%)}
+    }
+
+    /* Hero */
+    .security-page .hero-section{
+      text-align:center;
+      padding: 4rem 2rem 6rem;
+      background: var(--off-white);
+      border-bottom: var(--border-standard);
+      position: relative;
+    }
+
+    /* Top bar (sticky like your other pages) */
+    .security-page .top-bar{
+      display:flex;
+      justify-content:space-between;
+      max-width:1400px;
+      margin:0 auto 3rem;
+      padding: 1.5rem 2rem;
+      border-bottom: 4px solid var(--black);
+      background-color: var(--off-white);
+
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .security-page .top-bar-text{
+      font-family:'Italiana', serif;
+      font-size:.875rem;
+      letter-spacing:.3em;
+      text-transform:uppercase;
+      font-weight:400;
+    }
+
+    .security-page .page-title{
+      font-family:'Dancing Script', cursive;
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight:700;
+      color: var(--crimson);
+      margin-bottom: 1rem;
+      line-height:1.2;
+      font-style: italic;
+    }
+    .security-page .page-subtitle{
+      font-family:'Cormorant Garamond', serif;
+      font-size: clamp(1rem, 2vw, 1.5rem);
+      color: var(--black);
+      margin-bottom: 2rem;
+      font-weight: 400;
+    }
+    .security-page .title-divider{
+      width:6rem;
+      height:4px;
+      background: var(--crimson);
+      margin: 0 auto;
+    }
+
+    /* Layout */
+    .security-page .content-container{
+      max-width:1400px;
+      margin:0 auto;
+      padding: 4rem 2rem;
+      display:grid;
+      grid-template-columns: 25% 1fr;
+      gap: 5%;
+      position: relative;
+    }
+
+    /* TOC — sticky like Privacy */
+    .security-page .toc-sidebar{
+      width: 100%;
+      position: sticky;
+      top: 120px;                 /* below sticky top-bar */
+      align-self: flex-start;
+      height: fit-content;
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+
+      background: var(--off-white);
+      border: var(--border-standard);
+      padding: 2rem;
+
+      z-index: 50;
+    }
+
+    .security-page .toc-mobile-toggle{
+      display:none;
+      width:100%;
+      padding: 1rem;
+      background-color: var(--crimson);
+      color: var(--off-white);
+      border: var(--border-standard);
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      margin-bottom: 1.25rem;
+      transition: all 0.3s ease;
+    }
+    .security-page .toc-mobile-toggle:hover{ background-color: var(--black); }
+
+    .security-page .toc-title{
+      font-family:'Playfair Display', serif;
+      font-size: 1.5rem;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin-bottom:1.5rem;
+      border-bottom:2px solid var(--black);
+      padding-bottom:.75rem;
+    }
+    .security-page .toc-list{ list-style:none; }
+    .security-page .toc-list li{ margin-bottom:.5rem; }
+
+    .security-page .toc-link{
+      display:flex;
+      align-items:center;
+      gap:1rem;
+      padding: .75rem 1rem;
+      background:none;
+      border: 2px solid transparent;
+      width:100%;
+      text-align:left;
+
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+
+      color: var(--black);
+      transition: all .3s ease;
+      cursor:pointer;
+      word-break: break-word;
+    }
+    .security-page .toc-number{
+      font-family:'Playfair Display', serif;
+      font-weight:900;
+      font-size:1rem;
+      color: var(--black);
+      min-width:2.2rem;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+    .security-page .toc-text{ flex:1; letter-spacing: .25em; }
+
+    .security-page .toc-link:hover,
+    .security-page .toc-link.active{
+      background: var(--crimson);
+      color: var(--off-white);
+      border-color: var(--black);
+    }
+    .security-page .toc-link:hover .toc-number,
+    .security-page .toc-link.active .toc-number{ color: var(--off-white); }
+
+    /* Content cards */
+    .security-page .main-content{ min-height: 60vh; }
+
+    .security-page .content-section{
+      position: relative;
+      padding: 3rem 2rem;
+      margin-bottom: 2rem;
+      border: var(--border-standard);
+      background: var(--off-white);
+      transition: background-color .3s ease;
+      overflow:hidden;
+
+      opacity: 0;
+      transform: translateY(50px);
+      transition: opacity .6s ease, transform .6s ease, background-color .3s ease;
+    }
+    .security-page .content-section.visible{
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .security-page .content-section:nth-child(even){
+      background: var(--crimson-light);
+    }
+    .security-page .content-section:hover{
+      background: #fff0f0;
+    }
+    .security-page .content-section::before{
+      content:"";
+      position:absolute;
+      left:0; top:0;
+      height:100%;
+      width:8px;
+      background: var(--crimson);
+    }
+
+    .security-page .section-number{
+      font-family:'Playfair Display', serif;
+      font-size:4rem;
+      font-weight:900;
+      color: var(--crimson);
+      opacity:.2;
+      position:absolute;
+      left:2rem;
+      top:1rem;
+      line-height:1;
+      pointer-events:none;
+    }
+
+    .security-page .section-content{
+      margin-left: 4rem;
+      position: relative;
+      z-index:1;
+    }
+
+    .security-page .section-heading{
+      font-family:'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin-bottom: 1.5rem;
+      color: var(--black);
+      line-height:1.3;
+    }
+
+    .security-page .section-body{
+      font-size: 1.125rem;
+      line-height:1.8;
+    }
+
+    /* Lists */
+    .security-page .custom-list{
+      list-style:none;
+      margin: 1.5rem 0;
+      padding-left:0;
+    }
+    .security-page .custom-list li{
+      position:relative;
+      padding-left:2rem;
+      margin-bottom:.75rem;
+    }
+    .security-page .custom-list li::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:.6em;
+      width:8px;
+      height:8px;
+      background: var(--crimson);
+    }
+
+    /* Inline links inside content */
+    .security-page .section-body a{
+      color: var(--crimson);
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: border-color .25s ease, color .25s ease;
+      font-weight: 600;
+    }
+    .security-page .section-body a:hover{
+      border-bottom-color: var(--crimson);
+      color: var(--black);
+    }
+
+    /* Callout info box */
+    .security-page .info-box{
+      display:flex;
+      gap: 1rem;
+      align-items:flex-start;
+      background: var(--crimson);
+      color: var(--off-white);
+      border: var(--border-standard);
+      padding: 1.5rem 1.5rem;
+      margin-top: 1.25rem;
+      transition: all .3s ease;
+    }
+    .security-page .info-box:hover{ background: var(--black); }
+    .security-page .info-ico{
+      width: 42px;
+      height: 42px;
+      border: 2px solid var(--black);
+      display:grid;
+      place-items:center;
+      flex: 0 0 auto;
+      background: rgba(255,255,255,.12);
+    }
+    .security-page .info-ico svg{ width:22px; height:22px; }
+    .security-page .info-title{
+      font-family:'Italiana', serif;
+      letter-spacing:.2em;
+      text-transform:uppercase;
+      font-size:.95rem;
+      margin-bottom:.35rem;
+    }
+    .security-page .info-box p{ margin:0; }
+
+    /* Back to top */
+    .security-page .back-to-top{
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--crimson);
+      color: var(--off-white);
+      border: var(--border-standard);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      opacity:0;
+      visibility:hidden;
+      transition: all .3s ease;
+      z-index:1000;
+    }
+    .security-page .back-to-top.visible{
+      opacity:1;
+      visibility:visible;
+    }
+    .security-page .back-to-top:hover{
+      transform: scale(1.1);
+      background: var(--black);
+    }
+    .security-page .back-to-top svg{
+      width:24px;
+      height:24px;
+      transition: transform .3s ease;
+    }
+    .security-page .back-to-top:hover svg{ transform: rotate(-15deg); }
+
+    /* Footer — match Privacy page */
+    .security-page .footer{
+      border-top: var(--border-standard);
+      padding: 4rem 2rem;
+      text-align: center;
+      background-color: var(--off-white);
+      margin-top: 4rem;
+    }
+    .security-page .footer-stars{
+      display:flex;
+      justify-content:center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+      color: var(--crimson);
+    }
+    .security-page .footer-title{
+      font-family: 'Dancing Script', cursive !important;
+      font-weight: 700;
+      font-style: italic;
+      color: var(--black);
+      margin-bottom: 1rem;
+      line-height: 1.15;
+      font-size: clamp(2.0rem, 3.4vw, 3.1rem);
+    }
+    .security-page .footer-fullname{
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .security-page .footer-subtitle{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      color: var(--black);
+      margin-bottom: 2rem;
+    }
+    .security-page .footer-nav{
+      display:flex;
+      justify-content:center;
+      gap: 2rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .security-page .footer-link{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--black);
+      position: relative;
+      transition: color 0.3s ease;
+      font-weight: 400;
+      text-decoration: none;
+    }
+    .security-page .footer-link::after{
+      content:'';
+      position:absolute;
+      bottom:-4px;
+      left:0;
+      width:0;
+      height:2px;
+      background-color: var(--crimson);
+      transition: width 0.3s ease;
+    }
+    .security-page .footer-link:hover{ color: var(--crimson); }
+    .security-page .footer-link:hover::after{ width:100%; }
+
+    /* Responsive */
+    @media (max-width: 1024px){
+      .security-page .content-container{
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+      .security-page .toc-sidebar{
+        position: static;
+        max-height: none;
+      }
+      .security-page .section-content{ margin-left: 2rem; }
+      .security-page .section-number{ font-size: 3rem; left: 1rem; }
+    }
+
+    @media (max-width: 768px){
+      .security-page .hero-section{ padding: 2rem 1rem 4rem; }
+      .security-page .top-bar{
+        flex-direction: column;
+        gap: .5rem;
+        text-align:center;
+        padding: 1rem;
+      }
+      .security-page .page-title{ font-size: 3rem; }
+
+      .security-page .content-container{ padding: 2rem 1rem; }
+      .security-page .toc-sidebar{ padding: 1.25rem; }
+
+      /* Mobile TOC collapsible */
+      .security-page .toc-mobile-toggle{ display:block; }
+      .security-page .toc-list{ display:none; }
+      .security-page .toc-sidebar.open .toc-list{ display:block; }
+
+      .security-page .content-section{ padding: 2rem 1rem; }
+      .security-page .section-number{
+        font-size: 2.5rem;
+        left: .5rem;
+        top: .5rem;
+      }
+      .security-page .section-content{
+        margin-left: 0;
+        margin-top: 2rem;
+      }
+      .security-page .section-heading{ font-size: 1.5rem; }
+      .security-page .section-body{ font-size: 1rem; }
+
+      .security-page .back-to-top{
+        width:50px; height:50px;
+        bottom: 1rem; right: 1rem;
+      }
+
+      .security-page .footer{ padding: 3rem 1rem; }
+      .security-page .footer-nav{
+        flex-direction: column;
+        gap: 1rem;
+      }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      .security-page .grain-overlay{ animation: none !important; }
+      .security-page .content-section{
+        transition: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+      }
+      .security-page .back-to-top,
+      .security-page .toc-link,
+      .security-page .footer-link::after,
+      .security-page .info-box{
+        transition: none !important;
+      }
+    }
+
+    @media print{
+      .security-page .grain-overlay,
+      .security-page .toc-sidebar,
+      .security-page .back-to-top,
+      .security-page .footer-nav{ display:none !important; }
+      .security-page .content-container{ grid-template-columns: 1fr; }
+      .security-page .content-section{ page-break-inside: avoid; border: 1px solid #000; }
+      .security-page .section-number{ opacity: .5; }
+      .security-page{ background:#fff; color:#000; }
+    }
+  </style>
+
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <!-- Hero -->
+  <header class="hero-section">
+    <div class="top-bar">
+      <span class="top-bar-text">EST. 2018</span>
+      <span class="top-bar-text">MIZORAM, INDIA</span>
+    </div>
+    <h1 class="page-title">Security</h1>
+    <p class="page-subtitle">Your trust matters. Here's how to report issues and stay safe.</p>
+    <div class="title-divider"></div>
+  </header>
+
+  <!-- Content -->
+  <div class="content-container">
+    <!-- TOC -->
+    <nav class="toc-sidebar" id="securityTocSidebar" aria-label="Contents">
+      <button class="toc-mobile-toggle" id="securityTocToggle" type="button">Navigation Menu</button>
+
+      <h2 class="toc-title">Contents</h2>
+      <ul class="toc-list" id="securityTocList">
+        <li>
+          <button class="toc-link active" data-section="report" type="button">
+            <span class="toc-number">01</span><span class="toc-text">Report a Fraud</span>
+          </button>
+        </li>
+        <li>
+          <button class="toc-link" data-section="include" type="button">
+            <span class="toc-number">02</span><span class="toc-text">What to Include</span>
+          </button>
+        </li>
+        <li>
+          <button class="toc-link" data-section="how" type="button">
+            <span class="toc-number">03</span><span class="toc-text">How to Report</span>
+          </button>
+        </li>
+        <li>
+          <button class="toc-link" data-section="tips" type="button">
+            <span class="toc-number">04</span><span class="toc-text">Safety Tips</span>
+          </button>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- Main -->
+    <main class="main-content">
+      <!-- 01 -->
+      <section id="report" class="content-section">
+        <div class="section-number">01</div>
+        <div class="section-content">
+          <h2 class="section-heading">Report a Fraud</h2>
+          <div class="section-body">
+            <p>Seen suspicious activity? Tell us so we can investigate.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02 -->
+      <section id="include" class="content-section">
+        <div class="section-number">02</div>
+        <div class="section-content">
+          <h2 class="section-heading">What to include</h2>
+          <div class="section-body">
+            <ul class="custom-list">
+              <li>Order ID (if applicable)</li>
+              <li>Time, screenshots, and a short description</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 03 -->
+      <section id="how" class="content-section">
+        <div class="section-number">03</div>
+        <div class="section-content">
+          <h2 class="section-heading">How to report</h2>
+          <div class="section-body">
+            <p>
+              Email <a href="mailto:ites@sdsindia.in"><strong>ites@sdsindia.in</strong></a>
+              with the details above. We’ll acknowledge receipt and keep you posted.
+            </p>
+
+            <div class="info-box" role="note" aria-label="Security reporting email">
+              <div class="info-ico" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                  <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="info-title">Report by Email</div>
+                <p>
+                  Send your details to
+                  <a href="mailto:ites@sdsindia.in" style="color:#fff; text-decoration:underline;">ites@sdsindia.in</a>.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04 -->
+      <section id="tips" class="content-section">
+        <div class="section-number">04</div>
+        <div class="section-content">
+          <h2 class="section-heading">Safety tips</h2>
+          <div class="section-body">
+            <ul class="custom-list">
+              <li>Don’t share OTPs or passwords</li>
+              <li>Only pay through trusted methods at delivery</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Back to top -->
+  <button class="back-to-top" id="securityBackToTop" aria-label="Back to top" type="button">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="19" x2="12" y2="5"></line>
+      <polyline points="5 12 12 5 19 12"></polyline>
+    </svg>
+  </button>
+
+  <!-- Footer (Privacy style) -->
+  <footer class="footer">
+    <div class="footer-stars" aria-hidden="true">
+      <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+    </div>
+
+    <h2 class="footer-title footer-fullname">
+      Chhimphei Women Poultry Producer Company Limited
+    </h2>
+
+    <p class="footer-subtitle">MIZORAM • 2018 • INDIA</p>
+
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="/" class="footer-link">Home</a>
+      <a href="/about" class="footer-link">About</a>
+      <a href="/shop" class="footer-link">Shop</a>
+      <a href="/contact" class="footer-link">Contact</a>
+      <a href="/security" class="footer-link">Security</a>
+    </nav>
+  </footer>
+
+  <script>
+    // =========================================================
+    // SECURITY JS — mirrors Privacy/Terms behavior
+    // =========================================================
+    document.addEventListener('DOMContentLoaded', function() {
+      initScrollReveal();
+      initActiveSection();
+      initSmoothScroll();
+      initBackToTop();
+      initMobileToggle();
+
+      function initScrollReveal() {
+        const sections = document.querySelectorAll('.security-page .content-section');
+        if (!('IntersectionObserver' in window)) {
+          sections.forEach((s) => s.classList.add('visible'));
+          return;
+        }
+        const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -100px 0px' };
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) entry.target.classList.add('visible');
+          });
+        }, observerOptions);
+
+        sections.forEach((section) => observer.observe(section));
+      }
+
+      function initActiveSection() {
+        let scrollTimeout;
+
+        function updateActiveSection() {
+          const sections = document.querySelectorAll('.security-page .content-section');
+          const tocLinks = document.querySelectorAll('.security-page .toc-link');
+
+          let currentSection = null;
+          sections.forEach((section) => {
+            const rect = section.getBoundingClientRect();
+            if (rect.top <= 200 && rect.bottom >= 200) currentSection = section.id;
+          });
+
+          tocLinks.forEach((link) => {
+            const sectionId = link.getAttribute('data-section');
+            if (sectionId === currentSection) link.classList.add('active');
+            else link.classList.remove('active');
+          });
+        }
+
+        window.addEventListener('scroll', function() {
+          if (!scrollTimeout) {
+            scrollTimeout = setTimeout(function() {
+              updateActiveSection();
+              scrollTimeout = null;
+            }, 100);
+          }
+        });
+
+        updateActiveSection();
+      }
+
+      function initSmoothScroll() {
+        const tocLinks = document.querySelectorAll('.security-page .toc-link');
+        tocLinks.forEach((link) => {
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            const sectionId = this.getAttribute('data-section');
+            const targetSection = document.getElementById(sectionId);
+
+            if (targetSection) {
+              const offset = 120;
+              const elementPosition = targetSection.getBoundingClientRect().top;
+              const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+              window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+
+              // Close mobile menu if open
+              const tocSidebar = document.getElementById('securityTocSidebar');
+              if (tocSidebar && tocSidebar.classList.contains('open')) {
+                tocSidebar.classList.remove('open');
+                updateToggleText(false);
+              }
+            }
+          });
+        });
+      }
+
+      function initBackToTop() {
+        const backToTopBtn = document.getElementById('securityBackToTop');
+        if (!backToTopBtn) return;
+
+        let scrollTimeout;
+
+        function checkScroll() {
+          if (window.pageYOffset > 500) backToTopBtn.classList.add('visible');
+          else backToTopBtn.classList.remove('visible');
+        }
+
+        window.addEventListener('scroll', function() {
+          if (!scrollTimeout) {
+            scrollTimeout = setTimeout(function() {
+              checkScroll();
+              scrollTimeout = null;
+            }, 100);
+          }
+        });
+
+        backToTopBtn.addEventListener('click', function() {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        checkScroll();
+      }
+
+      function initMobileToggle() {
+        const tocToggle = document.getElementById('securityTocToggle');
+        const tocSidebar = document.getElementById('securityTocSidebar');
+        if (!tocToggle || !tocSidebar) return;
+
+        tocToggle.addEventListener('click', function() {
+          const isOpen = tocSidebar.classList.toggle('open');
+          updateToggleText(isOpen);
+        });
+      }
+
+      function updateToggleText(isOpen) {
+        const tocToggle = document.getElementById('securityTocToggle');
+        if (!tocToggle) return;
+        tocToggle.textContent = isOpen ? 'Close Menu' : 'Navigation Menu';
+      }
+    });
+
+    // Export helpers
+    window.SecurityPage = {
+      scrollToSection: function(sectionId) {
+        const targetSection = document.getElementById(sectionId);
+        if (targetSection) {
+          const offset = 120;
+          const elementPosition = targetSection.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - offset;
+          window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+        }
+      },
+      scrollToTop: function() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+  </script>
+</section>
+
+{% endblock %}

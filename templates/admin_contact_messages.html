@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="admin-contact-page" data-page="admin-contact">
+  <style>
+    /* ========================================
+       ADMIN CONTACT REQUESTS — STORE DASHBOARD THEME
+       ✅ Keeps ALL existing Jinja/data/loops/forms/routes intact
+       ✅ Design swap only
+       ✅ Web + Mobile/App responsive
+       Scoped to .admin-contact-page
+       ======================================== */
+
+    /* Font imports (page-scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    .admin-contact-page{
+      --crimson:#8B0000;
+      --black:#000000;
+      --off-white:#FAF9F6;
+      --light-crimson:#FFF5F5;
+      --border-standard:4px;
+      --transition-speed:.3s;
+
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+
+      background:var(--off-white);
+      color:var(--black);
+      font-family:'Cormorant Garamond', serif;
+      font-size:1.125rem;
+      font-weight:bold;
+      line-height:1.6;
+      min-height:100vh;
+      overflow-x:hidden;
+      position:relative;
+      isolation:isolate;
+    }
+    .admin-contact-page,
+    .admin-contact-page *{ box-sizing:border-box; }
+
+    /* Page-only reset */
+    .admin-contact-page *{
+      margin:0;
+      padding:0;
+      border-radius:0 !important;
+    }
+
+    .admin-contact-page ::selection{ background:var(--crimson); color:#fff; }
+
+    /* Film grain overlay */
+    .admin-contact-page .grain-overlay{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      z-index:1;
+      opacity:.12;
+      background-image:url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* Top bar */
+    .admin-contact-page .top-bar{
+      position:relative;
+      z-index:2;
+      width:100%;
+      padding:1rem 2rem;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      border-bottom:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      font-family:'Italiana', serif;
+      font-size:.875rem;
+      letter-spacing:.5em;
+      text-transform:uppercase;
+      font-variant:small-caps;
+    }
+
+    /* Hero */
+    .admin-contact-page .hero-section{
+      position:relative;
+      z-index:2;
+      text-align:center;
+      padding:5.25rem 2rem 4.25rem;
+      border-bottom:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+    }
+    .admin-contact-page .hero-title{
+      font-family:'Dancing Script', cursive;
+      font-size:clamp(3rem, 10vw, 6rem);
+      color:var(--crimson);
+      font-style:italic;
+      font-weight:700;
+      margin:0 0 .75rem 0;
+      line-height:1.15;
+      text-transform:uppercase;
+    }
+    .admin-contact-page .hero-subtitle{
+      font-family:'Italiana', serif;
+      font-size:.875rem;
+      letter-spacing:.5em;
+      text-transform:uppercase;
+      font-variant:small-caps;
+      margin-bottom:1.25rem;
+    }
+    .admin-contact-page .hero-divider{
+      width:6rem;
+      height:4px;
+      background:var(--crimson);
+      margin:0 auto;
+    }
+
+    /* Main container */
+    .admin-contact-page .main-container{
+      position:relative;
+      z-index:2;
+      max-width:1400px;
+      margin:0 auto;
+      padding:3rem 2rem;
+    }
+
+    /* Panels */
+    .admin-contact-page .panel{
+      border:var(--border-standard) solid var(--black);
+      padding:2rem;
+      margin-bottom:2.25rem;
+      background:var(--off-white);
+    }
+    .admin-contact-page .panel.soft{ background:var(--light-crimson); }
+
+    .admin-contact-page .section-header{
+      display:flex;
+      align-items:start;
+      gap:1rem;
+      margin-bottom:1.25rem;
+    }
+    .admin-contact-page .icon-box{
+      width:48px;height:48px;
+      background:var(--crimson);
+      border:var(--border-standard) solid var(--black);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+      color:#fff;
+      font-family:'Italiana', serif;
+      font-weight:700;
+      letter-spacing:.08em;
+    }
+    .admin-contact-page h2{
+      font-family:'Playfair Display', serif;
+      font-size:1.8rem;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+      margin:0;
+    }
+    .admin-contact-page .muted{ color:rgba(0,0,0,.65); }
+
+    /* Table shell */
+    .admin-contact-page .table-shell{
+      margin-top:1.25rem;
+      overflow-x:auto;
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+    }
+
+    /* Table */
+    .admin-contact-page table.table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:1100px; /* allow horizontal scroll on small screens */
+      background:transparent;
+    }
+    .admin-contact-page table.table thead{
+      background:var(--black);
+      color:#fff;
+    }
+    .admin-contact-page table.table th{
+      padding:1rem;
+      text-align:left;
+      font-family:'Italiana', serif;
+      font-size:.75rem;
+      letter-spacing:.3em;
+      text-transform:uppercase;
+      font-weight:900;
+      border-right:2px solid var(--crimson);
+      white-space:nowrap;
+    }
+    .admin-contact-page table.table th:last-child{ border-right:none; }
+
+    .admin-contact-page table.table td{
+      padding:1rem;
+      font-family:'Cormorant Garamond', serif;
+      font-size:1rem;
+      font-weight:800;
+      vertical-align:top;
+      border-bottom:2px solid var(--black);
+    }
+
+    .admin-contact-page tbody tr.data-row:nth-of-type(4n+1) td,
+    .admin-contact-page tbody tr.data-row:nth-of-type(4n+2) td{
+      background:var(--off-white);
+    }
+    .admin-contact-page tbody tr.data-row:nth-of-type(4n+3) td,
+    .admin-contact-page tbody tr.data-row:nth-of-type(4n+4) td{
+      background:var(--light-crimson);
+    }
+
+    /* Message row */
+    .admin-contact-page tbody tr.msg-row td{
+      background:transparent !important;
+      padding:0;
+      border-bottom:var(--border-standard) solid var(--black);
+    }
+    .admin-contact-page .msg-box{
+      border-top:2px solid var(--black);
+      padding:1.25rem 1rem 1.5rem;
+      background:linear-gradient(0deg, rgba(139,0,0,.06), transparent 55%);
+    }
+    .admin-contact-page .msg-title{
+      font-family:'Italiana', serif;
+      font-size:.75rem;
+      letter-spacing:.3em;
+      text-transform:uppercase;
+      font-weight:900;
+      display:block;
+      margin-bottom:.6rem;
+    }
+    .admin-contact-page .msg-text{
+      font-family:'Cormorant Garamond', serif;
+      font-size:1.05rem;
+      font-weight:800;
+      color:rgba(0,0,0,.85);
+      white-space:pre-wrap;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+
+    /* Status badge (keep your badge classes, restyle here) */
+    .admin-contact-page .badge{
+      display:inline-flex;
+      align-items:center;
+      padding:.25rem .75rem;
+      border:2px solid var(--black);
+      font-family:'Italiana', serif;
+      font-size:.625rem;
+      letter-spacing:.2em;
+      text-transform:uppercase;
+      font-weight:900;
+      background:var(--off-white);
+      color:var(--black);
+    }
+    .admin-contact-page .bg-danger{ background:var(--black); color:#fff; border-color:var(--black); }
+    .admin-contact-page .bg-warning{ background:var(--light-crimson); color:var(--black); border-color:var(--black); }
+    .admin-contact-page .bg-success{ background:var(--off-white); color:var(--black); border-color:var(--black); }
+
+    /* Select (status change) */
+    .admin-contact-page select{
+      width:100%;
+      border:var(--border-standard) solid var(--black);
+      background:var(--off-white);
+      color:var(--black);
+      padding:.7rem .85rem;
+      font-family:'Cormorant Garamond', serif;
+      font-size:1rem;
+      font-weight:900;
+      outline:none;
+      min-width:190px;
+    }
+
+    /* Small helpers */
+    .admin-contact-page .small{ font-size:.95rem; font-weight:800; color:rgba(0,0,0,.75); }
+    .admin-contact-page strong{ font-weight:900; }
+
+    /* focus */
+    .admin-contact-page *:focus-visible{
+      outline:3px solid var(--crimson);
+      outline-offset:3px;
+    }
+
+    @media (max-width: 900px){
+      .admin-contact-page .top-bar{ padding:1rem 1rem; letter-spacing:.35em; }
+      .admin-contact-page .hero-section{ padding:3.5rem 1rem 3rem; }
+      .admin-contact-page .main-container{ padding:2rem 1rem; }
+      .admin-contact-page .panel{ padding:1.5rem; }
+      .admin-contact-page table.table{ min-width:980px; }
+      .admin-contact-page select{ min-width:160px; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .admin-contact-page *,
+      .admin-contact-page *::before,
+      .admin-contact-page *::after{
+        animation-duration:0.01ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:0.01ms !important;
+        scroll-behavior:auto !important;
+      }
+    }
+  </style>
+
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <header class="hero-section">
+    <h1 class="hero-title">Get in Touch</h1>
+    <p class="hero-subtitle">Requests • Status • Follow-ups</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <main class="main-container">
+    <section class="panel soft" aria-label="Contact requests list">
+      <div class="section-header">
+        <div class="icon-box" aria-hidden="true">📩</div>
+        <div>
+          <h2>Get in Touch Requests</h2>
+          <p class="muted">Track incoming contact messages and update status (NEW / READ / RESOLVED).</p>
+        </div>
+      </div>
+
+      {% if messages %}
+        <div class="table-shell">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Subject</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in messages %}
+              <!-- Data row (unchanged content) -->
+              <tr class="data-row">
+                <td>{{ m.created_at[:16].replace("T"," ") }}</td>
+                <td><strong>{{ m.name }}</strong></td>
+                <td>
+                  {{ m.email }}<br>
+                  {% if m.phone %}📞 {{ m.phone }}{% endif %}
+                </td>
+                <td>{{ m.subject }}</td>
+                <td>
+                  <span class="badge
+                    {% if m.status=='NEW' %}bg-danger
+                    {% elif m.status=='READ' %}bg-warning
+                    {% else %}bg-success{% endif %}
+                  ">
+                    {{ m.status }}
+                  </span>
+                </td>
+                <td>
+                  <form method="post"
+                        action="{{ url_for('admin_contact_message_status', mid=m.id) }}">
+                    <select name="status" onchange="this.form.submit()">
+                      <option value="NEW" {% if m.status=='NEW' %}selected{% endif %}>NEW</option>
+                      <option value="READ" {% if m.status=='READ' %}selected{% endif %}>READ</option>
+                      <option value="RESOLVED" {% if m.status=='RESOLVED' %}selected{% endif %}>RESOLVED</option>
+                    </select>
+                  </form>
+                </td>
+              </tr>
+
+              <!-- Message row (unchanged message content) -->
+              <tr class="msg-row">
+                <td colspan="6">
+                  <div class="msg-box">
+                    <span class="msg-title">Message</span>
+                    <div class="msg-text">{{ m.message }}</div>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="muted">No contact requests yet.</p>
+      {% endif %}
+    </section>
+  </main>
+</section>
+
+{% endblock %}

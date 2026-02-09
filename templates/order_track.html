@@ -1,0 +1,1708 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="track-order-page" data-page="track-order">
+  <style>
+    /* ========================================
+       TRACK ORDER — MATCH STORE DASHBOARD THEME
+       ✅ NO logic/route changes
+       ✅ Keeps your HTML + IDs + JS exactly
+       ✅ Only replaces theme/design
+       ✅ Mobile/App + Web responsive
+       Scoped to .track-order-page
+       ======================================== */
+
+    /* Font imports (page-scoped) */
+    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+
+    /* ✅ Page tokens + full-bleed like dashboard */
+    .track-order-page{
+      --crimson: #8B0000;
+      --black: #000000;
+      --off-white: #FAF9F6;
+      --light-crimson: #FFF5F5;
+      --border-standard: 4px;
+      --transition-speed: 0.3s;
+
+      width: 100vw;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+
+      background: var(--off-white);
+      color: var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.125rem;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+      font-weight: bold;
+    }
+
+    .track-order-page,
+    .track-order-page *{ box-sizing: border-box; }
+
+    /* Reset only inside page */
+    .track-order-page *{
+      margin: 0;
+      padding: 0;
+      border-radius: 0 !important;
+    }
+
+    /* ✅ Cursor (same as dashboard) */
+    .track-order-page,
+    .track-order-page *{
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
+    }
+    .track-order-page a,
+    .track-order-page button,
+    .track-order-page input,
+    .track-order-page textarea{ cursor: pointer; }
+
+    .track-order-page ::selection{ background: var(--crimson); color:#fff; }
+
+    /* ========================================
+       FILM GRAIN OVERLAY
+       ======================================== */
+    .track-order-page .grain-overlay{
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.12;
+      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    }
+
+    /* ========================================
+       TOP BAR + HERO (dashboard style)
+       ======================================== */
+    .track-order-page .top-bar{
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+    }
+
+    .track-order-page .hero-section{
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 5.25rem 2rem 4.25rem;
+      border-bottom: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+    }
+
+    .track-order-page .hero-title{
+      font-family: 'Dancing Script', cursive;
+      font-size: clamp(2.8rem, 9vw, 5.75rem);
+      color: var(--crimson);
+      font-style: italic;
+      font-weight: 700;
+      margin: 0 0 0.75rem 0;
+      line-height: 1.15;
+      text-transform: uppercase;
+    }
+
+    .track-order-page .hero-subtitle{
+      font-family: 'Italiana', serif;
+      font-size: 0.875rem;
+      letter-spacing: 0.5em;
+      text-transform: uppercase;
+      font-variant: small-caps;
+      margin-bottom: 1.75rem;
+    }
+
+    .track-order-page .hero-divider{
+      width: 6rem;
+      height: 4px;
+      background: var(--crimson);
+      margin: 0 auto;
+    }
+
+    /* ========================================
+       MAIN CONTAINER
+       ======================================== */
+    .track-order-page .main-container{
+      position: relative;
+      z-index: 2;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 3rem 2rem;
+    }
+
+    /* Keep your original wrapper but remove old max-width look */
+    .track-order-page .track-order-container{
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0;
+    }
+
+    /* ========================================
+       PANEL / CARD LOOK (map your .card to dashboard panels)
+       ======================================== */
+    .track-order-page .card{
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      box-shadow: none;
+    }
+    .track-order-page .card:nth-child(even){ background: var(--light-crimson); }
+
+    .track-order-page .card-head{
+      padding: 1.25rem 1.5rem;
+      border-bottom: 2px solid var(--black);
+      background: transparent;
+    }
+    .track-order-page .card-head h3{
+      font-family: 'Playfair Display', serif;
+      font-size: 1.35rem;
+      font-weight: 900;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin: 0;
+    }
+    .track-order-page .card-body{
+      padding: 1.5rem;
+    }
+
+    /* ========================================
+       HEADER CARD CONTENT (keep classes)
+       ======================================== */
+    .track-order-page .page-header{ margin-bottom: 1.25rem; }
+    .track-order-page .header-content{ padding: 0; text-align: center; }
+
+    .track-order-page .back-button{
+      display: inline-flex;
+      align-items: center;
+      gap: .6rem;
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      color: var(--black);
+      padding: .75rem 1rem;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: all var(--transition-speed);
+      box-shadow: 4px 4px 0 var(--black);
+    }
+    .track-order-page .back-button:hover{ transform: translateY(-4px); background: var(--black); color:#fff; }
+    .track-order-page .back-button svg{ stroke: currentColor; }
+
+    .track-order-page .title{
+      margin-top: 1rem;
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.7rem, 3.5vw, 2.4rem);
+      font-weight: 900;
+      color: var(--black);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .track-order-page .order-subtitle{
+      margin-top: .45rem;
+      font-family: 'Cormorant Garamond', serif;
+      color: rgba(0,0,0,.72);
+      font-size: 1.05rem;
+    }
+
+    /* ========================================
+       GRID
+       ======================================== */
+    .track-order-page .grid-2{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    /* ========================================
+       STATUS BADGES / ALERT
+       ======================================== */
+    .track-order-page .status-badge-large{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: .75rem 1.1rem;
+      border: 2px solid var(--black);
+      background: var(--off-white);
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      margin-bottom: .9rem;
+      white-space: nowrap;
+    }
+    .track-order-page .status-placed{ background: var(--off-white); color: var(--black); }
+    .track-order-page .status-confirmed{ background: var(--light-crimson); color: var(--black); }
+    .track-order-page .status-out-for-delivery{ background: var(--black); color:#fff; border-color: var(--crimson); }
+    .track-order-page .status-delivered{ background: var(--crimson); color:#fff; border-color: var(--black); }
+    .track-order-page .status-cancelled{ background: #fff; color: var(--crimson); border-color: var(--crimson); }
+
+    .track-order-page .alert{
+      display: flex;
+      align-items: center;
+      gap: .65rem;
+      padding: .75rem 1rem;
+      border: 2px solid var(--crimson);
+      background: #fff;
+      color: var(--crimson);
+      margin: .75rem 0 1rem;
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 700;
+    }
+    .track-order-page .alert svg{ stroke: currentColor; }
+
+    .track-order-page .status-details .row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding: .45rem 0;
+      border-bottom: 1px dashed rgba(0,0,0,.35);
+      gap: 12px;
+    }
+    .track-order-page .status-details .row:last-child{ border-bottom: 0; }
+
+    .track-order-page .status-details .label{
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      color: var(--crimson);
+      white-space: nowrap;
+    }
+    .track-order-page .status-details .value{
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 700;
+      color: var(--black);
+      text-align: right;
+    }
+
+    /* Payment coloring (keep classes) */
+    .track-order-page .payment-paid{ color: #065f46; }
+    .track-order-page .payment-pending{ color: #a16207; }
+    .track-order-page .payment-failed{ color: var(--crimson); }
+    .track-order-page .payment-processing{ color: rgba(0,0,0,.75); }
+
+    /* Cancel button (keep class) */
+    .track-order-page .btn-cancel-order{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      border: var(--border-standard) solid var(--black);
+      background: #fff;
+      color: var(--crimson);
+      padding: .75rem 1rem;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      transition: all var(--transition-speed);
+      margin-top: .25rem;
+    }
+    .track-order-page .btn-cancel-order:hover{
+      background: var(--black);
+      color: #fff;
+      transform: translateY(-4px);
+    }
+
+    /* ========================================
+       SUMMARY ROWS
+       ======================================== */
+    .track-order-page .sum-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding: .5rem 0;
+      border-bottom: 1px dashed rgba(0,0,0,.35);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.05rem;
+    }
+    .track-order-page .sum-row:last-child{ border-bottom: 0; }
+    .track-order-page .sum-row.muted{ color: rgba(0,0,0,.7); }
+    .track-order-page .sum-divider{
+      height: 2px;
+      background: var(--black);
+      margin: .75rem 0 .45rem;
+    }
+    .track-order-page .sum-row.total{
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    /* ========================================
+       PROGRESS TRACKER (keep structure + ids)
+       ======================================== */
+    .track-order-page .progress-section{ margin-bottom: 1.25rem; }
+    .track-order-page .progress-tracker{
+      position: relative;
+      padding: 1.35rem .5rem .9rem;
+    }
+    .track-order-page .progress-rail{
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      top: 40px;
+      height: 6px;
+      background: rgba(0,0,0,.15);
+      border: 2px solid var(--black);
+    }
+    .track-order-page .progress-fill{
+      height: 100%;
+      background: var(--crimson);
+      transition: width .45s ease;
+    }
+    .track-order-page .progress-dots{
+      display: grid;
+      grid-template-columns: repeat(var(--steps-count), 1fr);
+      position: relative;
+      z-index: 2;
+    }
+    .track-order-page .progress-dot{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      text-align:center;
+      gap: .5rem;
+    }
+    .track-order-page .dot-indicator{
+      width: 30px;
+      height: 30px;
+      border: 3px solid var(--black);
+      background: var(--off-white);
+      display:grid;
+      place-items:center;
+      transition: all .25s ease;
+    }
+    .track-order-page .progress-dot .check{
+      width: 16px;
+      height: 16px;
+      opacity: 0;
+      color: #fff;
+    }
+    .track-order-page .progress-dot.completed .dot-indicator{
+      background: var(--black);
+      border-color: var(--black);
+    }
+    .track-order-page .progress-dot.completed .check{ opacity: 1; }
+    .track-order-page .progress-dot.current .dot-indicator{
+      background: var(--crimson);
+      border-color: var(--black);
+      animation: trackPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes trackPulse{
+      0%,100%{ transform: translateY(0); }
+      50%{ transform: translateY(-3px); }
+    }
+    .track-order-page .dot-label{
+      font-family: 'Italiana', serif;
+      font-size: .625rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      color: rgba(0,0,0,.7);
+      max-width: 120px;
+    }
+    .track-order-page .progress-dot.completed .dot-label,
+    .track-order-page .progress-dot.current .dot-label{
+      color: var(--black);
+      font-weight: 800;
+    }
+
+    /* ========================================
+       TABLES (items) — dashboard table style
+       ======================================== */
+    .track-order-page .table-wrap{
+      margin-top: .5rem;
+      overflow-x: auto;
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+    }
+    .track-order-page table.table{
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+    .track-order-page table.table thead{
+      background: var(--black);
+      color: #fff;
+    }
+    .track-order-page table.table th{
+      padding: 1rem;
+      text-align: left;
+      font-family: 'Italiana', serif;
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      font-weight: 800;
+      border-right: 2px solid var(--crimson);
+      white-space: nowrap;
+    }
+    .track-order-page table.table th:last-child{ border-right: 0; }
+    .track-order-page table.table td{
+      padding: 1rem;
+      border-bottom: 2px solid var(--black);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      vertical-align: middle;
+    }
+    .track-order-page table.table tbody tr:nth-child(even){
+      background: var(--light-crimson);
+    }
+
+    .track-order-page .prod-cell{
+      display:flex;
+      align-items:center;
+      gap: .75rem;
+    }
+    .track-order-page .thumb{
+      width: 54px;
+      height: 54px;
+      object-fit: cover;
+      border: 2px solid var(--black);
+    }
+    .track-order-page .prod-name{
+      font-weight: 800;
+      color: var(--black);
+    }
+
+    /* Mobile item cards */
+    .track-order-page .item-cards{
+      display: grid;
+      gap: 12px;
+      margin-top: .5rem;
+    }
+    .track-order-page .item-card{
+      display:flex;
+      gap: 12px;
+      padding: 12px;
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+    }
+    .track-order-page .item-card .left .thumb{
+      width: 68px;
+      height: 68px;
+      border: 2px solid var(--black);
+    }
+    .track-order-page .item-card .name{
+      font-weight: 900;
+    }
+    .track-order-page .item-card .meta{
+      display:flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: rgba(0,0,0,.7);
+      font-size: .95rem;
+    }
+    .track-order-page .item-card .price{
+      margin-top: 6px;
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+    }
+
+    /* Totals block */
+    .track-order-page .order-total-summary{
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 2px solid var(--black);
+    }
+    .track-order-page .total-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding: .45rem 0;
+      border-bottom: 1px dashed rgba(0,0,0,.35);
+    }
+    .track-order-page .total-row:last-child{ border-bottom: 0; }
+    .track-order-page .total-row strong{
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+    }
+    .track-order-page .divider{
+      height: 2px;
+      background: var(--black);
+      margin: .75rem 0 .45rem;
+    }
+    .track-order-page .total-row.grand{
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+    }
+
+    /* ========================================
+       ADDRESS
+       ======================================== */
+    .track-order-page .address-grid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 1rem;
+      align-items: start;
+    }
+    .track-order-page .addr-lines{
+      line-height: 1.7;
+      font-weight: 700;
+    }
+    .track-order-page .coords{
+      margin-bottom: .75rem;
+      color: rgba(0,0,0,.7);
+    }
+    .track-order-page .map-button{
+      display: inline-flex;
+      align-items:center;
+      justify-content:center;
+      border: var(--border-standard) solid var(--black);
+      background: var(--crimson);
+      color: #fff;
+      padding: .85rem 1rem;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      text-decoration: none;
+      box-shadow: 4px 4px 0 var(--black);
+      transition: all var(--transition-speed);
+    }
+    .track-order-page .map-button:hover{ transform: translateY(-4px); }
+
+    /* ========================================
+       TIMELINE
+       ======================================== */
+    .track-order-page .timeline{
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .track-order-page .timeline-item{
+      display:grid;
+      grid-template-columns: 18px 1fr;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px dashed rgba(0,0,0,.35);
+    }
+    .track-order-page .timeline-item:last-child{ border-bottom: 0; }
+    .track-order-page .tl-dot{
+      width: 12px;
+      height: 12px;
+      background: var(--crimson);
+      border: 2px solid var(--black);
+      margin-top: 4px;
+    }
+    .track-order-page .tl-title{
+      font-family: 'Italiana', serif;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      font-size: .75rem;
+      color: var(--black);
+      font-weight: 900;
+    }
+    .track-order-page .tl-note{
+      margin-top: 6px;
+      font-weight: 700;
+    }
+    .track-order-page .tl-time{
+      margin-top: 6px;
+      font-size: .95rem;
+      color: rgba(0,0,0,.7);
+    }
+
+    /* ========================================
+       LIVE MAP
+       ======================================== */
+    .track-order-page .live-map{
+      height: 320px;
+      border: var(--border-standard) solid var(--black);
+      overflow: hidden;
+      background: var(--off-white);
+    }
+    .track-order-page .map-legend{
+      display:flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(0,0,0,.75);
+    }
+    .track-order-page .legend{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+    }
+    .track-order-page .badge{
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--black);
+      display:inline-block;
+    }
+    .track-order-page .badge.dest{ background: var(--crimson); }
+    .track-order-page .badge.rider{ background: var(--black); }
+
+    /* Rider icon (Leaflet divIcon) */
+    .track-order-page .bike-dot{
+      width: 24px;
+      height: 24px;
+      display:grid;
+      place-items:center;
+      background: var(--off-white);
+      border: 2px solid var(--black);
+      box-shadow: 2px 2px 0 var(--black);
+    }
+
+    /* ========================================
+       FEEDBACK FORM
+       ======================================== */
+    .track-order-page .form-group{ margin: 1rem 0; }
+    .track-order-page .form-label{
+      display:block;
+      margin-bottom: .5rem;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      color: var(--crimson);
+      font-weight: 900;
+    }
+
+    .track-order-page .products-grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 12px;
+      margin-top: .5rem;
+    }
+    .track-order-page .product-rating{
+      border: 2px solid var(--black);
+      background: var(--off-white);
+      padding: 12px;
+    }
+    .track-order-page .product-header{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .track-order-page .thumb.tiny{
+      width: 42px;
+      height: 42px;
+      border: 2px solid var(--black);
+      object-fit: cover;
+    }
+
+    .track-order-page .form-input,
+    .track-order-page .form-textarea{
+      width: 100%;
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      padding: .75rem 1rem;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1rem;
+      color: var(--black);
+    }
+    .track-order-page .form-input:focus,
+    .track-order-page .form-textarea:focus{
+      outline: 3px solid var(--crimson);
+      outline-offset: 3px;
+    }
+
+    .track-order-page .file-upload span{
+      display:inline-flex;
+      align-items:center;
+      gap: 10px;
+      padding: .75rem 1rem;
+      border: var(--border-standard) solid var(--black);
+      background: var(--light-crimson);
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+    }
+    .track-order-page .checkbox-group{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      margin: 1rem 0;
+      font-weight: 700;
+    }
+
+    .track-order-page .form-actions{
+      display:flex;
+      flex-wrap: wrap;
+      align-items:center;
+      gap: 12px;
+      margin-top: .75rem;
+    }
+
+    .track-order-page .submit-button{
+      border: var(--border-standard) solid var(--black);
+      background: var(--crimson);
+      color: #fff;
+      padding: 1rem 1.25rem;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      box-shadow: 4px 4px 0 var(--black);
+      transition: all var(--transition-speed);
+      cursor: pointer;
+    }
+    .track-order-page .submit-button:hover{ transform: translateY(-4px); }
+
+    .track-order-page .form-note{
+      color: rgba(0,0,0,.7);
+      font-size: .95rem;
+    }
+
+    /* Stars */
+    .track-order-page .star-wrap{ display:flex; gap: 6px; }
+    .track-order-page .star{
+      font-size: 22px;
+      background: transparent;
+      border: 2px solid var(--black);
+      width: 40px;
+      height: 40px;
+      display:grid;
+      place-items:center;
+      color: rgba(0,0,0,.35);
+      transition: all var(--transition-speed);
+    }
+    .track-order-page .star.on{
+      background: var(--black);
+      color: #fff;
+    }
+    .track-order-page .star:hover{ transform: translateY(-3px); }
+
+    /* Bottom action section */
+    .track-order-page .action-section{
+      text-align: center;
+      margin: 1.25rem 0 0;
+    }
+
+    /* Utility */
+    .track-order-page .muted{ color: rgba(0,0,0,.65); }
+
+    /* Visibility helpers (keep) */
+    .track-order-page .desktop-only{ display:block; }
+    .track-order-page .mobile-only{ display:none; }
+
+    /* Animations (keep your class names, but on-theme) */
+    @keyframes fadeIn{ from{opacity:0; transform: translateY(8px)} to{opacity:1; transform:none} }
+    @keyframes liftIn{ from{opacity:0; transform: translateY(10px)} to{opacity:1; transform:none} }
+    @keyframes slideIn{ from{opacity:0; transform: translateX(12px)} to{opacity:1; transform:none} }
+
+    .track-order-page .fade-in{ animation: fadeIn .35s ease both; }
+    .track-order-page .lift-in{ animation: liftIn .25s ease both; }
+    .track-order-page .slide-in{ animation: slideIn .35s ease both; }
+    .track-order-page .delay-1{ animation-delay: .08s; }
+
+    /* Responsive */
+    @media (max-width: 980px){
+      .track-order-page .grid-2{ grid-template-columns: 1fr; }
+      .track-order-page .address-grid{ grid-template-columns: 1fr; }
+      .track-order-page .desktop-only{ display:none; }
+      .track-order-page .mobile-only{ display:grid; }
+      .track-order-page .table-wrap{ overflow-x: auto; }
+    }
+
+    @media (max-width: 768px){
+      .track-order-page .main-container{ padding: 2rem 1rem; }
+      .track-order-page .top-bar{
+        padding: 1rem;
+        font-size: 0.625rem;
+        letter-spacing: 0.35em;
+      }
+      .track-order-page .hero-section{ padding: 4rem 1rem 3rem; }
+      .track-order-page .dot-label{ font-size: .56rem; }
+    }
+
+    /* Accessibility */
+    .track-order-page *:focus-visible{
+      outline: 3px solid var(--crimson);
+      outline-offset: 3px;
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .track-order-page *,
+      .track-order-page *::before,
+      .track-order-page *::after{
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    /* ========================================
+       ✅ CUSTOM POPUP MODAL (replaces confirm prompt)
+       ======================================== */
+    .track-order-page .cc-modal{
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+    }
+    .track-order-page .cc-modal.is-open{ display: flex; }
+
+    .track-order-page .cc-modal .cc-backdrop{
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+    }
+
+    .track-order-page .cc-modal .cc-dialog{
+      position: relative;
+      width: min(520px, 100%);
+      border: var(--border-standard) solid var(--black);
+      background: var(--off-white);
+      box-shadow: 6px 6px 0 var(--black);
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    .track-order-page .cc-modal .cc-head{
+      padding: 14px 16px;
+      border-bottom: 2px solid var(--black);
+      background: var(--light-crimson);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .track-order-page .cc-modal .cc-title{
+      font-family: 'Italiana', serif;
+      font-size: .85rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      color: var(--black);
+      font-weight: 800;
+    }
+    .track-order-page .cc-modal .cc-x{
+      border: 2px solid var(--black);
+      background: var(--off-white);
+      color: var(--black);
+      width: 38px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Italiana', serif;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      transition: all var(--transition-speed);
+    }
+    .track-order-page .cc-modal .cc-x:hover{
+      background: var(--black);
+      color: #fff;
+    }
+
+    .track-order-page .cc-modal .cc-body{
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .track-order-page .cc-modal .cc-body .msg{
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.15rem;
+      color: rgba(0,0,0,.85);
+      line-height: 1.5;
+    }
+    .track-order-page .cc-modal .cc-body .meta{
+      font-family: 'Italiana', serif;
+      font-size: .7rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(0,0,0,.75);
+    }
+    .track-order-page .cc-modal .cc-actions{
+      padding: 14px 16px 16px;
+      border-top: 2px solid var(--black);
+      background: var(--light-crimson);
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .track-order-page .cc-modal .cc-btn{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .4rem;
+      padding: .75rem 1rem;
+      font-family: 'Italiana', serif;
+      font-size: .75rem;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+      border: var(--border-standard) solid var(--black);
+      transition: all var(--transition-speed);
+      white-space: nowrap;
+      background: var(--off-white);
+      color: var(--black);
+    }
+    .track-order-page .cc-modal .cc-btn:hover{
+      transform: translateY(-3px);
+    }
+
+    .track-order-page .cc-modal .cc-btn.secondary:hover{
+      background: var(--black);
+      color: #fff;
+    }
+
+    .track-order-page .cc-modal .cc-btn.danger{
+      background: var(--crimson);
+      color: #fff;
+      box-shadow: 4px 4px 0 var(--black);
+    }
+    .track-order-page .cc-modal .cc-btn.danger:hover{
+      transform: translateY(-4px);
+    }
+  </style>
+
+  <!-- Film Grain Overlay -->
+  <div class="grain-overlay" aria-hidden="true"></div>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <span>EST. 2018</span>
+    <span>MIZORAM, INDIA</span>
+  </div>
+
+  <!-- Hero -->
+  <header class="hero-section">
+    <h1 class="hero-title">Track Order</h1>
+    <p class="hero-subtitle">Order #{{ order.id }}</p>
+    <div class="hero-divider"></div>
+  </header>
+
+  <main class="main-container">
+
+    <!-- ✅ YOUR ORIGINAL HTML STARTS (UNCHANGED) -->
+    <div class="track-order-container">
+      <!-- ===== Header ===== -->
+      <header class="page-header card fade-in">
+        <div class="header-content">
+          <a class="back-button" href="{{ url_for('orders') }}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Back to Orders
+          </a>
+          <h1 class="title">Track Order #{{ order.id }}</h1>
+          <p class="order-subtitle">Monitor your order progress in real-time</p>
+        </div>
+      </header>
+
+      <!-- ===== Overview: Status + Summary ===== -->
+      <section class="status-section grid-2">
+        <!-- Status -->
+        <div class="status-card card lift-in">
+          <div class="card-head">
+            <h3>Current Status</h3>
+          </div>
+          <div class="card-body">
+            <div class="status-badge-large status-{{ order.status|lower|replace('_', '-') }}" id="statusText">
+              {{ order.status.replace('_',' ') }}
+            </div>
+
+            <!-- ====== CANCEL BUTTON (ADDED) ====== -->
+            {% if order.status in ['PLACED', 'CONFIRMED'] %}
+            <form id="cancelForm" class="cancel-form" method="post" action="{{ url_for('order_cancel', oid=order.id) }}">
+              <button type="submit" class="btn-cancel-order"
+                      data-cancel="1"
+                      data-order-id="{{ order.id }}"
+                      data-store="{{ (order.store_name or '')|e }}"
+                      data-total="₹{{ '%.2f'|format((order.total_amount or 0) + (order.delivery_fee or 0) + (order.tip_amount or 0)) }}">
+                Cancel Order
+              </button>
+            </form>
+            {% endif %}
+            <!-- ====== END CANCEL BUTTON ====== -->
+
+            <div id="cancelTag" class="alert alert-error" style="display: {% if order.status == 'CANCELLED' %}flex{% else %}none{% endif %};">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+              <span>This order was cancelled </span>
+            </div>
+
+            <div class="status-details">
+              <div class="row">
+                <span class="label">Payment Status:</span>
+                <span id="paymentStatus" class="value payment-{{ order.payment_status|lower }}">{{ order.payment_status }}</span>
+              </div>
+
+              <div id="dpLine" class="row" style="display: {% if order.delivery_partner_name %}flex{% else %}none{% endif %};">
+                <span class="label">Delivery Partner:</span>
+                <span id="dpName" class="value">{{ order.delivery_partner_name or '' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary-card card lift-in delay-1">
+          <div class="card-head">
+            <h3>Order Summary</h3>
+          </div>
+          <div class="card-body">
+            <div class="sum-row">
+              <span>Items Subtotal</span>
+              <span>₹{{ '%.2f'|format(order.total_amount or 0) }}</span>
+            </div>
+            <div class="sum-row">
+              <span>Delivery Fee</span>
+              <span>₹{{ '%.2f'|format(order.delivery_fee or 0) }}</span>
+            </div>
+            {% if order.tip_amount and order.tip_amount > 0 %}
+            <div class="sum-row">
+              <span>Tip</span>
+              <span>₹{{ '%.2f'|format(order.tip_amount) }}</span>
+            </div>
+            {% endif %}
+            {% if order.distance_km %}
+            <div class="sum-row muted">
+              <span>Distance</span>
+              <span>{{ '%.2f'|format(order.distance_km) }} km</span>
+            </div>
+            {% endif %}
+            <div class="sum-divider"></div>
+            <div class="sum-row total">
+              <span>Grand Total Payable</span>
+              <span>₹{{ '%.2f'|format((order.total_amount or 0) + (order.delivery_fee or 0) + (order.tip_amount or 0)) }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Progress Tracker ===== -->
+      <section class="progress-section card fade-in">
+        <div class="card-head">
+          <h3>Progress</h3>
+        </div>
+        {% set steps = ['PLACED','CONFIRMED','OUT_FOR_DELIVERY','DELIVERED'] %}
+        {% set idx = steps.index(order.status) if order.status in steps else 0 %}
+        <div id="tracker" class="progress-tracker"
+             data-steps="{{ steps|length }}"
+             data-current="{{ idx }}"
+             role="group" aria-label="Order progress">
+          <div class="progress-rail" aria-hidden="true">
+            <div id="track-fill" class="progress-fill" style="width: {{ (idx/(steps|length - 1))*100 if (steps|length - 1) > 0 else 0 }}%;"></div>
+          </div>
+
+          <div id="track-dots" class="progress-dots" style="--steps-count: {{ steps|length }}">
+            {% for s in steps %}
+              {% set k = loop.index0 %}
+              <div class="progress-dot {{ 'completed' if k <= idx else '' }} {{ 'current' if k == idx else '' }}"
+                   data-step="{{ s }}"
+                   aria-current="{{ 'step' if k == idx else 'false' }}"
+                   aria-label="{{ s.replace('_',' ') }}">
+                <div class="dot-indicator">
+                  <svg class="check" viewBox="0 0 24 24" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                  </svg>
+                </div>
+                <span class="dot-label">{{ s.replace('_',' ') }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Items ===== -->
+      <section class="items-section card fade-in">
+        <div class="card-head">
+          <h3>Items</h3>
+        </div>
+
+        <!-- Desktop table -->
+        <div class="table-wrap desktop-only">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Weight (kg)</th>
+                <th>₹/kg</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for i in items %}
+              <tr>
+                <td class="prod-cell">
+                  <img class="thumb" src="{{ '/' + i.image_path if i.image_path else url_for('static', filename='placeholder.png') }}" alt="">
+                  <div class="prod-name">{{ i.name }}</div>
+                </td>
+                <td>{{ '%.2f'|format(i.weight_kg) }}</td>
+                <td>₹ {{ '%.2f'|format(i.unit_price_per_kg) }}</td>
+                <td>₹ {{ '%.2f'|format(i.line_total) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile cards -->
+        <div class="item-cards mobile-only">
+          {% for i in items %}
+          <article class="item-card slide-in">
+            <div class="left">
+              <img class="thumb" src="{{ '/' + i.image_path if i.image_path else url_for('static', filename='placeholder.png') }}" alt="">
+            </div>
+            <div class="right">
+              <div class="name">{{ i.name }}</div>
+              <div class="meta">
+                <span>{{ '%.2f'|format(i.weight_kg) }} kg</span>
+                <span>•</span>
+                <span>₹{{ '%.2f'|format(i.unit_price_per_kg) }}/kg</span>
+              </div>
+              <div class="price">₹{{ '%.2f'|format(i.line_total) }}</div>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+
+        <div class="order-total-summary">
+          <div class="total-row">
+            <span>Items Subtotal</span>
+            <strong>₹ {{ '%.2f'|format(order.total_amount or 0) }}</strong>
+          </div>
+          <div class="total-row">
+            <span>Delivery Fee</span>
+            <strong>₹ {{ '%.2f'|format(order.delivery_fee or 0) }}</strong>
+          </div>
+          {% if order.tip_amount and order.tip_amount > 0 %}
+          <div class="total-row">
+            <span>Tip</span>
+            <strong>₹ {{ '%.2f'|format(order.tip_amount) }}</strong>
+          </div>
+          {% endif %}
+          <div class="divider"></div>
+          <div class="total-row grand">
+            <span>Grand Total Payable</span>
+            <strong>₹ {{ '%.2f'|format((order.total_amount or 0) + (order.delivery_fee or 0) + (order.tip_amount or 0)) }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Address ===== -->
+      <section class="address-section card fade-in">
+        <div class="card-head">
+          <h3>Delivery Address</h3>
+        </div>
+        <div class="card-body">
+          {% if address %}
+          <div class="address-grid">
+            <div class="addr-lines">
+              <div>{{ address.line1 }}</div>
+              {% if address.line2 %}<div>{{ address.line2 }}</div>{% endif %}
+              <div>{{ address.city }}, {{ address.state }} {{ address.pincode }}</div>
+            </div>
+            {% if address.latitude and address.longitude %}
+            <div class="addr-actions">
+              <div class="coords muted">Lat: {{ address.latitude }}, Lng: {{ address.longitude }}</div>
+              <a class="map-button" target="_blank"
+                 href="https://www.google.com/maps/dir/?api=1&destination={{ address.latitude }},{{ address.longitude }}">
+                Open in Google Maps
+              </a>
+            </div>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="empty-state">No address snapshot stored for this order.</div>
+          {% endif %}
+        </div>
+      </section>
+
+      <!-- ===== Timeline ===== -->
+      <section class="timeline-section card fade-in">
+        <div class="card-head">
+          <h3>Timeline</h3>
+        </div>
+        <div class="card-body">
+          <ul id="eventsList" class="timeline">
+            {% for e in events %}
+            <li class="timeline-item">
+              <div class="tl-dot"></div>
+              <div class="tl-content">
+                <div class="tl-title">{{ e.status }}</div>
+                {% if e.note %}<div class="tl-note">{{ e.note }}</div>{% endif %}
+                <div class="tl-time muted">{{ e.created_at }}</div>
+              </div>
+            </li>
+            {% else %}
+            <li class="muted">No events yet.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </section>
+
+      <!-- ===== Live Map ===== -->
+      {% if address and address.latitude and address.longitude %}
+      <section class="map-section card fade-in">
+        <div class="card-head">
+          <h3>Live Map</h3>
+        </div>
+        <div class="card-body">
+          <div id="liveMap" class="live-map"></div>
+          <div class="map-legend">
+            <div class="legend"><span class="badge dest"></span> Delivery Address</div>
+            <div class="legend"><span class="badge rider"></span> Delivery Partner</div>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- ===== Feedback (only after delivered) ===== -->
+      {% if order.status == 'DELIVERED' %}
+      <section class="feedback-section card fade-in">
+        <div class="card-head">
+          <h3>Feedback</h3>
+        </div>
+        <div class="card-body">
+          <form id="feedbackForm" method="post" action="{{ url_for('order_feedback', oid=order.id) }}" enctype="multipart/form-data">
+            <p class="muted" style="margin-top:0">Rate your experience and optionally file a complaint.</p>
+
+            <div class="form-group">
+              <label class="form-label">Rate the Store ({{ order.store_name }})</label>
+              <div class="stars" data-name="store_rating" aria-label="Rate store 1 to 5"></div>
+            </div>
+
+            {% if order.delivery_partner_name %}
+            <div class="form-group">
+              <label class="form-label">Rate the Delivery Partner ({{ order.delivery_partner_name }})</label>
+              <div class="stars" data-name="delivery_rating" aria-label="Rate delivery 1 to 5"></div>
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+              <label class="form-label">Rate Products</label>
+              <div class="products-grid">
+                {% for i in items %}
+                <div class="product-rating">
+                  <div class="product-header">
+                    <img class="thumb tiny" src="{{ '/' + i.image_path if i.image_path else url_for('static', filename='placeholder.png') }}" alt="">
+                    <div class="product-name">{{ i.name }}</div>
+                  </div>
+                  <div class="stars" data-name="product_rating_{{ i.product_id }}" aria-label="Rate {{ i.name }} 1 to 5"></div>
+                  <input type="text" name="product_comment_{{ i.product_id }}" class="form-input" placeholder="Optional comment">
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Any complaint?</label>
+              <input type="text" name="complaint_title" class="form-input" placeholder="Short title (optional)">
+              <textarea name="complaint_description" class="form-textarea" rows="3" placeholder="Describe the issue (optional)"></textarea>
+              <label class="file-upload">
+                <span>Attach a photo (optional)</span>
+                <input type="file" name="complaint_image" accept="image/*" capture="environment">
+              </label>
+            </div>
+
+            <label class="checkbox-group">
+              <input type="checkbox" name="received_confirm" value="1" required>
+              <span>I confirm I received my items.</span>
+            </label>
+
+            <div class="form-actions">
+              <button class="submit-button" type="submit">Submit Feedback</button>
+              <span class="form-note muted">Ratings are available here after delivery.</span>
+            </div>
+          </form>
+        </div>
+      </section>
+      {% endif %}
+
+      <div class="action-section fade-in">
+        <a class="back-button" href="{{ url_for('orders') }}">Back to My Orders</a>
+      </div>
+    </div>
+    <!-- ✅ YOUR ORIGINAL HTML ENDS -->
+
+    <!-- ✅ Custom Cancel Confirmation Modal (replaces browser confirm prompt) -->
+    <div class="cc-modal" id="ccCancelModal" aria-hidden="true">
+      <div class="cc-backdrop" data-close="1"></div>
+      <div class="cc-dialog" role="dialog" aria-modal="true" aria-labelledby="ccTitle" aria-describedby="ccDesc">
+        <div class="cc-head">
+          <div class="cc-title" id="ccTitle">Cancel Order</div>
+          <button class="cc-x" type="button" data-close="1" aria-label="Close">X</button>
+        </div>
+        <div class="cc-body">
+          <div class="meta" id="ccMeta">ORDER</div>
+          <div class="msg" id="ccDesc">Are you sure you want to cancel this order?</div>
+        </div>
+        <div class="cc-actions">
+          <button class="cc-btn secondary" type="button" data-close="1">Keep Order</button>
+          <button class="cc-btn danger" type="button" id="ccConfirmBtn">Yes, Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ YOUR ORIGINAL JS (UNCHANGED) -->
+    <script>
+    /* Live order polling (fixed selector for progress dots) */
+    (function(){
+      const steps = ["PLACED","CONFIRMED","OUT_FOR_DELIVERY","DELIVERED"];
+
+      const elStatusText = document.getElementById("statusText");
+      const elCancelTag  = document.getElementById("cancelTag");
+      const elPayment    = document.getElementById("paymentStatus");
+      const elDpLine     = document.getElementById("dpLine");
+      const elDpName     = document.getElementById("dpName");
+      const fillEl       = document.getElementById("track-fill");
+      const dotsWrap     = document.getElementById("track-dots");
+      const eventsList   = document.getElementById("eventsList");
+      const elCancelForm = document.getElementById("cancelForm"); // ADDED
+
+      let lastStatus = {{ order.status|tojson }};
+      let lastPay    = {{ order.payment_status|tojson }};
+      let lastDP     = {{ (order.delivery_partner_name or '')|tojson }};
+      let lastEventsSig = "{{ events|length }}::{{ events[-1].created_at if events|length>0 else 'none' }}";
+
+      function setProgress(status){
+        const idx = steps.includes(status) ? steps.indexOf(status) : 0;
+        const pct = (idx / (steps.length - 1)) * 100;
+        if (fillEl) fillEl.style.width = pct + "%";
+        if (dotsWrap) {
+          [...dotsWrap.querySelectorAll(".progress-dot")].forEach((d, i) => {
+            d.classList.toggle("completed", i <= idx);
+            d.classList.toggle("current", i === idx);
+            d.setAttribute("aria-current", i === idx ? "step" : "false");
+          });
+        }
+      }
+
+      function escapeHtml(s){
+        return (s || "").replace(/[&<>"']/g, m => ({
+          "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+        }[m]));
+      }
+
+      function renderEvents(list){
+        if (!eventsList) return;
+        eventsList.innerHTML = "";
+        if (!list || list.length === 0){
+          const li = document.createElement("li");
+          li.className = "muted";
+          li.textContent = "No events yet.";
+          eventsList.appendChild(li);
+          return;
+        }
+        list.forEach(e => {
+          const li = document.createElement("li");
+          li.className = "timeline-item";
+          const dot = document.createElement("div");
+          dot.className = "tl-dot";
+          const wrap = document.createElement("div");
+          wrap.className = "tl-content";
+          const title = document.createElement("div");
+          title.className = "tl-title";
+          title.textContent = e.status;
+          wrap.appendChild(title);
+          if (e.note){
+            const note = document.createElement("div");
+            note.className = "tl-note";
+            note.textContent = e.note;
+            wrap.appendChild(note);
+          }
+          const time = document.createElement("div");
+          time.className = "tl-time muted";
+          time.textContent = e.created_at;
+          wrap.appendChild(time);
+          li.appendChild(dot);
+          li.appendChild(wrap);
+          eventsList.appendChild(li);
+        });
+      }
+
+      function syncCancelVisibility(status){ // ADDED
+        if (!elCancelForm) return;
+        if (status === "PLACED" || status === "CONFIRMED"){
+          elCancelForm.style.display = "block";
+        } else {
+          elCancelForm.style.display = "none";
+        }
+      }
+
+      async function poll(){
+        try{
+          const r = await fetch('{{ url_for("api_order_status", oid=order.id) }}', {
+            cache: "no-store",
+            credentials: "same-origin"
+          });
+
+          // If session expired and server redirected to /login, you'll get HTML.
+          const ct = r.headers.get("content-type") || "";
+          if (!ct.includes("application/json")) {
+            return;
+          }
+
+          const j = await r.json();
+          if(!r.ok || !j.ok) return;
+
+          if (j.status !== lastStatus){
+            lastStatus = j.status;
+            if (elStatusText) elStatusText.textContent = j.status.replace(/_/g,' ');
+            if (elCancelTag) elCancelTag.style.display = (j.status === "CANCELLED") ? "flex" : "none";
+            setProgress(j.status);
+          }
+
+          // keep cancel button visibility in sync even if status didn't change
+          syncCancelVisibility(j.status); // ADDED
+
+          if (j.payment_status !== lastPay){
+            lastPay = j.payment_status;
+            if (elPayment) elPayment.textContent = j.payment_status;
+          }
+
+          const dpName = j.delivery_partner_name || "";
+          if (dpName !== lastDP){
+            lastDP = dpName;
+            if (elDpName) elDpName.textContent = dpName;
+            if (elDpLine) elDpLine.style.display = dpName ? "flex" : "none";
+          }
+
+          const sig = (j.events && j.events.length)
+            ? (String(j.events.length) + "::" + j.events[j.events.length-1].created_at)
+            : "0::none";
+          if (sig !== lastEventsSig){
+            lastEventsSig = sig;
+            renderEvents(j.events || []);
+          }
+        }catch(e){}
+      }
+
+      setProgress(lastStatus);
+      syncCancelVisibility(lastStatus); // ADDED (initial)
+      poll();
+      setInterval(poll, 3000);
+    })();
+    </script>
+
+    {% if address and address.latitude and address.longitude %}
+    <script>
+    /* Live rider map */
+    (function(){
+      let map, riderMarker, destMarker;
+      const dest = [{{ address.latitude }}, {{ address.longitude }}];
+
+      function loadLeaflet(cb){
+        if (window.L) { cb(); return; }
+        const lcss = document.createElement('link');
+        lcss.rel = 'stylesheet';
+        lcss.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(lcss);
+        const js = document.createElement('script');
+        js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        js.onload = cb;
+        document.body.appendChild(js);
+      }
+
+      function initMap(){
+        map = L.map('liveMap');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+        destMarker = L.marker(dest, { title: 'Delivery Address' }).addTo(map);
+        map.setView(dest, 14);
+      }
+
+      async function fetchRider(){
+        try{
+          const r = await fetch('{{ url_for("delivery_api_get_latest", oid=order.id) }}', {cache:'no-store'});
+          if(!r.ok) return null;
+          const j = await r.json();
+          if(j.ok && j.data) return j.data;
+          return null;
+        }catch(e){ return null; }
+      }
+
+      function setRider(lat, lng){
+        const pos = [lat, lng];
+        if(!riderMarker){
+          const bikeIcon = L.divIcon({
+            className: 'bike-icon',
+            html: '<div class="bike-dot">🏍️</div>',
+            iconSize: [24,24],
+            iconAnchor: [12,12]
+          });
+          riderMarker = L.marker(pos, { icon: bikeIcon, title: 'Rider' }).addTo(map);
+          const group = L.featureGroup([riderMarker, destMarker]);
+          map.fitBounds(group.getBounds().pad(0.35));
+        }else{
+          riderMarker.setLatLng(pos);
+        }
+      }
+
+      async function pollRider(){
+        const d = await fetchRider();
+        if(d && typeof d.latitude === 'number' && typeof d.longitude === 'number'){
+          setRider(d.latitude, d.longitude);
+        }
+      }
+
+      loadLeaflet(() => {
+        initMap();
+        pollRider();
+        setInterval(pollRider, 5000);
+      });
+    })();
+    </script>
+    {% endif %}
+
+    <script>
+    /* Stars widget + submit guard */
+    (function(){
+      function buildStars(container){
+        const name = container.dataset.name;
+        const max = 5;
+        const wrap = document.createElement('div');
+        wrap.className = 'star-wrap';
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = '0';
+        container.appendChild(input);
+        for (let i=1;i<=max;i++){
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'star';
+          b.setAttribute('data-val', i);
+          b.textContent = '★';
+          b.addEventListener('click', () => {
+            input.value = String(i);
+            [...wrap.children].forEach((el) => {
+              el.classList.toggle('on', Number(el.dataset.val) <= i);
+            });
+          });
+          wrap.appendChild(b);
+        }
+        container.appendChild(wrap);
+      }
+      document.querySelectorAll('.stars').forEach(buildStars);
+
+      const f = document.getElementById('feedbackForm');
+      if (f){
+        f.addEventListener('submit', () => {
+          const btn = f.querySelector('button[type="submit"]');
+          if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+        });
+      }
+    })();
+    </script>
+
+    <!-- ✅ Added JS: replace confirm() prompt with themed modal popup -->
+    <script>
+      (function(){
+        const page = document.querySelector('.track-order-page[data-page="track-order"]');
+        if(!page) return;
+
+        const modal = page.querySelector('#ccCancelModal');
+        const metaEl = page.querySelector('#ccMeta');
+        const descEl = page.querySelector('#ccDesc');
+        const confirmBtn = page.querySelector('#ccConfirmBtn');
+
+        let pendingForm = null;
+        let lastFocus = null;
+
+        function openModal(form, orderId, storeName, totalText){
+          pendingForm = form;
+          lastFocus = document.activeElement;
+
+          const safeStore = (storeName || '').trim();
+          const safeTotal = (totalText || '').trim();
+
+          metaEl.textContent = `ORDER #${orderId || ''}${safeStore ? ' • ' + safeStore : ''}`;
+          descEl.textContent = `Cancel this order${safeTotal ? ' (' + safeTotal + ')' : ''}? This action cannot be undone.`;
+
+          modal.classList.add('is-open');
+          modal.setAttribute('aria-hidden', 'false');
+
+          // prevent background scroll
+          document.documentElement.style.overflow = 'hidden';
+          document.body.style.overflow = 'hidden';
+
+          // focus confirm for keyboard users
+          setTimeout(()=>{ confirmBtn && confirmBtn.focus(); }, 0);
+        }
+
+        function closeModal(){
+          modal.classList.remove('is-open');
+          modal.setAttribute('aria-hidden', 'true');
+          pendingForm = null;
+
+          document.documentElement.style.overflow = '';
+          document.body.style.overflow = '';
+
+          if(lastFocus && typeof lastFocus.focus === 'function'){
+            try{ lastFocus.focus(); }catch(e){}
+          }
+        }
+
+        // Intercept cancel submit (removes browser/localhost confirm prompt)
+        page.addEventListener('submit', function(e){
+          const form = e.target;
+          if(!form || !form.classList || !form.classList.contains('cancel-form')) return;
+
+          e.preventDefault();
+
+          const btn = form.querySelector('[data-cancel="1"]');
+          const orderId = btn ? btn.getAttribute('data-order-id') : '';
+          const store = btn ? btn.getAttribute('data-store') : '';
+          const total = btn ? btn.getAttribute('data-total') : '';
+
+          openModal(form, orderId, store, total);
+        }, true);
+
+        // Confirm cancel => submit original form
+        confirmBtn.addEventListener('click', function(){
+          if(pendingForm){
+            pendingForm.submit();
+          }
+        });
+
+        // Close actions
+        modal.addEventListener('click', function(e){
+          const t = e.target;
+          if(t && (t.getAttribute('data-close') === '1')){
+            closeModal();
+          }
+        });
+
+        // ESC closes
+        document.addEventListener('keydown', function(e){
+          if(e.key === 'Escape' && modal.classList.contains('is-open')){
+            closeModal();
+          }
+        });
+      })();
+    </script>
+
+  </main>
+</section>
+
+{% endblock %}
