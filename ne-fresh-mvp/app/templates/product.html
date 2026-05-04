@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<article class="product">
+  <img src="{{ p.image_url or url_for('static', filename='img/placeholder.jpg') }}" alt="{{ p.name }}">
+  <div class="pad">
+    <h1>{{ p.name }}</h1>
+    <p class="muted">{{ p.description }}</p>
+    <p><del>₹{{ p.price_mrp }}</del> <strong>₹{{ p.price_sale }}</strong> / {{ p.unit }}</p>
+    <form action="{{ url_for('customer.order_create') }}" method="post" class="form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="product_id" value="{{ p.id }}">
+      <label>Qty <input type="number" name="qty" value="1" min="{{ p.min_order_qty }}"></label>
+      <h3>Delivery Address (PIN 796009 only)</h3>
+      <label>Address Line 1 <input name="addr_line1" required></label>
+      <label>City <input name="city" value="Khawzawl" required></label>
+      <label>State <input name="state" value="Mizoram" required></label>
+      <label>Pincode <input name="pincode" value="796009" required></label>
+      <label>Payment
+        <select name="payment_method">
+          <option>COD</option>
+          <option>UPI</option>
+          <option>NETBANKING</option>
+        </select>
+      </label>
+      <button class="btn">Buy Now</button>
+    </form>
+  </div>
+</article>
+{% endblock %}
