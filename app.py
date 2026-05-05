@@ -735,19 +735,20 @@ def index():
 
         for p in products:
             p["id"] = str(p["_id"])
+
             ratings = list(mongo.product_ratings.find({
-            "product_id": p["_id"]
-        }))
+                "product_id": p["_id"]
+            }))
 
             rating_count = len(ratings)
 
-        if rating_count > 0:
-            avg_rating = round(
-        sum(float(r.get("rating") or 0) for r in ratings) / rating_count,
-        1
-    )
-        else:
-            avg_rating = 0
+            if rating_count > 0:
+                avg_rating = round(
+                    sum(float(r.get("rating") or 0) for r in ratings) / rating_count,
+                    1
+                )
+            else:
+                avg_rating = 0
 
             p["avg_rating"] = avg_rating
             p["rating_count"] = rating_count
@@ -1196,18 +1197,22 @@ def products():
             p["id"] = str(p["_id"])
 
             ratings = list(mongo.product_ratings.find({
-        "product_id": p["_id"]
-        }))
+                "product_id": p["_id"]
+            }))
 
-        rating_count = len(ratings)
+            rating_count = len(ratings)
+            total_rating = 0
 
-        if rating_count > 0:
-            avg_rating = round(
-            sum(float(r.get("rating") or 0) for r in ratings) / rating_count,
-        1
-        )
-        else:
-            avg_rating = 0
+            for r in ratings:
+                try:
+                    total_rating += float(r.get("rating") or 0)
+                except (TypeError, ValueError):
+                    pass
+
+            if rating_count > 0:
+                avg_rating = round(total_rating / rating_count, 1)
+            else:
+                avg_rating = 0
 
             p["avg_rating"] = avg_rating
             p["rating_count"] = rating_count
@@ -1219,7 +1224,13 @@ def products():
             p["store_name"] = store.get("store_name") if store else ""
             p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
 
-    return render_template('products.html', products=products, user=current_user())
+    return render_template(
+        'products.html',
+        products=products,
+        user=current_user()
+    )
+
+
 
 def get_or_create_cart(uid):
     existing = mongo.carts.find_one({"user_id": str(uid)})
@@ -5314,3 +5325,6 @@ if __name__ == '__main__':
         port=5000,
         debug=True,
         use_reloader=False)
+
+
+
