@@ -567,6 +567,27 @@ ALLOWED_EXTS = {"jpg","jpeg","png","webp"}
 def allowed_file(filename): 
     return "." in filename and filename.rsplit(".",1)[1].lower() in ALLOWED_EXTS
 
+def normalize_phone(phone):
+    phone = (phone or "").strip()
+    if not phone:
+        return ""
+
+    # Keep leading + if present, remove spaces/dashes/brackets
+    has_plus = phone.startswith("+")
+    digits = "".join(ch for ch in phone if ch.isdigit())
+
+    if not digits:
+        return ""
+
+    if has_plus:
+        return "+" + digits
+
+    # Default India format for 10-digit numbers
+    if len(digits) == 10:
+        return "+91" + digits
+
+    return digits
+
 def _row_get(row, key, default=0):
     try:
         v = row[key]
@@ -3026,7 +3047,7 @@ def admin_create_store():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').lower().strip()
-        phone = request.form.get('phone', '').strip()
+        phone_raw = request.form.get('phone', '').strip()
         password = request.form.get('password', '')
         store_name = request.form.get('store_name', '').strip()
         address = request.form.get('address', '').strip()
@@ -3047,20 +3068,32 @@ def admin_create_store():
         except Exception:
             longitude = None
 
+        phone = normalize_phone(phone_raw)
+
         if not name or not email or not phone or not password or not store_name:
             flash("Please fill all required fields.", "warning")
             return redirect(url_for('admin_create_store'))
 
-        existing = mongo.users.find_one({"email": email})
+        if len(password) < 6:
+            flash("Password must be at least 6 characters.", "warning")
+            return redirect(url_for('admin_create_store'))
+
+        existing = mongo.users.find_one({
+            "$or": [
+                {"email": email},
+                {"phone": phone}
+            ]
+        })
+
         if existing:
-            flash("Email already exists. Use a different email.", "warning")
+            flash("Email or phone already exists. Use different details.", "warning")
             return redirect(url_for('admin_create_store'))
 
         try:
             result = mongo.users.insert_one({
                 "name": name,
                 "email": email,
-                "phone": normalize_phone(phone),
+                "phone": phone,
                 "password_hash": generate_password_hash(password),
                 "role": "store",
                 "phone_verified": 1,
@@ -3081,7 +3114,7 @@ def admin_create_store():
             })
 
         except DuplicateKeyError:
-            flash("Email or phone already exists.", "danger")
+            flash("Email or phone already exists. Please use different details.", "danger")
             return redirect(url_for('admin_create_store'))
         except Exception as e:
             flash(f"Store creation failed: {e}", "danger")
@@ -3098,23 +3131,35 @@ def admin_create_delivery():
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').lower().strip()
-        phone = request.form.get('phone', '').strip()
+        phone_raw = request.form.get('phone', '').strip()
         password = request.form.get('password', '')
+
+        phone = normalize_phone(phone_raw)
 
         if not name or not email or not phone or not password:
             flash("Please fill all required fields.", "error")
             return redirect(url_for('admin_create_delivery'))
 
-        existing = mongo.users.find_one({"email": email})
+        if len(password) < 6:
+            flash("Password must be at least 6 characters.", "error")
+            return redirect(url_for('admin_create_delivery'))
+
+        existing = mongo.users.find_one({
+            "$or": [
+                {"email": email},
+                {"phone": phone}
+            ]
+        })
+
         if existing:
-            flash("Email already exists. Use a different email.", "error")
+            flash("Email or phone already exists. Use different details.", "error")
             return redirect(url_for('admin_create_delivery'))
 
         try:
             mongo.users.insert_one({
                 "name": name,
                 "email": email,
-                "phone": normalize_phone(phone),
+                "phone": phone,
                 "password_hash": generate_password_hash(password),
                 "role": "delivery",
                 "phone_verified": 1,
