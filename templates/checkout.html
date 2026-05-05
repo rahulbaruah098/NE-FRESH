@@ -922,29 +922,20 @@
         if (feeMeta) feeMeta.textContent = metaLine || "";
       }
 
-      // =========================
-      // Serviceable pin list (UI only)
-      // =========================
-      let serviceablePins = null;
+   
+     // =========================
+// Assam-wide delivery pincode validation (UI only)
+// =========================
+async function loadPins(){
+  // Old fixed pincode list removed.
+  // Kept as no-op because init still calls loadPins().
+  return true;
+}
 
-      async function loadPins(){
-        try{
-          const res = await fetch('/api/service/pincodes', { credentials: 'same-origin' });
-          const data = await res.json();
-          if (data && data.ok && Array.isArray(data.pincodes)){
-            serviceablePins = new Set(data.pincodes.map(p => cleanPin(p)));
-          }
-        }catch(e){
-          serviceablePins = null;
-        }
-      }
-
-      function isPinServiceable(pin){
-        const p = cleanPin(pin);
-        if (!p) return false;
-        if (!serviceablePins) return true; // can't verify -> allow UI; backend enforces final
-        return serviceablePins.has(p);
-      }
+function isPinServiceable(pin){
+  const p = cleanPin(pin);
+  return /^\d{6}$/.test(p);
+}
 
       // =========================
       // Backend slab logic
@@ -1001,7 +992,7 @@
         if (!/^\d{6}$/.test(p)) return null;
 
         const queries = [
-          `${p}, Mizoram, India`,
+         `${p}, Assam, India`,
           `${p}, India`,
           `Pincode ${p}, India`,
           `${p}`
@@ -1145,32 +1136,16 @@
           return;
         }
 
-        // ✅ Avoid false blocking when source is pincode centroid
-        const isPrecise = addrLatOk || sessionLoc.source === "gps";
+       // Assam-wide delivery: no frontend max-distance blocking.
+// Distance is used only for fee calculation.
 
-        if (km > MAX_DELIVERY_KM) {
-          if (sessionLoc.source === "pincode" && !isPrecise) {
-            setWarn(`Approx distance is ${km.toFixed(1)} km which may exceed our ${MAX_DELIVERY_KM} km limit. Please allow GPS for exact verification.`);
-            setButtonEnabled(false);
-            updateUI(BASE_DELIVERY_FEE, tip, `Distance: ~${km.toFixed(2)} km (approx) | ${metaLine}`);
-            return;
-          }
+        let extra = slabExtraMatchingBackend(km);
 
-          // Precise (GPS or address coords) => hard block (matches backend)
-          setWarn(`Delivery distance (${km.toFixed(1)} km) exceeds our limit of ${MAX_DELIVERY_KM} km.`);
-          setButtonEnabled(false);
-          updateUI(BASE_DELIVERY_FEE, tip, `Distance: ${km.toFixed(2)} km | ${metaLine}`);
-          return;
-        }
-
-        const extra = slabExtraMatchingBackend(km);
-        if (extra === null){
-          deliveryFee = BASE_DELIVERY_FEE;
-          setWarn("Delivery not available for this distance.");
-          setButtonEnabled(false);
-          updateUI(deliveryFee, tip, `Distance: ${km.toFixed(2)} km | ${metaLine}`);
-          return;
-        }
+if (extra === null){
+  // Assam-wide fallback: if distance is beyond known slabs or slabs are unavailable,
+  // allow checkout with base delivery fee.
+  extra = 0;
+}
 
         deliveryFee = BASE_DELIVERY_FEE + extra;
         setButtonEnabled(true);
@@ -1285,7 +1260,7 @@
           if (resolvedLatInput) resolvedLatInput.value = String(loc.lat);
           if (resolvedLngInput) resolvedLngInput.value = String(loc.lng);
 
-          setLocMsg(`Pincode ${p} is serviceable`, true);
+setLocMsg(`Pincode ${p} is valid. Delivery is available across Assam.`, true);
 
           await recalc();
         }catch(e){

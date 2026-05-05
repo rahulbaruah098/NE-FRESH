@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 
-<section class="cc-delivery-page" data-page="delivery-dashboard">
+<section class="cc-delivery-page"
+  data-page="delivery-dashboard"
+  data-delivery-active="{{ '1' if delivery_active else '0' }}"
+>
   <style>
     /* =========================================
        DELIVERY DASHBOARD — FULL-WIDTH (NO CONTAINER) + FULL RESPONSIVE
@@ -565,20 +568,46 @@
     <!-- ✅ YOUR ORIGINAL MARKUP (UNCHANGED) -->
     <h2>Delivery Dashboard</h2>
 
-    <!-- Live sharing status bar -->
-    <div class="card livebar">
-      <div class="livebar-row">
-        <button id="btnStopAll" class="btn-ghost" disabled>Stop Sharing</button>
-        <span id="statusBadge" class="tag">offline</span>
-        <span id="gpsInfo" class="muted"></span>
-      </div>
+  <!-- Live sharing status bar -->
+<div class="card livebar">
+  <div class="livebar-row">
+    <button id="btnDeliveryNotify" class="btn" type="button" aria-pressed="{{ 'true' if delivery_active else 'false' }}">
+  {% if delivery_active %}
+    🔕 Go Off Duty
+  {% else %}
+    🔔 Go Active for Orders
+  {% endif %}
+</button>
+
+<span id="deliveryNotifyBadge" class="{{ 'tag tag-green pulse' if delivery_active else 'tag' }}">
+  {% if delivery_active %}
+    active for new orders
+  {% else %}
+    notifications off
+  {% endif %}
+</span>
+
+    <span id="statusBadge" class="tag">offline</span>
+    <span id="gpsInfo" class="muted"></span>
+  </div>
       <div class="muted small">
         Keep this page open while on a trip so your location keeps updating live.
       </div>
     </div>
 
-    <!-- Desktop table / Mobile cards -->
-    <div class="orders-wrap">
+{% if not delivery_active %}
+  <div class="card" id="deliveryOffNotice" style="padding:1rem 1.25rem;margin-bottom:1rem;background:#fff;">
+    <strong style="font-family:'Playfair Display',serif;text-transform:uppercase;">
+      You are currently off duty.
+    </strong>
+    <div class="muted">
+      Click <b>Go Active for Orders</b> to see real-time delivery orders. Old offline orders will not be piled up here.
+    </div>
+  </div>
+{% endif %}
+
+<!-- Desktop table / Mobile cards -->
+<div class="orders-wrap" id="deliveryOrdersWrap" {% if not delivery_active %}style="display:none;"{% endif %}>
       <table class="table orders-table">
         <thead>
           <tr>
@@ -748,107 +777,435 @@
       </div>
     </div>
 
-    <!-- 🔔 Optional local test sound (alerts.js has its own beep already) -->
-    <audio id="ding" preload="auto">
-      <source src="{{ url_for('static', filename='ding.mp3') }}" type="audio/mpeg">
-    </audio>
+<!-- 🔔 Delivery notification sound -->
+<audio id="deliveryDing" preload="auto">
+  <source src="{{ url_for('static', filename='sounds/ding.mp3') }}" type="audio/mpeg">
+  <source src="{{ url_for('static', filename='ding.mp3') }}" type="audio/mpeg">
+</audio>
 
-    <!-- ✅ Shared real-time alerts (delivery role) -->
-    <script defer src="{{ url_for('static', filename='js/alerts.js') }}"></script>
-    <script>
-      // Explicitly start the shared poller for the delivery dashboard.
-      document.addEventListener('DOMContentLoaded', () => {
-        if (window.initAlerts) {
-          window.initAlerts({ role: 'delivery' });
-        }
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const page = document.querySelector('.cc-delivery-page');
+    const btnNotify = document.getElementById('btnDeliveryNotify');
+    const notifyBadge = document.getElementById('deliveryNotifyBadge');
+    const ding = document.getElementById('deliveryDing');
+
+    let serverActive = page?.getAttribute("data-delivery-active") === "1";
+    let deliveryPollTimer = null;
+    let deliveryLastId = localStorage.getItem("deliveryLastAlertId") || "";
+
+    function showDeliveryToast(message, type = "on") {
+      let wrap = document.getElementById("deliveryToastWrap");
+
+      if (!wrap) {
+        wrap = document.createElement("div");
+        wrap.id = "deliveryToastWrap";
+        wrap.style.position = "fixed";
+        wrap.style.top = "24px";
+        wrap.style.right = "24px";
+        wrap.style.zIndex = "99999";
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "column";
+        wrap.style.gap = "10px";
+        document.body.appendChild(wrap);
+      }
+
+      const toast = document.createElement("div");
+      const accent = type === "on" ? "#8B0000" : "#111111";
+      const icon = type === "on" ? "🚚" : "🔕";
+
+      toast.style.background = "#fff";
+      toast.style.border = "4px solid #000";
+      toast.style.boxShadow = "6px 6px 0 #000";
+      toast.style.padding = "14px 18px";
+      toast.style.minWidth = "280px";
+      toast.style.maxWidth = "380px";
+      toast.style.fontFamily = "'Cormorant Garamond', serif";
+      toast.style.fontWeight = "900";
+      toast.style.color = "#000";
+      toast.style.display = "flex";
+      toast.style.alignItems = "center";
+      toast.style.gap = "12px";
+      toast.style.transform = "translateX(120%)";
+      toast.style.transition = "transform .22s ease, opacity .22s ease";
+      toast.style.opacity = "0";
+
+      toast.innerHTML = `
+        <div style="width:42px;height:42px;background:${accent};color:#fff;border:3px solid #000;display:flex;align-items:center;justify-content:center;font-size:18px;">${icon}</div>
+        <div>
+          <div style="font-family:'Italiana',serif;letter-spacing:.18em;text-transform:uppercase;font-size:12px;">
+            ${type === "on" ? "Delivery Boy Active" : "Delivery Boy Off"}
+          </div>
+          <div style="font-size:16px;line-height:1.25;margin-top:2px;">${message}</div>
+        </div>
+      `;
+
+      wrap.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.style.transform = "translateX(0)";
+        toast.style.opacity = "1";
       });
-    </script>
 
-    <!-- 🚚 Live location script -->
-    <script>
-    (() => {
-      const statusBadge = document.getElementById('statusBadge');
-      const btnStopAll  = document.getElementById('btnStopAll');
-      const gpsInfo     = document.getElementById('gpsInfo');
-      let watchId = null;
-      let activeOrderId = null;
+      setTimeout(() => {
+        toast.style.transform = "translateX(120%)";
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 260);
+      }, 3000);
+    }
 
-      function setOnlineUI(on, orderId) {
-        statusBadge.textContent = on ? `live: #${orderId}` : 'offline';
-        statusBadge.className = on ? 'tag tag-green pulse' : 'tag';
-        btnStopAll.disabled = !on;
-      }
-
-      async function postPing(orderId, coords) {
-        const body = {
-          order_id: orderId,
-          latitude:  coords.latitude,
-          longitude: coords.longitude,
-          heading:   (typeof coords.heading === 'number') ? coords.heading : null,
-          speed:     (typeof coords.speed === 'number')   ? coords.speed   : null
-        };
-        try {
-          await fetch('{{ url_for("delivery_update_location") }}', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(body),
-            cache: 'no-store',
-            credentials: 'same-origin'
-          });
-        } catch (e) {
-          console.warn('Failed to send location', e);
-        }
-      }
-
-      function startSharing(orderId) {
-        if (!navigator.geolocation) {
-          alert('Geolocation is not supported by this browser.');
+    async function playDeliverySound() {
+      try {
+        if (ding) {
+          ding.currentTime = 0;
+          await ding.play();
           return;
         }
-        if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId);
-          watchId = null;
-        }
-        activeOrderId = orderId;
-        setOnlineUI(true, orderId);
+      } catch (_) {}
 
-        watchId = navigator.geolocation.watchPosition(
-          pos => {
-            const c = pos.coords;
-            gpsInfo.textContent =
-              `lat ${c.latitude.toFixed(5)}, lng ${c.longitude.toFixed(5)}` +
-              (typeof c.speed === 'number' ? ` | speed ${(c.speed || 0).toFixed(1)} m/s` : '');
-            postPing(orderId, c);
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.value = 880;
+        gain.gain.value = 0.09;
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+
+        setTimeout(() => {
+          osc.stop();
+          ctx.close();
+        }, 160);
+      } catch (e) {}
+    }
+
+    function getGPSOnce() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          resolve(null);
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = Number(pos.coords.latitude);
+            const lng = Number(pos.coords.longitude);
+
+            if (Number.isFinite(lat) && Number.isFinite(lng)) {
+              resolve({ lat, lng });
+            } else {
+              resolve(null);
+            }
           },
-          err => {
-            console.warn('GPS error', err);
-            gpsInfo.textContent = 'location error';
-          },
-          { enableHighAccuracy: true, maximumAge: 4000, timeout: 10000 }
+          () => resolve(null),
+          {
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 0
+          }
         );
-      }
-
-      function stopSharing() {
-        if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId);
-          watchId = null;
-        }
-        activeOrderId = null;
-        setOnlineUI(false);
-        gpsInfo.textContent = '';
-      }
-
-      document.querySelectorAll('.share-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const oid = parseInt(btn.dataset.orderId, 10);
-          startSharing(oid);
-        });
       });
-      btnStopAll.addEventListener('click', stopSharing);
-      window.addEventListener('beforeunload', stopSharing);
-    })();
-    </script>
-    <!-- ✅ END ORIGINAL MARKUP -->
+    }
+
+    async function askBrowserNotificationPermission() {
+      try {
+        if ("Notification" in window && Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+      } catch (e) {}
+    }
+
+    function syncDeliveryNotifyUI(active) {
+      if (!btnNotify || !notifyBadge) return;
+
+      btnNotify.innerHTML = active
+        ? "🔕 Go Off Duty"
+        : "🔔 Go Active for Orders";
+
+      btnNotify.setAttribute("aria-pressed", active ? "true" : "false");
+
+      notifyBadge.textContent = active ? "active for new orders" : "notifications off";
+      notifyBadge.className = active ? "tag tag-green pulse" : "tag";
+
+      btnNotify.style.background = active ? "#000" : "#8B0000";
+      btnNotify.style.color = "#fff";
+    }
+
+    async function setDeliveryAvailability(active) {
+      if (active) {
+        await askBrowserNotificationPermission();
+
+        showDeliveryToast("Getting your GPS location…", "on");
+
+        const gps = await getGPSOnce();
+
+        if (!gps) {
+          showDeliveryToast("GPS is required to go active for delivery orders.", "off");
+          return;
+        }
+
+        const res = await fetch("/api/delivery/availability", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            active: true,
+            latitude: gps.lat,
+            longitude: gps.lng
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.ok) {
+          showDeliveryToast(data.error || "Could not go active.", "off");
+          return;
+        }
+
+        localStorage.removeItem("deliveryLastAlertId");
+        await playDeliverySound();
+        showDeliveryToast("You are active now. Only live orders from this time will be shown.", "on");
+
+        setTimeout(() => window.location.reload(), 700);
+        return;
+      }
+
+      const res = await fetch("/api/delivery/availability", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ active: false })
+      });
+
+      await res.json().catch(() => ({}));
+
+      localStorage.removeItem("deliveryLastAlertId");
+      await playDeliverySound();
+      showDeliveryToast("You are off duty. Delivery order data is hidden.", "off");
+
+      setTimeout(() => window.location.reload(), 700);
+    }
+
+    async function pollDeliveryOrders() {
+      if (!serverActive) return;
+
+      const url = `/api/alerts/delivery?last_id=${encodeURIComponent(deliveryLastId || "")}`;
+
+      try {
+        const res = await fetch(url, {
+          method: "GET",
+          cache: "no-store",
+          credentials: "same-origin"
+        });
+
+        const data = await res.json();
+
+        if (!data || !data.ok) return;
+
+        if (!data.active) {
+          serverActive = false;
+          localStorage.removeItem("deliveryLastAlertId");
+          syncDeliveryNotifyUI(false);
+          return;
+        }
+
+        if (data.next_last_id) {
+          deliveryLastId = data.next_last_id;
+          localStorage.setItem("deliveryLastAlertId", deliveryLastId);
+        }
+
+        const newOrders = Array.isArray(data.new) ? data.new : [];
+
+        if (newOrders.length > 0) {
+          await playDeliverySound();
+
+          const countText = newOrders.length === 1
+            ? "1 new live delivery order is available."
+            : `${newOrders.length} new live delivery orders are available.`;
+
+          showDeliveryToast(countText, "on");
+
+          try {
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("New live delivery order", {
+                body: countText
+              });
+            }
+          } catch (e) {}
+
+          setTimeout(() => window.location.reload(), 1000);
+        }
+      } catch (e) {
+        console.warn("Delivery alert poll failed", e);
+      }
+    }
+
+    function startDeliveryPolling() {
+      if (!serverActive) return;
+
+      if (deliveryPollTimer) {
+        clearInterval(deliveryPollTimer);
+      }
+
+      pollDeliveryOrders();
+      deliveryPollTimer = setInterval(pollDeliveryOrders, 7000);
+    }
+
+    syncDeliveryNotifyUI(serverActive);
+
+    if (serverActive) {
+      startDeliveryPolling();
+    }
+
+    if (btnNotify) {
+      btnNotify.addEventListener("click", async () => {
+        await setDeliveryAvailability(!serverActive);
+      });
+    }
+  });
+</script>
+
+    <!-- 🚚 Live location script -->
+<script>
+(() => {
+  const statusBadge = document.getElementById('statusBadge');
+  const gpsInfo = document.getElementById('gpsInfo');
+
+  let watchId = null;
+  let activeOrderId = null;
+
+  function allShareButtons() {
+    return Array.from(document.querySelectorAll('.share-btn'));
+  }
+
+  function setButtonStates(on, orderId) {
+    allShareButtons().forEach(btn => {
+      const btnOrderId = String(btn.dataset.orderId || "");
+
+      if (on && btnOrderId === String(orderId)) {
+        btn.textContent = btn.classList.contains("small")
+          ? "Stop Location"
+          : "Stop Live Location";
+        btn.classList.remove("btn-ghost");
+        btn.classList.add("btn");
+        btn.setAttribute("aria-pressed", "true");
+        btn.title = "Live location sharing is ON for this order";
+      } else {
+        btn.textContent = btn.classList.contains("small")
+          ? "Share Location"
+          : "Share Live Location";
+        btn.classList.remove("btn");
+        btn.classList.add("btn-ghost");
+        btn.setAttribute("aria-pressed", "false");
+        btn.title = "Start live location sharing for this order";
+      }
+    });
+  }
+
+  function setOnlineUI(on, orderId) {
+    statusBadge.textContent = on ? `live: #${orderId}` : 'offline';
+    statusBadge.className = on ? 'tag tag-green pulse' : 'tag';
+
+    setButtonStates(on, orderId);
+
+    if (!on && gpsInfo) {
+      gpsInfo.textContent = '';
+    }
+  }
+
+  async function postPing(orderId, coords) {
+    const body = {
+      order_id: orderId,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      heading: (typeof coords.heading === 'number') ? coords.heading : null,
+      speed: (typeof coords.speed === 'number') ? coords.speed : null
+    };
+
+    try {
+      await fetch('{{ url_for("delivery_update_location") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+    } catch (e) {
+      console.warn('Failed to send location', e);
+    }
+  }
+
+  function startSharing(orderId) {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+
+    activeOrderId = String(orderId);
+    setOnlineUI(true, activeOrderId);
+
+    watchId = navigator.geolocation.watchPosition(
+      pos => {
+        const c = pos.coords;
+
+        if (gpsInfo) {
+          gpsInfo.textContent =
+            `lat ${c.latitude.toFixed(5)}, lng ${c.longitude.toFixed(5)}` +
+            (typeof c.speed === 'number' ? ` | speed ${(c.speed || 0).toFixed(1)} m/s` : '');
+        }
+
+        postPing(activeOrderId, c);
+      },
+      err => {
+        console.warn('GPS error', err);
+        if (gpsInfo) gpsInfo.textContent = 'location error';
+      },
+      { enableHighAccuracy: true, maximumAge: 4000, timeout: 10000 }
+    );
+  }
+
+  function stopSharing() {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+
+    activeOrderId = null;
+    setOnlineUI(false);
+  }
+
+  allShareButtons().forEach(btn => {
+    btn.addEventListener('click', () => {
+      const oid = String(btn.dataset.orderId || "");
+
+      if (!oid) return;
+
+      if (activeOrderId === oid && watchId !== null) {
+        stopSharing();
+      } else {
+        startSharing(oid);
+      }
+    });
+  });
+
+  setOnlineUI(false);
+  window.addEventListener('beforeunload', stopSharing);
+})();
+</script>
+<!-- ✅ END ORIGINAL MARKUP -->
 
   </div>
 </section>

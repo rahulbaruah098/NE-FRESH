@@ -2025,55 +2025,168 @@
          Realtime alerts + polling JS (kept)
          ===================== -->
     <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        if (window.initAlerts) {
-          window.initAlerts({ role: 'store' });
-        }
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.initAlerts) {
+      window.initAlerts({ role: 'store' });
+    }
 
-        const enableBtn = document.getElementById('enableSound');
-        const ding = document.getElementById('ding');
+    const enableBtn = document.getElementById('enableSound');
+    const ding = document.getElementById('ding');
 
-        async function askNotif() {
-          try {
-            if ("Notification" in window && Notification.permission === "default") {
-              await Notification.requestPermission();
-            }
-          } catch (e) {}
-        }
+    function showNotifyToast(message, type = "on") {
+      let wrap = document.getElementById("notifyStateToastWrap");
 
-        enableBtn.addEventListener('click', async () => {
-          const enabled = localStorage.getItem("alertsEnabled") === "1";
+      if (!wrap) {
+        wrap = document.createElement("div");
+        wrap.id = "notifyStateToastWrap";
+        wrap.style.position = "fixed";
+        wrap.style.top = "24px";
+        wrap.style.right = "24px";
+        wrap.style.zIndex = "99999";
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "column";
+        wrap.style.gap = "10px";
+        document.body.appendChild(wrap);
+      }
 
-          if (!enabled) {
-            await askNotif();
+      const toast = document.createElement("div");
+      toast.style.background = "#fff";
+      toast.style.border = "4px solid #000";
+      toast.style.boxShadow = "6px 6px 0 #000";
+      toast.style.padding = "14px 18px";
+      toast.style.minWidth = "280px";
+      toast.style.maxWidth = "360px";
+      toast.style.fontFamily = "'Cormorant Garamond', serif";
+      toast.style.fontWeight = "800";
+      toast.style.color = "#000";
+      toast.style.display = "flex";
+      toast.style.alignItems = "center";
+      toast.style.gap = "12px";
+      toast.style.transform = "translateX(120%)";
+      toast.style.transition = "transform .22s ease, opacity .22s ease";
+      toast.style.opacity = "0";
 
-            try {
-              localStorage.setItem("alertsEnabled", "1");
-              localStorage.setItem("soundEnabled", "1");
-              window.__alertsEnabled = true;
-              window.__soundEnabled = true;
-            } catch (e) {}
+      const icon = type === "on" ? "🔔" : "🔕";
+      const accent = type === "on" ? "#8B0000" : "#333";
 
-            try { ding.currentTime = 0; await ding.play(); } catch (_) {}
+      toast.innerHTML = `
+        <div style="width:42px;height:42px;background:${accent};color:#fff;border:3px solid #000;display:flex;align-items:center;justify-content:center;font-size:18px;">${icon}</div>
+        <div>
+          <div style="font-family:'Italiana',serif;letter-spacing:.18em;text-transform:uppercase;font-size:12px;">${type === "on" ? "Notifications On" : "Notifications Off"}</div>
+          <div style="font-size:16px;line-height:1.25;margin-top:2px;">${message}</div>
+        </div>
+      `;
 
-            try {
-              if (sessionStorage.getItem("alertsEnableRefreshDone") !== "1") {
-                sessionStorage.setItem("alertsEnableRefreshDone", "1");
-                window.location.reload();
-                return;
-              }
-            } catch (e) {}
+      wrap.appendChild(toast);
 
-            console.log('Notifications enabled');
-          } else {
-            try {
-              localStorage.setItem("alertsEnabled", "0");
-              window.__alertsEnabled = false;
-            } catch (e) {}
-          }
-        });
+      requestAnimationFrame(() => {
+        toast.style.transform = "translateX(0)";
+        toast.style.opacity = "1";
       });
-    </script>
+
+      setTimeout(() => {
+        toast.style.transform = "translateX(120%)";
+        toast.style.opacity = "0";
+        setTimeout(() => toast.remove(), 260);
+      }, 2800);
+    }
+
+    async function playNotifySound() {
+      try {
+        if (!ding) return;
+        ding.currentTime = 0;
+        await ding.play();
+      } catch (_) {
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContext) return;
+
+          const ctx = new AudioContext();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = "sine";
+          osc.frequency.value = 880;
+          gain.gain.value = 0.08;
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start();
+          setTimeout(() => {
+            osc.stop();
+            ctx.close();
+          }, 140);
+        } catch (e) {}
+      }
+    }
+
+    async function askNotif() {
+      try {
+        if ("Notification" in window && Notification.permission === "default") {
+          await Notification.requestPermission();
+        }
+      } catch (e) {}
+    }
+
+    function syncNotificationButton() {
+      if (!enableBtn) return;
+
+      const enabled = localStorage.getItem("alertsEnabled") === "1";
+
+      enableBtn.innerHTML = enabled
+        ? "🔕 Disable Order Notifications"
+        : "🔔 Enable Order Notifications";
+
+      enableBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+      enableBtn.title = enabled
+        ? "Order notifications are currently ON"
+        : "Order notifications are currently OFF";
+
+      if (enabled) {
+        enableBtn.style.background = "#000000";
+        enableBtn.style.color = "#ffffff";
+      } else {
+        enableBtn.style.background = "#8B0000";
+        enableBtn.style.color = "#ffffff";
+      }
+    }
+
+    syncNotificationButton();
+
+    if (enableBtn) {
+      enableBtn.addEventListener('click', async () => {
+        const enabled = localStorage.getItem("alertsEnabled") === "1";
+
+        if (!enabled) {
+          await askNotif();
+
+          try {
+            localStorage.setItem("alertsEnabled", "1");
+            localStorage.setItem("soundEnabled", "1");
+            window.__alertsEnabled = true;
+            window.__soundEnabled = true;
+          } catch (e) {}
+
+          await playNotifySound();
+          showNotifyToast("You will hear a sound when a new order arrives.", "on");
+        } else {
+          try {
+            localStorage.setItem("alertsEnabled", "0");
+            localStorage.setItem("soundEnabled", "0");
+            window.__alertsEnabled = false;
+            window.__soundEnabled = false;
+          } catch (e) {}
+
+          await playNotifySound();
+          showNotifyToast("New order sound alerts are now disabled.", "off");
+        }
+
+        syncNotificationButton();
+      });
+    }
+  });
+</script>
   </div>
 
   <!-- ==========================================================
@@ -2156,112 +2269,100 @@
       }
 
       // Notifications button (kept)
-      const enableBtn = qs('#enableSoundMobile');
-      const ding = document.getElementById('ding');
+      // Notifications button
+const enableBtn = qs('#enableSoundMobile');
+const ding = document.getElementById('dingMobile') || document.getElementById('ding');
 
-      async function askNotif() {
-        try {
-          if ("Notification" in window && Notification.permission === "default") {
-            await Notification.requestPermission();
-          }
-        } catch (e) {}
-      }
+async function askNotif() {
+  try {
+    if ("Notification" in window && Notification.permission === "default") {
+      await Notification.requestPermission();
+    }
+  } catch (e) {}
+}
 
-      // ✅ NEW: Category/Sub-category toggle (MOBILE)
-      function syncMobileCategoryUI(){
-        const cat = qs('#categoryMobile');
-        const subWrap = qs('#subCategoryWrapMobile');
-        const subSel = qs('#subCategoryMobile');
-        if (!cat || !subWrap || !subSel) return;
+async function playNotifySound() {
+  try {
+    if (!ding) return;
+    ding.currentTime = 0;
+    await ding.play();
+  } catch (_) {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
 
-        const v = (cat.value || '').trim();
-        if (v === 'Fresh cuts') {
-          subWrap.style.display = '';
-          subSel.required = true;
-        } else {
-          subWrap.style.display = 'none';
-          subSel.required = false;
-          subSel.value = '';
-        }
-      }
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-      // Back to top
-      function setupBackToTop() {
-        const btn = qs('#dashboardBackToTopMobile');
-        if (!btn) return;
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.value = 0.08;
 
-        window.addEventListener('scroll', () => {
-          btn.style.display = (window.scrollY > 300) ? 'flex' : 'none';
-        });
+      osc.connect(gain);
+      gain.connect(ctx.destination);
 
-        btn.addEventListener('click', () => {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-      }
+      osc.start();
+      setTimeout(() => {
+        osc.stop();
+        ctx.close();
+      }, 140);
+    } catch (e) {}
+  }
+}
 
-      function wireEvents(){
-        root.addEventListener('click', async (e) => {
-          const chip = e.target.closest('.mobile-filter-chip');
-          if (chip) {
-            orderFilter = chip.getAttribute('data-filter') || 'ALL';
-            updateFilterChips();
-            applyOrderFilter();
-            return;
-          }
-        });
+if (enableBtn) {
+  function syncBtnState() {
+    const enabled = localStorage.getItem("alertsEnabled") === "1";
 
-        // ✅ mobile category change
-        root.addEventListener('change', (e) => {
-          const el = e.target;
-          if (el && el.matches('#categoryMobile')) {
-            syncMobileCategoryUI();
-          }
-        });
+    enableBtn.innerHTML = enabled
+      ? `<i data-lucide="bell-off"></i><span>DISABLE NOTIFICATIONS</span>`
+      : `<i data-lucide="bell"></i><span>ENABLE NOTIFICATIONS</span>`;
 
-        if (enableBtn) {
-          function syncBtnState() {
-            const enabled = localStorage.getItem("alertsEnabled") === "1";
-            enableBtn.textContent = enabled
-              ? "🔕 Disable Order Notifications"
-              : "🔔 Enable Order Notifications";
-            enableBtn.disabled = false;
-            enableBtn.style.opacity = "1";
-          }
-          syncBtnState();
+    enableBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    enableBtn.title = enabled
+      ? "Order notifications are currently ON"
+      : "Order notifications are currently OFF";
 
-          enableBtn.addEventListener('click', async () => {
-            const enabled = localStorage.getItem("alertsEnabled") === "1";
+    enableBtn.classList.toggle("mobile-btn-crimson", !enabled);
+    enableBtn.classList.toggle("mobile-btn-white", enabled);
 
-            if (!enabled) {
-              await askNotif();
+    if (window.lucide) lucide.createIcons();
+  }
 
-              try {
-                localStorage.setItem("alertsEnabled", "1");
-                localStorage.setItem("soundEnabled", "1");
-                window.__alertsEnabled = true;
-                window.__soundEnabled = true;
-              } catch (e) {}
+  syncBtnState();
 
-              try { ding.currentTime = 0; await ding.play(); } catch (_) {}
+  enableBtn.addEventListener('click', async () => {
+    const enabled = localStorage.getItem("alertsEnabled") === "1";
 
-              try {
-                if (sessionStorage.getItem("alertsEnableRefreshDone") !== "1") {
-                  sessionStorage.setItem("alertsEnableRefreshDone", "1");
-                  window.location.reload();
-                  return;
-                }
-              } catch (e) {}
-            } else {
-              try {
-                localStorage.setItem("alertsEnabled", "0");
-                window.__alertsEnabled = false;
-              } catch (e) {}
-            }
+    if (!enabled) {
+      await askNotif();
 
-            syncBtnState();
-          });
-        }
-      }
+      try {
+        localStorage.setItem("alertsEnabled", "1");
+        localStorage.setItem("soundEnabled", "1");
+        window.__alertsEnabled = true;
+        window.__soundEnabled = true;
+      } catch (e) {}
+
+      await playNotifySound();
+      showToast("🔔 Notifications enabled. New order sound is ON.");
+    } else {
+      try {
+        localStorage.setItem("alertsEnabled", "0");
+        localStorage.setItem("soundEnabled", "0");
+        window.__alertsEnabled = false;
+        window.__soundEnabled = false;
+      } catch (e) {}
+
+      await playNotifySound();
+      showToast("🔕 Notifications disabled. New order sound is OFF.");
+    }
+
+    syncBtnState();
+  });
+}
+      
 
       document.addEventListener('DOMContentLoaded', function () {
         if (window.initAlerts) {

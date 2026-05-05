@@ -128,16 +128,25 @@ def inject_footer_links():
     return {"FOOTER_LINKS": FOOTER_LINKS}
 
 # ----------------------
+# ----------------------
 # DELIVERY CONFIG
 # ----------------------
 BASE_DELIVERY_FEE_INR = 40
+
+# Assam-wide delivery enabled:
+# no fixed pincode list and no max-distance blocking.
+# Delivery fee is calculated by distance slabs.
 DELIVERY_SURCHARGE_SLABS = [
-    (0, 2, 0),
-    (2, 5, 15),
-    (5, 7, 25),
-    (7, 10, 35),
+    (0, 2, 0),       # 0 - 2 km: ₹40
+    (2, 5, 15),      # 2 - 5 km: ₹55
+    (5, 10, 30),     # 5 - 10 km: ₹70
+    (10, 20, 50),    # 10 - 20 km: ₹90
+    (20, 50, 80),    # 20 - 50 km: ₹120
+    (50, 9999, 120), # 50+ km: ₹160
 ]
-MAX_DELIVERY_KM = 10.0
+
+MAX_DELIVERY_KM = None
+DELIVERY_MODE = "ASSAM_STATE_WIDE_DISTANCE_FEE"
 
 def haversine_km(lat1, lon1, lat2, lon2):
     if None in (lat1, lon1, lat2, lon2):
@@ -152,79 +161,178 @@ def haversine_km(lat1, lon1, lat2, lon2):
     return R * c
 
 
+# ----------------------
+# DELIVERY PARTNER LIVE MODE
+# ----------------------
+DELIVERY_ACTIONABLE_STATUSES = ["PLACED", "CONFIRMED", "PREPARING"]
+DELIVERY_ASSIGNED_ACTIVE_STATUSES = ["ASSIGNED_TO_DELIVERY", "OUT_FOR_DELIVERY"]
+
+# Only drivers within this radius from the store pickup point can accept.
+# If store coordinates are missing, distance check is skipped.
+DELIVERY_ACCEPT_RADIUS_KM = 15.0
+
+
+def _delivery_now():
+    return datetime.utcnow().isoformat()
+
+
+def _get_delivery_availability(user_id):
+    return mongo.delivery_availability.find_one({"user_id": str(user_id)}) or {}
+
+
+def _is_delivery_active(user_id):
+    row = _get_delivery_availability(user_id)
+    return bool(row.get("active"))
+
+
+def _get_float_or_none(value):
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _driver_distance_to_store_km(order_doc, availability_doc):
+    driver_lat = _get_float_or_none(availability_doc.get("latitude"))
+    driver_lng = _get_float_or_none(availability_doc.get("longitude"))
+
+    if driver_lat is None or driver_lng is None:
+        return None
+
+    store = None
+    if order_doc.get("store_id"):
+        store = mongo.stores.find_one({"_id": order_doc.get("store_id")})
+
+    if not store:
+        return None
+
+    store_lat = _get_float_or_none(store.get("latitude"))
+    store_lng = _get_float_or_none(store.get("longitude"))
+
+    if store_lat is None or store_lng is None:
+        return None
+
+    return haversine_km(driver_lat, driver_lng, store_lat, store_lng)
+
+
+def _hydrate_delivery_order(o):
+    store = mongo.stores.find_one({"_id": o.get("store_id")}) if o.get("store_id") else None
+
+    customer = None
+    if o.get("user_id"):
+        try:
+            customer = mongo.users.find_one({"_id": ObjectId(o.get("user_id"))})
+        except Exception:
+            customer = None
+
+    addr = mongo.order_addresses.find_one({"order_id": o["_id"]})
+
+    o["id"] = str(o["_id"])
+    o["store_name"] = store.get("store_name") if store else o.get("store_name", "")
+    o["customer_name"] = customer.get("name") if customer else o.get("customer_name", "")
+    o["customer_phone"] = customer.get("phone") if customer else o.get("customer_phone", "")
+
+    o["addr_line1"] = addr.get("line1") if addr else ""
+    o["addr_line2"] = addr.get("line2") if addr else ""
+    o["addr_city"] = addr.get("city") if addr else ""
+    o["addr_state"] = addr.get("state") if addr else ""
+    o["addr_pincode"] = addr.get("pincode") if addr else ""
+    o["addr_lat"] = addr.get("latitude") if addr else None
+    o["addr_lng"] = addr.get("longitude") if addr else None
+
+    o["total_amount"] = float(o.get("total_amount") or 0)
+    o["delivery_fee"] = float(o.get("delivery_fee") or 0)
+    o["tip_amount"] = float(o.get("tip_amount") or 0)
+    o["total_payable"] = (
+        float(o.get("total_amount") or 0)
+        + float(o.get("delivery_fee") or 0)
+        + float(o.get("tip_amount") or 0)
+    )
+
+    return o
+
+
+def calculate_delivery_fee_by_distance(km):
+    """
+    Assam-wide delivery:
+    - No distance blocking.
+    - If distance is unavailable, charge base fee.
+    - If distance is available, add slab surcharge.
+    """
+    if km is None:
+        return float(BASE_DELIVERY_FEE_INR)
+
+    try:
+        km = float(km)
+    except Exception:
+        return float(BASE_DELIVERY_FEE_INR)
+
+    surcharge = 0
+
+    for low, high, fee in DELIVERY_SURCHARGE_SLABS:
+        if km >= low and km < high:
+            surcharge = fee
+            break
+
+    return float(BASE_DELIVERY_FEE_INR + surcharge)
+
 def _ensure_contact_messages_status_column():
     # MongoDB does not need table/column migration.
     return
 
 # ======================
-# SERVICEABLE PINCODES
+# ASSAM-WIDE DELIVERY
 # ======================
-def _ensure_serviceable_table():
-    # MongoDB collection is created automatically on first insert.
-    return
 
-# Default seed (Aizawl)
-SEED_PINS = [
-    ("796001", "Aizawl"),
-    ("796004", "Aizawl"),
-    ("796005", "Aizawl"),
-    ("796007", "Aizawl"),
-    ("796008", "Aizawl"),
-    ("796009", "Aizawl"),
-    ("796012", "Aizawl"),
-    ("796014", "Aizawl"),
-    ("796015", "Aizawl"),
-    ("796017", "Aizawl"),
-]
 def _seed_pincodes_if_empty():
-    if mongo.serviceable_pincodes.count_documents({}) == 0:
-        for pc, label in SEED_PINS:
-            mongo.serviceable_pincodes.update_one(
-                {"pincode": pc},
-                {"$setOnInsert": {"pincode": pc, "label": label}},
-                upsert=True
-            )
-
-with app.app_context():
-    ensure_mongo_indexes()
-
-
-def normalize_phone(phone: str) -> str:
-    """
-    Normalize to E.164. If user typed a 10-digit Indian number, prefix +91.
-    If already starts with '+', return as-is.
-    """
-    p = (phone or "").strip().replace(" ", "")
-    if p.startswith("+"):
-        return p
-    digits = "".join(ch for ch in p if ch.isdigit())
-    if len(digits) == 10:
-        return "+91" + digits
-    return "+" + digits if digits and not digits.startswith("+") else digits
+    # Kept as a safe no-op because app startup still calls it.
+    # Old fixed pincode seeding is disabled.
+    return
 
 
 def _clean_pin(pin) -> str:
-    """Keep digits only and trim spaces (handles '796001 ', 796001, etc.)."""
+    """Keep digits only and trim spaces."""
     if pin is None:
         return ""
     s = str(pin).strip()
     return "".join(ch for ch in s if ch.isdigit())
 
+
+def _clean_state(state) -> str:
+    return (state or "").strip().lower()
+
+
+def is_assam_state(state) -> bool:
+    return _clean_state(state) in {
+        "assam",
+        "as"
+    }
+
+
 def get_serviceable_pincodes():
-    rows = mongo.serviceable_pincodes.find({}, {"pincode": 1, "_id": 0}).sort("pincode", 1)
-    return [r["pincode"] for r in rows]
+    # Fixed pincode list removed.
+    # Delivery is now controlled by Assam state check.
+    return []
+
 
 def is_serviceable_pincode(pin: str) -> bool:
+    # Old fixed pincode matching removed.
+    # Keep only basic Indian pincode validation.
     clean_pin = _clean_pin(pin)
-    if not clean_pin:
-        return False
-    # normalize every row from DB too
-    pins = [_clean_pin(r) for r in get_serviceable_pincodes()]
-    return clean_pin in set(pins)
+    return bool(clean_pin and len(clean_pin) == 6 and clean_pin.isdigit())
+
+
 
 @app.route("/api/service/pincodes")
 def api_service_pincodes():
-    return jsonify({"ok": True, "pincodes": get_serviceable_pincodes()})
+    return jsonify({
+        "ok": True,
+        "mode": "ASSAM_STATE_WIDE",
+        "message": "Delivery is available across Assam.",
+        "pincodes": []
+    })
 
 # Store location data in session; front-end JS should call this after getting geolocation & pincode
 @app.route("/api/location/set", methods=["POST"])
@@ -342,13 +450,14 @@ def detect_location():
     }
     session.modified = True
     if not is_serviceable_pincode(pincode):
-        flash(f"Sorry, we currently serve select pincodes only. Your pincode {pincode} is not serviceable.", "warning")
+        flash("Please enter a valid 6-digit pincode.", "warning")
     else:
-        flash(f"Location set to {pincode}.", "success")
+        flash(f"Location set to {pincode}. Delivery is available across Assam.", "success")
+
     return redirect(request.referrer or url_for("index"))
 
 # ----------------------
-# ADMIN: Manage serviceable pincodes
+# AUTH HELPERS
 # ----------------------
 def current_user():
     uid = session.get("user_id")
@@ -446,41 +555,6 @@ with app.app_context():
     ensure_mongo_indexes()
     _seed_pincodes_if_empty()
 
-@app.route("/admin/pincodes", methods=["GET"], endpoint="admin_pincodes")
-@login_required(role='admin')
-def admin_pincodes():
-    pins = list(mongo.serviceable_pincodes.find({}, {"_id": 0}).sort("pincode", 1))
-    return render_template("admin_pincodes.html", user=current_user(), pincodes=pins)
-
-@app.route("/admin/pincodes/add", methods=["POST"], endpoint="admin_pincodes_add")
-@login_required(role='admin')
-def admin_pincodes_add():
-    pin = (request.form.get("pincode") or "").strip()
-    label = (request.form.get("label") or "").strip() or None
-
-    if not pin.isdigit():
-        flash("Enter a numeric pincode.", "warning")
-        return redirect(url_for("admin_pincodes"))
-
-    existing = mongo.serviceable_pincodes.find_one({"pincode": pin})
-    if existing:
-        flash("Pincode already exists.", "danger")
-        return redirect(url_for("admin_pincodes"))
-
-    mongo.serviceable_pincodes.insert_one({
-        "pincode": pin,
-        "label": label
-    })
-
-    flash(f"Pincode {pin} added.", "success")
-    return redirect(url_for("admin_pincodes"))
-
-@app.route("/admin/pincodes/<pin>/delete", methods=["POST"], endpoint="admin_pincodes_delete")
-@login_required(role='admin')
-def admin_pincodes_delete(pin):
-    mongo.serviceable_pincodes.delete_one({"pincode": pin})
-    flash(f"Pincode {pin} removed.", "info")
-    return redirect(url_for("admin_pincodes"))
 
 # ----------------------
 # MISC UTILS
@@ -630,7 +704,7 @@ def index():
     allow, pin = _session_pin_is_serviceable()
 
     if session.get("service_area") and not allow:
-        flash(f"Sorry, we currently serve select pincodes only. Your pincode {pin or '(none)'} is not serviceable.", "warning")
+        flash("Please enter a valid 6-digit pincode.", "warning")
         products = []
     else:
         products = list(mongo.products.find({
@@ -973,6 +1047,14 @@ def address_new():
     if not line1:
         flash("Address line 1 is required.", "warning")
         return redirect(url_for("profile"))
+    
+    if not is_serviceable_pincode(pincode):
+        flash("Please enter a valid 6-digit pincode.", "warning")
+        return redirect(url_for("profile"))
+
+    if not is_assam_state(state):
+        flash("Delivery is currently available only within Assam.", "warning")
+        return redirect(url_for("profile"))
 
     if is_def:
         mongo.addresses.update_many(
@@ -1081,7 +1163,7 @@ def products():
     allow, pin = _session_pin_is_serviceable()
 
     if session.get("service_area") and not allow:
-        flash(f"Sorry, we currently serve select pincodes only. Your pincode {pin or '(none)'} is not serviceable.", "warning")
+        flash("Please enter a valid 6-digit pincode.", "warning")
         products = []
     else:
         products = list(mongo.products.find({
@@ -1443,10 +1525,11 @@ def checkout():
         sel_pin = (sel.get("pincode") or "").strip()
 
         if not is_serviceable_pincode(sel_pin):
-            flash(
-                f"Sorry, we currently deliver only to allowed pincodes. Your address pincode {sel_pin or '(none)'} is not serviceable.",
-                "danger"
-            )
+            flash("Please enter a valid 6-digit pincode.", "danger")
+            return redirect(url_for("checkout"))
+
+        if not is_assam_state(sel.get("state")):
+            flash("Delivery is currently available only within Assam.", "danger")
             return redirect(url_for("checkout"))
 
         items_total = sum([
@@ -1465,25 +1548,9 @@ def checkout():
 
         km = haversine_km(store_lat, store_lng, addr_lat, addr_lng)
 
-        if km is not None and km > MAX_DELIVERY_KM:
-            flash(f"Delivery distance ({km:.1f} km) exceeds our limit of {MAX_DELIVERY_KM} km.", "danger")
-            return redirect(url_for("checkout"))
-
-        if km is None:
-            delivery_fee = BASE_DELIVERY_FEE_INR
-        else:
-            extra = None
-            for low, high, fee in DELIVERY_SURCHARGE_SLABS:
-                last_high = DELIVERY_SURCHARGE_SLABS[-1][1]
-                if (km >= low) and (km < high or high == last_high):
-                    extra = fee
-                    break
-
-            if extra is None:
-                flash("Delivery not available for this distance.", "danger")
-                return redirect(url_for("checkout"))
-
-            delivery_fee = BASE_DELIVERY_FEE_INR + extra
+# Assam-wide delivery: no distance blocking.
+# Delivery fee is calculated by distance if coordinates are available.
+        delivery_fee = calculate_delivery_fee_by_distance(km)
 
         tip_amount = request.form.get("tip_amount", "0").strip()
 
@@ -1596,7 +1663,9 @@ def checkout():
         total=total,
         base_fee=BASE_DELIVERY_FEE_INR,
         slabs=DELIVERY_SURCHARGE_SLABS,
-        max_km=MAX_DELIVERY_KM,
+        max_km=None,
+        delivery_mode=DELIVERY_MODE,
+        delivery_message="Delivery is available across Assam. Delivery fee is calculated according to distance.",
         store_lat=store_lat,
         store_lng=store_lng,
         cart_store_count=cart_store_count,
@@ -1850,65 +1919,129 @@ def order_feedback(oid):
 def delivery_dashboard():
     u = current_user()
 
-    raw_orders = list(
-        mongo.orders.find({
-            "$or": [
-                {"delivery_partner_id": u["id"]},
-                {"delivery_partner_id": None},
-                {"delivery_partner_id": {"$exists": False}}
-            ]
-        }).sort("created_at", -1)
-    )
+    availability = _get_delivery_availability(u["id"])
+    delivery_active = bool(availability.get("active"))
+    active_since = availability.get("active_since")
 
     orders = []
 
-    for o in raw_orders:
-        store = mongo.stores.find_one({"_id": o.get("store_id")}) if o.get("store_id") else None
-
-        customer = None
-        if o.get("user_id"):
-            try:
-                customer = mongo.users.find_one({"_id": ObjectId(o.get("user_id"))})
-            except Exception:
-                customer = None
-
-        addr = mongo.order_addresses.find_one({"order_id": o["_id"]})
-
-        o["id"] = str(o["_id"])
-        o["store_name"] = store.get("store_name") if store else o.get("store_name", "")
-        o["customer_name"] = customer.get("name") if customer else o.get("customer_name", "")
-        o["customer_phone"] = customer.get("phone") if customer else o.get("customer_phone", "")
-
-        o["addr_line1"] = addr.get("line1") if addr else ""
-        o["addr_line2"] = addr.get("line2") if addr else ""
-        o["addr_city"] = addr.get("city") if addr else ""
-        o["addr_state"] = addr.get("state") if addr else ""
-        o["addr_pincode"] = addr.get("pincode") if addr else ""
-        o["addr_lat"] = addr.get("latitude") if addr else None
-        o["addr_lng"] = addr.get("longitude") if addr else None
-
-        o["total_amount"] = float(o.get("total_amount") or 0)
-        o["delivery_fee"] = float(o.get("delivery_fee") or 0)
-        o["tip_amount"] = float(o.get("tip_amount") or 0)
-        o["total_payable"] = (
-            float(o.get("total_amount") or 0)
-            + float(o.get("delivery_fee") or 0)
-            + float(o.get("tip_amount") or 0)
+    # Driver OFF = show no order data.
+    if delivery_active and active_since:
+        raw_orders = list(
+            mongo.orders.find({
+                "$or": [
+                    {
+                        "delivery_partner_id": u["id"],
+                        "status": {"$in": DELIVERY_ASSIGNED_ACTIVE_STATUSES}
+                    },
+                    {
+                        "$and": [
+                            {
+                                "$or": [
+                                    {"delivery_partner_id": None},
+                                    {"delivery_partner_id": {"$exists": False}}
+                                ]
+                            },
+                            {"created_at": {"$gte": active_since}},
+                            {"status": {"$in": DELIVERY_ACTIONABLE_STATUSES}}
+                        ]
+                    }
+                ]
+            }).sort("created_at", -1)
         )
 
-        orders.append(o)
+        for o in raw_orders:
+            o = _hydrate_delivery_order(o)
+            distance_km = _driver_distance_to_store_km(o, availability)
+            o["driver_store_distance_km"] = distance_km
+            orders.append(o)
+
+        # Nearby first, unknown distance last.
+        orders.sort(
+            key=lambda x: (
+                0 if x.get("delivery_partner_id") == u["id"] else 1,
+                999999 if x.get("driver_store_distance_km") is None else x.get("driver_store_distance_km")
+            )
+        )
 
     return render_template(
         'delivery_dashboard.html',
         user=u,
-        orders=orders
+        orders=orders,
+        delivery_active=delivery_active,
+        delivery_availability=availability,
+        delivery_accept_radius_km=DELIVERY_ACCEPT_RADIUS_KM
     )
 
+
+@app.route('/api/delivery/availability', methods=['POST'])
+@login_required(role='delivery')
+def api_delivery_availability():
+    u = current_user()
+    data = request.get_json(silent=True) or {}
+
+    active = bool(data.get("active"))
+    now = _delivery_now()
+
+    if active:
+        lat = _get_float_or_none(data.get("latitude"))
+        lng = _get_float_or_none(data.get("longitude"))
+
+        if lat is None or lng is None:
+            return jsonify({
+                "ok": False,
+                "error": "GPS location is required to go active."
+            }), 400
+
+        mongo.delivery_availability.update_one(
+            {"user_id": u["id"]},
+            {
+                "$set": {
+                    "user_id": u["id"],
+                    "active": True,
+                    "active_since": now,
+                    "latitude": lat,
+                    "longitude": lng,
+                    "updated_at": now
+                }
+            },
+            upsert=True
+        )
+
+        return jsonify({
+            "ok": True,
+            "active": True,
+            "active_since": now
+        })
+
+    mongo.delivery_availability.update_one(
+        {"user_id": u["id"]},
+        {
+            "$set": {
+                "user_id": u["id"],
+                "active": False,
+                "offline_at": now,
+                "updated_at": now
+            }
+        },
+        upsert=True
+    )
+
+    return jsonify({
+        "ok": True,
+        "active": False
+    })
 
 @app.route('/delivery/order/<oid>/assign', methods=['POST'])
 @login_required(role='delivery')
 def delivery_assign(oid):
     u = current_user()
+
+    availability = _get_delivery_availability(u["id"])
+
+    if not availability.get("active"):
+        flash("Please go active before accepting delivery orders.", "warning")
+        return redirect(url_for("delivery_dashboard"))
 
     try:
         oid_obj = ObjectId(oid)
@@ -1922,24 +2055,55 @@ def delivery_assign(oid):
         flash("Order not found.", "danger")
         return redirect(url_for("delivery_dashboard"))
 
-    existing_partner = order.get("delivery_partner_id")
-
-    if existing_partner and existing_partner != u["id"]:
-        flash("This order is already assigned to another delivery partner.", "warning")
+    if order.get("status") not in DELIVERY_ACTIONABLE_STATUSES:
+        flash("This order is no longer available for delivery.", "warning")
         return redirect(url_for("delivery_dashboard"))
 
-    now = datetime.utcnow().isoformat()
+    existing_partner = order.get("delivery_partner_id")
 
-    mongo.orders.update_one(
-        {"_id": oid_obj},
+    if existing_partner:
+        if existing_partner == u["id"]:
+            flash("This order is already assigned to you.", "info")
+        else:
+            flash("This order is already assigned to another delivery partner.", "warning")
+        return redirect(url_for("delivery_dashboard"))
+
+    distance_km = _driver_distance_to_store_km(order, availability)
+
+    if distance_km is not None and distance_km > DELIVERY_ACCEPT_RADIUS_KM:
+        flash(
+            f"This order is too far from your current location ({distance_km:.1f} km).",
+            "warning"
+        )
+        return redirect(url_for("delivery_dashboard"))
+
+    now = _delivery_now()
+
+    # Atomic acceptance:
+    # Only one delivery partner can win this update.
+    result = mongo.orders.update_one(
+        {
+            "_id": oid_obj,
+            "$or": [
+                {"delivery_partner_id": None},
+                {"delivery_partner_id": {"$exists": False}}
+            ],
+            "status": {"$in": DELIVERY_ACTIONABLE_STATUSES}
+        },
         {
             "$set": {
                 "delivery_partner_id": u["id"],
                 "status": "ASSIGNED_TO_DELIVERY",
+                "assigned_at": now,
+                "assignment_distance_km": distance_km,
                 "updated_at": now
             }
         }
     )
+
+    if result.modified_count != 1:
+        flash("This order was just accepted by another delivery partner or is no longer available.", "warning")
+        return redirect(url_for("delivery_dashboard"))
 
     mongo.order_events.insert_one({
         "order_id": oid_obj,
@@ -1948,8 +2112,8 @@ def delivery_assign(oid):
         "created_at": now
     })
 
-    flash('Order assigned to you.', 'success')
-    return redirect(url_for('delivery_dashboard'))
+    flash("Order assigned to you.", "success")
+    return redirect(url_for("delivery_dashboard"))
 
 
 @app.route('/delivery/order/<oid>/status', methods=['POST'])
@@ -2226,17 +2390,44 @@ def api_alerts_store():
             "next_last_id": ""
         })
 
-    last_id = request.args.get("last_id", "").strip()
+    last_id = (request.args.get("last_id") or "").strip()
 
-    query_filter = {
+    base_filter = {
         "store_id": store["_id"]
     }
 
-    if last_id:
-        try:
-            query_filter["_id"] = {"$gt": ObjectId(last_id)}
-        except Exception:
-            pass
+    # First poll should only initialize the latest order id.
+    # It should NOT show old orders as new notifications.
+    if not last_id:
+        latest_order = mongo.orders.find_one(
+            base_filter,
+            sort=[("_id", -1)]
+        )
+
+        return jsonify({
+            "ok": True,
+            "new": [],
+            "next_last_id": str(latest_order["_id"]) if latest_order else ""
+        })
+
+    try:
+        last_obj_id = ObjectId(last_id)
+    except Exception:
+        latest_order = mongo.orders.find_one(
+            base_filter,
+            sort=[("_id", -1)]
+        )
+
+        return jsonify({
+            "ok": True,
+            "new": [],
+            "next_last_id": str(latest_order["_id"]) if latest_order else ""
+        })
+
+    query_filter = {
+        "store_id": store["_id"],
+        "_id": {"$gt": last_obj_id}
+    }
 
     rows = list(
         mongo.orders.find(query_filter).sort("_id", 1)
@@ -2257,7 +2448,8 @@ def api_alerts_store():
 
         new_items.append({
             "order_id": oid,
-            "total_payable": total_payable
+            "total_payable": total_payable,
+            "created_at": o.get("created_at", "")
         })
 
     return jsonify({
@@ -2269,29 +2461,95 @@ def api_alerts_store():
 @app.route('/api/alerts/delivery', methods=['GET'])
 @login_required(role='delivery')
 def api_alerts_delivery():
-    since = request.args.get('since') or ""
+    u = current_user()
 
-    query_filter = {
-        "$or": [
-            {"delivery_partner_id": None},
-            {"delivery_partner_id": {"$exists": False}}
+    availability = _get_delivery_availability(u["id"])
+
+    if not availability.get("active"):
+        return jsonify({
+            "ok": True,
+            "active": False,
+            "new": [],
+            "next_last_id": ""
+        })
+
+    active_since = availability.get("active_since") or _delivery_now()
+    last_id = (request.args.get("last_id") or "").strip()
+
+    base_filter = {
+        "$and": [
+            {
+                "$or": [
+                    {"delivery_partner_id": None},
+                    {"delivery_partner_id": {"$exists": False}}
+                ]
+            },
+            {"status": {"$in": DELIVERY_ACTIONABLE_STATUSES}},
+            {"created_at": {"$gte": active_since}}
         ]
     }
 
-    if since:
-        query_filter["created_at"] = {"$gt": since}
-    else:
-        query_filter["created_at"] = {
-            "$gt": (datetime.utcnow() - timedelta(minutes=2)).isoformat()
-        }
+    # First poll after active mode should initialize latest id only.
+    # No offline backlog popup.
+    if not last_id:
+        latest_order = mongo.orders.find_one(
+            base_filter,
+            sort=[("_id", -1)]
+        )
+
+        return jsonify({
+            "ok": True,
+            "active": True,
+            "new": [],
+            "next_last_id": str(latest_order["_id"]) if latest_order else ""
+        })
+
+    try:
+        last_obj_id = ObjectId(last_id)
+    except Exception:
+        latest_order = mongo.orders.find_one(
+            base_filter,
+            sort=[("_id", -1)]
+        )
+
+        return jsonify({
+            "ok": True,
+            "active": True,
+            "new": [],
+            "next_last_id": str(latest_order["_id"]) if latest_order else ""
+        })
+
+    query_filter = {
+        "$and": [
+            base_filter,
+            {"_id": {"$gt": last_obj_id}}
+        ]
+    }
 
     rows = list(
-        mongo.orders.find(query_filter).sort("created_at", -1)
+        mongo.orders.find(query_filter).sort("_id", 1)
     )
 
     new_items = []
+    next_last_id = last_id
 
     for o in rows:
+        # Skip if order is no longer unassigned/actionable by the time poll reads it.
+        if o.get("delivery_partner_id"):
+            continue
+
+        if o.get("status") not in DELIVERY_ACTIONABLE_STATUSES:
+            continue
+
+        distance_km = _driver_distance_to_store_km(o, availability)
+
+        # If distance is available, only show nearby orders.
+        if distance_km is not None and distance_km > DELIVERY_ACCEPT_RADIUS_KM:
+            continue
+
+        oid = str(o["_id"])
+        next_last_id = oid
+
         total_payable = (
             float(o.get("total_amount") or 0)
             + float(o.get("delivery_fee") or 0)
@@ -2299,14 +2557,17 @@ def api_alerts_delivery():
         )
 
         new_items.append({
-            "order_id": str(o["_id"]),
+            "order_id": oid,
             "created_at": o.get("created_at"),
-            "total_payable": total_payable
+            "total_payable": total_payable,
+            "distance_km": distance_km
         })
 
     return jsonify({
         "ok": True,
-        "new": new_items
+        "active": True,
+        "new": new_items,
+        "next_last_id": next_last_id
     })
 
 @app.route('/api/store/orders/<oid>', methods=['GET'])
@@ -2449,7 +2710,7 @@ def store_catalog(sid):
     allow, pin = _session_pin_is_serviceable()
 
     if session.get("service_area") and not allow:
-        flash(f"Sorry, we currently serve select pincodes only. Your pincode {pin or '(none)'} is not serviceable.", "warning")
+        flash("Please enter a valid 6-digit pincode.", "warning")
         products = []
     else:
         products = list(
@@ -3800,6 +4061,7 @@ def store_txn_csv():
 
 
 @app.route('/store/order/<oid>/status', methods=['POST'])
+@app.route('/store/orders/<oid>/status', methods=['POST'])
 @login_required(role='store')
 def store_order_status(oid):
     u = current_user()
@@ -4662,7 +4924,10 @@ def api_addresses_create(user_id):
         return jsonify({"success": False, "error": "Valid 6-digit pincode required"}), 400
 
     if not is_serviceable_pincode(pincode):
-        return jsonify({"success": False, "error": "Pincode not serviceable"}), 400
+        return jsonify({'success': False, 'error': 'Invalid pincode'}), 400
+
+    if not is_assam_state(state):
+        return jsonify({'success': False, 'error': 'Delivery is currently available only within Assam'}), 400
 
     latitude = None
     longitude = None
@@ -4879,7 +5144,13 @@ def api_checkout(user_id):
     if not is_serviceable_pincode(pincode):
         return jsonify({
             "success": False,
-            "error": "Selected address pincode is not serviceable"
+            "error": "Invalid pincode"
+        }), 400
+
+    if not is_assam_state(address.get("state")):
+        return jsonify({
+            "success": False,
+            "error": "Delivery is currently available only within Assam"
         }), 400
 
     items_total = sum(float(i["line_total"] or 0) for i in items)
@@ -4891,31 +5162,9 @@ def api_checkout(user_id):
 
     km = haversine_km(store_lat, store_lng, addr_lat, addr_lng)
 
-    if km is not None and km > MAX_DELIVERY_KM:
-        return jsonify({
-            "success": False,
-            "error": f"Delivery distance ({km:.1f} km) exceeds our limit of {MAX_DELIVERY_KM} km"
-        }), 400
-
-    if km is None:
-        delivery_fee = BASE_DELIVERY_FEE_INR
-    else:
-        extra = None
-
-        for low, high, fee in DELIVERY_SURCHARGE_SLABS:
-            last_high = DELIVERY_SURCHARGE_SLABS[-1][1]
-
-            if (km >= low) and (km < high or high == last_high):
-                extra = fee
-                break
-
-        if extra is None:
-            return jsonify({
-                "success": False,
-                "error": "Delivery not available for this distance"
-            }), 400
-
-        delivery_fee = BASE_DELIVERY_FEE_INR + extra
+    # Assam-wide delivery: no distance blocking.
+    # Keep base delivery fee for all Assam addresses.
+    delivery_fee = BASE_DELIVERY_FEE_INR
 
     total_payable = float(items_total) + float(delivery_fee) + float(tip_amount)
     now = datetime.utcnow().isoformat()
