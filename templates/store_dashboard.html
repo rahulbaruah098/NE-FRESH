@@ -2021,104 +2021,151 @@
       </section>
     </main>
 
-    <!-- =====================
-         Realtime alerts + polling JS (kept)
-         ===================== -->
-    <script>
+   <!-- =====================
+     Store order notification polling
+     ===================== -->
+<script>
   document.addEventListener('DOMContentLoaded', () => {
-    if (window.initAlerts) {
-      window.initAlerts({ role: 'store' });
-    }
-
     const enableBtn = document.getElementById('enableSound');
     const ding = document.getElementById('ding');
 
+    let storePollTimer = null;
+    let storeLastId = localStorage.getItem("storeLastAlertId") || "";
+
     function showNotifyToast(message, type = "on") {
-      let wrap = document.getElementById("notifyStateToastWrap");
+  let wrap = document.getElementById("notifyStateToastWrap");
 
-      if (!wrap) {
-        wrap = document.createElement("div");
-        wrap.id = "notifyStateToastWrap";
-        wrap.style.position = "fixed";
-        wrap.style.top = "24px";
-        wrap.style.right = "24px";
-        wrap.style.zIndex = "99999";
-        wrap.style.display = "flex";
-        wrap.style.flexDirection = "column";
-        wrap.style.gap = "10px";
-        document.body.appendChild(wrap);
-      }
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "notifyStateToastWrap";
+    wrap.style.position = "fixed";
+    wrap.style.top = "24px";
+    wrap.style.right = "24px";
+    wrap.style.zIndex = "99999";
+    wrap.style.display = "flex";
+    wrap.style.flexDirection = "column";
+    wrap.style.gap = "10px";
+    document.body.appendChild(wrap);
+  }
 
-      const toast = document.createElement("div");
-      toast.style.background = "#fff";
-      toast.style.border = "4px solid #000";
-      toast.style.boxShadow = "6px 6px 0 #000";
-      toast.style.padding = "14px 18px";
-      toast.style.minWidth = "280px";
-      toast.style.maxWidth = "360px";
-      toast.style.fontFamily = "'Cormorant Garamond', serif";
-      toast.style.fontWeight = "800";
-      toast.style.color = "#000";
-      toast.style.display = "flex";
-      toast.style.alignItems = "center";
-      toast.style.gap = "12px";
-      toast.style.transform = "translateX(120%)";
-      toast.style.transition = "transform .22s ease, opacity .22s ease";
-      toast.style.opacity = "0";
+  // Remove old notification popup before showing a new one
+  wrap.querySelectorAll(".store-new-order-toast").forEach(el => el.remove());
 
-      const icon = type === "on" ? "🔔" : "🔕";
-      const accent = type === "on" ? "#8B0000" : "#333";
+  const toast = document.createElement("div");
+  toast.className = "store-new-order-toast";
+  toast.style.background = "#fff";
+  toast.style.border = "4px solid #000";
+  toast.style.boxShadow = "6px 6px 0 #000";
+  toast.style.padding = "14px 18px";
+  toast.style.minWidth = "280px";
+  toast.style.maxWidth = "380px";
+  toast.style.fontFamily = "'Cormorant Garamond', serif";
+  toast.style.fontWeight = "800";
+  toast.style.color = "#000";
+  toast.style.display = "flex";
+  toast.style.alignItems = "center";
+  toast.style.gap = "12px";
+  toast.style.transform = "translateX(120%)";
+  toast.style.transition = "transform .22s ease, opacity .22s ease";
+  toast.style.opacity = "0";
+  toast.style.cursor = "pointer";
 
-      toast.innerHTML = `
-        <div style="width:42px;height:42px;background:${accent};color:#fff;border:3px solid #000;display:flex;align-items:center;justify-content:center;font-size:18px;">${icon}</div>
-        <div>
-          <div style="font-family:'Italiana',serif;letter-spacing:.18em;text-transform:uppercase;font-size:12px;">${type === "on" ? "Notifications On" : "Notifications Off"}</div>
-          <div style="font-size:16px;line-height:1.25;margin-top:2px;">${message}</div>
-        </div>
-      `;
+  const icon = type === "on" ? "🔔" : "🔕";
+  const accent = type === "on" ? "#8B0000" : "#333";
 
-      wrap.appendChild(toast);
+  toast.innerHTML = `
+    <div style="width:42px;height:42px;background:${accent};color:#fff;border:3px solid #000;display:flex;align-items:center;justify-content:center;font-size:18px;">${icon}</div>
+    <div style="flex:1;">
+      <div style="font-family:'Italiana',serif;letter-spacing:.18em;text-transform:uppercase;font-size:12px;">
+        ${type === "on" ? "New Order" : "Notifications Off"}
+      </div>
+      <div style="font-size:16px;line-height:1.25;margin-top:2px;">${message}</div>
+      ${type === "on" ? `<div style="font-size:13px;margin-top:6px;opacity:.75;">Click here to open Order Management</div>` : ``}
+    </div>
+  `;
 
-      requestAnimationFrame(() => {
-        toast.style.transform = "translateX(0)";
-        toast.style.opacity = "1";
+  function dismissToast() {
+    toast.style.transform = "translateX(120%)";
+    toast.style.opacity = "0";
+    setTimeout(() => toast.remove(), 260);
+  }
+
+  function goToOrdersSection() {
+    sessionStorage.setItem("scrollToOrdersAfterReload", "1");
+    window.location.reload();
+  }
+
+  if (type === "on") {
+    toast.addEventListener("click", goToOrdersSection);
+  } else {
+    toast.addEventListener("click", dismissToast);
+  }
+
+  wrap.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.style.transform = "translateX(0)";
+    toast.style.opacity = "1";
+  });
+
+  // For enable/disable messages only, auto-hide.
+  // For NEW ORDER popup, keep it until user clicks or reaches order section.
+  if (type !== "on") {
+    setTimeout(dismissToast, 3000);
+  }
+
+  const desktopOrders = document.getElementById("orders");
+  const mobileOrders = document.getElementById("orderGridMobile");
+
+  const target = window.matchMedia && window.matchMedia("(max-width: 768px)").matches
+    ? mobileOrders
+    : desktopOrders;
+
+  if (type === "on" && target && "IntersectionObserver" in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          dismissToast();
+          observer.disconnect();
+        }
       });
+    }, { threshold: 0.35 });
 
-      setTimeout(() => {
-        toast.style.transform = "translateX(120%)";
-        toast.style.opacity = "0";
-        setTimeout(() => toast.remove(), 260);
-      }, 2800);
-    }
+    observer.observe(target);
+  }
+}
 
     async function playNotifySound() {
       try {
-        if (!ding) return;
-        ding.currentTime = 0;
-        await ding.play();
-      } catch (_) {
-        try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          if (!AudioContext) return;
+        if (ding) {
+          ding.currentTime = 0;
+          await ding.play();
+          return;
+        }
+      } catch (_) {}
 
-          const ctx = new AudioContext();
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
 
-          osc.type = "sine";
-          osc.frequency.value = 880;
-          gain.gain.value = 0.08;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
 
-          osc.connect(gain);
-          gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.value = 880;
+        gain.gain.value = 0.08;
 
-          osc.start();
-          setTimeout(() => {
-            osc.stop();
-            ctx.close();
-          }, 140);
-        } catch (e) {}
-      }
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+
+        setTimeout(() => {
+          osc.stop();
+          ctx.close();
+        }, 160);
+      } catch (e) {}
     }
 
     async function askNotif() {
@@ -2143,16 +2190,89 @@
         ? "Order notifications are currently ON"
         : "Order notifications are currently OFF";
 
-      if (enabled) {
-        enableBtn.style.background = "#000000";
-        enableBtn.style.color = "#ffffff";
-      } else {
-        enableBtn.style.background = "#8B0000";
-        enableBtn.style.color = "#ffffff";
+      enableBtn.style.background = enabled ? "#000000" : "#8B0000";
+      enableBtn.style.color = "#ffffff";
+    }
+
+    async function pollStoreOrders() {
+      const enabled = localStorage.getItem("alertsEnabled") === "1";
+      if (!enabled) return;
+
+      try {
+        const res = await fetch(`/api/alerts/store?last_id=${encodeURIComponent(storeLastId || "")}`, {
+          method: "GET",
+          cache: "no-store",
+          credentials: "same-origin"
+        });
+
+        const data = await res.json();
+
+        if (!data || !data.ok) return;
+
+        if (data.next_last_id) {
+          storeLastId = data.next_last_id;
+          localStorage.setItem("storeLastAlertId", storeLastId);
+        }
+
+        const newOrders = Array.isArray(data.new) ? data.new : [];
+
+        if (newOrders.length > 0) {
+          await playNotifySound();
+
+          const msg = newOrders.length === 1
+            ? "1 new order received."
+            : `${newOrders.length} new orders received.`;
+
+          showNotifyToast(msg, "on");
+
+          try {
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("New order received", { body: msg });
+            }
+          } catch (e) {}
+
+
+        }
+      } catch (e) {
+        console.warn("Store alert poll failed", e);
       }
     }
 
+    function startStorePolling() {
+      if (storePollTimer) clearInterval(storePollTimer);
+      pollStoreOrders();
+      storePollTimer = setInterval(pollStoreOrders, 5000);
+    }
+
+    function stopStorePolling() {
+      if (storePollTimer) {
+        clearInterval(storePollTimer);
+        storePollTimer = null;
+      }
+    }
+
+if (sessionStorage.getItem("scrollToOrdersAfterReload") === "1") {
+  sessionStorage.removeItem("scrollToOrdersAfterReload");
+
+  setTimeout(() => {
+    const target = window.matchMedia && window.matchMedia("(max-width: 768px)").matches
+      ? document.getElementById("orderGridMobile")
+      : document.getElementById("orders");
+
+    if (target) {
+      target.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+    }
+  }, 500);
+}
+
     syncNotificationButton();
+
+    if (localStorage.getItem("alertsEnabled") === "1") {
+      startStorePolling();
+    }
 
     if (enableBtn) {
       enableBtn.addEventListener('click', async () => {
@@ -2161,25 +2281,21 @@
         if (!enabled) {
           await askNotif();
 
-          try {
-            localStorage.setItem("alertsEnabled", "1");
-            localStorage.setItem("soundEnabled", "1");
-            window.__alertsEnabled = true;
-            window.__soundEnabled = true;
-          } catch (e) {}
+          localStorage.setItem("alertsEnabled", "1");
+          localStorage.setItem("soundEnabled", "1");
 
           await playNotifySound();
-          showNotifyToast("You will hear a sound when a new order arrives.", "on");
+          showNotifyToast("Notifications enabled. New orders will ring from now.", "on");
+
+          startStorePolling();
         } else {
-          try {
-            localStorage.setItem("alertsEnabled", "0");
-            localStorage.setItem("soundEnabled", "0");
-            window.__alertsEnabled = false;
-            window.__soundEnabled = false;
-          } catch (e) {}
+          localStorage.setItem("alertsEnabled", "0");
+          localStorage.setItem("soundEnabled", "0");
 
           await playNotifySound();
-          showNotifyToast("New order sound alerts are now disabled.", "off");
+          showNotifyToast("New order notifications are disabled.", "off");
+
+          stopStorePolling();
         }
 
         syncNotificationButton();
@@ -2187,7 +2303,6 @@
     }
   });
 </script>
-  </div>
 
   <!-- ==========================================================
        MOBILE JS (NEW) — scoped, doesn’t touch desktop IDs
@@ -2281,36 +2396,6 @@ async function askNotif() {
   } catch (e) {}
 }
 
-async function playNotifySound() {
-  try {
-    if (!ding) return;
-    ding.currentTime = 0;
-    await ding.play();
-  } catch (_) {
-    try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContext) return;
-
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = "sine";
-      osc.frequency.value = 880;
-      gain.gain.value = 0.08;
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      setTimeout(() => {
-        osc.stop();
-        ctx.close();
-      }, 140);
-    } catch (e) {}
-  }
-}
-
 if (enableBtn) {
   function syncBtnState() {
     const enabled = localStorage.getItem("alertsEnabled") === "1";
@@ -2320,10 +2405,6 @@ if (enableBtn) {
       : `<i data-lucide="bell"></i><span>ENABLE NOTIFICATIONS</span>`;
 
     enableBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
-    enableBtn.title = enabled
-      ? "Order notifications are currently ON"
-      : "Order notifications are currently OFF";
-
     enableBtn.classList.toggle("mobile-btn-crimson", !enabled);
     enableBtn.classList.toggle("mobile-btn-white", enabled);
 
@@ -2338,25 +2419,29 @@ if (enableBtn) {
     if (!enabled) {
       await askNotif();
 
-      try {
-        localStorage.setItem("alertsEnabled", "1");
-        localStorage.setItem("soundEnabled", "1");
-        window.__alertsEnabled = true;
-        window.__soundEnabled = true;
-      } catch (e) {}
+      localStorage.setItem("alertsEnabled", "1");
+      localStorage.setItem("soundEnabled", "1");
 
-      await playNotifySound();
-      showToast("🔔 Notifications enabled. New order sound is ON.");
+      try {
+        if (ding) {
+          ding.currentTime = 0;
+          await ding.play();
+        }
+      } catch (_) {}
+
+      showToast("🔔 Notifications enabled. New orders will ring from now.");
     } else {
-      try {
-        localStorage.setItem("alertsEnabled", "0");
-        localStorage.setItem("soundEnabled", "0");
-        window.__alertsEnabled = false;
-        window.__soundEnabled = false;
-      } catch (e) {}
+      localStorage.setItem("alertsEnabled", "0");
+      localStorage.setItem("soundEnabled", "0");
 
-      await playNotifySound();
-      showToast("🔕 Notifications disabled. New order sound is OFF.");
+      try {
+        if (ding) {
+          ding.currentTime = 0;
+          await ding.play();
+        }
+      } catch (_) {}
+
+      showToast("🔕 Notifications disabled.");
     }
 
     syncBtnState();

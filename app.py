@@ -2392,12 +2392,13 @@ def api_alerts_store():
 
     last_id = (request.args.get("last_id") or "").strip()
 
+    store_id_values = [store["_id"], str(store["_id"])]
+
     base_filter = {
-        "store_id": store["_id"]
+        "store_id": {"$in": store_id_values}
     }
 
-    # First poll should only initialize the latest order id.
-    # It should NOT show old orders as new notifications.
+    # First poll: initialize only. Do not notify old orders.
     if not last_id:
         latest_order = mongo.orders.find_one(
             base_filter,
@@ -2413,6 +2414,7 @@ def api_alerts_store():
     try:
         last_obj_id = ObjectId(last_id)
     except Exception:
+        # Invalid browser last_id: reset safely without popup.
         latest_order = mongo.orders.find_one(
             base_filter,
             sort=[("_id", -1)]
@@ -2425,8 +2427,10 @@ def api_alerts_store():
         })
 
     query_filter = {
-        "store_id": store["_id"],
-        "_id": {"$gt": last_obj_id}
+        "$and": [
+            base_filter,
+            {"_id": {"$gt": last_obj_id}}
+        ]
     }
 
     rows = list(
@@ -2457,6 +2461,7 @@ def api_alerts_store():
         "new": new_items,
         "next_last_id": next_last_id
     })
+
 
 @app.route('/api/alerts/delivery', methods=['GET'])
 @login_required(role='delivery')
