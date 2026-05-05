@@ -14,7 +14,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
 from flask import make_response
-from sqlite3 import IntegrityError
 
 # MongoDB imports
 from bson import ObjectId
@@ -50,22 +49,6 @@ CORS(app, resources={
 
 print("[RUNNING]", __file__)
 
-
-# NOTE: db.py must define these
-from db import (
-    init_db, query, execute, add_order_event,
-    create_password_reset_token, get_valid_reset_token, consume_reset_token,
-    # Live GPS helpers
-    save_delivery_location, get_latest_location_for_order,
-    # Ratings + complaints helpers
-    add_product_rating, add_store_rating,
-    get_product_rating_summary, get_store_rating_summary,
-    file_complaint, list_recent_complaints, update_complaint_status,
-    # NEW admin helpers
-    render_export_to_csv_zip_bytes, get_user_by_id, can_delete_user_hard, hard_delete_user,
-    # NEW for atomic checkout + stock changes
-    get_conn
-)
 
 def _parse_since_to_sqlite(since_raw: str):
     """
@@ -170,26 +153,15 @@ def haversine_km(lat1, lon1, lat2, lon2):
 
 
 def _ensure_contact_messages_status_column():
-    try:
-        cols = [r["name"] for r in query("PRAGMA table_info(contact_messages)")]
-        if "status" not in cols:
-            execute("ALTER TABLE contact_messages ADD COLUMN status TEXT DEFAULT 'NEW'")
-    except Exception:
-        pass
+    # MongoDB does not need table/column migration.
+    return
 
 # ======================
 # SERVICEABLE PINCODES
 # ======================
 def _ensure_serviceable_table():
-    try:
-        execute("""
-            CREATE TABLE IF NOT EXISTS serviceable_pincodes (
-              pincode TEXT PRIMARY KEY,
-              label   TEXT
-            )
-        """)
-    except Exception:
-        pass
+    # MongoDB collection is created automatically on first insert.
+    return
 
 # Default seed (Aizawl)
 SEED_PINS = [
@@ -467,19 +439,8 @@ def api_login_required(_func=None):
 
 # Create API sessions table
 def _ensure_api_sessions_table():
-    try:
-        execute("""
-            CREATE TABLE IF NOT EXISTS api_sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                token TEXT UNIQUE NOT NULL,
-                created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-        """)
-    except Exception:
-        pass
+    # MongoDB collection is created automatically on first insert.
+    return
 
 with app.app_context():
     ensure_mongo_indexes()
@@ -2628,11 +2589,9 @@ def complaints_create():
 # ADMIN
 # ----------------------
 def table_has_columns(table, columns):
-    try:
-        cols = [row['name'] for row in query(f"PRAGMA table_info({table})")]
-        return all(col in cols for col in columns)
-    except Exception:
-        return False
+    # MongoDB collections do not have fixed columns.
+    # Keep this helper for old dashboard compatibility.
+    return True
 
 def _csv_from_rows(rows):
     if not rows:
@@ -2663,12 +2622,13 @@ def _zip_add_json(zf, name, obj):
 def admin_dashboard():
     delivered_orders = list(mongo.orders.find({"status": "DELIVERED"}))
 
-    gmv = sum([
-        float(o.get("total_amount") or 0)
-        + float(o.get("delivery_fee") or 0)
-        + float(o.get("tip_amount") or 0)
-        for o in delivered_orders
-    ])
+    gmv = 0.0
+    for o in delivered_orders:
+        gmv += (
+            float(o.get("total_amount") or 0)
+            + float(o.get("delivery_fee") or 0)
+            + float(o.get("tip_amount") or 0)
+        )
 
     metrics = {
         "users": mongo.users.count_documents({}),
@@ -2683,190 +2643,101 @@ def admin_dashboard():
     stores = list(mongo.stores.find({}).sort("store_name", 1))
 
     for s in stores:
-        sid = s["_id"]
+        store_orders = list(mongo.orders.find({"store_id": s["_id"]}))
 
-        store_orders = list(mongo.orders.find({"store_id": sid}))
+        order_count = len(store_orders)
+        revenue = 0.0
 
-        delivered_store_orders = [
-            o for o in store_orders
-            if o.get("status") == "DELIVERED"
-        ]
-
-        revenue = sum([
-            float(o.get("total_amount") or 0)
-            + float(o.get("delivery_fee") or 0)
-            + float(o.get("tip_amount") or 0)
-            for o in delivered_store_orders
-        ])
+        for o in store_orders:
+            if o.get("status") == "DELIVERED":
+                revenue += (
+                    float(o.get("total_amount") or 0)
+                    + float(o.get("delivery_fee") or 0)
+                    + float(o.get("tip_amount") or 0)
+                )
 
         by_store.append({
-            "store_id": str(sid),
+            "store_id": str(s["_id"]),
             "store_name": s.get("store_name", ""),
-            "orders": len(store_orders),
+            "orders": order_count,
             "revenue": revenue,
         })
 
-    by_store = sorted(
-        by_store,
-        key=lambda x: float(x.get("revenue") or 0),
-        reverse=True
-    )
+    by_store.sort(key=lambda x: x["revenue"], reverse=True)
 
     top_store_complaints = []
-    top_delivery_complaints = []
+    store_complaint_map = {}
 
-        # ======================
-    # PERFORMANCE & QUALITY - MongoDB
-    # ======================
-    since_dt = datetime.utcnow() - timedelta(days=30)
-    since_iso = since_dt.isoformat()
+    store_complaints = list(mongo.complaints.find({
+        "$or": [
+            {"target_type": "store"},
+            {"store_id": {"$exists": True}}
+        ]
+    }))
 
-    # Top rated stores
-    top_rated_stores = []
+    for c in store_complaints:
+        sid = c.get("store_id") or c.get("target_id")
+        if not sid:
+            continue
 
-    store_rating_groups = list(mongo.store_ratings.aggregate([
-        {
-            "$match": {
-                "created_at": {"$gte": since_iso}
-            }
-        },
-        {
-            "$group": {
-                "_id": "$store_id",
-                "avg_rating": {"$avg": "$rating"},
-                "rating_count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "avg_rating": -1,
-                "rating_count": -1
-            }
-        },
-        {
-            "$limit": 10
-        }
-    ]))
+        sid_str = str(sid)
 
-    for row in store_rating_groups:
-        store = mongo.stores.find_one({"_id": row["_id"]}) if row.get("_id") else None
+        if sid_str not in store_complaint_map:
+            store = None
 
-        top_rated_stores.append({
-            "store_name": store.get("store_name") if store else "Unknown Store",
-            "avg_rating": round(float(row.get("avg_rating") or 0), 1),
-            "rating_count": int(row.get("rating_count") or 0)
-        })
-
-    # Top rated products
-    top_rated_products = []
-
-    product_rating_groups = list(mongo.product_ratings.aggregate([
-        {
-            "$match": {
-                "created_at": {"$gte": since_iso}
-            }
-        },
-        {
-            "$group": {
-                "_id": "$product_id",
-                "product_name": {"$first": "$product_name"},
-                "avg_rating": {"$avg": "$rating"},
-                "rating_count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "avg_rating": -1,
-                "rating_count": -1
-            }
-        },
-        {
-            "$limit": 10
-        }
-    ]))
-
-    for row in product_rating_groups:
-        product = mongo.products.find_one({"_id": row["_id"]}) if row.get("_id") else None
-
-        top_rated_products.append({
-            "product_name": product.get("name") if product else row.get("product_name", "Unknown Product"),
-            "avg_rating": round(float(row.get("avg_rating") or 0), 1),
-            "rating_count": int(row.get("rating_count") or 0)
-        })
-
-    # Most complained delivery partners
-    most_complained_delivery = []
-
-    delivery_complaint_groups = list(mongo.complaints.aggregate([
-        {
-            "$match": {
-                "target_type": "delivery",
-                "created_at": {"$gte": since_iso}
-            }
-        },
-        {
-            "$group": {
-                "_id": "$target_id",
-                "complaint_count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "complaint_count": -1
-            }
-        },
-        {
-            "$limit": 10
-        }
-    ]))
-
-    for row in delivery_complaint_groups:
-        partner = None
-
-        if row.get("_id"):
             try:
-                partner = mongo.users.find_one({"_id": ObjectId(str(row["_id"]))})
+                store = mongo.stores.find_one({"_id": ObjectId(sid_str)})
             except Exception:
-                partner = mongo.users.find_one({"_id": row["_id"]})
+                store = mongo.stores.find_one({"_id": sid})
 
-        most_complained_delivery.append({
-            "delivery_name": partner.get("name") if partner else "Delivery Partner",
-            "complaint_count": int(row.get("complaint_count") or 0)
-        })
-
-    # Most complained stores
-    most_complained_stores = []
-
-    store_complaint_groups = list(mongo.complaints.aggregate([
-        {
-            "$match": {
-                "target_type": "store",
-                "created_at": {"$gte": since_iso}
+            store_complaint_map[sid_str] = {
+                "store_id": sid_str,
+                "store_name": store.get("store_name") if store else "",
+                "cnt": 0
             }
-        },
-        {
-            "$group": {
-                "_id": "$target_id",
-                "complaint_count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "complaint_count": -1
-            }
-        },
-        {
-            "$limit": 10
-        }
-    ]))
 
-    for row in store_complaint_groups:
-        store = mongo.stores.find_one({"_id": row["_id"]}) if row.get("_id") else None
+        store_complaint_map[sid_str]["cnt"] += 1
 
-        most_complained_stores.append({
-            "store_name": store.get("store_name") if store else "Unknown Store",
-            "complaint_count": int(row.get("complaint_count") or 0)
-        })
+    top_store_complaints = list(store_complaint_map.values())
+    top_store_complaints.sort(key=lambda x: x["cnt"], reverse=True)
+    top_store_complaints = top_store_complaints[:5]
+
+    top_delivery_complaints = []
+    delivery_complaint_map = {}
+
+    delivery_complaints = list(mongo.complaints.find({
+        "$or": [
+            {"target_type": "delivery"},
+            {"delivery_partner_id": {"$exists": True}}
+        ]
+    }))
+
+    for c in delivery_complaints:
+        did = c.get("delivery_partner_id") or c.get("target_id")
+        if not did:
+            continue
+
+        did_str = str(did)
+
+        if did_str not in delivery_complaint_map:
+            user = None
+
+            try:
+                user = mongo.users.find_one({"_id": ObjectId(did_str)})
+            except Exception:
+                user = mongo.users.find_one({"_id": did})
+
+            delivery_complaint_map[did_str] = {
+                "delivery_id": did_str,
+                "name": user.get("name") if user else "",
+                "cnt": 0
+            }
+
+        delivery_complaint_map[did_str]["cnt"] += 1
+
+    top_delivery_complaints = list(delivery_complaint_map.values())
+    top_delivery_complaints.sort(key=lambda x: x["cnt"], reverse=True)
+    top_delivery_complaints = top_delivery_complaints[:5]
 
     return render_template(
         "admin_dashboard.html",
@@ -2874,11 +2745,7 @@ def admin_dashboard():
         metrics=metrics,
         by_store=by_store,
         top_store_complaints=top_store_complaints,
-        top_delivery_complaints=top_delivery_complaints,
-         top_rated_stores=top_rated_stores,
-        top_rated_products=top_rated_products,
-        most_complained_delivery=most_complained_delivery,
-        most_complained_stores=most_complained_stores
+        top_delivery_complaints=top_delivery_complaints
     )
 
 @app.route('/admin/approvals')
@@ -3026,16 +2893,38 @@ def admin_user_enable(uid):
 @app.route('/admin/transactions.csv')
 @login_required(role='admin')
 def admin_transactions_csv():
-    rows = query('''
-        SELECT t.id as txn_id, t.created_at, o.id as order_id, o.total_amount, t.amount, t.status
-        FROM transactions t JOIN orders o ON o.id = t.order_id
-        ORDER BY t.created_at DESC
-    ''')
+    transactions = list(
+        mongo.transactions.find({}).sort("created_at", -1)
+    )
+
     csv_lines = ['txn_id,created_at,order_id,total_amount,amount,status']
-    for r in rows:
-        csv_lines.append(f"{r['txn_id']},{r['created_at']},{r['order_id']},{r['total_amount']},{r['amount']},{r['status']}")
-    data = "\n".join(csv_lines).encode('utf-8')
-    return send_file(io.BytesIO(data), mimetype='text/csv', as_attachment=True, download_name='transactions.csv')
+
+    for t in transactions:
+        order_id = t.get("order_id")
+        order = None
+
+        if order_id:
+            order = mongo.orders.find_one({"_id": order_id})
+
+        txn_id = str(t.get("_id", ""))
+        created_at = t.get("created_at", "")
+        order_id_str = str(order_id) if order_id else ""
+        total_amount = float(order.get("total_amount") or 0) if order else 0
+        amount = float(t.get("amount") or 0)
+        status = t.get("status", "")
+
+        csv_lines.append(
+            f"{txn_id},{created_at},{order_id_str},{total_amount},{amount},{status}"
+        )
+
+    data = "\n".join(csv_lines).encode("utf-8")
+
+    return send_file(
+        io.BytesIO(data),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name="transactions.csv"
+    )
 
 @app.route('/admin/users/<uid>/transactions.csv')
 @login_required(role='admin')
@@ -3359,6 +3248,7 @@ def store_dashboard():
 @app.route('/store/delivered-orders')
 @login_required(role='store')
 def store_delivered_orders():
+    """Show all delivered orders for this store."""
     u = current_user()
 
     store = mongo.stores.find_one({"user_id": u["id"]})
@@ -3367,38 +3257,57 @@ def store_delivered_orders():
         flash("Store not found.", "danger")
         return redirect(url_for("store_dashboard"))
 
-    sid = store["_id"]
-    store["id"] = str(store["_id"])
-
-    delivered_raw = list(mongo.orders.find({
-        "store_id": sid,
-        "status": "DELIVERED"
-    }).sort("created_at", -1))
+    delivered_docs = list(
+        mongo.orders.find({
+            "store_id": store["_id"],
+            "status": "DELIVERED"
+        }).sort("created_at", -1)
+    )
 
     delivered = []
 
-    for o in delivered_raw:
-        customer = mongo.users.find_one({"_id": ObjectId(o["user_id"])}) if o.get("user_id") else None
+    for o in delivered_docs:
+        customer = None
+
+        if o.get("user_id"):
+            try:
+                customer = mongo.users.find_one({"_id": ObjectId(o.get("user_id"))})
+            except Exception:
+                customer = None
+
         addr = mongo.order_addresses.find_one({"order_id": o["_id"]})
 
-        o["id"] = str(o["_id"])
-        o["customer_name"] = customer.get("name") if customer else o.get("customer_name", "")
-        o["customer_phone"] = customer.get("phone") if customer else o.get("customer_phone", "")
+        row = dict(o)
+        row["id"] = str(o["_id"])
+        row["customer_name"] = customer.get("name") if customer else o.get("customer_name", "")
+        row["customer_phone"] = customer.get("phone") if customer else o.get("customer_phone", "")
 
-        o["addr_line1"] = addr.get("line1") if addr else ""
-        o["addr_line2"] = addr.get("line2") if addr else ""
-        o["addr_city"] = addr.get("city") if addr else ""
-        o["addr_state"] = addr.get("state") if addr else ""
-        o["addr_pincode"] = addr.get("pincode") if addr else ""
-        o["addr_lat"] = addr.get("latitude") if addr else None
-        o["addr_lng"] = addr.get("longitude") if addr else None
+        row["addr_line1"] = addr.get("line1") if addr else ""
+        row["addr_line2"] = addr.get("line2") if addr else ""
+        row["addr_city"] = addr.get("city") if addr else ""
+        row["addr_state"] = addr.get("state") if addr else ""
+        row["addr_pincode"] = addr.get("pincode") if addr else ""
+        row["addr_lat"] = addr.get("latitude") if addr else None
+        row["addr_lng"] = addr.get("longitude") if addr else None
 
-        delivered.append(o)
+        row["total_amount"] = float(o.get("total_amount") or 0)
+        row["delivery_fee"] = float(o.get("delivery_fee") or 0)
+        row["tip_amount"] = float(o.get("tip_amount") or 0)
+        row["total_payable"] = (
+            float(o.get("total_amount") or 0)
+            + float(o.get("delivery_fee") or 0)
+            + float(o.get("tip_amount") or 0)
+        )
+
+        delivered.append(row)
+
+    store_view = dict(store)
+    store_view["id"] = str(store["_id"])
 
     return render_template(
         "store_delivered_orders.html",
         user=u,
-        store=store,
+        store=store_view,
         orders=delivered
     )
 
@@ -3799,106 +3708,95 @@ def store_product_update(pid):
 def store_txn_csv():
     """
     Download transactions for this store as CSV.
-    Supported presets via ?range=day|week|month (UTC dates).
-    You can also pass explicit ?start=YYYY-MM-DD&end=YYYY-MM-DD (end exclusive).
+    Supported presets via ?range=day|week|month.
+    You can also pass explicit ?start=YYYY-MM-DD&end=YYYY-MM-DD.
     Only PAID transactions are included.
     """
     u = current_user()
-    srow = query('SELECT id, store_name FROM stores WHERE user_id=?', (u['id'],))
-    if not srow:
-        flash('Store not found.', 'danger')
-        return redirect(url_for('store_dashboard'))
-    sid = srow[0]['id']
 
-    # --- Parse preset or explicit dates
-    preset = (request.args.get('range') or '').lower()  # 'day' | 'week' | 'month' | ''
-    start_str = request.args.get('start')
-    end_str   = request.args.get('end')    # exclusive end
+    store = mongo.stores.find_one({"user_id": u["id"]})
 
-    def iso(d): return d.isoformat()
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
 
-    # Compute start/end (UTC date bounds)
+    preset = (request.args.get("range") or "").lower()
+    start_str = request.args.get("start")
+    end_str = request.args.get("end")
+
     if start_str and end_str:
-        # explicit range
         try:
             start_date = date.fromisoformat(start_str)
-            end_date   = date.fromisoformat(end_str)
+            end_date = date.fromisoformat(end_str)
         except Exception:
-            flash('Invalid start/end date. Use YYYY-MM-DD.', 'warning')
-            return redirect(url_for('store_dashboard'))
+            flash("Invalid start/end date. Use YYYY-MM-DD.", "warning")
+            return redirect(url_for("store_dashboard"))
     else:
         today = datetime.utcnow().date()
-        if preset == 'day':
-            start_date = today
-            end_date   = today + timedelta(days=1)
-        elif preset == 'week':
-            # Monday..Sunday window
+
+        if preset == "week":
             start_date = today - timedelta(days=today.weekday())
-            end_date   = start_date + timedelta(days=7)
-        elif preset == 'month':
+            end_date = start_date + timedelta(days=7)
+        elif preset == "month":
             start_date = date(today.year, today.month, 1)
+
             if today.month == 12:
                 end_date = date(today.year + 1, 1, 1)
             else:
                 end_date = date(today.year, today.month + 1, 1)
         else:
-            # default: today
             start_date = today
-            end_date   = today + timedelta(days=1)
+            end_date = today + timedelta(days=1)
 
-    # Convert date-only bounds to ISO datetimes (inclusive start, exclusive end)
-    start_iso = f"{iso(start_date)}T00:00:00"
-    end_iso   = f"{iso(end_date)}T00:00:00"
+    start_iso = f"{start_date.isoformat()}T00:00:00"
+    end_iso = f"{end_date.isoformat()}T00:00:00"
 
-    # Fetch PAID transactions for this store in window
-    rows = query("""
-        SELECT
-          t.id                AS txn_id,
-          t.created_at        AS txn_created_at,
-          o.id                AS order_id,
-          o.total_amount      AS items_total,
-          COALESCE(o.delivery_fee,0) AS delivery_fee,
-          COALESCE(o.tip_amount,0)   AS tip_amount,
-          t.amount            AS paid_amount,
-          t.status            AS txn_status
-        FROM transactions t
-        JOIN orders o ON o.id = t.order_id
-        WHERE o.store_id = ?
-          AND t.status = 'PAID'
-          AND t.created_at >= ?
-          AND t.created_at < ?
-        ORDER BY t.created_at DESC
-    """, (sid, start_iso, end_iso))
+    txns = list(
+        mongo.transactions.find({
+            "status": "PAID",
+            "created_at": {
+                "$gte": start_iso,
+                "$lt": end_iso
+            }
+        }).sort("created_at", -1)
+    )
 
-    # Build CSV
     csv_lines = [
         "txn_id,txn_created_at,order_id,items_total,delivery_fee,tip_amount,paid_amount,txn_status"
     ]
-    for r in rows:
+
+    for t in txns:
+        order_id = t.get("order_id")
+        order = None
+
+        if order_id:
+            order = mongo.orders.find_one({
+                "_id": order_id,
+                "store_id": store["_id"]
+            })
+
+        if not order:
+            continue
+
         csv_lines.append(",".join([
-            str(r["txn_id"]),
-            str(r["txn_created_at"]),
-            str(r["order_id"]),
-            f'{float(r["items_total"] or 0):.2f}',
-            f'{float(r["delivery_fee"] or 0):.2f}',
-            f'{float(r["tip_amount"] or 0):.2f}',
-            f'{float(r["paid_amount"] or 0):.2f}',
-            str(r["txn_status"]),
+            str(t.get("_id", "")),
+            str(t.get("created_at", "")),
+            str(order.get("_id", "")),
+            str(float(order.get("total_amount") or 0)),
+            str(float(order.get("delivery_fee") or 0)),
+            str(float(order.get("tip_amount") or 0)),
+            str(float(t.get("amount") or 0)),
+            str(t.get("status", "")),
         ]))
 
     data = "\n".join(csv_lines).encode("utf-8")
-    # Nice filename: store_<id>_<range>_YYYYMMDD.csv
-    stamp = datetime.utcnow().strftime("%Y%m%d")
-    label = preset or "day"
-    fn = f"store_{sid}_txns_{label}_{stamp}.csv"
 
     return send_file(
         io.BytesIO(data),
         mimetype="text/csv",
         as_attachment=True,
-        download_name=fn
+        download_name="store_transactions.csv"
     )
-
 
 
 @app.route('/store/order/<oid>/status', methods=['POST'])
@@ -4155,14 +4053,24 @@ def api_order_rider_location(user_id, oid):
 # ----------------------
 @app.route('/newsletter/subscribe', methods=['POST'])
 def newsletter_subscribe():
-    email = request.form.get('email','').strip().lower()
+    email = request.form.get('email', '').strip().lower()
+
     if not email or '@' not in email:
-        flash('Please enter a valid email.','danger'); return redirect(request.referrer or url_for('index'))
-    try:
-        execute('INSERT INTO newsletter_subscribers (email, created_at) VALUES (?,?)', (email, datetime.utcnow().isoformat()))
-        flash('Subscribed to newsletter!','success')
-    except Exception:
-        flash('You are already subscribed.','info')
+        flash('Please enter a valid email.', 'danger')
+        return redirect(request.referrer or url_for('index'))
+
+    existing = mongo.newsletter_subscribers.find_one({"email": email})
+
+    if existing:
+        flash('You are already subscribed.', 'info')
+        return redirect(request.referrer or url_for('index'))
+
+    mongo.newsletter_subscribers.insert_one({
+        "email": email,
+        "created_at": datetime.utcnow().isoformat()
+    })
+
+    flash('Subscribed to newsletter!', 'success')
     return redirect(request.referrer or url_for('index'))
 
 @app.route('/uploads/<path:fn>')
@@ -4209,10 +4117,15 @@ def contact():
             flash("Please fill all required fields.", "warning")
             return redirect(url_for("contact"))
 
-        execute("""
-            INSERT INTO contact_messages (name, email, phone, subject, message, status, created_at)
-            VALUES (?,?,?,?,?,?,?)
-        """, (name, email, phone, subject, message, "NEW", datetime.utcnow().isoformat()))
+        mongo.contact_messages.insert_one({
+            "name": name,
+            "email": email,
+            "phone": phone,
+            "subject": subject,
+            "message": message,
+            "status": "NEW",
+            "created_at": datetime.utcnow().isoformat()
+        })
 
         flash("Message sent! We will contact you soon.", "success")
         return redirect(url_for("contact"))
@@ -4225,11 +4138,13 @@ def contact():
 @app.route("/admin/contact-messages")
 @login_required(role="admin")
 def admin_contact_messages():
-    messages = query("""
-        SELECT *
-        FROM contact_messages
-        ORDER BY created_at DESC
-    """)
+    messages = list(
+        mongo.contact_messages.find({}).sort("created_at", -1)
+    )
+
+    for m in messages:
+        m["id"] = str(m["_id"])
+
     return render_template(
         "admin_contact_messages.html",
         user=current_user(),
@@ -4240,17 +4155,37 @@ def admin_contact_messages():
     methods=["POST"],
     endpoint="admin_contact_message_status"
 )
+
+
+@app.route(
+    "/admin/contact-messages/<mid>/status",
+    methods=["POST"],
+    endpoint="admin_contact_message_status"
+)
 @login_required(role="admin")
 def admin_contact_message_status(mid):
     status = (request.form.get("status") or "NEW").upper()
+
     if status not in ("NEW", "READ", "RESOLVED"):
         status = "NEW"
 
-    execute(
-        "UPDATE contact_messages SET status=? WHERE id=?",
-        (status, mid)
+    try:
+        mid_obj = ObjectId(mid)
+    except Exception:
+        flash("Invalid message.", "danger")
+        return redirect(url_for("admin_contact_messages"))
+
+    mongo.contact_messages.update_one(
+        {"_id": mid_obj},
+        {
+            "$set": {
+                "status": status,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        }
     )
 
+    flash("Message status updated.", "success")
     return redirect(url_for("admin_contact_messages"))
 
 
@@ -4259,118 +4194,12 @@ def admin_contact_message_status(mid):
 @app.route("/api/auth/web-session", methods=["POST"])
 @api_login_required
 def api_create_web_session():
-    """
-    Create a web session for mobile app users.
-    
-    This endpoint allows mobile app users (who authenticate with JWT tokens)
-    to access the web dashboard by generating a session cookie.
-    
-    Flow:
-    1. Mobile app authenticates via /api/auth/login (gets JWT token)
-    2. Mobile app calls this endpoint with JWT token in Authorization header
-    3. Backend validates JWT, creates Flask session, returns session identifier
-    4. Mobile app injects session cookie into WebView
-    5. WebView can now access protected web routes as authenticated user
-    
-    Returns:
-        JSON with session cookie that mobile app should inject into WebView
-    """
-    try:
-        # Get user_id from session (set by @login_required_api decorator)
-        user_id = session.get('user_id')
-        
-        if not user_id:
-            return jsonify({
-                'success': False,
-                'error': 'User not found in session'
-            }), 401
-        
-        # Fetch user details from database
-        rows = query("SELECT * FROM users WHERE id=?", (user_id,))
-        if not rows:
-            return jsonify({
-                'success': False,
-                'error': 'User not found'
-            }), 404
-        
-        user = dict(rows[0])
-        
-        # Verify user is a store owner
-        if user.get('role') != 'store':
-            return jsonify({
-                'success': False,
-                'error': 'Only store owners can access the web dashboard'
-            }), 403
-        
-        # Create Flask session (same as regular web login)
-        session['user_id'] = user['id']
-        session['user_role'] = user['role']
-        session.permanent = True  # Make session permanent (respects PERMANENT_SESSION_LIFETIME)
-        session.modified = True
-        
-        # Generate unique session identifier for tracking
-        import secrets
-        session_identifier = secrets.token_urlsafe(32)
-        session['mobile_session_id'] = session_identifier
-        
-        # Log session creation
-        print(f"✅ Web session created for user {user['id']} ({user['email']})")
-        
-        # Return session information to mobile app
-        return jsonify({
-            'success': True,
-            'message': 'Web session created successfully',
-            'cookie_name': app.config.get('SESSION_COOKIE_NAME', 'session'),
-            'session_cookie': session_identifier,
-            'user': {
-                'id': user['id'],
-                'name': user['name'],
-                'email': user['email'],
-                'role': user['role']
-            }
-        }), 200
-        
-    except Exception as e:
-        print(f"❌ Error creating web session: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
+    ...
+    ...
+    return jsonify({
             'success': False,
             'error': f'Internal server error: {str(e)}'
         }), 500
-    
-# # ---------------------------------
-# # STEP 3: (OPTIONAL) ADD SESSION CLEANUP
-# # ---------------------------------
-# # Paste this if you want to clean up expired sessions
-
-# @app.route("/api/auth/cleanup-sessions", methods=["POST"])
-# @admin_approvals
-# def api_cleanup_sessions():
-#     """
-#     Clean up expired mobile sessions (admin only).
-    
-#     This is optional but recommended for production.
-#     You can run this periodically via a cron job or task scheduler.
-#     """
-#     try:
-#         # If using custom web_sessions table (see alternative approach):
-#         # execute('''
-#         #     DELETE FROM web_sessions 
-#         #     WHERE expires_at < ?
-#         # ''', (datetime.utcnow().isoformat(),))
-        
-#         return jsonify({
-#             'success': True,
-#             'message': 'Session cleanup completed'
-#         }), 200
-        
-#     except Exception as e:
-#         print(f"❌ Error cleaning up sessions: {e}")
-#         return jsonify({
-#             'success': False,
-#             'error': str(e)
-#         }), 500
 
 
 @app.route('/api/auth/login', methods=['POST'])
@@ -4516,6 +4345,8 @@ def api_auth_logout(user_id):
 
 # ==================== PRODUCTS API ====================
 
+# ==================== PRODUCTS API ====================
+
 @app.route('/api/products', methods=['GET'])
 def api_products_list():
     category = (request.args.get('category') or '').strip()
@@ -4530,14 +4361,12 @@ def api_products_list():
         "stock_kg": {"$gt": 0}
     }
 
-    # ✅ Category filter
     if category:
         if category not in allowed_categories:
             return jsonify({'success': False, 'error': 'Invalid category'}), 400
 
         mongo_filter["category"] = category
 
-        # ✅ Sub-category filter only for Fresh cuts
         if sub_category:
             if category != 'Fresh cuts':
                 return jsonify({'success': False, 'error': 'sub_category only valid for Fresh cuts'}), 400
@@ -4547,7 +4376,6 @@ def api_products_list():
 
             mongo_filter["sub_category"] = sub_category
 
-    # ✅ Search filter
     if search:
         mongo_filter["$or"] = [
             {"name": {"$regex": search, "$options": "i"}},
@@ -4574,13 +4402,10 @@ def api_products_list():
 
         rating_count = len(ratings)
 
-        if rating_count > 0:
-            avg_rating = round(
-                sum(float(r.get("rating") or 0) for r in ratings) / rating_count,
-                1
-            )
-        else:
-            avg_rating = 0
+        avg_rating = round(
+            sum(float(r.get("rating") or 0) for r in ratings) / rating_count,
+            1
+        ) if rating_count else 0
 
         result.append({
             "id": str(p["_id"]),
@@ -4637,13 +4462,10 @@ def api_product_detail(pid):
 
     rating_count = len(ratings)
 
-    if rating_count > 0:
-        avg_rating = round(
-            sum(float(r.get("rating") or 0) for r in ratings) / rating_count,
-            1
-        )
-    else:
-        avg_rating = 0
+    avg_rating = round(
+        sum(float(r.get("rating") or 0) for r in ratings) / rating_count,
+        1
+    ) if rating_count else 0
 
     reviews = []
 
@@ -4695,40 +4517,71 @@ def api_categories_list():
 
 # ==================== USER PROFILE API ====================
 
+# ==================== USER PROFILE API ====================
+
 @app.route('/api/user/profile', methods=['GET'])
 @api_login_required
 def api_user_profile(user_id):
-    rows = query("SELECT * FROM users WHERE id=?", (user_id,))
-    if not rows:
-        return jsonify({'success': False, 'error': 'User not found'}), 404
-    
-    u = dict(rows[0])
-    
+    try:
+        user_obj_id = ObjectId(str(user_id))
+    except Exception:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid user id'
+        }), 400
+
+    u = mongo.users.find_one({"_id": user_obj_id})
+
+    if not u:
+        return jsonify({
+            'success': False,
+            'error': 'User not found'
+        }), 404
+
     return jsonify({
         'success': True,
         'user': {
-            'id': u['id'],
-            'name': u['name'],
-            'email': u['email'],
-            'phone': u['phone'],
-            'role': u['role']
+            'id': str(u['_id']),
+            'name': u.get('name', ''),
+            'email': u.get('email', ''),
+            'phone': u.get('phone', ''),
+            'role': u.get('role', '')
         }
     })
+
 
 @app.route('/api/user/profile', methods=['PUT'])
 @api_login_required
 def api_user_profile_update(user_id):
     data = request.get_json(silent=True) or {}
-    
-    name = data.get('name', '').strip()
-    phone = data.get('phone', '').strip()
-    
+
+    name = (data.get('name') or '').strip()
+    phone = (data.get('phone') or '').strip()
+
+    update_data = {}
+
     if name:
-        execute("UPDATE users SET name=? WHERE id=?", (name, user_id))
+        update_data['name'] = name
+
     if phone:
-        execute("UPDATE users SET phone=? WHERE id=?", (phone, user_id))
-    
+        update_data['phone'] = normalize_phone(phone)
+
+    if update_data:
+        try:
+            user_obj_id = ObjectId(str(user_id))
+        except Exception:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid user id'
+            }), 400
+
+        mongo.users.update_one(
+            {"_id": user_obj_id},
+            {"$set": update_data}
+        )
+
     return jsonify({'success': True})
+
 
 # ==================== CART API ====================
 
@@ -4736,226 +4589,71 @@ def api_user_profile_update(user_id):
 @api_login_required
 def api_cart_get(user_id):
     cid = get_or_create_cart(user_id)
-    
-    items = query('''
-                  SELECT ci.id AS cart_item_id, ci.weight_kg, ci.product_id,
-                    p.name, p.price_per_kg, p.image_path, p.stock_kg,
-                    p.store_id AS store_id
-                        FROM cart_items ci
-                        JOIN products p ON p.id = ci.product_id
-                        WHERE ci.cart_id = ?
-                    ''', (cid,))
-    
-    total = sum([(row['weight_kg'] or 0) * (row['price_per_kg'] or 0) for row in items])
-    
+
+    cart_items = list(
+        mongo.cart_items.find({"cart_id": cid}).sort("created_at", -1)
+    )
+
+    items = []
+
+    for ci in cart_items:
+        product = mongo.products.find_one({"_id": ci.get("product_id")})
+
+        if not product:
+            continue
+
+        items.append({
+            'id': str(ci['_id']),
+            'product_id': str(product['_id']),
+            'name': product.get('name', ''),
+            'price_per_kg': float(product.get('price_per_kg') or 0),
+            'weight_kg': float(ci.get('weight_kg') or 0),
+            'image_path': product.get('image_path', ''),
+            'stock_kg': float(product.get('stock_kg') or 0),
+            'store_id': str(product.get('store_id')) if product.get('store_id') else None,
+        })
+
+    total = sum([
+        float(item['weight_kg'] or 0) * float(item['price_per_kg'] or 0)
+        for item in items
+    ])
+
     return jsonify({
         'success': True,
-        'items': [{
-            'id': item['cart_item_id'],
-            'product_id': item['product_id'],
-            'name': item['name'],
-            'price_per_kg': float(item['price_per_kg'] or 0),
-            'weight_kg': float(item['weight_kg'] or 0),
-            'image_path': item['image_path'],
-            'stock_kg': float(item['stock_kg'] or 0),
-            'store_id': int(item['store_id']) if item['store_id'] is not None else None,
-        } for item in items],
+        'items': items,
         'total': float(total)
     }), 200
+
 
 @app.route('/api/cart/clear', methods=['POST'])
 @api_login_required
 def api_cart_clear(user_id):
     cid = get_or_create_cart(user_id)
 
-    mongo.cart_items.delete_many({
-        "cart_id": cid
-    })
-
-    return jsonify({
-        "ok": True,
-        "success": True,
-        "cart_count": 0
-    })
-
-
-@app.route('/api/orders/<oid>/cancel', methods=['POST'])
-@api_login_required
-def api_order_cancel(user_id, oid):
-    try:
-        oid_obj = ObjectId(oid)
-    except Exception:
-        return jsonify({
-            "success": False,
-            "error": "Invalid order id"
-        }), 400
-
-    order_doc = mongo.orders.find_one({
-        "_id": oid_obj,
-        "user_id": str(user_id)
-    })
-
-    if not order_doc:
-        return jsonify({
-            "success": False,
-            "error": "Order not found"
-        }), 404
-
-    cancellable_statuses = ["PLACED", "CONFIRMED", "PREPARING"]
-
-    if order_doc.get("status") not in cancellable_statuses:
-        return jsonify({
-            "success": False,
-            "error": "This order can no longer be cancelled"
-        }), 400
-
-    order_items = list(mongo.order_items.find({
-        "order_id": oid_obj
-    }))
-
-    for line in order_items:
-        product_id = line.get("product_id")
-        weight_kg = float(line.get("weight_kg") or 0)
-
-        if product_id and weight_kg > 0:
-            mongo.products.update_one(
-                {"_id": product_id},
-                {
-                    "$inc": {"stock_kg": weight_kg},
-                    "$set": {"is_active": 1}
-                }
-            )
-
-    now = datetime.utcnow().isoformat()
-
-    payment_status = order_doc.get("payment_status")
-    new_payment_status = "REFUNDED" if payment_status == "PAID" else payment_status
-
-    mongo.orders.update_one(
-        {"_id": oid_obj},
-        {
-            "$set": {
-                "status": "CANCELLED",
-                "payment_status": new_payment_status,
-                "delivery_partner_id": None,
-                "cancelled_at": now,
-                "updated_at": now
-            }
-        }
-    )
-
-    mongo.transactions.update_many(
-        {"order_id": oid_obj},
-        {
-            "$set": {
-                "status": "REFUNDED" if payment_status == "PAID" else "VOID",
-                "updated_at": now
-            }
-        }
-    )
-
-    mongo.order_events.insert_one({
-        "order_id": oid_obj,
-        "status": "CANCELLED",
-        "note": "Cancelled by customer via mobile app",
-        "created_at": now
-    })
-
-    return jsonify({
-        "success": True,
-        "message": "Order cancelled successfully"
-    })
-
-
-@app.route('/api/cart', methods=['POST'])
-@api_login_required
-def api_cart_add_json(user_id):
-    data = request.get_json(silent=True) or {}
-
-    product_id = data.get('product_id')
-    weight_kg = data.get('weight_kg', 1)
-
-    try:
-        product_id = int(product_id)
-        weight_kg = float(weight_kg)
-    except Exception:
-        return jsonify({'success': False, 'error': 'Invalid product or weight'}), 400
-
-    if weight_kg < 0.25:
-        return jsonify({'success': False, 'error': 'Minimum 0.25 kg'}), 400
-
-    # round to 0.25 steps
-    weight_kg = round(round(weight_kg * 4) / 4, 2)
-
-    # Fetch product with store_id
-    prow = query("SELECT stock_kg, is_active, store_id FROM products WHERE id=?", (product_id,))
-    if not prow:
-        return jsonify({'success': False, 'error': 'Product not found'}), 404
-
-    stock = float(prow[0]['stock_kg'] or 0)
-    active = int(prow[0]['is_active'] or 0)
-    new_store_id = int(prow[0]['store_id']) if prow[0]['store_id'] is not None else None
-
-    if active != 1 or stock <= 0:
-        return jsonify({'success': False, 'error': 'This item is sold out'}), 409
-
-    if weight_kg > stock:
-        return jsonify({'success': False, 'error': f'Max available is {stock:.2f} kg'}), 409
-
-    cid = get_or_create_cart(user_id)
-
-    # Single-store enforcement
-    existing_store = query("""
-        SELECT DISTINCT p.store_id AS store_id
-        FROM cart_items ci
-        JOIN products p ON p.id = ci.product_id
-        WHERE ci.cart_id=?
-    """, (cid,))
-
-    if existing_store and new_store_id is not None:
-        cart_store_id = int(existing_store[0]["store_id"])
-        if cart_store_id != new_store_id:
-            return jsonify({
-                "success": False,
-                "code": "DIFF_STORE",
-                "error": "Your cart already has items from another store. Please clear the cart first."
-            }), 409
-
-    # Add/update
-    rows = query('SELECT id FROM cart_items WHERE cart_id=? AND product_id=?', (cid, product_id))
-    if rows:
-        execute('UPDATE cart_items SET weight_kg=? WHERE id=?', (weight_kg, rows[0]['id']))
-        cart_item_id = rows[0]['id']
-    else:
-        execute('INSERT INTO cart_items (cart_id, product_id, weight_kg) VALUES (?,?,?)', (cid, product_id, weight_kg))
-        # if you have lastrowid helper, use it; else ignore
-        cart_item_id = None
-
-    c = query("SELECT COUNT(*) AS c FROM cart_items WHERE cart_id=?", (cid,))
-    cart_count = int(c[0]["c"] or 0) if c else 0
+    mongo.cart_items.delete_many({"cart_id": cid})
 
     return jsonify({
         'success': True,
-        'cart_count': cart_count,
-        'store_id': new_store_id,
-        'cart_item_id': cart_item_id
-    }), 200
+        'cart_count': 0
+    })
 
+
+# ==================== ADDRESSES API ====================
 
 @app.route("/api/addresses", methods=["POST"])
 @api_login_required
-def api_address_create(user_id):
+def api_addresses_create(user_id):
     data = request.get_json(silent=True) or {}
 
-    line1 = (data.get("line1") or "").strip()
-    line2 = (data.get("line2") or "").strip()
-    city  = (data.get("city") or "").strip()
+    label = (data.get("label") or "Home").strip()
+    line1 = (data.get("line1") or data.get("address_line_1") or "").strip()
+    line2 = (data.get("line2") or data.get("address_line_2") or "").strip()
+    city = (data.get("city") or "").strip()
     state = (data.get("state") or "").strip()
     pincode = (data.get("pincode") or "").strip()
     lat = data.get("latitude")
     lng = data.get("longitude")
-    label = (data.get("label") or "").strip() or "Home"
-    is_def = 1 if bool(data.get("is_default", True)) else 0  # default True for app
+    is_def = 1 if bool(data.get("is_default", True)) else 0
 
     if not line1:
         return jsonify({"success": False, "error": "Address line1 is required"}), 400
@@ -4966,603 +4664,344 @@ def api_address_create(user_id):
     if not is_serviceable_pincode(pincode):
         return jsonify({"success": False, "error": "Pincode not serviceable"}), 400
 
+    latitude = None
+    longitude = None
+
+    if lat is not None and str(lat).strip() != "":
+        try:
+            latitude = float(lat)
+        except Exception:
+            latitude = None
+
+    if lng is not None and str(lng).strip() != "":
+        try:
+            longitude = float(lng)
+        except Exception:
+            longitude = None
+
     if is_def:
-        execute("UPDATE addresses SET is_default=0 WHERE user_id=?", (user_id,))
+        mongo.addresses.update_many(
+            {"user_id": str(user_id)},
+            {"$set": {"is_default": 0}}
+        )
 
-    aid = execute("""
-        INSERT INTO addresses (user_id,label,line1,line2,city,state,pincode,latitude,longitude,is_default,created_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)
-    """, (
-        user_id, label, line1, line2, city, state, pincode,
-        float(lat) if lat is not None and str(lat).strip() != "" else None,
-        float(lng) if lng is not None and str(lng).strip() != "" else None,
-        is_def, datetime.utcnow().isoformat()
-    ))
+    result = mongo.addresses.insert_one({
+        "user_id": str(user_id),
+        "label": label,
+        "line1": line1,
+        "line2": line2,
+        "city": city,
+        "state": state,
+        "pincode": pincode,
+        "latitude": latitude,
+        "longitude": longitude,
+        "is_default": is_def,
+        "created_at": datetime.utcnow().isoformat()
+    })
 
-    return jsonify({"success": True, "address_id": aid}), 201
+    return jsonify({
+        "success": True,
+        "address_id": str(result.inserted_id)
+    }), 201
 
 
 @app.route("/api/addresses", methods=["GET"])
 @api_login_required
 def api_addresses_list(user_id):
-    rows = query(
-        "SELECT id,label,line1,line2,city,state,pincode,latitude,longitude,is_default,created_at "
-        "FROM addresses WHERE user_id=? ORDER BY is_default DESC, id DESC",
-        (user_id,),
+    rows = list(
+        mongo.addresses.find({"user_id": str(user_id)}).sort([
+            ("is_default", -1),
+            ("created_at", -1)
+        ])
     )
 
     return jsonify({
         "success": True,
         "addresses": [{
-            "id": r["id"],
-            "label": r["label"],
-            # Keep app-friendly keys expected by Flutter UI
-            "address_line_1": r["line1"],
-            "address_line_2": r["line2"],
-            "city": r["city"],
-            "state": r["state"],
-            "pincode": r["pincode"],
-            "latitude": float(r["latitude"]) if r["latitude"] is not None else None,
-            "longitude": float(r["longitude"]) if r["longitude"] is not None else None,
-            "is_default": bool(r["is_default"]),
-            "created_at": r["created_at"],
+            "id": str(r["_id"]),
+            "label": r.get("label", ""),
+            "address_line_1": r.get("line1", ""),
+            "address_line_2": r.get("line2", ""),
+            "line1": r.get("line1", ""),
+            "line2": r.get("line2", ""),
+            "city": r.get("city", ""),
+            "state": r.get("state", ""),
+            "pincode": r.get("pincode", ""),
+            "latitude": float(r["latitude"]) if r.get("latitude") is not None else None,
+            "longitude": float(r["longitude"]) if r.get("longitude") is not None else None,
+            "is_default": bool(r.get("is_default")),
+            "created_at": r.get("created_at", ""),
         } for r in rows]
     }), 200
 
 
-def query_one(sql, params=()):
-    rows = query(sql, params)
-    return rows[0] if rows else None
-
-
-@app.route("/api/addresses/<int:address_id>", methods=["DELETE"])
+@app.route("/api/addresses/<address_id>", methods=["DELETE"])
 @api_login_required
 def api_delete_address(user_id, address_id):
-    # Ensure the address exists and belongs to this user
-    row = query_one(
-        "SELECT id FROM addresses WHERE id=? AND user_id=?",
-        (address_id, user_id),
-    )
-    if not row:
-        return jsonify({"success": False, "error": "Address not found"}), 404
+    try:
+        address_obj_id = ObjectId(str(address_id))
+    except Exception:
+        return jsonify({"success": False, "error": "Invalid address id"}), 400
 
-    # Delete
-    execute(
-        "DELETE FROM addresses WHERE id=? AND user_id=?",
-        (address_id, user_id),
-    )
+    result = mongo.addresses.delete_one({
+        "_id": address_obj_id,
+        "user_id": str(user_id)
+    })
+
+    if result.deleted_count == 0:
+        return jsonify({"success": False, "error": "Address not found"}), 404
 
     return jsonify({"success": True}), 200
 
 
-# Optional POST fallback delete (if your app uses POST instead of DELETE)
-@app.route("/api/addresses/<int:address_id>/delete", methods=["POST"])
+@app.route("/api/addresses/<address_id>/delete", methods=["POST"])
 @api_login_required
 def api_addresses_delete_post(user_id, address_id):
     return api_delete_address(user_id, address_id)
 
 
+# API CHECKOUT (APP)
 # ====================
 # API CHECKOUT (FINAL FIXED)
-# - Uses address_id from app (recommended)
-# - Falls back to default address if address_id not sent
-# - Creates order + items + transactions + order_addresses + order_events
-# - Clears cart
 # ====================
 
-# @app.route('/api/checkout', methods=['POST'])
-# @api_login_required
-# def api_checkout(user_id):
-
-
-#     data = request.get_json(silent=True) or {}
-
-#     payment_method = (data.get('payment_method') or 'COD').strip() or 'COD'
-#     tip_amount = data.get('tip_amount', 0)
-
-#     # ✅ Preferred: address_id sent by app
-#     address_id = data.get('address_id')
-
-#     # --- Load cart items for this user ---
-#     cid = get_or_create_cart(user_id)
-#     items = query('''
-#         SELECT ci.product_id, ci.weight_kg, p.price_per_kg, p.store_id,
-#                p.stock_kg, p.is_active
-#         FROM cart_items ci
-#         JOIN products p ON p.id = ci.product_id
-#         WHERE ci.cart_id = ?
-#     ''', (cid,))
-
-#     if not items:
-#         return jsonify({'success': False, 'error': 'Cart is empty'}), 400
-
-#     # --- Fetch address (address_id OR default) ---
-#     addr = None
-#     if address_id is not None:
-#         try:
-#             aid = int(address_id)
-#         except Exception:
-#             return jsonify({'success': False, 'error': 'Invalid address_id'}), 400
-
-#         rows = query("SELECT * FROM addresses WHERE id=? AND user_id=?", (aid, user_id))
-#         if not rows:
-#             return jsonify({'success': False, 'error': 'Address not found'}), 404
-#         addr = rows[0]
-#     else:
-#         rows = query(
-#             "SELECT * FROM addresses WHERE user_id=? ORDER BY is_default DESC, id DESC LIMIT 1",
-#             (user_id,)
-#         )
-#         if not rows:
-#             return jsonify({'success': False, 'error': 'No delivery address found'}), 400
-#         addr = rows[0]
-
-#     # --- Validate address fields ---
-#     line1 = (addr.get('line1') or '').strip()
-#     pincode = (addr.get('pincode') or '').strip()
-
-#     if not line1 or not pincode:
-#         return jsonify({'success': False, 'error': 'Address line1 and pincode are required'}), 400
-
-#     if len(pincode) != 6 or not pincode.isdigit():
-#         return jsonify({'success': False, 'error': 'Invalid pincode'}), 400
-
-#     if not is_serviceable_pincode(pincode):
-#         return jsonify({'success': False, 'error': 'Pincode not serviceable'}), 400
-
-#     # --- Validate items & stock ---
-#     for it in items:
-#         if int(it['is_active'] or 0) != 1:
-#             return jsonify({'success': False, 'error': 'Product inactive'}), 400
-#         if float(it['stock_kg'] or 0) <= 0:
-#             return jsonify({'success': False, 'error': 'Item sold out'}), 409
-#         if float(it['weight_kg'] or 0) > float(it['stock_kg'] or 0):
-#             return jsonify({'success': False, 'error': 'Insufficient stock'}), 409
-
-#     # ✅ Single-store checkout assumption (same as your website checkout)
-#     store_id = int(items[0]['store_id'])
-
-#     # --- Tip normalize ---
-#     try:
-#         tip_amount = float(tip_amount or 0)
-#     except Exception:
-#         tip_amount = 0.0
-#     if tip_amount < 0:
-#         tip_amount = 0.0
-#     if tip_amount > 10000:
-#         tip_amount = 10000.0
-#     tip_amount = round(tip_amount, 2)
-
-#     # --- Calculate distance & delivery fee (same pattern as website) ---
-#     now = datetime.utcnow().isoformat()
-#     store_row = query("SELECT * FROM stores WHERE id=?", (store_id,))
-#     store = store_row[0] if store_row else None
-
-#     km = None
-#     try:
-#         store_lat = store['latitude'] if store and 'latitude' in store.keys() else None
-#         store_lng = store['longitude'] if store and 'longitude' in store.keys() else None
-#         addr_lat = addr.get('latitude')
-#         addr_lng = addr.get('longitude')
-
-#         if store_lat is not None and store_lng is not None and addr_lat is not None and addr_lng is not None:
-#             km = haversine_km(float(store_lat), float(store_lng), float(addr_lat), float(addr_lng))
-#     except Exception:
-#         km = None
-
-#     if km is not None and km > MAX_DELIVERY_KM:
-#         return jsonify({'success': False, 'error': f'Delivery distance ({km:.1f} km) exceeds limit'}), 400
-
-#     if km is None:
-#         delivery_fee = BASE_DELIVERY_FEE_INR
-#     else:
-#         extra = None
-#         for low, high, fee in DELIVERY_SURCHARGE_SLABS:
-#             last_high = DELIVERY_SURCHARGE_SLABS[-1][1]
-#             if (km >= low) and (km < high or high == last_high):
-#                 extra = fee
-#                 break
-#         if extra is None:
-#             return jsonify({'success': False, 'error': 'Delivery not available for this distance'}), 400
-#         delivery_fee = BASE_DELIVERY_FEE_INR + extra
-
-#     items_total = sum(float(it['weight_kg']) * float(it['price_per_kg']) for it in items)
-#     total_payable = float(items_total) + float(delivery_fee) + float(tip_amount)
-
-#     # --- Transaction + Order creation (atomic) ---
-#     conn = get_conn()
-#     try:
-#         cur = conn.cursor()
-#         cur.execute("BEGIN IMMEDIATE")
-
-#         # Re-check stock inside transaction
-#         cur.execute('''
-#             SELECT ci.product_id, ci.weight_kg, p.price_per_kg, p.store_id,
-#                    p.stock_kg, p.is_active
-#             FROM cart_items ci
-#             JOIN products p ON p.id = ci.product_id
-#             WHERE ci.cart_id = ?
-#         ''', (cid,))
-#         tx_items = cur.fetchall()
-
-#         if not tx_items:
-#             conn.rollback()
-#             return jsonify({'success': False, 'error': 'Cart is empty'}), 400
-
-#         for it in tx_items:
-#             stock = float(it["stock_kg"] or 0)
-#             need  = float(it["weight_kg"] or 0)
-#             if int(it["is_active"] or 0) != 1 or stock <= 0:
-#                 conn.rollback()
-#                 return jsonify({'success': False, 'error': 'One or more items are sold out'}), 409
-#             if need > stock:
-#                 conn.rollback()
-#                 return jsonify({'success': False, 'error': 'Insufficient stock'}), 409
-
-#         tx_items_total = sum(float(it["weight_kg"]) * float(it["price_per_kg"]) for it in tx_items)
-
-#         # 1) Create order
-#         cur.execute('''
-#             INSERT INTO orders (user_id, store_id, total_amount, status, payment_status, created_at, delivery_fee, distance_km, tip_amount)
-#             VALUES (?,?,?,?,?,?,?,?,?)
-#         ''', (
-#             user_id, store_id, tx_items_total,
-#             'PLACED', 'PENDING', now,
-#             float(delivery_fee),
-#             float(km) if km is not None else None,
-#             float(tip_amount)
-#         ))
-#         order_id = cur.lastrowid
-
-#         # 2) order_items + stock updates
-#         for it in tx_items:
-#             pid = int(it["product_id"])
-#             need = float(it["weight_kg"])
-#             price = float(it["price_per_kg"])
-#             line_total = need * price
-
-#             cur.execute('''
-#                 INSERT INTO order_items (order_id, product_id, weight_kg, unit_price_per_kg, line_total)
-#                 VALUES (?,?,?,?,?)
-#             ''', (order_id, pid, need, price, line_total))
-
-#             cur.execute("UPDATE products SET stock_kg = stock_kg - ? WHERE id=?", (need, pid))
-
-#         # 3) transactions
-#         cur.execute('''
-#             INSERT INTO transactions (order_id, amount, payment_method, status, created_at)
-#             VALUES (?,?,?,?,?)
-#         ''', (order_id, float(total_payable), payment_method, 'PENDING', now))
-
-#         # 4) order_addresses snapshot
-#         cur.execute('''
-#             INSERT INTO order_addresses (order_id, line1, line2, city, state, pincode, latitude, longitude, created_at)
-#             VALUES (?,?,?,?,?,?,?,?,?)
-#         ''', (
-#             order_id,
-#             (addr.get('line1') or ''),
-#             (addr.get('line2') or ''),
-#             (addr.get('city') or ''),
-#             (addr.get('state') or ''),
-#             (addr.get('pincode') or ''),
-#             addr.get('latitude'),
-#             addr.get('longitude'),
-#             now
-#         ))
-
-#         # 5) order_events
-#         cur.execute(
-#             "INSERT INTO order_events (order_id, status, note, created_at) VALUES (?,?,?,?)",
-#             (order_id, 'PLACED', '', now)
-#         )
-
-#         # 6) clear cart
-#         cur.execute("DELETE FROM cart_items WHERE cart_id=?", (cid,))
-
-#         conn.commit()
-
-#     except Exception as e:
-#         conn.rollback()
-#         return jsonify({'success': False, 'error': str(e)}), 500
-#     finally:
-#         conn.close()
-
-#     return jsonify({
-#         'success': True,
-#         'order_id': order_id,
-#         'total_payable': round(float(total_payable), 2),
-#         'delivery_fee': float(delivery_fee),
-#         'distance_km': float(km) if km is not None else None,
-#         'message': 'Order placed successfully'
-#     }), 201
-
-
-#     # ======================
-
-
-
-# API CHECKOUT (APP)
-# ======================
 @app.route('/api/checkout', methods=['POST'])
 @api_login_required
 def api_checkout(user_id):
     data = request.get_json(silent=True) or {}
 
-    payment_method = (data.get('payment_method') or 'COD').strip() or 'COD'
-    tip_amount = data.get('tip_amount', 0)
+    payment_method = (data.get("payment_method") or "COD").upper()
+    tip_amount_raw = data.get("tip_amount", 0)
+    address_id = data.get("address_id")
 
-    # --- Address from app (Option A) ---
-    # Expected:
-    # address: {
-    #   line1, line2, city, state, pincode, latitude, longitude, is_default(optional)
-    # }
-    addr_in = data.get('address') or {}
-    if not isinstance(addr_in, dict):
-        addr_in = {}
-
-    line1 = (addr_in.get('line1') or '').strip()
-    line2 = (addr_in.get('line2') or '').strip()
-    city  = (addr_in.get('city') or '').strip()
-    state = (addr_in.get('state') or '').strip()
-    pincode = (addr_in.get('pincode') or '').strip()
-
-    # lat/lng may be None
-    latitude = addr_in.get('latitude')
-    longitude = addr_in.get('longitude')
-
-    if not line1 or not pincode:
-        return jsonify({'success': False, 'error': 'Address line1 and pincode are required'}), 400
-
-    if len(pincode) != 6 or not pincode.isdigit():
-        return jsonify({'success': False, 'error': 'Invalid pincode'}), 400
-
-    # serviceability check
-    if not is_serviceable_pincode(pincode):
-        return jsonify({'success': False, 'error': 'Pincode not serviceable'}), 400
-
-    # --- Load cart items for this user ---
-    # --- Load cart items (APP can send items directly; else fallback to DB cart_items) ---
-    cid = get_or_create_cart(user_id)
-
-    items_in = data.get('items')
-    items = []
-
-    def _as_float(x, default=0.0):
-        try:
-            return float(x)
-        except Exception:
-            return default
-
-    if isinstance(items_in, list) and len(items_in) > 0:
-        # ✅ Build items from payload
-        agg = {}  # product_id -> weight_kg
-        for row in items_in:
-            if not isinstance(row, dict):
-                continue
-            pid = row.get("product_id")
-            wkg = row.get("weight_kg")
-            try:
-                pid = int(pid)
-            except Exception:
-                pid = 0
-            wkg = _as_float(wkg, 0.0)
-            if pid <= 0 or wkg <= 0:
-                continue
-            agg[pid] = agg.get(pid, 0.0) + wkg
-
-        if not agg:
-            return jsonify({'success': False, 'error': 'Cart is empty'}), 400
-
-        # fetch product data
-        qmarks = ",".join(["?"] * len(agg))
-        prows = query(f'''
-            SELECT id, price_per_kg, store_id, stock_kg, is_active
-            FROM products
-            WHERE id IN ({qmarks})
-        ''', tuple(agg.keys()))
-
-        pmap = {int(r["id"]): r for r in prows}
-
-        for pid, wkg in agg.items():
-            p = pmap.get(pid)
-            if not p:
-                return jsonify({'success': False, 'error': f'Invalid product_id: {pid}'}), 400
-            items.append({
-                "product_id": pid,
-                "weight_kg": wkg,
-                "price_per_kg": p["price_per_kg"],
-                "store_id": p["store_id"],
-                "stock_kg": p["stock_kg"],
-                "is_active": p["is_active"],
-            })
-
-    else:
-        # ✅ Fallback to website cart_items table
-        items = query('''
-            SELECT ci.product_id, ci.weight_kg, p.price_per_kg, p.store_id,
-                p.stock_kg, p.is_active
-            FROM cart_items ci
-            JOIN products p ON p.id = ci.product_id
-            WHERE ci.cart_id = ?
-        ''', (cid,))
-
-        if not items:
-            return jsonify({'success': False, 'error': 'Cart is empty'}), 400
-
-
-    # Validate items & stock
-    for it in items:
-        if int(it['is_active'] or 0) != 1:
-            return jsonify({'success': False, 'error': 'Product inactive'}), 400
-        if float(it['stock_kg'] or 0) <= 0:
-            return jsonify({'success': False, 'error': 'Item sold out'}), 409
-        if float(it['weight_kg'] or 0) > float(it['stock_kg'] or 0):
-            return jsonify({'success': False, 'error': 'Insufficient stock'}), 409
-
-    # IMPORTANT: single-store checkout (same assumption as website)
-    store_id = int(items[0]['store_id'])
-
-    # --- Save/Upsert address into addresses table (Option A) ---
-    # We try to insert a new address row and mark default.
-    now = datetime.utcnow().isoformat()
-
-    # Tip
     try:
-        tip_amount = float(tip_amount or 0)
+        tip_amount = float(tip_amount_raw or 0)
     except Exception:
         tip_amount = 0.0
+
     if tip_amount < 0:
         tip_amount = 0.0
+
     if tip_amount > 10000:
         tip_amount = 10000.0
+
     tip_amount = round(tip_amount, 2)
 
-    # --- Calculate distance & delivery fee ---
-    store_row = query("SELECT * FROM stores WHERE id=?", (store_id,))
-    store = store_row[0] if store_row else None
+    cid = get_or_create_cart(user_id)
 
-    km = None
-    if store and latitude is not None and longitude is not None:
+    cart_items = list(mongo.cart_items.find({"cart_id": cid}))
+
+    if not cart_items:
+        return jsonify({
+            "success": False,
+            "error": "Cart is empty"
+        }), 400
+
+    items = []
+
+    for ci in cart_items:
+        product = mongo.products.find_one({"_id": ci.get("product_id")})
+
+        if not product:
+            return jsonify({
+                "success": False,
+                "error": "One product no longer exists"
+            }), 400
+
+        weight_kg = float(ci.get("weight_kg") or 0)
+        stock_kg = float(product.get("stock_kg") or 0)
+
+        if int(product.get("is_active") or 0) != 1 or stock_kg <= 0:
+            return jsonify({
+                "success": False,
+                "error": f"{product.get('name', 'Product')} is sold out"
+            }), 400
+
+        if weight_kg > stock_kg:
+            return jsonify({
+                "success": False,
+                "error": f"{product.get('name', 'Product')} has only {stock_kg:.2f} kg available"
+            }), 400
+
+        items.append({
+            "product_id": product["_id"],
+            "product_name": product.get("name", ""),
+            "weight_kg": weight_kg,
+            "unit_price_per_kg": float(product.get("price_per_kg") or 0),
+            "line_total": weight_kg * float(product.get("price_per_kg") or 0),
+            "image_path": product.get("image_path", ""),
+            "store_id": product.get("store_id")
+        })
+
+    store_ids = sorted(set([str(i["store_id"]) for i in items if i.get("store_id")]))
+
+    if len(store_ids) != 1:
+        return jsonify({
+            "success": False,
+            "error": "Please order from one store at a time"
+        }), 400
+
+    store_id = items[0]["store_id"]
+
+    store = mongo.stores.find_one({"_id": store_id})
+
+    if not store:
+        return jsonify({
+            "success": False,
+            "error": "Store not found"
+        }), 400
+
+    address = None
+
+    if address_id:
         try:
-            store_lat = store['latitude'] if 'latitude' in store.keys() else None
-            store_lng = store['longitude'] if 'longitude' in store.keys() else None
-            if store_lat is not None and store_lng is not None:
-                km = haversine_km(store_lat, store_lng, float(latitude), float(longitude))
+            address_obj_id = ObjectId(str(address_id))
+            address = mongo.addresses.find_one({
+                "_id": address_obj_id,
+                "user_id": str(user_id)
+            })
         except Exception:
-            km = None
+            address = None
+
+    if not address:
+        address = mongo.addresses.find_one(
+            {"user_id": str(user_id), "is_default": 1}
+        )
+
+    if not address:
+        return jsonify({
+            "success": False,
+            "error": "Please add/select a delivery address"
+        }), 400
+
+    pincode = (address.get("pincode") or "").strip()
+
+    if not is_serviceable_pincode(pincode):
+        return jsonify({
+            "success": False,
+            "error": "Selected address pincode is not serviceable"
+        }), 400
+
+    items_total = sum(float(i["line_total"] or 0) for i in items)
+
+    store_lat = store.get("latitude")
+    store_lng = store.get("longitude")
+    addr_lat = address.get("latitude")
+    addr_lng = address.get("longitude")
+
+    km = haversine_km(store_lat, store_lng, addr_lat, addr_lng)
 
     if km is not None and km > MAX_DELIVERY_KM:
-        return jsonify({'success': False, 'error': f'Delivery distance ({km:.1f} km) exceeds limit'}), 400
+        return jsonify({
+            "success": False,
+            "error": f"Delivery distance ({km:.1f} km) exceeds our limit of {MAX_DELIVERY_KM} km"
+        }), 400
 
-    # Delivery fee slab (same logic pattern as website)
     if km is None:
         delivery_fee = BASE_DELIVERY_FEE_INR
     else:
         extra = None
+
         for low, high, fee in DELIVERY_SURCHARGE_SLABS:
             last_high = DELIVERY_SURCHARGE_SLABS[-1][1]
+
             if (km >= low) and (km < high or high == last_high):
                 extra = fee
                 break
+
         if extra is None:
-            return jsonify({'success': False, 'error': 'Delivery not available for this distance'}), 400
+            return jsonify({
+                "success": False,
+                "error": "Delivery not available for this distance"
+            }), 400
+
         delivery_fee = BASE_DELIVERY_FEE_INR + extra
 
-    items_total = sum(float(it['weight_kg']) * float(it['price_per_kg']) for it in items)
-    total_payable = items_total + float(delivery_fee) + float(tip_amount)
+    total_payable = float(items_total) + float(delivery_fee) + float(tip_amount)
+    now = datetime.utcnow().isoformat()
 
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute("BEGIN IMMEDIATE")
+    order_result = mongo.orders.insert_one({
+        "user_id": str(user_id),
+        "customer_name": "",
+        "customer_phone": "",
+        "store_id": store_id,
+        "store_name": store.get("store_name", ""),
+        "total_amount": float(items_total),
+        "status": "PLACED",
+        "payment_status": "PENDING",
+        "delivery_partner_id": None,
+        "delivery_fee": float(delivery_fee),
+        "distance_km": float(km) if km is not None else None,
+        "tip_amount": float(tip_amount),
+        "total_payable": float(total_payable),
+        "payment_method": payment_method,
+        "created_at": now
+    })
 
-        # 1) Insert address into addresses table
-        # Make this the default address (simple approach)
-        try:
-            cur.execute("UPDATE addresses SET is_default=0 WHERE user_id=?", (user_id,))
-        except Exception:
-            # if column doesn't exist, ignore
-            pass
+    order_id = order_result.inserted_id
 
-        # Insert (try with common columns)
-        # Your website uses: line1,line2,city,state,pincode,latitude,longitude,is_default,created_at
-        addr_id = None
-        try:
-            cur.execute('''
-                INSERT INTO addresses (user_id, line1, line2, city, state, pincode, latitude, longitude, is_default, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?)
-            ''', (user_id, line1, line2, city, state, pincode, latitude, longitude, 1, now))
-            addr_id = cur.lastrowid
-        except Exception:
-            # fallback if created_at not present
-            cur.execute('''
-                INSERT INTO addresses (user_id, line1, line2, city, state, pincode, latitude, longitude, is_default)
-                VALUES (?,?,?,?,?,?,?,?,?)
-            ''', (user_id, line1, line2, city, state, pincode, latitude, longitude, 1))
-            addr_id = cur.lastrowid
+    for item in items:
+        mongo.order_items.insert_one({
+            "order_id": order_id,
+            "product_id": item["product_id"],
+            "product_name": item["product_name"],
+            "weight_kg": float(item["weight_kg"]),
+            "unit_price_per_kg": float(item["unit_price_per_kg"]),
+            "line_total": float(item["line_total"]),
+            "image_path": item.get("image_path", "")
+        })
 
-        # 2) Create order
-        cur.execute('''
-            INSERT INTO orders (
-                user_id, store_id, total_amount,
-                status, payment_status, created_at,
-                delivery_fee, distance_km, tip_amount
-            )
-            VALUES (?,?,?,?,?,?,?,?,?)
-        ''', (
-            user_id, store_id, items_total,
-            'PLACED', 'PENDING', now,
-            float(delivery_fee), float(km) if km is not None else None, tip_amount
-        ))
-        order_id = cur.lastrowid
-
-        # 3) Order items + stock update
-        for it in items:
-            pid = int(it['product_id'])
-            need = float(it['weight_kg'])
-            price = float(it['price_per_kg'])
-            line_total = need * price
-
-            cur.execute('''
-                INSERT INTO order_items (
-                    order_id, product_id, weight_kg,
-                    unit_price_per_kg, line_total
-                )
-                VALUES (?,?,?,?,?)
-            ''', (order_id, pid, need, price, line_total))
-
-            cur.execute("UPDATE products SET stock_kg = stock_kg - ? WHERE id=?", (need, pid))
-
-        # 4) Transaction
-        cur.execute('''
-            INSERT INTO transactions (order_id, amount, payment_method, status, created_at)
-            VALUES (?,?,?,?,?)
-        ''', (order_id, float(total_payable), payment_method, 'PENDING', now))
-
-        # 5) Order address snapshot
-        cur.execute('''
-            INSERT INTO order_addresses (
-                order_id, line1, line2, city, state,
-                pincode, latitude, longitude, created_at
-            )
-            VALUES (?,?,?,?,?,?,?,?,?)
-        ''', (
-            order_id,
-            line1, line2, city, state, pincode,
-            latitude, longitude, now
-        ))
-
-        # 6) Event
-        cur.execute(
-            "INSERT INTO order_events (order_id, status, note, created_at) VALUES (?,?,?,?)",
-            (order_id, 'PLACED', '', now)
+        mongo.products.update_one(
+            {"_id": item["product_id"]},
+            {"$inc": {"stock_kg": -float(item["weight_kg"])}}
         )
 
-        # 7) Clear cart
-        cur.execute("DELETE FROM cart_items WHERE cart_id=?", (cid,))
+        updated_product = mongo.products.find_one({"_id": item["product_id"]})
 
-        conn.commit()
+        if updated_product and float(updated_product.get("stock_kg") or 0) <= 0:
+            mongo.products.update_one(
+                {"_id": item["product_id"]},
+                {"$set": {"stock_kg": 0, "is_active": 0}}
+            )
 
-    except Exception as e:
-        conn.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
-    finally:
-        conn.close()
+    mongo.transactions.insert_one({
+        "order_id": order_id,
+        "amount": float(total_payable),
+        "payment_method": payment_method,
+        "status": "PENDING",
+        "created_at": now
+    })
+
+    mongo.order_addresses.insert_one({
+        "order_id": order_id,
+        "line1": address.get("line1"),
+        "line2": address.get("line2"),
+        "city": address.get("city"),
+        "state": address.get("state"),
+        "pincode": address.get("pincode"),
+        "latitude": address.get("latitude"),
+        "longitude": address.get("longitude"),
+        "created_at": now
+    })
+
+    mongo.order_events.insert_one({
+        "order_id": order_id,
+        "status": "PLACED",
+        "note": "Order placed from API",
+        "created_at": now
+    })
+
+    mongo.cart_items.delete_many({"cart_id": cid})
 
     return jsonify({
-        'success': True,
-        'order_id': order_id,
-        'total_payable': round(float(total_payable), 2),
-        'delivery_fee': float(delivery_fee),
-        'distance_km': float(km) if km is not None else None,
-        'message': 'Order placed successfully'
+        "success": True,
+        "order_id": str(order_id),
+        "message": "Order placed successfully",
+        "total_amount": float(items_total),
+        "delivery_fee": float(delivery_fee),
+        "tip_amount": float(tip_amount),
+        "total_payable": float(total_payable)
     }), 201
-
-
-
-
-
-
 
 
 print("\n=== ROUTES LOADED ===")
