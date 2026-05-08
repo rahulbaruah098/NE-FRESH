@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>{% block title %}NE FRESH Admin{% endblock %}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --nf-green: #00A859;
+      --nf-green-dark: #007A43;
+      --nf-green-deep: #075C3B;
+      --nf-green-soft: #E9FFF3;
+
+      --nf-orange: #FF8A1F;
+      --nf-orange-dark: #E96F00;
+      --nf-orange-soft: #FFF3E7;
+
+      --nf-bg: #F8FFFB;
+      --nf-surface: #FFFFFF;
+      --nf-surface-2: #F4F9F6;
+      --nf-text: #1F2D26;
+      --nf-muted: #6A7A72;
+      --nf-line: #DDECE4;
+
+      --nf-sidebar: #075C3B;
+      --nf-sidebar-2: #064D33;
+      --nf-sidebar-text: #EFFFF6;
+      --nf-sidebar-muted: #A9D5C2;
+      --nf-sidebar-hover: rgba(255, 255, 255, .10);
+
+      --nf-danger: #EF4444;
+      --nf-warning: #F59E0B;
+      --nf-info: #0284C7;
+
+      --nf-shadow: 0 16px 40px rgba(17, 64, 38, .08);
+      --nf-shadow-heavy: 0 24px 70px rgba(17, 64, 38, .18);
+
+      --nf-radius: 18px;
+      --nf-topbar-height: 74px;
+      --nf-sidebar-width: 270px;
+      --nf-sidebar-collapsed: 82px;
+
+      --nf-ease: cubic-bezier(.2, .75, .25, 1);
+    }
+
+    html[data-theme="dark"] {
+      --nf-bg: #07140F;
+      --nf-surface: #0F2119;
+      --nf-surface-2: #122B20;
+      --nf-text: #ECFFF5;
+      --nf-muted: #A9BDB3;
+      --nf-line: rgba(221, 236, 228, .14);
+
+      --nf-sidebar: #031F16;
+      --nf-sidebar-2: #021811;
+      --nf-sidebar-text: #F1FFF7;
+      --nf-sidebar-muted: #86B99F;
+      --nf-sidebar-hover: rgba(255, 255, 255, .08);
+
+      --nf-shadow: 0 16px 40px rgba(0, 0, 0, .25);
+      --nf-shadow-heavy: 0 24px 70px rgba(0, 0, 0, .38);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--nf-bg);
+      color: var(--nf-text);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font-family: inherit;
+    }
+
+    .nf-admin-shell {
+      min-height: 100vh;
+      display: flex;
+      background:
+        radial-gradient(circle at top right, rgba(0, 168, 89, .08), transparent 32%),
+        radial-gradient(circle at bottom left, rgba(255, 138, 31, .08), transparent 34%),
+        var(--nf-bg);
+    }
+
+    .nf-sidebar {
+      width: var(--nf-sidebar-width);
+      min-width: var(--nf-sidebar-width);
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      left: 0;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, var(--nf-sidebar), var(--nf-sidebar-2));
+      color: var(--nf-sidebar-text);
+      box-shadow: 14px 0 40px rgba(3, 31, 22, .18);
+      transition: width .25s var(--nf-ease), min-width .25s var(--nf-ease), transform .25s var(--nf-ease);
+    }
+
+    .nf-sidebar-header {
+      min-height: var(--nf-topbar-height);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, .11);
+    }
+
+    .nf-brand-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      flex: 0 0 auto;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, .12);
+    }
+
+    .nf-brand-logo img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .nf-brand-text {
+      min-width: 0;
+      transition: opacity .2s var(--nf-ease);
+    }
+
+    .nf-brand-text strong {
+      display: block;
+      font-size: 1.14rem;
+      line-height: 1.1;
+      font-weight: 850;
+      letter-spacing: -.035em;
+    }
+
+    .nf-brand-text span {
+      display: block;
+      margin-top: 3px;
+      color: var(--nf-sidebar-muted);
+      font-size: .76rem;
+      font-weight: 650;
+    }
+
+    .nf-sidebar-toggle {
+      margin-left: auto;
+      width: 34px;
+      height: 34px;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-radius: 11px;
+      background: rgba(255, 255, 255, .08);
+      color: #fff;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: .22s var(--nf-ease);
+    }
+
+    .nf-sidebar-toggle:hover {
+      background: rgba(255, 255, 255, .16);
+      transform: translateY(-1px);
+    }
+
+    .nf-sidebar-search {
+      padding: 18px 16px 12px;
+    }
+
+    .nf-menu-search {
+      width: 100%;
+      height: 44px;
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 13px;
+      background: rgba(255, 255, 255, .09);
+      color: #fff;
+      padding: 0 14px;
+      outline: none;
+      font-size: .9rem;
+      font-weight: 600;
+    }
+
+    .nf-menu-search::placeholder {
+      color: rgba(255, 255, 255, .62);
+    }
+
+    .nf-sidebar-scroll {
+      overflow-y: auto;
+      padding: 6px 14px 18px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, .28) transparent;
+    }
+
+    .nf-sidebar-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .nf-sidebar-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .25);
+      border-radius: 999px;
+    }
+
+    .nf-menu-section {
+      margin: 18px 8px 9px;
+      color: var(--nf-sidebar-muted);
+      font-size: .72rem;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+      font-weight: 850;
+    }
+
+    .nf-menu-link,
+    .nf-menu-parent {
+      width: 100%;
+      min-height: 46px;
+      border: 0;
+      border-radius: 13px;
+      background: transparent;
+      color: var(--nf-sidebar-text);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 12px;
+      cursor: pointer;
+      font-size: .92rem;
+      font-weight: 700;
+      transition: .22s var(--nf-ease);
+    }
+
+    .nf-menu-link:hover,
+    .nf-menu-parent:hover,
+    .nf-menu-link.active,
+    .nf-menu-parent.active {
+      background: var(--nf-sidebar-hover);
+    }
+
+    .nf-menu-link.active,
+    .nf-menu-parent.active {
+      box-shadow: inset 3px 0 0 var(--nf-orange);
+    }
+
+    .nf-menu-icon {
+      width: 22px;
+      min-width: 22px;
+      display: grid;
+      place-items: center;
+      font-size: 1.08rem;
+    }
+
+    .nf-menu-label {
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: left;
+    }
+
+    .nf-menu-arrow {
+      font-size: .78rem;
+      transition: transform .2s var(--nf-ease);
+      opacity: .85;
+    }
+
+    .nf-dropdown.open .nf-menu-arrow {
+      transform: rotate(180deg);
+    }
+
+    .nf-dropdown-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nf-dropdown-row .nf-menu-parent {
+      flex: 1;
+    }
+
+    .nf-dropdown-row .nf-parent-open {
+      width: 38px;
+      height: 38px;
+      border: 0;
+      border-radius: 12px;
+      color: #fff;
+      background: rgba(255, 255, 255, .08);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+
+    .nf-submenu {
+      display: none;
+      padding: 7px 0 8px 38px;
+    }
+
+    .nf-dropdown.open .nf-submenu {
+      display: block;
+    }
+
+    .nf-submenu a {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border-radius: 11px;
+      color: rgba(255, 255, 255, .82);
+      font-size: .86rem;
+      font-weight: 650;
+      transition: .2s var(--nf-ease);
+    }
+
+    .nf-submenu a:hover,
+    .nf-submenu a.active {
+      background: rgba(255, 255, 255, .08);
+      color: #fff;
+    }
+
+    .nf-sidebar-footer {
+      margin-top: auto;
+      padding: 14px;
+      border-top: 1px solid rgba(255, 255, 255, .11);
+    }
+
+    .nf-logout {
+      width: 100%;
+      min-height: 46px;
+      border-radius: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: rgba(255, 138, 31, .16);
+      color: #fff;
+      font-weight: 800;
+      transition: .22s var(--nf-ease);
+    }
+
+    .nf-logout:hover {
+      background: var(--nf-orange);
+      transform: translateY(-1px);
+    }
+
+    .nf-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nf-topbar {
+      height: var(--nf-topbar-height);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 28px;
+      background: color-mix(in srgb, var(--nf-surface) 90%, transparent);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--nf-line);
+      box-shadow: 0 10px 30px rgba(17, 64, 38, .05);
+    }
+
+    .nf-mobile-menu {
+      display: none;
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--nf-line);
+      border-radius: 13px;
+      background: var(--nf-surface);
+      color: var(--nf-text);
+      cursor: pointer;
+      place-items: center;
+    }
+
+    .nf-page-title {
+      min-width: 0;
+    }
+
+    .nf-page-title h1 {
+      margin: 0;
+      color: var(--nf-text);
+      font-size: 1.18rem;
+      font-weight: 850;
+      letter-spacing: -.03em;
+    }
+
+    .nf-page-title p {
+      margin: 3px 0 0;
+      color: var(--nf-muted);
+      font-size: .84rem;
+      font-weight: 550;
+    }
+
+    .nf-topbar-spacer {
+      flex: 1;
+    }
+
+    .nf-top-search {
+      width: min(330px, 34vw);
+      height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      border: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+      border-radius: 13px;
+      padding: 0 12px;
+    }
+
+    .nf-top-search input {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      outline: none;
+      color: var(--nf-text);
+      font-size: .9rem;
+      font-weight: 600;
+    }
+
+    .nf-icon-btn {
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--nf-line);
+      border-radius: 13px;
+      background: var(--nf-surface);
+      color: var(--nf-text);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      position: relative;
+      transition: .22s var(--nf-ease);
+    }
+
+    .nf-icon-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--nf-shadow);
+      border-color: rgba(0, 168, 89, .28);
+    }
+
+    .nf-badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--nf-orange);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: .68rem;
+      font-weight: 850;
+      border: 2px solid var(--nf-surface);
+    }
+
+    .nf-profile {
+      position: relative;
+    }
+
+    .nf-profile-btn {
+      min-height: 46px;
+      border: 1px solid var(--nf-line);
+      border-radius: 15px;
+      background: var(--nf-surface);
+      color: var(--nf-text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 5px 10px 5px 6px;
+      cursor: pointer;
+      transition: .22s var(--nf-ease);
+    }
+
+    .nf-profile-btn:hover {
+      box-shadow: var(--nf-shadow);
+      transform: translateY(-1px);
+    }
+
+    .nf-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--nf-green), var(--nf-orange));
+      color: #fff;
+      font-weight: 850;
+    }
+
+    .nf-profile-meta {
+      text-align: left;
+      line-height: 1.15;
+    }
+
+    .nf-profile-meta strong {
+      display: block;
+      font-size: .88rem;
+      font-weight: 800;
+    }
+
+    .nf-profile-meta span {
+      color: var(--nf-muted);
+      font-size: .73rem;
+      font-weight: 650;
+    }
+
+    .nf-profile-menu {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      width: 230px;
+      padding: 8px;
+      border-radius: 16px;
+      background: var(--nf-surface);
+      border: 1px solid var(--nf-line);
+      box-shadow: var(--nf-shadow-heavy);
+      display: none;
+      z-index: 80;
+    }
+
+    .nf-profile-menu.open {
+      display: block;
+    }
+
+    .nf-profile-menu a,
+    .nf-profile-menu button {
+      width: 100%;
+      min-height: 40px;
+      border: 0;
+      background: transparent;
+      color: var(--nf-text);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 10px;
+      border-radius: 11px;
+      cursor: pointer;
+      font-size: .88rem;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .nf-profile-menu a:hover,
+    .nf-profile-menu button:hover {
+      background: var(--nf-surface-2);
+    }
+
+    .nf-content {
+      flex: 1;
+      padding: 28px;
+    }
+
+    .nf-content-card {
+      min-height: calc(100vh - var(--nf-topbar-height) - 56px);
+      border-radius: 22px;
+      background: var(--nf-surface);
+      border: 1px solid var(--nf-line);
+      box-shadow: var(--nf-shadow);
+      padding: 24px;
+    }
+
+    .nf-flash-wrap {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .nf-flash {
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: .9rem;
+      font-weight: 650;
+      border: 1px solid var(--nf-line);
+      background: var(--nf-surface);
+      color: var(--nf-text);
+    }
+
+    .nf-flash.success {
+      border-color: rgba(0, 168, 89, .25);
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+    }
+
+    .nf-flash.warning {
+      border-color: rgba(255, 138, 31, .25);
+      background: var(--nf-orange-soft);
+      color: var(--nf-orange-dark);
+    }
+
+    .nf-flash.danger,
+    .nf-flash.error {
+      border-color: rgba(239, 68, 68, .25);
+      background: #FFF1F1;
+      color: #B91C1C;
+    }
+
+    body.sidebar-collapsed .nf-sidebar {
+      width: var(--nf-sidebar-collapsed);
+      min-width: var(--nf-sidebar-collapsed);
+    }
+
+    body.sidebar-collapsed .nf-brand-text,
+    body.sidebar-collapsed .nf-menu-section,
+    body.sidebar-collapsed .nf-menu-label,
+    body.sidebar-collapsed .nf-menu-arrow,
+    body.sidebar-collapsed .nf-sidebar-search,
+    body.sidebar-collapsed .nf-parent-open {
+      display: none;
+    }
+
+    body.sidebar-collapsed .nf-sidebar-header {
+      justify-content: center;
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    body.sidebar-collapsed .nf-sidebar-toggle {
+      position: absolute;
+      right: -16px;
+      background: var(--nf-orange);
+      border-color: var(--nf-orange);
+    }
+
+    body.sidebar-collapsed .nf-menu-link,
+    body.sidebar-collapsed .nf-menu-parent {
+      justify-content: center;
+      padding: 0;
+    }
+
+    body.sidebar-collapsed .nf-submenu {
+      display: none !important;
+    }
+
+    .nf-mobile-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .45);
+      z-index: 45;
+    }
+
+    @media (max-width: 1024px) {
+      .nf-sidebar {
+        position: fixed;
+        transform: translateX(-104%);
+      }
+
+      body.sidebar-open .nf-sidebar {
+        transform: translateX(0);
+      }
+
+      body.sidebar-open .nf-mobile-backdrop {
+        display: block;
+      }
+
+      .nf-mobile-menu {
+        display: grid;
+      }
+
+      .nf-top-search {
+        display: none;
+      }
+
+      body.sidebar-collapsed .nf-sidebar {
+        width: var(--nf-sidebar-width);
+        min-width: var(--nf-sidebar-width);
+      }
+
+      body.sidebar-collapsed .nf-brand-text,
+      body.sidebar-collapsed .nf-menu-section,
+      body.sidebar-collapsed .nf-menu-label,
+      body.sidebar-collapsed .nf-menu-arrow,
+      body.sidebar-collapsed .nf-sidebar-search,
+      body.sidebar-collapsed .nf-parent-open {
+        display: block;
+      }
+
+      body.sidebar-collapsed .nf-sidebar-toggle {
+        position: static;
+        background: rgba(255, 255, 255, .08);
+        border-color: rgba(255, 255, 255, .16);
+      }
+
+      body.sidebar-collapsed .nf-menu-link,
+      body.sidebar-collapsed .nf-menu-parent {
+        justify-content: flex-start;
+        padding: 0 12px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .nf-topbar {
+        padding: 0 14px;
+        gap: 10px;
+      }
+
+      .nf-page-title p,
+      .nf-profile-meta {
+        display: none;
+      }
+
+      .nf-content {
+        padding: 16px;
+      }
+
+      .nf-content-card {
+        padding: 16px;
+        border-radius: 18px;
+      }
+
+      .nf-icon-btn {
+        width: 40px;
+        height: 40px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        transition: none !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+  <div class="nf-admin-shell">
+
+    <aside class="nf-sidebar" id="nfSidebar">
+      <div class="nf-sidebar-header">
+        <a href="#" class="nf-brand-logo" aria-label="NE FRESH Admin">
+          <img src="{{ url_for('static', filename='nefresh.png') }}" alt="NE FRESH">
+        </a>
+
+        <div class="nf-brand-text">
+          <strong>NE FRESH</strong>
+          <span>Admin Portal</span>
+        </div>
+
+        <button type="button" class="nf-sidebar-toggle" id="nfSidebarToggle" aria-label="Collapse sidebar">
+          ⇤
+        </button>
+      </div>
+
+      <div class="nf-sidebar-search">
+        <input type="search" class="nf-menu-search" id="nfMenuSearch" placeholder="Search Menu...">
+      </div>
+
+      <nav class="nf-sidebar-scroll" id="nfSidebarMenu">
+
+        <div class="nf-menu-section">Main</div>
+
+        <a href="#" class="nf-menu-link {% if active_page == 'dashboard' %}active{% endif %}" data-menu-item>
+          <span class="nf-menu-icon">📊</span>
+          <span class="nf-menu-label">Dashboard</span>
+        </a>
+
+        <a href="#" class="nf-menu-link {% if active_page == 'new_sale' %}active{% endif %}" data-menu-item>
+          <span class="nf-menu-icon">🧾</span>
+          <span class="nf-menu-label">New Sale</span>
+        </a>
+
+        <div class="nf-menu-section">Store Management</div>
+
+        <div class="nf-dropdown {% if active_group == 'store' %}open{% endif %}" data-menu-item>
+          <div class="nf-dropdown-row">
+            <a href="#" class="nf-menu-parent {% if active_group == 'store' %}active{% endif %}">
+              <span class="nf-menu-icon">🏪</span>
+              <span class="nf-menu-label">Store</span>
+            </a>
+
+            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Store menu">
+              <span class="nf-menu-arrow">⌄</span>
+            </button>
+          </div>
+
+          <div class="nf-submenu">
+            <a href="#" class="{% if active_page == 'store_overview' %}active{% endif %}">Store Overview</a>
+            <a href="#" class="{% if active_page == 'new_stores' %}active{% endif %}">New Stores</a>
+            <a href="#" class="{% if active_page == 'add_store' %}active{% endif %}">Add Store</a>
+            <a href="#" class="{% if active_page == 'store_list' %}active{% endif %}">Store List</a>
+            <a href="#" class="{% if active_page == 'store_reviews' %}active{% endif %}">Store Reviews</a>
+          </div>
+        </div>
+
+        <div class="nf-menu-section">User Management</div>
+
+        <div class="nf-dropdown {% if active_group == 'users' %}open{% endif %}" data-menu-item>
+          <div class="nf-dropdown-row">
+            <a href="{{ url_for('admin_users') }}" class="nf-menu-parent ">
+              <span class="nf-menu-icon">👥</span>
+              <span class="nf-menu-label">Users</span>
+            </a>
+
+            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Users menu">
+              <span class="nf-menu-arrow">⌄</span>
+            </button>
+          </div>
+
+          <div class="nf-submenu">
+            <a href="#" class="{% if active_page == 'users_overview' %}active{% endif %}">Users Overview</a>
+            <a href="#" class="{% if active_page == 'employees' %}active{% endif %}">Employees</a>
+            <a href="#" class="{% if active_page == 'store_users' %}active{% endif %}">Store Users</a>
+            <a href="#" class="{% if active_page == 'delivery_users' %}active{% endif %}">Delivery Users</a>
+            <a href="#" class="{% if active_page == 'customers' %}active{% endif %}">Customers</a>
+          </div>
+        </div>
+
+        <div class="nf-dropdown {% if active_group == 'delivery' %}open{% endif %}" data-menu-item>
+          <div class="nf-dropdown-row">
+            <a href="#" class="nf-menu-parent {% if active_group == 'delivery' %}active{% endif %}">
+              <span class="nf-menu-icon">🛵</span>
+              <span class="nf-menu-label">Delivery</span>
+            </a>
+
+            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Delivery menu">
+              <span class="nf-menu-arrow">⌄</span>
+            </button>
+          </div>
+
+          <div class="nf-submenu">
+            <a href="#" class="{% if active_page == 'delivery_overview' %}active{% endif %}">Delivery Overview</a>
+            <a href="#" class="{% if active_page == 'create_delivery_person' %}active{% endif %}">Create Delivery Person</a>
+            <a href="#" class="{% if active_page == 'delivery_list' %}active{% endif %}">Delivery List</a>
+            <a href="#" class="{% if active_page == 'delivery_reviews' %}active{% endif %}">Reviews</a>
+          </div>
+        </div>
+
+        <div class="nf-menu-section">Operations</div>
+
+        <a href="{{ url_for('admin_approvals') }}" class="nf-menu-link data-menu-item>
+          <span class="nf-menu-icon">⏳</span>
+          <span class="nf-menu-label">Pending Approvals</span>
+        </a>
+
+        <a href="{{ url_for('admin_complaints') }}" class="nf-menu-link {% if active_page == 'complaints' %}active{% endif %}" data-menu-item>
+          <span class="nf-menu-icon">⚠️</span>
+          <span class="nf-menu-label">Complaints</span>
+        </a>
+
+        <a href="#" class="nf-menu-link {% if active_page == 'contact_requests' %}active{% endif %}" data-menu-item>
+          <span class="nf-menu-icon">📨</span>
+          <span class="nf-menu-label">Contact Requests</span>
+        </a>
+
+        <a href="#" class="nf-menu-link {% if active_page == 'exports' %}active{% endif %}" data-menu-item>
+          <span class="nf-menu-icon">📤</span>
+          <span class="nf-menu-label">Exports</span>
+        </a>
+
+        <a href="#" class="nf-menu-link {% if active_page == 'imports' %}active{% endif %}" data-menu-item>
+          <span class="nf-menu-icon">📥</span>
+          <span class="nf-menu-label">Imports</span>
+        </a>
+
+        <div class="nf-menu-section">System</div>
+
+        <a href="#" class="nf-menu-link {% if active_page == 'settings' %}active{% endif %}" data-menu-item>
+          <span class="nf-menu-icon">⚙️</span>
+          <span class="nf-menu-label">Settings</span>
+        </a>
+      </nav>
+
+      <div class="nf-sidebar-footer">
+        <a href="#" class="nf-logout">
+          <span>🚪</span>
+          <span>Logout</span>
+        </a>
+      </div>
+    </aside>
+
+    <div class="nf-mobile-backdrop" id="nfMobileBackdrop"></div>
+
+    <main class="nf-main">
+      <header class="nf-topbar">
+        <button type="button" class="nf-mobile-menu" id="nfMobileMenu" aria-label="Open menu">
+          ☰
+        </button>
+
+        <div class="nf-page-title">
+          <h1>{% block page_title %}Admin Dashboard{% endblock %}</h1>
+          <p>{% block page_subtitle %}Manage NE FRESH operations, stores, users and delivery flow.{% endblock %}</p>
+        </div>
+
+        <div class="nf-topbar-spacer"></div>
+
+        <div class="nf-top-search">
+          <span>🔍</span>
+          <input type="search" placeholder="Search here...">
+        </div>
+
+        <button type="button" class="nf-icon-btn" id="nfThemeToggle" title="Toggle theme">
+          <span id="nfThemeIcon">🌙</span>
+        </button>
+
+        <button type="button" class="nf-icon-btn" title="Notifications">
+          🔔
+          <span class="nf-badge">3</span>
+        </button>
+
+        <div class="nf-profile">
+          <button type="button" class="nf-profile-btn" id="nfProfileBtn">
+            <span class="nf-avatar">
+              {{ (current_user.name[0] if current_user and current_user.name else 'A')|upper }}
+            </span>
+
+            <span class="nf-profile-meta">
+              <strong>{{ current_user.name if current_user and current_user.name else 'Admin' }}</strong>
+              <span>{{ current_user.role if current_user and current_user.role else 'Administrator' }}</span>
+            </span>
+
+            <span>⌄</span>
+          </button>
+
+          <div class="nf-profile-menu" id="nfProfileMenu">
+            <a href="#">👤 My Profile</a>
+            <a href="#">🔐 Change Password</a>
+            <button type="button" id="nfProfileThemeBtn">🌗 Toggle Dark Mode</button>
+            <a href="#">🚪 Logout</a>
+          </div>
+        </div>
+      </header>
+
+      <section class="nf-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="nf-flash-wrap">
+              {% for category, message in messages %}
+                <div class="nf-flash {{ category }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}
+        <div class="nf-content-card">
+          <h2 style="margin-top:0;">Welcome to NE FRESH Admin</h2>
+          <p style="color:var(--nf-muted);">Start building your admin pages by extending this base template.</p>
+        </div>
+        {% endblock %}
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const html = document.documentElement;
+      const body = document.body;
+
+      const sidebarToggle = document.getElementById('nfSidebarToggle');
+      const mobileMenu = document.getElementById('nfMobileMenu');
+      const mobileBackdrop = document.getElementById('nfMobileBackdrop');
+
+      const profileBtn = document.getElementById('nfProfileBtn');
+      const profileMenu = document.getElementById('nfProfileMenu');
+
+      const themeToggle = document.getElementById('nfThemeToggle');
+      const profileThemeBtn = document.getElementById('nfProfileThemeBtn');
+      const themeIcon = document.getElementById('nfThemeIcon');
+
+      const menuSearch = document.getElementById('nfMenuSearch');
+      const menuItems = document.querySelectorAll('[data-menu-item]');
+
+      const savedTheme = localStorage.getItem('neFreshTheme') || 'light';
+      const savedSidebar = localStorage.getItem('neFreshSidebarCollapsed');
+
+      html.setAttribute('data-theme', savedTheme);
+
+      if (themeIcon) {
+        themeIcon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+      }
+
+      if (savedSidebar === '1') {
+        body.classList.add('sidebar-collapsed');
+      }
+
+      function toggleTheme() {
+        const current = html.getAttribute('data-theme') || 'light';
+        const next = current === 'dark' ? 'light' : 'dark';
+
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('neFreshTheme', next);
+
+        if (themeIcon) {
+          themeIcon.textContent = next === 'dark' ? '☀️' : '🌙';
+        }
+      }
+
+      if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+      }
+
+      if (profileThemeBtn) {
+        profileThemeBtn.addEventListener('click', toggleTheme);
+      }
+
+      if (sidebarToggle) {
+        sidebarToggle.addEventListener('click', function () {
+          body.classList.toggle('sidebar-collapsed');
+          localStorage.setItem(
+            'neFreshSidebarCollapsed',
+            body.classList.contains('sidebar-collapsed') ? '1' : '0'
+          );
+        });
+      }
+
+      if (mobileMenu) {
+        mobileMenu.addEventListener('click', function () {
+          body.classList.add('sidebar-open');
+        });
+      }
+
+      if (mobileBackdrop) {
+        mobileBackdrop.addEventListener('click', function () {
+          body.classList.remove('sidebar-open');
+        });
+      }
+
+      document.querySelectorAll('[data-dropdown-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          const dropdown = btn.closest('.nf-dropdown');
+          if (dropdown) {
+            dropdown.classList.toggle('open');
+          }
+        });
+      });
+
+      if (profileBtn && profileMenu) {
+        profileBtn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          profileMenu.classList.toggle('open');
+        });
+
+        document.addEventListener('click', function () {
+          profileMenu.classList.remove('open');
+        });
+
+        profileMenu.addEventListener('click', function (event) {
+          event.stopPropagation();
+        });
+      }
+
+      if (menuSearch) {
+        menuSearch.addEventListener('input', function () {
+          const query = menuSearch.value.trim().toLowerCase();
+
+          menuItems.forEach(function (item) {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(query) ? '' : 'none';
+          });
+        });
+      }
+    })();
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

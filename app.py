@@ -3052,10 +3052,15 @@ def admin_approvals():
     flash('Approval feature under development.', 'info')
     return redirect(url_for('admin_dashboard'))
 
-@app.route('/admin/create-store', methods=['GET','POST'])
+@app.route('/admin/create-store', methods=['GET', 'POST'])
 @login_required(role='admin')
 def admin_create_store():
+
+    # =========================
+    # CREATE STORE
+    # =========================
     if request.method == 'POST':
+
         name = request.form.get('name', '').strip()
         email = request.form.get('email', '').lower().strip()
         phone_raw = request.form.get('phone', '').strip()
@@ -3069,18 +3074,30 @@ def admin_create_store():
         latitude = None
         longitude = None
 
+        # =========================
+        # PARSE LATITUDE
+        # =========================
         try:
             latitude = float(lat_raw) if lat_raw and str(lat_raw).strip() else None
         except Exception:
             latitude = None
 
+        # =========================
+        # PARSE LONGITUDE
+        # =========================
         try:
             longitude = float(lng_raw) if lng_raw and str(lng_raw).strip() else None
         except Exception:
             longitude = None
 
+        # =========================
+        # NORMALIZE PHONE
+        # =========================
         phone = normalize_phone(phone_raw)
 
+        # =========================
+        # VALIDATION
+        # =========================
         if not name or not email or not phone or not password or not store_name:
             flash("Please fill all required fields.", "warning")
             return redirect(url_for('admin_create_store'))
@@ -3089,6 +3106,9 @@ def admin_create_store():
             flash("Password must be at least 6 characters.", "warning")
             return redirect(url_for('admin_create_store'))
 
+        # =========================
+        # CHECK EXISTING USER
+        # =========================
         existing = mongo.users.find_one({
             "$or": [
                 {"email": email},
@@ -3100,7 +3120,11 @@ def admin_create_store():
             flash("Email or phone already exists. Use different details.", "warning")
             return redirect(url_for('admin_create_store'))
 
+        # =========================
+        # INSERT STORE USER
+        # =========================
         try:
+
             result = mongo.users.insert_one({
                 "name": name,
                 "email": email,
@@ -3114,6 +3138,9 @@ def admin_create_store():
 
             user_id = str(result.inserted_id)
 
+            # =========================
+            # INSERT STORE
+            # =========================
             mongo.stores.insert_one({
                 "user_id": user_id,
                 "store_name": store_name,
@@ -3125,16 +3152,43 @@ def admin_create_store():
             })
 
         except DuplicateKeyError:
-            flash("Email or phone already exists. Please use different details.", "danger")
-            return redirect(url_for('admin_create_store'))
-        except Exception as e:
-            flash(f"Store creation failed: {e}", "danger")
+
+            flash(
+                "Email or phone already exists. Please use different details.",
+                "danger"
+            )
+
             return redirect(url_for('admin_create_store'))
 
-        flash("Store created.", "success")
+        except Exception as e:
+
+            flash(f"Store creation failed: {e}", "danger")
+
+            return redirect(url_for('admin_create_store'))
+
+        flash("Store created successfully.", "success")
+
         return redirect(url_for('admin_create_store'))
 
-    return render_template('admin_create_store.html', user=current_user())
+    # =========================
+    # DASHBOARD METRICS
+    # =========================
+    metrics = {
+        "stores": mongo.stores.count_documents({}),
+        "orders": mongo.orders.count_documents({}),
+        "users": mongo.users.count_documents({"role": "customer"}),
+        "products": mongo.products.count_documents({})
+    }
+
+    # =========================
+    # RENDER PAGE
+    # =========================
+    return render_template(
+        'admin_create_store.html',
+        user=current_user(),
+        metrics=metrics
+    )
+    
 
 @app.route('/admin/create-delivery', methods=['GET','POST'])
 @login_required(role='admin')

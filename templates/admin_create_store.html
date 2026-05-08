@@ -1,422 +1,1044 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
+
+{% set active_page = "stores" %}
+
+{% block title %}Create Store | NE FRESH{% endblock %}
+
+{% block page_title %}
+Create Store
+{% endblock %}
+
+{% block page_subtitle %}
+Add new grocery stores, owner details and precise location coordinates.
+{% endblock %}
+
 {% block content %}
 
-<section class="admin-create-store-page" data-page="admin-create-store">
+<section class="nf-create-store-page">
+
   <style>
-    /* ========================================
-       ADMIN CREATE STORE — STORE DASHBOARD THEME
-       ✅ Keeps ALL existing form fields + names + IDs + JS intact
-       ✅ Design swap only (same vibe as your admin/store pages)
-       ✅ Web + Mobile/App responsive
-       Scoped to .admin-create-store-page
-       ======================================== */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-    /* Font imports (page-scoped) */
-    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
+    .nf-create-store-page{
+      --bg:#f5f7fb;
+      --panel:#ffffff;
+      --panel-soft:#f8fbfd;
+      --line:#e8edf3;
+      --text:#334155;
+      --muted:#7b8798;
 
-    .admin-create-store-page{
-      --crimson:#8B0000;
-      --black:#000;
-      --off-white:#FAF9F6;
-      --light-crimson:#FFF5F5;
-      --border-standard:4px;
-      --transition-speed:.3s;
+      --green:#1f5d3f;
+      --green-2:#2f7d57;
+      --green-soft:#e8f7ef;
 
-      width:100vw;
-      margin-left:calc(50% - 50vw);
-      margin-right:calc(50% - 50vw);
+      --orange:#ff9f43;
+      --orange-soft:#fff4e8;
 
-      background:var(--off-white);
-      color:var(--black);
-      font-family:'Cormorant Garamond', serif;
-      font-size:1.125rem;
-      font-weight:bold;
-      line-height:1.6;
-      min-height:100vh;
-      overflow-x:hidden;
+      --danger:#ef4444;
+
+      --shadow:0 10px 30px rgba(15,23,42,.06);
+      --radius:22px;
+
+      width:100%;
+      min-height:100%;
+      background:var(--bg);
+      padding:24px;
+      font-family:'Inter',sans-serif;
+      color:var(--text);
+    }
+
+    .nf-create-store-page *,
+    .nf-create-store-page *::before,
+    .nf-create-store-page *::after{
+      box-sizing:border-box;
+    }
+
+    .nf-create-store-shell{
+      width:100%;
+      max-width:1400px;
+      margin:0 auto;
+    }
+
+    .nf-create-store-hero{
+      background:
+      linear-gradient(
+        135deg,
+        rgba(31,93,63,.95),
+        rgba(47,125,87,.92)
+      );
+      border-radius:28px;
+      padding:34px;
       position:relative;
-      isolation:isolate;
-    }
-    .admin-create-store-page,
-    .admin-create-store-page *{ box-sizing:border-box; }
-
-    /* Page-only reset */
-    .admin-create-store-page *{
-      margin:0;
-      padding:0;
-      border-radius:0 !important;
+      overflow:hidden;
+      margin-bottom:26px;
+      box-shadow:var(--shadow);
     }
 
-    .admin-create-store-page ::selection{ background:var(--crimson); color:#fff; }
-
-    /* Film grain overlay */
-    .admin-create-store-page .grain-overlay{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:1;
-      opacity:.12;
-      background-image:url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    .nf-create-store-hero::before{
+      content:'';
+      position:absolute;
+      width:420px;
+      height:420px;
+      border-radius:50%;
+      background:rgba(255,255,255,.06);
+      right:-120px;
+      top:-180px;
     }
 
-    /* Top bar */
-    .admin-create-store-page .top-bar{
+    .nf-create-store-hero::after{
+      content:'';
+      position:absolute;
+      width:260px;
+      height:260px;
+      border-radius:50%;
+      background:rgba(255,255,255,.05);
+      bottom:-120px;
+      left:-60px;
+    }
+
+    .nf-create-store-hero-content{
       position:relative;
       z-index:2;
-      width:100%;
-      padding:1rem 2rem;
       display:flex;
       justify-content:space-between;
+      align-items:flex-start;
+      gap:30px;
+      flex-wrap:wrap;
+    }
+
+    .nf-create-store-badge{
+      display:inline-flex;
       align-items:center;
-      border-bottom:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      font-family:'Italiana', serif;
-      font-size:.875rem;
-      letter-spacing:.5em;
-      text-transform:uppercase;
-      font-variant:small-caps;
-    }
-
-    /* Hero */
-    .admin-create-store-page .hero-section{
-      position:relative;
-      z-index:2;
-      text-align:center;
-      padding:5.25rem 2rem 4.25rem;
-      border-bottom:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-    }
-    .admin-create-store-page .hero-title{
-      font-family:'Dancing Script', cursive;
-      font-size:clamp(3rem, 10vw, 6rem);
-      color:var(--crimson);
-      font-style:italic;
+      gap:10px;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.15);
+      color:#fff;
+      padding:10px 18px;
+      border-radius:999px;
+      font-size:13px;
       font-weight:700;
-      margin:0 0 .75rem 0;
-      line-height:1.15;
-      text-transform:uppercase;
-    }
-    .admin-create-store-page .hero-subtitle{
-      font-family:'Italiana', serif;
-      font-size:.875rem;
-      letter-spacing:.5em;
-      text-transform:uppercase;
-      font-variant:small-caps;
-      margin-bottom:1.25rem;
-    }
-    .admin-create-store-page .hero-divider{
-      width:6rem;
-      height:4px;
-      background:var(--crimson);
-      margin:0 auto;
+      margin-bottom:18px;
+      backdrop-filter:blur(10px);
     }
 
-    /* Main container */
-    .admin-create-store-page .main-container{
-      position:relative;
-      z-index:2;
-      max-width:1100px;
-      margin:0 auto;
-      padding:3rem 2rem;
+    .nf-create-store-title{
+      color:#fff;
+      font-size:42px;
+      line-height:1.1;
+      font-weight:800;
+      margin:0 0 12px;
     }
 
-    /* Panel */
-    .admin-create-store-page .panel{
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      padding:2rem;
+    .nf-create-store-desc{
+      color:rgba(255,255,255,.82);
+      font-size:15px;
+      max-width:700px;
+      line-height:1.7;
     }
-    .admin-create-store-page .panel.soft{ background:var(--light-crimson); }
 
-    .admin-create-store-page .section-header{
+    .nf-create-store-stats{
       display:flex;
-      align-items:start;
-      gap:1rem;
-      margin-bottom:1.25rem;
+      gap:16px;
+      flex-wrap:wrap;
     }
-    .admin-create-store-page .icon-box{
-      width:48px;height:48px;
-      background:var(--crimson);
-      border:var(--border-standard) solid var(--black);
+
+    .nf-create-stat{
+      min-width:140px;
+      background:rgba(255,255,255,.1);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:20px;
+      padding:18px;
+      backdrop-filter:blur(10px);
+    }
+
+    .nf-create-stat-label{
+      color:rgba(255,255,255,.72);
+      font-size:12px;
+      font-weight:600;
+      margin-bottom:10px;
+    }
+
+    .nf-create-stat-value{
+      color:#fff;
+      font-size:28px;
+      font-weight:800;
+    }
+
+    .nf-form-grid{
+      display:grid;
+      grid-template-columns:1.5fr .9fr;
+      gap:24px;
+      align-items:start;
+    }
+
+    .nf-panel{
+      background:var(--panel);
+      border-radius:var(--radius);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .nf-panel-head{
+      padding:24px 28px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+
+    .nf-panel-title-wrap{
+      display:flex;
+      align-items:center;
+      gap:16px;
+    }
+
+    .nf-panel-icon{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      background:linear-gradient(135deg,var(--green),var(--green-2));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:26px;
+      color:#fff;
+      box-shadow:0 10px 22px rgba(31,93,63,.2);
+    }
+
+    .nf-panel-title{
+      margin:0;
+      font-size:24px;
+      font-weight:800;
+      color:#243447;
+    }
+
+    .nf-panel-subtitle{
+      margin-top:6px;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .nf-form-body{
+      padding:28px;
+    }
+
+    .nf-form-grid-inner{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:22px;
+    }
+
+    .nf-field{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .nf-field.full{
+      grid-column:1/-1;
+    }
+
+    .nf-label{
+      font-size:13px;
+      font-weight:800;
+      color:#314155;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      letter-spacing:.02em;
+    }
+
+    .nf-label span{
+      color:var(--orange);
+    }
+
+    .nf-input-wrap{
+      position:relative;
+    }
+
+    .nf-input-icon{
+      position:absolute;
+      left:16px;
+      top:50%;
+      transform:translateY(-50%);
+      font-size:16px;
+      opacity:.6;
+    }
+
+    .nf-input,
+    .nf-textarea{
+      width:100%;
+      border:1px solid var(--line);
+      background:#fff;
+      min-height:58px;
+      border-radius:16px;
+      padding:0 18px 0 48px;
+      font-size:15px;
+      color:var(--text);
+      font-weight:600;
+      transition:.22s ease;
+      outline:none;
+    }
+
+    .nf-textarea{
+      min-height:120px;
+      padding-top:16px;
+      resize:vertical;
+    }
+
+    .nf-input:focus,
+    .nf-textarea:focus{
+      border-color:#74d39f;
+      box-shadow:0 0 0 4px rgba(116,211,159,.14);
+    }
+
+    .nf-location-card{
+      margin-top:28px;
+      background:linear-gradient(
+        180deg,
+        #f8fffb,
+        #f3fbf7
+      );
+      border:1px solid #daf1e4;
+      border-radius:22px;
+      overflow:hidden;
+    }
+
+    .nf-location-head{
+      padding:20px 22px;
+      border-bottom:1px solid #e1f3e7;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+
+    .nf-location-title{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    .nf-location-icon{
+      width:50px;
+      height:50px;
+      border-radius:16px;
+      background:linear-gradient(135deg,var(--orange),#ffbc73);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+      font-size:22px;
+    }
+
+    .nf-location-name{
+      font-size:18px;
+      font-weight:800;
+      color:#264653;
+    }
+
+    .nf-location-sub{
+      margin-top:4px;
+      font-size:13px;
+      color:#7d8b9a;
+    }
+
+    .nf-location-btn{
+      border:none;
+      background:linear-gradient(135deg,var(--green),var(--green-2));
+      color:#fff;
+      height:50px;
+      padding:0 20px;
+      border-radius:14px;
+      font-size:13px;
+      font-weight:800;
+      cursor:pointer;
+      transition:.2s ease;
+      box-shadow:0 10px 18px rgba(31,93,63,.18);
+    }
+
+    .nf-location-btn:hover{
+      transform:translateY(-2px);
+    }
+
+    .nf-location-body{
+      padding:22px;
+    }
+
+    .nf-location-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:18px;
+    }
+
+    .nf-loc-msg{
+      margin-top:14px;
+      font-size:14px;
+      font-weight:700;
+      color:#15803d;
+    }
+
+    .nf-submit-wrap{
+      margin-top:30px;
+      display:flex;
+      justify-content:flex-end;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+
+    .nf-btn-secondary{
+      border:none;
+      background:#eef2f7;
+      color:#516172;
+      height:56px;
+      padding:0 24px;
+      border-radius:16px;
+      font-size:14px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .nf-btn-primary{
+      border:none;
+      background:linear-gradient(135deg,var(--green),var(--green-2));
+      color:#fff;
+      height:56px;
+      padding:0 30px;
+      border-radius:16px;
+      font-size:14px;
+      font-weight:800;
+      cursor:pointer;
+      box-shadow:0 16px 28px rgba(31,93,63,.22);
+      transition:.22s ease;
+    }
+
+    .nf-btn-primary:hover{
+      transform:translateY(-2px);
+    }
+
+    .nf-side-stack{
+      display:grid;
+      gap:24px;
+    }
+
+    .nf-side-card{
+      background:#fff;
+      border-radius:var(--radius);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .nf-side-head{
+      padding:22px;
+      border-bottom:1px solid var(--line);
+    }
+
+    .nf-side-title{
+      font-size:18px;
+      font-weight:800;
+      color:#27374a;
+      margin-bottom:6px;
+    }
+
+    .nf-side-sub{
+      color:#7b8798;
+      font-size:13px;
+      line-height:1.6;
+    }
+
+    .nf-side-body{
+      padding:22px;
+    }
+
+    .nf-tip-list{
+      display:grid;
+      gap:14px;
+    }
+
+    .nf-tip{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+    }
+
+    .nf-tip-dot{
+      width:34px;
+      height:34px;
+      border-radius:12px;
+      background:var(--green-soft);
+      color:var(--green);
       display:flex;
       align-items:center;
       justify-content:center;
       flex-shrink:0;
-      color:#fff;
-      font-family:'Italiana', serif;
-      font-weight:700;
+      font-weight:800;
+    }
+
+    .nf-tip-text{
+      color:#667587;
+      font-size:14px;
+      line-height:1.7;
+    }
+
+    .nf-status-box{
+      border-radius:18px;
+      background:#f9fbfd;
+      border:1px solid #edf2f7;
+      padding:18px;
+    }
+
+    .nf-status-label{
+      font-size:12px;
+      font-weight:800;
+      color:#7d8795;
+      text-transform:uppercase;
       letter-spacing:.08em;
+      margin-bottom:10px;
     }
-    .admin-create-store-page h2{
-      font-family:'Playfair Display', serif;
-      font-size:1.8rem;
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-      margin:0;
-    }
-    .admin-create-store-page .muted{ color:rgba(0,0,0,.65); }
-    .admin-create-store-page p.muted{ font-weight:700; font-size:1rem; margin-top:.35rem; }
 
-    /* Form layout (keeps your same inputs/labels) */
-    .admin-create-store-page form.form{
+    .nf-status-value{
+      font-size:32px;
+      font-weight:800;
+      color:#243447;
+    }
+
+    .nf-status-row{
       display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
-      gap:14px 16px;
-      margin-top:1.25rem;
-    }
-    .admin-create-store-page form.form label{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      font-family:'Italiana', serif;
-      font-size:.75rem;
-      letter-spacing:.3em;
-      text-transform:uppercase;
-      font-weight:900;
-      color:var(--black);
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:16px;
     }
 
-    .admin-create-store-page input{
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      color:var(--black);
-      padding:.85rem .95rem;
-      font-family:'Cormorant Garamond', serif;
-      font-size:1.05rem;
-      font-weight:800;
-      outline:none;
-      width:100%;
-    }
-    .admin-create-store-page input::placeholder{
-      color:rgba(0,0,0,.55);
-      font-weight:800;
-    }
+    @media(max-width:1180px){
 
-    /* Make "Address" span full width (still same field) */
-    .admin-create-store-page form.form label:nth-of-type(7){
-      grid-column:1 / -1;
-    }
-
-    /* Your <hr> kept, themed */
-    .admin-create-store-page hr{
-      grid-column:1 / -1;
-      border:none;
-      height:2px;
-      background:var(--black);
-      opacity:.85 !important;
-      margin:12px 0 !important;
-    }
-
-    /* Store location block (same markup, just themed) */
-    .admin-create-store-page .loc-block{
-      grid-column:1 / -1;
-      border:var(--border-standard) solid var(--black) !important;
-      background:var(--light-crimson);
-      padding:16px !important;
-      max-width:none !important;
-    }
-    .admin-create-store-page .loc-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-    .admin-create-store-page .loc-head h3{
-      margin:0 !important;
-      font-family:'Playfair Display', serif;
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-      font-size:1.2rem;
-    }
-    .admin-create-store-page .loc-grid{
-      display:grid !important;
-      grid-template-columns:repeat(2, minmax(0,1fr)) !important;
-      gap:12px !important;
-      margin-top:12px !important;
-    }
-    .admin-create-store-page #locMsg{
-      display:block;
-      margin-top:10px;
-      font-family:'Cormorant Garamond', serif;
-      font-size:1rem;
-      font-weight:800;
-    }
-
-    /* Buttons (keep your .btn usage but scoped) */
-    .admin-create-store-page .btn,
-    .admin-create-store-page button{
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      color:var(--black);
-      padding:.75rem 1.1rem;
-      font-family:'Italiana', serif;
-      font-size:.75rem;
-      letter-spacing:.3em;
-      text-transform:uppercase;
-      font-weight:900;
-      transition:all var(--transition-speed);
-    }
-    .admin-create-store-page .btn:hover,
-    .admin-create-store-page button:hover{
-      background:var(--black);
-      color:#fff;
-    }
-
-    /* Submit button full width as you had */
-    .admin-create-store-page .submit-row{
-      grid-column:1 / -1;
-      margin-top:2px;
-    }
-    .admin-create-store-page .submit-row .btn{
-      width:100%;
-    }
-
-    /* focus */
-    .admin-create-store-page *:focus-visible{
-      outline:3px solid var(--crimson);
-      outline-offset:3px;
-    }
-
-    @media (max-width: 900px){
-      .admin-create-store-page .top-bar{ padding:1rem 1rem; letter-spacing:.35em; }
-      .admin-create-store-page .hero-section{ padding:3.5rem 1rem 3rem; }
-      .admin-create-store-page .main-container{ padding:2rem 1rem; }
-      .admin-create-store-page .panel{ padding:1.5rem; }
-
-      .admin-create-store-page form.form{
+      .nf-form-grid{
         grid-template-columns:1fr;
       }
-      .admin-create-store-page .loc-grid{
-        grid-template-columns:1fr !important;
-      }
-      .admin-create-store-page .loc-head .btn{
-        width:100%;
-      }
     }
 
-    @media (prefers-reduced-motion: reduce){
-      .admin-create-store-page *,
-      .admin-create-store-page *::before,
-      .admin-create-store-page *::after{
-        animation-duration:0.01ms !important;
-        animation-iteration-count:1 !important;
-        transition-duration:0.01ms !important;
-        scroll-behavior:auto !important;
+    @media(max-width:760px){
+
+      .nf-create-store-page{
+        padding:16px;
+      }
+
+      .nf-create-store-hero{
+        padding:24px;
+      }
+
+      .nf-create-store-title{
+        font-size:32px;
+      }
+
+      .nf-form-body{
+        padding:20px;
+      }
+
+      .nf-form-grid-inner{
+        grid-template-columns:1fr;
+      }
+
+      .nf-location-grid{
+        grid-template-columns:1fr;
+      }
+
+      .nf-submit-wrap{
+        flex-direction:column;
+      }
+
+      .nf-btn-primary,
+      .nf-btn-secondary{
+        width:100%;
+      }
+
+      .nf-status-row{
+        grid-template-columns:1fr;
       }
     }
   </style>
 
-  <div class="grain-overlay" aria-hidden="true"></div>
+  <div class="nf-create-store-shell">
 
-  <div class="top-bar">
-    <span>EST. 2018</span>
-    <span>MIZORAM, INDIA</span>
-  </div>
+    <!-- HERO -->
+    <div class="nf-create-store-hero">
 
-  <header class="hero-section">
-    <h1 class="hero-title">Create Store</h1>
-    <p class="hero-subtitle">Owner • Store • Location</p>
-    <div class="hero-divider"></div>
-  </header>
+      <div class="nf-create-store-hero-content">
 
-  <main class="main-container">
-    <section class="panel soft" aria-label="Create Store Form">
-      <div class="section-header">
-        <div class="icon-box" aria-hidden="true">🏪</div>
         <div>
-          <h2>Create Store</h2>
-          <p class="muted">Fill owner details, store info, and capture precise coordinates.</p>
+          <div class="nf-create-store-badge">
+            🏪 NE FRESH STORE MANAGEMENT
+          </div>
+
+          <h1 class="nf-create-store-title">
+            Create New Grocery Store
+          </h1>
+
+          <div class="nf-create-store-desc">
+            Register store owners, configure store details, assign credentials,
+            and capture precise location coordinates for delivery mapping and logistics.
+          </div>
         </div>
+
+        <div class="nf-create-store-stats">
+
+          <div class="nf-create-stat">
+            <div class="nf-create-stat-label">
+              Active Stores
+            </div>
+
+            <div class="nf-create-stat-value">
+              {{ metrics.stores|default(15) if metrics else 15|default(15) }}
+            </div>
+          </div>
+
+          <div class="nf-create-stat">
+            <div class="nf-create-stat-label">
+              Total Orders
+            </div>
+
+            <div class="nf-create-stat-value">
+              {{ metrics.orders|default(40) }}
+            </div>
+          </div>
+
+        </div>
+
       </div>
 
-      <!-- ✅ Your form content kept intact (same names/IDs/JS hooks) -->
-      <form method="post" class="form" id="createStoreForm">
-        <label>Owner Name <input name="name" required></label>
-        <label>Owner Email <input name="email" type="email" required></label>
-        <label>Owner Phone <input name="phone" type="tel" required></label>
-        <label>Temp Password <input name="password" type="text" required></label>
-        <label>Store Name <input name="store_name" required></label>
-        <label>Address <input name="address"></label>
+    </div>
 
-        <hr style="margin:18px 0; opacity:.25;">
+    <div class="nf-form-grid">
 
-        <!-- Store Location (same content, wrapped with classes only) -->
-        <div class="loc-block" style="margin-top:16px; padding:14px; border:1px solid #e5e5e5; border-radius:12px; max-width:650px;">
-          <div class="loc-head" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-            <h3 style="margin:0;">Store Location</h3>
-            <button type="button" id="btnGetLoc" class="btn" style="padding:10px 14px;">
-              📍 Use Current Location
-            </button>
+      <!-- LEFT -->
+      <div class="nf-panel">
+
+        <div class="nf-panel-head">
+
+          <div class="nf-panel-title-wrap">
+
+            <div class="nf-panel-icon">
+              🏬
+            </div>
+
+            <div>
+              <h2 class="nf-panel-title">
+                Store Registration Form
+              </h2>
+
+              <div class="nf-panel-subtitle">
+                Complete all required details to onboard a new grocery store.
+              </div>
+            </div>
+
           </div>
 
-          <div class="loc-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
-            <label>
-              Latitude
-              <input id="storeLat" name="latitude" type="text" placeholder="e.g. 23.7271" required>
-            </label>
+        </div>
 
-            <label>
-              Longitude
-              <input id="storeLng" name="longitude" type="text" placeholder="e.g. 92.7176" required>
-            </label>
+        <div class="nf-form-body">
+
+          <!-- ORIGINAL FORM -->
+          <form method="post" id="createStoreForm">
+
+            <div class="nf-form-grid-inner">
+
+              <div class="nf-field">
+                <label class="nf-label">
+                  Owner Name <span>*</span>
+                </label>
+
+                <div class="nf-input-wrap">
+                  <span class="nf-input-icon">👤</span>
+
+                  <input
+                    class="nf-input"
+                    name="name"
+                    required
+                    placeholder="Enter owner full name"
+                  >
+                </div>
+              </div>
+
+              <div class="nf-field">
+                <label class="nf-label">
+                  Owner Email <span>*</span>
+                </label>
+
+                <div class="nf-input-wrap">
+                  <span class="nf-input-icon">📧</span>
+
+                  <input
+                    class="nf-input"
+                    name="email"
+                    type="email"
+                    required
+                    placeholder="owner@email.com"
+                  >
+                </div>
+              </div>
+
+              <div class="nf-field">
+                <label class="nf-label">
+                  Owner Phone <span>*</span>
+                </label>
+
+                <div class="nf-input-wrap">
+                  <span class="nf-input-icon">📞</span>
+
+                  <input
+                    class="nf-input"
+                    name="phone"
+                    type="tel"
+                    required
+                    placeholder="+91 XXXXX XXXXX"
+                  >
+                </div>
+              </div>
+
+              <div class="nf-field">
+                <label class="nf-label">
+                  Temporary Password <span>*</span>
+                </label>
+
+                <div class="nf-input-wrap">
+                  <span class="nf-input-icon">🔐</span>
+
+                  <input
+                    class="nf-input"
+                    name="password"
+                    type="text"
+                    required
+                    placeholder="Temporary password"
+                  >
+                </div>
+              </div>
+
+              <div class="nf-field full">
+                <label class="nf-label">
+                  Store Name <span>*</span>
+                </label>
+
+                <div class="nf-input-wrap">
+                  <span class="nf-input-icon">🏪</span>
+
+                  <input
+                    class="nf-input"
+                    name="store_name"
+                    required
+                    placeholder="Enter grocery store name"
+                  >
+                </div>
+              </div>
+
+              <div class="nf-field full">
+                <label class="nf-label">
+                  Store Address
+                </label>
+
+                <div class="nf-input-wrap">
+                  <span class="nf-input-icon">📍</span>
+
+                  <textarea
+                    class="nf-textarea"
+                    name="address"
+                    placeholder="Enter full store address"
+                  ></textarea>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- LOCATION -->
+            <div class="nf-location-card">
+
+              <div class="nf-location-head">
+
+                <div class="nf-location-title">
+
+                  <div class="nf-location-icon">
+                    📌
+                  </div>
+
+                  <div>
+                    <div class="nf-location-name">
+                      Store Coordinates
+                    </div>
+
+                    <div class="nf-location-sub">
+                      Capture exact location for delivery mapping.
+                    </div>
+                  </div>
+
+                </div>
+
+                <button
+                  type="button"
+                  id="btnGetLoc"
+                  class="nf-location-btn"
+                >
+                  📍 Use Current Location
+                </button>
+
+              </div>
+
+              <div class="nf-location-body">
+
+                <div class="nf-location-grid">
+
+                  <div class="nf-field">
+                    <label class="nf-label">
+                      Latitude <span>*</span>
+                    </label>
+
+                    <div class="nf-input-wrap">
+                      <span class="nf-input-icon">🌍</span>
+
+                      <input
+                        id="storeLat"
+                        class="nf-input"
+                        name="latitude"
+                        type="text"
+                        placeholder="e.g. 23.7271"
+                        required
+                      >
+                    </div>
+                  </div>
+
+                  <div class="nf-field">
+                    <label class="nf-label">
+                      Longitude <span>*</span>
+                    </label>
+
+                    <div class="nf-input-wrap">
+                      <span class="nf-input-icon">🧭</span>
+
+                      <input
+                        id="storeLng"
+                        class="nf-input"
+                        name="longitude"
+                        type="text"
+                        placeholder="e.g. 92.7176"
+                        required
+                      >
+                    </div>
+                  </div>
+
+                </div>
+
+                <small id="locMsg" class="nf-loc-msg"></small>
+
+              </div>
+
+            </div>
+
+            <div class="nf-submit-wrap">
+
+              <button
+                type="reset"
+                class="nf-btn-secondary"
+              >
+                Reset Form
+              </button>
+
+              <button
+                class="nf-btn-primary"
+              >
+                Create Store
+              </button>
+
+            </div>
+
+          </form>
+
+        </div>
+
+      </div>
+
+      <!-- RIGHT -->
+      <div class="nf-side-stack">
+
+        <div class="nf-side-card">
+
+          <div class="nf-side-head">
+            <div class="nf-side-title">
+              Store Setup Guide
+            </div>
+
+            <div class="nf-side-sub">
+              Important onboarding instructions for store registration.
+            </div>
           </div>
 
-          <small id="locMsg" style="display:block; margin-top:10px; color:#0a7a2f;"></small>
+          <div class="nf-side-body">
+
+            <div class="nf-tip-list">
+
+              <div class="nf-tip">
+                <div class="nf-tip-dot">1</div>
+
+                <div class="nf-tip-text">
+                  Ensure store owner email and phone number are unique before creating.
+                </div>
+              </div>
+
+              <div class="nf-tip">
+                <div class="nf-tip-dot">2</div>
+
+                <div class="nf-tip-text">
+                  Use accurate coordinates to improve delivery tracking and customer mapping.
+                </div>
+              </div>
+
+              <div class="nf-tip">
+                <div class="nf-tip-dot">3</div>
+
+                <div class="nf-tip-text">
+                  Temporary password should be shared securely with the store owner.
+                </div>
+              </div>
+
+              <div class="nf-tip">
+                <div class="nf-tip-dot">4</div>
+
+                <div class="nf-tip-text">
+                  Newly created stores remain visible instantly in the admin store list.
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
 
-        <div class="submit-row">
-          <button class="btn" style="margin-top:16px; width:100%;">Create</button>
+        <div class="nf-side-card">
+
+          <div class="nf-side-head">
+            <div class="nf-side-title">
+              Store Statistics
+            </div>
+
+            <div class="nf-side-sub">
+              Current platform onboarding overview.
+            </div>
+          </div>
+
+          <div class="nf-side-body">
+
+            <div class="nf-status-row">
+
+              <div class="nf-status-box">
+                <div class="nf-status-label">
+                  Active Stores
+                </div>
+
+                <div class="nf-status-value">
+                  {{ metrics.stores|default(15) if metrics else 15|default(15) }}
+                </div>
+              </div>
+
+              <div class="nf-status-box">
+                <div class="nf-status-label">
+                  Customers
+                </div>
+
+                <div class="nf-status-value">
+                  {{ metrics.users|default(49) }}
+                </div>
+              </div>
+
+              <div class="nf-status-box">
+                <div class="nf-status-label">
+                  Orders
+                </div>
+
+                <div class="nf-status-value">
+                  {{ metrics.orders|default(40) }}
+                </div>
+              </div>
+
+              <div class="nf-status-box">
+                <div class="nf-status-label">
+                  Products
+                </div>
+
+                <div class="nf-status-value">
+                  {{ metrics.products|default(56) }}
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
-      </form>
-    </section>
-  </main>
+
+      </div>
+
+    </div>
+
+  </div>
 
   <script>
-  (function(){
-    const btn = document.getElementById("btnGetLoc");
-    const latInput = document.getElementById("storeLat");
-    const lngInput = document.getElementById("storeLng");
-    const msg = document.getElementById("locMsg");
+    (function(){
 
-    if (!btn || !latInput || !lngInput) return;
+      const btn = document.getElementById("btnGetLoc");
+      const latInput = document.getElementById("storeLat");
+      const lngInput = document.getElementById("storeLng");
+      const msg = document.getElementById("locMsg");
 
-    btn.addEventListener("click", function(){
-      msg.textContent = "Getting location…";
+      if (!btn || !latInput || !lngInput) return;
 
-      if (!navigator.geolocation){
-        msg.textContent = "Geolocation not supported in this browser.";
-        msg.style.color = "crimson";
-        return;
-      }
+      btn.addEventListener("click", function(){
 
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const acc = pos.coords.accuracy;
+        msg.textContent = "Getting location...";
 
-          // ✅ THIS is the important part: set input.value (not just display)
-          latInput.value = lat.toFixed(6);
-          lngInput.value = lng.toFixed(6);
+        if (!navigator.geolocation){
 
-          msg.style.color = "#0a7a2f";
-          msg.textContent = `Location captured ✅ (Accuracy ~${Math.round(acc)}m)`;
-        },
-        (err) => {
-          msg.style.color = "crimson";
-          msg.textContent = "Location error: " + err.message;
-        },
-        { enableHighAccuracy:true, timeout:12000, maximumAge:0 }
-      );
-    });
-  })();
+          msg.textContent = "Geolocation not supported in this browser.";
+          msg.style.color = "#ef4444";
+
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+
+          (pos) => {
+
+            const lat = pos.coords.latitude;
+            const lng = pos.coords.longitude;
+            const acc = pos.coords.accuracy;
+
+            latInput.value = lat.toFixed(6);
+            lngInput.value = lng.toFixed(6);
+
+            msg.style.color = "#15803d";
+
+            msg.textContent =
+              `Location captured successfully ✅ Accuracy ~${Math.round(acc)}m`;
+          },
+
+          (err) => {
+
+            msg.style.color = "#ef4444";
+            msg.textContent = "Location error: " + err.message;
+          },
+
+          {
+            enableHighAccuracy:true,
+            timeout:12000,
+            maximumAge:0
+          }
+        );
+
+      });
+
+    })();
   </script>
+
 </section>
 
 {% endblock %}
