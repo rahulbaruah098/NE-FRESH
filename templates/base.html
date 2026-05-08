@@ -3650,26 +3650,28 @@ footer.footer .newsletter-pop{
 
 
 <script>
-  (function forceTopOnReload(){
-    // ✅ Stop browser from restoring old scroll position
-    if ('scrollRestoration' in history) {
-      history.scrollRestoration = 'manual';
-    }
+(function forceTopOnReload(){
+  if(document.getElementById('productsPage')) return;
 
-    // ✅ Always start at top on hard refresh / reload
-    const goTop = () => window.scrollTo(0, 0);
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+  }
 
-    // Run ASAP
+  const navEntry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+  const isReload = navEntry ? navEntry.type === 'reload' : (performance.navigation && performance.navigation.type === 1);
+
+  if(isReload) return;
+
+  const goTop = () => window.scrollTo(0, 0);
+
+  goTop();
+
+  window.addEventListener('load', () => {
     goTop();
-
-    // Run after render (covers images/layout shifts)
-    window.addEventListener('load', () => {
-      // double-tap is intentional for Safari/Chrome quirks
-      goTop();
-      requestAnimationFrame(goTop);
-      setTimeout(goTop, 50);
-    });
-  })();
+    requestAnimationFrame(goTop);
+    setTimeout(goTop, 50);
+  });
+})();
 </script>
 
   
