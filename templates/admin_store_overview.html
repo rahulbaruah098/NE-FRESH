@@ -1,0 +1,861 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "store" %}
+{% set active_page = "store_overview" %}
+
+{% block title %}Store Overview | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Store Overview{% endblock %}
+{% block page_subtitle %}Monitor store performance, earnings, transactions and popular stores.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-store-overview {
+    --so-green: var(--nf-green, #00A859);
+    --so-green-dark: var(--nf-green-dark, #007A43);
+    --so-green-deep: var(--nf-green-deep, #075C3B);
+    --so-green-soft: var(--nf-green-soft, #E9FFF3);
+    --so-orange: var(--nf-orange, #FF8A1F);
+    --so-orange-soft: var(--nf-orange-soft, #FFF3E7);
+    --so-bg: var(--nf-bg, #F8FFFB);
+    --so-surface: var(--nf-surface, #FFFFFF);
+    --so-surface-2: var(--nf-surface-2, #F4F9F6);
+    --so-text: var(--nf-text, #1F2D26);
+    --so-muted: var(--nf-muted, #6A7A72);
+    --so-line: var(--nf-line, #DDECE4);
+    --so-danger: var(--nf-danger, #EF4444);
+    --so-info: var(--nf-info, #0284C7);
+    --so-shadow: var(--nf-shadow, 0 16px 40px rgba(17, 64, 38, .08));
+    --so-shadow-heavy: var(--nf-shadow-heavy, 0 24px 70px rgba(17, 64, 38, .18));
+
+    display: grid;
+    gap: 18px;
+  }
+
+  .nf-store-overview,
+  .nf-store-overview * {
+    box-sizing: border-box;
+  }
+
+  .so-hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--so-line);
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 88% 18%, rgba(255, 138, 31, .18), transparent 32%),
+      radial-gradient(circle at 8% 0%, rgba(0, 168, 89, .18), transparent 36%),
+      linear-gradient(135deg, var(--so-surface), var(--so-surface-2));
+    box-shadow: var(--so-shadow);
+    padding: clamp(18px, 3vw, 30px);
+  }
+
+  .so-hero-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .so-kicker {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: var(--so-green-soft);
+    color: var(--so-green-dark);
+    border: 1px solid rgba(0, 168, 89, .18);
+    font-size: .78rem;
+    font-weight: 850;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  .so-hero h2 {
+    margin: 12px 0 8px;
+    color: var(--so-text);
+    font-size: clamp(1.55rem, 3vw, 2.3rem);
+    line-height: 1.08;
+    letter-spacing: -.05em;
+    font-weight: 900;
+  }
+
+  .so-hero p {
+    margin: 0;
+    max-width: 760px;
+    color: var(--so-muted);
+    font-size: .96rem;
+    line-height: 1.65;
+    font-weight: 600;
+  }
+
+  .so-hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+
+  .so-hero-card {
+    width: 210px;
+    border-radius: 22px;
+    border: 1px solid var(--so-line);
+    background: rgba(255,255,255,.72);
+    box-shadow: 0 16px 42px rgba(17,64,38,.08);
+    padding: 16px;
+  }
+
+  .so-hero-card span {
+    display: block;
+    color: var(--so-muted);
+    font-size: .78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  .so-hero-card strong {
+    display: block;
+    margin-top: 7px;
+    color: var(--so-text);
+    font-size: 1.7rem;
+    line-height: 1;
+    font-weight: 950;
+  }
+
+  .so-btn {
+    min-height: 42px;
+    border: 1px solid var(--so-line);
+    border-radius: 14px;
+    background: var(--so-surface);
+    color: var(--so-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 14px;
+    font-size: .86rem;
+    font-weight: 850;
+    text-decoration: none;
+    transition: .22s ease;
+  }
+
+  .so-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--so-shadow);
+    border-color: rgba(0,168,89,.32);
+  }
+
+  .so-btn-primary {
+    background: var(--so-green);
+    border-color: var(--so-green);
+    color: #fff;
+  }
+
+  .so-btn-primary:hover {
+    background: var(--so-green-dark);
+    border-color: var(--so-green-dark);
+  }
+
+  .so-btn-soft {
+    background: var(--so-green-soft);
+    color: var(--so-green-dark);
+    border-color: rgba(0,168,89,.18);
+  }
+
+  .so-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .so-kpi {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    border: 1px solid var(--so-line);
+    background: var(--so-surface);
+    box-shadow: var(--so-shadow);
+    padding: 18px;
+    min-height: 132px;
+  }
+
+  .so-kpi::after {
+    content: "";
+    position: absolute;
+    width: 92px;
+    height: 92px;
+    border-radius: 999px;
+    right: -38px;
+    top: -34px;
+    background: rgba(0,168,89,.09);
+  }
+
+  .so-kpi.orange::after { background: rgba(255,138,31,.12); }
+  .so-kpi.blue::after { background: rgba(2,132,199,.12); }
+  .so-kpi.red::after { background: rgba(239,68,68,.11); }
+
+  .so-kpi-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: var(--so-green-soft);
+    color: var(--so-green-dark);
+    font-size: 1.3rem;
+  }
+
+  .so-kpi.orange .so-kpi-icon {
+    background: var(--so-orange-soft);
+    color: var(--so-orange);
+  }
+
+  .so-kpi.blue .so-kpi-icon {
+    background: #E0F2FE;
+    color: var(--so-info);
+  }
+
+  .so-kpi.red .so-kpi-icon {
+    background: #FFF1F1;
+    color: var(--so-danger);
+  }
+
+  .so-kpi-label {
+    margin-top: 14px;
+    color: var(--so-muted);
+    font-size: .78rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .so-kpi-value {
+    margin-top: 5px;
+    color: var(--so-text);
+    font-size: clamp(1.45rem, 2.5vw, 2rem);
+    line-height: 1;
+    font-weight: 950;
+    letter-spacing: -.04em;
+  }
+
+  .so-kpi-meta {
+    margin-top: 8px;
+    color: var(--so-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .so-analytics-grid {
+    display: grid;
+    grid-template-columns: 1.2fr .8fr;
+    gap: 16px;
+  }
+
+  .so-panel {
+    border-radius: 22px;
+    border: 1px solid var(--so-line);
+    background: var(--so-surface);
+    box-shadow: var(--so-shadow);
+    overflow: hidden;
+  }
+
+  .so-panel-head {
+    padding: 17px 18px;
+    border-bottom: 1px solid var(--so-line);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    background:
+      radial-gradient(circle at top left, rgba(0,168,89,.07), transparent 34%),
+      var(--so-surface);
+  }
+
+  .so-panel-head h3 {
+    margin: 0;
+    color: var(--so-text);
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: -.02em;
+  }
+
+  .so-panel-head p {
+    margin: 4px 0 0;
+    color: var(--so-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .so-panel-body {
+    padding: 18px;
+  }
+
+  .so-chart-list {
+    display: grid;
+    gap: 15px;
+  }
+
+  .so-chart-row {
+    display: grid;
+    gap: 8px;
+  }
+
+  .so-chart-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--so-text);
+    font-size: .86rem;
+    font-weight: 850;
+  }
+
+  .so-chart-meta span:last-child {
+    color: var(--so-muted);
+    font-weight: 750;
+  }
+
+  .so-bar-track {
+    height: 11px;
+    border-radius: 999px;
+    background: var(--so-surface-2);
+    overflow: hidden;
+    border: 1px solid var(--so-line);
+  }
+
+  .so-bar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--so-green), var(--so-orange));
+    transition: width .7s ease;
+  }
+
+  .so-mini-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .so-mini-item {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 18px;
+    background: var(--so-surface-2);
+    border: 1px solid var(--so-line);
+  }
+
+  .so-store-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: var(--so-green-soft);
+    color: var(--so-green-dark);
+    font-weight: 900;
+    overflow: hidden;
+  }
+
+  .so-store-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .so-mini-item strong {
+    display: block;
+    color: var(--so-text);
+    font-size: .9rem;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .so-mini-item span {
+    display: block;
+    margin-top: 3px;
+    color: var(--so-muted);
+    font-size: .78rem;
+    font-weight: 650;
+  }
+
+  .so-mini-value {
+    color: var(--so-green-dark);
+    font-weight: 950;
+    white-space: nowrap;
+  }
+
+  .so-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .so-table {
+    width: 100%;
+    min-width: 850px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .so-table th {
+    background: var(--so-green-deep);
+    color: #fff;
+    padding: 13px 14px;
+    text-align: left;
+    font-size: .74rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .055em;
+    white-space: nowrap;
+  }
+
+  .so-table td {
+    padding: 14px;
+    border-bottom: 1px solid var(--so-line);
+    color: var(--so-text);
+    font-size: .88rem;
+    font-weight: 650;
+    vertical-align: middle;
+  }
+
+  .so-table tbody tr:hover {
+    background: var(--so-green-soft);
+  }
+
+  .so-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .so-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: .74rem;
+    font-weight: 900;
+    border: 1px solid transparent;
+  }
+
+  .so-status.active {
+    color: #047857;
+    background: #ECFDF5;
+    border-color: rgba(5,150,105,.18);
+  }
+
+  .so-status.inactive {
+    color: #B91C1C;
+    background: #FFF1F1;
+    border-color: rgba(239,68,68,.22);
+  }
+
+  .so-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--so-muted);
+    font-weight: 750;
+  }
+
+  @media (max-width: 1180px) {
+    .so-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .so-analytics-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .so-hero-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .so-hero-card {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .so-kpi-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .so-hero,
+    .so-panel,
+    .so-kpi {
+      border-radius: 18px;
+    }
+
+    .so-hero-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .so-btn {
+      width: 100%;
+    }
+
+    .so-mini-item {
+      grid-template-columns: 40px minmax(0, 1fr);
+    }
+
+    .so-mini-value {
+      grid-column: 1 / -1;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nf-store-overview">
+
+  <div class="so-hero">
+    <div class="so-hero-inner">
+      <div>
+        <span class="so-kicker">🏪 Store Management</span>
+
+        <h2>Store Overview Dashboard</h2>
+
+        <p>
+          Track total stores, active stores, inactive stores, transactions, commission earned,
+          store withdrawals and high-performing stores in one clean admin view.
+        </p>
+
+        <div class="so-hero-actions">
+          <a href="{{ url_for('admin_create_store') }}" class="so-btn so-btn-primary">
+            + Create Store
+          </a>
+
+          <a href="{{ url_for('admin_store_list') }}" class="so-btn so-btn-soft">
+            View Store List
+          </a>
+
+          <a href="{{ url_for('admin_store_reviews') }}" class="so-btn">
+            Store Reviews
+          </a>
+        </div>
+      </div>
+
+      <div class="so-hero-card">
+        <span>Active Stores</span>
+        <strong>{{ metrics.active_stores|default(0) }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="so-kpi-grid">
+    <div class="so-kpi blue">
+      <div class="so-kpi-icon">🏬</div>
+      <div class="so-kpi-label">Total Stores</div>
+      <div class="so-kpi-value">{{ metrics.total_stores|default(0) }}</div>
+      <div class="so-kpi-meta">All registered grocery stores</div>
+    </div>
+
+    <div class="so-kpi orange">
+      <div class="so-kpi-icon">✅</div>
+      <div class="so-kpi-label">Active Stores</div>
+      <div class="so-kpi-value">{{ metrics.active_stores|default(0) }}</div>
+      <div class="so-kpi-meta">Currently active stores</div>
+    </div>
+
+    <div class="so-kpi red">
+      <div class="so-kpi-icon">⏸️</div>
+      <div class="so-kpi-label">Inactive Stores</div>
+      <div class="so-kpi-value">{{ metrics.inactive_stores|default(0) }}</div>
+      <div class="so-kpi-meta">Disabled or inactive stores</div>
+    </div>
+
+    <div class="so-kpi">
+      <div class="so-kpi-icon">🆕</div>
+      <div class="so-kpi-label">Newly Joined Stores</div>
+      <div class="so-kpi-value">{{ metrics.new_stores|default(0) }}</div>
+      <div class="so-kpi-meta">Total onboarded stores</div>
+    </div>
+
+    <div class="so-kpi blue">
+      <div class="so-kpi-icon">📄</div>
+      <div class="so-kpi-label">Total Transactions</div>
+      <div class="so-kpi-value">{{ metrics.total_transactions|default(0) }}</div>
+      <div class="so-kpi-meta">Platform transaction records</div>
+    </div>
+
+    <div class="so-kpi">
+      <div class="so-kpi-icon">💰</div>
+      <div class="so-kpi-label">Commission Earned</div>
+      <div class="so-kpi-value">₹ {{ "%.2f"|format(metrics.commission_earned|default(0)) }}</div>
+      <div class="so-kpi-meta">Calculated from paid/delivered sales</div>
+    </div>
+
+    <div class="so-kpi red">
+      <div class="so-kpi-icon">🏧</div>
+      <div class="so-kpi-label">Store Withdrawals</div>
+      <div class="so-kpi-value">₹ {{ "%.2f"|format(metrics.store_withdrawals|default(0)) }}</div>
+      <div class="so-kpi-meta">Total store withdrawal amount</div>
+    </div>
+
+    <div class="so-kpi orange">
+      <div class="so-kpi-icon">📊</div>
+      <div class="so-kpi-label">Store Health</div>
+      <div class="so-kpi-value">
+        {% if metrics.total_stores and metrics.total_stores > 0 %}
+          {{ ((metrics.active_stores / metrics.total_stores) * 100)|round(0)|int }}%
+        {% else %}
+          0%
+        {% endif %}
+      </div>
+      <div class="so-kpi-meta">Active store percentage</div>
+    </div>
+  </div>
+
+  <div class="so-analytics-grid">
+    <section class="so-panel">
+      <div class="so-panel-head">
+        <div>
+          <h3>Top Selling Stores</h3>
+          <p>Revenue-first ranking based on delivered order value.</p>
+        </div>
+      </div>
+
+      <div class="so-panel-body">
+        {% if top_selling_stores %}
+          <div class="so-chart-list" id="topSellingChart">
+            {% set max_revenue = top_selling_stores[0].revenue if top_selling_stores[0].revenue else 1 %}
+            {% for store in top_selling_stores %}
+              <div class="so-chart-row">
+                <div class="so-chart-meta">
+                  <span>{{ loop.index }}. {{ store.store_name }}</span>
+                  <span>₹ {{ "%.2f"|format(store.revenue|default(0)) }}</span>
+                </div>
+
+                <div class="so-bar-track">
+                  <div
+                    class="so-bar-fill"
+                    data-value="{{ store.revenue|default(0) }}"
+                    data-max="{{ max_revenue }}"
+                  ></div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="so-empty">No selling store data available yet.</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="so-panel">
+      <div class="so-panel-head">
+        <div>
+          <h3>Most Popular Stores</h3>
+          <p>Stores ranked by order count and customer activity.</p>
+        </div>
+      </div>
+
+      <div class="so-panel-body">
+        {% if most_popular_stores %}
+          <div class="so-mini-list">
+            {% for store in most_popular_stores %}
+              <div class="so-mini-item">
+                <div class="so-store-avatar">
+                  {% if store.image_url %}
+                    <img src="{{ store.image_url }}" alt="{{ store.store_name }}">
+                  {% else %}
+                    🏪
+                  {% endif %}
+                </div>
+
+                <div>
+                  <strong>{{ store.store_name }}</strong>
+                  <span>{{ store.orders|default(0) }} orders • {{ store.products|default(0) }} products</span>
+                </div>
+
+                <div class="so-mini-value">
+                  ⭐ {{ store.rating|default(0) }}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="so-empty">No popular store data available yet.</div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <div class="so-analytics-grid">
+    <section class="so-panel">
+      <div class="so-panel-head">
+        <div>
+          <h3>Top Product Stores</h3>
+          <p>Stores with the highest number of listed products.</p>
+        </div>
+      </div>
+
+      <div class="so-panel-body">
+        {% if top_product_stores %}
+          <div class="so-chart-list">
+            {% set max_products = top_product_stores[0].products if top_product_stores[0].products else 1 %}
+            {% for store in top_product_stores %}
+              <div class="so-chart-row">
+                <div class="so-chart-meta">
+                  <span>{{ loop.index }}. {{ store.store_name }}</span>
+                  <span>{{ store.products|default(0) }} products</span>
+                </div>
+
+                <div class="so-bar-track">
+                  <div
+                    class="so-bar-fill"
+                    data-value="{{ store.products|default(0) }}"
+                    data-max="{{ max_products }}"
+                  ></div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="so-empty">No product store data available yet.</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="so-panel">
+      <div class="so-panel-head">
+        <div>
+          <h3>Quick Store Actions</h3>
+          <p>Move quickly between store management pages.</p>
+        </div>
+      </div>
+
+      <div class="so-panel-body">
+        <div class="so-mini-list">
+          <a href="{{ url_for('admin_create_store') }}" class="so-mini-item">
+            <div class="so-store-avatar">➕</div>
+            <div>
+              <strong>Create Store</strong>
+              <span>Register a new grocery store and owner credentials.</span>
+            </div>
+            <div class="so-mini-value">Open</div>
+          </a>
+
+          <a href="{{ url_for('admin_store_list') }}" class="so-mini-item">
+            <div class="so-store-avatar">📋</div>
+            <div>
+              <strong>Store List</strong>
+              <span>View, search and manage all onboarded stores.</span>
+            </div>
+            <div class="so-mini-value">Open</div>
+          </a>
+
+          <a href="{{ url_for('admin_store_reviews') }}" class="so-mini-item">
+            <div class="so-store-avatar">⭐</div>
+            <div>
+              <strong>Store Reviews</strong>
+              <span>Check recommended stores and ratings.</span>
+            </div>
+            <div class="so-mini-value">Open</div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="so-panel">
+    <div class="so-panel-head">
+      <div>
+        <h3>Recent Stores</h3>
+        <p>Latest store records from your store collection.</p>
+      </div>
+
+      <a href="{{ url_for('admin_store_list') }}" class="so-btn so-btn-soft">
+        View All
+      </a>
+    </div>
+
+    <div class="so-table-wrap">
+      <table class="so-table">
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Store Information</th>
+            <th>Owner</th>
+            <th>Orders</th>
+            <th>Revenue</th>
+            <th>Products</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for store in stores[:8] %}
+            <tr>
+              <td>{{ loop.index }}</td>
+
+              <td>
+                <strong>{{ store.store_name }}</strong>
+                <div style="color:var(--so-muted);font-size:.8rem;margin-top:3px;">
+                  ID: {{ store.id }}
+                </div>
+              </td>
+
+              <td>
+                {{ store.owner_name }}
+                <div style="color:var(--so-muted);font-size:.8rem;margin-top:3px;">
+                  {{ store.owner_phone }}
+                </div>
+              </td>
+
+              <td>{{ store.orders|default(0) }}</td>
+
+              <td>₹ {{ "%.2f"|format(store.revenue|default(0)) }}</td>
+
+              <td>{{ store.products|default(0) }}</td>
+
+              <td>
+                {% if store.is_active == 1 %}
+                  <span class="so-status active">● Active</span>
+                {% else %}
+                  <span class="so-status inactive">● Inactive</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="7">
+                <div class="so-empty">No stores found. Create your first store to see data here.</div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function () {
+    const bars = document.querySelectorAll('.so-bar-fill');
+
+    bars.forEach(function (bar) {
+      const value = Number(bar.dataset.value || 0);
+      const max = Number(bar.dataset.max || 1);
+      const width = max > 0 ? Math.max(6, Math.min(100, (value / max) * 100)) : 0;
+
+      window.requestAnimationFrame(function () {
+        bar.style.width = width + '%';
+      });
+    });
+  })();
+</script>
+{% endblock %}

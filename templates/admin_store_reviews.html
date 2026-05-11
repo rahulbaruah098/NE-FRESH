@@ -1,0 +1,1316 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "store" %}
+{% set active_page = "store_reviews" %}
+
+{% block title %}Store Reviews | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Store Reviews{% endblock %}
+{% block page_subtitle %}Review recommended stores, ratings, product strength and order activity.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-store-reviews-page {
+    --sr-green: var(--nf-green, #00A859);
+    --sr-green-dark: var(--nf-green-dark, #007A43);
+    --sr-green-deep: var(--nf-green-deep, #075C3B);
+    --sr-green-soft: var(--nf-green-soft, #E9FFF3);
+    --sr-orange: var(--nf-orange, #FF8A1F);
+    --sr-orange-soft: var(--nf-orange-soft, #FFF3E7);
+    --sr-bg: var(--nf-bg, #F8FFFB);
+    --sr-surface: var(--nf-surface, #FFFFFF);
+    --sr-surface-2: var(--nf-surface-2, #F4F9F6);
+    --sr-text: var(--nf-text, #1F2D26);
+    --sr-muted: var(--nf-muted, #6A7A72);
+    --sr-line: var(--nf-line, #DDECE4);
+    --sr-danger: var(--nf-danger, #EF4444);
+    --sr-warning: var(--nf-warning, #F59E0B);
+    --sr-info: var(--nf-info, #0284C7);
+    --sr-shadow: var(--nf-shadow, 0 16px 40px rgba(17, 64, 38, .08));
+    --sr-shadow-heavy: var(--nf-shadow-heavy, 0 24px 70px rgba(17, 64, 38, .18));
+
+    display: grid;
+    gap: 18px;
+  }
+
+  .nf-store-reviews-page,
+  .nf-store-reviews-page * {
+    box-sizing: border-box;
+  }
+
+  .sr-hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--sr-line);
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 88% 18%, rgba(255, 138, 31, .17), transparent 32%),
+      radial-gradient(circle at 8% 0%, rgba(0, 168, 89, .18), transparent 36%),
+      linear-gradient(135deg, var(--sr-surface), var(--sr-surface-2));
+    box-shadow: var(--sr-shadow);
+    padding: clamp(18px, 3vw, 30px);
+  }
+
+  .sr-hero-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: center;
+  }
+
+  .sr-kicker {
+    width: fit-content;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: var(--sr-green-soft);
+    color: var(--sr-green-dark);
+    border: 1px solid rgba(0, 168, 89, .18);
+    font-size: .78rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .sr-hero h2 {
+    margin: 12px 0 8px;
+    color: var(--sr-text);
+    font-size: clamp(1.5rem, 3vw, 2.3rem);
+    line-height: 1.08;
+    letter-spacing: -.05em;
+    font-weight: 950;
+  }
+
+  .sr-hero p {
+    margin: 0;
+    max-width: 760px;
+    color: var(--sr-muted);
+    font-size: .96rem;
+    line-height: 1.65;
+    font-weight: 600;
+  }
+
+  .sr-hero-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+
+  .sr-hero-card {
+    min-width: 210px;
+    border-radius: 22px;
+    border: 1px solid var(--sr-line);
+    background: rgba(255,255,255,.74);
+    padding: 16px;
+    box-shadow: 0 16px 42px rgba(17,64,38,.08);
+  }
+
+  .sr-hero-card span {
+    display: block;
+    color: var(--sr-muted);
+    font-size: .78rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .sr-hero-card strong {
+    display: block;
+    margin-top: 8px;
+    color: var(--sr-text);
+    font-size: 1.8rem;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  .sr-btn,
+  .nf-store-reviews-page button,
+  .nf-store-reviews-page .sr-action {
+    min-height: 40px;
+    border: 1px solid var(--sr-line);
+    border-radius: 13px;
+    background: var(--sr-surface);
+    color: var(--sr-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 13px;
+    font-size: .83rem;
+    font-weight: 850;
+    text-decoration: none;
+    cursor: pointer;
+    transition: .22s ease;
+    white-space: nowrap;
+  }
+
+  .sr-btn:hover,
+  .nf-store-reviews-page button:hover,
+  .nf-store-reviews-page .sr-action:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--sr-shadow);
+    border-color: rgba(0, 168, 89, .32);
+  }
+
+  .sr-btn-primary {
+    background: var(--sr-green);
+    color: #fff;
+    border-color: var(--sr-green);
+  }
+
+  .sr-btn-primary:hover {
+    background: var(--sr-green-dark);
+    border-color: var(--sr-green-dark);
+  }
+
+  .sr-btn-soft {
+    background: var(--sr-green-soft);
+    color: var(--sr-green-dark);
+    border-color: rgba(0,168,89,.18);
+  }
+
+  .sr-btn-danger {
+    background: #FFF1F1;
+    color: #B91C1C;
+    border-color: rgba(239,68,68,.24);
+  }
+
+  .sr-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .sr-kpi {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    border: 1px solid var(--sr-line);
+    background: var(--sr-surface);
+    box-shadow: var(--sr-shadow);
+    padding: 18px;
+    min-height: 130px;
+  }
+
+  .sr-kpi::after {
+    content: "";
+    position: absolute;
+    width: 92px;
+    height: 92px;
+    right: -36px;
+    top: -34px;
+    border-radius: 999px;
+    background: rgba(0,168,89,.09);
+  }
+
+  .sr-kpi.orange::after {
+    background: rgba(255,138,31,.13);
+  }
+
+  .sr-kpi.blue::after {
+    background: rgba(2,132,199,.12);
+  }
+
+  .sr-kpi.red::after {
+    background: rgba(239,68,68,.11);
+  }
+
+  .sr-kpi-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: var(--sr-green-soft);
+    color: var(--sr-green-dark);
+    font-size: 1.25rem;
+  }
+
+  .sr-kpi.orange .sr-kpi-icon {
+    background: var(--sr-orange-soft);
+    color: var(--sr-orange);
+  }
+
+  .sr-kpi.blue .sr-kpi-icon {
+    background: #E0F2FE;
+    color: var(--sr-info);
+  }
+
+  .sr-kpi.red .sr-kpi-icon {
+    background: #FFF1F1;
+    color: var(--sr-danger);
+  }
+
+  .sr-kpi-label {
+    margin-top: 14px;
+    color: var(--sr-muted);
+    font-size: .78rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .sr-kpi-value {
+    margin-top: 5px;
+    color: var(--sr-text);
+    font-size: clamp(1.45rem, 2.5vw, 2rem);
+    line-height: 1;
+    font-weight: 950;
+    letter-spacing: -.04em;
+  }
+
+  .sr-kpi-meta {
+    margin-top: 8px;
+    color: var(--sr-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .sr-analytics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .sr-panel {
+    border: 1px solid var(--sr-line);
+    border-radius: 22px;
+    background: var(--sr-surface);
+    box-shadow: var(--sr-shadow);
+    overflow: hidden;
+  }
+
+  .sr-panel-head {
+    padding: 17px 18px;
+    border-bottom: 1px solid var(--sr-line);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    background:
+      radial-gradient(circle at top left, rgba(0,168,89,.07), transparent 34%),
+      var(--sr-surface);
+  }
+
+  .sr-panel-head h3 {
+    margin: 0;
+    color: var(--sr-text);
+    font-size: 1rem;
+    font-weight: 950;
+    letter-spacing: -.02em;
+  }
+
+  .sr-panel-head p {
+    margin: 4px 0 0;
+    color: var(--sr-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .sr-panel-body {
+    padding: 18px;
+  }
+
+  .sr-chart-list {
+    display: grid;
+    gap: 15px;
+  }
+
+  .sr-chart-row {
+    display: grid;
+    gap: 8px;
+  }
+
+  .sr-chart-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--sr-text);
+    font-size: .86rem;
+    font-weight: 850;
+  }
+
+  .sr-chart-meta span:last-child {
+    color: var(--sr-muted);
+    font-weight: 750;
+  }
+
+  .sr-bar-track {
+    height: 11px;
+    border-radius: 999px;
+    background: var(--sr-surface-2);
+    border: 1px solid var(--sr-line);
+    overflow: hidden;
+  }
+
+  .sr-bar-fill {
+    width: 0%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--sr-green), var(--sr-orange));
+    transition: width .75s ease;
+  }
+
+  .sr-recommended-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .sr-reco-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px;
+    border: 1px solid var(--sr-line);
+    background:
+      radial-gradient(circle at top right, rgba(255,138,31,.12), transparent 34%),
+      var(--sr-surface);
+    box-shadow: 0 12px 32px rgba(17,64,38,.07);
+    padding: 15px;
+    min-height: 172px;
+  }
+
+  .sr-reco-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .sr-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 17px;
+    display: grid;
+    place-items: center;
+    background: var(--sr-green-soft);
+    color: var(--sr-green-dark);
+    border: 1px solid rgba(0,168,89,.16);
+    font-size: 1.35rem;
+    font-weight: 950;
+    overflow: hidden;
+    flex: 0 0 auto;
+  }
+
+  .sr-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .sr-rank {
+    min-width: 34px;
+    height: 28px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: var(--sr-orange-soft);
+    color: var(--sr-orange);
+    font-size: .78rem;
+    font-weight: 950;
+  }
+
+  .sr-reco-card h4 {
+    margin: 13px 0 5px;
+    color: var(--sr-text);
+    font-size: 1rem;
+    font-weight: 950;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sr-reco-card p {
+    margin: 0;
+    color: var(--sr-muted);
+    font-size: .8rem;
+    line-height: 1.45;
+    font-weight: 650;
+  }
+
+  .sr-reco-stats {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .sr-reco-stat {
+    border-radius: 14px;
+    background: var(--sr-surface-2);
+    border: 1px solid var(--sr-line);
+    padding: 8px;
+    text-align: center;
+  }
+
+  .sr-reco-stat strong {
+    display: block;
+    color: var(--sr-text);
+    font-size: .9rem;
+    font-weight: 950;
+  }
+
+  .sr-reco-stat span {
+    display: block;
+    margin-top: 2px;
+    color: var(--sr-muted);
+    font-size: .68rem;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+
+  .sr-toolbar {
+    padding: 18px;
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+    border-bottom: 1px solid var(--sr-line);
+    background:
+      radial-gradient(circle at top left, rgba(0,168,89,.07), transparent 35%),
+      var(--sr-surface);
+  }
+
+  .sr-field {
+    display: grid;
+    gap: 7px;
+  }
+
+  .sr-field label {
+    color: var(--sr-muted);
+    font-size: .76rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .sr-search-wrap {
+    display: flex;
+    height: 46px;
+    border-radius: 14px;
+    border: 1px solid var(--sr-line);
+    background: var(--sr-surface-2);
+    overflow: hidden;
+    transition: .22s ease;
+  }
+
+  .sr-search-wrap:focus-within {
+    border-color: rgba(0,168,89,.42);
+    box-shadow: 0 0 0 4px rgba(0,168,89,.10);
+    background: var(--sr-surface);
+  }
+
+  .sr-search-wrap input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--sr-text);
+    padding: 0 14px;
+    font-size: .92rem;
+    font-weight: 700;
+  }
+
+  .sr-search-wrap input::placeholder {
+    color: color-mix(in srgb, var(--sr-muted) 75%, transparent);
+  }
+
+  .sr-search-icon {
+    width: 48px;
+    display: grid;
+    place-items: center;
+    background: var(--sr-green-deep);
+    color: #fff;
+    font-weight: 900;
+  }
+
+  .sr-toolbar-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .sr-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--sr-muted);
+    font-size: .84rem;
+    font-weight: 800;
+    user-select: none;
+  }
+
+  .sr-checkbox input {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--sr-green);
+  }
+
+  .sr-summary {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--sr-line);
+    background: var(--sr-surface);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .sr-summary h3 {
+    margin: 0;
+    color: var(--sr-text);
+    font-size: 1rem;
+    font-weight: 950;
+    letter-spacing: -.02em;
+  }
+
+  .sr-summary p {
+    margin: 4px 0 0;
+    color: var(--sr-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .sr-count-pill {
+    min-width: 28px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--sr-green-soft);
+    color: var(--sr-green-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .78rem;
+    font-weight: 950;
+  }
+
+  .sr-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .sr-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .sr-table th {
+    background: var(--sr-surface-2);
+    color: var(--sr-text);
+    padding: 14px 16px;
+    text-align: left;
+    font-size: .78rem;
+    font-weight: 950;
+    letter-spacing: .035em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--sr-line);
+    white-space: nowrap;
+  }
+
+  .sr-table td {
+    padding: 16px;
+    border-bottom: 1px solid var(--sr-line);
+    color: var(--sr-text);
+    font-size: .9rem;
+    font-weight: 650;
+    vertical-align: middle;
+  }
+
+  .sr-table tbody tr {
+    transition: .18s ease;
+  }
+
+  .sr-table tbody tr:hover {
+    background: var(--sr-green-soft);
+  }
+
+  .sr-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .sr-store-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .sr-store-text {
+    min-width: 0;
+  }
+
+  .sr-store-text strong {
+    display: block;
+    color: var(--sr-text);
+    font-size: .96rem;
+    font-weight: 950;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sr-store-text span {
+    display: block;
+    margin-top: 4px;
+    color: var(--sr-muted);
+    font-size: .8rem;
+    font-weight: 650;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sr-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    background: var(--sr-orange-soft);
+    color: var(--sr-orange);
+    border: 1px solid rgba(255,138,31,.24);
+    font-weight: 950;
+    white-space: nowrap;
+  }
+
+  .sr-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 96px;
+    justify-content: center;
+    padding: 7px 11px;
+    border-radius: 999px;
+    font-size: .76rem;
+    font-weight: 950;
+    border: 1px solid transparent;
+  }
+
+  .sr-status.active {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5,150,105,.18);
+  }
+
+  .sr-status.inactive {
+    background: #FFF1F1;
+    color: #B91C1C;
+    border-color: rgba(239,68,68,.22);
+  }
+
+  .sr-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .sr-switch-form {
+    display: inline-flex;
+  }
+
+  .sr-switch {
+    width: 48px;
+    height: 28px;
+    border-radius: 999px;
+    border: 0;
+    padding: 3px;
+    background: #E5EAF0;
+    position: relative;
+    box-shadow: inset 0 0 0 1px rgba(15,23,42,.06);
+  }
+
+  .sr-switch::after {
+    content: "";
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    left: 3px;
+    top: 3px;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 4px 10px rgba(15,23,42,.18);
+    transition: .2s ease;
+  }
+
+  .sr-switch.is-active {
+    background: #2A7F83;
+  }
+
+  .sr-switch.is-active::after {
+    transform: translateX(20px);
+  }
+
+  .sr-icon-btn {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 12px;
+    font-size: .95rem;
+  }
+
+  .sr-icon-delete {
+    background: #FFF1F1;
+    color: #B91C1C;
+    border-color: rgba(239,68,68,.22);
+  }
+
+  .sr-hidden {
+    display: none !important;
+  }
+
+  .sr-empty {
+    padding: 28px 18px;
+    text-align: center;
+    color: var(--sr-muted);
+    font-weight: 800;
+  }
+
+  @media (max-width: 1180px) {
+    .sr-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sr-analytics-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .sr-recommended-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sr-hero-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .sr-hero-card {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 820px) {
+    .sr-toolbar {
+      grid-template-columns: 1fr;
+    }
+
+    .sr-toolbar-actions {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .sr-hero,
+    .sr-panel,
+    .sr-kpi,
+    .sr-reco-card {
+      border-radius: 18px;
+    }
+
+    .sr-kpi-grid,
+    .sr-recommended-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .sr-hero-actions,
+    .sr-toolbar-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .sr-btn,
+    .sr-action,
+    .nf-store-reviews-page button {
+      width: 100%;
+    }
+
+    .sr-icon-btn,
+    .sr-switch {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set total_stores = stores|length %}
+{% set active_stores = stores|selectattr("is_active", "equalto", 1)|list|length %}
+{% set inactive_stores = total_stores - active_stores %}
+{% set total_products = stores|sum(attribute="products") %}
+{% set total_orders = stores|sum(attribute="orders") %}
+{% set rating_total = stores|sum(attribute="rating") %}
+{% set avg_rating = (rating_total / total_stores) if total_stores else 0 %}
+
+<section class="nf-store-reviews-page">
+
+  <div class="sr-hero">
+    <div class="sr-hero-inner">
+      <div>
+        <span class="sr-kicker">⭐ Store Reviews</span>
+
+        <h2>Recommended Stores & Review Intelligence</h2>
+
+        <p>
+          Review store ratings, products, order volume and recommendation strength.
+          This page helps the admin identify strong stores, inactive stores, and stores that need attention.
+        </p>
+
+        <div class="sr-hero-actions">
+          <a href="{{ url_for('admin_store_overview') }}" class="sr-btn sr-btn-soft">← Store Overview</a>
+          <a href="{{ url_for('admin_store_list') }}" class="sr-btn">Store List</a>
+          <a href="{{ url_for('admin_create_store') }}" class="sr-btn sr-btn-primary">+ Create Store</a>
+        </div>
+      </div>
+
+      <div class="sr-hero-card">
+        <span>Average Rating</span>
+        <strong>⭐ {{ "%.1f"|format(avg_rating|default(0)) }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="sr-kpi-grid">
+    <div class="sr-kpi blue">
+      <div class="sr-kpi-icon">🏪</div>
+      <div class="sr-kpi-label">Reviewed Stores</div>
+      <div class="sr-kpi-value">{{ total_stores }}</div>
+      <div class="sr-kpi-meta">Stores available for recommendation</div>
+    </div>
+
+    <div class="sr-kpi orange">
+      <div class="sr-kpi-icon">⭐</div>
+      <div class="sr-kpi-label">Average Rating</div>
+      <div class="sr-kpi-value">{{ "%.1f"|format(avg_rating|default(0)) }}</div>
+      <div class="sr-kpi-meta">Overall store rating average</div>
+    </div>
+
+    <div class="sr-kpi">
+      <div class="sr-kpi-icon">📦</div>
+      <div class="sr-kpi-label">Total Products</div>
+      <div class="sr-kpi-value">{{ total_products|default(0) }}</div>
+      <div class="sr-kpi-meta">Products listed by all stores</div>
+    </div>
+
+    <div class="sr-kpi blue">
+      <div class="sr-kpi-icon">🧾</div>
+      <div class="sr-kpi-label">Total Orders</div>
+      <div class="sr-kpi-value">{{ total_orders|default(0) }}</div>
+      <div class="sr-kpi-meta">Orders connected to stores</div>
+    </div>
+
+    <div class="sr-kpi">
+      <div class="sr-kpi-icon">✅</div>
+      <div class="sr-kpi-label">Active Stores</div>
+      <div class="sr-kpi-value">{{ active_stores }}</div>
+      <div class="sr-kpi-meta">Currently active and visible</div>
+    </div>
+
+    <div class="sr-kpi red">
+      <div class="sr-kpi-icon">⏸️</div>
+      <div class="sr-kpi-label">Inactive Stores</div>
+      <div class="sr-kpi-value">{{ inactive_stores }}</div>
+      <div class="sr-kpi-meta">Disabled or inactive stores</div>
+    </div>
+
+    <div class="sr-kpi orange">
+      <div class="sr-kpi-icon">🔥</div>
+      <div class="sr-kpi-label">Top Rated Store</div>
+      <div class="sr-kpi-value">
+        {% if recommended_stores and recommended_stores[0] %}
+          {{ "%.1f"|format(recommended_stores[0].rating|default(0)) }}
+        {% else %}
+          0.0
+        {% endif %}
+      </div>
+      <div class="sr-kpi-meta">
+        {% if recommended_stores and recommended_stores[0] %}
+          {{ recommended_stores[0].store_name }}
+        {% else %}
+          No store found
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="sr-kpi blue">
+      <div class="sr-kpi-icon">📈</div>
+      <div class="sr-kpi-label">Store Health</div>
+      <div class="sr-kpi-value">
+        {% if total_stores > 0 %}
+          {{ ((active_stores / total_stores) * 100)|round(0)|int }}%
+        {% else %}
+          0%
+        {% endif %}
+      </div>
+      <div class="sr-kpi-meta">Active store percentage</div>
+    </div>
+  </div>
+
+  <div class="sr-analytics-grid">
+    <section class="sr-panel">
+      <div class="sr-panel-head">
+        <div>
+          <h3>Ratings Graph</h3>
+          <p>Top stores ranked by average rating.</p>
+        </div>
+      </div>
+
+      <div class="sr-panel-body">
+        {% if recommended_stores %}
+          <div class="sr-chart-list">
+            {% for store in recommended_stores[:6] %}
+              <div class="sr-chart-row">
+                <div class="sr-chart-meta">
+                  <span>{{ loop.index }}. {{ store.store_name }}</span>
+                  <span>⭐ {{ "%.1f"|format(store.rating|default(0)) }}</span>
+                </div>
+
+                <div class="sr-bar-track">
+                  <div
+                    class="sr-bar-fill"
+                    data-value="{{ store.rating|default(0) }}"
+                    data-max="5"
+                  ></div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="sr-empty">No rating graph data available yet.</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="sr-panel">
+      <div class="sr-panel-head">
+        <div>
+          <h3>Orders Graph</h3>
+          <p>Most ordered stores from customer activity.</p>
+        </div>
+      </div>
+
+      <div class="sr-panel-body">
+        {% if recommended_stores %}
+          {% set order_sorted = recommended_stores|sort(attribute="orders", reverse=true) %}
+          {% set max_orders = order_sorted[0].orders if order_sorted and order_sorted[0].orders else 1 %}
+
+          <div class="sr-chart-list">
+            {% for store in order_sorted[:6] %}
+              <div class="sr-chart-row">
+                <div class="sr-chart-meta">
+                  <span>{{ loop.index }}. {{ store.store_name }}</span>
+                  <span>{{ store.orders|default(0) }} orders</span>
+                </div>
+
+                <div class="sr-bar-track">
+                  <div
+                    class="sr-bar-fill"
+                    data-value="{{ store.orders|default(0) }}"
+                    data-max="{{ max_orders }}"
+                  ></div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="sr-empty">No order graph data available yet.</div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <section class="sr-panel">
+    <div class="sr-panel-head">
+      <div>
+        <h3>Recommended Stores</h3>
+        <p>Top stores based on rating, orders and product availability.</p>
+      </div>
+
+      <label class="sr-checkbox">
+        <input type="checkbox" id="shuffleStoresOnReload">
+        Shuffle store when page reload
+      </label>
+    </div>
+
+    <div class="sr-panel-body">
+      {% if recommended_stores %}
+        <div class="sr-recommended-grid" id="recommendedStoresGrid">
+          {% for store in recommended_stores[:6] %}
+            <article
+              class="sr-reco-card"
+              data-reco-card
+              data-store-name="{{ store.store_name|lower }}"
+            >
+              <div class="sr-reco-top">
+                <div class="sr-avatar">
+                  {% if store.image_url %}
+                    <img src="{{ store.image_url }}" alt="{{ store.store_name }}">
+                  {% else %}
+                    🏪
+                  {% endif %}
+                </div>
+
+                <div class="sr-rank">#{{ loop.index }}</div>
+              </div>
+
+              <h4>{{ store.store_name }}</h4>
+
+              <p>
+                {{ store.address or "No address added yet." }}
+              </p>
+
+              <div class="sr-reco-stats">
+                <div class="sr-reco-stat">
+                  <strong>⭐ {{ "%.1f"|format(store.rating|default(0)) }}</strong>
+                  <span>Rating</span>
+                </div>
+
+                <div class="sr-reco-stat">
+                  <strong>{{ store.products|default(0) }}</strong>
+                  <span>Products</span>
+                </div>
+
+                <div class="sr-reco-stat">
+                  <strong>{{ store.orders|default(0) }}</strong>
+                  <span>Orders</span>
+                </div>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="sr-empty">No recommended stores found.</div>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="sr-panel">
+    <div class="sr-toolbar">
+      <div class="sr-field">
+        <label for="storeReviewSearchInput">Search Stores</label>
+
+        <div class="sr-search-wrap">
+          <input id="storeReviewSearchInput" type="search" placeholder="Search by store name...">
+          <span class="sr-search-icon">🔍</span>
+        </div>
+      </div>
+
+      <div class="sr-toolbar-actions">
+        <button type="button" class="sr-btn" id="resetStoreReviewSearch">Reset</button>
+        <button type="button" class="sr-btn sr-btn-primary" id="submitStoreReviewSearch">Submit</button>
+      </div>
+    </div>
+
+    <div class="sr-summary">
+      <div>
+        <h3>
+          Recommended Stores List
+          <span class="sr-count-pill" id="storeReviewVisibleCount">{{ recommended_stores|length }}</span>
+        </h3>
+
+        <p>Manage status and remove stores safely from the recommended review list.</p>
+      </div>
+    </div>
+
+    <div class="sr-table-wrap">
+      <table class="sr-table" id="storeReviewTable">
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Store Name</th>
+            <th>Ratings</th>
+            <th>Total Products</th>
+            <th>Total Orders</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for store in recommended_stores %}
+            <tr
+              data-store-review-row
+              data-store-name="{{ store.store_name|lower }}"
+            >
+              <td>{{ loop.index }}</td>
+
+              <td>
+                <div class="sr-store-cell">
+                  <div class="sr-avatar">
+                    {% if store.image_url %}
+                      <img src="{{ store.image_url }}" alt="{{ store.store_name }}">
+                    {% else %}
+                      🏪
+                    {% endif %}
+                  </div>
+
+                  <div class="sr-store-text">
+                    <strong>{{ store.store_name }}</strong>
+                    <span>{{ store.address or "No address available" }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <span class="sr-rating">
+                  ⭐ {{ "%.1f"|format(store.rating|default(0)) }}
+                  <small>({{ store.rating_count|default(0) }})</small>
+                </span>
+              </td>
+
+              <td>{{ store.products|default(0) }}</td>
+
+              <td>{{ store.orders|default(0) }}</td>
+
+              <td>
+                {% if store.is_active == 1 %}
+                  <span class="sr-status active">● Active</span>
+                {% else %}
+                  <span class="sr-status inactive">● Inactive</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <div class="sr-actions">
+                  <form method="post" action="{{ url_for('admin_store_toggle', store_id=store.id) }}" class="sr-switch-form">
+                    <button
+                      type="submit"
+                      class="sr-switch {% if store.is_active == 1 %}is-active{% endif %}"
+                      title="{% if store.is_active == 1 %}Deactivate Store{% else %}Activate Store{% endif %}"
+                      aria-label="{% if store.is_active == 1 %}Deactivate Store{% else %}Activate Store{% endif %}"
+                    ></button>
+                  </form>
+
+                  <form
+                    method="post"
+                    action="{{ url_for('admin_store_delete', store_id=store.id) }}"
+                    onsubmit="return confirm('Delete {{ store.store_name|e }}? If this store has orders, it will be disabled instead of deleted.');"
+                  >
+                    <button type="submit" class="sr-icon-btn sr-icon-delete" title="Delete Store">
+                      🗑
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="7">
+                <div class="sr-empty">No recommended stores found.</div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const bars = document.querySelectorAll('.sr-bar-fill');
+
+  bars.forEach(function (bar) {
+    const value = Number(bar.dataset.value || 0);
+    const max = Number(bar.dataset.max || 1);
+    const width = max > 0 ? Math.max(6, Math.min(100, (value / max) * 100)) : 0;
+
+    window.requestAnimationFrame(function () {
+      bar.style.width = width + '%';
+    });
+  });
+
+  const searchInput = document.getElementById('storeReviewSearchInput');
+  const resetBtn = document.getElementById('resetStoreReviewSearch');
+  const submitBtn = document.getElementById('submitStoreReviewSearch');
+  const rows = Array.from(document.querySelectorAll('[data-store-review-row]'));
+  const visibleCount = document.getElementById('storeReviewVisibleCount');
+
+  function filterRows() {
+    const query = (searchInput?.value || '').trim().toLowerCase();
+    let count = 0;
+
+    rows.forEach(function (row) {
+      const name = row.dataset.storeName || '';
+      const matched = !query || name.includes(query);
+
+      row.classList.toggle('sr-hidden', !matched);
+
+      if (matched) count += 1;
+    });
+
+    if (visibleCount) {
+      visibleCount.textContent = count;
+    }
+  }
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', filterRows);
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        filterRows();
+      }
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function () {
+      searchInput.value = '';
+      filterRows();
+      searchInput.focus();
+    });
+  }
+
+  const shuffleCheckbox = document.getElementById('shuffleStoresOnReload');
+  const recoGrid = document.getElementById('recommendedStoresGrid');
+  const SHUFFLE_KEY = 'neFreshShuffleRecommendedStores';
+
+  if (shuffleCheckbox) {
+    shuffleCheckbox.checked = localStorage.getItem(SHUFFLE_KEY) === '1';
+
+    shuffleCheckbox.addEventListener('change', function () {
+      localStorage.setItem(SHUFFLE_KEY, shuffleCheckbox.checked ? '1' : '0');
+    });
+  }
+
+  function shuffleCards() {
+    if (!recoGrid) return;
+
+    const cards = Array.from(recoGrid.querySelectorAll('[data-reco-card]'));
+
+    for (let i = cards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+    }
+
+    cards.forEach(function (card, index) {
+      const rank = card.querySelector('.sr-rank');
+
+      if (rank) {
+        rank.textContent = '#' + (index + 1);
+      }
+
+      recoGrid.appendChild(card);
+    });
+  }
+
+  if (localStorage.getItem(SHUFFLE_KEY) === '1') {
+    shuffleCards();
+  }
+
+  filterRows();
+})();
+</script>
+{% endblock %}

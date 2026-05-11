@@ -1,0 +1,1074 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "store" %}
+{% set active_page = "store_list" %}
+
+{% block title %}Store List | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Store List{% endblock %}
+{% block page_subtitle %}View, search, export and manage all NE FRESH stores.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-store-list-page {
+    --sl-green: var(--nf-green, #00A859);
+    --sl-green-dark: var(--nf-green-dark, #007A43);
+    --sl-green-deep: var(--nf-green-deep, #075C3B);
+    --sl-green-soft: var(--nf-green-soft, #E9FFF3);
+    --sl-orange: var(--nf-orange, #FF8A1F);
+    --sl-orange-soft: var(--nf-orange-soft, #FFF3E7);
+    --sl-bg: var(--nf-bg, #F8FFFB);
+    --sl-surface: var(--nf-surface, #FFFFFF);
+    --sl-surface-2: var(--nf-surface-2, #F4F9F6);
+    --sl-text: var(--nf-text, #1F2D26);
+    --sl-muted: var(--nf-muted, #6A7A72);
+    --sl-line: var(--nf-line, #DDECE4);
+    --sl-danger: var(--nf-danger, #EF4444);
+    --sl-info: var(--nf-info, #0284C7);
+    --sl-shadow: var(--nf-shadow, 0 16px 40px rgba(17, 64, 38, .08));
+    --sl-shadow-heavy: var(--nf-shadow-heavy, 0 24px 70px rgba(17, 64, 38, .18));
+
+    display: grid;
+    gap: 18px;
+  }
+
+  .nf-store-list-page,
+  .nf-store-list-page * {
+    box-sizing: border-box;
+  }
+
+  .sl-hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--sl-line);
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 90% 20%, rgba(255, 138, 31, .16), transparent 32%),
+      radial-gradient(circle at 8% 0%, rgba(0, 168, 89, .18), transparent 35%),
+      linear-gradient(135deg, var(--sl-surface), var(--sl-surface-2));
+    box-shadow: var(--sl-shadow);
+    padding: clamp(18px, 3vw, 30px);
+  }
+
+  .sl-hero-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: center;
+  }
+
+  .sl-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: var(--sl-green-soft);
+    color: var(--sl-green-dark);
+    border: 1px solid rgba(0, 168, 89, .18);
+    font-size: .78rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .sl-hero h2 {
+    margin: 12px 0 8px;
+    color: var(--sl-text);
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    line-height: 1.08;
+    letter-spacing: -.05em;
+    font-weight: 950;
+  }
+
+  .sl-hero p {
+    margin: 0;
+    max-width: 780px;
+    color: var(--sl-muted);
+    font-size: .96rem;
+    line-height: 1.65;
+    font-weight: 600;
+  }
+
+  .sl-hero-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+
+  .sl-hero-card {
+    min-width: 190px;
+    border-radius: 22px;
+    border: 1px solid var(--sl-line);
+    background: rgba(255,255,255,.74);
+    padding: 16px;
+    box-shadow: 0 16px 42px rgba(17,64,38,.08);
+  }
+
+  .sl-hero-card span {
+    display: block;
+    color: var(--sl-muted);
+    font-size: .78rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .sl-hero-card strong {
+    display: block;
+    margin-top: 8px;
+    color: var(--sl-text);
+    font-size: 1.8rem;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  .sl-btn,
+  .nf-store-list-page button,
+  .nf-store-list-page .sl-action {
+    min-height: 40px;
+    border: 1px solid var(--sl-line);
+    border-radius: 13px;
+    background: var(--sl-surface);
+    color: var(--sl-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 13px;
+    font-size: .83rem;
+    font-weight: 850;
+    text-decoration: none;
+    cursor: pointer;
+    transition: .22s ease;
+    white-space: nowrap;
+  }
+
+  .sl-btn:hover,
+  .nf-store-list-page button:hover,
+  .nf-store-list-page .sl-action:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--sl-shadow);
+    border-color: rgba(0, 168, 89, .32);
+  }
+
+  .sl-btn-primary {
+    background: var(--sl-green);
+    color: #fff;
+    border-color: var(--sl-green);
+  }
+
+  .sl-btn-primary:hover {
+    background: var(--sl-green-dark);
+    border-color: var(--sl-green-dark);
+  }
+
+  .sl-btn-soft {
+    background: var(--sl-green-soft);
+    color: var(--sl-green-dark);
+    border-color: rgba(0,168,89,.18);
+  }
+
+  .sl-btn-danger {
+    background: #FFF1F1;
+    color: #B91C1C;
+    border-color: rgba(239,68,68,.24);
+  }
+
+  .sl-panel {
+    border: 1px solid var(--sl-line);
+    border-radius: 22px;
+    background: var(--sl-surface);
+    box-shadow: var(--sl-shadow);
+    overflow: hidden;
+  }
+
+  .sl-toolbar {
+    padding: 18px;
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+    border-bottom: 1px solid var(--sl-line);
+    background:
+      radial-gradient(circle at top left, rgba(0,168,89,.07), transparent 35%),
+      var(--sl-surface);
+  }
+
+  .sl-field {
+    display: grid;
+    gap: 7px;
+  }
+
+  .sl-field label {
+    color: var(--sl-muted);
+    font-size: .76rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .sl-search-wrap {
+    display: flex;
+    height: 46px;
+    border-radius: 14px;
+    border: 1px solid var(--sl-line);
+    background: var(--sl-surface-2);
+    overflow: hidden;
+    transition: .22s ease;
+  }
+
+  .sl-search-wrap:focus-within {
+    border-color: rgba(0,168,89,.42);
+    box-shadow: 0 0 0 4px rgba(0,168,89,.10);
+    background: var(--sl-surface);
+  }
+
+  .sl-search-wrap input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--sl-text);
+    padding: 0 14px;
+    font-size: .92rem;
+    font-weight: 700;
+  }
+
+  .sl-search-wrap input::placeholder {
+    color: color-mix(in srgb, var(--sl-muted) 75%, transparent);
+  }
+
+  .sl-search-icon {
+    width: 48px;
+    display: grid;
+    place-items: center;
+    background: var(--sl-green-deep);
+    color: #fff;
+    font-weight: 900;
+  }
+
+  .sl-toolbar-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .sl-summary {
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--sl-line);
+    background: var(--sl-surface);
+  }
+
+  .sl-summary h3 {
+    margin: 0;
+    color: var(--sl-text);
+    font-size: 1rem;
+    font-weight: 950;
+    letter-spacing: -.02em;
+  }
+
+  .sl-summary p {
+    margin: 4px 0 0;
+    color: var(--sl-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .sl-count-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 24px;
+    border-radius: 999px;
+    background: var(--sl-green-soft);
+    color: var(--sl-green-dark);
+    font-size: .78rem;
+    font-weight: 950;
+  }
+
+  .sl-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .sl-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .sl-table th {
+    background: var(--sl-surface-2);
+    color: var(--sl-text);
+    padding: 14px 16px;
+    text-align: left;
+    font-size: .78rem;
+    font-weight: 950;
+    letter-spacing: .035em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--sl-line);
+    white-space: nowrap;
+  }
+
+  .sl-table td {
+    padding: 16px;
+    border-bottom: 1px solid var(--sl-line);
+    color: var(--sl-text);
+    font-size: .9rem;
+    font-weight: 650;
+    vertical-align: middle;
+  }
+
+  .sl-table tbody tr {
+    transition: .18s ease;
+  }
+
+  .sl-table tbody tr:hover {
+    background: var(--sl-green-soft);
+  }
+
+  .sl-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .sl-store-info,
+  .sl-owner-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .sl-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    background: var(--sl-green-soft);
+    color: var(--sl-green-dark);
+    border: 1px solid rgba(0,168,89,.16);
+    font-size: 1.35rem;
+    font-weight: 950;
+    overflow: hidden;
+  }
+
+  .sl-avatar.owner {
+    background: var(--sl-orange-soft);
+    color: var(--sl-orange);
+    border-color: rgba(255,138,31,.22);
+  }
+
+  .sl-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .sl-main-text {
+    min-width: 0;
+  }
+
+  .sl-main-text strong {
+    display: block;
+    color: var(--sl-text);
+    font-size: .96rem;
+    font-weight: 950;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sl-main-text span {
+    display: block;
+    margin-top: 4px;
+    color: var(--sl-muted);
+    font-size: .8rem;
+    font-weight: 650;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sl-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 96px;
+    justify-content: center;
+    padding: 7px 11px;
+    border-radius: 999px;
+    font-size: .76rem;
+    font-weight: 950;
+    border: 1px solid transparent;
+  }
+
+  .sl-status.active {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5,150,105,.18);
+  }
+
+  .sl-status.inactive {
+    background: #FFF1F1;
+    color: #B91C1C;
+    border-color: rgba(239,68,68,.22);
+  }
+
+  .sl-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .sl-icon-btn {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 12px;
+    font-size: .95rem;
+  }
+
+  .sl-icon-view {
+    background: var(--sl-orange-soft);
+    color: var(--sl-orange);
+    border-color: rgba(255,138,31,.22);
+  }
+
+  .sl-icon-edit {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2,132,199,.18);
+  }
+
+  .sl-icon-delete {
+    background: #FFF1F1;
+    color: #B91C1C;
+    border-color: rgba(239,68,68,.22);
+  }
+
+  .sl-switch-form {
+    display: inline-flex;
+  }
+
+  .sl-switch {
+    width: 48px;
+    height: 28px;
+    border-radius: 999px;
+    border: 0;
+    padding: 3px;
+    background: #E5EAF0;
+    position: relative;
+    box-shadow: inset 0 0 0 1px rgba(15,23,42,.06);
+  }
+
+  .sl-switch::after {
+    content: "";
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    left: 3px;
+    top: 3px;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 4px 10px rgba(15,23,42,.18);
+    transition: .2s ease;
+  }
+
+  .sl-switch.is-active {
+    background: #2A7F83;
+  }
+
+  .sl-switch.is-active::after {
+    transform: translateX(20px);
+  }
+
+  .sl-empty {
+    padding: 28px 18px;
+    text-align: center;
+    color: var(--sl-muted);
+    font-weight: 800;
+  }
+
+  .sl-hidden {
+    display: none !important;
+  }
+
+  .sl-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: none;
+    place-items: center;
+    padding: 18px;
+    background: rgba(3, 31, 22, .52);
+    backdrop-filter: blur(7px);
+  }
+
+  .sl-modal-backdrop.open {
+    display: grid;
+  }
+
+  .sl-modal {
+    width: min(720px, 100%);
+    max-height: 88vh;
+    overflow: auto;
+    border-radius: 24px;
+    background: var(--sl-surface);
+    border: 1px solid var(--sl-line);
+    box-shadow: var(--sl-shadow-heavy);
+  }
+
+  .sl-modal-head {
+    padding: 18px;
+    border-bottom: 1px solid var(--sl-line);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    background:
+      radial-gradient(circle at top left, rgba(0,168,89,.08), transparent 36%),
+      var(--sl-surface);
+  }
+
+  .sl-modal-head h3 {
+    margin: 0;
+    color: var(--sl-text);
+    font-size: 1.16rem;
+    font-weight: 950;
+    letter-spacing: -.03em;
+  }
+
+  .sl-modal-head p {
+    margin: 4px 0 0;
+    color: var(--sl-muted);
+    font-size: .84rem;
+    font-weight: 650;
+  }
+
+  .sl-modal-close {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+  }
+
+  .sl-modal-body {
+    padding: 18px;
+  }
+
+  .sl-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .sl-detail-box {
+    border: 1px solid var(--sl-line);
+    border-radius: 16px;
+    background: var(--sl-surface-2);
+    padding: 13px;
+  }
+
+  .sl-detail-box span {
+    display: block;
+    color: var(--sl-muted);
+    font-size: .74rem;
+    font-weight: 850;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  .sl-detail-box strong {
+    display: block;
+    margin-top: 5px;
+    color: var(--sl-text);
+    font-size: .92rem;
+    font-weight: 900;
+    word-break: break-word;
+  }
+
+  .sl-form-grid {
+    display: grid;
+    gap: 13px;
+  }
+
+  .sl-form-grid label {
+    display: grid;
+    gap: 7px;
+    color: var(--sl-muted);
+    font-size: .76rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .sl-form-grid input,
+  .sl-form-grid textarea {
+    width: 100%;
+    border: 1px solid var(--sl-line);
+    border-radius: 14px;
+    background: var(--sl-surface-2);
+    color: var(--sl-text);
+    padding: 12px 13px;
+    outline: 0;
+    font-size: .92rem;
+    font-weight: 700;
+  }
+
+  .sl-form-grid textarea {
+    min-height: 96px;
+    resize: vertical;
+  }
+
+  .sl-modal-actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 980px) {
+    .sl-hero-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .sl-hero-card {
+      width: 100%;
+    }
+
+    .sl-toolbar {
+      grid-template-columns: 1fr;
+    }
+
+    .sl-toolbar-actions {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .sl-hero,
+    .sl-panel,
+    .sl-modal {
+      border-radius: 18px;
+    }
+
+    .sl-hero-actions,
+    .sl-toolbar-actions,
+    .sl-modal-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .sl-btn,
+    .sl-action,
+    .nf-store-list-page button {
+      width: 100%;
+    }
+
+    .sl-icon-btn,
+    .sl-switch {
+      width: 100%;
+    }
+
+    .sl-detail-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nf-store-list-page">
+
+  <div class="sl-hero">
+    <div class="sl-hero-inner">
+      <div>
+        <span class="sl-kicker">📋 Store Management</span>
+
+        <h2>Stores List</h2>
+
+        <p>
+          View all registered stores, check owner details, update store information,
+          activate or deactivate stores, export records and safely delete stores without losing order history.
+        </p>
+
+        <div class="sl-hero-actions">
+          <a href="{{ url_for('admin_store_overview') }}" class="sl-btn sl-btn-soft">← Store Overview</a>
+          <a href="{{ url_for('admin_create_store') }}" class="sl-btn sl-btn-primary">+ Create Store</a>
+          <a href="{{ url_for('admin_stores_export_csv') }}" class="sl-btn">⬇ Export CSV</a>
+        </div>
+      </div>
+
+      <div class="sl-hero-card">
+        <span>Total Stores</span>
+        <strong>{{ stores|length }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <section class="sl-panel">
+    <div class="sl-toolbar">
+      <div class="sl-field">
+        <label for="storeSearchInput">Search by store name</label>
+        <div class="sl-search-wrap">
+          <input id="storeSearchInput" type="search" placeholder="Ex: Supermarket, Country Fair, Organic Shop...">
+          <span class="sl-search-icon">🔍</span>
+        </div>
+      </div>
+
+      <div class="sl-toolbar-actions">
+        <button type="button" class="sl-btn" id="clearStoreSearch">Reset</button>
+        <a href="{{ url_for('admin_stores_export_csv') }}" class="sl-btn sl-btn-primary">⬇ Export</a>
+      </div>
+    </div>
+
+    <div class="sl-summary">
+      <div>
+        <h3>
+          Stores List
+          <span class="sl-count-pill" id="storeVisibleCount">{{ stores|length }}</span>
+        </h3>
+        <p>Zone and featured columns are removed as requested.</p>
+      </div>
+    </div>
+
+    <div class="sl-table-wrap">
+      <table class="sl-table" id="storeListTable">
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Store Information</th>
+            <th>Owner Information</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for store in stores %}
+            <tr
+              data-store-row
+              data-store-name="{{ store.store_name|lower }}"
+              data-store-id="{{ store.id }}"
+              data-store="{{ store|tojson|e }}"
+            >
+              <td>{{ loop.index }}</td>
+
+              <td>
+                <div class="sl-store-info">
+                  <div class="sl-avatar">
+                    {% if store.image_url %}
+                      <img src="{{ store.image_url }}" alt="{{ store.store_name }}">
+                    {% else %}
+                      🏪
+                    {% endif %}
+                  </div>
+
+                  <div class="sl-main-text">
+                    <strong>{{ store.store_name }}</strong>
+                    <span>ID: {{ store.id }}</span>
+                    {% if store.address %}
+                      <span>{{ store.address }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <div class="sl-owner-info">
+                  <div class="sl-avatar owner">
+                    {{ (store.owner_name[0] if store.owner_name else 'O')|upper }}
+                  </div>
+
+                  <div class="sl-main-text">
+                    <strong>{{ store.owner_name }}</strong>
+                    <span>{{ store.owner_email }}</span>
+                    <span>{{ store.owner_phone }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                {% if store.is_active == 1 %}
+                  <span class="sl-status active">● Active</span>
+                {% else %}
+                  <span class="sl-status inactive">● Inactive</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <div class="sl-actions">
+                  <button type="button" class="sl-icon-btn sl-icon-view" title="View Store" data-view-store>
+                    👁
+                  </button>
+
+                  <button type="button" class="sl-icon-btn sl-icon-edit" title="Edit Store" data-edit-store>
+                    ✎
+                  </button>
+
+                  <form method="post" action="{{ url_for('admin_store_toggle', store_id=store.id) }}" class="sl-switch-form">
+                    <button
+                      type="submit"
+                      class="sl-switch {% if store.is_active == 1 %}is-active{% endif %}"
+                      title="{% if store.is_active == 1 %}Deactivate Store{% else %}Activate Store{% endif %}"
+                      aria-label="{% if store.is_active == 1 %}Deactivate Store{% else %}Activate Store{% endif %}"
+                    ></button>
+                  </form>
+
+                  <form
+                    method="post"
+                    action="{{ url_for('admin_store_delete', store_id=store.id) }}"
+                    onsubmit="return confirm('Delete {{ store.store_name|e }}? If this store has orders, it will be disabled instead of deleted.');"
+                  >
+                    <button type="submit" class="sl-icon-btn sl-icon-delete" title="Delete Store">
+                      🗑
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="5">
+                <div class="sl-empty">No stores found. Create a new store to show it here.</div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="sl-modal-backdrop" id="viewStoreModal" aria-hidden="true">
+    <div class="sl-modal" role="dialog" aria-modal="true">
+      <div class="sl-modal-head">
+        <div>
+          <h3 id="viewStoreTitle">Store Details</h3>
+          <p>Complete store and owner information.</p>
+        </div>
+
+        <button type="button" class="sl-modal-close" data-close-modal>✕</button>
+      </div>
+
+      <div class="sl-modal-body">
+        <div class="sl-detail-grid" id="viewStoreDetails"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sl-modal-backdrop" id="editStoreModal" aria-hidden="true">
+    <div class="sl-modal" role="dialog" aria-modal="true">
+      <div class="sl-modal-head">
+        <div>
+          <h3>Edit Store</h3>
+          <p>Update basic store and owner details.</p>
+        </div>
+
+        <button type="button" class="sl-modal-close" data-close-modal>✕</button>
+      </div>
+
+      <div class="sl-modal-body">
+        <form method="post" id="editStoreForm">
+          <div class="sl-form-grid">
+            <label>
+              Store Name
+              <input type="text" name="store_name" id="editStoreName" required>
+            </label>
+
+            <label>
+              Store Address
+              <textarea name="address" id="editStoreAddress"></textarea>
+            </label>
+
+            <label>
+              Owner Name
+              <input type="text" name="owner_name" id="editOwnerName">
+            </label>
+
+            <label>
+              Owner Email
+              <input type="email" name="owner_email" id="editOwnerEmail">
+            </label>
+
+            <label>
+              Owner Phone
+              <input type="text" name="owner_phone" id="editOwnerPhone">
+            </label>
+          </div>
+
+          <div class="sl-modal-actions">
+            <button type="button" class="sl-btn" data-close-modal>Cancel</button>
+            <button type="submit" class="sl-btn sl-btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const searchInput = document.getElementById('storeSearchInput');
+  const clearBtn = document.getElementById('clearStoreSearch');
+  const rows = Array.from(document.querySelectorAll('[data-store-row]'));
+  const visibleCount = document.getElementById('storeVisibleCount');
+
+  const viewModal = document.getElementById('viewStoreModal');
+  const editModal = document.getElementById('editStoreModal');
+  const viewDetails = document.getElementById('viewStoreDetails');
+  const viewTitle = document.getElementById('viewStoreTitle');
+
+  const editForm = document.getElementById('editStoreForm');
+  const editStoreName = document.getElementById('editStoreName');
+  const editStoreAddress = document.getElementById('editStoreAddress');
+  const editOwnerName = document.getElementById('editOwnerName');
+  const editOwnerEmail = document.getElementById('editOwnerEmail');
+  const editOwnerPhone = document.getElementById('editOwnerPhone');
+
+  function filterRows() {
+    const query = (searchInput?.value || '').trim().toLowerCase();
+    let count = 0;
+
+    rows.forEach(function (row) {
+      const name = row.dataset.storeName || '';
+      const storeJson = row.dataset.store || '';
+      const matched = !query || name.includes(query) || storeJson.toLowerCase().includes(query);
+
+      row.classList.toggle('sl-hidden', !matched);
+
+      if (matched) count += 1;
+    });
+
+    if (visibleCount) visibleCount.textContent = count;
+  }
+
+  function openModal(modal) {
+    if (!modal) return;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeModals() {
+    document.querySelectorAll('.sl-modal-backdrop').forEach(function (modal) {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+    });
+  }
+
+  function parseStore(row) {
+    try {
+      return JSON.parse(row.dataset.store || '{}');
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function detailBox(label, value) {
+    return `
+      <div class="sl-detail-box">
+        <span>${label}</span>
+        <strong>${value || '-'}</strong>
+      </div>
+    `;
+  }
+
+  rows.forEach(function (row) {
+    const viewBtn = row.querySelector('[data-view-store]');
+    const editBtn = row.querySelector('[data-edit-store]');
+
+    if (viewBtn) {
+      viewBtn.addEventListener('click', function () {
+        const store = parseStore(row);
+
+        if (viewTitle) {
+          viewTitle.textContent = store.store_name || 'Store Details';
+        }
+
+        if (viewDetails) {
+          viewDetails.innerHTML = [
+            detailBox('Store Name', store.store_name),
+            detailBox('Store ID', store.id),
+            detailBox('Address', store.address),
+            detailBox('Owner Name', store.owner_name),
+            detailBox('Owner Email', store.owner_email),
+            detailBox('Owner Phone', store.owner_phone),
+            detailBox('Orders', store.orders),
+            detailBox('Products', store.products),
+            detailBox('Revenue', '₹ ' + Number(store.revenue || 0).toFixed(2)),
+            detailBox('Rating', '⭐ ' + Number(store.rating || 0).toFixed(1)),
+            detailBox('Status', Number(store.is_active) === 1 ? 'Active' : 'Inactive'),
+            detailBox('Created At', store.created_at)
+          ].join('');
+        }
+
+        openModal(viewModal);
+      });
+    }
+
+    if (editBtn) {
+      editBtn.addEventListener('click', function () {
+        const store = parseStore(row);
+
+        editForm.action = `/admin/stores/${store.id}/update`;
+        editStoreName.value = store.store_name || '';
+        editStoreAddress.value = store.address || '';
+        editOwnerName.value = store.owner_name || '';
+        editOwnerEmail.value = store.owner_email || '';
+        editOwnerPhone.value = store.owner_phone || '';
+
+        openModal(editModal);
+      });
+    }
+  });
+
+  if (searchInput) {
+    searchInput.addEventListener('input', filterRows);
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      searchInput.value = '';
+      filterRows();
+      searchInput.focus();
+    });
+  }
+
+  document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+    btn.addEventListener('click', closeModals);
+  });
+
+  document.querySelectorAll('.sl-modal-backdrop').forEach(function (modal) {
+    modal.addEventListener('click', function (event) {
+      if (event.target === modal) {
+        closeModals();
+      }
+    });
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      closeModals();
+    }
+  });
+
+  filterRows();
+})();
+</script>
+{% endblock %}

@@ -9,7 +9,7 @@ from random import randint
 import csv, zipfile, json
 from datetime import date,datetime
 import time
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file, abort
+from flask import Flask, render_template, request,Response, redirect, url_for, session, flash, jsonify, send_file, abort
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -3795,6 +3795,443 @@ def admin_create_store():
         metrics=metrics
     )
     
+# ============================================================
+# ADMIN STORE MANAGEMENT
+# Store / Store Overview / Store List / Store Reviews
+# ============================================================
+
+def _store_owner_for(store_doc):
+    """
+    Safely fetch store owner from users collection.
+    Store stores user_id as string in admin_create_store().
+    """
+    user_id = store_doc.get("user_id")
+
+    if not user_id:
+        return None
+
+    try:
+        return mongo.users.find_one({"_id": ObjectId(str(user_id))})
+    except Exception:
+        return mongo.users.find_one({"_id": user_id})
+
+
+def _store_order_docs(store_id):
+    """
+    Return orders for a store.
+    Supports store_id stored as ObjectId or string.
+    """
+    store_id_str = str(store_id)
+
+    return list(mongo.orders.find({
+        "$or": [
+            {"store_id": store_id},
+            {"store_id": store_id_str}
+        ]
+    }))
+
+
+def _store_product_count(store_id):
+    """
+    Return product count for a store.
+    Supports store_id stored as ObjectId or string.
+    """
+    store_id_str = str(store_id)
+
+    return mongo.products.count_documents({
+        "$or": [
+            {"store_id": store_id},
+            {"store_id": store_id_str}
+        ]
+    })
+
+
+def _store_rating_summary(store_id):
+    """
+    Return average rating for a store from store_ratings collection.
+    Safe if collection is empty/missing records.
+    """
+    store_id_str = str(store_id)
+
+    ratings = list(mongo.store_ratings.find({
+        "$or": [
+            {"store_id": store_id},
+            {"store_id": store_id_str}
+        ]
+    }))
+
+    if not ratings:
+        return {
+            "avg": 0,
+            "count": 0
+        }
+
+    total = 0.0
+    count = 0
+
+    for rating in ratings:
+        try:
+            total += float(rating.get("rating") or rating.get("stars") or 0)
+            count += 1
+        except Exception:
+            continue
+
+    if count <= 0:
+        return {
+            "avg": 0,
+            "count": 0
+        }
+
+    return {
+        "avg": round(total / count, 1),
+        "count": count
+    }
+
+
+def _admin_store_rows():
+    """
+    Build reusable store rows for overview, list, and reviews pages.
+    """
+    rows = []
+
+    for store in mongo.stores.find({}).sort("created_at", -1):
+        sid = store.get("_id")
+        sid_str = str(sid)
+
+        owner = _store_owner_for(store) or {}
+        orders = _store_order_docs(sid)
+
+        delivered_orders = [
+            o for o in orders
+            if _norm_status(o.get("status")) == "DELIVERED"
+        ]
+
+        revenue = sum(_order_total(o) for o in delivered_orders)
+        rating = _store_rating_summary(sid)
+        product_count = _store_product_count(sid)
+
+        rows.append({
+            "id": sid_str,
+            "store_id": sid_str,
+            "store_name": store.get("store_name") or store.get("name") or "Store",
+            "address": store.get("address") or "",
+            "image_url": store.get("image_url") or store.get("logo") or "",
+            "is_active": int(store.get("is_active", 1) or 0),
+            "created_at": store.get("created_at") or "",
+            "owner_id": str(owner.get("_id")) if owner.get("_id") else "",
+            "owner_name": owner.get("name") or "Owner",
+            "owner_email": owner.get("email") or "",
+            "owner_phone": owner.get("phone") or "",
+            "orders": len(orders),
+            "delivered_orders": len(delivered_orders),
+            "products": product_count,
+            "revenue": round(revenue, 2),
+            "rating": rating["avg"],
+            "rating_count": rating["count"],
+        })
+
+    return rows
+
+
+@app.route("/admin/stores")
+@login_required(role="admin")
+def admin_store_overview():
+    stores = _admin_store_rows()
+
+    total_stores = len(stores)
+    active_stores = len([s for s in stores if s["is_active"] == 1])
+    inactive_stores = len([s for s in stores if s["is_active"] != 1])
+
+    total_transactions = mongo.transactions.count_documents({})
+    commission_earned = 0.0
+    total_store_withdrawals = 0.0
+
+    for txn in mongo.transactions.find({}):
+        amount = float(txn.get("amount") or 0)
+
+        if _norm_status(txn.get("status")) == "PAID":
+            commission_earned += float(txn.get("commission_amount") or 0)
+
+        txn_type = _norm_status(txn.get("type") or txn.get("transaction_type"))
+        if txn_type in ["STORE_WITHDRAWAL", "WITHDRAWAL"]:
+            total_store_withdrawals += amount
+
+        if commission_earned <= 0:
+        # fallback commission estimate if commission_amount is not stored
+            commission_earned = sum(float(s.get("revenue") or 0) for s in stores)
+
+    top_selling_stores = sorted(
+        stores,
+        key=lambda x: (x["revenue"], x["orders"]),
+        reverse=True
+    )[:6]
+
+    most_popular_stores = sorted(
+        stores,
+        key=lambda x: (x["orders"], x["rating"]),
+        reverse=True
+    )[:6]
+
+    top_product_stores = sorted(
+        stores,
+        key=lambda x: (x["products"], x["orders"]),
+        reverse=True
+    )[:6]
+
+    metrics = {
+        "total_stores": total_stores,
+        "active_stores": active_stores,
+        "inactive_stores": inactive_stores,
+        "new_stores": mongo.stores.count_documents({}),
+        "total_transactions": total_transactions,
+        "commission_earned": round(commission_earned, 2),
+        "store_withdrawals": round(total_store_withdrawals, 2),
+    }
+
+    return render_template(
+        "admin_store_overview.html",
+        user=current_user(),
+        metrics=metrics,
+        stores=stores,
+        top_selling_stores=top_selling_stores,
+        most_popular_stores=most_popular_stores,
+        top_product_stores=top_product_stores,
+        active_group="store",
+        active_page="store_overview",
+    )
+
+
+@app.route("/admin/stores/list")
+@login_required(role="admin")
+def admin_store_list():
+    stores = _admin_store_rows()
+
+    return render_template(
+        "admin_store_list.html",
+        user=current_user(),
+        stores=stores,
+        active_group="store",
+        active_page="store_list",
+    )
+
+
+@app.route("/admin/stores/reviews")
+@login_required(role="admin")
+def admin_store_reviews():
+    stores = _admin_store_rows()
+
+    recommended_stores = sorted(
+        stores,
+        key=lambda x: (x["rating"], x["orders"], x["products"]),
+        reverse=True
+    )
+
+    return render_template(
+        "admin_store_reviews.html",
+        user=current_user(),
+        stores=stores,
+        recommended_stores=recommended_stores,
+        active_group="store",
+        active_page="store_reviews",
+    )
+
+
+@app.route("/admin/stores/export.csv")
+@login_required(role="admin")
+def admin_stores_export_csv():
+    stores = _admin_store_rows()
+
+    rows = [
+        ["SL", "Store Name", "Store ID", "Owner Name", "Owner Email", "Owner Phone", "Status", "Created At"]
+    ]
+
+    for idx, store in enumerate(stores, start=1):
+        rows.append([
+            idx,
+            store.get("store_name", ""),
+            store.get("id", ""),
+            store.get("owner_name", ""),
+            store.get("owner_email", ""),
+            store.get("owner_phone", ""),
+            "Active" if store.get("is_active") == 1 else "Inactive",
+            store.get("created_at", ""),
+        ])
+
+    def csv_escape(value):
+        value = "" if value is None else str(value)
+        return '"' + value.replace('"', '""') + '"'
+
+    csv_data = "\n".join(",".join(csv_escape(col) for col in row) for row in rows)
+
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=nefresh_stores.csv"}
+    )
+
+
+@app.route("/admin/stores/<store_id>/toggle", methods=["POST"])
+@login_required(role="admin")
+def admin_store_toggle(store_id):
+    try:
+        sid = ObjectId(store_id)
+    except Exception:
+        flash("Invalid store.", "danger")
+        return redirect(url_for("admin_store_list"))
+
+    store = mongo.stores.find_one({"_id": sid})
+
+    if not store:
+        flash("Store not found.", "warning")
+        return redirect(url_for("admin_store_list"))
+
+    current_status = int(store.get("is_active", 1) or 0)
+    next_status = 0 if current_status == 1 else 1
+
+    mongo.stores.update_one(
+        {"_id": sid},
+        {"$set": {"is_active": next_status}}
+    )
+
+    user_id = store.get("user_id")
+    if user_id:
+        try:
+            mongo.users.update_one(
+                {"_id": ObjectId(str(user_id))},
+                {"$set": {"is_active": next_status}}
+            )
+        except Exception:
+            pass
+
+    flash("Store status updated successfully.", "success")
+    return redirect(url_for("admin_store_list"))
+
+
+@app.route("/admin/stores/<store_id>/update", methods=["POST"])
+@login_required(role="admin")
+def admin_store_update(store_id):
+    try:
+        sid = ObjectId(store_id)
+    except Exception:
+        flash("Invalid store.", "danger")
+        return redirect(url_for("admin_store_list"))
+
+    store = mongo.stores.find_one({"_id": sid})
+
+    if not store:
+        flash("Store not found.", "warning")
+        return redirect(url_for("admin_store_list"))
+
+    store_name = request.form.get("store_name", "").strip()
+    address = request.form.get("address", "").strip()
+
+    owner_name = request.form.get("owner_name", "").strip()
+    owner_email = request.form.get("owner_email", "").lower().strip()
+    owner_phone = normalize_phone(request.form.get("owner_phone", "").strip())
+
+    if not store_name:
+        flash("Store name is required.", "warning")
+        return redirect(url_for("admin_store_list"))
+
+    mongo.stores.update_one(
+        {"_id": sid},
+        {
+            "$set": {
+                "store_name": store_name,
+                "address": address,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        }
+    )
+
+    user_id = store.get("user_id")
+
+    if user_id:
+        update_user = {}
+
+        if owner_name:
+            update_user["name"] = owner_name
+
+        if owner_email:
+            update_user["email"] = owner_email
+
+        if owner_phone:
+            update_user["phone"] = owner_phone
+
+        if update_user:
+            try:
+                mongo.users.update_one(
+                    {"_id": ObjectId(str(user_id))},
+                    {"$set": update_user}
+                )
+            except Exception:
+                pass
+
+    flash("Store updated successfully.", "success")
+    return redirect(url_for("admin_store_list"))
+
+
+@app.route("/admin/stores/<store_id>/delete", methods=["POST"])
+@login_required(role="admin")
+def admin_store_delete(store_id):
+    try:
+        sid = ObjectId(store_id)
+    except Exception:
+        flash("Invalid store.", "danger")
+        return redirect(url_for("admin_store_list"))
+
+    store = mongo.stores.find_one({"_id": sid})
+
+    if not store:
+        flash("Store not found.", "warning")
+        return redirect(url_for("admin_store_list"))
+
+    order_cnt = mongo.orders.count_documents({
+        "$or": [
+            {"store_id": sid},
+            {"store_id": str(sid)}
+        ]
+    })
+
+    user_id = store.get("user_id")
+
+    if order_cnt > 0:
+        mongo.stores.update_one(
+            {"_id": sid},
+            {"$set": {"is_active": 0}}
+        )
+
+        if user_id:
+            try:
+                mongo.users.update_one(
+                    {"_id": ObjectId(str(user_id))},
+                    {"$set": {"is_active": 0}}
+                )
+            except Exception:
+                pass
+
+        flash("Store has orders, so it was disabled instead of deleted.", "warning")
+        return redirect(url_for("admin_store_list"))
+
+    mongo.products.delete_many({
+        "$or": [
+            {"store_id": sid},
+            {"store_id": str(sid)}
+        ]
+    })
+
+    mongo.stores.delete_one({"_id": sid})
+
+    if user_id:
+        try:
+            mongo.users.delete_one({"_id": ObjectId(str(user_id))})
+        except Exception:
+            pass
+
+    flash("Store deleted successfully.", "success")
+    return redirect(url_for("admin_store_list"))
+
+
 
 @app.route('/admin/create-delivery', methods=['GET','POST'])
 @login_required(role='admin')
@@ -4212,6 +4649,7 @@ def store_dashboard():
     orders=orders,
     metrics=metrics
 )
+
 
 
 @app.route('/store/delivered-orders')
@@ -5972,6 +6410,7 @@ if __name__ == '__main__':
         port=5000,
         debug=True,
         use_reloader=False)
+
 
 
 
