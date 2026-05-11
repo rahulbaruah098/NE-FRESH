@@ -1,1807 +1,488 @@
-{% extends "base.html" %}
+{% extends "store_base.html" %}
+{% set active_page = "dashboard" %}
+
+{% block title %}Store Dashboard | NE FRESH{% endblock %}
+{% block page_title %}Store Dashboard{% endblock %}
+{% block page_subtitle %}Manage orders, products, inventory and sales for your store.{% endblock %}
+
 {% block content %}
+{% set products_total = products|length if products else 0 %}
+{% set orders_total = metrics.total_orders|default(orders|length if orders else 0) %}
+{% set earnings_total = metrics.paid_total|default(0) %}
+{% set gmv_total = metrics.gmv_total|default(0) %}
+{% set txn_count_total = metrics.txn_count|default(0) %}
+{% set unique_customers_total = metrics.unique_customers|default(0) %}
+{% set delivery_people_total = metrics.delivery_people|default(0) %}
+{% set active_delivery_people_total = metrics.active_delivery_people|default(delivery_people_total) %}
+{% set accepted_delivery_total = metrics.accepted_by_delivery|default(metrics.delivery_accepted|default(0)) %}
+{% set ready_for_pickup_total = metrics.ready_for_pickup_orders|default(0) %}
+{% set delivered_orders_total = metrics.delivered_orders|default(0) %}
+{% set available_delivery_people_list = available_delivery_people if available_delivery_people is defined else [] %}
 
+{% set ns = namespace(placed=0, confirmed=0, out_for_delivery=0, delivered=0, cancelled=0, low_stock=0, active_products=0, inactive_products=0) %}
+{% if orders %}
+  {% for o in orders %}
+    {% set st = (o.status or '')|upper %}
+    {% if st == 'PLACED' %}{% set ns.placed = ns.placed + 1 %}{% endif %}
+    {% if st == 'CONFIRMED' %}{% set ns.confirmed = ns.confirmed + 1 %}{% endif %}
+    {% if st == 'OUT_FOR_DELIVERY' %}{% set ns.out_for_delivery = ns.out_for_delivery + 1 %}{% endif %}
+    {% if st == 'DELIVERED' %}{% set ns.delivered = ns.delivered + 1 %}{% endif %}
+    {% if st == 'CANCELLED' %}{% set ns.cancelled = ns.cancelled + 1 %}{% endif %}
+  {% endfor %}
+{% endif %}
+{% if products %}
+  {% for p in products %}
+    {% if p.is_active %}{% set ns.active_products = ns.active_products + 1 %}{% else %}{% set ns.inactive_products = ns.inactive_products + 1 %}{% endif %}
+    {% if p.stock_kg is not none and p.stock_kg <= 1.0 %}{% set ns.low_stock = ns.low_stock + 1 %}{% endif %}
+  {% endfor %}
+{% endif %}
 
-<script>
-  (function(){
-    try {
-      document.body && document.body.setAttribute("data-page", "store-dashboard");
-    } catch(e){}
-  })();
-</script>
-
-
-<section class="store-dashboard-page" data-page="store-dashboard">
+<section class="nf-grocery-dashboard" data-page="store-dashboard">
   <style>
-    /* ========================================
-       STORE DASHBOARD — DESIGN INTEGRATION ONLY
-       ✅ Keeps ALL existing functionality + routes + IDs (desktop)
-       ✅ Adds MOBILE THEME (from your mobile page) only for small screens
-       Scoped to .store-dashboard-page
-       ======================================== */
-
-    /* Font imports (page-scoped) */
-    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
-
-    /* ✅ Page-scoped tokens */
-    .store-dashboard-page{
-      --crimson: #8B0000;
-      --black: #000000;
-      --off-white: #FAF9F6;
-      --light-crimson: #FFF5F5;
-      --border-standard: 4px;
-      --border-accent: 8px;
-      --transition-speed: 0.3s;
-
-      /* Full-bleed inside base.html container */
-      width: 100vw;
-      margin-left: calc(50% - 50vw);
-      margin-right: calc(50% - 50vw);
-
-      background-color: var(--off-white);
-      color: var(--black);
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1.125rem;
-      font-weight: bold;
-
-      line-height: 1.6;
-      min-height: 100vh;
-      overflow-x: hidden;
-      position: relative;
-    }
-
-    .store-dashboard-page,
-    .store-dashboard-page *{ box-sizing: border-box; }
-
-    /* Keep your base.html rounding intact elsewhere; only reset inside page */
-    .store-dashboard-page *{
-      margin: 0;
-      padding: 0;
-      border-radius: 0 !important;
-    }
-
-    /* ✅ Cursor (scoped) */
-    .store-dashboard-page,
-    .store-dashboard-page *{
-      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
-    }
-    .store-dashboard-page button,
-    .store-dashboard-page a,
-    .store-dashboard-page select,
-    .store-dashboard-page input{
-      cursor: pointer;
-    }
-
-    .store-dashboard-page ::selection{
-      background-color: var(--crimson);
-      color: white;
-    }
-
-    /* ========================================
-       FILM GRAIN OVERLAY (DESKTOP)
-       ======================================== */
-    .store-dashboard-page .grain-overlay{
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
-      z-index: 1;
-      opacity: 0.12;
-      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
-    }
-
-    /* ========================================
-       TOP BAR + HERO (DESKTOP)
-       ======================================== */
-    .store-dashboard-page .top-bar{
-      position: relative;
-      z-index: 2;
-      width: 100%;
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      font-variant: small-caps;
-    }
-
-    .store-dashboard-page .hero-section{
-      position: relative;
-      z-index: 2;
-      text-align: center;
-      padding: 5.25rem 2rem 4.25rem;
-      border-bottom: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-    }
-
-    .store-dashboard-page .hero-title{
-      font-family: 'Dancing Script', cursive;
-      font-size: clamp(3rem, 10vw, 6rem);
-      color: var(--crimson);
-      font-style: italic;
-      font-weight: 700;
-      margin: 0 0 0.75rem 0;
-      line-height: 1.15;
-      text-transform: uppercase;
-    }
-
-    .store-dashboard-page .hero-subtitle{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      font-variant: small-caps;
-      margin-bottom: 1.75rem;
-    }
-
-    .store-dashboard-page .hero-divider{
-      width: 6rem;
-      height: 4px;
-      background: var(--crimson);
-      margin: 0 auto;
-    }
-
-    .store-dashboard-page .live-badge-container{
-      margin-top: 1.75rem;
-      display: flex;
-      justify-content: center;
-    }
-
-    .store-dashboard-page .live-badge{
-      display: inline-flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem 1.5rem;
-      border: var(--border-standard) solid var(--black);
-      background: var(--crimson);
-      color: white;
-    }
-
-    .store-dashboard-page .pulse-dot{
-      width: 12px;
-      height: 12px;
-      background: white;
-      animation: storePulse 2s ease-in-out infinite;
-    }
-    @keyframes storePulse{ 0%,100%{opacity:1} 50%{opacity:.5} }
-
-    .store-dashboard-page .live-badge span{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      font-weight: 700;
-    }
-
-    /* ========================================
-       MAIN CONTAINER (DESKTOP)
-       ======================================== */
-    .store-dashboard-page .main-container{
-      position: relative;
-      z-index: 2;
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 3rem 2rem;
-    }
-
-    /* ========================================
-       KPI SECTION (DESKTOP)
-       ======================================== */
-    .store-dashboard-page .kpi-wrap{
-      margin-bottom: 2.25rem;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem;
-    }
-
-    .store-dashboard-page .kpi-card{
-      border: var(--border-standard) solid var(--black);
-      padding: 2rem;
-      transition: all var(--transition-speed);
-      overflow: hidden;
-      background: var(--off-white);
-    }
-    .store-dashboard-page .kpi-card:nth-child(even){ background: var(--light-crimson); }
-    .store-dashboard-page .kpi-card:hover{ transform: translateY(-4px); }
-
-    .store-dashboard-page .kpi-label{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      font-variant: small-caps;
-      margin-bottom: 1rem;
-      color: var(--crimson);
-    }
-
-    .store-dashboard-page .kpi-value{
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(1.5rem, 4vw, 2.5rem);
-      font-weight: 900;
-      color: var(--black);
-      line-height: 1.2;
-      margin-bottom: 0.5rem;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-    }
-
-    .store-dashboard-page .kpi-sub{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 0.95rem;
-      color: var(--black);
-      opacity: 0.75;
-      margin-top: 0.25rem;
-    }
-
-    /* ========================================
-       SECTION SHELLS (DESKTOP)
-       ======================================== */
-    .store-dashboard-page .panel{
-      border: var(--border-standard) solid var(--black);
-      padding: 2rem;
-      margin-bottom: 2.75rem;
-    }
-    .store-dashboard-page .panel.soft{ background: var(--light-crimson); }
-    .store-dashboard-page .panel.hard{ background: var(--off-white); }
-
-    .store-dashboard-page .section-header{
-      display: flex;
-      align-items: start;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .store-dashboard-page .icon-box{
-      width: 48px;
-      height: 48px;
-      background: var(--crimson);
-      border: var(--border-standard) solid var(--black);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      color: #fff;
-      font-family: 'Italiana', serif;
-      font-weight: 700;
-      letter-spacing: .08em;
-    }
-
-    .store-dashboard-page .section-title{
-      font-family: 'Playfair Display', serif;
-      font-size: 1.5rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.25rem;
-    }
-
-    .store-dashboard-page .section-description{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1rem;
-      opacity: 0.85;
-    }
-
-    /* ========================================
-       BUTTONS (DESKTOP)
-       ======================================== */
-    .store-dashboard-page a{ color: inherit; text-decoration: none; }
-
-    .store-dashboard-page .btn,
-    .store-dashboard-page button.btn{
-      font-family: 'Italiana', serif;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      transition: all var(--transition-speed) ease;
-      border: none;
-      background: transparent;
-    }
-
-    .store-dashboard-page .btn-primary{
-      border: var(--border-standard) solid var(--black);
-      background: var(--crimson);
-      color: white;
-      padding: 1rem 2rem;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.625rem;
-      box-shadow: 4px 4px 0 var(--black);
-      transition: all var(--transition-speed);
-    }
-    .store-dashboard-page .btn-primary:hover:not(:disabled){ transform: translateY(-4px); }
-    .store-dashboard-page .btn-primary:disabled{ opacity: .55; cursor: not-allowed; box-shadow: none; }
-
-    .store-dashboard-page .btn-secondary,
-    .store-dashboard-page .btn-ghost{
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      color: var(--black);
-      padding: 0.75rem 1.5rem;
-      font-family: 'Italiana', serif;
-      font-size: 0.75rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: .5rem;
-      transition: all var(--transition-speed);
-    }
-    .store-dashboard-page .btn-secondary:hover,
-    .store-dashboard-page .btn-ghost:hover{
-      background: var(--black);
-      color: white;
-    }
-
-    .store-dashboard-page .btn-secondary-large{
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      color: var(--black);
-      padding: 1rem 2rem;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.625rem;
-      transition: all var(--transition-speed);
-    }
-    .store-dashboard-page .btn-secondary-large:hover{ background: var(--black); color: white; }
-
-    .store-dashboard-page .btn-small{
-      border: 2px solid var(--black);
-      background: var(--off-white);
-      color: var(--black);
-      padding: 0.5rem 1rem;
-      font-family: 'Italiana', serif;
-      font-size: 0.625rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      transition: all var(--transition-speed);
-      white-space: nowrap;
-    }
-    .store-dashboard-page .btn-small:hover{ background: var(--black); color: white; }
-
-    /* Your enable sound button inline style is replaced visually here */
-    .store-dashboard-page #enableSound{
-      background: var(--crimson) !important;
-      color: #fff !important;
-      border: var(--border-standard) solid var(--black) !important;
-      box-shadow: 4px 4px 0 var(--black) !important;
-      padding: 1rem 1.25rem !important;
-      font-family: 'Italiana', serif !important;
-      letter-spacing: .25em !important;
-      text-transform: uppercase !important;
-      transition: all var(--transition-speed) !important;
-    }
-    .store-dashboard-page #enableSound:hover{ transform: translateY(-4px); }
-
-    /* ========================================
-       DOWNLOAD ROW / ACTION ROW (DESKTOP)
-       ======================================== */
-    .store-dashboard-page .downloads{
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: .75rem;
-      margin-top: 1.25rem;
-    }
-    .store-dashboard-page .muted{ color: rgba(0,0,0,.65); }
-
-    .store-dashboard-page .action-row{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-
-    /* ========================================
-       FORMS (DESKTOP)
-       ======================================== */
-    .store-dashboard-page .form{
-      margin-top: 1.5rem;
-    }
-    .store-dashboard-page .form-grid{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .store-dashboard-page .form label{
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      font-family: 'Italiana', serif;
-      font-size: 0.75rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--crimson);
-    }
-
-    .store-dashboard-page input[type="text"],
-    .store-dashboard-page input[type="number"],
-    .store-dashboard-page input[type="file"],
-    .store-dashboard-page select{
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      padding: 0.75rem 1rem;
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1rem;
-      color: var(--black);
-      width: 100%;
-    }
-
-    .store-dashboard-page input:focus,
-    .store-dashboard-page select:focus{
-      outline: 3px solid var(--crimson);
-      outline-offset: 3px;
-    }
-
-    /* ========================================
-       TABLES (DESKTOP) — keep structure for JS polling
-       ======================================== */
-    .store-dashboard-page .table-shell{
-      margin-top: 1.25rem;
-      overflow-x: auto;
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-    }
-
-    .store-dashboard-page table.table{
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 980px; /* so mobile can scroll horizontally (desktop tables) */
-    }
-
-    .store-dashboard-page table.table thead{
-      background: var(--black);
-      color: #fff;
-    }
-
-    .store-dashboard-page table.table th{
-      padding: 1rem;
-      text-align: left;
-      font-family: 'Italiana', serif;
-      font-size: 0.75rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      font-weight: 800;
-      border-right: 2px solid var(--crimson);
-      white-space: nowrap;
-    }
-    .store-dashboard-page table.table th:last-child{ border-right: none; }
-
-    .store-dashboard-page table.table tbody tr{
-      border-bottom: 2px solid var(--black);
-    }
-    .store-dashboard-page table.table tbody tr:nth-child(even){
-      background: var(--light-crimson);
-    }
-
-    .store-dashboard-page table.table td{
-      padding: 1rem;
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1rem;
-      vertical-align: middle;
-    }
-
-    .store-dashboard-page .table img.thumb{
-      width: 52px; height: 52px;
-      object-fit: cover;
-      border: 2px solid var(--black);
-    }
-
-    .store-dashboard-page .stock-pill{
-      display: inline-flex;
-      align-items: center;
-      gap: .4rem;
-      margin-top: 0.5rem;
-      font-family: 'Italiana', serif;
-      font-size: 0.625rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      padding: 0.25rem 0.75rem;
-      background: var(--off-white);
-      color: var(--black);
-      border: 2px solid var(--black);
-    }
-    .store-dashboard-page .stock-pill.low{
-      background: var(--crimson);
-      color: #fff;
-    }
-
-    .store-dashboard-page .tag{
-      display: inline-flex;
-      align-items: center;
-      padding: 0.25rem 0.75rem;
-      font-family: 'Italiana', serif;
-      font-size: 0.625rem;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      background: var(--black);
-      color: #fff;
-      border: 2px solid var(--crimson);
-      margin-left: .5rem;
-      white-space: nowrap;
-    }
-
-    .store-dashboard-page .row-actions{
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .store-dashboard-page .add-stock-form{
-      display: flex;
-      gap: 0.5rem;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-
-    .store-dashboard-page .add-stock-form input[type="number"]{
-      width: 130px;
-      padding: 0.6rem 0.75rem;
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1rem;
-    }
-
-    .store-dashboard-page a.btn-ghost{
-      text-decoration: none;
-    }
-
-    .store-dashboard-page .sr-only{
-      position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
-      clip:rect(0,0,0,0); white-space:nowrap; border:0;
-    }
-
-    /* ========================================
-       VIEW SWITCHING (IMPORTANT)
-       Desktop markup stays intact.
-       Mobile markup is ONLY shown on small screens.
-       ======================================== */
-    .store-dashboard-page .mobile-view { display: none; }
-    .store-dashboard-page .desktop-view { display: block; }
-
-    @media (max-width: 768px){
-      .store-dashboard-page .desktop-view{ display: none; }
-      .store-dashboard-page .mobile-view{ display: block; }
-    }
-
-    /* ========================================
-       MOBILE THEME (scoped)
-       Uses your "above page" logic + styling
-       ======================================== */
-    .store-dashboard-page .mobile-view{
-      /* keep it full-bleed inside base container too */
-      width: 100vw;
-      margin-left: calc(50% - 50vw);
-      margin-right: calc(50% - 50vw);
-      background: var(--off-white);
-      color: var(--black);
-      overflow-x: hidden;
-      position: relative;
-    }
-
-    .store-dashboard-page .mobile-app-container{
-      max-width: 428px;
-      margin: 0 auto;
-      position: relative;
-      min-height: 100vh;
-      padding-bottom: 80px;
-    }
-
-    .store-dashboard-page .mobile-film-grain{
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      opacity: 0.15;
-      z-index: 9999;
-      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
-    }
-
-    .store-dashboard-page .mobile-top-bar{
-      background: var(--off-white);
-      border-bottom: 4px solid var(--black);
-      padding: 16px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      font-family: 'Italiana', serif;
-      font-size: 11px;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      font-variant: small-caps;
-    }
-    .store-dashboard-page .mobile-divider{ color: var(--crimson); }
-
-    .store-dashboard-page .mobile-hero-section{
-      padding: 32px 16px;
-      text-align: center;
-      background: var(--off-white);
-      border-bottom: 8px solid var(--crimson);
-    }
-    .store-dashboard-page .mobile-hero-title{
-      font-family: 'Dancing Script', cursive;
-      font-size: 48px;
-      font-weight: 700;
-      font-style: italic;
-      color: var(--crimson);
-      margin-bottom: 8px;
-      line-height: 1.2;
-    }
-    .store-dashboard-page .mobile-hero-subtitle{
-      font-family: 'Italiana', serif;
-      font-size: 12px;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      font-variant: small-caps;
-      margin-bottom: 16px;
-    }
-    .store-dashboard-page .mobile-crimson-divider{
-      width: 80px;
-      height: 4px;
-      background: var(--crimson);
-      margin: 0 auto 16px;
-    }
-    .store-dashboard-page .mobile-live-badge{
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--crimson);
-      color: white;
-      padding: 8px 16px;
-      border: 4px solid var(--black);
-      font-family: 'Italiana', serif;
-      font-size: 12px;
-      letter-spacing: 0.3em;
-      font-variant: small-caps;
-    }
-    .store-dashboard-page .mobile-pulse-dot{
-      width: 8px;
-      height: 8px;
-      background: white;
-      display: block;
-      animation: dashboardPulse 2s ease-in-out infinite;
-    }
-    @keyframes dashboardPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-
-    .store-dashboard-page .mobile-kpi-container{ display: flex; flex-direction: column; }
-    .store-dashboard-page .mobile-kpi-card{
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      padding: 24px 16px;
-      border-bottom: 4px solid var(--black);
-      background: var(--off-white);
-    }
-    .store-dashboard-page .mobile-kpi-card.alt{ background: var(--light-crimson); }
-    .store-dashboard-page .mobile-kpi-icon{
-      width: 64px;
-      height: 64px;
-      background: var(--crimson);
-      border: 4px solid var(--black);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      flex-shrink: 0;
-    }
-    .store-dashboard-page .mobile-kpi-number{
-      font-family: 'Playfair Display', serif;
-      font-size: 36px;
-      font-weight: 900;
-      color: var(--crimson);
-      line-height: 1;
-      margin-bottom: 8px;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-    }
-    .store-dashboard-page .mobile-kpi-label{
-      font-family: 'Italiana', serif;
-      font-size: 11px;
-      letter-spacing: 0.3em;
-      font-variant: small-caps;
-      margin-bottom: 4px;
-    }
-    .store-dashboard-page .mobile-kpi-subtitle{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 14px;
-      color: #666;
-    }
-
-    .store-dashboard-page .mobile-section{
-      padding: 24px 16px;
-      border-bottom: 4px solid var(--black);
-    }
-    .store-dashboard-page .mobile-section-header{
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .store-dashboard-page .mobile-section-header svg,
-    .store-dashboard-page .mobile-section-header i{
-      color: var(--crimson);
-      width: 24px;
-      height: 24px;
-    }
-    .store-dashboard-page .mobile-section-header h2{
-      font-family: 'Italiana', serif;
-      font-size: 16px;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      font-variant: small-caps;
-    }
-
-    .store-dashboard-page .mobile-export-section{ background: var(--light-crimson); }
-    .store-dashboard-page .mobile-export-buttons{
-      display: flex;
-      gap: 12px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin;
-    }
-    .store-dashboard-page .mobile-btn-export{
-      flex-shrink: 0;
-      padding: 12px 20px;
-      background: white;
-      border: 4px solid var(--black);
-      font-family: 'Italiana', serif;
-      font-size: 12px;
-      letter-spacing: 0.3em;
-      font-variant: small-caps;
-      transition: transform 0.2s;
-      min-height: 44px;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .store-dashboard-page .mobile-btn-export:active{ transform: translateY(2px); }
-
-    .store-dashboard-page .mobile-action-buttons{
-      padding: 24px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      border-bottom: 4px solid var(--black);
-    }
-    .store-dashboard-page .mobile-btn-action{
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 16px 24px;
-      border: 4px solid var(--black);
-      font-family: 'Italiana', serif;
-      font-size: 12px;
-      letter-spacing: 0.3em;
-      font-variant: small-caps;
-      min-height: 56px;
-      transition: transform 0.2s;
-      text-decoration: none;
-    }
-    .store-dashboard-page .mobile-btn-action svg{ width: 20px; height: 20px; }
-    .store-dashboard-page .mobile-btn-action:active{ transform: translateY(2px); }
-    .store-dashboard-page .mobile-btn-crimson{
-      background: var(--crimson);
-      color: white;
-      box-shadow: 4px 4px 0 var(--black);
-    }
-    .store-dashboard-page .mobile-btn-white{ background: white; color: var(--black); }
-
-    .store-dashboard-page .mobile-add-product-section{ background: var(--light-crimson); }
-    .store-dashboard-page .mobile-product-form{
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .store-dashboard-page .mobile-form-group{
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .store-dashboard-page .mobile-form-group label{
-      font-family: 'Italiana', serif;
-      font-size: 11px;
-      letter-spacing: 0.3em;
-      font-variant: small-caps;
-    }
-    .store-dashboard-page .mobile-form-group input,
-    .store-dashboard-page .mobile-form-group select{
-      padding: 14px;
-      border: 4px solid var(--black);
-      background: white;
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 16px;
-      min-height: 48px;
-    }
-    .store-dashboard-page .mobile-form-row{
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-
-    .store-dashboard-page .mobile-image-upload-container{
-      position: relative;
-      width: 100%;
-      height: 200px;
-      border: 4px dashed var(--black);
-      background: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .store-dashboard-page .mobile-upload-box{
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      width: 100%;
-      height: 100%;
-      color: var(--crimson);
-      font-family: 'Italiana', serif;
-      font-size: 12px;
-      letter-spacing: 0.2em;
-      font-variant: small-caps;
-      transition: background 0.2s;
-    }
-    .store-dashboard-page .mobile-upload-box:hover{ background: var(--light-crimson); }
-    .store-dashboard-page .mobile-upload-hint{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 12px;
-      color: #666;
-      letter-spacing: normal;
-      text-transform: none;
-      font-variant: normal;
-    }
-    .store-dashboard-page .mobile-image-preview{ position: relative; width: 100%; height: 100%; }
-    .store-dashboard-page .mobile-image-preview img{ width: 100%; height: 100%; object-fit: cover; }
-    .store-dashboard-page .mobile-remove-image-btn{
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      background: var(--crimson);
-      color: white;
-      border: 4px solid var(--black);
-      padding: 8px 12px;
-      font-family: 'Italiana', serif;
-      font-size: 16px;
-      line-height: 1;
-      min-width: 44px;
-      min-height: 44px;
-      transition: transform 0.2s;
-    }
-    .store-dashboard-page .mobile-remove-image-btn:active{ transform: translateY(2px); }
-
-    .store-dashboard-page .mobile-btn-submit{
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      padding: 16px 24px;
-      background: var(--crimson);
-      color: white;
-      border: 4px solid var(--black);
-      font-family: 'Italiana', serif;
-      font-size: 12px;
-      letter-spacing: 0.3em;
-      font-variant: small-caps;
-      min-height: 56px;
-      box-shadow: 4px 4px 0 var(--black);
-      transition: transform 0.2s;
-    }
-    .store-dashboard-page .mobile-btn-submit svg{ width: 20px; height: 20px; }
-    .store-dashboard-page .mobile-btn-submit:active{
-      transform: translateY(2px);
-      box-shadow: 2px 2px 0 var(--black);
-    }
-
-    .store-dashboard-page .mobile-product-grid{
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .store-dashboard-page .mobile-product-card{
-      background: white;
-      border: 4px solid var(--black);
-      padding: 16px;
-    }
-    .store-dashboard-page .mobile-product-image{
-      width: 100%;
-      height: 200px;
-      border: 4px solid var(--black);
-      margin-bottom: 16px;
-      overflow: hidden;
-      background: #e0e0e0;
-    }
-    .store-dashboard-page .mobile-product-image img{ width: 100%; height: 100%; object-fit: cover; }
-    .store-dashboard-page .mobile-product-image-placeholder{
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #999;
-    }
-
-    .store-dashboard-page .mobile-product-header{
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 12px;
-      gap: 12px;
-    }
-    .store-dashboard-page .mobile-product-name{
-      font-family: 'Playfair Display', serif;
-      font-size: 20px;
-      font-weight: 700;
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .store-dashboard-page .mobile-low-badge{
-      display: inline-block;
-      padding: 4px 8px;
-      background: var(--crimson);
-      color: white;
-      font-family: 'Italiana', serif;
-      font-size: 10px;
-      letter-spacing: 0.2em;
-      font-variant: small-caps;
-      border: 2px solid var(--black);
-    }
-    .store-dashboard-page .mobile-status-badge{
-      padding: 6px 12px;
-      font-family: 'Italiana', serif;
-      font-size: 10px;
-      letter-spacing: 0.2em;
-      font-variant: small-caps;
-      border: 4px solid var(--black);
-      flex-shrink: 0;
-    }
-    .store-dashboard-page .mobile-status-active{ background: var(--crimson); color: white; }
-    .store-dashboard-page .mobile-status-inactive{ background: #ccc; color: var(--black); }
-
-    /* ✅ NEW: category line (mobile inventory) */
-    .store-dashboard-page .mobile-product-category-line{
-      margin-top: 6px;
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 14px;
-      color: #333;
-      opacity: .85;
-    }
-    .store-dashboard-page .mobile-product-category-pill{
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border: 2px solid var(--black);
-      background: var(--light-crimson);
-      font-family: 'Italiana', serif;
-      font-size: 10px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      margin-right: 8px;
-      white-space: nowrap;
-    }
-
-    .store-dashboard-page .mobile-product-info{
-      display: flex;
-      gap: 24px;
-      margin-bottom: 16px;
-      padding: 12px 0;
-      border-top: 4px solid var(--black);
-      border-bottom: 4px solid var(--black);
-    }
-    .store-dashboard-page .mobile-info-item{
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .store-dashboard-page .mobile-info-label{
-      font-family: 'Italiana', serif;
-      font-size: 10px;
-      letter-spacing: 0.2em;
-      font-variant: small-caps;
-    }
-    .store-dashboard-page .mobile-info-value{
-      font-family: 'Playfair Display', serif;
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--crimson);
-    }
-    .store-dashboard-page .mobile-product-actions{
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .store-dashboard-page .mobile-action-btn,
-    .store-dashboard-page .mobile-action-link{
-      flex: 1;
-      padding: 12px;
-      border: 4px solid var(--black);
-      background: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 44px;
-      transition: transform 0.2s;
-      text-decoration: none;
-      color: inherit;
-      font-family: 'Italiana', serif;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-size: 10px;
-    }
-    .store-dashboard-page .mobile-action-btn:active,
-    .store-dashboard-page .mobile-action-link:active{ transform: translateY(2px); }
-    .store-dashboard-page .mobile-inline-form{
-      flex: 1;
-      display: flex;
-      gap: 8px;
-    }
-    .store-dashboard-page .mobile-inline-form input[type="number"]{
-      flex: 1;
-      padding: 10px 12px;
-      border: 4px solid var(--black);
-      background: white;
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 14px;
-      min-height: 44px;
-    }
-    .store-dashboard-page .mobile-inline-form button{
-      width: 64px;
-      border: 4px solid var(--black);
-      background: var(--crimson);
-      color: white;
-      min-height: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .store-dashboard-page .mobile-filter-chips{
-      display: flex;
-      gap: 8px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      margin-bottom: 20px;
-      padding-bottom: 8px;
-    }
-    .store-dashboard-page .mobile-filter-chip{
-      flex-shrink: 0;
-      padding: 10px 16px;
-      background: white;
-      border: 4px solid var(--black);
-      font-family: 'Italiana', serif;
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      font-variant: small-caps;
-      min-height: 44px;
-      transition: all 0.2s;
-    }
-    .store-dashboard-page .mobile-filter-chip.active{
-      background: var(--crimson);
-      color: white;
-    }
-
-    .store-dashboard-page .mobile-order-grid{
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .store-dashboard-page .mobile-order-card{
-      background: white;
-      border: 4px solid var(--black);
-      padding: 20px;
-    }
-    .store-dashboard-page .mobile-order-header{
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 4px solid var(--black);
-    }
-    .store-dashboard-page .mobile-order-number{
-      font-family: 'Playfair Display', serif;
-      font-size: 24px;
-      font-weight: 900;
-      color: var(--crimson);
-    }
-    .store-dashboard-page .mobile-order-time{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 14px;
-      color: #666;
-    }
-    .store-dashboard-page .mobile-customer-name{
-      font-family: 'Playfair Display', serif;
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-    .store-dashboard-page .mobile-customer-phone{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 14px;
-      color: #666;
-    }
-    .store-dashboard-page .mobile-order-address{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 14px;
-      line-height: 1.5;
-      margin-bottom: 16px;
-      padding: 12px;
-      background: var(--light-crimson);
-      border: 4px solid var(--black);
-      white-space: pre-line;
-    }
-    .store-dashboard-page .mobile-order-breakdown{
-      margin-bottom: 16px;
-      padding: 12px;
-      border: 4px solid var(--black);
-    }
-    .store-dashboard-page .mobile-breakdown-row{
-      display: flex;
-      justify-content: space-between;
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 14px;
-      margin-bottom: 8px;
-    }
-    .store-dashboard-page .mobile-breakdown-row:last-child{ margin-bottom: 0; }
-    .store-dashboard-page .mobile-breakdown-total{
-      font-family: 'Playfair Display', serif;
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--crimson);
-      padding-top: 8px;
-      border-top: 4px solid var(--black);
-      margin-top: 8px;
-    }
-    .store-dashboard-page .mobile-order-footer{
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .store-dashboard-page .mobile-payment-badge{
-      padding: 8px 16px;
-      font-family: 'Italiana', serif;
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      font-variant: small-caps;
-      border: 4px solid var(--black);
-      flex-shrink: 0;
-    }
-    .store-dashboard-page .mobile-payment-paid{ background: var(--crimson); color: white; }
-    .store-dashboard-page .mobile-payment-pending{ background: #ffc107; color: var(--black); }
-
-    .store-dashboard-page .mobile-status-select{
-      flex: 1;
-      padding: 10px 12px;
-      border: 4px solid var(--black);
-      background: white;
-      font-family: 'Italiana', serif;
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      font-variant: small-caps;
-      min-height: 44px;
-      appearance: none;
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path fill="%23000" d="M6 9L1 4h10z"/></svg>');
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      padding-right: 32px;
-    }
-
-    .store-dashboard-page .mobile-order-actions{
-      display: flex;
-      gap: 8px;
-      width: 100%;
-    }
-    .store-dashboard-page .mobile-order-link{
-      flex: 1;
-      border: 4px solid var(--black);
-      background: white;
-      min-height: 44px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      text-decoration: none;
-      color: var(--black);
-      font-family: 'Italiana', serif;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      font-size: 10px;
-    }
-
-    .store-dashboard-page .mobile-toast{
-      position: fixed;
-      top: 24px;
-      right: 16px;
-      background: white;
-      border: 4px solid var(--black);
-      padding: 16px 20px;
-      max-width: calc(100vw - 32px);
-      z-index: 10000;
-      animation: dashboardSlideIn 0.3s ease-out;
-      box-shadow: 4px 4px 0 var(--black);
-    }
-    .store-dashboard-page .mobile-toast-border{
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 4px;
-      height: 100%;
-      background: var(--crimson);
-    }
-    .store-dashboard-page .mobile-toast-content{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 16px;
-      font-weight: 600;
-      padding-left: 12px;
-    }
-    @keyframes dashboardSlideIn{
-      from{ transform: translateX(120%); opacity: 0; }
-      to{ transform: translateX(0); opacity: 1; }
-    }
-
-    .store-dashboard-page .mobile-back-to-top{
-      position: fixed;
-      bottom: 24px;
-      right: 16px;
-      width: 56px;
-      height: 56px;
-      background: var(--crimson);
-      color: white;
-      border: 4px solid var(--black);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 4px 4px 0 var(--black);
-      z-index: 1000;
-      transition: transform 0.2s;
-    }
-
-    @media (max-width: 375px){
-      .store-dashboard-page .mobile-hero-title{ font-size: 40px; }
-      .store-dashboard-page .mobile-form-row{ grid-template-columns: 1fr; }
-    }
-
-    /* Accessibility */
-    .store-dashboard-page *:focus-visible{
-      outline: 3px solid var(--crimson);
-      outline-offset: 3px;
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      .store-dashboard-page *,
-      .store-dashboard-page *::before,
-      .store-dashboard-page *::after{
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
-      }
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    .nf-grocery-dashboard{
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --soft:#F3FFF8;
+      --soft2:#F7FBF9;
+      --line:#DDECE4;
+      --line2:#EAF4EF;
+      --ink:#1F332A;
+      --text:#40534A;
+      --muted:#66756D;
+      --muted2:#8A9890;
+      --green:#00A859;
+      --green-dark:#008A48;
+      --green-deep:#075C3B;
+      --green-soft:#E9FFF3;
+      --orange:#FF8A1F;
+      --orange-soft:#FFF4EA;
+      --red:#EF4444;
+      --red-soft:#FFF1F2;
+      --blue:#0284C7;
+      --blue-soft:#E0F2FE;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      --shadow2:0 22px 58px rgba(17,64,38,.12);
+      --radius:22px;
+      --ease:cubic-bezier(.2,.75,.25,1);
+      width:100%;
+      min-height:100%;
+      background:var(--bg);
+      color:var(--ink);
+      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      overflow-x:hidden;
+    }
+
+    .nf-grocery-dashboard,
+    .nf-grocery-dashboard *{box-sizing:border-box;}
+
+    .gd-shell{width:100%;padding:24px;}
+    .gd-grid{display:grid;gap:20px;}
+
+    .gd-page-head{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:18px;
+      margin-bottom:20px;
+      padding:20px;
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      background:var(--card);
+      box-shadow:var(--shadow);
+    }
+    .gd-title-row{display:flex;align-items:center;gap:14px;min-width:0;}
+    .gd-title-icon{width:54px;height:54px;border-radius:18px;display:grid;place-items:center;font-size:28px;background:var(--green-soft);color:var(--green-dark);flex:0 0 auto;}
+    .gd-title{margin:0;color:var(--ink);font-size:clamp(22px,2.2vw,32px);line-height:1.08;font-weight:900;letter-spacing:-.04em;}
+    .gd-subtitle{margin:7px 0 0;color:var(--muted);font-size:14px;font-weight:650;line-height:1.55;}
+    .gd-zone-select{min-width:250px;height:46px;border:1px solid var(--line);border-radius:14px;padding:0 14px;background:var(--soft);color:var(--ink);font-size:14px;outline:none;font-weight:750;}
+
+    .gd-panel,.gd-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+    .gd-summary-panel{padding:20px;}
+    .gd-filter-row{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:18px;flex-wrap:wrap;}
+    .gd-filter-row::before{content:'Store Performance';color:var(--ink);font-size:16px;font-weight:900;letter-spacing:-.02em;}
+    .gd-filter-tabs{display:inline-flex;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--soft);padding:4px;gap:4px;}
+    .gd-filter-tabs button{height:36px;min-width:82px;border:0;border-radius:10px;background:transparent;color:var(--muted);font-size:13px;font-weight:800;cursor:pointer;transition:.2s var(--ease);}
+    .gd-filter-tabs button:hover,.gd-filter-tabs button:first-child{background:var(--card);color:var(--green-dark);box-shadow:0 8px 18px rgba(17,64,38,.06);}
+
+    .gd-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px;}
+    .gd-kpi-card{position:relative;min-height:166px;border-radius:20px;background:var(--card);border:1px solid var(--line2);box-shadow:0 8px 24px rgba(17,64,38,.045);display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-align:left;padding:18px;transition:.22s var(--ease);overflow:hidden;}
+    .gd-kpi-card:hover{transform:translateY(-3px);box-shadow:var(--shadow2);border-color:rgba(0,168,89,.25);}
+    .gd-kpi-icon{width:44px;height:44px;border-radius:16px;display:grid;place-items:center;font-size:24px;line-height:1;background:var(--green-soft);margin-bottom:10px;}
+    .gd-kpi-label{color:var(--muted);font-size:13px;font-weight:850;margin-bottom:7px;}
+    .gd-kpi-value{color:var(--ink);font-size:clamp(25px,2.4vw,34px);line-height:1;font-weight:900;letter-spacing:-.04em;word-break:break-word;}
+    .gd-kpi-sub{color:var(--muted2);font-size:12.5px;font-weight:750;margin-top:10px;line-height:1.35;}
+
+    .gd-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+    .gd-status-card{min-height:72px;background:var(--soft2);border:1px solid var(--line2);border-radius:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 16px;transition:.2s var(--ease);}
+    .gd-status-card:hover{background:var(--green-soft);border-color:rgba(0,168,89,.20);}
+    .gd-status-left{display:flex;align-items:center;gap:11px;min-width:0;}
+    .gd-status-icon{width:38px;height:38px;border-radius:14px;background:#fff;display:grid;place-items:center;font-size:20px;flex:0 0 auto;box-shadow:0 8px 20px rgba(17,64,38,.05);}
+    .gd-status-label{font-size:13px;font-weight:850;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .gd-status-value{font-size:22px;line-height:1;color:var(--ink);font-weight:900;flex:0 0 auto;}
+    .is-green{color:var(--green-dark)!important;}.is-red{color:var(--red)!important;}.is-blue{color:var(--blue)!important;}.is-orange{color:var(--orange)!important;}
+
+    .gd-delivery-card{padding:20px;}
+    .gd-delivery-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px;}
+    .gd-delivery-title{margin:0;color:var(--ink);font-size:18px;font-weight:900;letter-spacing:-.025em;}
+    .gd-delivery-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:650;line-height:1.45;}
+    .gd-delivery-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px;}
+    .gd-delivery-mini{border:1px solid var(--line2);border-radius:18px;background:var(--soft2);padding:15px;display:flex;align-items:center;gap:12px;}
+    .gd-delivery-mini span{width:40px;height:40px;border-radius:14px;background:#fff;display:grid;place-items:center;font-size:21px;box-shadow:0 8px 20px rgba(17,64,38,.05);}
+    .gd-delivery-mini strong{display:block;color:var(--ink);font-size:22px;font-weight:900;line-height:1;}
+    .gd-delivery-mini small{display:block;margin-top:4px;color:var(--muted);font-size:12px;font-weight:800;}
+    .gd-delivery-list{display:grid;gap:10px;}
+
+    .gd-chart-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(300px,.75fr);gap:18px;}
+    .gd-chart-card{min-height:420px;padding:22px;}
+    .gd-chart-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:12px;}
+    .gd-money{color:var(--ink);font-size:22px;font-weight:900;letter-spacing:-.02em;margin-bottom:8px;}
+    .gd-small-muted{color:var(--muted);font-size:14px;font-weight:750;}
+    .gd-chart-center-label{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:13px;font-weight:750;margin-top:8px;}
+    .gd-dot{width:11px;height:11px;border-radius:50%;display:inline-block;flex:0 0 auto;}
+    .gd-chart-filter{display:inline-flex;align-items:center;gap:8px;color:var(--ink);font-size:13px;font-weight:800;white-space:nowrap;background:var(--soft);border:1px solid var(--line);border-radius:999px;padding:9px 12px;}
+    .gd-chart-area{width:100%;height:300px;margin-top:8px;position:relative;}
+    .gd-chart-legend{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:14px;color:var(--text);font-size:12px;font-weight:700;margin-top:8px;}
+    .gd-legend-item{display:inline-flex;align-items:center;gap:6px;}
+
+    .gd-user-stat-card{padding:22px;min-height:420px;}
+    .gd-card-top,.gd-list-head{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .gd-card-top{margin-bottom:18px;}
+    .gd-card-title,.gd-list-title{margin:0;color:var(--ink);font-size:16px;font-weight:900;letter-spacing:-.02em;}
+    .gd-list-title{font-size:15px;}
+    .gd-card-select{border:1px solid var(--line);background:var(--soft);border-radius:12px;color:var(--ink);font-size:13px;font-weight:800;outline:none;padding:9px 10px;}
+    .gd-donut-wrap{display:grid;place-items:center;padding:18px 0 22px;}
+    .gd-donut{width:174px;height:174px;border-radius:50%;background:conic-gradient(var(--green-deep) 0 45%,var(--green) 45% 75%,#A7DFDC 75% 100%);position:relative;}
+    .gd-donut::after{content:"";position:absolute;inset:31px;background:#fff;border-radius:50%;}
+    .gd-donut-center{position:absolute;inset:0;display:grid;place-items:center;text-align:center;z-index:1;pointer-events:none;}
+    .gd-donut-num{color:var(--ink);font-size:24px;line-height:1;font-weight:900;margin-bottom:7px;}
+    .gd-donut-text{color:var(--muted);font-size:13px;font-weight:800;}
+    .gd-donut-legend{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:14px 20px;color:var(--muted);font-size:13px;font-weight:700;}
+    .gd-donut-legend span{display:inline-flex;align-items:center;gap:8px;}
+
+    .gd-list-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;}
+    .gd-list-card{min-height:330px;}
+    .gd-list-head{min-height:58px;padding:17px 20px;border-bottom:1px solid var(--line2);background:var(--soft2);}
+    .gd-view-link{color:var(--green-dark);text-decoration:none;font-size:13px;font-weight:900;white-space:nowrap;}
+    .gd-list-body{padding:14px 20px 20px;}
+
+    .gd-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px;padding:10px 0;border-bottom:1px solid var(--line2);}
+    .gd-row:last-child{border-bottom:0;}
+    .gd-row-left{display:flex;align-items:center;gap:10px;min-width:0;flex:1;}
+    .gd-thumb{width:52px;height:52px;border:1px solid var(--line);border-radius:15px;background:#fff;display:grid;place-items:center;overflow:hidden;flex:0 0 auto;color:var(--green-dark);font-size:22px;}
+    .gd-thumb.round{border-radius:16px;}
+    .gd-thumb img{width:100%;height:100%;object-fit:cover;}
+    .gd-name{color:var(--ink);font-size:14px;font-weight:900;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .gd-meta{margin-top:4px;color:var(--muted);font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .gd-pill{min-width:82px;text-align:center;padding:8px 11px;border-radius:999px;background:var(--green-soft);color:var(--green-dark);font-size:12px;font-weight:900;white-space:nowrap;flex:0 0 auto;border:1px solid rgba(0,168,89,.16);}
+    .gd-heart{color:var(--red);font-size:14px;font-weight:900;white-space:nowrap;flex:0 0 auto;}
+    .gd-complaint-pill{color:#B91C1C;background:var(--red-soft);border-color:#FECACA;}
+
+    .gd-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:18px 20px 20px;}
+    .gd-form-grid label{display:grid;gap:7px;color:var(--text);font-size:12px;font-weight:900;}
+    .gd-form-grid input,.gd-form-grid select,.gd-table select,.gd-add-stock input{width:100%;height:42px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);padding:0 12px;outline:none;font-weight:750;}
+    .gd-form-grid input:focus,.gd-form-grid select:focus,.gd-table select:focus,.gd-add-stock input:focus{border-color:rgba(0,168,89,.42);box-shadow:0 0 0 4px rgba(0,168,89,.08);}
+    .gd-form-grid input[type="file"]{height:auto;padding:10px 12px;}
+    .gd-form-actions{padding:0 20px 20px;display:flex;gap:10px;flex-wrap:wrap;}
+
+    .gd-table-wrap{padding:0 20px 20px;overflow:auto;}
+    .gd-table{width:100%;min-width:980px;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;}
+    .gd-table thead{background:var(--green-deep);color:#fff;}
+    .gd-table th{padding:14px;text-align:left;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;}
+    .gd-table td{padding:14px;border-bottom:1px solid var(--line2);color:var(--text);font-size:13px;font-weight:700;vertical-align:top;}
+    .gd-table tbody tr:last-child td{border-bottom:0;}
+    .gd-table tbody tr:nth-child(even){background:#FCFFFD;}
+    .gd-table tbody tr:hover{background:#F7FFFB;}
+    .gd-table .thumb{width:58px;height:58px;object-fit:cover;border-radius:14px;border:1px solid var(--line);background:#fff;}
+
+    .gd-quick-links,.gd-action-row{display:flex;flex-wrap:wrap;gap:10px;padding:18px 20px 20px;}
+    .gd-btn,.gd-quick-links a,.gd-table button,.gd-table a,.gd-form-actions button,.gd-action-row button,.gd-action-row a{min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:900;transition:.2s var(--ease);cursor:pointer;white-space:nowrap;}
+    .gd-btn-primary,.gd-form-actions button,.gd-action-row button#enableSound{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;box-shadow:0 10px 22px rgba(0,168,89,.18);}
+    .gd-btn-danger{background:var(--red-soft)!important;border-color:#FECACA!important;color:#B91C1C!important;}
+    .gd-btn:hover,.gd-quick-links a:hover,.gd-table button:hover,.gd-table a:hover,.gd-form-actions button:hover,.gd-action-row button:hover,.gd-action-row a:hover{transform:translateY(-1px);border-color:rgba(0,168,89,.30);color:var(--green-dark);box-shadow:0 10px 22px rgba(17,64,38,.08);}
+    .gd-add-stock{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .gd-add-stock input{width:110px;}
+    .gd-row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .gd-muted{color:var(--muted);font-size:13px;font-weight:700;}
+    .gd-tag{display:inline-flex;align-items:center;gap:6px;min-height:26px;border-radius:999px;padding:0 10px;font-size:11px;font-weight:900;background:var(--green-soft);color:var(--green-dark);border:1px solid rgba(0,168,89,.16);margin-top:6px;}
+    .gd-stock-low{background:#FFF7ED;color:#C2410C;border-color:#FED7AA;}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+    .gd-empty{padding:16px;color:var(--muted);background:var(--soft2);border:1px dashed var(--line);border-radius:14px;text-align:center;font-size:13px;font-weight:750;}
+
+    .gd-footer{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:13px;font-weight:650;padding:4px 0 0;}
+    .gd-footer-links{display:flex;align-items:center;flex-wrap:wrap;gap:9px;}
+    .gd-version{color:var(--green-dark);border:1px solid rgba(0,168,89,.25);padding:6px 10px;border-radius:999px;font-weight:900;background:var(--green-soft);}
+
+    @media (max-width:1300px){.gd-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr));}.gd-status-grid,.gd-delivery-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.gd-chart-grid{grid-template-columns:1fr;}.gd-list-grid{grid-template-columns:1fr;}.gd-form-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media (max-width:900px){.gd-shell{padding:16px;}.gd-page-head{grid-template-columns:1fr;}.gd-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.gd-status-grid,.gd-delivery-grid{grid-template-columns:1fr;}.gd-zone-select{width:100%;min-width:0;}.gd-filter-row{align-items:stretch;}.gd-filter-tabs{width:100%;}.gd-filter-tabs button{flex:1;min-width:0;}.gd-chart-card,.gd-user-stat-card{min-height:auto;}.gd-chart-area{height:280px;}.gd-form-grid{grid-template-columns:1fr;}}
+    @media (max-width:560px){.gd-shell{padding:10px;}.gd-page-head{padding:16px;border-radius:18px;}.gd-title-row{align-items:flex-start;}.gd-title-icon{width:48px;height:48px;border-radius:16px;}.gd-summary-panel,.gd-chart-card,.gd-user-stat-card,.gd-delivery-card{padding:16px;}.gd-kpi-grid{grid-template-columns:1fr;}.gd-kpi-card{min-height:142px;}.gd-title{font-size:21px;}.gd-status-card{padding:14px 15px;}.gd-chart-head,.gd-card-top,.gd-list-head{align-items:flex-start;flex-direction:column;}.gd-row{align-items:flex-start;}.gd-pill{min-width:auto;}.gd-quick-links a,.gd-action-row a,.gd-action-row button,.gd-form-actions button{width:100%;}.gd-filter-tabs{display:grid;grid-template-columns:repeat(2,1fr);}.gd-table-wrap{padding:0 14px 16px;}.gd-form-grid{padding:16px 14px;}.gd-form-actions{padding:0 14px 16px;}.gd-list-body{padding:14px;}.gd-list-head{padding:15px;}}
   </style>
 
-  <!-- Lucide (safe here; used by mobile theme icons too) -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-
-  <!-- ==========================================================
-       MOBILE VIEW (NEW) — shown only on small screens
-       ========================================================== -->
-  <div class="mobile-view" aria-label="Mobile dashboard view">
-
-    <div class="mobile-app-container" id="dashboardAppMobile">
-      <div class="mobile-film-grain" aria-hidden="true"></div>
-
-      <!-- Top Bar -->
-      <div class="mobile-top-bar">
-        <span>EST. 2018</span>
-        <span class="mobile-divider">|</span>
-        <span>MIZORAM, INDIA</span>
-      </div>
-
-      <!-- Hero Section -->
-      <div class="mobile-hero-section">
-        <h1 class="mobile-hero-title">{{ store.store_name }}</h1>
-        <p class="mobile-hero-subtitle">STORE MANAGEMENT DASHBOARD</p>
-        <div class="mobile-crimson-divider"></div>
-        <div class="mobile-live-badge" aria-label="Live dashboard">
-          <span class="mobile-pulse-dot" aria-hidden="true"></span>
-          <span>LIVE</span>
+  <div class="gd-shell">
+    <div class="gd-page-head" id="store-summary">
+      <div class="gd-title-row">
+        <div class="gd-title-icon">🏪</div>
+        <div>
+          <h1 class="gd-title">{{ store.store_name }}</h1>
+          <p class="gd-subtitle">Store-specific grocery dashboard. Manage only this store's orders, stock, products and revenue.</p>
         </div>
       </div>
 
-      <!-- 🔔 New order alert sound (mobile) -->
-      <audio id="dingMobile" preload="auto">
-        <source src="{{ url_for('static', filename='sounds/ding.mp3') }}" type="audio/mpeg">
-      </audio>
-
-      <!-- KPI Cards (server-rendered) -->
-      <div class="mobile-kpi-container" id="kpiContainerMobile">
-        <div class="mobile-kpi-card">
-          <div class="mobile-kpi-icon">
-            <i data-lucide="shopping-cart" style="width: 32px; height: 32px;"></i>
-          </div>
-          <div>
-            <div class="mobile-kpi-number" id="kpiTotalOrdersMobile">{{ metrics.total_orders }}</div>
-            <div class="mobile-kpi-label">TOTAL ORDERS</div>
-          </div>
-        </div>
-
-        <div class="mobile-kpi-card alt">
-          <div class="mobile-kpi-icon">
-            <i data-lucide="dollar-sign" style="width: 32px; height: 32px;"></i>
-          </div>
-          <div>
-            <div class="mobile-kpi-number" id="kpiPaidTotalMobile">₹{{ '%.2f'|format(metrics.paid_total) }}</div>
-            <div class="mobile-kpi-label">PAID TRANSACTIONS</div>
-            <div class="mobile-kpi-subtitle" id="kpiTxnCountMobile">{{ metrics.txn_count }} transactions</div>
-          </div>
-        </div>
-
-        <div class="mobile-kpi-card">
-          <div class="mobile-kpi-icon">
-            <i data-lucide="bar-chart-3" style="width: 32px; height: 32px;"></i>
-          </div>
-          <div>
-            <div class="mobile-kpi-number" id="kpiGmvMobile">₹{{ '%.2f'|format(metrics.gmv_total) }}</div>
-            <div class="mobile-kpi-label">GROSS MERCHANDISE VALUE</div>
-            <div class="mobile-kpi-subtitle">Total revenue</div>
-          </div>
-        </div>
-
-        <div class="mobile-kpi-card alt">
-          <div class="mobile-kpi-icon">
-            <i data-lucide="users" style="width: 32px; height: 32px;"></i>
-          </div>
-          <div>
-            <div class="mobile-kpi-number" id="kpiUniqueCustomersMobile">{{ metrics.unique_customers }}</div>
-            <div class="mobile-kpi-label">UNIQUE CUSTOMERS</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Export Section -->
-      <div class="mobile-section mobile-export-section">
-        <div class="mobile-section-header">
-          <i data-lucide="download"></i>
-          <h2>EXPORT REPORTS</h2>
-        </div>
-        <div class="mobile-export-buttons">
-          <a class="mobile-btn-export" href="{{ url_for('store_txn_csv') }}?range=day">DAILY CSV</a>
-          <a class="mobile-btn-export" href="{{ url_for('store_txn_csv') }}?range=week">WEEKLY CSV</a>
-          <a class="mobile-btn-export" href="{{ url_for('store_txn_csv') }}?range=month">MONTHLY CSV</a>
-        </div>
-      </div>
-
-      <!-- Action Buttons -->
-      <div class="mobile-action-buttons">
-        <button class="mobile-btn-action mobile-btn-crimson" id="enableSoundMobile" type="button">
-          <i data-lucide="bell"></i>
-          <span id="notificationTextMobile">ENABLE NOTIFICATIONS</span>
-        </button>
-
-        <a class="mobile-btn-action mobile-btn-white" href="{{ url_for('store_delivered_orders') }}">
-          <i data-lucide="eye"></i>
-          <span>DELIVERED ORDERS</span>
-        </a>
-      </div>
-
-      <!-- Add Product Form -->
-      <div class="mobile-section mobile-add-product-section">
-        <div class="mobile-section-header">
-          <i data-lucide="plus-circle"></i>
-          <h2>ADD NEW PRODUCT</h2>
-        </div>
-
-        <form class="mobile-product-form"
-              id="productFormMobile"
-              method="post"
-              action="{{ url_for('store_product_new') }}"
-              enctype="multipart/form-data">
-          <div class="mobile-form-group">
-            <label for="productNameMobile">PRODUCT NAME</label>
-            <input type="text" id="productNameMobile" name="name" placeholder="e.g., Chicken Breast" required />
-          </div>
-
-          <!-- ✅ NEW: Category + Sub-category (matches backend) -->
-          <div class="mobile-form-group">
-            <label for="categoryMobile">CATEGORY</label>
-            <select id="categoryMobile" name="category" required>
-              <option value="" disabled selected>Select Category</option>
-              <option value="Fresh cuts">Fresh cuts</option>
-              <option value="Ready to cook">Ready to cook</option>
-              <option value="Spices">Spices</option>
-            </select>
-          </div>
-
-          <div class="mobile-form-group" id="subCategoryWrapMobile" style="display:none;">
-            <label for="subCategoryMobile">SUB-CATEGORY (Fresh cuts)</label>
-            <select id="subCategoryMobile" name="sub_category">
-              <option value="" disabled selected>Select Sub-category</option>
-              <option value="Curry cuts">Curry cuts</option>
-              <option value="Boneless &amp; Mince">Boneless &amp; Mince</option>
-              <option value="Offals">Offals</option>
-            </select>
-          </div>
-
-          <div class="mobile-form-row">
-            <div class="mobile-form-group">
-              <label for="pricePerKgMobile">PRICE PER KG</label>
-              <input type="number" id="pricePerKgMobile" name="price_per_kg" step="0.01" min="0" placeholder="₹280" required />
-            </div>
-            <div class="mobile-form-group">
-              <label for="stockKgMobile">STOCK (KG)</label>
-              <input type="number" id="stockKgMobile" name="stock_kg" step="0.01" min="0" placeholder="45" required />
-            </div>
-          </div>
-
-          <div class="mobile-form-group">
-            <label>UPLOAD IMAGE</label>
-            <div class="mobile-image-upload-container" id="imageUploadContainerMobile">
-              <label for="image-upload-mobile" class="mobile-upload-box" id="uploadBoxMobile">
-                <i data-lucide="upload" style="width: 32px; height: 32px;"></i>
-                <span>TAP TO UPLOAD</span>
-                <span class="mobile-upload-hint">JPG, PNG (MAX 5MB)</span>
-              </label>
-              <input
-                id="image-upload-mobile"
-                type="file"
-                name="image"
-                accept="image/*"
-                capture="environment"
-                style="display: none;"
-              />
-            </div>
-          </div>
-
-          <button type="submit" class="mobile-btn-submit">
-            <i data-lucide="plus"></i>
-            <span>ADD PRODUCT</span>
-          </button>
-        </form>
-      </div>
-
-      <!-- Product Inventory -->
-      <div class="mobile-section" id="ordersMobile">
-        <div class="mobile-section-header">
-          <i data-lucide="package"></i>
-          <h2>PRODUCT INVENTORY</h2>
-        </div>
-
-        <div class="mobile-product-grid" id="productGridMobile">
-          {% if products and products|length %}
-            {% for p in products %}
-              {% set low = (p.stock_kg is not none and p.stock_kg < 10) %}
-              <div class="mobile-product-card"
-                   data-product-id="{{ p.id }}"
-                   data-stock-kg="{{ '%.2f'|format(p.stock_kg or 0) }}"
-                   data-active="{{ 1 if p.is_active else 0 }}">
-                <div class="mobile-product-image">
-                  {% if p.image_path %}
-                    <img src="/{{ p.image_path }}" alt="{{ p.name }}">
-                  {% else %}
-                    <div class="mobile-product-image-placeholder">
-                      <i data-lucide="image" style="width: 48px; height: 48px;"></i>
-                    </div>
-                  {% endif %}
-                </div>
-
-                <div class="mobile-product-header">
-                  <div class="mobile-product-name">
-                    {{ p.name }}
-                    {% if low %}<span class="mobile-low-badge">LOW</span>{% endif %}
-                  </div>
-                  <div class="mobile-status-badge {{ 'mobile-status-active' if p.is_active else 'mobile-status-inactive' }}">
-                    {{ 'ACTIVE' if p.is_active else 'INACTIVE' }}
-                  </div>
-                </div>
-
-                <!-- ✅ NEW: show category/sub-category -->
-                <div class="mobile-product-category-line">
-                  {% if p.category %}
-                    <span class="mobile-product-category-pill">{{ p.category }}</span>
-                    {% if p.sub_category %}<span>{{ p.sub_category }}</span>{% endif %}
-                  {% else %}
-                    <span class="mobile-product-category-pill">UNCATEGORIZED</span>
-                  {% endif %}
-                </div>
-
-                <div class="mobile-product-info">
-                  <div class="mobile-info-item">
-                    <span class="mobile-info-label">PRICE/KG:</span>
-                    <span class="mobile-info-value">₹{{ '%.2f'|format(p.price_per_kg or 0) }}</span>
-                  </div>
-                  <div class="mobile-info-item">
-                    <span class="mobile-info-label">STOCK:</span>
-                    <span class="mobile-info-value">{{ '%.2f'|format(p.stock_kg or 0) }} kg</span>
-                  </div>
-                </div>
-
-                <div class="mobile-product-actions">
-                  <!-- Toggle active -->
-                  <form method="post" action="{{ url_for('store_product_toggle', pid=p.id) }}" style="flex:1;">
-                    <button class="mobile-action-btn" type="submit" aria-label="Toggle active">
-                      <i data-lucide="power"></i>
-                    </button>
-                  </form>
-
-                  <!-- Add stock -->
-                  <form method="post"
-                        action="{{ url_for('store_product_add_stock', pid=p.id) }}"
-                        class="mobile-inline-form"
-                        aria-label="Add stock">
-                    <input name="add_kg" type="number" step="0.01" min="0.01" placeholder="+0.50" required>
-                    <button type="submit" aria-label="Add">
-                      <i data-lucide="plus" style="width:16px;height:16px;"></i>
-                    </button>
-                  </form>
-
-                  
-                  <!-- Edit -->
-                  <a class="mobile-action-link"
-                     href="{{ url_for('store_product_edit', pid=p.id) }}">
-                    EDIT
-                  </a>
-
-                  
-                </div>
-              </div>
-            {% endfor %}
-          {% else %}
-            <div class="mobile-product-card">
-              <div class="mobile-product-name">No products yet</div>
-              <div style="margin-top:8px;color:#666;">Add your first product above.</div>
-            </div>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Order Management -->
-      <div class="mobile-section">
-        <div class="mobile-section-header">
-          <i data-lucide="shopping-cart"></i>
-          <h2>ORDER MANAGEMENT</h2>
-        </div>
-
-        <div class="mobile-filter-chips" id="filterChipsMobile" aria-label="Order filters">
-          <button class="mobile-filter-chip active" type="button" data-filter="ALL">All</button>
-          <button class="mobile-filter-chip" type="button" data-filter="PLACED">Placed</button>
-          <button class="mobile-filter-chip" type="button" data-filter="CONFIRMED">Confirmed</button>
-          <button class="mobile-filter-chip" type="button" data-filter="OUT_FOR_DELIVERY">Out for Delivery</button>
-          <button class="mobile-filter-chip" type="button" data-filter="DELIVERED">Delivered</button>
-          <button class="mobile-filter-chip" type="button" data-filter="CANCELLED">Cancelled</button>
-        </div>
-
-        <div class="mobile-order-grid" id="orderGridMobile">
-          {% if orders and orders|length %}
-            {% for o in orders %}
-              {% set total_payable = (o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0) %}
-              <div class="mobile-order-card"
-                   data-order-id="{{ o.id }}"
-                   data-created-at="{{ o.created_at }}"
-                   data-status="{{ o.status }}"
-                   data-payment="{{ o.payment_status }}"
-                   data-total-payable="{{ '%.2f'|format(total_payable) }}">
-                <div class="mobile-order-header">
-                  <div class="mobile-order-number">#{{ o.id }}</div>
-                  <div class="mobile-order-time" data-time-iso="{{ o.created_at }}">—</div>
-                </div>
-
-                <div class="mobile-order-customer">
-                  <div class="mobile-customer-name">{{ o.customer_name }}</div>
-                  <div class="mobile-customer-phone">{{ o.customer_phone or '—' }}</div>
-                </div>
-
-                <div class="mobile-order-address">
-                  {% if o.addr_line1 %}
-{{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %}
-{{ o.addr_city }}, {{ o.addr_state }} {{ o.addr_pincode }}
-{% if o.addr_lat is not none and o.addr_lng is not none %}({{ o.addr_lat }}, {{ o.addr_lng }}){% endif %}
-                  {% else %}
-—
-                  {% endif %}
-                </div>
-
-                <div class="mobile-order-breakdown">
-                  <div class="mobile-breakdown-row">
-                    <span>TOTAL PAYABLE:</span>
-                    <span>₹{{ '%.2f'|format(total_payable) }}</span>
-                  </div>
-                  {% if o.tip_amount and o.tip_amount > 0 %}
-                    <div class="mobile-breakdown-row">
-                      <span>TIP:</span>
-                      <span>₹{{ '%.2f'|format(o.tip_amount) }}</span>
-                    </div>
-                  {% endif %}
-                  <div class="mobile-breakdown-row mobile-breakdown-total">
-                    <span>STATUS:</span>
-                    <span>{{ o.status }}</span>
-                  </div>
-                </div>
-
-                <div class="mobile-order-footer">
-                  <div class="mobile-payment-badge {{ 'mobile-payment-paid' if (o.payment_status or '')=='PAID' else 'mobile-payment-pending' }}">
-                    {{ o.payment_status }}
-                  </div>
-
-                  <form method="post"
-                        action="{{ url_for('store_order_status', oid=o.id) }}"
-                        style="flex:1;display:flex;gap:8px;align-items:center;">
-                    <select class="mobile-status-select" name="status" aria-label="Update order status">
-                      <option {{ 'selected' if o.status=='PLACED' }}>PLACED</option>
-                      <option {{ 'selected' if o.status=='CONFIRMED' }}>CONFIRMED</option>
-                      <option {{ 'selected' if o.status=='OUT_FOR_DELIVERY' }}>OUT_FOR_DELIVERY</option>
-                      <option {{ 'selected' if o.status=='DELIVERED' }}>DELIVERED</option>
-                      <option {{ 'selected' if o.status=='CANCELLED' }}>CANCELLED</option>
-                    </select>
-                    <button class="mobile-btn-export" type="submit" style="padding:10px 14px; min-height:44px;">
-                      UPDATE
-                    </button>
-                  </form>
-                </div>
-
-                <div class="mobile-order-actions" style="margin-top:12px;">
-                  <a class="mobile-order-link" href="{{ url_for('order_track', oid=o.id) }}">VIEW & TRACK</a>
-                </div>
-              </div>
-            {% endfor %}
-          {% else %}
-            <div class="mobile-order-card">
-              <div class="mobile-order-number">No orders yet</div>
-              <div style="margin-top:8px;color:#666;">New orders will appear here instantly.</div>
-            </div>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Toast Container -->
-      <div id="toastContainerMobile"></div>
-
-      <!-- Back to Top Button -->
-      <button class="mobile-back-to-top" id="dashboardBackToTopMobile" type="button" aria-label="Back to top" style="display:none;">
-        <i data-lucide="arrow-up"></i>
-      </button>
-
-      <noscript>
-        <div style="padding:16px;border:4px solid #000;background:#fff;">
-          This dashboard needs JavaScript enabled.
-        </div>
-      </noscript>
-    </div>
-  </div>
-
-  <!-- ==========================================================
-       DESKTOP VIEW (ORIGINAL) — UNCHANGED (only category fields added)
-       ========================================================== -->
-  <div class="desktop-view">
-    <!-- Film Grain Overlay -->
-    <div class="grain-overlay" aria-hidden="true"></div>
-
-    <!-- Top Bar -->
-    <div class="top-bar">
-      <span>EST. 2018</span>
-      <span>MIZORAM, INDIA</span>
+      <select class="gd-zone-select" aria-label="Store scope" disabled>
+        <option>{{ store.store_name }}</option>
+      </select>
     </div>
 
-    <!-- Hero -->
-    <header class="hero-section">
-      <h1 class="hero-title">{{ store.store_name }}</h1>
-      <p class="hero-subtitle">Store Management Dashboard</p>
-      <div class="hero-divider"></div>
-
-      <div class="live-badge-container">
-        <div class="live-badge" aria-label="Live">
-          <div class="pulse-dot" aria-hidden="true"></div>
-          <span>Live</span>
-        </div>
-      </div>
-    </header>
-
-    <main class="main-container">
-      <!-- ===== Store KPIs (kept exactly, only skinned) ===== -->
-      <div class="kpi-wrap" aria-label="Key metrics">
-        <div class="kpi-card">
-          <div class="kpi-label">Total Orders</div>
-          <div class="kpi-value">{{ metrics.total_orders }}</div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-label">Paid Transactions (₹)</div>
-          <div class="kpi-value">₹ {{ '%.2f'|format(metrics.paid_total) }}</div>
-          <div class="kpi-sub">{{ metrics.txn_count }} txns</div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-label">GMV (₹)</div>
-          <div class="kpi-value">₹ {{ '%.2f'|format(metrics.gmv_total) }}</div>
-          <div class="kpi-sub">inc. all amount</div>
-          <div class="kpi-sub">(product price, delivery & tips)</div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-label">Unique Customers</div>
-          <div class="kpi-value">{{ metrics.unique_customers }}</div>
-        </div>
-      </div>
-
-      <!-- ===== Exports + Actions (same links + same IDs) ===== -->
-      <section class="panel soft" aria-label="Exports and actions">
-        <div class="section-header">
-          <div class="icon-box" aria-hidden="true">↓</div>
-          <div>
-            <h3 class="section-title">Export Reports</h3>
-            <p class="section-description">Download transaction data</p>
+    <div class="gd-grid">
+      <section class="gd-panel gd-summary-panel">
+        <div class="gd-filter-row">
+          <div class="gd-filter-tabs" aria-label="Date filters">
+            <button type="button">Day</button>
+            <button type="button">Week</button>
+            <button type="button">Month</button>
+            <button type="button">Year</button>
           </div>
         </div>
 
-        <div class="downloads">
-          <span class="muted">Download transactions:</span>
-          <a class="btn-ghost" href="{{ url_for('store_txn_csv') }}?range=day">Daily CSV</a>
-          <a class="btn-ghost" href="{{ url_for('store_txn_csv') }}?range=week">Weekly CSV</a>
-          <a class="btn-ghost" href="{{ url_for('store_txn_csv') }}?range=month">Monthly CSV</a>
+        <div class="gd-kpi-grid">
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">🛍️</div>
+            <div class="gd-kpi-label">Items</div>
+            <div class="gd-kpi-value">{{ products_total }}</div>
+            <div class="gd-kpi-sub">{{ ns.active_products }} Active</div>
+          </div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">🛒</div>
+            <div class="gd-kpi-label">Orders</div>
+            <div class="gd-kpi-value" id="kpiTotalOrders">{{ orders_total }}</div>
+            <div class="gd-kpi-sub">This store only</div>
+          </div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">💰</div>
+            <div class="gd-kpi-label">Paid Transactions</div>
+            <div class="gd-kpi-value" id="kpiPaidTotal">₹ {{ '%.2f'|format(earnings_total or 0) }}</div>
+            <div class="gd-kpi-sub" id="kpiTxnCount">{{ txn_count_total }} txns</div>
+          </div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">📈</div>
+            <div class="gd-kpi-label">GMV</div>
+            <div class="gd-kpi-value" id="kpiGmv">₹ {{ '%.2f'|format(gmv_total or 0) }}</div>
+            <div class="gd-kpi-sub">Includes product, delivery and tips</div>
+          </div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">👥</div>
+            <div class="gd-kpi-label">Unique Customers</div>
+            <div class="gd-kpi-value" id="kpiUniqueCustomers">{{ unique_customers_total }}</div>
+            <div class="gd-kpi-sub">Store customers</div>
+          </div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">🚚</div>
+            <div class="gd-kpi-label">Active Delivery Men</div>
+            <div class="gd-kpi-value">{{ active_delivery_people_total }}</div>
+            <div class="gd-kpi-sub">{{ delivery_people_total }} total assigned/available</div>
+          </div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">⚠️</div>
+            <div class="gd-kpi-label">Low Stock</div>
+            <div class="gd-kpi-value">{{ ns.low_stock }}</div>
+            <div class="gd-kpi-sub">Needs attention</div>
+          </div>
         </div>
 
-        <!-- 🔔 New order alert sound (kept) -->
-        <audio id="ding" preload="auto">
-          <source src="{{ url_for('static', filename='sounds/ding.mp3') }}" type="audio/mpeg">
-        </audio>
-
-        <div class="action-row">
-          <!-- Enable Notification Button (ID kept) -->
-          <button id="enableSound" class="btn-primary" type="button">
-            🔔 Enable Order Notifications
-          </button>
-
-          <a class="btn-secondary-large" href="{{ url_for('store_delivered_orders') }}">📦 View Delivered Orders</a>
+        <div class="gd-status-grid">
+          <div class="gd-status-card"><div class="gd-status-left"><div class="gd-status-icon">🕒</div><span class="gd-status-label">Placed Orders</span></div><div class="gd-status-value is-blue">{{ ns.placed }}</div></div>
+          <div class="gd-status-card"><div class="gd-status-left"><div class="gd-status-icon">✅</div><span class="gd-status-label">Confirmed Orders</span></div><div class="gd-status-value is-green">{{ ns.confirmed }}</div></div>
+          <div class="gd-status-card"><div class="gd-status-left"><div class="gd-status-icon">🚚</div><span class="gd-status-label">Out For Delivery</span></div><div class="gd-status-value is-green">{{ ns.out_for_delivery }}</div></div>
+          <div class="gd-status-card"><div class="gd-status-left"><div class="gd-status-icon">📦</div><span class="gd-status-label">Delivered Orders</span></div><div class="gd-status-value is-green">{{ ns.delivered }}</div></div>
+          <div class="gd-status-card"><div class="gd-status-left"><div class="gd-status-icon">❌</div><span class="gd-status-label">Cancelled Orders</span></div><div class="gd-status-value is-red">{{ ns.cancelled }}</div></div>
+          <div class="gd-status-card"><div class="gd-status-left"><div class="gd-status-icon">🥦</div><span class="gd-status-label">Active Products</span></div><div class="gd-status-value is-green">{{ ns.active_products }}</div></div>
+          <div class="gd-status-card"><div class="gd-status-left"><div class="gd-status-icon">⏸️</div><span class="gd-status-label">Inactive Products</span></div><div class="gd-status-value is-orange">{{ ns.inactive_products }}</div></div>
+          <div class="gd-status-card"><div class="gd-status-left"><div class="gd-status-icon">🧑‍✈️</div><span class="gd-status-label">Delivery Accepted</span></div><div class="gd-status-value is-blue">{{ accepted_delivery_total }}</div></div>
+          <div class="gd-status-card"><div class="gd-status-left"><div class="gd-status-icon">📍</div><span class="gd-status-label">Ready for Pickup</span></div><div class="gd-status-value is-orange">{{ ready_for_pickup_total }}</div></div>
+          <div class="gd-status-card"><div class="gd-status-left"><div class="gd-status-icon">🔔</div><span class="gd-status-label">Live Alerts</span></div><div class="gd-status-value is-blue">On</div></div>
         </div>
-
-        <noscript><p class="muted" style="margin-top:10px">Enable JavaScript to receive live order alerts.</p></noscript>
       </section>
 
-      <!-- =====================
-           Add Product (same form + action + names)
-           ✅ Only ADD: category/sub_category fields
-           ===================== -->
-      <section class="panel soft" aria-label="Add product">
-        <div class="section-header">
-          <div class="icon-box" aria-hidden="true">＋</div>
+      <section class="gd-card gd-delivery-card" id="delivery-readiness">
+        <div class="gd-delivery-head">
           <div>
-            <h3 class="section-title">Add New Product</h3>
-            <p class="section-description">Expand your inventory</p>
+            <h3 class="gd-delivery-title">Delivery Readiness</h3>
+            <p class="gd-delivery-sub">Store-scoped delivery status. These numbers should represent only the delivery availability and delivery orders connected to this store or its service zone.</p>
+          </div>
+          <a class="gd-btn" href="#orders">View Delivery Orders</a>
+        </div>
+
+        <div class="gd-delivery-grid">
+          <div class="gd-delivery-mini"><span>🚚</span><div><strong>{{ active_delivery_people_total }}</strong><small>Active delivery men</small></div></div>
+          <div class="gd-delivery-mini"><span>👥</span><div><strong>{{ delivery_people_total }}</strong><small>Total available/assigned</small></div></div>
+          <div class="gd-delivery-mini"><span>📍</span><div><strong>{{ ready_for_pickup_total }}</strong><small>Ready for pickup</small></div></div>
+          <div class="gd-delivery-mini"><span>🛵</span><div><strong>{{ ns.out_for_delivery }}</strong><small>Out for delivery</small></div></div>
+        </div>
+
+        <div class="gd-delivery-list">
+          {% if available_delivery_people_list %}
+            {% for d in available_delivery_people_list[:4] %}
+              <div class="gd-row">
+                <div class="gd-row-left">
+                  <div class="gd-thumb round">🧑‍✈️</div>
+                  <div>
+                    <div class="gd-name">{{ d.name or d.full_name or d.username or 'Delivery Partner' }}</div>
+                    <div class="gd-meta">{{ d.phone or d.mobile or 'Phone not available' }}{% if d.status %} · {{ d.status }}{% endif %}</div>
+                  </div>
+                </div>
+                <div class="gd-pill">{{ d.active_orders|default(0) }} active</div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="gd-empty">No delivery partner list is available yet. Active delivery counts will appear here when the backend sends store-zone delivery data.</div>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="gd-chart-grid" id="reports">
+        <div class="gd-card gd-chart-card">
+          <div class="gd-chart-head">
+            <div>
+              <div class="gd-money">₹ {{ '%.2f'|format(gmv_total or 0) }}</div>
+              <div class="gd-small-muted">Gross Sale</div>
+              <div class="gd-chart-center-label"><span class="gd-dot" style="background:#12B8A6;"></span> Store Revenue Snapshot</div>
+            </div>
+            <div class="gd-chart-filter">This Store ▾</div>
+          </div>
+
+          <div class="gd-chart-area" id="grossSaleChart" aria-hidden="true"></div>
+          <div class="gd-chart-legend">
+            <span class="gd-legend-item"><span class="gd-dot" style="background:#006B66;"></span> Paid Transactions</span>
+            <span class="gd-legend-item"><span class="gd-dot" style="background:#12B8A6;"></span> GMV</span>
+            <span class="gd-legend-item"><span class="gd-dot" style="background:#A7DFDC;"></span> Orders</span>
           </div>
         </div>
 
-        <form method="post" action="{{ url_for('store_product_new') }}" class="form" enctype="multipart/form-data">
-          <div class="form-grid">
-            <label>Name
-              <input name="name" required>
-            </label>
+        <div class="gd-card gd-user-stat-card">
+          <div class="gd-card-top">
+            <h3 class="gd-card-title">Store Statistics</h3>
+            <select class="gd-card-select" aria-label="Store statistics filter"><option>This Store</option></select>
+          </div>
 
-            <!-- ✅ NEW: Category -->
+          <div class="gd-donut-wrap">
+            <div class="gd-donut">
+              <div class="gd-donut-center">
+                <div>
+                  <div class="gd-donut-num">{{ orders_total }}</div>
+                  <div class="gd-donut-text">Orders</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="gd-donut-legend">
+            <span><span class="gd-dot" style="background:#006B66;"></span> Products {{ products_total }}</span>
+            <span><span class="gd-dot" style="background:#12B8A6;"></span> Customers {{ unique_customers_total }}</span>
+            <span><span class="gd-dot" style="background:#A7DFDC;"></span> Low Stock {{ ns.low_stock }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="gd-list-grid">
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head"><h3 class="gd-list-title">Top Selling Items</h3><a class="gd-view-link" href="#products">View all</a></div>
+          <div class="gd-list-body">
+            {% if products and products|length %}
+              {% for p in products[:5] %}
+                <div class="gd-row">
+                  <div class="gd-row-left">
+                    <div class="gd-thumb">
+                      {% if p.image_path %}<img src="/{{ p.image_path }}" alt="{{ p.name }}">{% else %}🥦{% endif %}
+                    </div>
+                    <div>
+                      <div class="gd-name">{{ p.name }}</div>
+                      <div class="gd-meta">₹ {{ '%.2f'|format(p.price_per_kg or 0) }} / kg</div>
+                    </div>
+                  </div>
+                  <div class="gd-pill">Stock : {{ '%.2f'|format(p.stock_kg or 0) }}</div>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="gd-empty">No selling items found.</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head"><h3 class="gd-list-title">Low Stock Alerts</h3><a class="gd-view-link" href="#inventory">View stock</a></div>
+          <div class="gd-list-body">
+            {% if products and products|length %}
+              {% set found_low = namespace(value=false) %}
+              {% for p in products %}
+                {% if p.stock_kg is not none and p.stock_kg <= 1.0 %}
+                  {% set found_low.value = true %}
+                  <div class="gd-row">
+                    <div class="gd-row-left">
+                      <div class="gd-thumb">⚠️</div>
+                      <div>
+                        <div class="gd-name">{{ p.name }}</div>
+                        <div class="gd-meta">Only {{ '%.2f'|format(p.stock_kg or 0) }} kg left</div>
+                      </div>
+                    </div>
+                    <div class="gd-pill gd-complaint-pill">Low</div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+              {% if not found_low.value %}<div class="gd-empty">No low stock products right now.</div>{% endif %}
+            {% else %}
+              <div class="gd-empty">No products found.</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head"><h3 class="gd-list-title">Recent Orders</h3><a class="gd-view-link" href="#orders">View all</a></div>
+          <div class="gd-list-body">
+            {% if orders and orders|length %}
+              {% for o in orders[:5] %}
+                <div class="gd-row">
+                  <div class="gd-row-left">
+                    <div class="gd-thumb round">🛒</div>
+                    <div>
+                      <div class="gd-name">{{ o.customer_name }}</div>
+                      <div class="gd-meta">{{ o.status }} · ₹ {{ '%.2f'|format(o.total_amount or 0) }}</div>
+                    </div>
+                  </div>
+                  <a class="gd-pill" href="{{ url_for('order_track', oid=o.id) }}">Track</a>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="gd-empty">No orders yet.</div>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+      <section class="gd-card" id="notifications">
+        <div class="gd-list-head"><h3 class="gd-list-title">Quick Actions & Notifications</h3><a class="gd-view-link" href="#orders">Go to orders</a></div>
+        <audio id="ding" preload="auto"><source src="{{ url_for('static', filename='sounds/ding.mp3') }}" type="audio/mpeg"></audio>
+        <div class="gd-action-row">
+          <button id="enableSound" class="gd-btn gd-btn-primary" type="button">🔔 Enable Order Notifications</button>
+          <a class="gd-btn" href="{{ url_for('store_delivered_orders') }}">📦 View Delivered Orders</a>
+          <a class="gd-btn" href="{{ url_for('store_txn_csv') }}?range=day">Daily CSV</a>
+          <a class="gd-btn" href="{{ url_for('store_txn_csv') }}?range=week">Weekly CSV</a>
+          <a class="gd-btn" href="{{ url_for('store_txn_csv') }}?range=month">Monthly CSV</a>
+        </div>
+        <noscript><p class="gd-muted" style="padding:0 20px 20px;">Enable JavaScript to receive live order alerts.</p></noscript>
+      </section>
+
+      <section class="gd-card" id="add-product">
+        <div class="gd-list-head"><h3 class="gd-list-title">Add New Product</h3><a class="gd-view-link" href="#products">Inventory</a></div>
+        <form method="post" action="{{ url_for('store_product_new') }}" enctype="multipart/form-data">
+          <div class="gd-form-grid">
+            <label>Name<input name="name" required></label>
             <label>Category
               <select name="category" id="categoryDesktop" required>
                 <option value="" disabled selected>Select Category</option>
@@ -1810,8 +491,6 @@
                 <option value="Spices">Spices</option>
               </select>
             </label>
-
-            <!-- ✅ NEW: Sub-category (only for Fresh cuts) -->
             <label id="subCategoryWrapDesktop" style="display:none;">Sub-category (Fresh cuts)
               <select name="sub_category" id="subCategoryDesktop">
                 <option value="" disabled selected>Select Sub-category</option>
@@ -1820,150 +499,71 @@
                 <option value="Offals">Offals</option>
               </select>
             </label>
-
-            <label>Price per kg (₹)
-              <input name="price_per_kg" type="number" step="0.01" min="0" required>
-            </label>
-
-            <label>Stock (kg)
-              <input name="stock_kg" type="number" step="0.01" min="0" required>
-            </label>
-
-            <label>Image (upload or capture)
-              <input type="file" name="image" accept="image/*" capture="environment">
-            </label>
+            <label>Price per kg (₹)<input name="price_per_kg" type="number" step="0.01" min="0" required></label>
+            <label>Stock (kg)<input name="stock_kg" type="number" step="0.01" min="0" required></label>
+            <label>Image (upload or capture)<input type="file" name="image" accept="image/*" capture="environment"></label>
           </div>
-
-          <button class="btn-primary" type="submit">Add Product</button>
+          <div class="gd-form-actions"><button type="submit">Add Product</button></div>
         </form>
       </section>
 
-      <!-- =====================
-           Product List (same table structure + actions)
-           ✅ Only ADD: show category/subcategory under product name
-           ===================== -->
-      <section class="panel hard" aria-label="Products">
-        <div class="section-header">
-          <div class="icon-box" aria-hidden="true">□</div>
-          <div>
-            <h3 class="section-title">Product Inventory</h3>
-            <p class="section-description">Manage your products and stock</p>
-          </div>
-        </div>
-
-        <div class="table-shell">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>₹/kg</th>
-                <th>Stock (kg)</th>
-                <th>Active</th>
-                <th>Image</th>
-                <th style="min-width:360px">Actions</th>
-              </tr>
-            </thead>
+      <section class="gd-card" id="products">
+        <div class="gd-list-head"><h3 class="gd-list-title">Product Inventory</h3><a class="gd-view-link" href="#add-product">Add product</a></div>
+        <div class="gd-table-wrap" id="inventory">
+          <table class="gd-table">
+            <thead><tr><th>Name</th><th>₹/kg</th><th>Stock (kg)</th><th>Active</th><th>Image</th><th style="min-width:360px">Actions</th></tr></thead>
             <tbody>
             {% if products and products|length %}
               {% for p in products %}
                 {% set low = (p.stock_kg is not none and p.stock_kg <= 1.0) %}
                 <tr>
                   <td>
-                    <div class="product-name">{{ p.name }}</div>
-
-                    <!-- ✅ NEW: category/subcategory shown -->
-                    <div style="margin-top:6px;">
+                    <div class="gd-name">{{ p.name }}</div>
+                    <div>
                       {% if p.category %}
-                        <span class="tag" style="margin-left:0;">{{ p.category }}</span>
-                        {% if p.sub_category %}
-                          <span class="tag" style="background: var(--crimson); border-color: var(--black);">{{ p.sub_category }}</span>
-                        {% endif %}
+                        <span class="gd-tag">{{ p.category }}</span>
+                        {% if p.sub_category %}<span class="gd-tag">{{ p.sub_category }}</span>{% endif %}
                       {% else %}
-                        <span class="tag" style="margin-left:0;">UNCATEGORIZED</span>
+                        <span class="gd-tag">UNCATEGORIZED</span>
                       {% endif %}
                     </div>
-
-                    <div>
-                      <span class="stock-pill {{ 'low' if low else '' }}">
-                        Left: {{ '%.2f'|format(p.stock_kg or 0) }} kg
-                      </span>
-                    </div>
+                    <span class="gd-tag {{ 'gd-stock-low' if low else '' }}">Left: {{ '%.2f'|format(p.stock_kg or 0) }} kg</span>
                   </td>
                   <td>{{ '%.2f'|format(p.price_per_kg or 0) }}</td>
                   <td>{{ '%.2f'|format(p.stock_kg or 0) }}</td>
                   <td>{{ 'Yes' if p.is_active else 'No' }}</td>
+                  <td>{% if p.image_path %}<img class="thumb" src="/{{ p.image_path }}" alt="Product image">{% else %}<span class="gd-muted">—</span>{% endif %}</td>
                   <td>
-                    {% if p.image_path %}
-                      <img class="thumb" src="/{{ p.image_path }}" alt="Product image">
-                    {% else %}
-                      <span class="muted">—</span>
-                    {% endif %}
-                  </td>
-                  <td>
-                    <div class="row-actions">
-                      <!-- Toggle active -->
+                    <div class="gd-row-actions">
                       <form method="post" action="{{ url_for('store_product_toggle', pid=p.id) }}">
-                        <button class="btn-small" type="submit" title="Toggle active">
-                          {{ 'Deactivate' if p.is_active else 'Activate' }}
-                        </button>
+                        <button type="submit">{{ 'Deactivate' if p.is_active else 'Activate' }}</button>
                       </form>
-
-                      <!-- Add stock (increment) -->
-                      <form method="post" action="{{ url_for('store_product_add_stock', pid=p.id) }}" class="add-stock-form">
+                      <form method="post" action="{{ url_for('store_product_add_stock', pid=p.id) }}" class="gd-add-stock">
                         <label class="sr-only" for="add_kg_{{ p.id }}">Add stock (kg)</label>
                         <input id="add_kg_{{ p.id }}" name="add_kg" type="number" step="0.01" min="0.01" placeholder="+0.50" required>
-                        <button class="btn-small" type="submit" title="Add to stock">Add Stock</button>
+                        <button type="submit">Add Stock</button>
                       </form>
-
-                      <!-- Edit product -->
-                      <a class="btn-small" href="{{ url_for('store_product_edit', pid=p.id) }}">Edit</a>
-
-                      <form method="post"
-      action="{{ url_for('store_product_delete', pid=p.id) }}"
-      onsubmit="return confirm('Are you sure you want to delete this product?');">
-  <button type="submit" class="btn-ghost btn-delete">
-    Delete
-  </button>
-</form>
+                      <a href="{{ url_for('store_product_edit', pid=p.id) }}">Edit</a>
+                      <form method="post" action="{{ url_for('store_product_delete', pid=p.id) }}" onsubmit="return confirm('Are you sure you want to delete this product?');">
+                        <button type="submit" class="gd-btn-danger">Delete</button>
+                      </form>
                     </div>
                   </td>
                 </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="6" class="muted" style="text-align:center">No products yet. Add your first product above.</td></tr>
+              <tr><td colspan="6" class="gd-muted" style="text-align:center">No products yet. Add your first product above.</td></tr>
             {% endif %}
             </tbody>
           </table>
         </div>
       </section>
 
-      <!-- =====================
-           Orders (KEEP TABLE + tbody id="orders-list" so your poll JS keeps working)
-           ===================== -->
-      <section class="panel soft" aria-label="Orders" id="orders">
-        <div class="section-header">
-          <div class="icon-box" aria-hidden="true">🛒</div>
-          <div>
-            <h3 class="section-title">Order Management</h3>
-            <p class="section-description">Track and manage customer orders</p>
-          </div>
-        </div>
-
-        <div class="table-shell">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Customer</th>
-                <th>Phone</th>
-                <th>Total (₹)</th>
-                <th>Status</th>
-                <th>Payment</th>
-                <th>Deliver To</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-
+      <section class="gd-card" id="orders" aria-label="Orders">
+        <div class="gd-list-head"><h3 class="gd-list-title">Order Management</h3><a class="gd-view-link" href="{{ url_for('store_delivered_orders') }}">Delivered orders</a></div>
+        <div class="gd-table-wrap">
+          <table class="gd-table">
+            <thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Total (₹)</th><th>Status</th><th>Payment</th><th>Deliver To</th><th>Action</th></tr></thead>
             <tbody id="orders-list">
             {% if orders and orders|length %}
               {% for o in orders %}
@@ -1974,32 +574,20 @@
                   <td>{{ '%.2f'|format(o.total_amount or 0) }}</td>
                   <td>{{ o.status }}</td>
                   <td>{{ o.payment_status }}</td>
-                  <td class="muted">
+                  <td class="gd-muted">
                     {% if o.addr_line1 %}
-                      {{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %},
-                      {{ o.addr_city }}, {{ o.addr_state }} {{ o.addr_pincode }}
-                      {% if o.addr_lat is not none and o.addr_lng is not none %}
-                        <br><small>({{ o.addr_lat }}, {{ o.addr_lng }})</small>
-                      {% endif %}
-                    {% else %}
-                      —
-                    {% endif %}
-                    <div style="margin-top:10px">
-                      <a class="btn-ghost" href="{{ url_for('order_track', oid=o.id) }}">View items & track</a>
-                    </div>
+                      {{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %}, {{ o.addr_city }}, {{ o.addr_state }} {{ o.addr_pincode }}
+                      {% if o.addr_lat is not none and o.addr_lng is not none %}<br><small>({{ o.addr_lat }}, {{ o.addr_lng }})</small>{% endif %}
+                    {% else %}—{% endif %}
+                    <div style="margin-top:10px"><a href="{{ url_for('order_track', oid=o.id) }}">View items & track</a></div>
                   </td>
-
                   <td style="min-width:260px">
-                    <div class="muted" style="margin:6px 0">
+                    <div class="gd-muted" style="margin:6px 0">
                       {% set total_payable = (o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0) %}
-                      Total Payable:
-                      <strong>₹ {{ '%.2f'|format(total_payable) }}</strong>
-                      {% if o.tip_amount and o.tip_amount > 0 %}
-                        <span class="tag">includes tip ₹{{ '%.2f'|format(o.tip_amount) }}</span>
-                      {% endif %}
+                      Total Payable: <strong>₹ {{ '%.2f'|format(total_payable) }}</strong>
+                      {% if o.tip_amount and o.tip_amount > 0 %}<span class="gd-tag">includes tip ₹{{ '%.2f'|format(o.tip_amount) }}</span>{% endif %}
                     </div>
-
-                    <form method="post" action="{{ url_for('store_order_status', oid=o.id) }}">
+                    <form method="post" action="{{ url_for('store_order_status', oid=o.id) }}" class="gd-row-actions">
                       <select name="status">
                         <option {{ 'selected' if o.status=='PLACED' }}>PLACED</option>
                         <option {{ 'selected' if o.status=='CONFIRMED' }}>CONFIRMED</option>
@@ -2007,497 +595,240 @@
                         <option {{ 'selected' if o.status=='DELIVERED' }}>DELIVERED</option>
                         <option {{ 'selected' if o.status=='CANCELLED' }}>CANCELLED</option>
                       </select>
-                      <button class="btn-small" type="submit">Update</button>
+                      <button type="submit">Update</button>
                     </form>
                   </td>
                 </tr>
               {% endfor %}
             {% else %}
-              <tr><td colspan="8" class="muted" style="text-align:center">No orders yet. New orders will appear here instantly.</td></tr>
+              <tr><td colspan="8" class="gd-muted" style="text-align:center">No orders yet. New orders will appear here instantly.</td></tr>
             {% endif %}
             </tbody>
           </table>
         </div>
       </section>
-    </main>
 
-   <!-- =====================
-     Store order notification polling
-     ===================== -->
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const enableBtn = document.getElementById('enableSound');
-    const ding = document.getElementById('ding');
+      <section class="gd-card" id="settings">
+        <div class="gd-list-head"><h3 class="gd-list-title">Quick Actions</h3><a class="gd-view-link" href="#store-summary">Top</a></div>
+        <div class="gd-quick-links">
+          <a href="#add-product">Add Product</a>
+          <a href="#products">Manage Products</a>
+          <a href="#orders">Manage Orders</a>
+          <a href="#delivery-readiness">Delivery Readiness</a>
+          <a href="{{ url_for('store_delivered_orders') }}">Delivered Orders</a>
+          <a href="{{ url_for('store_txn_csv') }}?range=month">Export Monthly CSV</a>
+        </div>
+      </section>
 
-    let storePollTimer = null;
-    let storeLastId = localStorage.getItem("storeLastAlertId") || "";
-
-    function showNotifyToast(message, type = "on") {
-  let wrap = document.getElementById("notifyStateToastWrap");
-
-  if (!wrap) {
-    wrap = document.createElement("div");
-    wrap.id = "notifyStateToastWrap";
-    wrap.style.position = "fixed";
-    wrap.style.top = "24px";
-    wrap.style.right = "24px";
-    wrap.style.zIndex = "99999";
-    wrap.style.display = "flex";
-    wrap.style.flexDirection = "column";
-    wrap.style.gap = "10px";
-    document.body.appendChild(wrap);
-  }
-
-  // Remove old notification popup before showing a new one
-  wrap.querySelectorAll(".store-new-order-toast").forEach(el => el.remove());
-
-  const toast = document.createElement("div");
-  toast.className = "store-new-order-toast";
-  toast.style.background = "#fff";
-  toast.style.border = "4px solid #000";
-  toast.style.boxShadow = "6px 6px 0 #000";
-  toast.style.padding = "14px 18px";
-  toast.style.minWidth = "280px";
-  toast.style.maxWidth = "380px";
-  toast.style.fontFamily = "'Cormorant Garamond', serif";
-  toast.style.fontWeight = "800";
-  toast.style.color = "#000";
-  toast.style.display = "flex";
-  toast.style.alignItems = "center";
-  toast.style.gap = "12px";
-  toast.style.transform = "translateX(120%)";
-  toast.style.transition = "transform .22s ease, opacity .22s ease";
-  toast.style.opacity = "0";
-  toast.style.cursor = "pointer";
-
-  const icon = type === "on" ? "🔔" : "🔕";
-  const accent = type === "on" ? "#8B0000" : "#333";
-
-  toast.innerHTML = `
-    <div style="width:42px;height:42px;background:${accent};color:#fff;border:3px solid #000;display:flex;align-items:center;justify-content:center;font-size:18px;">${icon}</div>
-    <div style="flex:1;">
-      <div style="font-family:'Italiana',serif;letter-spacing:.18em;text-transform:uppercase;font-size:12px;">
-        ${type === "on" ? "New Order" : "Notifications Off"}
+      <div class="gd-footer">
+        <div>© NE FRESH Store Portal</div>
+        <div class="gd-footer-links"><span class="gd-version">Store Scope</span><span>Only this store's data is displayed.</span></div>
       </div>
-      <div style="font-size:16px;line-height:1.25;margin-top:2px;">${message}</div>
-      ${type === "on" ? `<div style="font-size:13px;margin-top:6px;opacity:.75;">Click here to open Order Management</div>` : ``}
     </div>
-  `;
+  </div>
 
-  function dismissToast() {
-    toast.style.transform = "translateX(120%)";
-    toast.style.opacity = "0";
-    setTimeout(() => toast.remove(), 260);
-  }
-
-  function goToOrdersSection() {
-    sessionStorage.setItem("scrollToOrdersAfterReload", "1");
-    window.location.reload();
-  }
-
-  if (type === "on") {
-    toast.addEventListener("click", goToOrdersSection);
-  } else {
-    toast.addEventListener("click", dismissToast);
-  }
-
-  wrap.appendChild(toast);
-
-  requestAnimationFrame(() => {
-    toast.style.transform = "translateX(0)";
-    toast.style.opacity = "1";
-  });
-
-  // For enable/disable messages only, auto-hide.
-  // For NEW ORDER popup, keep it until user clicks or reaches order section.
-  if (type !== "on") {
-    setTimeout(dismissToast, 3000);
-  }
-
-  const desktopOrders = document.getElementById("orders");
-  const mobileOrders = document.getElementById("orderGridMobile");
-
-  const target = window.matchMedia && window.matchMedia("(max-width: 768px)").matches
-    ? mobileOrders
-    : desktopOrders;
-
-  if (type === "on" && target && "IntersectionObserver" in window) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          dismissToast();
-          observer.disconnect();
-        }
-      });
-    }, { threshold: 0.35 });
-
-    observer.observe(target);
-  }
-}
-
-    async function playNotifySound() {
-      try {
-        if (ding) {
-          ding.currentTime = 0;
-          await ding.play();
-          return;
-        }
-      } catch (_) {}
-
-      try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = "sine";
-        osc.frequency.value = 880;
-        gain.gain.value = 0.08;
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start();
-
-        setTimeout(() => {
-          osc.stop();
-          ctx.close();
-        }, 160);
-      } catch (e) {}
-    }
-
-    async function askNotif() {
-      try {
-        if ("Notification" in window && Notification.permission === "default") {
-          await Notification.requestPermission();
-        }
-      } catch (e) {}
-    }
-
-    function syncNotificationButton() {
-      if (!enableBtn) return;
-
-      const enabled = localStorage.getItem("alertsEnabled") === "1";
-
-      enableBtn.innerHTML = enabled
-        ? "🔕 Disable Order Notifications"
-        : "🔔 Enable Order Notifications";
-
-      enableBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
-      enableBtn.title = enabled
-        ? "Order notifications are currently ON"
-        : "Order notifications are currently OFF";
-
-      enableBtn.style.background = enabled ? "#000000" : "#8B0000";
-      enableBtn.style.color = "#ffffff";
-    }
-
-    async function pollStoreOrders() {
-      const enabled = localStorage.getItem("alertsEnabled") === "1";
-      if (!enabled) return;
-
-      try {
-        const res = await fetch(`/api/alerts/store?last_id=${encodeURIComponent(storeLastId || "")}`, {
-          method: "GET",
-          cache: "no-store",
-          credentials: "same-origin"
-        });
-
-        const data = await res.json();
-
-        if (!data || !data.ok) return;
-
-        if (data.next_last_id) {
-          storeLastId = data.next_last_id;
-          localStorage.setItem("storeLastAlertId", storeLastId);
-        }
-
-        const newOrders = Array.isArray(data.new) ? data.new : [];
-
-        if (newOrders.length > 0) {
-          await playNotifySound();
-
-          const msg = newOrders.length === 1
-            ? "1 new order received."
-            : `${newOrders.length} new orders received.`;
-
-          showNotifyToast(msg, "on");
-
-          try {
-            if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("New order received", { body: msg });
-            }
-          } catch (e) {}
-
-
-        }
-      } catch (e) {
-        console.warn("Store alert poll failed", e);
-      }
-    }
-
-    function startStorePolling() {
-      if (storePollTimer) clearInterval(storePollTimer);
-      pollStoreOrders();
-      storePollTimer = setInterval(pollStoreOrders, 5000);
-    }
-
-    function stopStorePolling() {
-      if (storePollTimer) {
-        clearInterval(storePollTimer);
-        storePollTimer = null;
-      }
-    }
-
-if (sessionStorage.getItem("scrollToOrdersAfterReload") === "1") {
-  sessionStorage.removeItem("scrollToOrdersAfterReload");
-
-  setTimeout(() => {
-    const target = window.matchMedia && window.matchMedia("(max-width: 768px)").matches
-      ? document.getElementById("orderGridMobile")
-      : document.getElementById("orders");
-
-    if (target) {
-      target.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    }
-  }, 500);
-}
-
-    syncNotificationButton();
-
-    if (localStorage.getItem("alertsEnabled") === "1") {
-      startStorePolling();
-    }
-
-    if (enableBtn) {
-      enableBtn.addEventListener('click', async () => {
-        const enabled = localStorage.getItem("alertsEnabled") === "1";
-
-        if (!enabled) {
-          await askNotif();
-
-          localStorage.setItem("alertsEnabled", "1");
-          localStorage.setItem("soundEnabled", "1");
-
-          await playNotifySound();
-          showNotifyToast("Notifications enabled. New orders will ring from now.", "on");
-
-          startStorePolling();
-        } else {
-          localStorage.setItem("alertsEnabled", "0");
-          localStorage.setItem("soundEnabled", "0");
-
-          await playNotifySound();
-          showNotifyToast("New order notifications are disabled.", "off");
-
-          stopStorePolling();
-        }
-
-        syncNotificationButton();
-      });
-    }
-  });
-</script>
-
-  <!-- ==========================================================
-       MOBILE JS (NEW) — scoped, doesn’t touch desktop IDs
-       ✅ ONLY ADDED: category/subcategory toggle
-       ========================================================== -->
   <script>
-    (function () {
-      'use strict';
-
-      function isMobileActive() {
-        return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+    (function(){
+      const el = document.getElementById('grossSaleChart');
+      if(!el) return;
+      const values = [18,34,26,48,38,58,52,72,63,84,74,92];
+      const max = Math.max.apply(null, values) || 1;
+      const labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS,'svg');
+      svg.setAttribute('viewBox','0 0 920 300');
+      svg.setAttribute('width','100%');
+      svg.setAttribute('height','100%');
+      svg.setAttribute('preserveAspectRatio','none');
+      for(let i=0;i<5;i++){
+        const y = 24 + i * 52;
+        const line = document.createElementNS(svgNS,'line');
+        line.setAttribute('x1','40');line.setAttribute('x2','890');line.setAttribute('y1',y);line.setAttribute('y2',y);line.setAttribute('stroke','#EEF3F7');line.setAttribute('stroke-width','1');
+        svg.appendChild(line);
       }
-      if (!isMobileActive()) return;
-
-      const root = document.querySelector('.store-dashboard-page .mobile-view');
-      if (!root) return;
-
-      function qs(sel) { return root.querySelector(sel); }
-      function qsa(sel) { return root.querySelectorAll(sel); }
-
-      // Toast helpers (kept)
-      let toastIdCounter = 0;
-      function showToast(message) {
-        const container = qs('#toastContainerMobile');
-        if (!container) return;
-
-        const id = toastIdCounter++;
-        const toast = document.createElement('div');
-        toast.className = 'mobile-toast';
-        toast.id = `toast-mobile-${id}`;
-        toast.innerHTML = `
-          <div class="mobile-toast-border"></div>
-          <div class="mobile-toast-content">${escapeHtml(message)}</div>
-        `;
-        container.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-      }
-
-      function escapeHtml(s){
-        return (s||"").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
-      }
-
-      // Icons + time labels
-      function renderIcons(){
-        if (window.lucide) lucide.createIcons();
-      }
-
-      function timeAgoFromISO(iso){
-        if (!iso) return '—';
-        const t = Date.parse(iso);
-        if (Number.isNaN(t)) return '—';
-        const minutes = Math.floor((Date.now() - t) / 60000);
-        if (minutes < 1) return 'Just now';
-        if (minutes < 60) return `${minutes}m ago`;
-        const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours}h ago`;
-        return `${Math.floor(hours / 24)}d ago`;
-      }
-
-      function refreshTimeAgo(){
-        qsa('.mobile-order-time[data-time-iso]').forEach(el => {
-          el.textContent = timeAgoFromISO(el.getAttribute('data-time-iso'));
-        });
-      }
-
-      // Filters
-      let orderFilter = 'ALL';
-      function updateFilterChips() {
-        qsa('.mobile-filter-chip').forEach(chip => {
-          chip.classList.toggle('active', chip.getAttribute('data-filter') === orderFilter);
-        });
-      }
-      function applyOrderFilter(){
-        qsa('.mobile-order-card[data-order-id]').forEach(card => {
-          const status = (card.getAttribute('data-status') || '').toUpperCase();
-          const show = (orderFilter === 'ALL') || (status === orderFilter);
-          card.style.display = show ? '' : 'none';
-        });
-      }
-
-      // Notifications button (kept)
-      // Notifications button
-const enableBtn = qs('#enableSoundMobile');
-const ding = document.getElementById('dingMobile') || document.getElementById('ding');
-
-async function askNotif() {
-  try {
-    if ("Notification" in window && Notification.permission === "default") {
-      await Notification.requestPermission();
-    }
-  } catch (e) {}
-}
-
-if (enableBtn) {
-  function syncBtnState() {
-    const enabled = localStorage.getItem("alertsEnabled") === "1";
-
-    enableBtn.innerHTML = enabled
-      ? `<i data-lucide="bell-off"></i><span>DISABLE NOTIFICATIONS</span>`
-      : `<i data-lucide="bell"></i><span>ENABLE NOTIFICATIONS</span>`;
-
-    enableBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
-    enableBtn.classList.toggle("mobile-btn-crimson", !enabled);
-    enableBtn.classList.toggle("mobile-btn-white", enabled);
-
-    if (window.lucide) lucide.createIcons();
-  }
-
-  syncBtnState();
-
-  enableBtn.addEventListener('click', async () => {
-    const enabled = localStorage.getItem("alertsEnabled") === "1";
-
-    if (!enabled) {
-      await askNotif();
-
-      localStorage.setItem("alertsEnabled", "1");
-      localStorage.setItem("soundEnabled", "1");
-
-      try {
-        if (ding) {
-          ding.currentTime = 0;
-          await ding.play();
-        }
-      } catch (_) {}
-
-      showToast("🔔 Notifications enabled. New orders will ring from now.");
-    } else {
-      localStorage.setItem("alertsEnabled", "0");
-      localStorage.setItem("soundEnabled", "0");
-
-      try {
-        if (ding) {
-          ding.currentTime = 0;
-          await ding.play();
-        }
-      } catch (_) {}
-
-      showToast("🔕 Notifications disabled.");
-    }
-
-    syncBtnState();
-  });
-}
-      
-
-      document.addEventListener('DOMContentLoaded', function () {
-        if (window.initAlerts) {
-          window.initAlerts({ role: 'store' });
-        }
-
-        renderIcons();
-        refreshTimeAgo();
-        setInterval(refreshTimeAgo, 30_000);
-
-        updateFilterChips();
-        applyOrderFilter();
-
-        // ✅ init category UI
-        syncMobileCategoryUI();
-
-        setupBackToTop();
-        wireEvents();
+      values.forEach(function(v,i){
+        const barW = 42;
+        const x = 64 + i * 68;
+        const h = Math.max(18, (v/max) * 210);
+        const y = 250 - h;
+        const rect = document.createElementNS(svgNS,'rect');
+        rect.setAttribute('x',x);rect.setAttribute('y',y);rect.setAttribute('width',barW);rect.setAttribute('height',h);rect.setAttribute('rx','9');rect.setAttribute('fill', i % 2 ? '#12B8A6' : '#006B66');
+        svg.appendChild(rect);
+        const text = document.createElementNS(svgNS,'text');
+        text.setAttribute('x',x + barW/2);text.setAttribute('y','284');text.setAttribute('text-anchor','middle');text.setAttribute('fill','#7B8AA2');text.setAttribute('font-size','12');text.setAttribute('font-weight','700');text.textContent = labels[i];
+        svg.appendChild(text);
       });
+      el.appendChild(svg);
     })();
   </script>
 
-  <!-- ✅ NEW: Desktop category toggle (DESKTOP) -->
   <script>
-    (function(){
-      "use strict";
-      document.addEventListener("DOMContentLoaded", function(){
-        const cat = document.getElementById("categoryDesktop");
-        const subWrap = document.getElementById("subCategoryWrapDesktop");
-        const subSel = document.getElementById("subCategoryDesktop");
-        if (!cat || !subWrap || !subSel) return;
+    document.addEventListener('DOMContentLoaded', () => {
+      const enableBtn = document.getElementById('enableSound');
+      const ding = document.getElementById('ding');
+      let storePollTimer = null;
+      let storeLastId = localStorage.getItem('storeLastAlertId') || '';
 
-        function sync(){
-          const v = (cat.value || "").trim();
-          if (v === "Fresh cuts") {
-            subWrap.style.display = "";
-            subSel.required = true;
-          } else {
-            subWrap.style.display = "none";
-            subSel.required = false;
-            subSel.value = "";
-          }
+      function showNotifyToast(message, type = 'on') {
+        let wrap = document.getElementById('notifyStateToastWrap');
+        if (!wrap) {
+          wrap = document.createElement('div');
+          wrap.id = 'notifyStateToastWrap';
+          wrap.style.position = 'fixed';
+          wrap.style.top = '24px';
+          wrap.style.right = '24px';
+          wrap.style.zIndex = '99999';
+          wrap.style.display = 'flex';
+          wrap.style.flexDirection = 'column';
+          wrap.style.gap = '10px';
+          document.body.appendChild(wrap);
         }
 
-        cat.addEventListener("change", sync);
+        wrap.querySelectorAll('.store-new-order-toast').forEach(el => el.remove());
+        const toast = document.createElement('div');
+        toast.className = 'store-new-order-toast';
+        toast.style.background = '#fff';
+        toast.style.border = '1px solid #DDECE4';
+        toast.style.borderRadius = '16px';
+        toast.style.boxShadow = '0 18px 44px rgba(17,64,38,.16)';
+        toast.style.padding = '14px 18px';
+        toast.style.minWidth = '280px';
+        toast.style.maxWidth = '380px';
+        toast.style.fontFamily = 'Inter, sans-serif';
+        toast.style.fontWeight = '800';
+        toast.style.color = '#1F2D26';
+        toast.style.display = 'flex';
+        toast.style.alignItems = 'center';
+        toast.style.gap = '12px';
+        toast.style.transform = 'translateX(120%)';
+        toast.style.transition = 'transform .22s ease, opacity .22s ease';
+        toast.style.opacity = '0';
+        toast.style.cursor = 'pointer';
+
+        const icon = type === 'on' ? '🔔' : '🔕';
+        const accent = type === 'on' ? '#00A859' : '#64748B';
+        toast.innerHTML = `
+          <div style="width:42px;height:42px;background:${accent};color:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:18px;">${icon}</div>
+          <div style="flex:1;">
+            <div style="letter-spacing:.12em;text-transform:uppercase;font-size:11px;color:#6A7A72;">${type === 'on' ? 'New Order' : 'Notifications Off'}</div>
+            <div style="font-size:15px;line-height:1.25;margin-top:2px;">${message}</div>
+            ${type === 'on' ? `<div style="font-size:12px;margin-top:6px;color:#6A7A72;">Click here to open Order Management</div>` : ``}
+          </div>`;
+
+        function dismissToast() {
+          toast.style.transform = 'translateX(120%)';
+          toast.style.opacity = '0';
+          setTimeout(() => toast.remove(), 260);
+        }
+
+        function goToOrdersSection() {
+          sessionStorage.setItem('scrollToOrdersAfterReload', '1');
+          window.location.reload();
+        }
+
+        if (type === 'on') toast.addEventListener('click', goToOrdersSection);
+        else toast.addEventListener('click', dismissToast);
+
+        wrap.appendChild(toast);
+        requestAnimationFrame(() => { toast.style.transform = 'translateX(0)'; toast.style.opacity = '1'; });
+        if (type !== 'on') setTimeout(dismissToast, 3000);
+      }
+
+      async function playNotifySound() {
+        try { if (ding) { ding.currentTime = 0; await ding.play(); return; } } catch (_) {}
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContext) return;
+          const ctx = new AudioContext();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine'; osc.frequency.value = 880; gain.gain.value = 0.08;
+          osc.connect(gain); gain.connect(ctx.destination); osc.start();
+          setTimeout(() => { osc.stop(); ctx.close(); }, 160);
+        } catch (e) {}
+      }
+
+      async function askNotif() {
+        try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {}
+      }
+
+      function syncNotificationButton() {
+        if (!enableBtn) return;
+        const enabled = localStorage.getItem('alertsEnabled') === '1';
+        enableBtn.innerHTML = enabled ? '🔕 Disable Order Notifications' : '🔔 Enable Order Notifications';
+        enableBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+        enableBtn.title = enabled ? 'Order notifications are currently ON' : 'Order notifications are currently OFF';
+      }
+
+      async function pollStoreOrders() {
+        const enabled = localStorage.getItem('alertsEnabled') === '1';
+        if (!enabled) return;
+        try {
+          const res = await fetch(`/api/alerts/store?last_id=${encodeURIComponent(storeLastId || '')}`, { method:'GET', cache:'no-store', credentials:'same-origin' });
+          const data = await res.json();
+          if (!data || !data.ok) return;
+          if (data.next_last_id) { storeLastId = data.next_last_id; localStorage.setItem('storeLastAlertId', storeLastId); }
+          const newOrders = Array.isArray(data.new) ? data.new : [];
+          if (newOrders.length > 0) {
+            await playNotifySound();
+            const msg = newOrders.length === 1 ? '1 new order received.' : `${newOrders.length} new orders received.`;
+            showNotifyToast(msg, 'on');
+            try { if ('Notification' in window && Notification.permission === 'granted') new Notification('New order received', { body: msg }); } catch (e) {}
+          }
+        } catch (e) { console.warn('Store alert poll failed', e); }
+      }
+
+      function startStorePolling() { if (storePollTimer) clearInterval(storePollTimer); pollStoreOrders(); storePollTimer = setInterval(pollStoreOrders, 5000); }
+      function stopStorePolling() { if (storePollTimer) { clearInterval(storePollTimer); storePollTimer = null; } }
+
+      if (sessionStorage.getItem('scrollToOrdersAfterReload') === '1') {
+        sessionStorage.removeItem('scrollToOrdersAfterReload');
+        setTimeout(() => { const target = document.getElementById('orders'); if (target) target.scrollIntoView({ behavior:'smooth', block:'start' }); }, 500);
+      }
+
+      syncNotificationButton();
+      if (localStorage.getItem('alertsEnabled') === '1') startStorePolling();
+
+      if (enableBtn) {
+        enableBtn.addEventListener('click', async () => {
+          const enabled = localStorage.getItem('alertsEnabled') === '1';
+          if (!enabled) {
+            await askNotif();
+            localStorage.setItem('alertsEnabled', '1');
+            localStorage.setItem('soundEnabled', '1');
+            await playNotifySound();
+            showNotifyToast('Notifications enabled. New orders will ring from now.', 'on');
+            startStorePolling();
+          } else {
+            localStorage.setItem('alertsEnabled', '0');
+            localStorage.setItem('soundEnabled', '0');
+            await playNotifySound();
+            showNotifyToast('New order notifications are disabled.', 'off');
+            stopStorePolling();
+          }
+          syncNotificationButton();
+        });
+      }
+    });
+  </script>
+
+  <script>
+    (function(){
+      'use strict';
+      document.addEventListener('DOMContentLoaded', function(){
+        const cat = document.getElementById('categoryDesktop');
+        const subWrap = document.getElementById('subCategoryWrapDesktop');
+        const subSel = document.getElementById('subCategoryDesktop');
+        if (!cat || !subWrap || !subSel) return;
+        function sync(){
+          const v = (cat.value || '').trim();
+          if (v === 'Fresh cuts') { subWrap.style.display = ''; subSel.required = true; }
+          else { subWrap.style.display = 'none'; subSel.required = false; subSel.value = ''; }
+        }
+        cat.addEventListener('change', sync);
         sync();
       });
     })();
   </script>
-
 </section>
-
 {% endblock %}

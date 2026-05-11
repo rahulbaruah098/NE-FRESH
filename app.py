@@ -4204,27 +4204,14 @@ def store_dashboard():
 
         orders.append(o)
 
-    view = (request.args.get("view") or "auto").lower()
-
-    def is_phone_ua():
-        ua = (request.user_agent.string or "").lower()
-        return any(k in ua for k in ("android", "iphone", "ipad", "mobile"))
-
-    if view == "mobile":
-        template = "store_dashboard_mobile.html"
-    elif view == "desktop":
-        template = "store_dashboard.html"
-    else:
-        template = "store_dashboard_mobile.html" if is_phone_ua() else "store_dashboard.html"
-
     return render_template(
-        template,
-        user=u,
-        store=store,
-        products=products,
-        orders=orders,
-        metrics=metrics
-    )
+    "store_dashboard.html",
+    user=u,
+    store=store,
+    products=products,
+    orders=orders,
+    metrics=metrics
+)
 
 
 @app.route('/store/delivered-orders')
