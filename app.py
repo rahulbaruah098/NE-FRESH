@@ -1,12 +1,13 @@
 import os
 import io
+import re
 import math
 from io import BytesIO
 import secrets
 from datetime import datetime, timedelta
 from random import randint
 import csv, zipfile, json
-from datetime import date
+from datetime import date,datetime
 import time
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file, abort
 from flask_cors import CORS
@@ -14,6 +15,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
 from flask import make_response
+from collections import defaultdict
 
 # MongoDB imports
 from bson import ObjectId
@@ -98,6 +100,8 @@ def inject_globals():
         "datetime": datetime,
         "service_area": session.get("service_area")
     }
+
+
 
 
 @app.context_processor
@@ -192,6 +196,9 @@ def _get_float_or_none(value):
         return float(value)
     except Exception:
         return None
+
+
+
 
 
 def _driver_distance_to_store_km(order_doc, availability_doc):
@@ -309,6 +316,16 @@ def is_assam_state(state) -> bool:
         "assam",
         "as"
     }
+
+
+
+def _norm_status(value):
+    return (str(value).strip().upper() if value is not None else "")
+
+
+def _norm_role(value):
+    return (str(value).strip().lower() if value is not None else "")
+
 
 
 def get_serviceable_pincodes():
@@ -1702,6 +1719,8 @@ def checkout():
         store_lng=store_lng,
         cart_store_count=cart_store_count,
     )
+
+
 # Orders list
 @app.route("/orders", endpoint="orders")
 @login_required()
@@ -2915,127 +2934,700 @@ def _zip_add_csv(zf, name, rows):
 def _zip_add_json(zf, name, obj):
     zf.writestr(name, json.dumps(obj, indent=2, default=str))
 
-@app.route('/admin/dashboard')
-@login_required(role='admin')
-def admin_dashboard():
-    delivered_orders = list(mongo.orders.find({"status": "DELIVERED"}))
 
-    gmv = 0.0
-    for o in delivered_orders:
-        gmv += (
-            float(o.get("total_amount") or 0)
-            + float(o.get("delivery_fee") or 0)
-            + float(o.get("tip_amount") or 0)
-        )
+def _to_object_id(value):
+    if isinstance(value, ObjectId):
+        return value
+    try:
+        return ObjectId(str(value))
+    except Exception:
+        return None
 
-    metrics = {
-        "users": mongo.users.count_documents({}),
-        "stores": mongo.stores.count_documents({}),
-        "products": mongo.products.count_documents({}),
-        "orders": mongo.orders.count_documents({}),
-        "gmv": gmv,
-    }
 
-    by_store = []
+def _find_by_any_id(collection_name, value):
+    """
+    Find a document by ObjectId or string _id.
+    Works even if your older data stored mixed id types.
+    """
+    if value is None:
+        return None
 
-    stores = list(mongo.stores.find({}).sort("store_name", 1))
+    collection = mongo[collection_name]
+    oid = _to_object_id(value)
 
-    for s in stores:
-        store_orders = list(mongo.orders.find({"store_id": s["_id"]}))
+    queries = []
+    if oid is not None:
+        queries.append({"_id": oid})
+    queries.append({"_id": str(value)})
 
-        order_count = len(store_orders)
-        revenue = 0.0
+    for q in queries:
+        doc = collection.find_one(q)
+        if doc:
+            return doc
 
-        for o in store_orders:
-            if o.get("status") == "DELIVERED":
-                revenue += (
-                    float(o.get("total_amount") or 0)
-                    + float(o.get("delivery_fee") or 0)
-                    + float(o.get("tip_amount") or 0)
-                )
+    return None
 
-        by_store.append({
-            "store_id": str(s["_id"]),
-            "store_name": s.get("store_name", ""),
-            "orders": order_count,
-            "revenue": revenue,
+
+def _order_total(order_doc):
+    return (
+        float(order_doc.get("total_amount") or 0)
+        + float(order_doc.get("delivery_fee") or 0)
+        + float(order_doc.get("tip_amount") or 0)
+    )
+
+
+def _parse_dt(value):
+    if not value:
+        return None
+
+    s = str(value).strip()
+    if not s:
+        return None
+
+    if s.endswith("Z"):
+        s = s[:-1]
+
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+    ):
+        try:
+            return datetime.strptime(s, fmt)
+        except Exception:
+            pass
+
+    try:
+        return datetime.fromisoformat(s)
+    except Exception:
+        return None
+
+
+def _month_index_from_created_at(value):
+    dt = _parse_dt(value)
+    if not dt:
+        return None
+    return dt.month - 1  # 0..11
+
+def _safe_oid(value):
+    if isinstance(value, ObjectId):
+        return value
+    try:
+        return ObjectId(str(value))
+    except Exception:
+        return None
+
+
+
+def _find_doc(collection_name, value):
+    """
+    Find a document by ObjectId or string _id.
+    Handles mixed legacy data types safely.
+    """
+    if value is None:
+        return None
+
+    collection = mongo[collection_name]
+    candidates = []
+
+    oid = _safe_oid(value)
+    if oid is not None:
+        candidates.append({"_id": oid})
+
+    candidates.append({"_id": str(value)})
+
+    for query in candidates:
+        doc = collection.find_one(query)
+        if doc:
+            return doc
+
+    return None
+
+
+
+def _rating_summary(collection_name, target_field, lookup_collection, lookup_name_field, image_fields=None, limit=5):
+    image_fields = image_fields or []
+    buckets = defaultdict(lambda: {"sum": 0.0, "count": 0})
+
+    for row in mongo[collection_name].find({}):
+        target_id = row.get(target_field)
+        if target_id is None:
+            continue
+
+        key = str(target_id)
+        try:
+            rating = float(row.get("rating") or 0)
+        except Exception:
+            rating = 0.0
+
+        buckets[key]["sum"] += rating
+        buckets[key]["count"] += 1
+
+    result = []
+    for key, agg in buckets.items():
+        ref = _find_doc(lookup_collection, key)
+        if not ref:
+            continue
+
+        item = {
+            "id": key,
+            lookup_name_field: ref.get(lookup_name_field, "") or "",
+            "avg_rating": round(agg["sum"] / agg["count"], 2) if agg["count"] else 0,
+            "rating_count": agg["count"],
+        }
+
+        for field in image_fields:
+            if ref.get(field):
+                item["image_url"] = ref.get(field)
+                break
+
+        result.append(item)
+
+    result.sort(key=lambda x: (x["avg_rating"], x["rating_count"]), reverse=True)
+    return result[:limit]
+
+
+
+
+
+def _top_selling_items(limit=6):
+    buckets = defaultdict(lambda: {"sold": 0, "sold_kg": 0.0, "revenue": 0.0})
+
+    for row in mongo.order_items.find({}):
+        pid = row.get("product_id")
+        if pid is None:
+            continue
+
+        key = str(pid)
+        buckets[key]["sold"] += 1
+        buckets[key]["sold_kg"] += float(row.get("weight_kg") or 0)
+        buckets[key]["revenue"] += float(row.get("line_total") or 0)
+
+    result = []
+    for key, agg in buckets.items():
+        product = _find_doc("products", key)
+        if not product:
+            continue
+
+        result.append({
+            "product_id": key,
+            "product_name": product.get("name", "") or product.get("product_name", "") or "Product",
+            "sold": agg["sold"],
+            "sold_kg": round(agg["sold_kg"], 2),
+            "revenue": round(agg["revenue"], 2),
+            "image_url": product.get("image_path") or product.get("image_url") or "",
         })
 
-    by_store.sort(key=lambda x: x["revenue"], reverse=True)
+    result.sort(key=lambda x: (x["sold"], x["revenue"]), reverse=True)
+    return result[:limit]
 
-    top_store_complaints = []
-    store_complaint_map = {}
 
-    store_complaints = list(mongo.complaints.find({
+
+def _top_stores_by_orders(limit=6):
+    """
+    Returns popular stores based on order count and delivered revenue.
+    """
+    buckets = defaultdict(lambda: {"orders": 0, "delivered_orders": 0, "revenue": 0.0})
+
+    for order in mongo.orders.find({}):
+        sid = order.get("store_id")
+        if sid is None:
+            continue
+
+        key = str(sid)
+
+        buckets[key]["orders"] += 1
+
+        if (order.get("status") or "").upper() == "DELIVERED":
+            buckets[key]["delivered_orders"] += 1
+            buckets[key]["revenue"] += _order_total(order)
+
+    out = []
+
+    for key, agg in buckets.items():
+        store = _find_by_any_id("stores", key)
+        if not store:
+            continue
+
+        out.append({
+            "store_id": key,
+            "store_name": store.get("store_name", ""),
+            "orders": agg["orders"],
+            "likes": agg["orders"],  # keeps your current template working
+            "delivered_orders": agg["delivered_orders"],
+            "revenue": round(agg["revenue"], 2),
+            "subtitle": f'{agg["orders"]} orders',
+            "image_url": store.get("image_url") or store.get("logo") or "",
+        })
+
+    out.sort(key=lambda x: (x["orders"], x["revenue"]), reverse=True)
+    return out[:limit]
+
+
+def _top_customers(limit=6):
+    buckets = defaultdict(lambda: {"orders": 0, "spent": 0.0})
+
+    for order in mongo.orders.find({}):
+        uid = order.get("user_id")
+        if uid is None:
+            continue
+
+        key = str(uid)
+        buckets[key]["orders"] += 1
+
+        if _norm_status(order.get("status")) == "DELIVERED":
+            buckets[key]["spent"] += _order_total(order)
+
+    result = []
+    for key, agg in buckets.items():
+        user = _find_doc("users", key)
+        if not user or _norm_role(user.get("role")) != "customer":
+            continue
+
+        result.append({
+            "user_id": key,
+            "name": user.get("name", "") or "",
+            "phone": user.get("phone", "") or "",
+            "orders": agg["orders"],
+            "spent": round(agg["spent"], 2),
+        })
+
+    result.sort(key=lambda x: (x["orders"], x["spent"]), reverse=True)
+    return result[:limit]
+
+
+
+def _top_deliverymen(limit=6):
+    buckets = defaultdict(lambda: {"orders": 0, "delivered_orders": 0})
+
+    for order in mongo.orders.find({"delivery_partner_id": {"$exists": True, "$ne": None}}):
+        did = order.get("delivery_partner_id")
+        if did is None:
+            continue
+
+        key = str(did)
+        buckets[key]["orders"] += 1
+
+        if _norm_status(order.get("status")) == "DELIVERED":
+            buckets[key]["delivered_orders"] += 1
+
+    result = []
+    for key, agg in buckets.items():
+        user = _find_doc("users", key)
+        if not user or _norm_role(user.get("role")) != "delivery":
+            continue
+
+        result.append({
+            "user_id": key,
+            "name": user.get("name", "") or "",
+            "phone": user.get("phone", "") or "",
+            "orders": agg["orders"],
+            "completed_orders": agg["delivered_orders"],
+        })
+
+    result.sort(key=lambda x: (x["orders"], x["completed_orders"]), reverse=True)
+    return result[:limit]
+
+
+
+
+def _store_complaint_summary(limit=5):
+    store_map = defaultdict(int)
+
+    complaints = list(mongo.complaints.find({
         "$or": [
             {"target_type": "store"},
             {"store_id": {"$exists": True}}
         ]
     }))
 
-    for c in store_complaints:
+    for c in complaints:
         sid = c.get("store_id") or c.get("target_id")
         if not sid:
             continue
+        store_map[str(sid)] += 1
 
-        sid_str = str(sid)
+    out = []
 
-        if sid_str not in store_complaint_map:
-            store = None
+    for sid_str, cnt in store_map.items():
+        store = _find_by_any_id("stores", sid_str)
+        out.append({
+            "store_id": sid_str,
+            "store_name": store.get("store_name", "") if store else "",
+            "cnt": cnt
+        })
 
-            try:
-                store = mongo.stores.find_one({"_id": ObjectId(sid_str)})
-            except Exception:
-                store = mongo.stores.find_one({"_id": sid})
+    out.sort(key=lambda x: x["cnt"], reverse=True)
+    return out[:limit]
 
-            store_complaint_map[sid_str] = {
-                "store_id": sid_str,
-                "store_name": store.get("store_name") if store else "",
-                "cnt": 0
-            }
 
-        store_complaint_map[sid_str]["cnt"] += 1
+def _delivery_complaint_summary(limit=5):
+    delivery_map = defaultdict(int)
 
-    top_store_complaints = list(store_complaint_map.values())
-    top_store_complaints.sort(key=lambda x: x["cnt"], reverse=True)
-    top_store_complaints = top_store_complaints[:5]
-
-    top_delivery_complaints = []
-    delivery_complaint_map = {}
-
-    delivery_complaints = list(mongo.complaints.find({
+    complaints = list(mongo.complaints.find({
         "$or": [
             {"target_type": "delivery"},
             {"delivery_partner_id": {"$exists": True}}
         ]
     }))
 
-    for c in delivery_complaints:
+    for c in complaints:
         did = c.get("delivery_partner_id") or c.get("target_id")
         if not did:
             continue
+        delivery_map[str(did)] += 1
 
-        did_str = str(did)
+    out = []
 
-        if did_str not in delivery_complaint_map:
-            user = None
+    for did_str, cnt in delivery_map.items():
+        user = _find_by_any_id("users", did_str)
+        out.append({
+            "delivery_id": did_str,
+            "user_id": did_str,
+            "delivery_name": user.get("name", "") if user else "",
+            "name": user.get("name", "") if user else "",
+            "phone": user.get("phone", "") if user else "",
+            "cnt": cnt
+        })
 
-            try:
-                user = mongo.users.find_one({"_id": ObjectId(did_str)})
-            except Exception:
-                user = mongo.users.find_one({"_id": did})
+    out.sort(key=lambda x: x["cnt"], reverse=True)
+    return out[:limit]
 
-            delivery_complaint_map[did_str] = {
-                "delivery_id": did_str,
-                "name": user.get("name") if user else "",
-                "cnt": 0
-            }
 
-        delivery_complaint_map[did_str]["cnt"] += 1
+def _store_rankings_by_orders(limit=6):
+    """
+    Popular stores by order count.
+    """
+    buckets = defaultdict(lambda: {"orders": 0, "delivered_orders": 0, "revenue": 0.0})
 
-    top_delivery_complaints = list(delivery_complaint_map.values())
-    top_delivery_complaints.sort(key=lambda x: x["cnt"], reverse=True)
-    top_delivery_complaints = top_delivery_complaints[:5]
+    for order in mongo.orders.find({}):
+        sid = order.get("store_id")
+        if sid is None:
+            continue
+
+        key = str(sid)
+        buckets[key]["orders"] += 1
+
+        if _norm_status(order.get("status")) == "DELIVERED":
+            buckets[key]["delivered_orders"] += 1
+            buckets[key]["revenue"] += _order_total(order)
+
+    result = []
+    for key, agg in buckets.items():
+        store = _find_doc("stores", key)
+        if not store:
+            continue
+
+        result.append({
+            "store_id": key,
+            "store_name": store.get("store_name", "") or "",
+            "orders": agg["orders"],
+            "revenue": round(agg["revenue"], 2),
+            "likes": agg["orders"],  # keeps older UI compatibility
+            "subtitle": f'{agg["orders"]} orders',
+            "image_url": store.get("image_url") or store.get("logo") or "",
+        })
+
+    result.sort(key=lambda x: (x["orders"], x["revenue"]), reverse=True)
+    return result[:limit]
+
+
+
+
+def _store_rankings_by_revenue(limit=6):
+    """
+    Revenue-first store ranking for the selling-stores section.
+    """
+    buckets = defaultdict(lambda: {"orders": 0, "revenue": 0.0})
+
+    for order in mongo.orders.find({}):
+        sid = order.get("store_id")
+        if sid is None:
+            continue
+
+        key = str(sid)
+        buckets[key]["orders"] += 1
+
+        if _norm_status(order.get("status")) == "DELIVERED":
+            buckets[key]["revenue"] += _order_total(order)
+
+    result = []
+    for key, agg in buckets.items():
+        store = _find_doc("stores", key)
+        if not store:
+            continue
+
+        result.append({
+            "store_id": key,
+            "store_name": store.get("store_name", "") or "",
+            "orders": agg["orders"],
+            "revenue": round(agg["revenue"], 2),
+            "image_url": store.get("image_url") or store.get("logo") or "",
+        })
+
+    result.sort(key=lambda x: (x["revenue"], x["orders"]), reverse=True)
+    return result[:limit]
+
+
+
+def _dashboard_monthly_sales():
+    """
+    Delivered revenue by month for the current year.
+    """
+    labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    values = [0.0] * 12
+    current_year = datetime.utcnow().year
+
+    for order in mongo.orders.find({"status": {"$regex": "^DELIVERED$", "$options": "i"}}):
+        dt = _parse_dt(order.get("created_at"))
+        if not dt or dt.year != current_year:
+            continue
+
+        idx = dt.month - 1
+        if 0 <= idx < 12:
+            values[idx] += _order_total(order)
+
+    return labels, [round(v, 2) for v in values]
+
+
+def _top_store_complaints(limit=5):
+    store_map = defaultdict(int)
+
+    complaints = list(mongo.complaints.find({
+        "$or": [
+            {"target_type": "store"},
+            {"store_id": {"$exists": True}},
+        ]
+    }))
+
+    for c in complaints:
+        sid = c.get("store_id") or c.get("target_id")
+        if not sid:
+            continue
+        store_map[str(sid)] += 1
+
+    result = []
+    for sid_str, cnt in store_map.items():
+        store = _find_doc("stores", sid_str)
+        result.append({
+            "store_id": sid_str,
+            "store_name": store.get("store_name", "") if store else f"ID {sid_str}",
+            "cnt": cnt,
+        })
+
+    result.sort(key=lambda x: x["cnt"], reverse=True)
+    return result[:limit]
+
+
+
+def _top_delivery_complaints(limit=5):
+    delivery_map = defaultdict(int)
+
+    complaints = list(mongo.complaints.find({
+        "$or": [
+            {"target_type": "delivery"},
+            {"delivery_partner_id": {"$exists": True}},
+        ]
+    }))
+
+    for c in complaints:
+        did = c.get("delivery_partner_id") or c.get("target_id")
+        if not did:
+            continue
+        delivery_map[str(did)] += 1
+
+    result = []
+    for did_str, cnt in delivery_map.items():
+        user = _find_doc("users", did_str)
+        result.append({
+            "delivery_id": did_str,
+            "user_id": did_str,
+            "delivery_name": user.get("name", "") if user else f"ID {did_str}",
+            "name": user.get("name", "") if user else f"ID {did_str}",
+            "phone": user.get("phone", "") if user else "",
+            "cnt": cnt,
+        })
+
+    result.sort(key=lambda x: x["cnt"], reverse=True)
+    return result[:limit]
+
+
+
+@app.route("/admin/dashboard")
+@login_required(role="admin")
+def admin_dashboard():
+    # -------------------------
+    # Load source collections once
+    # -------------------------
+    orders = list(mongo.orders.find({}))
+    transactions = list(mongo.transactions.find({}))
+
+    # -------------------------
+    # Role-based user counts
+    # -------------------------
+    users_total = mongo.users.count_documents({})
+    customers_total = mongo.users.count_documents({
+        "role": {"$regex": "^customer$", "$options": "i"}
+    })
+    delivery_people_total = mongo.users.count_documents({
+        "role": {"$regex": "^delivery$", "$options": "i"}
+    })
+    active_delivery_people_total = mongo.users.count_documents({
+        "role": {"$regex": "^delivery$", "$options": "i"},
+        "is_active": 1
+    })
+
+    stores_total = mongo.stores.count_documents({})
+    products_total = mongo.products.count_documents({})
+    orders_total = mongo.orders.count_documents({})
+
+    # -------------------------
+    # Normalize order status buckets
+    # -------------------------
+    status_counts = defaultdict(int)
+    for order in orders:
+        status_counts[_norm_status(order.get("status"))] += 1
+
+    # Support mixed spellings already present in legacy data
+    cancelled_orders_total = status_counts["CANCELLED"] + status_counts["CANCELED"]
+    delivered_orders_total = status_counts["DELIVERED"]
+    out_for_delivery_total = status_counts["OUT_FOR_DELIVERY"]
+    assigned_orders_total = status_counts["ASSIGNED_TO_DELIVERY"] + status_counts["ACCEPTED_BY_DELIVERY_MAN"]
+    preparing_orders_total = status_counts["PREPARING"] + status_counts["PACKAGING"]
+    placed_orders_total = status_counts["PLACED"] + status_counts["CONFIRMED"]
+    unassigned_orders_total = placed_orders_total
+
+    # -------------------------
+    # Payment / transaction buckets
+    # -------------------------
+    txn_status_counts = defaultdict(int)
+    for txn in transactions:
+        txn_status_counts[_norm_status(txn.get("status"))] += 1
+
+    refunded_orders_total = txn_status_counts["REFUNDED"]
+    failed_payments_total = txn_status_counts["FAILED"] + txn_status_counts["PAYMENT_FAILED"]
+    pending_payments_total = txn_status_counts["PENDING"]
+    paid_txn_total = txn_status_counts["PAID"]
+
+    # -------------------------
+    # GMV / earnings
+    # -------------------------
+    gmv = 0.0
+    delivered_order_docs = []
+    for order in orders:
+        if _norm_status(order.get("status")) == "DELIVERED":
+            delivered_order_docs.append(order)
+            gmv += _order_total(order)
+
+    total_earnings_from_paid_txn = sum(float(t.get("amount") or 0) for t in transactions if _norm_status(t.get("status")) == "PAID")
+    total_earnings = total_earnings_from_paid_txn if total_earnings_from_paid_txn > 0 else gmv
+
+    # -------------------------
+    # Stores performance (revenue-first)
+    # -------------------------
+    by_store = []
+    for store in mongo.stores.find({}).sort("store_name", 1):
+        sid = store["_id"]
+        store_orders = [o for o in orders if str(o.get("store_id")) == str(sid)]
+
+        order_count = len(store_orders)
+        revenue = 0.0
+        delivered_count = 0
+
+        for o in store_orders:
+            if _norm_status(o.get("status")) == "DELIVERED":
+                delivered_count += 1
+                revenue += _order_total(o)
+
+        by_store.append({
+            "store_id": str(sid),
+            "store_name": store.get("store_name", "") or "",
+            "orders": order_count,
+            "delivered_orders": delivered_count,
+            "revenue": round(revenue, 2),
+            "image_url": store.get("image_url") or store.get("logo") or "",
+        })
+
+    by_store.sort(key=lambda x: (x["revenue"], x["orders"]), reverse=True)
+
+    # -------------------------
+    # Rankings & summaries
+    # -------------------------
+    top_store_complaints = _top_store_complaints(limit=5)
+    top_delivery_complaints = _top_delivery_complaints(limit=5)
+
+    top_rated_stores = _rating_summary(
+        collection_name="store_ratings",
+        target_field="store_id",
+        lookup_collection="stores",
+        lookup_name_field="store_name",
+        image_fields=["image_url", "logo"],
+        limit=6,
+    )
+
+    top_rated_products = _rating_summary(
+        collection_name="product_ratings",
+        target_field="product_id",
+        lookup_collection="products",
+        lookup_name_field="name",
+        image_fields=["image_path", "image_url"],
+        limit=6,
+    )
+
+    top_rated_deliverymen = _rating_summary(
+        collection_name="delivery_ratings",
+        target_field="delivery_partner_id",
+        lookup_collection="users",
+        lookup_name_field="name",
+        image_fields=[],
+        limit=6,
+    )
+
+    top_selling_items = _top_selling_items(limit=6)
+    most_popular_stores = _store_rankings_by_orders(limit=6)
+    top_selling_store_tiles = _store_rankings_by_revenue(limit=6)
+    top_customers = _top_customers(limit=6)
+    top_deliverymen = _top_deliverymen(limit=6)
+
+    # -------------------------
+    # Chart data
+    # -------------------------
+    sales_labels, sales_values = _dashboard_monthly_sales()
+
+    # -------------------------
+    # Quick links
+    # -------------------------
+    quick_links = [
+        {"label": "Pending Approvals", "endpoint": "admin_approvals"},
+        {"label": "Manage Users", "endpoint": "admin_users"},
+        {"label": "Complaints", "endpoint": "admin_complaints"},
+        {"label": "Create Store", "endpoint": "admin_create_store"},
+        {"label": "Create Delivery Partner", "endpoint": "admin_create_delivery"},
+        {"label": "Export Transactions CSV", "endpoint": "admin_transactions_csv"},
+    ]
+
+    metrics = {
+        "users": users_total,
+        "customers": customers_total,
+        "stores": stores_total,
+        "products": products_total,
+        "orders": orders_total,
+        "gmv": round(gmv, 2),
+        "total_earnings": round(total_earnings, 2),
+        "delivery_people": delivery_people_total,
+        "active_delivery_people": active_delivery_people_total,
+        "unassigned_orders": unassigned_orders_total,
+        "accepted_by_delivery": status_counts["ACCEPTED_BY_DELIVERY_MAN"],
+        "packaging_orders": status_counts["PACKAGING"] + status_counts["PREPARING"],
+        "out_for_delivery": out_for_delivery_total,
+        "delivered_orders": delivered_orders_total,
+        "cancelled_orders": cancelled_orders_total,
+        "refunded_orders": refunded_orders_total,
+        "failed_payments": failed_payments_total,
+        "pending_payments": pending_payments_total,
+        "paid_transactions": paid_txn_total,
+    }
 
     return render_template(
         "admin_dashboard.html",
@@ -3043,8 +3635,22 @@ def admin_dashboard():
         metrics=metrics,
         by_store=by_store,
         top_store_complaints=top_store_complaints,
-        top_delivery_complaints=top_delivery_complaints
+        top_delivery_complaints=top_delivery_complaints,
+        top_rated_stores=top_rated_stores,
+        top_rated_products=top_rated_products,
+        top_rated_deliverymen=top_rated_deliverymen,
+        top_selling_items=top_selling_items,
+        most_popular_stores=most_popular_stores,
+        top_selling_store_tiles=top_selling_store_tiles,
+        top_customers=top_customers,
+        top_deliverymen=top_deliverymen,
+        sales_labels=sales_labels,
+        sales_values=sales_values,
+        quick_links=quick_links,
+        complaints_window_label="(all time)",
     )
+
+
 
 @app.route('/admin/approvals')
 @login_required(role='admin')

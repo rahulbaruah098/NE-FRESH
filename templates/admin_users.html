@@ -1,767 +1,952 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
+
+{% block title %}Users | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Users{% endblock %}
+{% block page_subtitle %}Manage admin, store, delivery and customer accounts from one place.{% endblock %}
+
 {% block content %}
+<style>
+  .admin-users-page {
+    --au-green: var(--nf-green, #00A859);
+    --au-green-dark: var(--nf-green-dark, #007A43);
+    --au-green-deep: var(--nf-green-deep, #075C3B);
+    --au-green-soft: var(--nf-green-soft, #E9FFF3);
+    --au-orange: var(--nf-orange, #FF8A1F);
+    --au-orange-soft: var(--nf-orange-soft, #FFF3E7);
+    --au-bg: var(--nf-bg, #F8FFFB);
+    --au-surface: var(--nf-surface, #FFFFFF);
+    --au-surface-2: var(--nf-surface-2, #F4F9F6);
+    --au-text: var(--nf-text, #1F2D26);
+    --au-muted: var(--nf-muted, #6A7A72);
+    --au-line: var(--nf-line, #DDECE4);
+    --au-danger: var(--nf-danger, #EF4444);
+    --au-warning: var(--nf-warning, #F59E0B);
+    --au-info: var(--nf-info, #0284C7);
+    --au-shadow: var(--nf-shadow, 0 16px 40px rgba(17, 64, 38, .08));
+    --au-shadow-heavy: var(--nf-shadow-heavy, 0 24px 70px rgba(17, 64, 38, .18));
+    display: grid;
+    gap: 18px;
+  }
+
+  .admin-users-page,
+  .admin-users-page * {
+    box-sizing: border-box;
+  }
+
+  .au-hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--au-line);
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at 92% 18%, rgba(255, 138, 31, .16), transparent 30%),
+      radial-gradient(circle at 10% 10%, rgba(0, 168, 89, .16), transparent 34%),
+      linear-gradient(135deg, var(--au-surface), var(--au-surface-2));
+    box-shadow: var(--au-shadow);
+    padding: clamp(18px, 3vw, 28px);
+  }
+
+  .au-hero-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .au-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    padding: 7px 11px;
+    border-radius: 999px;
+    background: var(--au-green-soft);
+    color: var(--au-green-dark);
+    border: 1px solid rgba(0, 168, 89, .18);
+    font-size: .78rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .au-hero h2 {
+    margin: 12px 0 7px;
+    color: var(--au-text);
+    font-size: clamp(1.45rem, 3vw, 2.15rem);
+    line-height: 1.1;
+    letter-spacing: -.045em;
+    font-weight: 900;
+  }
+
+  .au-hero p {
+    margin: 0;
+    max-width: 820px;
+    color: var(--au-muted);
+    font-size: .96rem;
+    line-height: 1.65;
+    font-weight: 600;
+  }
+
+  .au-hero strong {
+    color: var(--au-text);
+    font-weight: 900;
+  }
+
+  .au-hero-icon {
+    width: 78px;
+    height: 78px;
+    border-radius: 24px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, var(--au-green), var(--au-orange));
+    color: #fff;
+    box-shadow: 0 18px 40px rgba(0, 168, 89, .22);
+    font-size: 2rem;
+  }
+
+  .au-panel {
+    border: 1px solid var(--au-line);
+    border-radius: 22px;
+    background: var(--au-surface);
+    box-shadow: var(--au-shadow);
+    overflow: hidden;
+  }
+
+  .au-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 18px 18px 0;
+  }
+
+  .au-panel-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .au-icon-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: var(--au-green-soft);
+    color: var(--au-green-dark);
+    border: 1px solid rgba(0, 168, 89, .18);
+    flex: 0 0 auto;
+    font-size: 1.25rem;
+  }
+
+  .au-panel-title h3 {
+    margin: 0;
+    color: var(--au-text);
+    font-size: 1.08rem;
+    letter-spacing: -.025em;
+    font-weight: 900;
+  }
+
+  .au-panel-title p {
+    margin: 4px 0 0;
+    color: var(--au-muted);
+    font-size: .86rem;
+    line-height: 1.55;
+    font-weight: 600;
+  }
+
+  .au-toolbar {
+    padding: 18px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .au-filter-grid {
+    display: grid;
+    grid-template-columns: 180px 180px minmax(240px, 1fr);
+    gap: 12px;
+    align-items: end;
+  }
+
+  .au-controls-row {
+    display: grid;
+    grid-template-columns: 180px minmax(240px, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+    padding-top: 14px;
+    border-top: 1px solid var(--au-line);
+  }
+
+  .au-field {
+    display: grid;
+    gap: 7px;
+  }
+
+  .au-field label,
+  .au-field > span {
+    color: var(--au-muted);
+    font-size: .76rem;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+
+  .admin-users-page select,
+  .admin-users-page input[type="search"] {
+    width: 100%;
+    height: 44px;
+    border: 1px solid var(--au-line);
+    border-radius: 14px;
+    background: var(--au-surface-2);
+    color: var(--au-text);
+    padding: 0 13px;
+    outline: none;
+    font-size: .9rem;
+    font-weight: 700;
+    transition: .22s ease;
+  }
+
+  .admin-users-page select:focus,
+  .admin-users-page input[type="search"]:focus {
+    border-color: rgba(0, 168, 89, .42);
+    box-shadow: 0 0 0 4px rgba(0, 168, 89, .10);
+    background: var(--au-surface);
+  }
+
+  .admin-users-page input[type="search"]::placeholder {
+    color: color-mix(in srgb, var(--au-muted) 78%, transparent);
+  }
+
+  .au-pager {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .au-page-indicator {
+    color: var(--au-muted);
+    font-size: .84rem;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .au-btn,
+  .admin-users-page button,
+  .admin-users-page .btn-link {
+    min-height: 38px;
+    border: 1px solid var(--au-line);
+    border-radius: 13px;
+    background: var(--au-surface);
+    color: var(--au-text);
+    padding: 8px 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: .78rem;
+    line-height: 1.1;
+    font-weight: 850;
+    transition: .22s ease;
+    white-space: nowrap;
+  }
+
+  .au-btn:hover,
+  .admin-users-page button:hover,
+  .admin-users-page .btn-link:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--au-shadow);
+    border-color: rgba(0, 168, 89, .32);
+  }
+
+  .admin-users-page button:disabled {
+    opacity: .48;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .au-btn-primary {
+    background: var(--au-green);
+    color: #fff;
+    border-color: var(--au-green);
+  }
+
+  .au-btn-primary:hover {
+    background: var(--au-green-dark);
+    border-color: var(--au-green-dark);
+  }
+
+  .au-btn-warning {
+    background: var(--au-orange-soft);
+    color: var(--au-orange);
+    border-color: rgba(255, 138, 31, .24);
+  }
+
+  .au-btn-danger,
+  .admin-users-page button[type="submit"][title*="Delete"] {
+    background: #FFF1F1;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .22);
+  }
+
+  .au-table-card {
+    border: 1px solid var(--au-line);
+    border-radius: 22px;
+    background: var(--au-surface);
+    box-shadow: var(--au-shadow);
+    overflow: hidden;
+  }
+
+  .au-table-top {
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border-bottom: 1px solid var(--au-line);
+    background:
+      radial-gradient(circle at top left, rgba(0, 168, 89, .08), transparent 32%),
+      var(--au-surface);
+  }
+
+  .au-table-top h3 {
+    margin: 0;
+    color: var(--au-text);
+    font-size: 1.02rem;
+    font-weight: 900;
+    letter-spacing: -.02em;
+  }
+
+  .au-table-top p {
+    margin: 3px 0 0;
+    color: var(--au-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .au-table-shell {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .admin-users-page table.table {
+    width: 100%;
+    min-width: 1180px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .admin-users-page table.table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 13px 14px;
+    text-align: left;
+    background: var(--au-green-deep);
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, .12);
+    font-size: .74rem;
+    font-weight: 900;
+    letter-spacing: .055em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .admin-users-page table.table td {
+    padding: 15px 14px;
+    color: var(--au-text);
+    border-bottom: 1px solid var(--au-line);
+    vertical-align: top;
+    font-size: .9rem;
+    font-weight: 650;
+  }
+
+  .admin-users-page table.table tbody tr {
+    transition: .18s ease;
+  }
+
+  .admin-users-page table.table tbody tr:hover {
+    background: var(--au-green-soft);
+  }
+
+  .admin-users-page table.table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .admin-users-page tr.hidden,
+  .admin-users-page tr.paged-hidden {
+    display: none !important;
+  }
+
+  .au-id {
+    color: var(--au-muted);
+    font-weight: 850;
+  }
+
+  .name-wrap {
+    display: grid;
+    gap: 4px;
+  }
+
+  .name-wrap strong {
+    color: var(--au-text);
+    font-size: .98rem;
+    font-weight: 900;
+  }
+
+  .small {
+    color: var(--au-muted);
+    font-size: .82rem;
+    line-height: 1.45;
+    font-weight: 650;
+  }
+
+  .note {
+    max-width: 310px;
+    color: var(--au-muted);
+    font-size: .78rem;
+    line-height: 1.45;
+    font-weight: 650;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    min-height: 28px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 900;
+    letter-spacing: .045em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .badge.role-admin {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5, 150, 105, .18);
+  }
+
+  .badge.role-store {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .badge.role-delivery {
+    background: #FFF7ED;
+    color: #C2410C;
+    border-color: rgba(255, 138, 31, .24);
+  }
+
+  .badge.role-customer {
+    background: #F5F3FF;
+    color: #6D28D9;
+    border-color: rgba(109, 40, 217, .18);
+  }
+
+  .badge.active-yes {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5, 150, 105, .18);
+  }
+
+  .badge.active-no {
+    background: #FFF1F1;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .22);
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .actions-wrap {
+    display: grid;
+    gap: 10px;
+  }
+
+  .actions-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .admin-users-page form {
+    display: inline-flex;
+  }
+
+  .admin-users-page .btn-link {
+    background: var(--au-surface-2);
+  }
+
+  .empty-row {
+    text-align: center;
+    padding: 28px 14px !important;
+    color: var(--au-muted) !important;
+    font-weight: 850 !important;
+  }
+
+  .admin-users-page *:focus-visible {
+    outline: 3px solid rgba(0, 168, 89, .34);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 1120px) {
+    .au-hero-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .au-hero-icon {
+      display: none;
+    }
+
+    .au-filter-grid,
+    .au-controls-row {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .au-pager {
+      grid-column: 1 / -1;
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .admin-users-page {
+      gap: 14px;
+    }
+
+    .au-hero,
+    .au-panel,
+    .au-table-card {
+      border-radius: 18px;
+    }
+
+    .au-panel-head,
+    .au-toolbar,
+    .au-table-top {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+
+    .au-filter-grid,
+    .au-controls-row {
+      grid-template-columns: 1fr;
+    }
+
+    .au-pager {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .au-page-indicator {
+      width: 100%;
+      order: -1;
+    }
+
+    .actions-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .admin-users-page button,
+    .admin-users-page .btn-link {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .admin-users-page *,
+    .admin-users-page *::before,
+    .admin-users-page *::after {
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+
+
 
 <section class="admin-users-page" data-page="admin-users">
-  <style>
-    /* ========================================
-       ADMIN USERS — STORE DASHBOARD THEME (IMPROVED)
-       ✅ Keep ALL your existing table data/rows/actions as-is
-       ✅ Removes inner gridlines inside each customer row
-       ✅ Keeps ONE strong divider between customers + full outer frame
-       ✅ Adds client-side pagination + page-size options (10/25/50/100)
-       ✅ Adds “Global Search” across ALL users (even across pages)
-       ✅ Web + Mobile/App responsive
-       Scoped to .admin-users-page
-       ======================================== */
+  <div class="au-hero">
+    <div class="au-hero-inner">
+      <div>
+        <span class="au-kicker">👥 User Management</span>
+        <h2>Manage NE FRESH users</h2>
+        <p>
+          Disable preserves order history. <strong>Delete</strong> is only allowed if the user has no dependent data.
+          For stores, delivery partners, and customers with history, the backend will automatically disable instead of deleting.
+        </p>
+      </div>
 
-    /* Font imports (page-scoped) */
-    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
-
-    /* ✅ Page tokens */
-    .admin-users-page{
-      --crimson:#8B0000;
-      --black:#000000;
-      --off-white:#FAF9F6;
-      --light-crimson:#FFF5F5;
-      --border-standard:4px;
-      --transition-speed:.3s;
-
-      width:100vw;
-      margin-left:calc(50% - 50vw);
-      margin-right:calc(50% - 50vw);
-
-      background:var(--off-white);
-      color:var(--black);
-      font-family:'Cormorant Garamond', serif;
-      font-size:1.125rem;
-      font-weight:bold;
-      line-height:1.6;
-      min-height:100vh;
-      overflow-x:hidden;
-      position:relative;
-      isolation:isolate;
-    }
-    .admin-users-page,
-    .admin-users-page *{ box-sizing:border-box; }
-
-    /* Page-only reset */
-    .admin-users-page *{
-      margin:0;
-      padding:0;
-      border-radius:0 !important;
-    }
-
-    /* Custom cursor */
-    .admin-users-page,
-    .admin-users-page *{
-      cursor:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
-    }
-    .admin-users-page a,
-    .admin-users-page button,
-    .admin-users-page select,
-    .admin-users-page input{ cursor:pointer; }
-
-    .admin-users-page ::selection{ background:var(--crimson); color:#fff; }
-
-    /* Film grain overlay */
-    .admin-users-page .grain-overlay{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:1;
-      opacity:.12;
-      background-image:url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
-    }
-
-    /* Top bar */
-    .admin-users-page .top-bar{
-      position:relative;
-      z-index:2;
-      width:100%;
-      padding:1rem 2rem;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      border-bottom:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      font-family:'Italiana', serif;
-      font-size:.875rem;
-      letter-spacing:.5em;
-      text-transform:uppercase;
-      font-variant:small-caps;
-    }
-
-    /* Hero */
-    .admin-users-page .hero-section{
-      position:relative;
-      z-index:2;
-      text-align:center;
-      padding:5.25rem 2rem 4.25rem;
-      border-bottom:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-    }
-    .admin-users-page .hero-title{
-      font-family:'Dancing Script', cursive;
-      font-size:clamp(3rem, 10vw, 6rem);
-      color:var(--crimson);
-      font-style:italic;
-      font-weight:700;
-      margin:0 0 .75rem 0;
-      line-height:1.15;
-      text-transform:uppercase;
-    }
-    .admin-users-page .hero-subtitle{
-      font-family:'Italiana', serif;
-      font-size:.875rem;
-      letter-spacing:.5em;
-      text-transform:uppercase;
-      font-variant:small-caps;
-      margin-bottom:1.25rem;
-    }
-    .admin-users-page .hero-divider{
-      width:6rem;
-      height:4px;
-      background:var(--crimson);
-      margin:0 auto;
-    }
-
-    /* Main container */
-    .admin-users-page .main-container{
-      position:relative;
-      z-index:2;
-      max-width:1400px;
-      margin:0 auto;
-      padding:3rem 2rem;
-    }
-
-    /* Panels */
-    .admin-users-page .panel{
-      border:var(--border-standard) solid var(--black);
-      padding:2rem;
-      margin-bottom:2.25rem;
-      background:var(--off-white);
-    }
-    .admin-users-page .panel.soft{ background:var(--light-crimson); }
-
-    .admin-users-page .section-header{
-      display:flex;
-      align-items:start;
-      gap:1rem;
-      margin-bottom:1.25rem;
-    }
-    .admin-users-page .icon-box{
-      width:48px;height:48px;
-      background:var(--crimson);
-      border:var(--border-standard) solid var(--black);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      flex-shrink:0;
-      color:#fff;
-      font-family:'Italiana', serif;
-      font-weight:700;
-      letter-spacing:.08em;
-    }
-    .admin-users-page h2{
-      font-family:'Playfair Display', serif;
-      font-size:1.8rem;
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-      margin:0;
-    }
-    .admin-users-page .muted{ color:rgba(0,0,0,.65); }
-    .admin-users-page p.muted{
-      font-weight:600;
-      font-size:1rem;
-      margin-top:.35rem;
-    }
-    .admin-users-page strong{ font-weight:900; }
-
-    /* Toolbar / Filters */
-    .admin-users-page .toolbar{
-      display:flex;
-      justify-content:space-between;
-      align-items:end;
-      gap:1rem;
-      flex-wrap:wrap;
-      margin:0;
-    }
-    .admin-users-page .filters{
-      display:flex;
-      gap:1rem;
-      align-items:end;
-      flex-wrap:wrap;
-      width:100%;
-    }
-    .admin-users-page .filters label{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      font-family:'Italiana', serif;
-      font-size:.75rem;
-      letter-spacing:.3em;
-      text-transform:uppercase;
-      font-weight:800;
-      color:var(--black);
-      min-width:180px;
-    }
-    .admin-users-page select,
-    .admin-users-page input[type="search"]{
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      color:var(--black);
-      padding:.75rem .9rem;
-      font-family:'Cormorant Garamond', serif;
-      font-size:1rem;
-      font-weight:700;
-      outline:none;
-      width:100%;
-    }
-    .admin-users-page input[type="search"]::placeholder{
-      color:rgba(0,0,0,.55);
-      font-weight:700;
-    }
-
-    /* Top controls row (pagination + page size + global search) */
-    .admin-users-page .list-controls{
-      display:flex;
-      align-items:end;
-      justify-content:space-between;
-      gap:1rem;
-      flex-wrap:wrap;
-      margin-top:1.25rem;
-      padding-top:1.25rem;
-      border-top:2px solid var(--black);
-    }
-    .admin-users-page .control-group{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:end;
-    }
-    .admin-users-page .control-group label{
-      min-width:200px;
-    }
-    .admin-users-page .meta-line{
-      font-family:'Italiana', serif;
-      font-size:.75rem;
-      letter-spacing:.25em;
-      text-transform:uppercase;
-      color:rgba(0,0,0,.70);
-      white-space:nowrap;
-      padding-bottom:.25rem;
-    }
-
-    /* Pagination buttons */
-    .admin-users-page .pager{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-    .admin-users-page .pager button{
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      color:var(--black);
-      padding:.65rem 1rem;
-      font-family:'Italiana', serif;
-      font-size:.7rem;
-      letter-spacing:.25em;
-      text-transform:uppercase;
-      transition:all var(--transition-speed);
-    }
-    .admin-users-page .pager button:hover{ background:var(--black); color:#fff; }
-    .admin-users-page .pager button:disabled{
-      opacity:.5;
-      cursor:not-allowed;
-      background:transparent;
-    }
-    .admin-users-page .page-indicator{
-      font-family:'Cormorant Garamond', serif;
-      font-size:1rem;
-      font-weight:800;
-      color:rgba(0,0,0,.75);
-      padding:0 .25rem .15rem;
-      white-space:nowrap;
-    }
-
-    /* Table shell (outer frame complete) */
-    .admin-users-page .table-shell{
-      margin-top:1.25rem;
-      overflow-x:auto;
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-    }
-
-    /* Tables */
-    .admin-users-page table.table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:1200px; /* allow horizontal scroll on smaller screens */
-      background:transparent;
-      margin-top:0;
-    }
-
-    /* Header stays strong */
-    .admin-users-page table.table thead{
-      background:var(--black);
-      color:#fff;
-    }
-    .admin-users-page table.table th{
-      padding:1rem;
-      text-align:left;
-      font-family:'Italiana', serif;
-      font-size:.75rem;
-      letter-spacing:.3em;
-      text-transform:uppercase;
-      font-weight:900;
-      border-right:2px solid var(--crimson);
-      white-space:nowrap;
-    }
-    .admin-users-page table.table th:last-child{ border-right:none; }
-
-    /* ✅ REMOVE inner lines: no cell borders; ONLY row divider */
-    .admin-users-page table.table td{
-      padding:1rem;
-      font-family:'Cormorant Garamond', serif;
-      font-size:1rem;
-      font-weight:700;
-      vertical-align:top;
-      border-bottom:none;               /* remove inner lines */
-      border-right:none !important;     /* remove inner verticals */
-    }
-
-    /* ✅ ONE divider per user row (full width) */
-    .admin-users-page table.table tbody tr{
-      border-bottom:2px solid var(--black); /* this is your “customer divider” line */
-    }
-    .admin-users-page table.table tbody tr:last-child{
-      border-bottom:none; /* keep outer table-shell border clean */
-    }
-
-    /* optional alternating row tint (keep it subtle) */
-    .admin-users-page table.table tbody tr:nth-child(even){
-      background:var(--light-crimson);
-    }
-
-    /* existing helper classes */
-    .admin-users-page .small{ font-size:.95rem; color:rgba(0,0,0,.70); font-weight:700; }
-    .admin-users-page .note{ font-size:.9rem; color:rgba(0,0,0,.70); margin-top:6px; font-weight:700; }
-    .admin-users-page tr.hidden{ display:none !important; }
-    .admin-users-page tr.paged-hidden{ display:none !important; }
-    .admin-users-page .name-wrap{ display:flex; flex-direction:column; gap:2px; }
-
-    /* Badges (role/status) */
-    .admin-users-page .badge{
-      display:inline-flex;
-      align-items:center;
-      padding:.25rem .75rem;
-      font-family:'Italiana', serif;
-      font-size:.625rem;
-      letter-spacing:.2em;
-      text-transform:uppercase;
-      background:var(--off-white);
-      color:var(--black);
-      border:2px solid var(--black);
-      white-space:nowrap;
-    }
-    .admin-users-page .badge.role-admin{ background:#fff; }
-    .admin-users-page .badge.role-store{ background:var(--light-crimson); }
-    .admin-users-page .badge.role-delivery{ background:#fff; }
-    .admin-users-page .badge.role-customer{ background:var(--light-crimson); }
-
-    .admin-users-page .badge.active-yes{ background:#fff; border-color:var(--black); }
-    .admin-users-page .badge.active-no{ background:var(--light-crimson); border-color:var(--black); }
-
-    /* Actions */
-    .admin-users-page .controls{ display:flex; gap:10px; flex-wrap:wrap; }
-    .admin-users-page .actions-wrap{ display:flex; flex-direction:column; gap:10px; }
-    .admin-users-page .actions-row{ display:flex; gap:10px; flex-wrap:wrap; }
-    .admin-users-page .sep{ height:0; margin:0; background:transparent; } /* ✅ remove inside separator line */
-
-    .admin-users-page button,
-    .admin-users-page .btn-link{
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      color:var(--black);
-      padding:.65rem 1rem;
-      font-family:'Italiana', serif;
-      font-size:.7rem;
-      letter-spacing:.25em;
-      text-transform:uppercase;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:.5rem;
-      text-decoration:none;
-      transition:all var(--transition-speed);
-      white-space:nowrap;
-    }
-    .admin-users-page button:hover,
-    .admin-users-page .btn-link:hover{ background:var(--black); color:#fff; }
-    .admin-users-page form{ display:inline; }
-
-    /* focus */
-    .admin-users-page *:focus-visible{
-      outline:3px solid var(--crimson);
-      outline-offset:3px;
-    }
-
-    /* tiny “no results” row style */
-    .admin-users-page .empty-row{
-      text-align:center;
-      padding:1.25rem !important;
-      font-weight:800;
-      color:rgba(0,0,0,.65);
-    }
-
-    @media (max-width: 900px){
-      .admin-users-page .top-bar{ padding:1rem 1rem; letter-spacing:.35em; }
-      .admin-users-page .hero-section{ padding:3.5rem 1rem 3rem; }
-      .admin-users-page .main-container{ padding:2rem 1rem; }
-      .admin-users-page .panel{ padding:1.5rem; }
-
-      .admin-users-page .filters label{ min-width:100%; }
-      .admin-users-page .control-group label{ min-width:100%; }
-      .admin-users-page .pager{ width:100%; justify-content:space-between; }
-      .admin-users-page .page-indicator{ width:100%; text-align:left; padding:6px 0 0; }
-
-      /* action buttons stack nicely in mobile */
-      .admin-users-page .actions-row{ flex-direction:column; align-items:stretch; }
-      .admin-users-page button,
-      .admin-users-page .btn-link{ width:100%; justify-content:center; }
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      .admin-users-page *,
-      .admin-users-page *::before,
-      .admin-users-page *::after{
-        animation-duration:0.01ms !important;
-        animation-iteration-count:1 !important;
-        transition-duration:0.01ms !important;
-        scroll-behavior:auto !important;
-      }
-    }
-  </style>
-
-  <div class="grain-overlay" aria-hidden="true"></div>
-
-  <div class="top-bar">
-    <span>EST. 2018</span>
-    <span>MIZORAM, INDIA</span>
+      <div class="au-hero-icon" aria-hidden="true">👤</div>
+    </div>
   </div>
 
-  <header class="hero-section">
-    <h1 class="hero-title">Users</h1>
-    <p class="hero-subtitle">Manage Accounts • Status • Exports</p>
-    <div class="hero-divider"></div>
-  </header>
-
-  <main class="main-container">
-    <section class="panel soft" aria-label="Users info">
-      <div class="section-header">
-        <div class="icon-box" aria-hidden="true">👤</div>
+  <section class="au-panel" aria-label="Users filters">
+    <div class="au-panel-head">
+      <div class="au-panel-title">
+        <div class="au-icon-box" aria-hidden="true">🔎</div>
         <div>
-          <h2>Users</h2>
-          <p class="muted">
-            Disable preserves order history; <strong>Delete</strong> is only allowed if the user has no dependent data.
-            For stores/delivery/customers with history, the backend will automatically <em>disable</em> instead of deleting.
-            You can also <strong>export</strong> a user's data/transactions before removal.
-          </p>
+          <h3>Filters & Search</h3>
+          <p>Filter by role, status, page size, or search by name, email, and phone.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="au-toolbar">
+      <div class="au-filter-grid">
+        <div class="au-field">
+          <label for="roleFilter">Role</label>
+          <select id="roleFilter">
+            <option value="">All</option>
+            <option value="admin">Admin</option>
+            <option value="store">Store</option>
+            <option value="delivery">Delivery</option>
+            <option value="customer">Customer</option>
+          </select>
+        </div>
+
+        <div class="au-field">
+          <label for="activeFilter">Active</label>
+          <select id="activeFilter">
+            <option value="">All</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+
+        <div class="au-field">
+          <label for="globalSearchInput">Global Search</label>
+          <input id="globalSearchInput" type="search" placeholder="Type name/email/phone and press Enter..." />
         </div>
       </div>
 
-      <!-- Existing filters (kept intact) -->
-      <div class="toolbar">
-        <div class="filters">
-          <label>
-            Role
-            <select id="roleFilter">
-              <option value="">All</option>
-              <option value="admin">Admin</option>
-              <option value="store">Store</option>
-              <option value="delivery">Delivery</option>
-              <option value="customer">Customer</option>
-            </select>
-          </label>
-          <label>
-            Active
-            <select id="activeFilter">
-              <option value="">All</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
+      <div class="au-controls-row" aria-label="Pagination controls">
+        <div class="au-field">
+          <label for="pageSizeSelect">Page Size</label>
+          <select id="pageSizeSelect">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
 
-          <!-- ✅ New: Global search across ALL users -->
-          <label style="flex:1;min-width:280px;">
-            Global Search
-            <input id="globalSearchInput" type="search" placeholder="Type name/email/phone and press Enter…" />
-          </label>
+        <div class="au-field">
+          <label for="searchInput">Search Current List</label>
+          <input id="searchInput" type="search" placeholder="Search by name/email/phone..." />
+        </div>
+
+        <div class="au-pager" aria-label="Pager">
+          <button type="button" id="prevPageBtn" class="au-btn" aria-label="Previous page">← Prev</button>
+          <span class="au-page-indicator" id="pageIndicator">Page 1</span>
+          <button type="button" id="nextPageBtn" class="au-btn au-btn-primary" aria-label="Next page">Next →</button>
         </div>
       </div>
+    </div>
+  </section>
 
-      <!-- ✅ New: pagination controls + page size -->
-      <div class="list-controls" aria-label="Pagination controls">
-        <div class="control-group">
-          <label>
-            Page Size
-            <select id="pageSizeSelect">
-              <option value="10">10</option>
-              <option value="25" selected>25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
-          </label>
-
-          <!-- Keep your original search input too (intact) -->
-          <label style="flex:1;min-width:280px;">
-            Search (Current)
-            <input id="searchInput" type="search" placeholder="Search by name/email/phone…" />
-          </label>
-        </div>
-
-        <div class="pager" aria-label="Pager">
-          <button type="button" id="prevPageBtn" aria-label="Previous page">Prev</button>
-          <span class="page-indicator" id="pageIndicator">Page 1</span>
-          <button type="button" id="nextPageBtn" aria-label="Next page">Next</button>
-        </div>
+  <section class="au-table-card" aria-label="Users table">
+    <div class="au-table-top">
+      <div>
+        <h3>All Users</h3>
+        <p>Review account status, role, creation date, exports and safe account actions.</p>
       </div>
-    </section>
+    </div>
 
-    <section class="panel" aria-label="Users table">
-      <div class="table-shell">
-        <table class="table" id="usersTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Email / Phone</th>
-              <th>Role</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+    <div class="au-table-shell">
+      <table class="table" id="usersTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Email / Phone</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
           {% for u in users %}
             <tr
               data-role="{{ u.role }}"
               data-active="{{ 'yes' if u.is_active else 'no' }}"
               data-search="{{ (u.name ~ ' ' ~ (u.email or '') ~ ' ' ~ (u.phone or ''))|lower }}"
             >
-              <td>{{ u.id }}</td>
+              <td>
+                <span class="au-id">{{ u.id }}</span>
+              </td>
+
               <td class="name-wrap">
                 <strong>{{ u.name }}</strong>
+
                 {% if u.role in ['store','delivery','customer'] %}
                   <span class="note">
                     {% if u.role == 'store' %}
-                      Store can be deleted only if it has no orders; else it will be disabled.
+                      Store can be deleted only if it has no orders; otherwise it will be disabled.
                     {% elif u.role == 'delivery' %}
-                      Partner can be deleted only if no delivery history; else disabled.
+                      Partner can be deleted only if no delivery history; otherwise disabled.
                     {% elif u.role == 'customer' %}
-                      Customer can be deleted only if no orders; else disabled.
+                      Customer can be deleted only if no orders; otherwise disabled.
                     {% endif %}
                   </span>
                 {% endif %}
               </td>
+
               <td>
                 <div>{{ u.email }}</div>
                 <div class="small">{{ u.phone or '' }}</div>
               </td>
+
               <td>
                 <span class="badge role-{{ u.role }}">{{ u.role|upper }}</span>
               </td>
+
               <td>
-                <span class="badge active-{{ 'yes' if u.is_active else 'no' }}">{{ 'Active' if u.is_active else 'Disabled' }}</span>
+                <span class="badge active-{{ 'yes' if u.is_active else 'no' }}">
+                  {{ 'Active' if u.is_active else 'Disabled' }}
+                </span>
               </td>
+
               <td class="small">{{ u.created_at }}</td>
+
               <td>
                 <div class="controls actions-wrap">
-
-                  <!-- Status controls -->
                   <div class="actions-row">
                     {% if u.is_active %}
                       <form method="post" action="{{ url_for('admin_user_disable', uid=u.id) }}">
-                        <button type="submit" title="Disable user (safe, preserves history)">Disable</button>
+                        <button type="submit" class="au-btn-warning" title="Disable user (safe, preserves history)">
+                          Disable
+                        </button>
                       </form>
                     {% else %}
                       <form method="post" action="{{ url_for('admin_user_enable', uid=u.id) }}">
-                        <button type="submit" title="Activate user">Activate</button>
+                        <button type="submit" class="au-btn-primary" title="Activate user">
+                          Activate
+                        </button>
                       </form>
                     {% endif %}
+
                     {% if u.role != 'admin' %}
-                      <form method="post" action="{{ url_for('admin_user_delete', uid=u.id) }}"
-                            onsubmit="return confirmDelete('{{ u.role }}','{{ u.name|e }}')">
-                        <button type="submit" title="Delete user (only if no dependent data)">Delete</button>
+                      <form
+                        method="post"
+                        action="{{ url_for('admin_user_delete', uid=u.id) }}"
+                        onsubmit="return confirmDelete('{{ u.role }}','{{ u.name|e }}')"
+                      >
+                        <button type="submit" class="au-btn-danger" title="Delete user (only if no dependent data)">
+                          Delete
+                        </button>
                       </form>
                     {% endif %}
                   </div>
 
-                  <div class="sep"></div>
-
-                  <!-- Exports / Downloads -->
                   <div class="actions-row">
-                    <a class="btn-link" href="{{ url_for('admin_user_transactions_csv', uid=u.id) }}" target="_blank" title="CSV of all related transactions">
-                      Download Transactions CSV
+                    <a
+                      class="btn-link"
+                      href="{{ url_for('admin_user_transactions_csv', uid=u.id) }}"
+                      target="_blank"
+                      title="CSV of all related transactions"
+                    >
+                      Transactions CSV
                     </a>
-                    <a class="btn-link" href="{{ url_for('admin_user_export_zip', uid=u.id) }}" title="Full data export (ZIP)">
-                      Download Full Export (ZIP)
+
+                    <a
+                      class="btn-link"
+                      href="{{ url_for('admin_user_export_zip', uid=u.id) }}"
+                      title="Full data export (ZIP)"
+                    >
+                      Full Export ZIP
                     </a>
                   </div>
-
                 </div>
               </td>
             </tr>
           {% else %}
-            <tr><td colspan="7" class="small empty-row">No users found.</td></tr>
+            <tr>
+              <td colspan="7" class="small empty-row">No users found.</td>
+            </tr>
           {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  </main>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</section>
+{% endblock %}
 
-  <script>
-  (function(){
-    // ===== Elements
-    const roleSel = document.getElementById('roleFilter');
-    const activeSel = document.getElementById('activeFilter');
-    const searchIn = document.getElementById('searchInput');           // existing local search
-    const globalIn = document.getElementById('globalSearchInput');     // new global search
-    const pageSizeSel = document.getElementById('pageSizeSelect');
+{% block extra_js %}
+<script>
+(function(){
+  const roleSel = document.getElementById('roleFilter');
+  const activeSel = document.getElementById('activeFilter');
+  const searchIn = document.getElementById('searchInput');
+  const globalIn = document.getElementById('globalSearchInput');
+  const pageSizeSel = document.getElementById('pageSizeSelect');
 
-    const prevBtn = document.getElementById('prevPageBtn');
-    const nextBtn = document.getElementById('nextPageBtn');
-    const pageIndicator = document.getElementById('pageIndicator');
+  const prevBtn = document.getElementById('prevPageBtn');
+  const nextBtn = document.getElementById('nextPageBtn');
+  const pageIndicator = document.getElementById('pageIndicator');
 
-    const tbody = document.querySelector('#usersTable tbody');
-    const allRows = [...document.querySelectorAll('#usersTable tbody tr')];
+  const tbody = document.querySelector('#usersTable tbody');
+  const allRows = [...document.querySelectorAll('#usersTable tbody tr')];
 
-    // If there is a single "No users found" row, don't paginate/filter it
-    const isEmptyOnly =
-      allRows.length === 1 &&
-      (allRows[0].querySelector('td')?.getAttribute('colspan') === '7');
+  const isEmptyOnly =
+    allRows.length === 1 &&
+    (allRows[0].querySelector('td')?.getAttribute('colspan') === '7');
 
-    // ===== State
-    let currentPage = 1;
-    let pageSize = Number(pageSizeSel?.value || 25);
+  let currentPage = 1;
+  let pageSize = Number(pageSizeSel?.value || 25);
 
-    // persistence (optional, safe)
-    const KEY = "adminUsersPageState_v1";
-    try{
-      const saved = JSON.parse(localStorage.getItem(KEY) || "null");
-      if(saved && typeof saved === "object"){
-        if(saved.pageSize && [10,25,50,100].includes(Number(saved.pageSize))){
-          pageSizeSel.value = String(saved.pageSize);
-          pageSize = Number(saved.pageSize);
-        }
-        if(typeof saved.role === "string") roleSel.value = saved.role;
-        if(typeof saved.active === "string") activeSel.value = saved.active;
-        if(typeof saved.term === "string") searchIn.value = saved.term;
-      }
-    }catch(_){}
+  const KEY = "adminUsersPageState_v1";
 
-    function persist(){
-      try{
-        localStorage.setItem(KEY, JSON.stringify({
-          pageSize: Number(pageSizeSel.value || pageSize),
-          role: roleSel.value || "",
-          active: activeSel.value || "",
-          term: searchIn.value || ""
-        }));
-      }catch(_){}
-    }
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || "null");
 
-    // ===== Filtering (role/active + local search)
-    function rowMatchesFilters(tr){
-      const role = (roleSel.value || '').toLowerCase();
-      const active = (activeSel.value || '').toLowerCase();
-      const term = (searchIn.value || '').trim().toLowerCase();
-
-      const r = (tr.dataset.role || '').toLowerCase();
-      const a = (tr.dataset.active || '').toLowerCase();
-      const s = (tr.dataset.search || '').toLowerCase();
-
-      const roleOk = !role || r === role;
-      const activeOk = !active || a === active;
-      const searchOk = !term || s.includes(term);
-      return roleOk && activeOk && searchOk;
-    }
-
-    // Visible set after filters (not pagination)
-    function getFilteredRows(){
-      if(isEmptyOnly) return [];
-      return allRows.filter(tr => rowMatchesFilters(tr));
-    }
-
-    // ===== Pagination
-    function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
-
-    function render(){
-      if(isEmptyOnly){
-        // keep the empty row visible
-        allRows.forEach(tr => { tr.classList.remove('hidden'); tr.classList.remove('paged-hidden'); });
-        if(pageIndicator) pageIndicator.textContent = "Page 1";
-        if(prevBtn) prevBtn.disabled = true;
-        if(nextBtn) nextBtn.disabled = true;
-        return;
+    if (saved && typeof saved === "object") {
+      if (saved.pageSize && [10,25,50,100].includes(Number(saved.pageSize))) {
+        pageSizeSel.value = String(saved.pageSize);
+        pageSize = Number(saved.pageSize);
       }
 
-      const filtered = getFilteredRows();
+      if (typeof saved.role === "string") roleSel.value = saved.role;
+      if (typeof saved.active === "string") activeSel.value = saved.active;
+      if (typeof saved.term === "string") searchIn.value = saved.term;
+    }
+  } catch (_) {}
 
-      // hide all first
+  function persist() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        pageSize: Number(pageSizeSel.value || pageSize),
+        role: roleSel.value || "",
+        active: activeSel.value || "",
+        term: searchIn.value || ""
+      }));
+    } catch (_) {}
+  }
+
+  function rowMatchesFilters(tr) {
+    const role = (roleSel.value || '').toLowerCase();
+    const active = (activeSel.value || '').toLowerCase();
+    const term = (searchIn.value || '').trim().toLowerCase();
+
+    const r = (tr.dataset.role || '').toLowerCase();
+    const a = (tr.dataset.active || '').toLowerCase();
+    const s = (tr.dataset.search || '').toLowerCase();
+
+    const roleOk = !role || r === role;
+    const activeOk = !active || a === active;
+    const searchOk = !term || s.includes(term);
+
+    return roleOk && activeOk && searchOk;
+  }
+
+  function getFilteredRows() {
+    if (isEmptyOnly) return [];
+    return allRows.filter(tr => rowMatchesFilters(tr));
+  }
+
+  function clamp(n, min, max) {
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function render() {
+    if (isEmptyOnly) {
       allRows.forEach(tr => {
-        tr.classList.toggle('hidden', !rowMatchesFilters(tr));
-        tr.classList.add('paged-hidden');
+        tr.classList.remove('hidden');
+        tr.classList.remove('paged-hidden');
       });
 
-      // If none matched, show a lightweight empty row (without touching backend data)
-      // We'll inject/remove a helper row.
-      const existingHelper = tbody.querySelector('tr[data-helper-row="1"]');
-      if(existingHelper) existingHelper.remove();
-
-      if(filtered.length === 0){
-        const helper = document.createElement('tr');
-        helper.setAttribute('data-helper-row','1');
-        helper.innerHTML = '<td colspan="7" class="empty-row">No matching users found.</td>';
-        tbody.appendChild(helper);
-
-        if(pageIndicator) pageIndicator.textContent = "Page 1";
-        if(prevBtn) prevBtn.disabled = true;
-        if(nextBtn) nextBtn.disabled = true;
-        return;
-      }
-
-      const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-      currentPage = clamp(currentPage, 1, totalPages);
-
-      const start = (currentPage - 1) * pageSize;
-      const end = start + pageSize;
-      const pageRows = filtered.slice(start, end);
-
-      pageRows.forEach(tr => tr.classList.remove('paged-hidden'));
-
-      if(pageIndicator){
-        pageIndicator.textContent = `Page ${currentPage} of ${totalPages} • Showing ${pageRows.length}/${filtered.length}`;
-      }
-      if(prevBtn) prevBtn.disabled = currentPage <= 1;
-      if(nextBtn) nextBtn.disabled = currentPage >= totalPages;
+      if (pageIndicator) pageIndicator.textContent = "Page 1";
+      if (prevBtn) prevBtn.disabled = true;
+      if (nextBtn) nextBtn.disabled = true;
+      return;
     }
 
-    function resetToFirstPage(){
-      currentPage = 1;
+    const filtered = getFilteredRows();
+
+    allRows.forEach(tr => {
+      tr.classList.toggle('hidden', !rowMatchesFilters(tr));
+      tr.classList.add('paged-hidden');
+    });
+
+    const existingHelper = tbody.querySelector('tr[data-helper-row="1"]');
+    if (existingHelper) existingHelper.remove();
+
+    if (filtered.length === 0) {
+      const helper = document.createElement('tr');
+      helper.setAttribute('data-helper-row', '1');
+      helper.innerHTML = '<td colspan="7" class="empty-row">No matching users found.</td>';
+      tbody.appendChild(helper);
+
+      if (pageIndicator) pageIndicator.textContent = "Page 1";
+      if (prevBtn) prevBtn.disabled = true;
+      if (nextBtn) nextBtn.disabled = true;
+      return;
     }
 
-    // ===== Events
-    roleSel.addEventListener('change', () => { persist(); resetToFirstPage(); render(); });
-    activeSel.addEventListener('change', () => { persist(); resetToFirstPage(); render(); });
-    searchIn.addEventListener('input', () => { persist(); resetToFirstPage(); render(); });
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    currentPage = clamp(currentPage, 1, totalPages);
 
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    const pageRows = filtered.slice(start, end);
+
+    pageRows.forEach(tr => tr.classList.remove('paged-hidden'));
+
+    if (pageIndicator) {
+      pageIndicator.textContent = `Page ${currentPage} of ${totalPages} • Showing ${pageRows.length}/${filtered.length}`;
+    }
+
+    if (prevBtn) prevBtn.disabled = currentPage <= 1;
+    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+  }
+
+  function resetToFirstPage() {
+    currentPage = 1;
+  }
+
+  if (roleSel) {
+    roleSel.addEventListener('change', () => {
+      persist();
+      resetToFirstPage();
+      render();
+    });
+  }
+
+  if (activeSel) {
+    activeSel.addEventListener('change', () => {
+      persist();
+      resetToFirstPage();
+      render();
+    });
+  }
+
+  if (searchIn) {
+    searchIn.addEventListener('input', () => {
+      persist();
+      resetToFirstPage();
+      render();
+    });
+  }
+
+  if (pageSizeSel) {
     pageSizeSel.addEventListener('change', () => {
       const v = Number(pageSizeSel.value || 25);
       pageSize = [10,25,50,100].includes(v) ? v : 25;
@@ -769,85 +954,99 @@
       resetToFirstPage();
       render();
     });
+  }
 
-    prevBtn.addEventListener('click', () => { currentPage = Math.max(1, currentPage - 1); render(); });
-    nextBtn.addEventListener('click', () => { currentPage = currentPage + 1; render(); });
+  if (prevBtn) {
+    prevBtn.addEventListener('click', () => {
+      currentPage = Math.max(1, currentPage - 1);
+      render();
+    });
+  }
 
-    // ✅ Global search: jump directly to a unique match across ALL users (even across pages).
-    // - Press Enter to jump.
-    // - If multiple matches, it applies the term into local Search and shows first page results.
-    function globalJump(){
-      const raw = (globalIn.value || '').trim().toLowerCase();
-      if(!raw){
-        globalIn.blur();
-        return;
-      }
-      if(isEmptyOnly) return;
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+      currentPage = currentPage + 1;
+      render();
+    });
+  }
 
-      // use the same searchable string
-      const candidates = allRows.filter(tr => {
-        const s = (tr.dataset.search || '').toLowerCase();
-        return s.includes(raw);
-      });
+  function globalJump() {
+    const raw = (globalIn.value || '').trim().toLowerCase();
 
-      if(candidates.length === 1){
-        // Clear role/active filters so user is always found
-        roleSel.value = "";
-        activeSel.value = "";
-        searchIn.value = raw;
-        persist();
+    if (!raw) {
+      globalIn.blur();
+      return;
+    }
 
-        // find its position within filtered rows and go to that page
-        const filtered = getFilteredRows(); // based on updated filters/term
-        const idx = filtered.indexOf(candidates[0]);
-        pageSize = Number(pageSizeSel.value || pageSize);
-        const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-        currentPage = clamp(Math.floor(idx / pageSize) + 1, 1, totalPages);
+    if (isEmptyOnly) return;
 
-        render();
-        // small highlight
-        try{
-          candidates[0].scrollIntoView({behavior:'smooth', block:'center'});
-          candidates[0].style.outline = '3px solid var(--crimson)';
-          candidates[0].style.outlineOffset = '3px';
-          setTimeout(()=>{ candidates[0].style.outline=''; candidates[0].style.outlineOffset=''; }, 1200);
-        }catch(_){}
-        return;
-      }
+    const candidates = allRows.filter(tr => {
+      const s = (tr.dataset.search || '').toLowerCase();
+      return s.includes(raw);
+    });
 
-      // multiple matches: apply as local search (still across all users but paginated)
+    if (candidates.length === 1) {
       roleSel.value = "";
       activeSel.value = "";
       searchIn.value = raw;
       persist();
-      resetToFirstPage();
+
+      const filtered = getFilteredRows();
+      const idx = filtered.indexOf(candidates[0]);
+
+      pageSize = Number(pageSizeSel.value || pageSize);
+
+      const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+      currentPage = clamp(Math.floor(idx / pageSize) + 1, 1, totalPages);
+
       render();
+
+      try {
+        candidates[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        candidates[0].style.outline = '3px solid rgba(0,168,89,.45)';
+        candidates[0].style.outlineOffset = '3px';
+
+        setTimeout(() => {
+          candidates[0].style.outline = '';
+          candidates[0].style.outlineOffset = '';
+        }, 1200);
+      } catch (_) {}
+
+      return;
     }
 
+    roleSel.value = "";
+    activeSel.value = "";
+    searchIn.value = raw;
+    persist();
+    resetToFirstPage();
+    render();
+  }
+
+  if (globalIn) {
     globalIn.addEventListener('keydown', (e) => {
-      if(e.key === 'Enter'){
+      if (e.key === 'Enter') {
         e.preventDefault();
         globalJump();
       }
     });
+  }
 
-    // Delete confirm (UNCHANGED)
-    window.confirmDelete = function(role, name){
-      let msg = `Delete ${name}? This is only allowed if there is no dependent data. Otherwise the account will be disabled.`;
-      if (role === 'store') {
-        msg = `Delete store user “${name}”? This will only succeed if the store has no orders. Otherwise the account will be disabled.`;
-      } else if (role === 'delivery') {
-        msg = `Delete delivery partner “${name}”? This will only succeed if they have no delivery history. Otherwise the account will be disabled.`;
-      } else if (role === 'customer') {
-        msg = `Delete customer “${name}”? This will only succeed if the customer has no orders. Otherwise the account will be disabled.`;
-      }
-      return confirm(msg);
-    };
+  window.confirmDelete = function(role, name) {
+    let msg = `Delete ${name}? This is only allowed if there is no dependent data. Otherwise the account will be disabled.`;
 
-    // initial render
-    render();
-  })();
-  </script>
-</section>
+    if (role === 'store') {
+      msg = `Delete store user “${name}”? This will only succeed if the store has no orders. Otherwise the account will be disabled.`;
+    } else if (role === 'delivery') {
+      msg = `Delete delivery partner “${name}”? This will only succeed if they have no delivery history. Otherwise the account will be disabled.`;
+    } else if (role === 'customer') {
+      msg = `Delete customer “${name}”? This will only succeed if the customer has no orders. Otherwise the account will be disabled.`;
+    }
 
+    return confirm(msg);
+  };
+
+  render();
+})();
+</script>
 {% endblock %}

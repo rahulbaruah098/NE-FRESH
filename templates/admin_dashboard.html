@@ -1,372 +1,435 @@
 {% extends "admin_base.html" %}
 {% set active_page = "dashboard" %}
+
+{% block title %}Admin Dashboard | NE FRESH{% endblock %}
+{% block page_title %}Grocery Dashboard{% endblock %}
+{% block page_subtitle %}Hello Here You Can Manage Your Grocery Orders by Zone.{% endblock %}
+
 {% block content %}
+{% set users_total = metrics.users|default(0) %}
+{% set customers_total = metrics.customers|default(0) %}
+{% set stores_total = metrics.stores|default(0) %}
+{% set products_total = metrics.products|default(0) %}
+{% set orders_total = metrics.orders|default(0) %}
+{% set earnings_total = metrics.total_earnings|default(metrics.gmv|default(0)) %}
+{% set gmv_total = metrics.gmv|default(0) %}
+{% set delivery_people_total = metrics.delivery_people|default(0) %}
+{% set active_delivery_people_total = metrics.active_delivery_people|default(0) %}
 
-{% set users_total = metrics.users|default(49) %}
-{% set stores_total = metrics.stores|default(15) %}
-{% set products_total = metrics.products|default(56) %}
-{% set orders_total = metrics.orders|default(40) %}
-{% set gmv_total = metrics.gmv|default(1582.50) %}
-{% set complaints_label = complaints_window_label|default('(last 30 days)') %}
+{% set unassigned_orders_total = metrics.unassigned_orders|default(0) %}
+{% set accepted_delivery_total = metrics.accepted_by_delivery|default(0) %}
+{% set packaging_orders_total = metrics.packaging_orders|default(0) %}
+{% set out_for_delivery_total = metrics.out_for_delivery|default(0) %}
+{% set delivered_orders_total = metrics.delivered_orders|default(0) %}
+{% set cancelled_orders_total = metrics.cancelled_orders|default(0) %}
+{% set refunded_orders_total = metrics.refunded_orders|default(0) %}
+{% set failed_payments_total = metrics.failed_payments|default(0) %}
+{% set pending_payments_total = metrics.pending_payments|default(0) %}
+{% set paid_transactions_total = metrics.paid_transactions|default(0) %}
 
-<section class="admin-dashboard-page" data-page="admin-dashboard">
+<section class="nf-grocery-dashboard" data-page="admin-dashboard">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-    .admin-dashboard-page{
-      --bg:#f6f8fb;
-      --panel:#ffffff;
-      --panel-soft:#f3f7fb;
-      --panel-muted:#edf3f7;
-      --text:#35455f;
-      --text-2:#6f7f95;
-      --line:#e7edf4;
-      --green:#56b89b;
-      --green-dark:#245a57;
-      --green-soft:#d8f4ec;
-      --teal:#b9e3e1;
-      --orange:#ff9a47;
-      --blue:#2f80ed;
-      --red:#ef5b5b;
-      --shadow:0 12px 32px rgba(28, 43, 67, .08);
-      --shadow-soft:0 4px 12px rgba(28, 43, 67, .06);
+    .nf-grocery-dashboard{
+      --bg:#F7FAFC;
+      --card:#FFFFFF;
+      --soft:#F4F7FA;
+      --line:#E8EEF5;
+      --line2:#F0F4F8;
+      --ink:#26364B;
+      --text:#40516A;
+      --muted:#7B8AA2;
+      --muted2:#9AA6B5;
+      --teal:#12B8A6;
+      --teal-dark:#006B66;
+      --teal-soft:#E9FBF8;
+      --cyan:#32E7CE;
+      --green:#00C879;
+      --red:#FF3158;
+      --orange:#FF9F1C;
+      --blue:#0B63CE;
+      --shadow:0 8px 30px rgba(28,43,67,.06);
+      --shadow2:0 14px 44px rgba(28,43,67,.09);
 
       width:100%;
-      min-height:100vh;
+      min-height:100%;
       background:var(--bg);
-      color:var(--text);
-      font-family:'Inter', sans-serif;
+      color:var(--ink);
+      font-family:'Inter',sans-serif;
       overflow-x:hidden;
     }
 
-    .admin-dashboard-page, .admin-dashboard-page *{ box-sizing:border-box; }
-    .admin-dashboard-page a{ color:inherit; text-decoration:none; }
-    .admin-dashboard-page button, .admin-dashboard-page select, .admin-dashboard-page input{ font:inherit; }
+    .nf-grocery-dashboard,
+    .nf-grocery-dashboard *{
+      box-sizing:border-box;
+    }
 
-    .admin-dashboard-page{
+    .gd-shell{
       width:100%;
-      max-width:1440px;
-      margin:0 auto;
-      padding:18px 18px 28px;
+      padding:22px;
     }
 
-    .ad-shell{
-    width:100%;
-    max-width:100%;
-  }
+    .gd-grid{
+      display:grid;
+      gap:18px;
+    }
 
-    .ad-topbar{
+    .gd-page-head{
       display:flex;
-      align-items:center;
       justify-content:space-between;
+      align-items:center;
       gap:16px;
-      margin-bottom:18px;
-      padding:10px 8px 0;
+      flex-wrap:wrap;
+      margin-bottom:2px;
     }
 
-    .ad-brand{
+    .gd-title-row{
       display:flex;
       align-items:center;
       gap:12px;
       min-width:0;
     }
 
-    .ad-brand-logo{
-      width:54px;
-      height:54px;
-      border-radius:16px;
-      background:linear-gradient(145deg, #fff, #f5f8fb);
-      box-shadow:var(--shadow-soft);
+    .gd-title-icon{
+      width:34px;
+      height:34px;
       display:grid;
       place-items:center;
-      overflow:hidden;
-      border:1px solid var(--line);
+      font-size:28px;
       flex:0 0 auto;
     }
 
-    .ad-brand-logo img{
-      width:100%;
-      height:100%;
-      object-fit:contain;
-      padding:7px;
-    }
-
-    .ad-brand-text{ min-width:0; }
-    .ad-brand-title{
-      font-size:18px;
-      line-height:1.1;
-      font-weight:800;
-      color:var(--green-dark);
+    .gd-title{
       margin:0;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .ad-brand-sub{
-      font-size:12px;
-      color:var(--text-2);
-      margin-top:4px;
-    }
-
-    .ad-top-actions{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
-    .ad-period-group{
-      display:inline-flex;
-      background:var(--panel);
-      border:1px solid #7ec6db;
-      border-radius:10px;
-      overflow:hidden;
-      box-shadow:var(--shadow-soft);
-    }
-    .ad-period-btn{
-      border:0;
-      background:transparent;
-      color:#1f8aa8;
-      padding:10px 18px;
-      font-size:14px;
-      cursor:pointer;
-      transition:.2s ease;
-    }
-    .ad-period-btn:hover, .ad-period-btn.is-active{
-      background:#eefbfd;
-    }
-
-    .ad-icon-btn,
-    .ad-profile-btn{
-      height:42px;
-      min-width:42px;
-      padding:0 14px;
-      border-radius:10px;
-      border:1px solid var(--line);
-      background:var(--panel);
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      box-shadow:var(--shadow-soft);
-      cursor:pointer;
-      color:var(--text);
-    }
-    .ad-icon-btn:hover,
-    .ad-profile-btn:hover{ border-color:#cfe3ef; }
-
-    .ad-avatar{
-      width:28px; height:28px;
-      border-radius:50%;
-      object-fit:cover;
-      flex:0 0 auto;
-    }
-
-    .ad-page-card{
-      background:var(--panel);
-      border:1px solid rgba(216,226,235,.8);
-      border-radius:18px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .ad-section{
-      background:var(--panel);
-      border:1px solid rgba(216,226,235,.8);
-      border-radius:18px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .ad-kpi-grid{
-      display:grid;
-      grid-template-columns:repeat(4, minmax(0,1fr));
-      gap:14px;
-      margin-bottom:14px;
-    }
-
-    .ad-kpi{
-      background:#fff;
-      border-radius:10px;
-      min-height:170px;
-      box-shadow:var(--shadow-soft);
-      border:1px solid #edf1f5;
-      padding:20px 16px 18px;
-      text-align:center;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      align-items:center;
-      gap:8px;
-    }
-    .ad-kpi-icon{
-      font-size:34px;
-      line-height:1;
-      margin-bottom:4px;
-    }
-    .ad-kpi-label{
-      font-size:16px;
-      font-weight:700;
-      color:var(--text);
-    }
-    .ad-kpi-value{
-      font-size:34px;
-      line-height:1;
-      font-weight:800;
-      color:#2f3d55;
+      color:#1F2937;
+      font-size:22px;
+      line-height:1.15;
+      font-weight:900;
       letter-spacing:-.02em;
     }
-    .ad-kpi-sub{
-      font-size:13px;
-      color:#a0a8b3;
+
+    .gd-subtitle{
+      margin:3px 0 0;
+      color:#60708A;
+      font-size:14px;
+      font-weight:600;
+      letter-spacing:.01em;
     }
 
-    .ad-status-grid{
-      display:grid;
-      grid-template-columns:repeat(4, minmax(0,1fr));
-      gap:14px;
+    .gd-zone-select{
+      min-width:250px;
+      height:44px;
+      border:1px solid #DCE6F1;
+      border-radius:6px;
+      padding:0 14px;
+      background:#fff;
+      color:#1F2937;
+      font-size:14px;
+      outline:none;
+    }
+
+    .gd-panel{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:12px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .gd-summary-panel{
+      padding:20px 22px;
+    }
+
+    .gd-filter-row{
+      display:flex;
+      justify-content:flex-end;
       margin-bottom:18px;
     }
-    .ad-status{
-      background:#f8fbfd;
-      border:1px solid #eef2f6;
-      border-radius:12px;
-      padding:14px 18px;
+
+    .gd-filter-tabs{
+      display:inline-flex;
+      border:1px solid #78C7D4;
+      border-radius:6px;
+      overflow:hidden;
+      background:#fff;
+    }
+
+    .gd-filter-tabs button{
+      height:38px;
+      min-width:90px;
+      border:0;
+      background:#fff;
+      color:#00869B;
+      font-size:13px;
+      font-weight:700;
+      cursor:pointer;
+      border-right:1px solid transparent;
+    }
+
+    .gd-filter-tabs button:not(:last-child){
+      border-right:1px solid #E0F2F5;
+    }
+
+    .gd-filter-tabs button:hover{
+      background:#F3FCFD;
+    }
+
+    .gd-kpi-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;
+      margin-bottom:16px;
+    }
+
+    .gd-kpi-card{
+      min-height:172px;
+      border-radius:6px;
+      background:#fff;
+      border:1px solid #F1F4F8;
+      box-shadow:0 5px 20px rgba(28,43,67,.06);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:20px 14px;
+    }
+
+    .gd-kpi-icon{
+      font-size:32px;
+      line-height:1;
+      margin-bottom:10px;
+    }
+
+    .gd-kpi-label{
+      color:#2E3C55;
+      font-size:13px;
+      font-weight:900;
+      margin-bottom:6px;
+    }
+
+    .gd-kpi-value{
+      color:#2B3A55;
+      font-size:30px;
+      line-height:1;
+      font-weight:900;
+      letter-spacing:-.03em;
+      margin-bottom:9px;
+    }
+
+    .gd-kpi-sub{
+      color:#A1A1A1;
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .gd-status-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:16px;
+    }
+
+    .gd-status-card{
+      min-height:64px;
+      background:#F5F7F9;
+      border:1px solid #F0F3F6;
+      border-radius:10px;
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:12px;
-      box-shadow:var(--shadow-soft);
+      padding:16px 20px;
     }
-    .ad-status-left{
+
+    .gd-status-left{
       display:flex;
       align-items:center;
-      gap:10px;
+      gap:11px;
       min-width:0;
     }
-    .ad-status-icon{ font-size:22px; flex:0 0 auto; }
-    .ad-status-title{
-      font-size:14px;
-      font-weight:700;
-      color:var(--text);
+
+    .gd-status-icon{
+      width:24px;
+      height:24px;
+      display:grid;
+      place-items:center;
+      font-size:22px;
+      flex:0 0 auto;
+    }
+
+    .gd-status-label{
+      font-size:15px;
+      font-weight:900;
+      color:#33425A;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    .ad-status-value{
-      font-size:22px;
-      font-weight:800;
-      color:#536172;
-    }
-    .ad-status-value.green{ color:#4abf84; }
-    .ad-status-value.red{ color:var(--red); }
-    .ad-status-value.blue{ color:#25a2dc; }
 
-    .ad-chart-grid{
+    .gd-status-value{
+      font-size:20px;
+      line-height:1;
+      color:#5A6678;
+      font-weight:900;
+      flex:0 0 auto;
+    }
+
+    .is-green{ color:var(--green)!important; }
+    .is-red{ color:var(--red)!important; }
+    .is-blue{ color:#008EA6!important; }
+
+    .gd-chart-grid{
       display:grid;
-      grid-template-columns:minmax(0,1.8fr) minmax(300px,.75fr);
-      gap:14px;
-      margin-bottom:18px;
+      grid-template-columns:minmax(0,1.85fr) minmax(280px,.55fr);
+      gap:16px;
     }
 
-    .ad-chart-card,
-    .ad-donut-card,
-    .ad-list-card{
-      background:var(--panel);
-      border-radius:18px;
-      border:1px solid rgba(216,226,235,.8);
+    .gd-card{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:12px;
       box-shadow:var(--shadow);
       overflow:hidden;
     }
 
-    .ad-card-head{
+    .gd-chart-card{
+      min-height:430px;
+      padding:24px 22px 18px;
+    }
+
+    .gd-chart-head{
       display:flex;
       justify-content:space-between;
       align-items:flex-start;
-      gap:12px;
-      padding:16px 18px 10px;
+      gap:14px;
+      margin-bottom:12px;
     }
-    .ad-card-title{
+
+    .gd-money{
+      color:#1D2A44;
       font-size:18px;
-      font-weight:800;
-      color:#2f3d55;
-      margin:0;
+      font-weight:900;
+      letter-spacing:.01em;
+      margin-bottom:8px;
     }
-    .ad-card-sub{
-      margin-top:4px;
-      font-size:13px;
-      color:var(--text-2);
+
+    .gd-small-muted{
+      color:#8290A6;
+      font-size:14px;
+      font-weight:700;
     }
-    .ad-card-filter{
+
+    .gd-chart-center-label{
       display:flex;
       align-items:center;
-      gap:8px;
-      color:#2f3d55;
+      gap:9px;
+      color:#60708A;
       font-size:14px;
-      white-space:nowrap;
-    }
-    .ad-caret{ font-size:12px; color:#7f8aa1; }
-
-    .ad-chart-body{
-      padding:0 14px 16px 18px;
-    }
-    .ad-line-area{
-      height:320px;
-      position:relative;
-      margin-top:4px;
-      border-radius:14px;
-      overflow:hidden;
-      background:linear-gradient(to bottom, #fff 0%, #fff 100%);
-    }
-    .ad-line-meta{
-      display:flex;
-      justify-content:center;
-      gap:18px;
-      flex-wrap:wrap;
-      font-size:13px;
-      color:#52637b;
+      font-weight:700;
       margin-top:8px;
-      padding-bottom:2px;
     }
-    .ad-dot{
-      display:inline-block;
+
+    .gd-dot{
       width:12px;
       height:12px;
       border-radius:50%;
-      margin-right:6px;
-      vertical-align:middle;
+      display:inline-block;
+      flex:0 0 auto;
     }
-    .dot-sale{ background:#4fd7c5; }
-    .dot-admin{ background:#f06a6a; }
-    .dot-del{ background:#20524f; }
 
-    .ad-donut-body{
-      padding:8px 16px 18px;
+    .gd-chart-filter{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      color:#111827;
+      font-size:14px;
+      font-weight:500;
+      white-space:nowrap;
+      padding-top:18px;
     }
-    .ad-donut-wrap{
+
+    .gd-chart-area{
+      width:100%;
+      height:315px;
+      margin-top:8px;
+    }
+
+    .gd-chart-legend{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+      gap:14px;
+      color:#334155;
+      font-size:12px;
+      font-weight:600;
+      margin-top:4px;
+    }
+
+    .gd-legend-item{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    .gd-user-stat-card{
+      padding:24px 20px;
+      min-height:430px;
+    }
+
+    .gd-card-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:22px;
+    }
+
+    .gd-card-title{
+      margin:0;
+      color:#222;
+      font-size:16px;
+      font-weight:900;
+    }
+
+    .gd-card-select{
+      border:0;
+      background:transparent;
+      color:#222;
+      font-size:14px;
+      outline:none;
+    }
+
+    .gd-donut-wrap{
       display:grid;
       place-items:center;
-      padding:6px 0 14px;
+      padding:18px 0 22px;
     }
-    .ad-donut{
-      width:168px;
-      height:168px;
+
+    .gd-donut{
+      --customer:58;
+      --store:28;
+      width:174px;
+      height:174px;
       border-radius:50%;
-      background:
-        conic-gradient(#245a57 0 58%, #56b89b 58% 84%, #b9e3e1 84% 100%);
+      background:conic-gradient(
+        #006B66 0 58%,
+        #12B8A6 58% 86%,
+        #A7DFDC 86% 100%
+      );
       position:relative;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.6);
     }
-    .ad-donut::after{
-      content:'';
+
+    .gd-donut::after{
+      content:"";
       position:absolute;
-      inset:30px;
+      inset:31px;
       background:#fff;
       border-radius:50%;
-      box-shadow: inset 0 0 0 1px #edf1f5;
     }
-    .ad-donut-center{
+
+    .gd-donut-center{
       position:absolute;
       inset:0;
       display:grid;
@@ -375,848 +438,1083 @@
       z-index:1;
       pointer-events:none;
     }
-    .ad-donut-count{
-      font-size:34px;
-      font-weight:800;
-      color:#384963;
+
+    .gd-donut-num{
+      color:#34445F;
+      font-size:22px;
       line-height:1;
+      font-weight:900;
+      margin-bottom:8px;
     }
-    .ad-donut-label{
-      margin-top:8px;
+
+    .gd-donut-text{
+      color:#64748B;
       font-size:14px;
-      color:#75849a;
+      font-weight:700;
     }
-    .ad-donut-legend{
+
+    .gd-donut-legend{
       display:flex;
       justify-content:center;
+      align-items:center;
       flex-wrap:wrap;
-      gap:18px 26px;
+      gap:14px 20px;
+      color:#60708A;
       font-size:14px;
-      color:#627287;
-    }
-    .ad-legend-item{ display:inline-flex; align-items:center; gap:8px; }
-
-    .ad-three-col{
-      display:grid;
-      grid-template-columns:repeat(3, minmax(0,1fr));
-      gap:14px;
-      margin-bottom:18px;
-    }
-
-    .ad-list-card .ad-card-head{
-      padding-bottom:12px;
-      border-bottom:1px solid #eef2f6;
-    }
-    .ad-view-all{
-      color:#1363ff;
-      font-size:14px;
-      font-weight:700;
-      white-space:nowrap;
-    }
-
-    .ad-grid-tiles{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:8px;
-      padding:12px 14px 14px;
-    }
-    .ad-tile{
-      min-height:109px;
-      background:#fff;
-      border:1px solid #eef2f6;
-      border-radius:8px;
-      display:grid;
-      place-items:center;
-      box-shadow:var(--shadow-soft);
-      overflow:hidden;
-    }
-    .ad-tile img,
-    .ad-item-img{
-      max-width:100%;
-      max-height:100%;
-      object-fit:contain;
-    }
-
-    .ad-list-stack{
-      padding:10px 14px 14px;
-    }
-    .ad-pop-item,
-    .ad-user-row,
-    .ad-rank-row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:10px 10px;
-      border-bottom:1px solid #f0f3f7;
-      min-height:64px;
-    }
-    .ad-pop-item:last-child,
-    .ad-user-row:last-child,
-    .ad-rank-row:last-child{ border-bottom:0; }
-    .ad-mini-left{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-width:0;
-      flex:1;
-    }
-    .ad-mini-imgbox{
-      width:46px;
-      height:46px;
-      border:1px solid #b9c8de;
-      background:#fff;
-      border-radius:6px;
-      display:grid;
-      place-items:center;
-      overflow:hidden;
-      flex:0 0 auto;
-    }
-    .ad-mini-name{
-      font-size:15px;
-      font-weight:700;
-      color:#36465e;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .ad-mini-meta{
-      font-size:12px;
-      color:#9aa3b3;
-      margin-top:2px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .ad-sold-pill,
-    .ad-orders-pill,
-    .ad-heart-pill{
-      background:#edf6f7;
-      border-radius:4px;
-      padding:8px 14px;
-      color:#2f8f9c;
-      font-size:13px;
-      font-weight:700;
-      white-space:nowrap;
-      flex:0 0 auto;
-    }
-    .ad-heart-count{
-      color:#ff7676;
-      font-weight:800;
-      font-size:14px;
-      white-space:nowrap;
-      flex:0 0 auto;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-    }
-
-    .ad-rank-row{
-      background:#fff;
-      border:1px solid #eef2f6;
-      border-radius:10px;
-      margin-bottom:10px;
-      padding:12px 12px;
-    }
-    .ad-rank-row:last-child{ margin-bottom:0; }
-
-    .ad-footer-bar{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-      padding:18px 4px 0;
-      color:#74849a;
-      font-size:13px;
-    }
-    .ad-footer-links{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-    .ad-soft-badge{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      border:1px solid #8ddbe2;
-      border-radius:6px;
-      padding:4px 8px;
-      color:#2aa9c1;
-      background:#eefcfd;
-      font-weight:700;
-    }
-
-    .ad-empty{
-      color:#93a1b2;
-      font-size:14px;
-      padding:18px 4px;
-      text-align:center;
-    }
-
-    .ad-fallback-icon{
-      width:100%;
-      height:100%;
-      display:grid;
-      place-items:center;
-      font-size:26px;
-      color:var(--green-dark);
-      background:linear-gradient(135deg, #f9fcfd, #edf6f6);
-    }
-
-    .ad-sidebar-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 10px;
-      border:1px solid #dbe5ee;
-      border-radius:999px;
-      background:#fff;
-      font-size:12px;
-      color:#6a7a90;
       font-weight:600;
     }
 
-    .ad-mobile-grid{
-      display:none;
+    .gd-donut-legend span{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
     }
 
-    @media (max-width: 1180px){
-      .ad-kpi-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
-      .ad-status-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
-      .ad-chart-grid{ grid-template-columns:1fr; }
-      .ad-three-col{ grid-template-columns:1fr; }
+    .gd-list-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:16px;
     }
 
-    @media (max-width: 760px){
-      .ad-shell{ padding:12px; }
-      .ad-topbar{ flex-direction:column; align-items:flex-start; }
-      .ad-top-actions{ width:100%; justify-content:space-between; }
-      .ad-period-group{ width:100%; }
-      .ad-period-btn{ flex:1; }
-      .ad-kpi-grid{ grid-template-columns:1fr; }
-      .ad-status-grid{ grid-template-columns:1fr; }
-      .ad-card-head{ padding:14px 14px 10px; }
-      .ad-chart-body{ padding:0 10px 12px 12px; }
-      .ad-donut{ width:150px; height:150px; }
-      .ad-line-area{ height:280px; }
-      .ad-grid-tiles{ grid-template-columns:1fr 1fr; }
+    .gd-list-card{
+      min-height:330px;
     }
 
-    @media (prefers-reduced-motion: reduce){
-      .admin-dashboard-page *, .admin-dashboard-page *::before, .admin-dashboard-page *::after{
-        animation-duration:.01ms !important;
-        animation-iteration-count:1 !important;
-        transition-duration:.01ms !important;
-        scroll-behavior:auto !important;
+    .gd-list-head{
+      min-height:54px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:16px 22px;
+      border-bottom:1px solid var(--line2);
+      box-shadow:0 4px 16px rgba(28,43,67,.03);
+    }
+
+    .gd-list-title{
+      color:#536177;
+      font-size:14px;
+      font-weight:900;
+      margin:0;
+    }
+
+    .gd-view-link{
+      color:#006CFF;
+      text-decoration:none;
+      font-size:13px;
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .gd-list-body{
+      padding:14px 20px 20px;
+    }
+
+    .gd-store-logo-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .gd-store-logo{
+      height:112px;
+      border:1px solid #F2F5F8;
+      border-radius:5px;
+      background:#fff;
+      display:grid;
+      place-items:center;
+      box-shadow:0 8px 22px rgba(28,43,67,.06);
+      overflow:hidden;
+    }
+
+    .gd-store-logo img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+
+    .gd-store-logo span{
+      font-size:52px;
+      line-height:1;
+    }
+
+    .gd-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      min-height:58px;
+      padding:9px 0;
+      border-bottom:1px solid #F1F4F8;
+    }
+
+    .gd-row:last-child{
+      border-bottom:0;
+    }
+
+    .gd-row-left{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      flex:1;
+    }
+
+    .gd-thumb{
+      width:50px;
+      height:50px;
+      border:1px solid #B8D0E5;
+      border-radius:5px;
+      background:#fff;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      flex:0 0 auto;
+      color:#0B8F84;
+      font-size:22px;
+    }
+
+    .gd-thumb.round{
+      border-radius:7px;
+    }
+
+    .gd-thumb img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+
+    .gd-name{
+      color:#30415B;
+      font-size:14px;
+      font-weight:900;
+      line-height:1.25;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .gd-meta{
+      margin-top:3px;
+      color:#7E8CA2;
+      font-size:12px;
+      font-weight:700;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .gd-pill{
+      min-width:84px;
+      text-align:center;
+      padding:8px 11px;
+      border-radius:4px;
+      background:#F0F7F9;
+      color:#00869B;
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+      flex:0 0 auto;
+    }
+
+    .gd-heart{
+      color:#FF6372;
+      font-size:14px;
+      font-weight:900;
+      white-space:nowrap;
+      flex:0 0 auto;
+    }
+
+    .gd-rating-row{
+      background:#F7F8FA;
+      border-radius:5px;
+      padding:8px 10px;
+      margin-bottom:8px;
+      border-bottom:0;
+    }
+
+    .gd-complaint-pill{
+      color:#EF4444;
+      background:#FFF1F2;
+    }
+
+    .gd-table-wrap{
+      padding:0 20px 20px;
+      overflow:auto;
+    }
+
+    .gd-table{
+      width:100%;
+      min-width:780px;
+      border-collapse:collapse;
+      border:1px solid #EDF2F7;
+      border-radius:8px;
+      overflow:hidden;
+    }
+
+    .gd-table thead{
+      background:#006B66;
+      color:#fff;
+    }
+
+    .gd-table th{
+      padding:13px 14px;
+      text-align:left;
+      font-size:12px;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+
+    .gd-table td{
+      padding:13px 14px;
+      border-bottom:1px solid #EDF2F7;
+      color:#40516A;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    .gd-table tbody tr:last-child td{
+      border-bottom:0;
+    }
+
+    .gd-quick-links{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      padding:18px 20px 20px;
+    }
+
+    .gd-quick-links a{
+      min-height:40px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:6px;
+      border:1px solid #D8E6EF;
+      background:#fff;
+      color:#30415B;
+      text-decoration:none;
+      font-size:13px;
+      font-weight:900;
+      transition:.2s ease;
+    }
+
+    .gd-quick-links a:hover{
+      transform:translateY(-1px);
+      border-color:#A7DADF;
+      color:#00869B;
+      box-shadow:0 8px 20px rgba(18,184,166,.10);
+    }
+
+    .gd-empty{
+      padding:16px;
+      color:#8A98AA;
+      background:#F8FAFC;
+      border:1px dashed #DCE6EF;
+      border-radius:8px;
+      text-align:center;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    .gd-footer{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:14px;
+      flex-wrap:wrap;
+      color:#63748A;
+      font-size:13px;
+      font-weight:600;
+      padding:8px 0 0;
+    }
+
+    .gd-footer-links{
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:9px;
+    }
+
+    .gd-version{
+      color:#00A7C3;
+      border:1px solid #36D5EA;
+      padding:5px 9px;
+      border-radius:4px;
+      font-weight:900;
+      background:#F4FEFF;
+    }
+
+    @media (max-width: 1300px){
+      .gd-kpi-grid{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .gd-status-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .gd-chart-grid{
+        grid-template-columns:1fr;
+      }
+
+      .gd-list-grid{
+        grid-template-columns:1fr;
+      }
+
+      .gd-store-logo-grid{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+    }
+
+    @media (max-width: 900px){
+      .gd-shell{
+        padding:16px;
+      }
+
+      .gd-kpi-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .gd-status-grid{
+        grid-template-columns:1fr;
+      }
+
+      .gd-zone-select{
+        width:100%;
+        min-width:0;
+      }
+
+      .gd-page-head{
+        align-items:stretch;
+      }
+
+      .gd-filter-row{
+        justify-content:flex-start;
+      }
+
+      .gd-filter-tabs{
+        width:100%;
+      }
+
+      .gd-filter-tabs button{
+        flex:1;
+        min-width:0;
+      }
+
+      .gd-chart-card,
+      .gd-user-stat-card{
+        min-height:auto;
+      }
+
+      .gd-chart-area{
+        height:280px;
+      }
+
+      .gd-store-logo-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media (max-width: 560px){
+      .gd-shell{
+        padding:12px;
+      }
+
+      .gd-kpi-grid{
+        grid-template-columns:1fr;
+      }
+
+      .gd-summary-panel{
+        padding:16px;
+      }
+
+      .gd-title{
+        font-size:20px;
+      }
+
+      .gd-status-card{
+        padding:14px 15px;
+      }
+
+      .gd-chart-head,
+      .gd-card-top,
+      .gd-list-head{
+        align-items:flex-start;
+        flex-direction:column;
+      }
+
+      .gd-store-logo-grid{
+        grid-template-columns:1fr;
+      }
+
+      .gd-row{
+        align-items:flex-start;
+      }
+
+      .gd-pill{
+        min-width:auto;
+      }
+
+      .gd-quick-links a{
+        width:100%;
       }
     }
   </style>
 
-  <div class="ad-shell">
-    <div class="ad-topbar">
-      <div class="ad-brand">
-        <div class="ad-brand-logo">
-          <img src="{{ url_for('static', filename='nefresh.png') }}" alt="NE FRESH">
-        </div>
-        <div class="ad-brand-text">
-          <h1 class="ad-brand-title">NE FRESH</h1>
-          <div class="ad-brand-sub">Admin Dashboard</div>
+  <div class="gd-shell">
+    <div class="gd-page-head">
+      <div class="gd-title-row">
+        <div class="gd-title-icon">🥦</div>
+        <div>
+          <h1 class="gd-title">Grocery Dashboard.</h1>
+          <p class="gd-subtitle">Hello Here You Can Manage Your Grocery Orders by Zone.</p>
         </div>
       </div>
 
-      <div class="ad-top-actions">
-        <div class="ad-period-group" role="tablist" aria-label="Dashboard time range">
-          <button type="button" class="ad-period-btn is-active">This Year</button>
-          <button type="button" class="ad-period-btn">This Month</button>
-          <button type="button" class="ad-period-btn">This Week</button>
-        </div>
-
-        <button type="button" class="ad-icon-btn" title="Notifications" aria-label="Notifications">
-          🔔
-        </button>
-
-        <button type="button" class="ad-profile-btn" title="Profile" aria-label="Profile menu">
-          {% if current_user and current_user.profile_image %}
-            <img class="ad-avatar" src="{{ current_user.profile_image }}" alt="Profile">
-          {% else %}
-            <span class="ad-sidebar-chip">Admin</span>
-          {% endif %}
-          <span class="ad-caret">▾</span>
-        </button>
-      </div>
+      <select class="gd-zone-select" aria-label="Zone filter">
+        <option>All Zones</option>
+      </select>
     </div>
 
-    <!-- KPI cards -->
-    <div class="ad-kpi-grid">
-      <div class="ad-kpi">
-        <div class="ad-kpi-icon">🛍️</div>
-        <div class="ad-kpi-label">Items</div>
-        <div class="ad-kpi-value">{{ products_total }}</div>
-        <div class="ad-kpi-sub">{{ new_products_count|default(0) }} Newly added</div>
-      </div>
-      <div class="ad-kpi">
-        <div class="ad-kpi-icon">🛒</div>
-        <div class="ad-kpi-label">Orders</div>
-        <div class="ad-kpi-value">{{ orders_total }}</div>
-        <div class="ad-kpi-sub">{{ new_orders_count|default(0) }} Newly added</div>
-      </div>
-      <div class="ad-kpi">
-        <div class="ad-kpi-icon">🏪</div>
-        <div class="ad-kpi-label">Grocery Stores</div>
-        <div class="ad-kpi-value">{{ stores_total }}</div>
-        <div class="ad-kpi-sub">{{ new_stores_count|default(0) }} Newly added</div>
-      </div>
-      <div class="ad-kpi">
-        <div class="ad-kpi-icon">👥</div>
-        <div class="ad-kpi-label">Customers</div>
-        <div class="ad-kpi-value">{{ users_total }}</div>
-        <div class="ad-kpi-sub">{{ new_customers_count|default(0) }} Newly added</div>
-      </div>
-    </div>
-
-    <!-- status cards -->
-    <div class="ad-status-grid">
-      <div class="ad-status">
-        <div class="ad-status-left"><span class="ad-status-icon">🏢</span><span class="ad-status-title">Unassigned Orders</span></div>
-        <div class="ad-status-value">{{ unassigned_orders|default(19) }}</div>
-      </div>
-      <div class="ad-status">
-        <div class="ad-status-left"><span class="ad-status-icon">📦</span><span class="ad-status-title">Accepted By Delivery Man</span></div>
-        <div class="ad-status-value green">{{ accepted_by_delivery|default(0) }}</div>
-      </div>
-      <div class="ad-status">
-        <div class="ad-status-left"><span class="ad-status-icon">📦</span><span class="ad-status-title">Packaging</span></div>
-        <div class="ad-status-value">{{ packaging_orders|default(6) }}</div>
-      </div>
-      <div class="ad-status">
-        <div class="ad-status-left"><span class="ad-status-icon">🚚</span><span class="ad-status-title">Out For Delivery</span></div>
-        <div class="ad-status-value green">{{ out_for_delivery|default(0) }}</div>
-      </div>
-      <div class="ad-status">
-        <div class="ad-status-left"><span class="ad-status-icon">✅</span><span class="ad-status-title">Delivered</span></div>
-        <div class="ad-status-value green">{{ delivered_orders|default(17) }}</div>
-      </div>
-      <div class="ad-status">
-        <div class="ad-status-left"><span class="ad-status-icon">❌</span><span class="ad-status-title">Canceled</span></div>
-        <div class="ad-status-value red">{{ canceled_orders|default(1) }}</div>
-      </div>
-      <div class="ad-status">
-        <div class="ad-status-left"><span class="ad-status-icon">💰</span><span class="ad-status-title">Refunded</span></div>
-        <div class="ad-status-value red">{{ refunded_orders|default(0) }}</div>
-      </div>
-      <div class="ad-status">
-        <div class="ad-status-left"><span class="ad-status-icon">💳</span><span class="ad-status-title">Payment Failed</span></div>
-        <div class="ad-status-value red">{{ payment_failed|default(1) }}</div>
-      </div>
-    </div>
-
-    <!-- charts -->
-    <div class="ad-chart-grid">
-      <div class="ad-chart-card">
-        <div class="ad-card-head">
-          <div>
-            <div class="ad-card-title">₹ {{ '%.2f'|format(gmv_total or 0) }}</div>
-            <div class="ad-card-sub">Gross Sale</div>
-          </div>
-          <div class="ad-card-filter">This year <span class="ad-caret">⌄</span></div>
-        </div>
-        <div class="ad-chart-body">
-          <div class="ad-line-area" id="grossSaleChart"></div>
-          <div class="ad-line-meta">
-            <span><span class="ad-dot dot-sale"></span>Gross Sale</span>
-            <span><span class="ad-dot dot-admin"></span>Admin Commission</span>
-            <span><span class="ad-dot dot-del"></span>Delivery Commission</span>
+    <div class="gd-grid">
+      <section class="gd-panel gd-summary-panel">
+        <div class="gd-filter-row">
+          <div class="gd-filter-tabs" aria-label="Date filters">
+            <button type="button">This Year</button>
+            <button type="button">This Month</button>
+            <button type="button">This Week</button>
           </div>
         </div>
-      </div>
 
-      <div class="ad-donut-card">
-        <div class="ad-card-head">
-          <div>
-            <div class="ad-card-title">User Statistics</div>
+       <div class="gd-kpi-grid">
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">🛍️</div>
+            <div class="gd-kpi-label">Items</div>
+            <div class="gd-kpi-value">{{ products_total }}</div>
+            <div class="gd-kpi-sub">0 Newly added</div>
           </div>
-          <div class="ad-card-filter">Overall <span class="ad-caret">⌄</span></div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">🛒</div>
+            <div class="gd-kpi-label">Orders</div>
+            <div class="gd-kpi-value">{{ orders_total }}</div>
+            <div class="gd-kpi-sub">0 Newly added</div>
+          </div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">🏪</div>
+            <div class="gd-kpi-label">Grocery Stores</div>
+            <div class="gd-kpi-value">{{ stores_total }}</div>
+            <div class="gd-kpi-sub">0 Newly added</div>
+          </div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">👥</div>
+            <div class="gd-kpi-label">Customers</div>
+            <div class="gd-kpi-value">{{ customers_total }}</div>
+            <div class="gd-kpi-sub">0 Newly added</div>
+          </div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">💰</div>
+            <div class="gd-kpi-label">Total Earnings</div>
+            <div class="gd-kpi-value">₹ {{ '%.2f'|format(earnings_total or 0) }}</div>
+            <div class="gd-kpi-sub">Paid transactions / delivered GMV</div>
+          </div>
+
+          <div class="gd-kpi-card">
+            <div class="gd-kpi-icon">🚚</div>
+            <div class="gd-kpi-label">Delivery Persons</div>
+            <div class="gd-kpi-value">{{ delivery_people_total }}</div>
+            <div class="gd-kpi-sub">{{ active_delivery_people_total }} Active</div>
+          </div>
         </div>
-        <div class="ad-donut-body">
-          <div class="ad-donut-wrap">
-            <div class="ad-donut">
-              <div class="ad-donut-center">
+
+        <div class="gd-status-grid">
+          <div class="gd-status-card">
+            <div class="gd-status-left">
+              <span class="gd-status-icon">📦</span>
+              <span class="gd-status-label">Unassigned Orders</span>
+            </div>
+            <div class="gd-status-value">{{ unassigned_orders_total }}</div>
+          </div>
+
+          <div class="gd-status-card">
+            <div class="gd-status-left">
+              <span class="gd-status-icon">🧾</span>
+              <span class="gd-status-label">Accepted By Delivery Man</span>
+            </div>
+            <div class="gd-status-value is-green">{{ accepted_delivery_total }}</div>
+          </div>
+
+          <div class="gd-status-card">
+            <div class="gd-status-left">
+              <span class="gd-status-icon">🛍️</span>
+              <span class="gd-status-label">Packaging</span>
+            </div>
+            <div class="gd-status-value">{{ packaging_orders_total }}</div>
+          </div>
+
+          <div class="gd-status-card">
+            <div class="gd-status-left">
+              <span class="gd-status-icon">🚚</span>
+              <span class="gd-status-label">Out For Delivery</span>
+            </div>
+            <div class="gd-status-value is-green">{{ out_for_delivery_total }}</div>
+          </div>
+
+          <div class="gd-status-card">
+            <div class="gd-status-left">
+              <span class="gd-status-icon">✅</span>
+              <span class="gd-status-label">Delivered</span>
+            </div>
+            <div class="gd-status-value is-green">{{ delivered_orders_total }}</div>
+          </div>
+
+          <div class="gd-status-card">
+            <div class="gd-status-left">
+              <span class="gd-status-icon">❌</span>
+              <span class="gd-status-label">Canceled</span>
+            </div>
+            <div class="gd-status-value is-red">{{ cancelled_orders_total }}</div>
+          </div>
+
+          <div class="gd-status-card">
+            <div class="gd-status-left">
+              <span class="gd-status-icon">💵</span>
+              <span class="gd-status-label">Refunded</span>
+            </div>
+            <div class="gd-status-value is-red">{{ refunded_orders_total }}</div>
+          </div>
+
+          <div class="gd-status-card">
+            <div class="gd-status-left">
+              <span class="gd-status-icon">💳</span>
+              <span class="gd-status-label">Payment Failed</span>
+            </div>
+            <div class="gd-status-value is-red">{{ failed_payments_total }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="gd-chart-grid">
+        <div class="gd-card gd-chart-card">
+          <div class="gd-chart-head">
+            <div>
+              <div class="gd-money">₹ {{ '%.2f'|format(gmv_total or 0) }}</div>
+              <div class="gd-small-muted">Gross Sale</div>
+            </div>
+
+            <div class="gd-chart-center-label">
+              <span class="gd-dot" style="background:#12B8A6;"></span>
+              Sale ({{ now().year if now is defined else "2026" }})
+            </div>
+
+            <div class="gd-chart-filter">
+              This year
+              <span>⌄</span>
+            </div>
+          </div>
+
+          <div class="gd-chart-area" id="grossSaleChart"></div>
+
+          <div class="gd-chart-legend">
+            <span class="gd-legend-item">
+              <span class="gd-dot" style="background:#32E7CE;"></span>
+              Gross Sale
+            </span>
+            <span class="gd-legend-item">
+              <span class="gd-dot" style="background:#F15B66;"></span>
+              Admin Commission
+            </span>
+            <span class="gd-legend-item">
+              <span class="gd-dot" style="background:#005F5B;"></span>
+              Delivery Commission
+            </span>
+          </div>
+        </div>
+
+        <div class="gd-card gd-user-stat-card">
+          <div class="gd-card-top">
+            <h3 class="gd-card-title">User Statistics</h3>
+            <select class="gd-card-select" aria-label="User statistics filter">
+              <option>Overall</option>
+            </select>
+          </div>
+
+          <div class="gd-donut-wrap">
+            <div class="gd-donut">
+              <div class="gd-donut-center">
                 <div>
-                  <div class="ad-donut-count">{{ users_total }}</div>
-                  <div class="ad-donut-label">Total Users</div>
+                  <div class="gd-donut-num">{{ users_total }}</div>
+                  <div class="gd-donut-text">Total Users</div>
                 </div>
               </div>
             </div>
           </div>
-          <div class="ad-donut-legend">
-            <span class="ad-legend-item"><span class="ad-dot" style="background:#245a57"></span>Customer {{ customers_total|default(28) }}</span>
-            <span class="ad-legend-item"><span class="ad-dot" style="background:#56b89b"></span>Store {{ stores_total }}</span>
-            <span class="ad-legend-item"><span class="ad-dot" style="background:#b9e3e1"></span>Delivery man {{ delivery_total|default(6) }}</span>
+
+          <div class="gd-donut-legend">
+            <span><span class="gd-dot" style="background:#006B66;"></span>Customer {{ customers_total }}</span>
+            <span><span class="gd-dot" style="background:#12B8A6;"></span>Store {{ stores_total }}</span>
+            <span><span class="gd-dot" style="background:#A7DFDC;"></span>Delivery man {{ delivery_people_total }}</span>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <!-- three main columns -->
-    <div class="ad-three-col">
-      <div class="ad-list-card">
-        <div class="ad-card-head">
-          <div class="ad-card-title">Top Selling Stores</div>
-          <a href="{{ url_for('admin_stores') if false else '#' }}" class="ad-view-all">View All</a>
-        </div>
-        <div class="ad-grid-tiles">
-          {% set top_store_tiles = top_selling_store_tiles|default([]) %}
-          {% if top_store_tiles %}
-            {% for s in top_store_tiles[:6] %}
-            <div class="ad-tile" title="{{ s.store_name|default('Store') }}">
-              {% if s.image_url %}
-                <img src="{{ s.image_url }}" alt="{{ s.store_name|default('Store') }}">
-              {% else %}
-                <div class="ad-fallback-icon">🏬</div>
-              {% endif %}
-            </div>
-            {% endfor %}
-          {% else %}
-            <div class="ad-tile"><div class="ad-fallback-icon">🏬</div></div>
-            <div class="ad-tile"><div class="ad-fallback-icon">🛒</div></div>
-            <div class="ad-tile"><div class="ad-fallback-icon">🛍️</div></div>
-            <div class="ad-tile"><div class="ad-fallback-icon">🌿</div></div>
-            <div class="ad-tile"><div class="ad-fallback-icon">🧺</div></div>
-            <div class="ad-tile"><div class="ad-fallback-icon">📦</div></div>
-          {% endif %}
-        </div>
-      </div>
+      <section class="gd-list-grid">
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head">
+            <h3 class="gd-list-title">Top Selling Stores</h3>
+            <a href="#" class="gd-view-link">View All</a>
+          </div>
 
-      <div class="ad-list-card">
-        <div class="ad-card-head">
-          <div class="ad-card-title">Most Popular Stores</div>
-          <a href="{{ url_for('admin_stores') if false else '#' }}" class="ad-view-all">View All</a>
-        </div>
-        <div class="ad-list-stack">
-          {% set popular_stores = most_popular_stores|default([]) %}
-          {% if popular_stores %}
-            {% for s in popular_stores[:6] %}
-            <div class="ad-pop-item">
-              <div class="ad-mini-left">
-                <div class="ad-mini-imgbox">
+          <div class="gd-list-body">
+            <div class="gd-store-logo-grid">
+              {% set selling_store_tiles = top_selling_store_tiles|default(by_store|default([])) %}
+              {% for s in selling_store_tiles[:6] %}
+                <div class="gd-store-logo" title="{{ s.store_name|default('Store') }}">
                   {% if s.image_url %}
-                    <img class="ad-item-img" src="{{ s.image_url }}" alt="{{ s.store_name|default('Store') }}">
+                    <img src="{{ s.image_url }}" alt="{{ s.store_name|default('Store') }}">
                   {% else %}
-                    <span>🛒</span>
+                    <span>🏪</span>
                   {% endif %}
                 </div>
-                <div style="min-width:0">
-                  <div class="ad-mini-name">{{ s.store_name|default('Store') }}</div>
-                  <div class="ad-mini-meta">{{ s.subtitle|default('Trending store') }}</div>
-                </div>
-              </div>
-              <div class="ad-heart-count">{{ s.likes|default(1) }} <span>♥</span></div>
+              {% else %}
+                <div class="gd-empty">No store sales found.</div>
+              {% endfor %}
             </div>
-            {% endfor %}
-          {% else %}
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🛒</div><div><div class="ad-mini-name">Smart Shopping</div></div></div><div class="ad-heart-count">4 <span>♥</span></div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🛍️</div><div><div class="ad-mini-name">Organic Shop</div></div></div><div class="ad-heart-count">1 <span>♥</span></div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🥬</div><div><div class="ad-mini-name">Family supermarket</div></div></div><div class="ad-heart-count">1 <span>♥</span></div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🧺</div><div><div class="ad-mini-name">Fresh supermarket</div></div></div><div class="ad-heart-count">1 <span>♥</span></div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🍲</div><div><div class="ad-mini-name">Veggie Market</div></div></div><div class="ad-heart-count">1 <span>♥</span></div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🧺</div><div><div class="ad-mini-name">Morning Mart</div></div></div><div class="ad-heart-count">1 <span>♥</span></div></div>
-          {% endif %}
+          </div>
         </div>
-      </div>
 
-      <div class="ad-list-card">
-        <div class="ad-card-head">
-          <div class="ad-card-title">Top Selling Items</div>
-          <a href="{{ url_for('admin_products') if false else '#' }}" class="ad-view-all">View All</a>
-        </div>
-        <div class="ad-list-stack">
-          {% set top_products = top_selling_items|default([]) %}
-          {% if top_products %}
-            {% for p in top_products[:6] %}
-            <div class="ad-pop-item">
-              <div class="ad-mini-left">
-                <div class="ad-mini-imgbox">
-                  {% if p.image_url %}
-                    <img class="ad-item-img" src="{{ p.image_url }}" alt="{{ p.product_name|default('Item') }}">
-                  {% else %}
-                    <span>🛍️</span>
-                  {% endif %}
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head">
+            <h3 class="gd-list-title">Most Popular Stores</h3>
+            <a href="#" class="gd-view-link">View All</a>
+          </div>
+
+          <div class="gd-list-body">
+            {% set popular_stores = most_popular_stores|default([]) %}
+            {% for s in popular_stores[:6] %}
+              <div class="gd-row">
+                <div class="gd-row-left">
+                  <div class="gd-thumb">
+                    {% if s.image_url %}
+                      <img src="{{ s.image_url }}" alt="{{ s.store_name|default('Store') }}">
+                    {% else %}
+                      🛒
+                    {% endif %}
+                  </div>
+                  <div style="min-width:0;">
+                    <div class="gd-name">{{ s.store_name|default('Store') }}</div>
+                    <div class="gd-meta">{{ s.subtitle|default((s.orders|default(0)) ~ ' orders') }}</div>
+                  </div>
                 </div>
-                <div style="min-width:0">
-                  <div class="ad-mini-name">{{ p.product_name|default('Item') }}</div>
-                </div>
+                <div class="gd-heart">{{ s.likes|default(s.orders|default(0)) }} ❤</div>
               </div>
-              <div class="ad-sold-pill">Sold : {{ p.sold|default(2) }}</div>
-            </div>
+            {% else %}
+              <div class="gd-empty">No popular stores found.</div>
             {% endfor %}
-          {% else %}
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🥫</div><div><div class="ad-mini-name">Chicken Tender Vegan</div></div></div><div class="ad-sold-pill">Sold : 2</div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🧈</div><div><div class="ad-mini-name">Desi Cow Ghee</div></div></div><div class="ad-sold-pill">Sold : 2</div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🍪</div><div><div class="ad-mini-name">Lotus Biscoff Cookie...</div></div></div><div class="ad-sold-pill">Sold : 2</div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🍝</div><div><div class="ad-mini-name">Barilla Protein Past...</div></div></div><div class="ad-sold-pill">Sold : 2</div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🍉</div><div><div class="ad-mini-name">Fresh Watermelon</div></div></div><div class="ad-sold-pill">Sold : 2</div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🍌</div><div><div class="ad-mini-name">Organic Bananas</div></div></div><div class="ad-sold-pill">Sold : 2</div></div>
-          {% endif %}
+          </div>
         </div>
-      </div>
-    </div>
 
-    <div class="ad-three-col">
-      <div class="ad-list-card">
-        <div class="ad-card-head">
-          <div class="ad-card-title">Most Rated Items</div>
-          <a href="{{ url_for('admin_products') if false else '#' }}" class="ad-view-all">View All</a>
-        </div>
-        <div class="ad-list-stack">
-          {% set rated_items = most_rated_items|default([]) %}
-          {% if rated_items %}
-            {% for p in rated_items[:6] %}
-            <div class="ad-rank-row">
-              <div class="ad-mini-left">
-                <div class="ad-mini-imgbox">
-                  {% if p.image_url %}
-                    <img class="ad-item-img" src="{{ p.image_url }}" alt="{{ p.product_name|default('Item') }}">
-                  {% else %}
-                    <span>🧁</span>
-                  {% endif %}
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head">
+            <h3 class="gd-list-title">Top Selling Items</h3>
+            <a href="#" class="gd-view-link">View All</a>
+          </div>
+
+          <div class="gd-list-body">
+            {% set selling_items = top_selling_items|default([]) %}
+            {% for p in selling_items[:6] %}
+              <div class="gd-row">
+                <div class="gd-row-left">
+                  <div class="gd-thumb">
+                    {% if p.image_url %}
+                      <img src="{{ p.image_url }}" alt="{{ p.product_name|default('Item') }}">
+                    {% else %}
+                      🛍️
+                    {% endif %}
+                  </div>
+                  <div style="min-width:0;">
+                    <div class="gd-name">{{ p.product_name|default('Item') }}</div>
+                    <div class="gd-meta">₹ {{ '%.2f'|format(p.revenue|default(0) or 0) }} revenue</div>
+                  </div>
                 </div>
-                <div style="min-width:0">
-                  <div class="ad-mini-name">{{ p.product_name|default('Item') }}</div>
-                </div>
+                <div class="gd-pill">Sold : {{ p.sold|default(0) }}</div>
               </div>
-              <div class="ad-heart-count">{{ p.rating_count|default(1) }} <span>♥</span></div>
-            </div>
+            {% else %}
+              <div class="gd-empty">No selling items found.</div>
             {% endfor %}
-          {% else %}
-            <div class="ad-rank-row"><div class="ad-mini-left"><div class="ad-mini-imgbox">🧈</div><div><div class="ad-mini-name">Desi Cow Ghee</div></div></div><div class="ad-heart-count">2 <span>♥</span></div></div>
-            <div class="ad-rank-row"><div class="ad-mini-left"><div class="ad-mini-imgbox">🥫</div><div><div class="ad-mini-name">Chicken Tender Vegan</div></div></div><div class="ad-heart-count">1 <span>♥</span></div></div>
-            <div class="ad-rank-row"><div class="ad-mini-left"><div class="ad-mini-imgbox">🎃</div><div><div class="ad-mini-name">Mini Pumpkins</div></div></div><div class="ad-heart-count">1 <span>♥</span></div></div>
-            <div class="ad-rank-row"><div class="ad-mini-left"><div class="ad-mini-imgbox">🍝</div><div><div class="ad-mini-name">Barilla Protein Past...</div></div></div><div class="ad-heart-count">1 <span>♥</span></div></div>
-            <div class="ad-rank-row"><div class="ad-mini-left"><div class="ad-mini-imgbox">🧂</div><div><div class="ad-mini-name">Seasoning Blend</div></div></div><div class="ad-heart-count">1 <span>♥</span></div></div>
-            <div class="ad-rank-row"><div class="ad-mini-left"><div class="ad-mini-imgbox">🫒</div><div><div class="ad-mini-name">Olive Oil Butter</div></div></div><div class="ad-heart-count">1 <span>♥</span></div></div>
-          {% endif %}
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="ad-list-card">
-        <div class="ad-card-head">
-          <div class="ad-card-title">Top Deliveryman</div>
-          <a href="{{ url_for('admin_delivery') if false else '#' }}" class="ad-view-all">View All</a>
+      <section class="gd-list-grid">
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head">
+            <h3 class="gd-list-title">Most Rated Items</h3>
+            <a href="#" class="gd-view-link">View All</a>
+          </div>
+
+          <div class="gd-list-body">
+            {% set rated_products = top_rated_products|default([]) %}
+            {% for p in rated_products[:6] %}
+              <div class="gd-row gd-rating-row">
+                <div class="gd-row-left">
+                  <div class="gd-thumb">
+                    {% if p.image_url %}
+                      <img src="{{ p.image_url }}" alt="{{ p.name|default(p.product_name|default('Item')) }}">
+                    {% else %}
+                      🥬
+                    {% endif %}
+                  </div>
+                  <div style="min-width:0;">
+                    <div class="gd-name">{{ p.name|default(p.product_name|default('Item')) }}</div>
+                    <div class="gd-meta">{{ p.rating_count|default(0) }} ratings</div>
+                  </div>
+                </div>
+                <div class="gd-heart">{{ p.avg_rating|default(0) }} ❤</div>
+              </div>
+            {% else %}
+              <div class="gd-empty">No product ratings yet.</div>
+            {% endfor %}
+          </div>
         </div>
-        <div class="ad-list-stack">
-          {% set delivery_list = top_deliverymen|default([]) %}
-          {% if delivery_list %}
+
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head">
+            <h3 class="gd-list-title">Top Deliveryman</h3>
+            <a href="#" class="gd-view-link">View All</a>
+          </div>
+
+          <div class="gd-list-body">
+            {% set delivery_list = top_deliverymen|default([]) %}
             {% for d in delivery_list[:6] %}
-            <div class="ad-user-row">
-              <div class="ad-mini-left">
-                <div class="ad-mini-imgbox" style="border-radius:8px;">
-                  {% if d.image_url %}
-                    <img class="ad-avatar" style="width:100%;height:100%;border-radius:8px;" src="{{ d.image_url }}" alt="{{ d.name|default('Delivery') }}">
-                  {% else %}
-                    <span>👤</span>
-                  {% endif %}
+              <div class="gd-row">
+                <div class="gd-row-left">
+                  <div class="gd-thumb round">
+                    {% if d.image_url %}
+                      <img src="{{ d.image_url }}" alt="{{ d.name|default('Delivery') }}">
+                    {% else %}
+                      👤
+                    {% endif %}
+                  </div>
+                  <div style="min-width:0;">
+                    <div class="gd-name">{{ d.name|default('Delivery') }}</div>
+                    <div class="gd-meta">{{ d.phone|default('+**********') }}</div>
+                  </div>
                 </div>
-                <div style="min-width:0">
-                  <div class="ad-mini-name">{{ d.name|default('Delivery') }}</div>
-                  <div class="ad-mini-meta">{{ d.phone|default('+**********') }}</div>
-                </div>
+                <div class="gd-pill">Orders : {{ d.orders|default(0) }}</div>
               </div>
-              <div class="ad-orders-pill">Orders : {{ d.orders|default(1) }}</div>
-            </div>
+            {% else %}
+              <div class="gd-empty">No deliveryman found.</div>
             {% endfor %}
+          </div>
+        </div>
+
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head">
+            <h3 class="gd-list-title">Top Customers</h3>
+            <a href="#" class="gd-view-link">View All</a>
+          </div>
+
+          <div class="gd-list-body">
+            {% set customers_list = top_customers|default([]) %}
+            {% for c in customers_list[:6] %}
+              <div class="gd-row">
+                <div class="gd-row-left">
+                  <div class="gd-thumb round">👤</div>
+                  <div style="min-width:0;">
+                    <div class="gd-name">{{ c.name|default('Customer') }}</div>
+                    <div class="gd-meta">{{ c.phone|default('+**********') }}</div>
+                  </div>
+                </div>
+                <div class="gd-pill">Orders : {{ c.orders|default(0) }}</div>
+              </div>
+            {% else %}
+              <div class="gd-empty">No customers found.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <section class="gd-list-grid">
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head">
+            <h3 class="gd-list-title">Top Rated Stores</h3>
+            <a href="#" class="gd-view-link">View All</a>
+          </div>
+
+          <div class="gd-list-body">
+            {% set rated_stores = top_rated_stores|default([]) %}
+            {% for s in rated_stores[:6] %}
+              <div class="gd-row">
+                <div class="gd-row-left">
+                  <div class="gd-thumb">
+                    {% if s.image_url %}
+                      <img src="{{ s.image_url }}" alt="{{ s.store_name|default('Store') }}">
+                    {% else %}
+                      🏪
+                    {% endif %}
+                  </div>
+                  <div style="min-width:0;">
+                    <div class="gd-name">{{ s.store_name|default('Store') }}</div>
+                    <div class="gd-meta">{{ s.rating_count|default(0) }} ratings</div>
+                  </div>
+                </div>
+                <div class="gd-heart">{{ s.avg_rating|default(0) }} ★</div>
+              </div>
+            {% else %}
+              <div class="gd-empty">No store ratings yet.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head">
+            <h3 class="gd-list-title">Store Complaints</h3>
+            <a href="#" class="gd-view-link">View All</a>
+          </div>
+
+          <div class="gd-list-body">
+            {% set store_complaints = top_store_complaints|default([]) %}
+            {% for s in store_complaints[:6] %}
+              <div class="gd-row">
+                <div class="gd-row-left">
+                  <div class="gd-thumb">🏬</div>
+                  <div style="min-width:0;">
+                    <div class="gd-name">{{ s.store_name or ('ID ' ~ s.store_id) }}</div>
+                    <div class="gd-meta">Store complaints</div>
+                  </div>
+                </div>
+                <div class="gd-pill gd-complaint-pill">{{ s.cnt|default(0) }}</div>
+              </div>
+            {% else %}
+              <div class="gd-empty">No store complaints found.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="gd-card gd-list-card">
+          <div class="gd-list-head">
+            <h3 class="gd-list-title">Delivery Complaints</h3>
+            <a href="#" class="gd-view-link">View All</a>
+          </div>
+
+          <div class="gd-list-body">
+            {% set delivery_complaints = top_delivery_complaints|default([]) %}
+            {% for d in delivery_complaints[:6] %}
+              <div class="gd-row">
+                <div class="gd-row-left">
+                  <div class="gd-thumb">🚚</div>
+                  <div style="min-width:0;">
+                    <div class="gd-name">{{ d.delivery_name or d.name or ('ID ' ~ d.user_id) }}</div>
+                    <div class="gd-meta">{{ d.phone|default('Delivery complaints') }}</div>
+                  </div>
+                </div>
+                <div class="gd-pill gd-complaint-pill">{{ d.cnt|default(0) }}</div>
+              </div>
+            {% else %}
+              <div class="gd-empty">No delivery complaints found.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <section class="gd-card">
+        <div class="gd-list-head">
+          <h3 class="gd-list-title">Stores Performance</h3>
+          <a href="#" class="gd-view-link">View All</a>
+        </div>
+
+        <div class="gd-table-wrap">
+          <table class="gd-table" id="storesTable">
+            <thead>
+              <tr>
+                <th>Store</th>
+                <th>Orders</th>
+                <th>Delivered</th>
+                <th>Revenue</th>
+                <th>Avg Rating</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set store_rows = by_store|default([]) %}
+              {% for s in store_rows %}
+                <tr {% if s.store_id %}data-store-id="{{ s.store_id }}"{% endif %}>
+                  <td>{{ s.store_name|default('Store') }}</td>
+                  <td>{{ s.orders|default(0) }}</td>
+                  <td>{{ s.delivered_orders|default(0) }}</td>
+                  <td>₹ {{ '%.2f'|format(s.revenue|default(0) or 0) }}</td>
+                  <td class="rating-cell"><span style="color:#9AA6B5;">—</span></td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="5">
+                    <div class="gd-empty">No store performance found.</div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="gd-card">
+        <div class="gd-list-head">
+          <h3 class="gd-list-title">Quick Actions</h3>
+          <span class="gd-view-link">Admin Shortcuts</span>
+        </div>
+
+        <div class="gd-quick-links">
+          {% for link in quick_links|default([]) %}
+            <a href="{{ url_for(link.endpoint) }}">{{ link.label }}</a>
           {% else %}
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">👨‍🦱</div><div><div class="ad-mini-name">Jhon</div><div class="ad-mini-meta">+*********</div></div></div><div class="ad-orders-pill">Orders : 21</div></div>
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">👩‍🦰</div><div><div class="ad-mini-name">Lily</div><div class="ad-mini-meta">+*********</div></div></div><div class="ad-orders-pill">Orders : 8</div></div>
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">👨</div><div><div class="ad-mini-name">Thomas</div><div class="ad-mini-meta">+*********</div></div></div><div class="ad-orders-pill">Orders : 5</div></div>
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">👱</div><div><div class="ad-mini-name">William</div><div class="ad-mini-meta">+*********</div></div></div><div class="ad-orders-pill">Orders : 2</div></div>
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">👧</div><div><div class="ad-mini-name">Amelia</div><div class="ad-mini-meta">+*********</div></div></div><div class="ad-orders-pill">Orders : 1</div></div>
-          {% endif %}
+            <a href="{{ url_for('admin_approvals') }}">Pending Approvals</a>
+            <a href="{{ url_for('admin_users') }}">Manage Users</a>
+            <a href="{{ url_for('admin_complaints') }}">Complaints</a>
+            <a href="{{ url_for('admin_create_store') }}">Create Store</a>
+            <a href="{{ url_for('admin_create_delivery') }}">Create Delivery Partner</a>
+            <a href="{{ url_for('admin_transactions_csv') }}">Export Transactions CSV</a>
+          {% endfor %}
         </div>
-      </div>
+      </section>
 
-      <div class="ad-list-card">
-        <div class="ad-card-head">
-          <div class="ad-card-title">Top Customers</div>
-          <a href="{{ url_for('admin_customers') if false else '#' }}" class="ad-view-all">View All</a>
+      <div class="gd-footer">
+        <span>© NE FRESH Admin.</span>
+        <div class="gd-footer-links">
+          <span>•</span>
+          <span>Business setup</span>
+          <span>•</span>
+          <span>Profile</span>
+          <span>•</span>
+          <span>Home</span>
+          <span>•</span>
+          <span class="gd-version">Software Version : 3.8</span>
         </div>
-        <div class="ad-list-stack">
-          {% set customer_list = top_customers|default([]) %}
-          {% if customer_list %}
-            {% for c in customer_list[:6] %}
-            <div class="ad-user-row">
-              <div class="ad-mini-left">
-                <div class="ad-mini-imgbox" style="border-radius:8px;">
-                  {% if c.image_url %}
-                    <img class="ad-avatar" style="width:100%;height:100%;border-radius:8px;" src="{{ c.image_url }}" alt="{{ c.name|default('Customer') }}">
-                  {% else %}
-                    <span>👤</span>
-                  {% endif %}
-                </div>
-                <div style="min-width:0">
-                  <div class="ad-mini-name">{{ c.name|default('Customer') }}</div>
-                  <div class="ad-mini-meta">{{ c.phone|default('+**********') }}</div>
-                </div>
-              </div>
-              <div class="ad-orders-pill">Orders : {{ c.orders|default(1) }}</div>
-            </div>
-            {% endfor %}
-          {% else %}
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">🧔</div><div><div class="ad-mini-name">Black</div><div class="ad-mini-meta">+**********</div></div></div><div class="ad-orders-pill">Orders : 19</div></div>
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">👨‍💼</div><div><div class="ad-mini-name">MS</div><div class="ad-mini-meta">+**********</div></div></div><div class="ad-orders-pill">Orders : 12</div></div>
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">👩</div><div><div class="ad-mini-name">Marjahan</div><div class="ad-mini-meta">+**********</div></div></div><div class="ad-orders-pill">Orders : 10</div></div>
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">👩‍🦰</div><div><div class="ad-mini-name">Ellen</div><div class="ad-mini-meta">+**********</div></div></div><div class="ad-orders-pill">Orders : 5</div></div>
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">👨‍🦱</div><div><div class="ad-mini-name">Jerry</div><div class="ad-mini-meta">+**********</div></div></div><div class="ad-orders-pill">Orders : 4</div></div>
-            <div class="ad-user-row"><div class="ad-mini-left"><div class="ad-mini-imgbox" style="border-radius:8px;">👤</div><div><div class="ad-mini-name">Ashek</div><div class="ad-mini-meta">+**********</div></div></div><div class="ad-orders-pill">Orders : 3</div></div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- keep your existing operational sections below, restyled in the same layout -->
-    <section class="ad-section" aria-label="Stores performance" style="margin-bottom:18px;">
-      <div class="ad-card-head">
-        <div>
-          <div class="ad-card-title">Stores Performance</div>
-          <div class="ad-card-sub">Revenue is from order totals. Rating loads automatically if store IDs are provided.</div>
-        </div>
-      </div>
-      <div style="padding:0 18px 18px; overflow:auto;">
-        <table class="table" id="storesTable" style="width:100%; border-collapse:collapse; min-width:900px; background:#fff; border:1px solid #edf1f5; border-radius:12px; overflow:hidden;">
-          <thead style="background:#245a57; color:#fff;">
-            <tr>
-              <th style="text-align:left; padding:14px; font-size:12px; letter-spacing:.12em; text-transform:uppercase;">Store</th>
-              <th style="text-align:left; padding:14px; font-size:12px; letter-spacing:.12em; text-transform:uppercase;">Orders</th>
-              <th style="text-align:left; padding:14px; font-size:12px; letter-spacing:.12em; text-transform:uppercase;">Revenue (₹)</th>
-              <th style="text-align:left; padding:14px; font-size:12px; letter-spacing:.12em; text-transform:uppercase;">Avg Rating</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for s in by_store|default([]) %}
-            <tr {% if 'store_id' in s.keys() %}data-store-id="{{ s['store_id'] }}"{% endif %} style="border-bottom:1px solid #eef2f6;">
-              <td style="padding:14px;">{{ s.store_name }}</td>
-              <td style="padding:14px;">{{ s.orders }}</td>
-              <td style="padding:14px;">₹ {{ '%.2f'|format(s.revenue or 0) }}</td>
-              <td style="padding:14px;" class="rating-cell"><span style="color:#9aa3b3;">—</span></td>
-            </tr>
-            {% else %}
-            <tr><td colspan="4" class="ad-empty">No stores found.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="ad-section" aria-label="Performance and quality" style="margin-bottom:18px;">
-      <div class="ad-card-head">
-        <div>
-          <div class="ad-card-title">Performance & Quality</div>
-          <div class="ad-card-sub"><span>{{ complaints_label }}</span></div>
-        </div>
-      </div>
-
-      <div class="ad-three-col" style="padding:0 18px 18px; margin-bottom:0;">
-        <div class="ad-list-card" style="box-shadow:none; border:1px solid #edf1f5;">
-          <div class="ad-card-head">
-            <div class="ad-card-title" style="font-size:16px;">Top Rated Stores</div>
-            <span class="ad-sidebar-chip">avg ⭐ with count</span>
-          </div>
-          <div class="ad-list-stack">
-            {% set trs = top_rated_stores|default([]) %}
-            {% if trs %}
-              {% for s in trs %}
-              <div class="ad-rank-row" style="margin-bottom:0;">
-                <div class="ad-mini-left"><div class="ad-mini-imgbox">🏪</div><div><div class="ad-mini-name">{{ s.store_name }}</div></div></div>
-                <div class="ad-heart-count" style="color:#2f8f9c;">{{ '%.2f'|format(s.avg_rating or 0) }} ★ <span style="color:#ff7676;">({{ s.rating_count or 0 }})</span></div>
-              </div>
-              {% endfor %}
-            {% else %}
-              <div class="ad-empty">No store ratings yet.</div>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="ad-list-card" style="box-shadow:none; border:1px solid #edf1f5;">
-          <div class="ad-card-head">
-            <div class="ad-card-title" style="font-size:16px;">Top Rated Products</div>
-            <span class="ad-sidebar-chip">avg ⭐ with count</span>
-          </div>
-          <div class="ad-list-stack">
-            {% set trp = top_rated_products|default([]) %}
-            {% if trp %}
-              {% for p in trp %}
-              <div class="ad-rank-row" style="margin-bottom:0;">
-                <div class="ad-mini-left"><div class="ad-mini-imgbox">🛍️</div><div><div class="ad-mini-name">{{ p.product_name }}</div></div></div>
-                <div class="ad-heart-count" style="color:#2f8f9c;">{{ '%.2f'|format(p.avg_rating or 0) }} ★ <span style="color:#ff7676;">({{ p.rating_count or 0 }})</span></div>
-              </div>
-              {% endfor %}
-            {% else %}
-              <div class="ad-empty">No product ratings yet.</div>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="ad-list-card" style="box-shadow:none; border:1px solid #edf1f5;">
-          <div class="ad-card-head">
-            <div class="ad-card-title" style="font-size:16px;">Most Complained Delivery Partners</div>
-            <span class="ad-sidebar-chip">complaints count</span>
-          </div>
-          <div class="ad-list-stack">
-            {% set tdc = top_delivery_complaints|default([]) %}
-            {% if tdc %}
-              {% for d in tdc %}
-              <div class="ad-rank-row" style="margin-bottom:0;">
-                <div class="ad-mini-left"><div class="ad-mini-imgbox">🚚</div><div><div class="ad-mini-name">{{ d.delivery_name or ('ID ' ~ d.user_id) }}</div></div></div>
-                <div class="ad-heart-count" style="color:#ef5b5b;">{{ d.complaints or 0 }}</div>
-              </div>
-              {% endfor %}
-            {% else %}
-              <div class="ad-empty">No delivery complaints in period.</div>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      <div class="ad-three-col" style="padding:0 18px 18px; margin-bottom:0;">
-        <div class="ad-list-card" style="box-shadow:none; border:1px solid #edf1f5;">
-          <div class="ad-card-head">
-            <div class="ad-card-title" style="font-size:16px;">Most Complained Stores</div>
-            <span class="ad-sidebar-chip">complaints count</span>
-          </div>
-          <div class="ad-list-stack">
-            {% set tsc = top_store_complaints|default([]) %}
-            {% if tsc %}
-              {% for s in tsc %}
-              <div class="ad-rank-row" style="margin-bottom:0;">
-                <div class="ad-mini-left"><div class="ad-mini-imgbox">🏬</div><div><div class="ad-mini-name">{{ s.store_name or ('ID ' ~ s.store_id) }}</div></div></div>
-                <div class="ad-heart-count" style="color:#ef5b5b;">{{ s.complaints or 0 }}</div>
-              </div>
-              {% endfor %}
-            {% else %}
-              <div class="ad-empty">No store complaints in period.</div>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="ad-list-card" style="box-shadow:none; border:1px solid #edf1f5;">
-          <div class="ad-card-head">
-            <div class="ad-card-title" style="font-size:16px;">Quick Actions</div>
-            <span class="ad-sidebar-chip">Admin workflows</span>
-          </div>
-          <div class="ad-list-stack">
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">⚡</div><div><div class="ad-mini-name"><a href="{{ url_for('admin_approvals') }}">Pending Approvals</a></div></div></div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">👥</div><div><div class="ad-mini-name"><a href="{{ url_for('admin_users') }}">Manage Users</a></div></div></div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">❗</div><div><div class="ad-mini-name"><a href="{{ url_for('admin_complaints') }}">Complaints</a></div></div></div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🏪</div><div><div class="ad-mini-name"><a href="{{ url_for('admin_create_store') }}">Create Store</a></div></div></div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">🚚</div><div><div class="ad-mini-name"><a href="{{ url_for('admin_create_delivery') }}">Create Delivery Partner</a></div></div></div></div>
-            <div class="ad-pop-item"><div class="ad-mini-left"><div class="ad-mini-imgbox">⬇️</div><div><div class="ad-mini-name"><a href="{{ url_for('admin_transactions_csv') }}">Export Transactions CSV</a></div></div></div></div>
-          </div>
-        </div>
-
-        <div class="ad-list-card" style="box-shadow:none; border:1px solid #edf1f5;">
-          <div class="ad-card-head">
-            <div class="ad-card-title" style="font-size:16px;">Tips</div>
-            <span class="ad-sidebar-chip">Operations</span>
-          </div>
-          <div class="ad-list-stack">
-            <div class="ad-empty" style="text-align:left; padding:10px 6px 8px;">
-              <ul style="padding-left:18px; margin:0; line-height:1.65; color:#627287;">
-                <li>Use <strong>Complaints</strong> to review issues and change status (OPEN / IN_REVIEW / RESOLVED).</li>
-                <li>Use <strong>Manage Users</strong> to disable or delete store, delivery, or customer accounts.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <div class="ad-footer-bar">
-      <div>© NE FRESH. 2021-2026 NE FRESH.</div>
-      <div class="ad-footer-links">
-        <span>• Business setup</span>
-        <span>• Profile</span>
-        <span>• Home</span>
-        <span class="ad-soft-badge">Software Version : 3.8</span>
       </div>
     </div>
   </div>
 
   <script>
-    // Time range UI only for now; hook up later.
-    document.querySelectorAll('.ad-period-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.ad-period-btn').forEach(b => b.classList.remove('is-active'));
-        btn.classList.add('is-active');
-      });
-    });
-
-    // Draw a simple static SVG-like area in the gross sale chart container.
-    (function renderGrossSaleChart(){
+    (function(){
       const el = document.getElementById('grossSaleChart');
       if (!el) return;
-      const chartHtml = `
-        <svg viewBox="0 0 1000 320" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true">
+
+      const labels = {{ sales_labels|default([])|tojson }};
+      const grossValues = {{ sales_values|default([])|tojson }};
+
+      const adminValues = grossValues.map(v => Number(v || 0) * 0.04);
+      const deliveryValues = grossValues.map(v => Number(v || 0) * 0.025);
+
+      const width = 1000;
+      const height = 315;
+      const padL = 52;
+      const padR = 24;
+      const padT = 18;
+      const padB = 36;
+      const innerW = width - padL - padR;
+      const innerH = height - padT - padB;
+
+      const safeLabels = labels.length ? labels : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const safeGross = grossValues.length ? grossValues.map(v => Number(v || 0)) : new Array(safeLabels.length).fill(0);
+
+      const maxV = Math.max(...safeGross, ...adminValues, ...deliveryValues, 1);
+      const stepX = safeGross.length > 1 ? innerW / (safeGross.length - 1) : innerW;
+
+      function points(values){
+        return values.map((v, i) => {
+          const x = padL + (i * stepX);
+          const y = padT + innerH - ((Number(v || 0) / maxV) * innerH);
+          return [x, y];
+        });
+      }
+
+      function pathFrom(pts){
+        if (!pts.length) return '';
+        return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ');
+      }
+
+      const grossPts = points(safeGross);
+      const adminPts = points(adminValues);
+      const deliveryPts = points(deliveryValues);
+
+      const grossPath = pathFrom(grossPts);
+      const adminPath = pathFrom(adminPts);
+      const deliveryPath = pathFrom(deliveryPts);
+
+      const areaPath = grossPts.length
+        ? `${grossPath} L ${padL + innerW} ${padT + innerH} L ${padL} ${padT + innerH} Z`
+        : '';
+
+      const gridLines = [0, .25, .5, .75, 1].map(frac => {
+        const y = padT + innerH - (innerH * frac);
+        return `<line x1="${padL}" y1="${y}" x2="${padL + innerW}" y2="${y}" stroke="#EEF3F7" stroke-width="1"/>`;
+      }).join('');
+
+      const yLabels = [0, .25, .5, .75, 1].map(frac => {
+        const y = padT + innerH - (innerH * frac);
+        const val = Math.round(maxV * frac);
+        return `<text x="8" y="${y + 4}" fill="#1F2937" font-size="12" font-family="Inter, Arial">${val.toLocaleString()}</text>`;
+      }).join('');
+
+      const xLabels = safeLabels.map((label, i) => {
+        const x = padL + (i * stepX);
+        return `<text x="${x}" y="${height - 8}" text-anchor="middle" fill="#1F2937" font-size="12" font-family="Inter, Arial">${label}</text>`;
+      }).join('');
+
+      el.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" preserveAspectRatio="none" role="img" aria-label="Gross sale chart">
           <defs>
-            <linearGradient id="saleFill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stop-color="#4fd7c5" stop-opacity="0.55" />
-              <stop offset="100%" stop-color="#4fd7c5" stop-opacity="0.08" />
+            <linearGradient id="gdSaleFill" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#32E7CE" stop-opacity="0.42"/>
+              <stop offset="100%" stop-color="#32E7CE" stop-opacity="0.05"/>
             </linearGradient>
           </defs>
-          <rect x="0" y="0" width="1000" height="320" fill="#ffffff"/>
-          <g fill="#7d8aa0" font-size="12" font-family="Inter, Arial, sans-serif">
-            <text x="28" y="278">0.0</text>
-            <text x="18" y="218">400.0</text>
-            <text x="18" y="158">800.0</text>
-            <text x="10" y="98">1200.0</text>
-            <text x="10" y="38">1600.0</text>
-            <text x="20" y="300">Jan</text>
-            <text x="108" y="300">Feb</text>
-            <text x="198" y="300">Mar</text>
-            <text x="285" y="300">Apr</text>
-            <text x="374" y="300">May</text>
-            <text x="464" y="300">Jun</text>
-            <text x="552" y="300">Jul</text>
-            <text x="642" y="300">Aug</text>
-            <text x="732" y="300">Sep</text>
-            <text x="822" y="300">Oct</text>
-            <text x="912" y="300">Nov</text>
-            <text x="984" y="300" text-anchor="end">Dec</text>
-          </g>
-          <line x1="60" y1="270" x2="940" y2="270" stroke="#dfe8ef" stroke-width="2" />
-          <path d="M 70 270 C 100 268, 120 250, 140 220 C 160 175, 175 90, 205 56 C 230 30, 260 170, 280 220 C 300 245, 320 266, 350 270 L 350 270 L 70 270 Z" fill="url(#saleFill)" stroke="#4fd7c5" stroke-width="3" />
-          <path d="M 70 270 C 100 268, 120 265, 140 260 C 160 257, 175 250, 205 248 C 230 246, 260 260, 280 264 C 300 267, 320 269, 350 270 L 350 270 L 70 270 Z" fill="none" stroke="#f06a6a" stroke-width="3" />
-          <path d="M 70 270 C 100 269, 120 268, 140 268 C 160 268, 180 267, 200 267 C 220 267, 250 268, 280 268 C 310 269, 330 270, 350 270 L 350 270 L 70 270 Z" fill="none" stroke="#245a57" stroke-width="3" />
-        </svg>`;
-      el.innerHTML = chartHtml;
+          <rect width="${width}" height="${height}" fill="#ffffff"></rect>
+          ${gridLines}
+          ${yLabels}
+          <path d="${areaPath}" fill="url(#gdSaleFill)" stroke="none"></path>
+          <path d="${grossPath}" fill="none" stroke="#32E7CE" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path d="${adminPath}" fill="none" stroke="#F15B66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          <path d="${deliveryPath}" fill="none" stroke="#005F5B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+          ${xLabels}
+        </svg>
+      `;
     })();
 
-    // Gracefully enhance: if table rows have data-store-id, fetch ratings.
     (async function(){
       const rows = document.querySelectorAll('#storesTable tbody tr[data-store-id]');
       if (!rows.length) return;
+
       for (const tr of rows) {
         const sid = tr.getAttribute('data-store-id');
-        try{
-          const res = await fetch(`/api/ratings/store/${encodeURIComponent(sid)}`, {cache:'no-store'});
-          if(!res.ok) continue;
-          const j = await res.json();
-          const cell = tr.querySelector('.rating-cell');
-          if(j && j.ok){
-            const avg = Number(j.avg || 0);
-            const count = Number(j.count || 0);
-            cell.innerHTML = renderStars(avg) + ` <span style="color:#9aa3b3;">(${count})</span>`;
-          }
-        }catch(_){ }
-      }
+        const cell = tr.querySelector('.rating-cell');
+        if (!sid || !cell) continue;
 
-      function renderStars(avg){
-        const full = Math.floor(avg);
-        const stars = Array.from({length:5}, (_,i)=> i < full ? '★' : '☆').join('');
-        return `<span title="${avg.toFixed(2)} / 5" style="color:#56b89b; font-size:16px; letter-spacing:1px;">${stars}</span>`;
+        try {
+          const res = await fetch(`/api/ratings/store/${encodeURIComponent(sid)}`, { cache: 'no-store' });
+          if (!res.ok) continue;
+
+          const data = await res.json();
+          if (!data || !data.ok) continue;
+
+          const avg = Number(data.avg || 0);
+          const count = Number(data.count || 0);
+          const filled = Math.max(0, Math.min(5, Math.floor(avg)));
+          const stars = '★'.repeat(filled).padEnd(5, '☆');
+
+          cell.innerHTML = `
+            <span style="color:#12B8A6;font-weight:900;letter-spacing:1px;">${stars}</span>
+            <span style="color:#8A98AA;">(${count})</span>
+          `;
+        } catch (_) {}
       }
     })();
   </script>
 </section>
-
 {% endblock %}
