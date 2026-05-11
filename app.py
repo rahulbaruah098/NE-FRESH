@@ -4558,98 +4558,23 @@ def admin_user_delete(uid):
 # ----------------------
 # STORE
 # ----------------------
-@app.route('/store')
+@app.route('/store/dashboard')
 @login_required(role='store')
 def store_dashboard():
-    u = current_user()
-
-    store = mongo.stores.find_one({"user_id": u["id"]})
+    u, store = _get_current_store_or_redirect()
 
     if not store:
         flash("Store not found.", "danger")
-        return redirect(url_for("index"))
+        return redirect(url_for("login"))
 
-    sid = store["_id"]
-    store["id"] = str(store["_id"])
-
-    store_orders = list(mongo.orders.find({"store_id": sid}))
-
-    delivered_orders = [
-        o for o in store_orders
-        if o.get("status") == "DELIVERED"
-    ]
-
-    gmv_total = sum([
-        float(o.get("total_amount") or 0)
-        + float(o.get("delivery_fee") or 0)
-        + float(o.get("tip_amount") or 0)
-        for o in delivered_orders
-    ])
-
-    paid_transactions = list(mongo.transactions.find({
-        "order_id": {"$in": [o["_id"] for o in delivered_orders]},
-        "status": "PAID"
-    }))
-
-    paid_total = sum([
-        float(t.get("amount") or 0)
-        for t in paid_transactions
-    ])
-
-    unique_customers = len(set([
-        o.get("user_id")
-        for o in store_orders
-        if o.get("user_id")
-    ]))
-
-    metrics = {
-        "total_orders": len(store_orders),
-        "gmv_total": float(gmv_total),
-        "paid_total": float(paid_total),
-        "txn_count": len(paid_transactions),
-        "unique_customers": unique_customers,
-    }
-
-    products = list(mongo.products.find({"store_id": sid}).sort("created_at", -1))
-
-    for p in products:
-        p["id"] = str(p["_id"])
-        p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
-
-    active_orders = list(mongo.orders.find({
-        "store_id": sid,
-        "status": {"$nin": ["DELIVERED", "CANCELLED"]}
-    }).sort("created_at", -1))
-
-    orders = []
-
-    for o in active_orders:
-        customer = mongo.users.find_one({"_id": ObjectId(o["user_id"])}) if o.get("user_id") else None
-        addr = mongo.order_addresses.find_one({"order_id": o["_id"]})
-
-        o["id"] = str(o["_id"])
-        o["customer_name"] = customer.get("name") if customer else o.get("customer_name", "")
-        o["customer_phone"] = customer.get("phone") if customer else o.get("customer_phone", "")
-
-        o["addr_line1"] = addr.get("line1") if addr else ""
-        o["addr_line2"] = addr.get("line2") if addr else ""
-        o["addr_city"] = addr.get("city") if addr else ""
-        o["addr_state"] = addr.get("state") if addr else ""
-        o["addr_pincode"] = addr.get("pincode") if addr else ""
-        o["addr_lat"] = addr.get("latitude") if addr else None
-        o["addr_lng"] = addr.get("longitude") if addr else None
-
-        orders.append(o)
+    page_context = _build_store_split_page_context(store)
 
     return render_template(
-    "store_dashboard.html",
-    user=u,
-    store=store,
-    products=products,
-    orders=orders,
-    metrics=metrics
-)
-
+        "store_dashboard.html",
+        user=u,
+        store=store,
+        **page_context
+    )
 
 
 @app.route('/store/delivered-orders')
@@ -4718,9 +4643,593 @@ def store_delivered_orders():
         orders=delivered
     )
 
+# =========================================================
+# STORE SPLIT PAGE HELPERS
+# =========================================================
 
+def _get_current_store_or_redirect():
+    u = current_user()
+    store = mongo.stores.find_one({"user_id": u["id"]})
+
+    if not store:
+        flash("Store not found.", "danger")
+        return u, None
+
+    store_view = dict(store)
+    store_view["id"] = str(store["_id"])
+
+    return u, store_view
+
+
+def _get_store_products(store_id):
+    products = list(
+        mongo.products.find({"store_id": store_id}).sort("created_at", -1)
+    )
+
+    for p in products:
+        p["id"] = str(p["_id"])
+        p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
+
+    return products
+
+
+def _get_store_orders(store_id):
+    orders = list(
+        mongo.orders.find({"store_id": store_id}).sort("created_at", -1)
+    )
+
+    hydrated = []
+
+    for o in orders:
+        row = dict(o)
+        row["id"] = str(o["_id"])
+
+        customer = None
+        if o.get("user_id"):
+            try:
+                customer = mongo.users.find_one({"_id": ObjectId(o.get("user_id"))})
+            except Exception:
+                customer = None
+
+        addr = mongo.order_addresses.find_one({"order_id": o["_id"]})
+
+        row["customer_name"] = customer.get("name") if customer else o.get("customer_name", "")
+        row["customer_phone"] = customer.get("phone") if customer else o.get("customer_phone", "")
+
+        row["addr_line1"] = addr.get("line1") if addr else ""
+        row["addr_line2"] = addr.get("line2") if addr else ""
+        row["addr_city"] = addr.get("city") if addr else ""
+        row["addr_state"] = addr.get("state") if addr else ""
+        row["addr_pincode"] = addr.get("pincode") if addr else ""
+        row["addr_lat"] = addr.get("latitude") if addr else None
+        row["addr_lng"] = addr.get("longitude") if addr else None
+
+        row["total_amount"] = float(o.get("total_amount") or 0)
+        row["delivery_fee"] = float(o.get("delivery_fee") or 0)
+        row["tip_amount"] = float(o.get("tip_amount") or 0)
+        row["total_payable"] = (
+            float(o.get("total_amount") or 0)
+            + float(o.get("delivery_fee") or 0)
+            + float(o.get("tip_amount") or 0)
+        )
+
+        hydrated.append(row)
+
+    return hydrated
+
+
+
+# =========================================================
+# STORE CATEGORY HELPERS
+# =========================================================
+
+DEFAULT_STORE_CATEGORIES = [
+    {
+        "name": "Fresh cuts",
+        "sub_categories": ["Curry cuts", "Boneless & Mince", "Offals"],
+    },
+    {
+        "name": "Ready to cook",
+        "sub_categories": [],
+    },
+    {
+        "name": "Spices",
+        "sub_categories": [],
+    },
+]
+
+
+def _category_slug(name):
+    name = (name or "").strip().lower()
+    name = re.sub(r"[^a-z0-9]+", "-", name)
+    return name.strip("-")
+
+
+def _ensure_store_categories(store_id):
+    existing_count = mongo.store_categories.count_documents({
+        "store_id": store_id
+    })
+
+    if existing_count > 0:
+        return
+
+    now = datetime.utcnow().isoformat()
+
+    docs = []
+    for cat in DEFAULT_STORE_CATEGORIES:
+        docs.append({
+            "store_id": store_id,
+            "name": cat["name"],
+            "slug": _category_slug(cat["name"]),
+            "sub_categories": cat.get("sub_categories", []),
+            "is_active": 1,
+            "is_default": 1,
+            "created_at": now,
+            "updated_at": now,
+        })
+
+    if docs:
+        mongo.store_categories.insert_many(docs)
+
+
+def _get_store_categories(store_id, active_only=False):
+    _ensure_store_categories(store_id)
+
+    query = {"store_id": store_id}
+
+    if active_only:
+        query["is_active"] = 1
+
+    categories = list(
+        mongo.store_categories.find(query).sort([
+            ("is_active", -1),
+            ("name", 1)
+        ])
+    )
+
+    for cat in categories:
+        cat["id"] = str(cat["_id"])
+
+    return categories
+
+
+def _get_store_category_by_id(store_id, category_id, active_only=False):
+    try:
+        category_obj_id = ObjectId(category_id)
+    except Exception:
+        return None
+
+    query = {
+        "_id": category_obj_id,
+        "store_id": store_id
+    }
+
+    if active_only:
+        query["is_active"] = 1
+
+    cat = mongo.store_categories.find_one(query)
+
+    if cat:
+        cat["id"] = str(cat["_id"])
+
+    return cat
+
+
+def _get_store_category_by_name(store_id, name, active_only=False):
+    slug = _category_slug(name)
+
+    query = {
+        "store_id": store_id,
+        "slug": slug
+    }
+
+    if active_only:
+        query["is_active"] = 1
+
+    cat = mongo.store_categories.find_one(query)
+
+    if cat:
+        cat["id"] = str(cat["_id"])
+
+    return cat
+
+
+def _get_category_product_count(store_id, category_name):
+    return mongo.products.count_documents({
+        "store_id": store_id,
+        "category": category_name
+    })
+
+# =========================================================
+# STORE SPLIT PAGES
+# =========================================================
+
+def _build_store_split_page_context(store):
+    sid = store["_id"]
+
+    products = _get_store_products(sid)
+    orders = _get_store_orders(sid)
+
+    delivered_orders = [
+        o for o in orders
+        if (o.get("status") or "").upper() == "DELIVERED"
+    ]
+
+    delivered_order_ids = [
+        o.get("_id") for o in delivered_orders
+        if o.get("_id")
+    ]
+
+    paid_transactions = []
+
+    if delivered_order_ids:
+        paid_transactions = list(mongo.transactions.find({
+            "order_id": {"$in": delivered_order_ids},
+            "status": "PAID"
+        }))
+
+    gmv_total = sum(
+        float(o.get("total_amount") or 0)
+        + float(o.get("delivery_fee") or 0)
+        + float(o.get("tip_amount") or 0)
+        for o in delivered_orders
+    )
+
+    paid_total = sum(
+    float(t.get("amount") or 0)
+    for t in paid_transactions
+)
+
+    if not paid_transactions and delivered_orders:
+        paid_total = sum(
+        float(o.get("total_amount") or 0)
+        + float(o.get("delivery_fee") or 0)
+        + float(o.get("tip_amount") or 0)
+        for o in delivered_orders
+    )
+
+    unique_customers = len(set([
+        str(o.get("user_id"))
+        for o in orders
+        if o.get("user_id")
+    ]))
+
+    accepted_by_delivery = sum(
+        1 for o in orders
+        if (o.get("status") or "").upper() in {
+            "ACCEPTED_BY_DELIVERY_MAN",
+            "ASSIGNED_TO_DELIVERY"
+        }
+    )
+
+    ready_for_pickup_orders = sum(
+        1 for o in orders
+        if (o.get("status") or "").upper() in {
+            "READY_FOR_PICKUP",
+            "PACKAGING",
+            "PREPARING"
+        }
+    )
+
+    delivery_people_total = 0
+    active_delivery_people_total = 0
+    available_delivery_people = []
+
+    try:
+        delivery_people_total = mongo.users.count_documents({
+            "role": "delivery",
+            "is_active": 1
+        })
+        active_delivery_people_total = delivery_people_total
+    except Exception:
+        delivery_people_total = 0
+        active_delivery_people_total = 0
+
+    metrics = {
+        "total_orders": len(orders),
+        "gmv_total": float(gmv_total),
+        "paid_total": float(paid_total),
+        "txn_count": len(paid_transactions) if paid_transactions else len(delivered_orders),
+        "unique_customers": unique_customers,
+        "delivery_people": delivery_people_total,
+        "active_delivery_people": active_delivery_people_total,
+        "accepted_by_delivery": accepted_by_delivery,
+        "delivery_accepted": accepted_by_delivery,
+        "ready_for_pickup_orders": ready_for_pickup_orders,
+        "delivered_orders": len(delivered_orders),
+    }
+
+    return {
+        "products": products,
+        "orders": orders,
+        "metrics": metrics,
+        "available_delivery_people": available_delivery_people,
+        "delivered_orders_total": len(delivered_orders),
+        "categories": _get_store_categories(sid, active_only=False),
+        "active_categories": _get_store_categories(sid, active_only=True),
+    }
+
+@app.route('/store/products/new', methods=['GET'], endpoint='store_add_product')
+@login_required(role='store')
+def store_add_product_page():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    page_context = _build_store_split_page_context(store)
+
+    return render_template(
+        "store_add_product.html",
+        user=u,
+        store=store,
+        **page_context
+    )
+
+@app.route('/store/products', methods=['GET'], endpoint='store_products')
+@login_required(role='store')
+def store_products_page():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    page_context = _build_store_split_page_context(store)
+
+    return render_template(
+        "store_products.html",
+        user=u,
+        store=store,
+        **page_context
+    )
+
+
+@app.route('/store/orders', methods=['GET'], endpoint='store_orders')
+@login_required(role='store')
+def store_orders_page():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    page_context = _build_store_split_page_context(store)
+
+    return render_template(
+        "store_orders.html",
+        user=u,
+        store=store,
+        **page_context
+    )
+
+
+
+@app.route('/store/inventory', methods=['GET'], endpoint='store_inventory')
+@login_required(role='store')
+def store_inventory_page():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    page_context = _build_store_split_page_context(store)
+
+    return render_template(
+        "store_inventory.html",
+        user=u,
+        store=store,
+        **page_context
+    )
+
+
+@app.route('/store/categories', methods=['GET'], endpoint='store_categories')
+@login_required(role='store')
+def store_categories_page():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    page_context = _build_store_split_page_context(store)
+
+    return render_template(
+        "store_categories.html",
+        user=u,
+        store=store,
+        **page_context
+    )
+
+@app.route('/store/categories/new', methods=['POST'], endpoint='store_category_new')
+@login_required(role='store')
+def store_category_new():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    name = (request.form.get("name") or "").strip()
+    sub_categories_raw = (request.form.get("sub_categories") or "").strip()
+
+    if not name:
+        flash("Category name is required.", "warning")
+        return redirect(url_for("store_categories"))
+
+    slug = _category_slug(name)
+
+    if not slug:
+        flash("Enter a valid category name.", "warning")
+        return redirect(url_for("store_categories"))
+
+    existing = mongo.store_categories.find_one({
+        "store_id": store["_id"],
+        "slug": slug
+    })
+
+    if existing:
+        flash("This category already exists.", "warning")
+        return redirect(url_for("store_categories"))
+
+    sub_categories = [
+        item.strip()
+        for item in sub_categories_raw.split(",")
+        if item.strip()
+    ]
+
+    now = datetime.utcnow().isoformat()
+
+    mongo.store_categories.insert_one({
+        "store_id": store["_id"],
+        "name": name,
+        "slug": slug,
+        "sub_categories": sub_categories,
+        "is_active": 1,
+        "is_default": 0,
+        "created_at": now,
+        "updated_at": now,
+    })
+
+    flash("Category added.", "success")
+    return redirect(url_for("store_categories"))
+
+
+@app.route('/store/categories/<cid>/update', methods=['POST'], endpoint='store_category_update')
+@login_required(role='store')
+def store_category_update(cid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    cat = _get_store_category_by_id(store["_id"], cid)
+
+    if not cat:
+        flash("Category not found.", "danger")
+        return redirect(url_for("store_categories"))
+
+    old_name = cat.get("name", "")
+    name = (request.form.get("name") or "").strip()
+    sub_categories_raw = (request.form.get("sub_categories") or "").strip()
+
+    if not name:
+        flash("Category name is required.", "warning")
+        return redirect(url_for("store_categories"))
+
+    slug = _category_slug(name)
+
+    duplicate = mongo.store_categories.find_one({
+        "_id": {"$ne": cat["_id"]},
+        "store_id": store["_id"],
+        "slug": slug
+    })
+
+    if duplicate:
+        flash("Another category with this name already exists.", "warning")
+        return redirect(url_for("store_categories"))
+
+    sub_categories = [
+        item.strip()
+        for item in sub_categories_raw.split(",")
+        if item.strip()
+    ]
+
+    now = datetime.utcnow().isoformat()
+
+    mongo.store_categories.update_one(
+        {"_id": cat["_id"]},
+        {
+            "$set": {
+                "name": name,
+                "slug": slug,
+                "sub_categories": sub_categories,
+                "updated_at": now,
+            }
+        }
+    )
+
+    if old_name and old_name != name:
+        mongo.products.update_many(
+            {
+                "store_id": store["_id"],
+                "category": old_name
+            },
+            {
+                "$set": {
+                    "category": name,
+                    "updated_at": now
+                }
+            }
+        )
+
+    flash("Category updated.", "success")
+    return redirect(url_for("store_categories"))
+
+
+@app.route('/store/categories/<cid>/toggle', methods=['POST'], endpoint='store_category_toggle')
+@login_required(role='store')
+def store_category_toggle(cid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    cat = _get_store_category_by_id(store["_id"], cid)
+
+    if not cat:
+        flash("Category not found.", "danger")
+        return redirect(url_for("store_categories"))
+
+    new_status = 0 if int(cat.get("is_active") or 0) == 1 else 1
+
+    mongo.store_categories.update_one(
+        {"_id": cat["_id"]},
+        {
+            "$set": {
+                "is_active": new_status,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        }
+    )
+
+    flash("Category enabled." if new_status else "Category disabled.", "success")
+    return redirect(url_for("store_categories"))
+
+
+@app.route('/store/categories/<cid>/delete', methods=['POST'], endpoint='store_category_delete')
+@login_required(role='store')
+def store_category_delete(cid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    cat = _get_store_category_by_id(store["_id"], cid)
+
+    if not cat:
+        flash("Category not found.", "danger")
+        return redirect(url_for("store_categories"))
+
+    product_count = _get_category_product_count(store["_id"], cat.get("name"))
+
+    if product_count > 0:
+        mongo.store_categories.update_one(
+            {"_id": cat["_id"]},
+            {
+                "$set": {
+                    "is_active": 0,
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+            }
+        )
+
+        flash("This category has products, so it was disabled instead of deleted.", "warning")
+        return redirect(url_for("store_categories"))
+
+    mongo.store_categories.delete_one({"_id": cat["_id"]})
+
+    flash("Category deleted.", "success")
+    return redirect(url_for("store_categories"))
 
 @app.route('/store/product/new', methods=['POST'])
+@app.route('/store/products/new', methods=['POST'])
 @login_required(role='store')
 def store_product_new():
     u = current_user()
@@ -4744,32 +5253,43 @@ def store_product_new():
     except Exception:
         stock_kg = 0
 
-    category = (request.form.get('category') or '').strip()
-    sub_category = (request.form.get('sub_category') or '').strip()
+    category_id = (request.form.get("category_id") or "").strip()
+    category = (request.form.get("category") or "").strip()
+    sub_category = (request.form.get("sub_category") or "").strip()
 
-    allowed_categories = ['Fresh cuts', 'Ready to cook', 'Spices']
-    fresh_cut_subs = ['Curry cuts', 'Boneless & Mince', 'Offals']
+    category_doc = None
+
+    if category_id:
+        category_doc = _get_store_category_by_id(sid, category_id, active_only=True)
+
+    if not category_doc and category:
+        category_doc = _get_store_category_by_name(sid, category, active_only=True)
+
+    if not category_doc:
+        flash("Please select a valid active category.", "warning")
+        return redirect(url_for("store_add_product"))
+
+    category = category_doc.get("name")
+    category_id = str(category_doc["_id"])
+
+    allowed_subs = category_doc.get("sub_categories") or []
 
     if not name:
         flash('Product name is required.', 'warning')
-        return redirect(url_for('store_dashboard'))
+        return redirect(url_for('store_add_product'))
 
     if price_per_kg <= 0:
         flash('Price must be greater than 0.', 'warning')
-        return redirect(url_for('store_dashboard'))
+        return redirect(url_for('store_add_product'))
 
     if stock_kg < 0:
         flash('Stock cannot be negative.', 'warning')
-        return redirect(url_for('store_dashboard'))
+        return redirect(url_for('store_add_product'))
 
-    if category not in allowed_categories:
-        flash('Invalid category selected.', 'warning')
-        return redirect(url_for('store_dashboard'))
-
-    if category == 'Fresh cuts':
-        if sub_category not in fresh_cut_subs:
-            flash('Please select a valid sub-category for Fresh cuts.', 'warning')
-            return redirect(url_for('store_dashboard'))
+    if allowed_subs:
+        if sub_category not in allowed_subs:
+            flash("Please select a valid sub-category.", "warning")
+            return redirect(url_for("store_add_product"))
     else:
         sub_category = None
 
@@ -4795,6 +5315,7 @@ def store_product_new():
         "stock_kg": stock_kg,
         "image_path": image_path,
         "is_active": 1,
+        "category_id": category_id,
         "category": category,
         "sub_category": sub_category,
         "created_at": datetime.utcnow().isoformat(),
@@ -4802,7 +5323,7 @@ def store_product_new():
     })
 
     flash('Product added.', 'success')
-    return redirect(url_for('store_dashboard'))
+    return redirect(url_for('store_products'))
 
 @app.route('/store/product/<pid>/toggle', methods=['POST'])
 @login_required(role='store')
@@ -4843,7 +5364,7 @@ def store_product_toggle(pid):
     )
 
     flash("Product status updated.", "success")
-    return redirect(url_for("store_dashboard"))
+    return redirect(url_for("store_products"))
 
 
 @app.route('/store/product/<pid>/delete', methods=['POST'])
@@ -4889,7 +5410,7 @@ def store_product_delete(pid):
         mongo.products.delete_one({"_id": pid_obj})
         flash("Product deleted.", "success")
 
-    return redirect(url_for("store_dashboard"))
+    return redirect(url_for("store_products"))
 
 
 @app.route('/store/product/<pid>/stock/add', methods=['POST'], endpoint='store_product_add_stock')
@@ -4969,7 +5490,15 @@ def store_product_edit(pid):
     product["id"] = str(product["_id"])
     product["store_id"] = str(product.get("store_id")) if product.get("store_id") else ""
 
-    return render_template("store_product_edit.html", user=u, product=product)
+    active_categories = _get_store_categories(store["_id"], active_only=True)
+
+    return render_template(
+    "store_product_edit.html",
+    user=u,
+    store=store,
+    product=product,
+    active_categories=active_categories
+)
 
 @app.route('/store/product/<pid>/edit', methods=['POST'], endpoint='store_product_update')
 @login_required(role='store')
@@ -4998,44 +5527,25 @@ def store_product_update(pid):
 
     name = (request.form.get("name") or "").strip()
 
-    raw_category = (
-        request.form.get("category")
-        or product.get("category")
-        or ""
-    ).strip()
+    category_id = (request.form.get("category_id") or product.get("category_id") or "").strip()
+    raw_category = (request.form.get("category") or product.get("category") or "").strip()
+    sub_category = (request.form.get("sub_category") or product.get("sub_category") or "").strip()
 
-    raw_sub_category = (
-        request.form.get("sub_category")
-        or product.get("sub_category")
-        or ""
-    ).strip()
+    category_doc = None
 
-    category_map = {
-        "fresh cuts": "Fresh cuts",
-        "fresh cut": "Fresh cuts",
-        "fresh_cuts": "Fresh cuts",
-        "fresh-cuts": "Fresh cuts",
-        "ready to cook": "Ready to cook",
-        "ready to Cook": "Ready to cook",
-        "ready_to_cook": "Ready to cook",
-        "ready-to-cook": "Ready to cook",
-        "spices": "Spices",
-    }
+    if category_id:
+        category_doc = _get_store_category_by_id(store["_id"], category_id, active_only=True)
 
-    sub_category_map = {
-        "curry cuts": "Curry cuts",
-        "curry cut": "Curry cuts",
-        "curry_cuts": "Curry cuts",
-        "curry-cuts": "Curry cuts",
-        "boneless & mince": "Boneless & Mince",
-        "boneless and mince": "Boneless & Mince",
-        "boneless_mince": "Boneless & Mince",
-        "boneless-mince": "Boneless & Mince",
-        "offals": "Offals",
-    }
+    if not category_doc and raw_category:
+        category_doc = _get_store_category_by_name(store["_id"], raw_category, active_only=True)
 
-    category = category_map.get(raw_category.lower(), raw_category)
-    sub_category = sub_category_map.get(raw_sub_category.lower(), raw_sub_category)
+    if not category_doc:
+        flash("Please select a valid active category.", "warning")
+        return redirect(url_for("store_product_edit", pid=pid))
+
+    category = category_doc.get("name")
+    category_id = str(category_doc["_id"])
+    allowed_subs = category_doc.get("sub_categories") or []
 
     try:
         price = float(request.form.get("price_per_kg", "0") or 0)
@@ -5059,22 +5569,12 @@ def store_product_update(pid):
         flash("Enter a valid non-negative stock.", "warning")
         return redirect(url_for("store_product_edit", pid=pid))
 
-    allowed_categories = ["Fresh cuts", "Ready to cook", "Spices"]
-    fresh_cut_subs = ["Curry cuts", "Boneless & Mince", "Offals"]
-
-    if not category:
-        category = product.get("category") or "Ready to cook"
-
-    if category not in allowed_categories:
-        flash(f"Invalid category selected: {category}", "warning")
-        return redirect(url_for("store_product_edit", pid=pid))
-
-    if category == "Fresh cuts":
+    if allowed_subs:
         if not sub_category:
-            sub_category = product.get("sub_category") or "Curry cuts"
+            sub_category = product.get("sub_category") or ""
 
-        if sub_category not in fresh_cut_subs:
-            flash(f"Invalid sub-category selected: {sub_category}", "warning")
+        if sub_category not in allowed_subs:
+            flash("Please select a valid sub-category.", "warning")
             return redirect(url_for("store_product_edit", pid=pid))
     else:
         sub_category = None
@@ -5107,8 +5607,7 @@ def store_product_update(pid):
     )
 
     flash("Product updated.", "success")
-    return redirect(url_for("store_dashboard"))
-
+    return redirect(url_for("store_product_edit", pid=pid))
 
 @app.route('/store/transactions.csv')
 @login_required(role='store')
@@ -5222,10 +5721,26 @@ def store_order_status(oid):
         oid_obj = ObjectId(oid)
     except Exception:
         flash("Invalid order.", "danger")
-        return redirect(url_for("store_dashboard"))
+        return redirect(url_for("store_orders"))
 
-    new_status = request.form.get("status", "PLACED").upper()
+    allowed_statuses = {
+        "PLACED",
+        "CONFIRMED",
+        "PREPARING",
+        "READY_FOR_PICKUP",
+        "ASSIGNED_TO_DELIVERY",
+        "ACCEPTED_BY_DELIVERY_MAN",
+        "OUT_FOR_DELIVERY",
+        "DELIVERED",
+        "CANCELLED",
+    }
+
+    new_status = (request.form.get("status") or "PLACED").strip().upper()
     now = datetime.utcnow().isoformat()
+
+    if new_status not in allowed_statuses:
+        flash("Invalid order status selected.", "warning")
+        return redirect(url_for("store_orders"))
 
     order = mongo.orders.find_one({
         "_id": oid_obj,
@@ -5234,18 +5749,31 @@ def store_order_status(oid):
 
     if not order:
         flash("Order not found.", "danger")
-        return redirect(url_for("store_dashboard"))
+        return redirect(url_for("store_orders"))
 
     update_data = {
         "status": new_status,
         "updated_at": now
     }
 
+    if new_status == "PREPARING":
+        update_data["preparing_at"] = now
+
+    if new_status == "READY_FOR_PICKUP":
+        update_data["ready_for_pickup_at"] = now
+
+    if new_status == "OUT_FOR_DELIVERY":
+        update_data["out_for_delivery_at"] = now
+
     if new_status == "DELIVERED":
+        update_data["delivered_at"] = now
         update_data["payment_status"] = "PAID"
 
+    if new_status == "CANCELLED":
+        update_data["cancelled_at"] = now
+
     mongo.orders.update_one(
-        {"_id": oid_obj},
+        {"_id": oid_obj, "store_id": store["_id"]},
         {"$set": update_data}
     )
 
@@ -5256,14 +5784,43 @@ def store_order_status(oid):
         "created_at": now
     })
 
+    # Only touch transactions when the order is delivered.
     if new_status == "DELIVERED":
-        mongo.transactions.update_many(
-            {"order_id": oid_obj},
-            {"$set": {"status": "PAID", "updated_at": now}}
+        payable_amount = (
+            float(order.get("total_amount") or 0)
+            + float(order.get("delivery_fee") or 0)
+            + float(order.get("tip_amount") or 0)
         )
 
+        existing_txn = mongo.transactions.find_one({
+            "order_id": oid_obj
+        })
+
+        if existing_txn:
+            mongo.transactions.update_many(
+                {"order_id": oid_obj},
+                {
+                    "$set": {
+                        "status": "PAID",
+                        "amount": payable_amount,
+                        "updated_at": now
+                    }
+                }
+            )
+        else:
+            mongo.transactions.insert_one({
+                "order_id": oid_obj,
+                "store_id": store["_id"],
+                "user_id": order.get("user_id"),
+                "amount": payable_amount,
+                "status": "PAID",
+                "method": order.get("payment_method") or "COD",
+                "created_at": now,
+                "updated_at": now
+            })
+
     flash("Order status updated.", "success")
-    return redirect(url_for("store_dashboard"))
+    return redirect(url_for("store_orders"))
 
 
 @app.route("/api/orders/<oid>/status", methods=["GET"], endpoint="api_order_status")

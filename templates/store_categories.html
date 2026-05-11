@@ -1,0 +1,343 @@
+{% extends "store_base.html" %}
+{% set active_page = "categories" %}
+
+{% block title %}Categories | NE FRESH{% endblock %}
+{% block page_title %}Categories{% endblock %}
+{% block page_subtitle %}View store product categories and product count by category.{% endblock %}
+
+{% block content %}
+<section class="nf-store-dashboard" data-page="categories">
+  <style>
+    .nf-store-dashboard{
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --soft:#F3FFF8;
+      --line:#DDECE4;
+      --line2:#EAF4EF;
+      --ink:#1F332A;
+      --text:#40534A;
+      --muted:#66756D;
+      --green:#00A859;
+      --green-dark:#008A48;
+      --green-soft:#E9FFF3;
+      --orange:#FF8A1F;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      width:100%;
+      min-height:100%;
+      background:var(--bg);
+      color:var(--ink);
+      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      overflow-x:hidden;
+    }
+
+    .nf-store-dashboard,
+    .nf-store-dashboard *{box-sizing:border-box;}
+
+    .sd-shell{width:100%;max-width:1600px;margin:0 auto;padding:24px;}
+    .sd-stack{display:grid;gap:20px;}
+    .sd-hero{padding:24px;border-radius:28px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);}
+    .sd-kicker{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:0 11px;border-radius:999px;background:var(--green-soft);border:1px solid rgba(0,168,89,.18);color:var(--green-dark);font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;}
+    .sd-hero-title{margin:14px 0 8px;color:var(--ink);font-size:clamp(26px,3vw,42px);line-height:1.04;font-weight:900;letter-spacing:-.05em;}
+    .sd-hero-copy{max-width:900px;margin:0;color:var(--muted);font-size:15px;font-weight:650;line-height:1.65;}
+
+    .sd-category-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;}
+    .sd-category-card{background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);padding:20px;display:grid;gap:16px;transition:.2s ease;}
+    .sd-category-card:hover{transform:translateY(-2px);border-color:rgba(0,168,89,.28);}
+    .sd-category-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;}
+    .sd-category-icon{width:52px;height:52px;border-radius:18px;background:var(--green-soft);display:grid;place-items:center;font-size:25px;color:var(--green-dark);}
+    .sd-category-title{margin:0;color:var(--ink);font-size:20px;font-weight:900;letter-spacing:-.03em;}
+    .sd-category-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:700;line-height:1.45;}
+    .sd-pill{display:inline-flex;align-items:center;justify-content:center;min-height:30px;border-radius:999px;padding:0 11px;font-size:12px;font-weight:900;background:var(--green-soft);color:var(--green-dark);border:1px solid rgba(0,168,89,.16);}
+    .sd-sub-list{display:flex;flex-wrap:wrap;gap:8px;}
+    .sd-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .sd-btn{min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:14px;border:1px solid var(--line);background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:900;transition:.2s ease;white-space:nowrap;}
+    .sd-btn:hover{transform:translateY(-1px);border-color:rgba(0,168,89,.30);color:var(--green-dark);box-shadow:0 12px 24px rgba(17,64,38,.09);}
+    .sd-btn-primary{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;}
+    .sd-muted{color:var(--muted);font-size:13px;font-weight:700;}
+
+    .sd-manage-grid{
+  display:grid;
+  grid-template-columns:minmax(320px,.42fr) minmax(0,.58fr);
+  gap:18px;
+}
+
+.sd-panel{
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:24px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+.sd-panel-head{
+  padding:18px 20px;
+  border-bottom:1px solid var(--line2);
+  background:#FBFFFD;
+}
+
+.sd-panel-title{
+  margin:0;
+  color:var(--ink);
+  font-size:18px;
+  font-weight:900;
+  letter-spacing:-.03em;
+}
+
+.sd-panel-sub{
+  margin:5px 0 0;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:650;
+  line-height:1.45;
+}
+
+.sd-form{
+  padding:18px 20px 20px;
+  display:grid;
+  gap:14px;
+}
+
+.sd-form label{
+  display:grid;
+  gap:7px;
+  color:var(--text);
+  font-size:12px;
+  font-weight:900;
+}
+
+.sd-form input,
+.sd-form textarea{
+  width:100%;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+  color:var(--ink);
+  padding:11px 12px;
+  outline:none;
+  font-weight:750;
+}
+
+.sd-form textarea{
+  min-height:88px;
+  resize:vertical;
+}
+
+.sd-form input:focus,
+.sd-form textarea:focus{
+  border-color:rgba(0,168,89,.42);
+  box-shadow:0 0 0 4px rgba(0,168,89,.08);
+}
+
+.sd-table-wrap{
+  padding:0 20px 20px;
+  overflow:auto;
+}
+
+.sd-table{
+  width:100%;
+  min-width:920px;
+  border-collapse:separate;
+  border-spacing:0;
+  border:1px solid var(--line);
+  border-radius:16px;
+  overflow:hidden;
+  background:#fff;
+}
+
+.sd-table thead{
+  background:#075C3B;
+  color:#fff;
+}
+
+.sd-table th{
+  padding:14px;
+  text-align:left;
+  font-size:12px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.07em;
+}
+
+.sd-table td{
+  padding:14px;
+  border-bottom:1px solid var(--line2);
+  color:var(--text);
+  font-size:13px;
+  font-weight:700;
+  vertical-align:top;
+}
+
+.sd-table tbody tr:last-child td{
+  border-bottom:0;
+}
+
+.sd-table input,
+.sd-table textarea{
+  width:100%;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+  color:var(--ink);
+  padding:9px 10px;
+  outline:none;
+  font-weight:750;
+}
+
+.sd-table textarea{
+  min-height:62px;
+  resize:vertical;
+}
+
+.sd-inline-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.sd-btn-danger{
+  background:#FFF1F2!important;
+  color:#B91C1C!important;
+  border-color:#FECACA!important;
+}
+
+.sd-btn-warning{
+  background:#FFF7ED!important;
+  color:#C2410C!important;
+  border-color:#FED7AA!important;
+}
+
+.sd-btn-success{
+  background:var(--green)!important;
+  color:#fff!important;
+  border-color:var(--green)!important;
+}
+
+@media(max-width:1000px){
+  .sd-manage-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+    @media(max-width:1100px){
+      .sd-category-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    }
+    @media(max-width:640px){
+      .sd-shell{padding:10px;}
+      .sd-hero{padding:16px;border-radius:20px;}
+      .sd-category-grid{grid-template-columns:1fr;}
+      .sd-actions .sd-btn{width:100%;}
+    }
+  </style>
+
+  <div class="sd-shell">
+    <div class="sd-stack">
+     <section class="sd-hero">
+  <span class="sd-kicker">▦ Store Categories</span>
+  <h1 class="sd-hero-title">Manage Categories</h1>
+  <p class="sd-hero-copy">Add, edit, disable or delete store product categories. Active categories will appear in the Add Product dropdown.</p>
+</section>
+
+<section class="sd-manage-grid">
+  <div class="sd-panel">
+    <div class="sd-panel-head">
+      <h2 class="sd-panel-title">Add New Category</h2>
+      <p class="sd-panel-sub">Add category name and optional comma-separated sub-categories.</p>
+    </div>
+
+    <form class="sd-form" method="post" action="{{ url_for('store_category_new') }}">
+      <label>
+        Category Name
+        <input type="text" name="name" placeholder="Example: Fresh cuts" required>
+      </label>
+
+      <label>
+        Sub Categories
+        <textarea name="sub_categories" placeholder="Example: Curry cuts, Boneless & Mince, Offals"></textarea>
+      </label>
+
+      <button class="sd-btn sd-btn-primary" type="submit">Add Category</button>
+    </form>
+  </div>
+
+  <div class="sd-panel">
+    <div class="sd-panel-head">
+      <h2 class="sd-panel-title">Existing Categories</h2>
+      <p class="sd-panel-sub">Edit, disable or delete categories. Categories with products will be disabled instead of deleted.</p>
+    </div>
+
+    <div class="sd-table-wrap">
+      <table class="sd-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Sub Categories</th>
+            <th>Products</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for cat in categories %}
+            {% set count = namespace(value=0) %}
+            {% if products %}
+              {% for p in products %}
+                {% if p.category == cat.name %}
+                  {% set count.value = count.value + 1 %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+
+            <tr>
+              <td>
+                <form id="catUpdate{{ cat.id }}" method="post" action="{{ url_for('store_category_update', cid=cat.id) }}">
+                  <input type="text" name="name" value="{{ cat.name }}" required>
+                </form>
+              </td>
+
+              <td>
+                <textarea form="catUpdate{{ cat.id }}" name="sub_categories">{{ cat.sub_categories|join(', ') if cat.sub_categories else '' }}</textarea>
+              </td>
+
+              <td>
+                <span class="sd-pill">{{ count.value }} product{{ '' if count.value == 1 else 's' }}</span>
+              </td>
+
+              <td>
+                {% if cat.is_active %}
+                  <span class="sd-pill">Active</span>
+                {% else %}
+                  <span class="sd-pill sd-btn-warning">Disabled</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <div class="sd-inline-actions">
+                  <button class="sd-btn sd-btn-success" type="submit" form="catUpdate{{ cat.id }}">Update</button>
+
+                  <form method="post" action="{{ url_for('store_category_toggle', cid=cat.id) }}">
+                    <button class="sd-btn sd-btn-warning" type="submit">
+                      {% if cat.is_active %}Disable{% else %}Enable{% endif %}
+                    </button>
+                  </form>
+
+                  <form method="post" action="{{ url_for('store_category_delete', cid=cat.id) }}" onsubmit="return confirm('Delete this category? If products exist, it will be disabled instead.');">
+                    <button class="sd-btn sd-btn-danger" type="submit">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="5" class="sd-muted" style="text-align:center;">No categories found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+    </div>
+  </div>
+</section>
+{% endblock %}

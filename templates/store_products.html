@@ -1,0 +1,743 @@
+{% extends "store_base.html" %}
+{% set active_page = "products" %}
+
+{% block title %}Product Inventory | NE FRESH{% endblock %}
+{% block page_title %}Product Inventory{% endblock %}
+{% block page_subtitle %}Manage products, stock, status and product records.{% endblock %}
+
+{% block content %}
+{% set products_total = products|length if products else 0 %}
+{% set orders_total = metrics.total_orders|default(orders|length if orders else 0) %}
+{% set earnings_total = metrics.paid_total|default(0) %}
+{% set gmv_total = metrics.gmv_total|default(0) %}
+{% set txn_count_total = metrics.txn_count|default(0) %}
+{% set unique_customers_total = metrics.unique_customers|default(0) %}
+{% set delivery_people_total = metrics.delivery_people|default(0) %}
+{% set active_delivery_people_total = metrics.active_delivery_people|default(delivery_people_total) %}
+{% set accepted_delivery_total = metrics.accepted_by_delivery|default(metrics.delivery_accepted|default(0)) %}
+{% set ready_for_pickup_total = metrics.ready_for_pickup_orders|default(0) %}
+{% set delivered_orders_total = metrics.delivered_orders|default(0) %}
+{% set available_delivery_people_list = available_delivery_people if available_delivery_people is defined else [] %}
+
+{% set ns = namespace(placed=0, confirmed=0, out_for_delivery=0, delivered=0, cancelled=0, low_stock=0, active_products=0, inactive_products=0, out_stock=0, total_stock=0) %}
+{% if orders %}
+  {% for o in orders %}
+    {% set st = (o.status or '')|upper %}
+    {% if st == 'PLACED' %}{% set ns.placed = ns.placed + 1 %}{% endif %}
+    {% if st == 'CONFIRMED' %}{% set ns.confirmed = ns.confirmed + 1 %}{% endif %}
+    {% if st == 'OUT_FOR_DELIVERY' %}{% set ns.out_for_delivery = ns.out_for_delivery + 1 %}{% endif %}
+    {% if st == 'DELIVERED' %}{% set ns.delivered = ns.delivered + 1 %}{% endif %}
+    {% if st == 'CANCELLED' %}{% set ns.cancelled = ns.cancelled + 1 %}{% endif %}
+  {% endfor %}
+{% endif %}
+{% if products %}
+  {% for p in products %}
+    {% if p.is_active %}{% set ns.active_products = ns.active_products + 1 %}{% else %}{% set ns.inactive_products = ns.inactive_products + 1 %}{% endif %}
+    {% if (p.stock_kg or 0) <= 0 %}{% set ns.out_stock = ns.out_stock + 1 %}{% endif %}
+    {% if (p.stock_kg or 0) > 0 and (p.stock_kg or 0) <= 1.0 %}{% set ns.low_stock = ns.low_stock + 1 %}{% endif %}
+    {% set ns.total_stock = ns.total_stock + (p.stock_kg or 0) %}
+  {% endfor %}
+{% endif %}
+
+<section class="nf-store-dashboard" data-page="products">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    .nf-store-dashboard{
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --card2:#FBFFFD;
+      --soft:#F3FFF8;
+      --soft2:#F7FBF9;
+      --line:#DDECE4;
+      --line2:#EAF4EF;
+      --ink:#1F332A;
+      --text:#40534A;
+      --muted:#66756D;
+      --muted2:#8A9890;
+      --green:#00A859;
+      --green-dark:#008A48;
+      --green-deep:#075C3B;
+      --green-soft:#E9FFF3;
+      --orange:#FF8A1F;
+      --orange-soft:#FFF4EA;
+      --red:#EF4444;
+      --red-soft:#FFF1F2;
+      --blue:#0284C7;
+      --blue-soft:#E0F2FE;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      --shadow2:0 22px 58px rgba(17,64,38,.12);
+      --radius:24px;
+      --ease:cubic-bezier(.2,.75,.25,1);
+      width:100%;
+      min-height:100%;
+      background:var(--bg);
+      color:var(--ink);
+      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      overflow-x:hidden;
+    }
+
+    .nf-store-dashboard,
+    .nf-store-dashboard *{box-sizing:border-box;}
+
+    .sd-shell{width:100%;max-width:1600px;margin:0 auto;padding:24px;}
+    .sd-stack{display:grid;gap:20px;}
+    .sd-card{background:rgba(255,255,255,.98);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+
+    .sd-hero{
+      position:relative;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:18px;
+      align-items:center;
+      padding:24px;
+      border-radius:28px;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .sd-kicker{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:0 11px;border-radius:999px;background:var(--green-soft);border:1px solid rgba(0,168,89,.18);color:var(--green-dark);font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;}
+    .sd-hero-title{margin:14px 0 8px;color:var(--ink);font-size:clamp(26px,3vw,42px);line-height:1.04;font-weight:900;letter-spacing:-.05em;}
+    .sd-hero-copy{max-width:980px;margin:0;color:var(--muted);font-size:15px;font-weight:650;line-height:1.65;}
+    .sd-hero-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
+
+    .sd-btn,
+    .sd-table button,
+    .sd-table a,
+    .sd-action-row button,
+    .sd-action-row a{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      text-decoration:none;
+      font-size:13px;
+      font-weight:900;
+      transition:.2s var(--ease);
+      cursor:pointer;
+      white-space:nowrap;
+      font-family:inherit;
+    }
+
+    .sd-btn-primary,
+    .sd-action-row .sd-primary{
+      background:var(--green)!important;
+      border-color:var(--green)!important;
+      color:#fff!important;
+      box-shadow:0 12px 24px rgba(0,168,89,.18);
+    }
+
+    .sd-btn-danger,
+    .sd-table .sd-btn-danger{
+      background:var(--red-soft)!important;
+      border-color:#FECACA!important;
+      color:#B91C1C!important;
+    }
+
+    .sd-btn-warning,
+    .sd-table .sd-btn-warning{
+      background:var(--orange-soft)!important;
+      border-color:#FED7AA!important;
+      color:#C2410C!important;
+    }
+
+    .sd-btn:hover,
+    .sd-table button:hover,
+    .sd-table a:hover,
+    .sd-action-row button:hover,
+    .sd-action-row a:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.30);
+      color:var(--green-dark);
+      box-shadow:0 12px 24px rgba(17,64,38,.09);
+    }
+
+    .sd-btn-primary:hover,
+    .sd-action-row .sd-primary:hover{
+      color:#fff!important;
+    }
+
+    .sd-priority-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+    .sd-priority-card{
+      min-height:126px;
+      border-radius:22px;
+      background:var(--card);
+      border:1px solid var(--line);
+      box-shadow:0 10px 28px rgba(17,64,38,.06);
+      padding:18px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      transition:.22s var(--ease);
+    }
+    .sd-priority-card:hover{transform:translateY(-3px);box-shadow:var(--shadow2);border-color:rgba(0,168,89,.26);}
+    .sd-priority-icon{width:48px;height:48px;border-radius:17px;display:grid;place-items:center;background:var(--green-soft);font-size:24px;flex:0 0 auto;}
+    .sd-priority-label{color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;}
+    .sd-priority-value{margin-top:8px;color:var(--ink);font-size:clamp(26px,3vw,38px);line-height:1;font-weight:900;letter-spacing:-.045em;}
+    .sd-priority-meta{margin-top:8px;color:var(--muted2);font-size:12px;font-weight:800;line-height:1.35;}
+
+    .sd-section-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      padding:20px 22px;
+      border-bottom:1px solid var(--line2);
+      background:var(--card2);
+    }
+    .sd-section-title{margin:0;color:var(--ink);font-size:18px;font-weight:900;letter-spacing:-.03em;}
+    .sd-section-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:650;line-height:1.45;}
+    .sd-view-link{color:var(--green-dark);text-decoration:none;font-size:13px;font-weight:900;white-space:nowrap;}
+
+    .sd-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:#fff;border-bottom:1px solid var(--line2);flex-wrap:wrap;}
+    .sd-search-wrap{width:min(420px,100%);position:relative;}
+    .sd-search-input{width:100%;height:44px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);padding:0 12px 0 40px;outline:none;font-weight:750;}
+    .sd-search-input:focus{border-color:rgba(0,168,89,.42);box-shadow:0 0 0 4px rgba(0,168,89,.08);}
+    .sd-search-wrap::before{content:"⌕";position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted2);font-weight:900;}
+
+    .sd-table-wrap{padding:0 20px 20px;overflow:auto;}
+    .sd-table{width:100%;min-width:1040px;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;}
+    .sd-table thead{background:var(--green-deep);color:#fff;}
+    .sd-table th{padding:14px;text-align:left;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;}
+    .sd-table td{padding:14px;border-bottom:1px solid var(--line2);color:var(--text);font-size:13px;font-weight:700;vertical-align:top;}
+    .sd-table tbody tr:last-child td{border-bottom:0;}
+    .sd-table tbody tr:nth-child(even){background:#FCFFFD;}
+    .sd-table tbody tr:hover{background:#F7FFFB;}
+    .sd-table .thumb{width:58px;height:58px;object-fit:cover;border-radius:14px;border:1px solid var(--line);background:#fff;}
+    .sd-tag{display:inline-flex;align-items:center;gap:6px;min-height:26px;border-radius:999px;padding:0 10px;font-size:11px;font-weight:900;background:var(--green-soft);color:var(--green-dark);border:1px solid rgba(0,168,89,.16);margin-top:6px;}
+    .sd-tag-off{background:var(--red-soft);color:#B91C1C;border-color:#FECACA;}
+    .sd-stock-low{background:#FFF7ED!important;color:#C2410C!important;border-color:#FED7AA!important;}
+    .sd-muted{color:var(--muted);font-size:13px;font-weight:700;}
+    .sd-row-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .is-green{color:var(--green-dark)!important;}.is-red{color:var(--red)!important;}.is-blue{color:var(--blue)!important;}.is-orange{color:var(--orange)!important;}
+
+    .sd-confirm-backdrop{
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --card2:#FBFFFD;
+      --soft:#F3FFF8;
+      --soft2:#F7FBF9;
+      --line:#DDECE4;
+      --line2:#EAF4EF;
+      --ink:#1F332A;
+      --text:#40534A;
+      --muted:#66756D;
+      --muted2:#8A9890;
+      --green:#00A859;
+      --green-dark:#008A48;
+      --green-deep:#075C3B;
+      --green-soft:#E9FFF3;
+      --orange:#FF8A1F;
+      --orange-soft:#FFF4EA;
+      --red:#EF4444;
+      --red-soft:#FFF1F2;
+      --blue:#0284C7;
+      --blue-soft:#E0F2FE;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      --shadow2:0 22px 58px rgba(17,64,38,.12);
+      --radius:24px;
+      --ease:cubic-bezier(.2,.75,.25,1);
+      position:fixed;
+      inset:0;
+      z-index:2147483647;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      width:100vw;
+      height:100vh;
+      padding:18px;
+      background:rgba(15,23,42,.42);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+
+    html.sd-modal-open,
+    body.sd-modal-open{
+      overflow:hidden!important;
+      height:100%!important;
+      overscroll-behavior:none!important;
+      touch-action:none!important;
+    }
+
+    body.sd-modal-open{
+      position:fixed!important;
+      width:100%!important;
+    }
+
+    .sd-confirm-backdrop.is-open{
+      display:flex;
+    }
+
+    .sd-confirm-box{
+      position:relative;
+      z-index:1;
+      width:min(460px,calc(100vw - 32px));
+      border-radius:26px;
+      border:1px solid rgba(221,236,228,.95);
+      background:#fff;
+      box-shadow:0 30px 90px rgba(15,23,42,.24);
+      overflow:hidden;
+      transform:translateY(12px) scale(.98);
+      opacity:0;
+      animation:sdConfirmIn .22s var(--ease) forwards;
+      filter:none!important;
+      pointer-events:auto;
+      user-select:auto;
+    }
+
+    @keyframes sdConfirmIn{
+      to{transform:translateY(0) scale(1);opacity:1;}
+    }
+
+    .sd-confirm-head{
+      padding:20px 22px;
+      border-bottom:1px solid var(--line2);
+      background:linear-gradient(135deg,#fff,var(--green-soft));
+      display:flex;
+      align-items:flex-start;
+      gap:13px;
+    }
+
+    .sd-confirm-icon{
+      width:46px;
+      height:46px;
+      border-radius:16px;
+      background:var(--green);
+      color:#fff;
+      display:grid;
+      place-items:center;
+      font-size:22px;
+      flex:0 0 auto;
+      box-shadow:0 12px 24px rgba(0,168,89,.20);
+    }
+
+    .sd-confirm-title{
+      margin:0;
+      color:var(--ink);
+      font-size:20px;
+      font-weight:900;
+      letter-spacing:-.04em;
+    }
+
+    .sd-confirm-message{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:750;
+      line-height:1.5;
+    }
+
+    .sd-confirm-actions{
+      padding:16px 22px 20px;
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      background:#fff;
+      flex-wrap:wrap;
+    }
+
+    .sd-confirm-actions button{
+      min-height:42px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      padding:10px 14px;
+      font-weight:900;
+      font-family:inherit;
+      cursor:pointer;
+    }
+
+    .sd-confirm-cancel{
+      background:#fff;
+      color:var(--text);
+    }
+
+    .sd-confirm-ok{
+      background:var(--green);
+      color:#fff;
+      border-color:var(--green)!important;
+      box-shadow:0 12px 24px rgba(0,168,89,.18);
+    }
+
+    .sd-confirm-ok.is-danger{
+      background:var(--red);
+      border-color:var(--red)!important;
+      box-shadow:0 12px 24px rgba(239,68,68,.18);
+    }
+
+    @media (max-width:1400px){
+      .sd-priority-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    }
+    @media (max-width:900px){
+      .sd-shell{padding:16px;}
+      .sd-hero{grid-template-columns:1fr;padding:20px;}
+      .sd-hero-actions{justify-content:flex-start;}
+    }
+    @media (max-width:560px){
+      .sd-shell{padding:10px;}
+      .sd-hero{border-radius:20px;padding:16px;}
+      .sd-hero-title{font-size:24px;}
+      .sd-priority-grid{grid-template-columns:1fr;}
+      .sd-section-head{padding:16px;flex-direction:column;align-items:flex-start;}
+      .sd-table-wrap{padding:0 14px 16px;}
+      .sd-table-toolbar{align-items:stretch;}
+      .sd-search-wrap{width:100%;}
+      .sd-row-actions a,
+      .sd-row-actions button,
+      .sd-hero-actions a{width:100%;}
+      .sd-confirm-actions button{width:100%;}
+    }
+  </style>
+
+  <div class="sd-shell">
+    <div class="sd-stack">
+      <section class="sd-hero">
+        <div>
+          <span class="sd-kicker">🛍️ Store Products</span>
+          <h1 class="sd-hero-title">Product Inventory</h1>
+          <p class="sd-hero-copy">
+            Manage product visibility, pricing, stock and product records. Use the edit page for restocking or changing details.
+          </p>
+        </div>
+        <div class="sd-hero-actions">
+          <a class="sd-btn sd-btn-primary" href="{{ url_for('store_add_product') }}">＋ Add Product</a>
+          <a class="sd-btn" href="{{ url_for('store_inventory') }}">Stock & Inventory</a>
+          <a class="sd-btn" href="{{ url_for('store_categories') }}">Categories</a>
+        </div>
+      </section>
+
+      <section class="sd-priority-grid" aria-label="Product summary">
+        <div class="sd-priority-card">
+          <div>
+            <div class="sd-priority-label">Total Products</div>
+            <div class="sd-priority-value">{{ products_total }}</div>
+            <div class="sd-priority-meta">All products listed by this store</div>
+          </div>
+          <div class="sd-priority-icon">🛒</div>
+        </div>
+
+        <div class="sd-priority-card">
+          <div>
+            <div class="sd-priority-label">Active Products</div>
+            <div class="sd-priority-value is-green">{{ ns.active_products }}</div>
+            <div class="sd-priority-meta">Visible for customer ordering</div>
+          </div>
+          <div class="sd-priority-icon">✅</div>
+        </div>
+
+        <div class="sd-priority-card">
+          <div>
+            <div class="sd-priority-label">Disabled Products</div>
+            <div class="sd-priority-value is-red">{{ ns.inactive_products }}</div>
+            <div class="sd-priority-meta">Hidden from customer ordering</div>
+          </div>
+          <div class="sd-priority-icon">⏸️</div>
+        </div>
+
+        <div class="sd-priority-card">
+          <div>
+            <div class="sd-priority-label">Low / Out Stock</div>
+            <div class="sd-priority-value is-orange">{{ ns.low_stock + ns.out_stock }}</div>
+            <div class="sd-priority-meta">{{ ns.low_stock }} low stock, {{ ns.out_stock }} out of stock</div>
+          </div>
+          <div class="sd-priority-icon">⚠️</div>
+        </div>
+      </section>
+
+      <section class="sd-card" id="products">
+        <div class="sd-section-head">
+          <div>
+            <h2 class="sd-section-title">Product Inventory</h2>
+            <p class="sd-section-sub">Disable, enable, edit or delete products. Restocking is handled inside the edit page.</p>
+          </div>
+          <a class="sd-view-link" href="{{ url_for('store_add_product') }}">Add product</a>
+        </div>
+
+        <div class="sd-table-toolbar">
+          <div class="sd-search-wrap">
+            <input class="sd-search-input" type="search" data-sd-product-search placeholder="Search products, category or stock...">
+          </div>
+          <span class="sd-muted">{{ products_total }} products · {{ ns.low_stock }} low stock</span>
+        </div>
+
+        <div class="sd-table-wrap" id="inventory">
+          <table class="sd-table" data-sd-product-table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>₹/kg</th>
+                <th>Stock (kg)</th>
+                <th>Status</th>
+                <th>Image</th>
+                <th style="min-width:320px">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% if products and products|length %}
+              {% for p in products %}
+                {% set low = ((p.stock_kg or 0) <= 1.0 and (p.stock_kg or 0) > 0) %}
+                {% set out = ((p.stock_kg or 0) <= 0) %}
+                <tr>
+                  <td>
+                    <div class="sd-name">{{ p.name }}</div>
+                    <div>
+                      {% if p.category %}
+                        <span class="sd-tag">{{ p.category }}</span>
+                        {% if p.sub_category %}<span class="sd-tag">{{ p.sub_category }}</span>{% endif %}
+                      {% else %}
+                        <span class="sd-tag">UNCATEGORIZED</span>
+                      {% endif %}
+                    </div>
+                    {% if out %}
+                      <span class="sd-tag sd-tag-off">Out of stock</span>
+                    {% elif low %}
+                      <span class="sd-tag sd-stock-low">Low: {{ '%.2f'|format(p.stock_kg or 0) }} kg</span>
+                    {% else %}
+                      <span class="sd-tag">Left: {{ '%.2f'|format(p.stock_kg or 0) }} kg</span>
+                    {% endif %}
+                  </td>
+                  <td>₹ {{ '%.2f'|format(p.price_per_kg or 0) }}</td>
+                  <td>{{ '%.2f'|format(p.stock_kg or 0) }}</td>
+                  <td>
+                    {% if p.is_active %}
+                      <span class="sd-tag">Active</span>
+                    {% else %}
+                      <span class="sd-tag sd-tag-off">Disabled</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if p.image_path %}
+                      <img class="thumb" src="/{{ p.image_path }}" alt="Product image">
+                    {% else %}
+                      <span class="sd-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="sd-row-actions">
+                      <form method="post"
+                            action="{{ url_for('store_product_toggle', pid=p.id) }}"
+                            data-confirm-form
+                            data-confirm-title="{{ 'Disable product?' if p.is_active else 'Enable product?' }}"
+                            data-confirm-message="{{ 'This product will be hidden from customers until you enable it again.' if p.is_active else 'This product will be visible to customers again.' }}"
+                            data-confirm-danger="{{ '1' if p.is_active else '0' }}">
+                        <button type="submit" class="{{ 'sd-btn-warning' if p.is_active else 'sd-btn-primary' }}">
+                          {{ 'Disable' if p.is_active else 'Enable' }}
+                        </button>
+                      </form>
+
+                      <a href="{{ url_for('store_product_edit', pid=p.id) }}">Edit</a>
+
+                      <form method="post"
+                            action="{{ url_for('store_product_delete', pid=p.id) }}"
+                            data-confirm-form
+                            data-confirm-title="Delete product?"
+                            data-confirm-message="This action will permanently delete the product from your store inventory."
+                            data-confirm-danger="1">
+                        <button type="submit" class="sd-btn-danger">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="6" class="sd-muted" style="text-align:center">No products yet. Add your first product.</td></tr>
+            {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      document.addEventListener('DOMContentLoaded', function(){
+        const restoreKey = 'nfStoreProductsScrollY';
+
+        function restoreProductsScroll() {
+          const saved = sessionStorage.getItem(restoreKey);
+
+          if (saved !== null) {
+            const y = parseInt(saved, 10) || 0;
+            sessionStorage.removeItem(restoreKey);
+
+            requestAnimationFrame(function(){
+              window.scrollTo({ top: y, left: 0, behavior: 'auto' });
+            });
+          }
+        }
+
+        function rememberProductsScroll() {
+          sessionStorage.setItem(restoreKey, String(window.scrollY || document.documentElement.scrollTop || 0));
+        }
+
+        restoreProductsScroll();
+
+        function bindSearch(inputSelector, tableSelector) {
+          const input = document.querySelector(inputSelector);
+          const table = document.querySelector(tableSelector);
+          if (!input || !table) return;
+
+          const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+          input.addEventListener('input', function(){
+            const q = input.value.trim().toLowerCase();
+
+            rows.forEach(function(row){
+              const text = row.textContent.toLowerCase();
+              row.style.display = !q || text.includes(q) ? '' : 'none';
+            });
+          });
+        }
+
+        bindSearch('[data-sd-product-search]', '[data-sd-product-table]');
+
+        const backdrop = document.getElementById('sdConfirmBackdrop');
+
+        if (backdrop && backdrop.parentElement !== document.body) {
+          document.body.appendChild(backdrop);
+        }
+
+        const title = document.getElementById('sdConfirmTitle');
+        const message = document.getElementById('sdConfirmMessage');
+        const icon = document.getElementById('sdConfirmIcon');
+        const cancelBtn = document.getElementById('sdConfirmCancel');
+        const okBtn = document.getElementById('sdConfirmOk');
+
+        let pendingAction = null;
+        let lockedScrollY = 0;
+
+        function preventBackgroundScroll(event) {
+          if (!backdrop || !backdrop.classList.contains('is-open')) return;
+
+          const box = event.target.closest('.sd-confirm-box');
+          if (!box) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }
+
+        function lockPageScroll() {
+          lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+
+          document.documentElement.classList.add('sd-modal-open');
+          document.body.classList.add('sd-modal-open');
+          document.body.style.top = `-${lockedScrollY}px`;
+
+          document.addEventListener('wheel', preventBackgroundScroll, { passive:false, capture:true });
+          document.addEventListener('touchmove', preventBackgroundScroll, { passive:false, capture:true });
+        }
+
+        function unlockPageScroll() {
+          document.documentElement.classList.remove('sd-modal-open');
+          document.body.classList.remove('sd-modal-open');
+
+          document.removeEventListener('wheel', preventBackgroundScroll, { capture:true });
+          document.removeEventListener('touchmove', preventBackgroundScroll, { capture:true });
+
+          document.body.style.top = '';
+          window.scrollTo(0, lockedScrollY || 0);
+        }
+
+        function closeConfirm() {
+          if (!backdrop) return;
+          backdrop.classList.remove('is-open');
+          backdrop.setAttribute('aria-hidden', 'true');
+          unlockPageScroll();
+          pendingAction = null;
+        }
+
+        function openConfirm(options) {
+          if (!backdrop || !title || !message || !icon || !okBtn) {
+            if (typeof options.onConfirm === 'function') options.onConfirm();
+            return;
+          }
+
+          title.textContent = options.title || 'Confirm action';
+          message.textContent = options.message || 'Please confirm this action.';
+          icon.textContent = options.danger ? '!' : '✓';
+          okBtn.textContent = options.okText || 'Confirm';
+          okBtn.classList.toggle('is-danger', !!options.danger);
+          pendingAction = options.onConfirm;
+
+          backdrop.classList.add('is-open');
+          backdrop.setAttribute('aria-hidden', 'false');
+          lockPageScroll();
+          okBtn.focus();
+        }
+
+        document.querySelectorAll('[data-confirm-form]').forEach(function(form){
+          form.addEventListener('submit', function(event){
+            if (form.dataset.confirmed === '1') {
+              form.dataset.confirmed = '';
+              return;
+            }
+
+            event.preventDefault();
+
+            openConfirm({
+              title: form.dataset.confirmTitle,
+              message: form.dataset.confirmMessage,
+              danger: form.dataset.confirmDanger === '1',
+              okText: form.dataset.confirmDanger === '1' ? 'Yes, continue' : 'Confirm',
+              onConfirm: function(){
+                rememberProductsScroll();
+                form.dataset.confirmed = '1';
+                form.submit();
+              }
+            });
+          });
+        });
+
+        if (cancelBtn) cancelBtn.addEventListener('click', closeConfirm);
+
+        if (okBtn) {
+          okBtn.addEventListener('click', function(){
+            const action = pendingAction;
+            closeConfirm();
+            if (typeof action === 'function') action();
+          });
+        }
+
+        if (backdrop) {
+          backdrop.addEventListener('click', function(event){
+            if (event.target === backdrop) closeConfirm();
+          });
+        }
+
+        document.addEventListener('keydown', function(event){
+          if (event.key === 'Escape' && backdrop && backdrop.classList.contains('is-open')) {
+            closeConfirm();
+          }
+        });
+      });
+    })();
+  </script>
+</section>
+
+<div class="sd-confirm-backdrop" id="sdConfirmBackdrop" aria-hidden="true">
+  <div class="sd-confirm-box" role="dialog" aria-modal="true" aria-labelledby="sdConfirmTitle">
+    <div class="sd-confirm-head">
+      <div class="sd-confirm-icon" id="sdConfirmIcon">?</div>
+      <div>
+        <h3 class="sd-confirm-title" id="sdConfirmTitle">Confirm action</h3>
+        <p class="sd-confirm-message" id="sdConfirmMessage">Please confirm this action.</p>
+      </div>
+    </div>
+    <div class="sd-confirm-actions">
+      <button type="button" class="sd-confirm-cancel" id="sdConfirmCancel">Cancel</button>
+      <button type="button" class="sd-confirm-ok" id="sdConfirmOk">Confirm</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
