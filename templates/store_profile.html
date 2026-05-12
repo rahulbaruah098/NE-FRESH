@@ -1,0 +1,504 @@
+{% extends "store_base.html" %}
+{% set active_page = "store_profile" %}
+
+{% block title %}Store Profile | NE FRESH Store{% endblock %}
+{% block page_title %}Store Profile{% endblock %}
+{% block page_subtitle %}Manage store identity, owner details, location and operating information.{% endblock %}
+
+{% block content %}
+{% set owner = store_owner if store_owner is defined and store_owner else user %}
+{% set completion = profile_completion if profile_completion is defined else {} %}
+{% set checklist = profile_checklist if profile_checklist is defined else [] %}
+{% set settings = notification_settings if notification_settings is defined else {} %}
+
+<section class="nf-store-profile-page">
+  <style>
+    .nf-store-profile-page{
+      --bg:#F8FFFB;--card:#fff;--soft:#F3FFF8;--line:#DDECE4;--line2:#EAF4EF;
+      --ink:#1F332A;--text:#40534A;--muted:#66756D;--green:#00A859;--green-dark:#008A48;
+      --orange:#FF8A1F;--orange-soft:#FFF4EA;--shadow:0 14px 36px rgba(17,64,38,.08);
+      --shadow2:0 24px 70px rgba(17,64,38,.13);--radius:24px;--ease:cubic-bezier(.2,.75,.25,1);
+      width:100%;min-height:100%;background:radial-gradient(circle at 12% 0%,rgba(0,168,89,.09),transparent 34%),var(--bg);
+      color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden;
+    }
+    .nf-store-profile-page,*{box-sizing:border-box}
+    .sp-shell{max-width:1680px;margin:0 auto;padding:24px}.sp-stack{display:grid;gap:20px}
+    .sp-card,.sp-hero{background:rgba(255,255,255,.98);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}.sp-card{transition:.22s var(--ease)}.sp-card:hover{box-shadow:var(--shadow2);border-color:rgba(0,168,89,.18)}
+    .sp-hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(330px,.9fr);gap:20px;padding:24px;border-radius:30px;background:linear-gradient(135deg,#fff,var(--soft));box-shadow:var(--shadow2)}
+    .sp-kicker{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:0 12px;border-radius:999px;background:#E9FFF3;border:1px solid rgba(0,168,89,.18);color:var(--green-dark);font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+    .sp-title{margin:14px 0 8px;font-size:clamp(30px,4vw,54px);line-height:1;font-weight:900;letter-spacing:-.06em}.sp-copy{max-width:900px;margin:0;color:var(--muted);font-size:15px;font-weight:650;line-height:1.65}
+    .sp-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.sp-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 15px;border-radius:15px;border:1px solid var(--line);background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:900;transition:.2s var(--ease);cursor:pointer;white-space:nowrap}.sp-btn-primary{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;box-shadow:0 12px 24px rgba(0,168,89,.18)}.sp-btn:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(17,64,38,.09)}
+    .sp-logo-row{display:flex;align-items:center;gap:14px}.sp-logo{width:82px;height:82px;border-radius:24px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;color:var(--green-dark);font-size:34px;font-weight:900;box-shadow:0 12px 28px rgba(17,64,38,.08)}.sp-logo img{width:100%;height:100%;object-fit:contain;padding:8px}.sp-store-name{font-size:18px;font-weight:900}.sp-store-sub{margin-top:5px;color:var(--muted);font-size:13px;font-weight:750;line-height:1.35}
+    .sp-status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.sp-status-pill{min-height:56px;padding:11px 12px;border-radius:18px;border:1px solid var(--line2);background:#fff}.sp-status-pill span{display:block;color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.sp-status-pill strong{display:block;margin-top:6px;font-size:14px;font-weight:900;line-height:1.25}
+    .sp-grid{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(340px,.84fr);gap:20px;align-items:start}.sp-section-head{padding:20px 22px;border-bottom:1px solid var(--line2);background:#FBFFFD}.sp-section-title{margin:0;font-size:18px;font-weight:900;letter-spacing:-.03em}.sp-section-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:650;line-height:1.45}
+    .sp-form{padding:22px;display:grid;gap:18px}.sp-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.sp-field{display:grid;gap:8px}.sp-field.full{grid-column:1/-1}.sp-field label{color:var(--text);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.07em}
+    .sp-input,.sp-textarea,.sp-file{width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);outline:none;font-weight:800;font-family:inherit}.sp-input{min-height:46px;padding:0 13px}.sp-textarea{min-height:108px;padding:13px;resize:vertical;line-height:1.5}.sp-file{height:auto;padding:12px 13px}.sp-input:focus,.sp-textarea:focus,.sp-file:focus{border-color:rgba(0,168,89,.42);box-shadow:0 0 0 4px rgba(0,168,89,.08)}
+    .sp-help{color:var(--muted);font-size:12px;font-weight:700;line-height:1.4}.sp-current{display:inline-flex;align-items:center;gap:6px;width:max-content;max-width:100%;min-height:28px;padding:6px 10px;border-radius:999px;background:#E9FFF3;border:1px solid rgba(0,168,89,.16);color:var(--muted);font-size:12px;font-weight:800}.sp-current strong{color:var(--green-dark);font-weight:900}.sp-check-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sp-check{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--text);font-size:13px;font-weight:850}.sp-check input{accent-color:var(--green)}
+    .sp-side-stack{display:grid;gap:20px}.sp-preview,.sp-completion{padding:20px}.sp-preview-box{padding:18px;border:1px solid var(--line2);border-radius:22px;background:linear-gradient(135deg,#fff,var(--soft));display:grid;gap:14px}.sp-preview-head{display:flex;align-items:center;gap:13px}.sp-preview-logo{width:64px;height:64px;border-radius:20px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;font-size:28px;color:var(--green-dark);font-weight:900}.sp-preview-logo img{width:100%;height:100%;object-fit:contain;padding:7px}.sp-preview-title{font-size:17px;font-weight:900}.sp-preview-meta{margin-top:5px;color:var(--muted);font-size:12px;font-weight:750;line-height:1.4}
+    .sp-info-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line2);color:var(--text);font-size:13px;font-weight:800}.sp-info-row:last-child{border-bottom:0}.sp-info-row span{color:var(--muted)}.sp-info-row strong{text-align:right;font-weight:900}
+    .sp-progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.sp-progress-label{font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.sp-progress-value{font-size:28px;color:var(--green-dark);font-weight:900}.sp-progress-track{height:12px;border-radius:999px;background:var(--line2);overflow:hidden}.sp-progress-fill{height:100%;width:{{ completion.percent|default(0) }}%;border-radius:999px;background:linear-gradient(90deg,var(--green),var(--green-dark))}
+    .sp-checklist{display:grid;gap:10px;margin-top:16px}.sp-check-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:15px;border:1px solid var(--line2);background:#fff;color:var(--text);font-size:13px;font-weight:850}.sp-check-icon{width:28px;height:28px;border-radius:10px;display:grid;place-items:center;font-weight:900;background:#E9FFF3;color:var(--green-dark)}.sp-check-item.missing{background:#FFFCF7}.sp-check-item.missing .sp-check-icon{background:var(--orange-soft);color:#C2410C}
+   
+    /* ===== Store Profile Save Confirmation Modal ===== */
+    .sp-confirm-backdrop{
+      --modal-green:#00A859;
+      --modal-green-dark:#008A48;
+      --modal-green-soft:#E9FFF3;
+      --modal-card:#FFFFFF;
+      --modal-soft:#F8FFFB;
+      --modal-line:#DDECE4;
+      --modal-line-2:#EAF4EF;
+      --modal-ink:#1F332A;
+      --modal-text:#40534A;
+      --modal-muted:#66756D;
+      --modal-orange:#FF8A1F;
+      --modal-shadow:0 30px 90px rgba(15,23,42,.24);
+      --modal-ease:cubic-bezier(.2,.75,.25,1);
+
+      position:fixed;
+      inset:0;
+      z-index:2147483647;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      width:100vw;
+      height:100vh;
+      padding:18px;
+      background:rgba(15,23,42,.44);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+    }
+
+    .sp-confirm-backdrop.is-open{
+      display:flex;
+    }
+
+    html.sp-modal-open,
+    body.sp-modal-open{
+      overflow:hidden!important;
+      height:100%!important;
+      overscroll-behavior:none!important;
+      touch-action:none!important;
+    }
+
+    body.sp-modal-open{
+      position:fixed!important;
+      width:100%!important;
+    }
+
+    .sp-confirm-box{
+      width:min(520px, calc(100vw - 32px));
+      border-radius:30px;
+      border:1px solid rgba(221,236,228,.98);
+      background:var(--modal-card);
+      box-shadow:var(--modal-shadow);
+      overflow:hidden;
+      opacity:1;
+      transform:translateY(0) scale(1);
+      animation:spConfirmIn .24s var(--modal-ease) both;
+    }
+
+    @keyframes spConfirmIn{
+      from{
+        transform:translateY(14px) scale(.97);
+        opacity:0;
+      }
+      to{
+        transform:translateY(0) scale(1);
+        opacity:1;
+      }
+    }
+
+    .sp-confirm-head{
+      padding:24px 24px 22px;
+      border-bottom:1px solid var(--modal-line-2);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(0,168,89,.14), transparent 34%),
+        linear-gradient(135deg,#fff,var(--modal-green-soft));
+      display:flex;
+      align-items:flex-start;
+      gap:15px;
+    }
+
+    .sp-confirm-icon{
+      width:54px;
+      height:54px;
+      border-radius:19px;
+      background:linear-gradient(135deg,var(--modal-green),var(--modal-green-dark));
+      color:#fff;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      flex:0 0 auto;
+      box-shadow:0 14px 28px rgba(0,168,89,.24);
+    }
+
+    .sp-confirm-title{
+      margin:0;
+      color:var(--modal-ink);
+      font-size:22px;
+      line-height:1.15;
+      font-weight:900;
+      letter-spacing:-.04em;
+    }
+
+    .sp-confirm-message{
+      margin:8px 0 0;
+      color:var(--modal-muted);
+      font-size:14px;
+      font-weight:750;
+      line-height:1.55;
+    }
+
+    .sp-confirm-body{
+      padding:18px 24px 0;
+      background:#fff;
+    }
+
+    .sp-confirm-note{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      padding:13px 14px;
+      border-radius:16px;
+      border:1px solid rgba(0,168,89,.16);
+      background:var(--modal-green-soft);
+      color:var(--modal-green-dark);
+      font-size:13px;
+      font-weight:850;
+      line-height:1.45;
+    }
+
+    .sp-confirm-note span:first-child{
+      flex:0 0 auto;
+    }
+
+    .sp-confirm-actions{
+      padding:18px 24px 24px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      background:#fff;
+    }
+
+    .sp-confirm-actions button{
+      min-height:48px;
+      border-radius:16px;
+      border:1px solid var(--modal-line);
+      padding:10px 16px;
+      font-weight:900;
+      font-family:inherit;
+      cursor:pointer;
+      transition:.2s var(--modal-ease);
+    }
+
+    .sp-confirm-cancel{
+      background:#fff;
+      color:var(--modal-text);
+    }
+
+    .sp-confirm-cancel:hover{
+      border-color:rgba(0,168,89,.30);
+      color:var(--modal-green-dark);
+      box-shadow:0 12px 24px rgba(17,64,38,.08);
+    }
+
+    .sp-confirm-ok{
+      background:linear-gradient(135deg,var(--modal-green),var(--modal-green-dark));
+      color:#fff;
+      border-color:var(--modal-green)!important;
+      box-shadow:0 14px 28px rgba(0,168,89,.22);
+    }
+
+    .sp-confirm-ok:hover{
+      transform:translateY(-1px);
+      box-shadow:0 18px 36px rgba(0,168,89,.26);
+    }
+
+    .sp-confirm-ok:disabled{
+      opacity:.72;
+      cursor:not-allowed;
+      transform:none;
+    }
+
+    @media(max-width:560px){
+      .sp-confirm-box{
+        width:calc(100vw - 24px);
+        border-radius:24px;
+      }
+
+      .sp-confirm-head{
+        padding:20px;
+      }
+
+      .sp-confirm-icon{
+        width:48px;
+        height:48px;
+        border-radius:16px;
+      }
+
+      .sp-confirm-actions{
+        grid-template-columns:1fr;
+        padding:16px 20px 20px;
+      }
+
+      .sp-confirm-body{
+        padding:16px 20px 0;
+      }
+    }
+    
+    @media(max-width:1280px){.sp-hero,.sp-grid{grid-template-columns:1fr}}@media(max-width:760px){.sp-shell{padding:14px}.sp-hero{padding:18px;border-radius:22px}.sp-form-grid,.sp-status-grid{grid-template-columns:1fr}.sp-section-head{padding:16px}.sp-form,.sp-preview,.sp-completion{padding:16px}.sp-actions .sp-btn,.sp-form .sp-btn,.sp-confirm-actions button{width:100%}.sp-title{font-size:30px}}@media(max-width:430px){.sp-shell{padding:10px}.sp-hero{padding:15px}.sp-logo{width:70px;height:70px}.sp-preview-head{align-items:flex-start}}
+  </style>
+
+  <div class="sp-shell"><div class="sp-stack">
+    <section class="sp-hero">
+      <div><span class="sp-kicker">🏪 NE FRESH Store Profile</span><h1 class="sp-title">{{ store.store_name or 'Store Profile' }}</h1><p class="sp-copy">Manage your NE FRESH store identity, owner contact details, pickup location, operating information and profile readiness from one place.</p><div class="sp-actions"><button class="sp-btn sp-btn-primary" type="button" data-submit-profile>Save Profile</button><button class="sp-btn" type="button" id="spUseLocation">Use Current Location</button><a class="sp-btn" href="{{ url_for('store_products') }}">Open Products</a><a class="sp-btn" href="{{ url_for('store_orders') }}">Open Orders</a></div></div>
+      <aside><div class="sp-logo-row"><div class="sp-logo">{% if store.logo_path %}<img src="/{{ store.logo_path }}" alt="{{ store.store_name }}">{% else %}{{ (store.store_name or 'S')[:1]|upper }}{% endif %}</div><div><div class="sp-store-name">{{ store.store_name or 'Store name not added' }}</div><div class="sp-store-sub">{{ store.address or 'Store address not updated yet.' }}</div></div></div><div class="sp-status-grid"><div class="sp-status-pill"><span>Status</span><strong>{{ 'Active' if store.is_active else 'Inactive' }}</strong></div><div class="sp-status-pill"><span>Profile</span><strong>{{ completion.percent|default(0) }}% Complete</strong></div><div class="sp-status-pill"><span>Notifications</span><strong>{{ 'Enabled' if settings.enabled else 'Disabled' }}</strong></div><div class="sp-status-pill"><span>Store ID</span><strong>{{ store.id or store._id }}</strong></div></div></aside>
+    </section>
+
+    <section class="sp-grid">
+      <div class="sp-card">
+        <div class="sp-section-head"><h2 class="sp-section-title">Edit Store Details</h2><p class="sp-section-sub">Update identity, owner contact, location and operating details.</p></div>
+        <form class="sp-form" id="storeProfileForm" method="post" action="{{ url_for('store_profile_update') }}" enctype="multipart/form-data">
+          <div class="sp-form-grid">
+            <div class="sp-field"><label>Store Name</label><input class="sp-input" name="store_name" value="{{ store.store_name or '' }}" required><div class="sp-current">Current: <strong>{{ store.store_name or '—' }}</strong></div></div>
+            <div class="sp-field"><label>Owner Name</label><input class="sp-input" name="owner_name" value="{{ owner.name or store.owner_name or '' }}" required><div class="sp-current">Current: <strong>{{ owner.name or store.owner_name or '—' }}</strong></div></div>
+            <div class="sp-field"><label>Login Email</label><input class="sp-input" value="{{ owner.email or '' }}" readonly><div class="sp-help">Login email is read-only for account safety.</div></div>
+            <div class="sp-field"><label>Phone Number</label><input class="sp-input" name="phone" value="{{ owner.phone or store.phone or '' }}" required><div class="sp-current">Current: <strong>{{ owner.phone or store.phone or '—' }}</strong></div></div>
+            <div class="sp-field full"><label>Store Address</label><textarea class="sp-textarea" name="address" required>{{ store.address or '' }}</textarea><div class="sp-current">Current: <strong>{{ store.address or '—' }}</strong></div></div>
+            <div class="sp-field"><label>Pincode</label><input class="sp-input" name="pincode" value="{{ store.pincode or '' }}"><div class="sp-current">Current: <strong>{{ store.pincode or '—' }}</strong></div></div>
+            <div class="sp-field"><label>Store Logo / Image</label><input class="sp-file" type="file" name="logo" accept="image/*"><div class="sp-current">Current image: <strong>{{ 'Uploaded' if store.logo_path else 'Not uploaded' }}</strong></div></div>
+            <div class="sp-field full"><label>Store Description</label><textarea class="sp-textarea" name="description">{{ store.description or '' }}</textarea><div class="sp-current">Current: <strong>{{ store.description or '—' }}</strong></div></div>
+            <div class="sp-field"><label>Latitude</label><input class="sp-input" id="storeLatitude" name="latitude" value="{{ store.latitude if store.latitude is not none else '' }}"><div class="sp-current">Current: <strong>{{ store.latitude if store.latitude is not none else '—' }}</strong></div></div>
+            <div class="sp-field"><label>Longitude</label><input class="sp-input" id="storeLongitude" name="longitude" value="{{ store.longitude if store.longitude is not none else '' }}"><div class="sp-current">Current: <strong>{{ store.longitude if store.longitude is not none else '—' }}</strong></div></div>
+            <div class="sp-field"><label>Opening Time</label><input class="sp-input" type="time" name="opening_time" value="{{ store.opening_time or '' }}"><div class="sp-current">Current: <strong>{{ store.opening_time or '—' }}</strong></div></div>
+            <div class="sp-field"><label>Closing Time</label><input class="sp-input" type="time" name="closing_time" value="{{ store.closing_time or '' }}"><div class="sp-current">Current: <strong>{{ store.closing_time or '—' }}</strong></div></div>
+            <div class="sp-field full"><label>Working Days</label>{% set wd = store.working_days if store.working_days else [] %}{% if wd is string %}{% set wd = wd.split(',') %}{% endif %}<div class="sp-check-row">{% for day in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}<label class="sp-check"><input type="checkbox" name="working_days" value="{{ day }}" {{ 'checked' if day in wd else '' }}> {{ day }}</label>{% endfor %}</div></div>
+            <div class="sp-field"><label>Average Preparation Time</label><input class="sp-input" type="number" min="0" step="1" name="preparation_time" value="{{ store.preparation_time or '' }}" placeholder="Minutes"><div class="sp-current">Current: <strong>{{ store.preparation_time or '—' }}{% if store.preparation_time %} min{% endif %}</strong></div></div>
+            <div class="sp-field"><label>Minimum Order Amount</label><input class="sp-input" type="number" min="0" step="0.01" name="min_order_amount" value="{{ store.min_order_amount or '' }}" placeholder="₹"><div class="sp-current">Current: <strong>{% if store.min_order_amount %}₹ {{ store.min_order_amount }}{% else %}—{% endif %}</strong></div></div>
+            <div class="sp-field full"><label class="sp-check"><input type="checkbox" name="delivery_available" value="1" {{ 'checked' if store.delivery_available|default(true) else '' }}> Delivery available from this store</label></div>
+          </div>
+          <div class="sp-actions"><button class="sp-btn sp-btn-primary" type="submit">Save Store Profile</button><button class="sp-btn" type="button" id="spUseLocationBottom">Use Current Location</button><a class="sp-btn" href="{{ url_for('store_dashboard') }}">Back to Dashboard</a></div><div class="sp-help" id="spLocationMsg"></div>
+        </form>
+      </div>
+
+      <aside class="sp-side-stack">
+        <div class="sp-card"><div class="sp-section-head"><h2 class="sp-section-title">Store Preview</h2><p class="sp-section-sub">Current identity and operational details.</p></div><div class="sp-preview"><div class="sp-preview-box"><div class="sp-preview-head"><div class="sp-preview-logo">{% if store.logo_path %}<img src="/{{ store.logo_path }}" alt="{{ store.store_name }}">{% else %}{{ (store.store_name or 'S')[:1]|upper }}{% endif %}</div><div><div class="sp-preview-title">{{ store.store_name or 'Store name not added' }}</div><div class="sp-preview-meta">{{ store.description or 'No store description added yet.' }}</div></div></div><div><div class="sp-info-row"><span>Owner</span><strong>{{ owner.name or store.owner_name or '—' }}</strong></div><div class="sp-info-row"><span>Phone</span><strong>{{ owner.phone or store.phone or '—' }}</strong></div><div class="sp-info-row"><span>Email</span><strong>{{ owner.email or '—' }}</strong></div><div class="sp-info-row"><span>Address</span><strong>{{ store.address or '—' }}</strong></div><div class="sp-info-row"><span>Coordinates</span><strong>{% if store.latitude is not none and store.longitude is not none %}{{ store.latitude }}, {{ store.longitude }}{% else %}Missing{% endif %}</strong></div><div class="sp-info-row"><span>Timing</span><strong>{{ store.opening_time or '—' }} - {{ store.closing_time or '—' }}</strong></div><div class="sp-info-row"><span>Delivery</span><strong>{{ 'Available' if store.delivery_available|default(true) else 'Not Available' }}</strong></div></div></div></div></div>
+        <div class="sp-card"><div class="sp-section-head"><h2 class="sp-section-title">Profile Health</h2><p class="sp-section-sub">Checklist for a complete NE FRESH store profile.</p></div><div class="sp-completion"><div class="sp-progress-head"><div><div class="sp-progress-label">Completion</div><div class="sp-help">{{ completion.done|default(0) }} of {{ completion.total|default(0) }} items completed</div></div><div class="sp-progress-value">{{ completion.percent|default(0) }}%</div></div><div class="sp-progress-track"><div class="sp-progress-fill"></div></div><div class="sp-checklist">{% if checklist %}{% for item in checklist %}<div class="sp-check-item {{ '' if item.done else 'missing' }}"><div class="sp-check-icon">{{ '✓' if item.done else '!' }}</div><div>{{ item.label }}</div></div>{% endfor %}{% else %}<div class="sp-check-item missing"><div class="sp-check-icon">!</div><div>Checklist not available.</div></div>{% endif %}</div></div></div>
+      </aside>
+    </section>
+  </div></div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      document.addEventListener('DOMContentLoaded', function(){
+        const form = document.getElementById('storeProfileForm');
+        const submitShortcut = document.querySelector('[data-submit-profile]');
+        const latInput = document.getElementById('storeLatitude');
+        const lngInput = document.getElementById('storeLongitude');
+        const locationMessage = document.getElementById('spLocationMsg');
+        const locationButtons = [
+          document.getElementById('spUseLocation'),
+          document.getElementById('spUseLocationBottom')
+        ].filter(Boolean);
+
+        function setLocationMessage(text, isError) {
+          if (!locationMessage) return;
+          locationMessage.textContent = text || '';
+          locationMessage.style.color = isError ? '#B91C1C' : '#008A48';
+          locationMessage.style.fontWeight = '850';
+        }
+
+        if (submitShortcut && form) {
+          submitShortcut.addEventListener('click', function(){
+            form.requestSubmit();
+          });
+        }
+
+        locationButtons.forEach(function(button){
+          button.addEventListener('click', function(){
+            if (!navigator.geolocation) {
+              setLocationMessage('Geolocation is not supported on this device/browser.', true);
+              return;
+            }
+
+            const previousText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Detecting...';
+
+            navigator.geolocation.getCurrentPosition(
+              function(position){
+                if (latInput) latInput.value = Number(position.coords.latitude).toFixed(6);
+                if (lngInput) lngInput.value = Number(position.coords.longitude).toFixed(6);
+
+                setLocationMessage('Location captured successfully. Please save the profile.', false);
+                button.disabled = false;
+                button.textContent = previousText;
+              },
+              function(){
+                setLocationMessage('Could not capture location. Please allow location permission or enter coordinates manually.', true);
+                button.disabled = false;
+                button.textContent = previousText;
+              },
+              {
+                enableHighAccuracy:true,
+                timeout:12000,
+                maximumAge:0
+              }
+            );
+          });
+        });
+
+        const backdrop = document.getElementById('spConfirmBackdrop');
+
+        if (backdrop && backdrop.parentElement !== document.body) {
+          document.body.appendChild(backdrop);
+        }
+
+        const modalBox = backdrop ? backdrop.querySelector('.sp-confirm-box') : null;
+        const cancelButton = document.getElementById('spConfirmCancel');
+        const okButton = document.getElementById('spConfirmOk');
+
+        let allowSubmit = false;
+        let lockedScrollY = 0;
+
+        function preventBackgroundScroll(event) {
+          if (!backdrop || !backdrop.classList.contains('is-open')) return;
+
+          const box = event.target.closest('.sp-confirm-box');
+
+          if (!box) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }
+
+        function lockPageScroll() {
+          lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+
+          document.documentElement.classList.add('sp-modal-open');
+          document.body.classList.add('sp-modal-open');
+          document.body.style.top = `-${lockedScrollY}px`;
+
+          document.addEventListener('wheel', preventBackgroundScroll, { passive:false, capture:true });
+          document.addEventListener('touchmove', preventBackgroundScroll, { passive:false, capture:true });
+        }
+
+        function unlockPageScroll() {
+          document.documentElement.classList.remove('sp-modal-open');
+          document.body.classList.remove('sp-modal-open');
+
+          document.removeEventListener('wheel', preventBackgroundScroll, { capture:true });
+          document.removeEventListener('touchmove', preventBackgroundScroll, { capture:true });
+
+          document.body.style.top = '';
+          window.scrollTo(0, lockedScrollY || 0);
+        }
+
+        function openConfirm() {
+          if (!form) return;
+
+          if (!backdrop || !okButton) {
+            allowSubmit = true;
+            form.submit();
+            return;
+          }
+
+          backdrop.classList.add('is-open');
+          backdrop.setAttribute('aria-hidden', 'false');
+          lockPageScroll();
+
+          requestAnimationFrame(function(){
+            okButton.focus();
+          });
+        }
+
+        function closeConfirm() {
+          if (!backdrop) return;
+
+          backdrop.classList.remove('is-open');
+          backdrop.setAttribute('aria-hidden', 'true');
+          unlockPageScroll();
+        }
+
+        if (modalBox) {
+          modalBox.addEventListener('click', function(event){
+            event.stopPropagation();
+          });
+        }
+
+        if (form) {
+          form.addEventListener('submit', function(event){
+            if (allowSubmit) return;
+
+            event.preventDefault();
+
+            if (!form.checkValidity()) {
+              form.reportValidity();
+              return;
+            }
+
+            openConfirm();
+          });
+        }
+
+        if (cancelButton) {
+          cancelButton.addEventListener('click', closeConfirm);
+        }
+
+        if (okButton) {
+          okButton.addEventListener('click', function(){
+            if (!form) return;
+
+            allowSubmit = true;
+            okButton.disabled = true;
+            okButton.textContent = 'Saving...';
+            closeConfirm();
+            form.submit();
+          });
+        }
+
+        if (backdrop) {
+          backdrop.addEventListener('click', function(event){
+            if (event.target === backdrop) closeConfirm();
+          });
+        }
+
+        document.addEventListener('keydown', function(event){
+          if (event.key === 'Escape' && backdrop && backdrop.classList.contains('is-open')) {
+            closeConfirm();
+          }
+        });
+      });
+    })();
+  </script>
+</section>
+
+<div class="sp-confirm-backdrop" id="spConfirmBackdrop" aria-hidden="true">
+  <div class="sp-confirm-box" role="dialog" aria-modal="true" aria-labelledby="spConfirmTitle">
+    <div class="sp-confirm-head">
+      <div class="sp-confirm-icon">✓</div>
+      <div>
+        <h3 class="sp-confirm-title" id="spConfirmTitle">Save store profile?</h3>
+        <p class="sp-confirm-message">
+          This will update your store identity, owner contact, location, operating details and logo if selected.
+        </p>
+      </div>
+    </div>
+
+    <div class="sp-confirm-body">
+      <div class="sp-confirm-note">
+        <span>ℹ️</span>
+        <span>Please confirm only after checking the updated profile details.</span>
+      </div>
+    </div>
+
+    <div class="sp-confirm-actions">
+      <button type="button" class="sp-confirm-cancel" id="spConfirmCancel">Cancel</button>
+      <button type="button" class="sp-confirm-ok" id="spConfirmOk">Save Profile</button>
+    </div>
+  </div>
+</div>
+{% endblock %}

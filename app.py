@@ -1210,43 +1210,46 @@ def products():
             "stock_kg": {"$gt": 0}
         }).sort("created_at", -1))
 
-        for p in products:
-            p["id"] = str(p["_id"])
+    for p in products:
+        p["id"] = str(p["_id"])
 
-            ratings = list(mongo.product_ratings.find({
-                "product_id": p["_id"]
-            }))
+        # Prevent Jinja sort/groupby crash when MongoDB has null category fields
+        p["category"] = (p.get("category") or "Uncategorized").strip()
+        p["sub_category"] = (p.get("sub_category") or "").strip()
 
-            rating_count = len(ratings)
-            total_rating = 0
+        ratings = list(mongo.product_ratings.find({
+            "product_id": p["_id"]
+        }))
 
-            for r in ratings:
-                try:
-                    total_rating += float(r.get("rating") or 0)
-                except (TypeError, ValueError):
-                    pass
+        rating_count = len(ratings)
+        total_rating = 0
 
-            if rating_count > 0:
-                avg_rating = round(total_rating / rating_count, 1)
-            else:
-                avg_rating = 0
+        for r in ratings:
+            try:
+                total_rating += float(r.get("rating") or 0)
+            except (TypeError, ValueError):
+                pass
 
-            p["avg_rating"] = avg_rating
-            p["rating_count"] = rating_count
+        if rating_count > 0:
+            avg_rating = round(total_rating / rating_count, 1)
+        else:
+            avg_rating = 0
 
-            store = None
-            if p.get("store_id"):
-                store = mongo.stores.find_one({"_id": p["store_id"]})
+        p["avg_rating"] = avg_rating
+        p["rating_count"] = rating_count
 
-            p["store_name"] = store.get("store_name") if store else ""
-            p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
+        store = None
+        if p.get("store_id"):
+            store = mongo.stores.find_one({"_id": p["store_id"]})
+
+        p["store_name"] = store.get("store_name") if store else ""
+        p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
 
     return render_template(
         'products.html',
         products=products,
         user=current_user()
     )
-
 
 
 def get_or_create_cart(uid):
@@ -2501,6 +2504,15 @@ def api_alerts_store():
             + float(o.get("tip_amount") or 0)
         )
 
+        _create_store_notification(
+            store,
+            title="New order received",
+            message=f"Order #{oid[-6:]} received. Payable amount ₹ {total_payable:.2f}.",
+            notif_type="new_order",
+            order=o,
+            event_key=f"new-order-{oid}"
+        )
+
         new_items.append({
             "order_id": oid,
             "total_payable": total_payable,
@@ -2512,7 +2524,6 @@ def api_alerts_store():
         "new": new_items,
         "next_last_id": next_last_id
     })
-
 
 @app.route('/api/alerts/delivery', methods=['GET'])
 @login_required(role='delivery')
@@ -2779,6 +2790,8 @@ def store_catalog(sid):
 
         for p in products:
             p["id"] = str(p["_id"])
+            p["category"] = (p.get("category") or "Uncategorized").strip()
+            p["sub_category"] = (p.get("sub_category") or "").strip()
             p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
             p["store_name"] = store.get("store_name", "")
 
@@ -5038,6 +5051,598 @@ def store_categories_page():
         **page_context
     )
 
+
+
+# =========================================================
+# STORE PROFILE
+# =========================================================
+
+def _build_store_profile_context(store, owner):
+    notification_settings = mongo.store_notification_settings.find_one({
+        "store_id": store["_id"]
+    }) or {
+        "enabled": False
+    }
+
+    checklist = [
+        {
+            "label": "Store name added",
+            "done": bool((store.get("store_name") or "").strip())
+        },
+        {
+            "label": "Owner name added",
+            "done": bool((owner.get("name") or store.get("owner_name") or "").strip())
+        },
+        {
+            "label": "Phone number added",
+            "done": bool((owner.get("phone") or store.get("phone") or "").strip())
+        },
+        {
+            "label": "Store address added",
+            "done": bool((store.get("address") or "").strip())
+        },
+        {
+            "label": "Pincode added",
+            "done": bool((store.get("pincode") or "").strip())
+        },
+        {
+            "label": "Latitude and longitude added",
+            "done": store.get("latitude") is not None and store.get("longitude") is not None
+        },
+        {
+            "label": "Store description added",
+            "done": bool((store.get("description") or "").strip())
+        },
+        {
+            "label": "Store logo uploaded",
+            "done": bool((store.get("logo_path") or "").strip())
+        },
+        {
+            "label": "Operating time added",
+            "done": bool((store.get("opening_time") or "").strip()) and bool((store.get("closing_time") or "").strip())
+        },
+        {
+            "label": "Working days selected",
+            "done": bool(store.get("working_days"))
+        },
+        {
+            "label": "Notifications configured",
+            "done": bool(notification_settings.get("enabled"))
+        },
+        {
+            "label": "Store account active",
+            "done": bool(store.get("is_active"))
+        }
+    ]
+
+    done = sum(1 for item in checklist if item["done"])
+    total = len(checklist)
+    percent = round((done / total) * 100) if total else 0
+
+    return {
+        "profile_checklist": checklist,
+        "profile_completion": {
+            "done": done,
+            "total": total,
+            "percent": percent
+        },
+        "notification_settings": notification_settings
+    }
+
+
+@app.route('/store/profile', methods=['GET'], endpoint='store_profile')
+@login_required(role='store')
+def store_profile_page():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    owner = mongo.users.find_one({"_id": ObjectId(str(store.get("user_id")))}) if store.get("user_id") else u
+    if not owner:
+        owner = u
+
+    store["id"] = str(store["_id"])
+
+    page_context = _build_store_split_page_context(store)
+    profile_context = _build_store_profile_context(store, owner)
+
+    return render_template(
+        "store_profile.html",
+        user=u,
+        store=store,
+        store_owner=owner,
+        **page_context,
+        **profile_context
+    )
+
+
+@app.route('/store/profile/update', methods=['POST'], endpoint='store_profile_update')
+@login_required(role='store')
+def store_profile_update():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    now = datetime.utcnow().isoformat()
+
+    store_name = (request.form.get("store_name") or "").strip()
+    owner_name = (request.form.get("owner_name") or "").strip()
+    phone_raw = (request.form.get("phone") or "").strip()
+    phone = normalize_phone(phone_raw)
+
+    address = (request.form.get("address") or "").strip()
+    pincode = (request.form.get("pincode") or "").strip()
+    description = (request.form.get("description") or "").strip()
+    opening_time = (request.form.get("opening_time") or "").strip()
+    closing_time = (request.form.get("closing_time") or "").strip()
+    working_days = request.form.getlist("working_days")
+    preparation_time_raw = (request.form.get("preparation_time") or "").strip()
+    min_order_amount_raw = (request.form.get("min_order_amount") or "").strip()
+    delivery_available = True if request.form.get("delivery_available") == "1" else False
+
+    lat_raw = (request.form.get("latitude") or "").strip()
+    lng_raw = (request.form.get("longitude") or "").strip()
+
+    latitude = None
+    longitude = None
+    preparation_time = None
+    min_order_amount = None
+
+    try:
+        latitude = float(lat_raw) if lat_raw else None
+    except Exception:
+        latitude = None
+
+    try:
+        longitude = float(lng_raw) if lng_raw else None
+    except Exception:
+        longitude = None
+
+    try:
+        preparation_time = int(float(preparation_time_raw)) if preparation_time_raw else None
+    except Exception:
+        preparation_time = None
+
+    try:
+        min_order_amount = float(min_order_amount_raw) if min_order_amount_raw else None
+    except Exception:
+        min_order_amount = None
+
+    if not store_name:
+        flash("Store name is required.", "warning")
+        return redirect(url_for("store_profile"))
+
+    if not owner_name:
+        flash("Owner name is required.", "warning")
+        return redirect(url_for("store_profile"))
+
+    if not phone:
+        flash("Phone number is required.", "warning")
+        return redirect(url_for("store_profile"))
+
+    if not address:
+        flash("Store address is required.", "warning")
+        return redirect(url_for("store_profile"))
+
+    update_data = {
+        "store_name": store_name,
+        "owner_name": owner_name,
+        "phone": phone,
+        "address": address,
+        "pincode": pincode,
+        "description": description,
+        "latitude": latitude,
+        "longitude": longitude,
+        "opening_time": opening_time,
+        "closing_time": closing_time,
+        "working_days": working_days,
+        "preparation_time": preparation_time,
+        "min_order_amount": min_order_amount,
+        "delivery_available": delivery_available,
+        "profile_updated_at": now,
+        "updated_at": now
+    }
+
+    logo = request.files.get("logo")
+
+    if logo and logo.filename:
+        if not allowed_file(logo.filename):
+            flash("Invalid logo/image file type.", "warning")
+            return redirect(url_for("store_profile"))
+
+        safe_name = secure_filename(logo.filename)
+        stored_name = datetime.utcnow().strftime("%Y%m%d%H%M%S_") + safe_name
+        folder = os.path.join(app.config["UPLOAD_FOLDER"], "store_profiles")
+        os.makedirs(folder, exist_ok=True)
+
+        logo.save(os.path.join(folder, stored_name))
+        update_data["logo_path"] = f"uploads/store_profiles/{stored_name}"
+
+    mongo.stores.update_one(
+        {"_id": store["_id"]},
+        {"$set": update_data}
+    )
+
+    if store.get("user_id"):
+        try:
+            mongo.users.update_one(
+                {"_id": ObjectId(str(store.get("user_id")))},
+                {
+                    "$set": {
+                        "name": owner_name,
+                        "phone": phone,
+                        "updated_at": now
+                    }
+                }
+            )
+        except Exception:
+            mongo.users.update_one(
+                {"_id": store.get("user_id")},
+                {
+                    "$set": {
+                        "name": owner_name,
+                        "phone": phone,
+                        "updated_at": now
+                    }
+                }
+            )
+
+    flash("Store profile updated successfully.", "success")
+    return redirect(url_for("store_profile"))
+
+# =========================================================
+# STORE NOTIFICATIONS
+# =========================================================
+
+def _store_id_values(store_id):
+    return [store_id, str(store_id)]
+
+
+def _store_notification_stats(store_id):
+    store_id_values = _store_id_values(store_id)
+    today_prefix = datetime.utcnow().date().isoformat()
+
+    total = mongo.store_notifications.count_documents({
+        "store_id": {"$in": store_id_values}
+    })
+
+    unread = mongo.store_notifications.count_documents({
+        "store_id": {"$in": store_id_values},
+        "is_read": False
+    })
+
+    today = mongo.store_notifications.count_documents({
+        "store_id": {"$in": store_id_values},
+        "created_at": {"$regex": f"^{today_prefix}"}
+    })
+
+    active = mongo.orders.count_documents({
+        "store_id": {"$in": store_id_values},
+        "status": {"$nin": ["DELIVERED", "CANCELLED"]}
+    })
+
+    return {
+        "total": total,
+        "unread": unread,
+        "today": today,
+        "active": active
+    }
+
+
+def _create_store_notification(store, title, message, notif_type="system", order=None, event_key=None):
+    now = datetime.utcnow().isoformat()
+    store_id = store["_id"]
+
+    if event_key:
+        existing = mongo.store_notifications.find_one({
+            "store_id": {"$in": _store_id_values(store_id)},
+            "event_key": event_key
+        })
+
+        if existing:
+            return existing
+
+    doc = {
+        "store_id": store_id,
+        "store_name": store.get("store_name", ""),
+        "title": title,
+        "message": message,
+        "type": notif_type,
+        "is_read": False,
+        "is_active": True,
+        "created_at": now,
+        "updated_at": now
+    }
+
+    if event_key:
+        doc["event_key"] = event_key
+
+    if order:
+        doc["order_id"] = order.get("_id")
+        doc["order_ref"] = str(order.get("_id"))
+        doc["order_status"] = order.get("status", "")
+        doc["payment_status"] = order.get("payment_status", "")
+        doc["customer_name"] = order.get("customer_name", "")
+        doc["customer_phone"] = order.get("customer_phone", "")
+        doc["total_payable"] = (
+            float(order.get("total_amount") or 0)
+            + float(order.get("delivery_fee") or 0)
+            + float(order.get("tip_amount") or 0)
+        )
+
+    mongo.store_notifications.insert_one(doc)
+    return doc
+
+
+def _hydrate_store_notification(n):
+    n["id"] = str(n["_id"])
+    n["store_id"] = str(n.get("store_id")) if n.get("store_id") else ""
+    n["order_id"] = str(n.get("order_id")) if n.get("order_id") else ""
+    n["title"] = n.get("title", "Notification")
+    n["message"] = n.get("message", "")
+    n["type"] = n.get("type", "system")
+    n["is_read"] = bool(n.get("is_read"))
+    n["is_active"] = bool(n.get("is_active", True))
+    return n
+
+
+def _sync_store_order_notifications(store):
+    store_id_values = _store_id_values(store["_id"])
+
+    recent_orders = list(
+        mongo.orders.find({
+            "store_id": {"$in": store_id_values}
+        }).sort("created_at", -1).limit(60)
+    )
+
+    for order in recent_orders:
+        oid = str(order["_id"])
+        status = (order.get("status") or "PLACED").upper()
+
+        total_payable = (
+            float(order.get("total_amount") or 0)
+            + float(order.get("delivery_fee") or 0)
+            + float(order.get("tip_amount") or 0)
+        )
+
+        if status not in ["DELIVERED", "CANCELLED"]:
+            _create_store_notification(
+                store,
+                title="Active order needs attention",
+                message=f"Order #{oid[-6:]} is currently {status}. Payable amount ₹ {total_payable:.2f}.",
+                notif_type="new_order",
+                order=order,
+                event_key=f"order-active-{oid}"
+            )
+
+    recent_events = list(
+        mongo.order_events.find({}).sort("created_at", -1).limit(120)
+    )
+
+    for event in recent_events:
+        order_id = event.get("order_id")
+
+        if not order_id:
+            continue
+
+        order = mongo.orders.find_one({
+            "_id": order_id,
+            "store_id": {"$in": store_id_values}
+        })
+
+        if not order:
+            continue
+
+        oid = str(order["_id"])
+        status = (event.get("status") or order.get("status") or "").upper()
+        event_id = str(event.get("_id"))
+
+        _create_store_notification(
+            store,
+            title="Order status updated",
+            message=f"Order #{oid[-6:]} status changed to {status}.",
+            notif_type="status",
+            order=order,
+            event_key=f"order-event-{event_id}"
+        )
+
+
+@app.route('/store/notifications', methods=['GET'], endpoint='store_notifications')
+@login_required(role='store')
+def store_notifications_page():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    _sync_store_order_notifications(store)
+
+    store_id_values = _store_id_values(store["_id"])
+
+    notifications = list(
+        mongo.store_notifications.find({
+            "store_id": {"$in": store_id_values}
+        }).sort("created_at", -1).limit(150)
+    )
+
+    notifications = [_hydrate_store_notification(n) for n in notifications]
+
+    active_orders = list(
+        mongo.orders.find({
+            "store_id": {"$in": store_id_values},
+            "status": {"$nin": ["DELIVERED", "CANCELLED"]}
+        }).sort("created_at", -1).limit(30)
+    )
+
+    active_notifications = []
+
+    for order in active_orders:
+        oid = str(order["_id"])
+        status = (order.get("status") or "PLACED").upper()
+
+        total_payable = (
+            float(order.get("total_amount") or 0)
+            + float(order.get("delivery_fee") or 0)
+            + float(order.get("tip_amount") or 0)
+        )
+
+        active_notifications.append({
+            "id": oid,
+            "title": f"Order #{oid[-6:]} needs attention",
+            "message": f"Current status: {status}. Payable amount ₹ {total_payable:.2f}.",
+            "type": "active_order",
+            "order_id": oid,
+            "created_at": order.get("created_at", "")
+        })
+
+    notification_settings = mongo.store_notification_settings.find_one({
+        "store_id": store["_id"]
+    }) or {
+        "enabled": False
+    }
+
+    page_context = _build_store_split_page_context(store)
+
+    return render_template(
+        "store_notifications.html",
+        user=u,
+        store=store,
+        notifications=notifications,
+        active_notifications=active_notifications,
+        notification_settings=notification_settings,
+        notification_stats=_store_notification_stats(store["_id"]),
+        **page_context
+    )
+
+
+@app.route('/store/notifications/toggle', methods=['POST'], endpoint='store_notifications_toggle')
+@login_required(role='store')
+def store_notifications_toggle():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return jsonify({"ok": False, "message": "Store not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    enabled = bool(data.get("enabled"))
+    now = datetime.utcnow().isoformat()
+
+    mongo.store_notification_settings.update_one(
+        {"store_id": store["_id"]},
+        {
+            "$set": {
+                "store_id": store["_id"],
+                "enabled": enabled,
+                "updated_at": now
+            },
+            "$setOnInsert": {
+                "created_at": now
+            }
+        },
+        upsert=True
+    )
+
+    _create_store_notification(
+        store,
+        title="Notifications enabled" if enabled else "Notifications disabled",
+        message="Live order alerts were enabled for this store." if enabled else "Live order alerts were disabled for this store.",
+        notif_type="system",
+        event_key=f"notification-toggle-{store['_id']}-{now}"
+    )
+
+    return jsonify({
+        "ok": True,
+        "enabled": enabled,
+        "stats": _store_notification_stats(store["_id"])
+    })
+
+
+@app.route('/store/notifications/poll', methods=['GET'], endpoint='store_notifications_poll')
+@login_required(role='store')
+def store_notifications_poll():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return jsonify({"ok": False, "notifications": []}), 404
+
+    _sync_store_order_notifications(store)
+
+    notifications = list(
+        mongo.store_notifications.find({
+            "store_id": {"$in": _store_id_values(store["_id"])}
+        }).sort("created_at", -1).limit(20)
+    )
+
+    return jsonify({
+        "ok": True,
+        "notifications": [_hydrate_store_notification(n) for n in notifications],
+        "stats": _store_notification_stats(store["_id"])
+    })
+
+
+@app.route('/store/notifications/<nid>/read', methods=['POST'], endpoint='store_notification_mark_read')
+@login_required(role='store')
+def store_notification_mark_read(nid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return jsonify({"ok": False}), 404
+
+    try:
+        nid_obj = ObjectId(nid)
+    except Exception:
+        return jsonify({"ok": False}), 400
+
+    mongo.store_notifications.update_one(
+        {
+            "_id": nid_obj,
+            "store_id": {"$in": _store_id_values(store["_id"])}
+        },
+        {
+            "$set": {
+                "is_read": True,
+                "read_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        }
+    )
+
+    return jsonify({
+        "ok": True,
+        "stats": _store_notification_stats(store["_id"])
+    })
+
+
+@app.route('/store/notifications/read-all', methods=['POST'], endpoint='store_notifications_mark_all_read')
+@login_required(role='store')
+def store_notifications_mark_all_read():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return jsonify({"ok": False}), 404
+
+    mongo.store_notifications.update_many(
+        {
+            "store_id": {"$in": _store_id_values(store["_id"])},
+            "is_read": False
+        },
+        {
+            "$set": {
+                "is_read": True,
+                "read_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        }
+    )
+
+    return jsonify({
+        "ok": True,
+        "stats": _store_notification_stats(store["_id"])
+    })
+
 @app.route('/store/categories/new', methods=['POST'], endpoint='store_category_new')
 @login_required(role='store')
 def store_category_new():
@@ -5784,6 +6389,15 @@ def store_order_status(oid):
         "created_at": now
     })
 
+    _create_store_notification(
+        store,
+        title="Order status updated",
+        message=f"Order #{str(order['_id'])[-6:]} status changed to {new_status}.",
+        notif_type="status",
+        order=order,
+        event_key=f"status-{str(order['_id'])}-{new_status}-{now}"
+    )
+
     # Only touch transactions when the order is delivered.
     if new_status == "DELIVERED":
         payable_amount = (
@@ -5821,7 +6435,6 @@ def store_order_status(oid):
 
     flash("Order status updated.", "success")
     return redirect(url_for("store_orders"))
-
 
 @app.route("/api/orders/<oid>/status", methods=["GET"], endpoint="api_order_status")
 @login_required()

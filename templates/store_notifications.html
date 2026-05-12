@@ -1,0 +1,1071 @@
+{% extends "store_base.html" %}
+{% set active_page = "notifications" %}
+
+{% block title %}Notifications | NE FRESH Store{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block page_subtitle %}Track live order alerts, active notifications and notification history.{% endblock %}
+
+{% block content %}
+{% set notifications = notifications if notifications is defined else [] %}
+{% set active_notifications = active_notifications if active_notifications is defined else [] %}
+{% set notification_settings = notification_settings if notification_settings is defined else {} %}
+{% set stats = notification_stats if notification_stats is defined else {} %}
+{% set unread_total = stats.unread|default(0) %}
+{% set active_total = stats.active|default(active_notifications|length) %}
+{% set today_total = stats.today|default(0) %}
+{% set history_total = stats.total|default(notifications|length) %}
+{% set alerts_enabled = 1 if notification_settings.enabled|default(false) else 0 %}
+
+<section class="nf-store-notifications" data-page="notifications">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    .nf-store-notifications{
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --soft:#F3FFF8;
+      --soft2:#F7FBF9;
+      --line:#DDECE4;
+      --line2:#EAF4EF;
+      --ink:#1F332A;
+      --text:#40534A;
+      --muted:#66756D;
+      --muted2:#8A9890;
+      --green:#00A859;
+      --green-dark:#008A48;
+      --green-deep:#075C3B;
+      --green-soft:#E9FFF3;
+      --orange:#FF8A1F;
+      --orange-soft:#FFF4EA;
+      --red:#EF4444;
+      --red-soft:#FFF1F2;
+      --blue:#0284C7;
+      --blue-soft:#E0F2FE;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      --shadow2:0 24px 70px rgba(17,64,38,.13);
+      --radius:24px;
+      --ease:cubic-bezier(.2,.75,.25,1);
+      width:100%;
+      min-height:100%;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(0,168,89,.09), transparent 34%),
+        radial-gradient(circle at 95% 10%, rgba(255,138,31,.08), transparent 30%),
+        var(--bg);
+      color:var(--ink);
+      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      overflow-x:hidden;
+    }
+
+    .nf-store-notifications,
+    .nf-store-notifications *{box-sizing:border-box;}
+
+    .sn-shell{width:100%;max-width:1680px;margin:0 auto;padding:24px;}
+    .sn-stack{display:grid;gap:20px;}
+    .sn-card{
+      background:rgba(255,255,255,.98);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .sn-hero{
+      display:grid;
+      grid-template-columns:minmax(0,1.15fr) minmax(340px,.85fr);
+      gap:20px;
+      align-items:stretch;
+      padding:24px;
+      border-radius:30px;
+      background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(243,255,248,.92));
+      border:1px solid var(--line);
+      box-shadow:var(--shadow2);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .sn-hero::after{
+      content:"";
+      position:absolute;
+      right:-120px;
+      top:-120px;
+      width:320px;
+      height:320px;
+      border-radius:999px;
+      background:rgba(0,168,89,.10);
+      pointer-events:none;
+    }
+
+    .sn-hero-main,.sn-hero-panel{position:relative;z-index:1;}
+
+    .sn-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:30px;
+      padding:0 12px;
+      border-radius:999px;
+      background:var(--green-soft);
+      border:1px solid rgba(0,168,89,.18);
+      color:var(--green-dark);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .sn-title{
+      margin:14px 0 8px;
+      color:var(--ink);
+      font-size:clamp(30px,4vw,54px);
+      line-height:1;
+      font-weight:900;
+      letter-spacing:-.06em;
+    }
+
+    .sn-copy{
+      max-width:880px;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      font-weight:650;
+      line-height:1.65;
+    }
+
+    .sn-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;}
+
+    .sn-btn{
+      min-height:44px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:10px 15px;
+      border-radius:15px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      text-decoration:none;
+      font-size:13px;
+      font-weight:900;
+      transition:.2s var(--ease);
+      cursor:pointer;
+      white-space:nowrap;
+      font-family:inherit;
+    }
+
+    .sn-btn-primary{
+      background:var(--green)!important;
+      border-color:var(--green)!important;
+      color:#fff!important;
+      box-shadow:0 12px 24px rgba(0,168,89,.18);
+    }
+
+    .sn-btn-danger{
+      background:var(--red-soft)!important;
+      border-color:#FECACA!important;
+      color:#B91C1C!important;
+    }
+
+    .sn-btn:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.30);
+      color:var(--green-dark);
+      box-shadow:0 12px 24px rgba(17,64,38,.09);
+    }
+
+    .sn-btn-primary:hover{color:#fff!important;}
+
+    .sn-hero-panel{
+      display:grid;
+      gap:12px;
+      padding:18px;
+      border-radius:24px;
+      border:1px solid rgba(0,168,89,.16);
+      background:rgba(255,255,255,.76);
+      backdrop-filter:blur(12px);
+    }
+
+    .sn-state{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding:16px;
+      border:1px solid var(--line2);
+      border-radius:20px;
+      background:#fff;
+    }
+
+    .sn-state-left{display:flex;align-items:center;gap:12px;min-width:0;}
+    .sn-state-icon{
+      width:48px;
+      height:48px;
+      border-radius:17px;
+      display:grid;
+      place-items:center;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      font-size:24px;
+      flex:0 0 auto;
+    }
+
+    .sn-state-title{font-size:14px;font-weight:900;color:var(--ink);}
+    .sn-state-sub{margin-top:4px;font-size:12px;font-weight:750;color:var(--muted);line-height:1.35;}
+
+    .sn-switch{
+      width:62px;
+      height:34px;
+      border:0;
+      border-radius:999px;
+      background:#CBD5E1;
+      padding:4px;
+      cursor:pointer;
+      transition:.2s var(--ease);
+      flex:0 0 auto;
+    }
+
+    .sn-switch span{
+      display:block;
+      width:26px;
+      height:26px;
+      border-radius:999px;
+      background:#fff;
+      box-shadow:0 6px 14px rgba(15,23,42,.18);
+      transition:.2s var(--ease);
+    }
+
+    .sn-switch.is-on{background:var(--green);}
+    .sn-switch.is-on span{transform:translateX(28px);}
+
+    .sn-status-note{
+      padding:13px 14px;
+      border-radius:18px;
+      background:var(--green-soft);
+      border:1px solid rgba(0,168,89,.16);
+      color:var(--green-dark);
+      font-size:13px;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .sn-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .sn-stat{
+      min-height:126px;
+      border-radius:22px;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:0 10px 28px rgba(17,64,38,.06);
+      padding:18px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .sn-stat::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:5px;
+      background:var(--green);
+    }
+
+    .sn-stat.is-warning::before{background:var(--orange);}
+    .sn-stat.is-danger::before{background:var(--red);}
+    .sn-stat.is-info::before{background:var(--blue);}
+
+    .sn-stat-label{color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;}
+    .sn-stat-value{margin-top:8px;color:var(--ink);font-size:clamp(28px,3vw,42px);line-height:1;font-weight:900;letter-spacing:-.045em;}
+    .sn-stat-meta{margin-top:8px;color:var(--muted2);font-size:12px;font-weight:800;line-height:1.35;}
+    .sn-stat-icon{width:48px;height:48px;border-radius:17px;display:grid;place-items:center;background:var(--green-soft);font-size:24px;flex:0 0 auto;}
+
+    .sn-grid{
+      display:grid;
+      grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);
+      gap:20px;
+      align-items:start;
+    }
+
+    .sn-section-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      padding:20px 22px;
+      border-bottom:1px solid var(--line2);
+      background:var(--soft2);
+    }
+
+    .sn-section-title{margin:0;color:var(--ink);font-size:18px;font-weight:900;letter-spacing:-.03em;}
+    .sn-section-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:650;line-height:1.45;}
+    .sn-section-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .sn-body{padding:20px;}
+
+    .sn-alert-list{display:grid;gap:12px;}
+    .sn-alert{
+      display:grid;
+      grid-template-columns:auto minmax(0,1fr) auto;
+      gap:12px;
+      align-items:start;
+      padding:15px;
+      border-radius:20px;
+      border:1px solid var(--line2);
+      background:#fff;
+      box-shadow:0 8px 24px rgba(17,64,38,.045);
+      transition:.2s var(--ease);
+    }
+
+    .sn-alert:hover{transform:translateY(-1px);box-shadow:var(--shadow);}
+    .sn-alert.unread{border-color:rgba(0,168,89,.28);background:linear-gradient(135deg,#fff,var(--green-soft));}
+    .sn-alert.active{border-color:rgba(2,132,199,.24);background:linear-gradient(135deg,#fff,var(--blue-soft));}
+
+    .sn-alert-icon{
+      width:44px;
+      height:44px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      font-size:22px;
+    }
+
+    .sn-alert-title{font-size:14px;font-weight:900;color:var(--ink);line-height:1.25;}
+    .sn-alert-message{margin-top:5px;font-size:13px;font-weight:700;color:var(--muted);line-height:1.45;}
+    .sn-alert-meta{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted2);font-size:11px;font-weight:850;}
+    .sn-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:26px;
+      padding:0 10px;
+      border-radius:999px;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      border:1px solid rgba(0,168,89,.16);
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .sn-pill.warn{background:var(--orange-soft);color:#C2410C;border-color:#FED7AA;}
+    .sn-pill.blue{background:var(--blue-soft);color:var(--blue);border-color:#BAE6FD;}
+    .sn-pill.red{background:var(--red-soft);color:#B91C1C;border-color:#FECACA;}
+    .sn-inline-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+
+    .sn-mini-btn{
+      min-height:34px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      border-radius:12px;
+      padding:7px 10px;
+      font-size:12px;
+      font-weight:900;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+
+    .sn-mini-btn:hover{border-color:rgba(0,168,89,.30);color:var(--green-dark);}
+
+    .sn-tools{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:16px 20px;
+      border-bottom:1px solid var(--line2);
+      background:#fff;
+      flex-wrap:wrap;
+    }
+
+    .sn-search{
+      width:min(440px,100%);
+      height:44px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--ink);
+      padding:0 13px;
+      outline:none;
+      font-weight:750;
+    }
+
+    .sn-select{
+      height:44px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--ink);
+      padding:0 13px;
+      outline:none;
+      font-weight:850;
+    }
+
+    .sn-empty{
+      padding:22px;
+      border:1px dashed var(--line);
+      border-radius:20px;
+      background:var(--soft2);
+      color:var(--muted);
+      text-align:center;
+      font-size:14px;
+      font-weight:800;
+      line-height:1.55;
+    }
+
+    .sn-toast-wrap{
+      position:fixed;
+      right:24px;
+      top:24px;
+      z-index:99999;
+      display:grid;
+      gap:10px;
+      pointer-events:none;
+    }
+
+    .sn-toast{
+      pointer-events:auto;
+      min-width:min(360px,calc(100vw - 32px));
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
+      box-shadow:0 18px 44px rgba(17,64,38,.16);
+      padding:14px 16px;
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      transform:translateX(120%);
+      opacity:0;
+      transition:.24s var(--ease);
+      cursor:pointer;
+    }
+
+    .sn-toast.show{transform:translateX(0);opacity:1;}
+    .sn-toast-icon{width:40px;height:40px;border-radius:14px;background:var(--green);color:#fff;display:grid;place-items:center;font-size:18px;flex:0 0 auto;}
+    .sn-toast-title{font-size:13px;font-weight:900;color:var(--ink);}
+    .sn-toast-message{margin-top:3px;font-size:12px;font-weight:750;color:var(--muted);line-height:1.35;}
+
+    .sn-audio{display:none;}
+
+    @media(max-width:1300px){
+      .sn-grid,.sn-hero{grid-template-columns:1fr;}
+      .sn-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+    }
+
+    @media(max-width:760px){
+      .sn-shell{padding:14px;}
+      .sn-hero{padding:18px;border-radius:22px;}
+      .sn-actions .sn-btn,.sn-section-actions .sn-btn{width:100%;}
+      .sn-stats{grid-template-columns:1fr;}
+      .sn-section-head{padding:16px;flex-direction:column;}
+      .sn-body{padding:16px;}
+      .sn-tools{padding:14px;align-items:stretch;}
+      .sn-search,.sn-select{width:100%;}
+      .sn-alert{grid-template-columns:auto minmax(0,1fr);gap:10px;}
+      .sn-inline-actions{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:flex-start;flex-wrap:wrap;}
+      .sn-mini-btn{flex:1;}
+      .sn-toast-wrap{top:12px;right:12px;left:12px;}
+      .sn-toast{min-width:0;width:100%;}
+    }
+  </style>
+
+  <div class="sn-shell">
+    <div class="sn-stack">
+
+      <section class="sn-hero">
+        <div class="sn-hero-main">
+          <span class="sn-kicker">🔔 Store Notification Center</span>
+          <h1 class="sn-title">Notifications</h1>
+          <p class="sn-copy">
+            View live order alerts, active notifications and full notification history for this store.
+            Enable alerts here to receive sound alerts and browser notifications for new orders.
+          </p>
+
+          <div class="sn-actions">
+            <button class="sn-btn sn-btn-primary" type="button" id="snToggleAlerts">
+              🔔 Enable Notifications
+            </button>
+            <button class="sn-btn" type="button" id="snTestSound">Test Sound</button>
+            <a class="sn-btn" href="{{ url_for('store_orders') }}">Open Orders</a>
+            <button class="sn-btn" type="button" id="snMarkAllRead">Mark All Read</button>
+          </div>
+        </div>
+
+        <aside class="sn-hero-panel">
+          <div class="sn-state">
+            <div class="sn-state-left">
+              <div class="sn-state-icon">🔔</div>
+              <div>
+                <div class="sn-state-title" id="snStateTitle">Notifications are off</div>
+                <div class="sn-state-sub" id="snStateSub">Turn on alerts to receive live order notifications.</div>
+              </div>
+            </div>
+            <button class="sn-switch" type="button" id="snSwitch" aria-label="Toggle notifications"><span></span></button>
+          </div>
+
+          <div class="sn-status-note" id="snPermissionNote">
+            Browser permission will be requested when you enable notifications.
+          </div>
+        </aside>
+      </section>
+
+      <section class="sn-stats" aria-label="Notification summary">
+        <div class="sn-stat is-info">
+          <div>
+            <div class="sn-stat-label">Active Alerts</div>
+            <div class="sn-stat-value" id="snActiveCount">{{ active_total }}</div>
+            <div class="sn-stat-meta">Open orders needing attention</div>
+          </div>
+          <div class="sn-stat-icon">⚡</div>
+        </div>
+
+        <div class="sn-stat is-danger">
+          <div>
+            <div class="sn-stat-label">Unread</div>
+            <div class="sn-stat-value" id="snUnreadCount">{{ unread_total }}</div>
+            <div class="sn-stat-meta">Notifications not marked as read</div>
+          </div>
+          <div class="sn-stat-icon">●</div>
+        </div>
+
+        <div class="sn-stat is-warning">
+          <div>
+            <div class="sn-stat-label">Today</div>
+            <div class="sn-stat-value" id="snTodayCount">{{ today_total }}</div>
+            <div class="sn-stat-meta">Notifications generated today</div>
+          </div>
+          <div class="sn-stat-icon">📅</div>
+        </div>
+
+        <div class="sn-stat">
+          <div>
+            <div class="sn-stat-label">History</div>
+            <div class="sn-stat-value" id="snHistoryCount">{{ history_total }}</div>
+            <div class="sn-stat-meta">Stored notification records</div>
+          </div>
+          <div class="sn-stat-icon">🧾</div>
+        </div>
+      </section>
+
+      <section class="sn-grid">
+        <div class="sn-card">
+          <div class="sn-section-head">
+            <div>
+              <h2 class="sn-section-title">Active Notifications</h2>
+              <p class="sn-section-sub">Current orders that still need store action.</p>
+            </div>
+            <div class="sn-section-actions">
+              <a class="sn-btn" href="{{ url_for('store_orders') }}">Manage Orders</a>
+            </div>
+          </div>
+
+          <div class="sn-body">
+            <div class="sn-alert-list" id="snActiveList">
+              {% if active_notifications %}
+                {% for n in active_notifications %}
+                  <div class="sn-alert active" data-search="{{ (n.title ~ ' ' ~ n.message ~ ' ' ~ n.type)|lower }}">
+                    <div class="sn-alert-icon">⚡</div>
+                    <div>
+                      <div class="sn-alert-title">{{ n.title }}</div>
+                      <div class="sn-alert-message">{{ n.message }}</div>
+                      <div class="sn-alert-meta">
+                        <span class="sn-pill blue">{{ n.type|default('ACTIVE') }}</span>
+                        <span>{{ n.created_at|default('') }}</span>
+                      </div>
+                    </div>
+                    <div class="sn-inline-actions">
+                      {% if n.order_id %}
+                        <a class="sn-mini-btn" href="{{ url_for('store_orders') }}">Open Orders</a>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="sn-empty" id="snActiveEmpty">No active notifications right now.</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="sn-card">
+          <div class="sn-section-head">
+            <div>
+              <h2 class="sn-section-title">Notification History</h2>
+              <p class="sn-section-sub">Stored notification records for this store.</p>
+            </div>
+            <div class="sn-section-actions">
+              <button class="sn-btn" type="button" id="snRefresh">Refresh</button>
+            </div>
+          </div>
+
+          <div class="sn-tools">
+            <input class="sn-search" id="snSearch" type="search" placeholder="Search notifications, orders, customer, status...">
+            <select class="sn-select" id="snFilter">
+              <option value="all">All notifications</option>
+              <option value="unread">Unread only</option>
+              <option value="new_order">New orders</option>
+              <option value="status">Status updates</option>
+              <option value="system">System</option>
+            </select>
+          </div>
+
+          <div class="sn-body">
+            <div class="sn-alert-list" id="snHistoryList">
+              {% if notifications %}
+                {% for n in notifications %}
+                  <div class="sn-alert {{ 'unread' if not n.is_read else '' }}"
+                       data-notification-id="{{ n.id }}"
+                       data-type="{{ n.type|default('system') }}"
+                       data-read="{{ 1 if n.is_read else 0 }}"
+                       data-search="{{ (n.title ~ ' ' ~ n.message ~ ' ' ~ n.type ~ ' ' ~ n.status)|lower }}">
+                    <div class="sn-alert-icon">
+                      {% if n.type == 'new_order' %}🧾{% elif n.type == 'status' %}🔁{% elif n.type == 'system' %}⚙️{% else %}🔔{% endif %}
+                    </div>
+                    <div>
+                      <div class="sn-alert-title">{{ n.title }}</div>
+                      <div class="sn-alert-message">{{ n.message }}</div>
+                      <div class="sn-alert-meta">
+                        <span class="sn-pill {% if n.type == 'new_order' %}blue{% elif n.type == 'status' %}warn{% endif %}">{{ n.type|default('system')|replace('_',' ')|title }}</span>
+                        {% if not n.is_read %}<span class="sn-pill">Unread</span>{% endif %}
+                        <span>{{ n.created_at|default('') }}</span>
+                      </div>
+                    </div>
+                    <div class="sn-inline-actions">
+                      {% if not n.is_read %}
+                        <button type="button" class="sn-mini-btn" data-mark-read="{{ n.id }}">Mark read</button>
+                      {% endif %}
+                      {% if n.order_id %}
+                        <a class="sn-mini-btn" href="{{ url_for('store_orders') }}">Orders</a>
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="sn-empty" id="snHistoryEmpty">No notification history yet. New order alerts will appear here.</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <audio class="sn-audio" id="snDing" preload="auto">
+    <source src="{{ url_for('static', filename='sounds/ding.mp3') }}" type="audio/mpeg">
+  </audio>
+
+  <div class="sn-toast-wrap" id="snToastWrap" aria-live="polite"></div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      document.addEventListener('DOMContentLoaded', function(){
+        const serverEnabled = {{ alerts_enabled|int }};
+        const toggleBtn = document.getElementById('snToggleAlerts');
+        const switchBtn = document.getElementById('snSwitch');
+        const stateTitle = document.getElementById('snStateTitle');
+        const stateSub = document.getElementById('snStateSub');
+        const permissionNote = document.getElementById('snPermissionNote');
+        const testSoundBtn = document.getElementById('snTestSound');
+        const markAllBtn = document.getElementById('snMarkAllRead');
+        const refreshBtn = document.getElementById('snRefresh');
+        const searchInput = document.getElementById('snSearch');
+        const filterInput = document.getElementById('snFilter');
+        const historyList = document.getElementById('snHistoryList');
+        const activeList = document.getElementById('snActiveList');
+        const unreadCount = document.getElementById('snUnreadCount');
+        const activeCount = document.getElementById('snActiveCount');
+        const todayCount = document.getElementById('snTodayCount');
+        const historyCount = document.getElementById('snHistoryCount');
+        const ding = document.getElementById('snDing');
+        const toastWrap = document.getElementById('snToastWrap');
+
+        let pollTimer = null;
+        let lastId = localStorage.getItem('storeLastAlertId') || '';
+        let alertsEnabled = localStorage.getItem('alertsEnabled');
+
+        if (alertsEnabled === null) {
+          alertsEnabled = serverEnabled === 1 ? '1' : '0';
+          localStorage.setItem('alertsEnabled', alertsEnabled);
+        }
+
+        function getEnabled() {
+          return localStorage.getItem('alertsEnabled') === '1';
+        }
+
+        function showToast(title, message, kind) {
+          if (!toastWrap) return;
+
+          const toast = document.createElement('div');
+          toast.className = 'sn-toast';
+          toast.innerHTML = `
+            <div class="sn-toast-icon">${kind === 'off' ? '🔕' : '🔔'}</div>
+            <div>
+              <div class="sn-toast-title">${title}</div>
+              <div class="sn-toast-message">${message}</div>
+            </div>
+          `;
+
+          toast.addEventListener('click', function(){
+            toast.classList.remove('show');
+            setTimeout(function(){ toast.remove(); }, 240);
+          });
+
+          toastWrap.appendChild(toast);
+          requestAnimationFrame(function(){ toast.classList.add('show'); });
+
+          setTimeout(function(){
+            toast.classList.remove('show');
+            setTimeout(function(){ toast.remove(); }, 260);
+          }, 3200);
+        }
+
+        async function playSound() {
+          try {
+            if (ding) {
+              ding.currentTime = 0;
+              await ding.play();
+              return;
+            }
+          } catch (err) {}
+
+          try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.value = 0.08;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            setTimeout(function(){ osc.stop(); ctx.close(); }, 160);
+          } catch (err) {}
+        }
+
+        async function askBrowserPermission() {
+          try {
+            if ('Notification' in window && Notification.permission === 'default') {
+              await Notification.requestPermission();
+            }
+          } catch (err) {}
+        }
+
+        function syncUi() {
+          const enabled = getEnabled();
+
+          if (toggleBtn) {
+            toggleBtn.innerHTML = enabled ? '🔕 Disable Notifications' : '🔔 Enable Notifications';
+            toggleBtn.classList.toggle('sn-btn-danger', enabled);
+            toggleBtn.classList.toggle('sn-btn-primary', !enabled);
+          }
+
+          if (switchBtn) {
+            switchBtn.classList.toggle('is-on', enabled);
+            switchBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+          }
+
+          if (stateTitle) {
+            stateTitle.textContent = enabled ? 'Notifications are active' : 'Notifications are off';
+          }
+
+          if (stateSub) {
+            stateSub.textContent = enabled
+              ? 'New orders will trigger sound and browser notifications.'
+              : 'Turn on alerts to receive live order notifications.';
+          }
+
+          if (permissionNote) {
+            let permissionText = 'Browser notification permission is not available.';
+            if ('Notification' in window) {
+              permissionText = 'Browser permission: ' + Notification.permission + '. Sound alerts use this browser only.';
+            }
+            permissionNote.textContent = enabled ? permissionText : 'Browser permission will be requested when you enable notifications.';
+          }
+        }
+
+        function setEnabled(enabled) {
+          localStorage.setItem('alertsEnabled', enabled ? '1' : '0');
+          localStorage.setItem('soundEnabled', enabled ? '1' : '0');
+
+          fetch("{{ url_for('store_notifications_toggle') }}", {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            credentials:'same-origin',
+            body:JSON.stringify({enabled: !!enabled})
+          }).catch(function(){});
+
+          syncUi();
+
+          if (enabled) {
+            startPolling();
+            showToast('Notifications enabled', 'Live order alerts are now active for this browser.', 'on');
+          } else {
+            stopPolling();
+            showToast('Notifications disabled', 'Live order alerts are now turned off for this browser.', 'off');
+          }
+        }
+
+        function formatType(type) {
+          return String(type || 'system').replace(/_/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+        }
+
+        function notificationHtml(n) {
+          const isUnread = !n.is_read;
+          const type = n.type || 'system';
+          const icon = type === 'new_order' ? '🧾' : (type === 'status' ? '🔁' : '🔔');
+          const typeClass = type === 'new_order' ? 'blue' : (type === 'status' ? 'warn' : '');
+
+          return `
+            <div class="sn-alert ${isUnread ? 'unread' : ''}"
+                 data-notification-id="${n.id || ''}"
+                 data-type="${type}"
+                 data-read="${isUnread ? '0' : '1'}"
+                 data-search="${String((n.title || '') + ' ' + (n.message || '') + ' ' + type).toLowerCase()}">
+              <div class="sn-alert-icon">${icon}</div>
+              <div>
+                <div class="sn-alert-title">${n.title || 'Notification'}</div>
+                <div class="sn-alert-message">${n.message || ''}</div>
+                <div class="sn-alert-meta">
+                  <span class="sn-pill ${typeClass}">${formatType(type)}</span>
+                  ${isUnread ? '<span class="sn-pill">Unread</span>' : ''}
+                  <span>${n.created_at || ''}</span>
+                </div>
+              </div>
+              <div class="sn-inline-actions">
+                ${isUnread && n.id ? `<button type="button" class="sn-mini-btn" data-mark-read="${n.id}">Mark read</button>` : ''}
+                ${n.order_id ? `<a class="sn-mini-btn" href="{{ url_for('store_orders') }}">Orders</a>` : ''}
+              </div>
+            </div>
+          `;
+        }
+
+        function prependNotifications(items) {
+          if (!historyList || !Array.isArray(items) || !items.length) return;
+
+          const empty = historyList.querySelector('.sn-empty');
+          if (empty) empty.remove();
+
+          items.slice().reverse().forEach(function(n){
+            if (n.id && historyList.querySelector('[data-notification-id="' + n.id + '"]')) return;
+            historyList.insertAdjacentHTML('afterbegin', notificationHtml(n));
+          });
+
+          applyFilters();
+        }
+
+        function updateCounts(stats) {
+          if (!stats) return;
+          if (unreadCount) unreadCount.textContent = stats.unread ?? unreadCount.textContent;
+          if (activeCount) activeCount.textContent = stats.active ?? activeCount.textContent;
+          if (todayCount) todayCount.textContent = stats.today ?? todayCount.textContent;
+          if (historyCount) historyCount.textContent = stats.total ?? historyCount.textContent;
+        }
+
+        function applyFilters() {
+          if (!historyList) return;
+
+          const q = (searchInput ? searchInput.value : '').trim().toLowerCase();
+          const filter = filterInput ? filterInput.value : 'all';
+          const rows = Array.from(historyList.querySelectorAll('.sn-alert'));
+
+          rows.forEach(function(row){
+            const text = row.dataset.search || row.textContent.toLowerCase();
+            const type = row.dataset.type || '';
+            const read = row.dataset.read || '1';
+
+            let show = true;
+            if (q && !text.includes(q)) show = false;
+            if (filter === 'unread' && read !== '0') show = false;
+            if (filter !== 'all' && filter !== 'unread' && type !== filter) show = false;
+
+            row.style.display = show ? '' : 'none';
+          });
+        }
+
+        async function pollStoreOrders() {
+          if (!getEnabled()) return;
+
+          try {
+            const res = await fetch(`/api/alerts/store?last_id=${encodeURIComponent(lastId || '')}`, {
+              method:'GET',
+              cache:'no-store',
+              credentials:'same-origin'
+            });
+
+            const data = await res.json();
+            if (!data || !data.ok) return;
+
+            if (data.next_last_id) {
+              lastId = data.next_last_id;
+              localStorage.setItem('storeLastAlertId', lastId);
+            }
+
+            const newOrders = Array.isArray(data.new) ? data.new : [];
+
+            if (newOrders.length > 0) {
+              await playSound();
+
+              const msg = newOrders.length === 1 ? '1 new order received.' : `${newOrders.length} new orders received.`;
+              showToast('New order received', msg, 'on');
+
+              try {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  new Notification('New order received', { body: msg });
+                }
+              } catch (err) {}
+
+              await refreshNotifications(false);
+            }
+          } catch (err) {
+            console.warn('Notification polling failed', err);
+          }
+        }
+
+        function startPolling() {
+          if (pollTimer) clearInterval(pollTimer);
+          pollStoreOrders();
+          pollTimer = setInterval(pollStoreOrders, 5000);
+        }
+
+        function stopPolling() {
+          if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+          }
+        }
+
+        async function refreshNotifications(showDone) {
+          try {
+            const res = await fetch("{{ url_for('store_notifications_poll') }}", {
+              method:'GET',
+              credentials:'same-origin',
+              cache:'no-store'
+            });
+
+            const data = await res.json();
+            if (!data || !data.ok) return;
+
+            prependNotifications(data.notifications || []);
+            updateCounts(data.stats || {});
+
+            if (showDone) showToast('Updated', 'Notification history refreshed.', 'on');
+          } catch (err) {
+            if (showDone) showToast('Refresh failed', 'Could not refresh notifications.', 'off');
+          }
+        }
+
+        async function markRead(notificationId, row) {
+          if (!notificationId) return;
+
+          try {
+            const url = "{{ url_for('store_notification_mark_read', nid='__NID__') }}".replace('__NID__', notificationId);
+
+            const res = await fetch(url, {
+              method:'POST',
+              credentials:'same-origin'
+            });
+
+            const data = await res.json();
+            if (!data || !data.ok) return;
+
+            if (row) {
+              row.classList.remove('unread');
+              row.dataset.read = '1';
+              const button = row.querySelector('[data-mark-read]');
+              if (button) button.remove();
+              row.querySelectorAll('.sn-pill').forEach(function(pill){
+                if (pill.textContent.trim().toLowerCase() === 'unread') pill.remove();
+              });
+            }
+
+            updateCounts(data.stats || {});
+          } catch (err) {}
+        }
+
+        async function markAllRead() {
+          try {
+            const res = await fetch("{{ url_for('store_notifications_mark_all_read') }}", {
+              method:'POST',
+              credentials:'same-origin'
+            });
+
+            const data = await res.json();
+            if (!data || !data.ok) return;
+
+            document.querySelectorAll('.sn-alert.unread').forEach(function(row){
+              row.classList.remove('unread');
+              row.dataset.read = '1';
+              const button = row.querySelector('[data-mark-read]');
+              if (button) button.remove();
+              row.querySelectorAll('.sn-pill').forEach(function(pill){
+                if (pill.textContent.trim().toLowerCase() === 'unread') pill.remove();
+              });
+            });
+
+            updateCounts(data.stats || {});
+            showToast('Marked as read', 'All notifications have been marked as read.', 'on');
+          } catch (err) {
+            showToast('Failed', 'Could not mark notifications as read.', 'off');
+          }
+        }
+
+        if (toggleBtn) {
+          toggleBtn.addEventListener('click', async function(){
+            const enabled = !getEnabled();
+            if (enabled) {
+              await askBrowserPermission();
+              await playSound();
+            }
+            setEnabled(enabled);
+          });
+        }
+
+        if (switchBtn) {
+          switchBtn.addEventListener('click', function(){
+            if (toggleBtn) toggleBtn.click();
+          });
+        }
+
+        if (testSoundBtn) {
+          testSoundBtn.addEventListener('click', async function(){
+            await playSound();
+            showToast('Sound tested', 'This is how live order alerts will sound.', 'on');
+          });
+        }
+
+        if (markAllBtn) markAllBtn.addEventListener('click', markAllRead);
+        if (refreshBtn) refreshBtn.addEventListener('click', function(){ refreshNotifications(true); });
+        if (searchInput) searchInput.addEventListener('input', applyFilters);
+        if (filterInput) filterInput.addEventListener('change', applyFilters);
+
+        document.addEventListener('click', function(event){
+          const btn = event.target.closest('[data-mark-read]');
+          if (!btn) return;
+
+          const row = btn.closest('.sn-alert');
+          markRead(btn.dataset.markRead, row);
+        });
+
+        syncUi();
+        applyFilters();
+
+        if (getEnabled()) startPolling();
+      });
+    })();
+  </script>
+</section>
+{% endblock %}
