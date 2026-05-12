@@ -1,0 +1,742 @@
+{% extends "store_base.html" %}
+{% set active_page = "product_reviews" %}
+
+{% block title %}Product Reviews{% endblock %}
+{% block page_title %}Product Reviews{% endblock %}
+{% block page_subtitle %}View customer feedback received on your store products.{% endblock %}
+
+{% block content %}
+<section class="nf-store-product-reviews-page">
+  <style>
+    .nf-store-product-reviews-page{
+      --pr-green:#00A859;
+      --pr-green-dark:#008A48;
+      --pr-green-deep:#075C3B;
+      --pr-green-soft:#E9FFF3;
+      --pr-orange:#FFB84D;
+      --pr-orange-soft:#FFF7E8;
+      --pr-red:#EF4444;
+      --pr-red-soft:#FFF1F2;
+      --pr-blue:#0284C7;
+      --pr-blue-soft:#E0F2FE;
+      --pr-card:#FFFFFF;
+      --pr-bg:#F8FFFB;
+      --pr-text:#1F332A;
+      --pr-muted:#66756D;
+      --pr-muted-2:#8A9890;
+      --pr-line:#DDECE4;
+      --pr-line-2:#EAF4EF;
+      --pr-shadow:0 14px 36px rgba(17,64,38,.08);
+      --pr-shadow-hover:0 22px 58px rgba(17,64,38,.13);
+      --pr-radius:24px;
+      --pr-ease:cubic-bezier(.2,.75,.25,1);
+
+      width:100%;
+      display:grid;
+      gap:22px;
+      color:var(--pr-text);
+    }
+
+    .pr-hero{
+      position:relative;
+      overflow:hidden;
+      border-radius:28px;
+      padding:clamp(22px,3vw,34px);
+      background:
+        radial-gradient(circle at 10% 12%,rgba(255,184,77,.24),transparent 30%),
+        radial-gradient(circle at 92% 18%,rgba(255,255,255,.20),transparent 28%),
+        linear-gradient(135deg,#075C3B 0%,#00A859 100%);
+      color:#fff;
+      box-shadow:var(--pr-shadow);
+    }
+
+    .pr-hero-content{
+      position:relative;
+      z-index:2;
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:18px;
+      flex-wrap:wrap;
+    }
+
+    .pr-kicker{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:0 12px;
+      background:rgba(255,255,255,.16);
+      border:1px solid rgba(255,255,255,.26);
+      color:#fff;
+      font-size:.74rem;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .pr-hero h2{
+      margin:12px 0 0;
+      font-size:clamp(1.9rem,4vw,3.4rem);
+      line-height:1.02;
+      font-weight:950;
+      letter-spacing:-.055em;
+    }
+
+    .pr-hero p{
+      margin:12px 0 0;
+      max-width:840px;
+      color:rgba(255,255,255,.88);
+      font-size:clamp(.92rem,1.5vw,1.08rem);
+      line-height:1.55;
+      font-weight:650;
+    }
+
+    .pr-hero-pill{
+      min-height:48px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:9px;
+      border-radius:16px;
+      padding:0 16px;
+      background:rgba(255,255,255,.17);
+      border:1px solid rgba(255,255,255,.26);
+      color:#fff;
+      font-size:.9rem;
+      font-weight:900;
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+
+    .pr-kpis{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:16px;
+    }
+
+    .pr-kpi{
+      border:1px solid var(--pr-line);
+      border-radius:24px;
+      background:linear-gradient(180deg,#FFFFFF 0%,#F8FFFB 100%);
+      padding:18px;
+      box-shadow:0 10px 26px rgba(17,64,38,.06);
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-height:112px;
+      transition:.22s var(--pr-ease);
+    }
+
+    .pr-kpi:hover{
+      transform:translateY(-3px);
+      border-color:rgba(0,168,89,.24);
+      box-shadow:var(--pr-shadow-hover);
+    }
+
+    .pr-kpi-icon{
+      width:52px;
+      height:52px;
+      min-width:52px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:var(--pr-green-soft);
+      color:var(--pr-green-dark);
+      font-size:1.25rem;
+      border:1px solid rgba(0,168,89,.13);
+    }
+
+    .pr-kpi.orange .pr-kpi-icon{
+      background:var(--pr-orange-soft);
+      color:#A66A00;
+    }
+
+    .pr-kpi.blue .pr-kpi-icon{
+      background:var(--pr-blue-soft);
+      color:var(--pr-blue);
+    }
+
+    .pr-kpi.red .pr-kpi-icon{
+      background:var(--pr-red-soft);
+      color:var(--pr-red);
+    }
+
+    .pr-kpi small{
+      display:block;
+      color:var(--pr-muted);
+      font-size:.68rem;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .pr-kpi b{
+      display:block;
+      margin-top:6px;
+      color:var(--pr-text);
+      font-size:1.45rem;
+      line-height:1;
+      font-weight:950;
+      letter-spacing:-.04em;
+    }
+
+    .pr-grid{
+      display:grid;
+      grid-template-columns:360px minmax(0,1fr);
+      gap:18px;
+      align-items:start;
+    }
+
+    .pr-card{
+      border:1px solid var(--pr-line);
+      border-radius:24px;
+      background:#fff;
+      box-shadow:var(--pr-shadow);
+      overflow:hidden;
+      min-width:0;
+    }
+
+    .pr-card-head{
+      padding:20px;
+      border-bottom:1px solid var(--pr-line-2);
+    }
+
+    .pr-card-head h3{
+      margin:0;
+      color:var(--pr-text);
+      font-size:1.08rem;
+      font-weight:950;
+      letter-spacing:-.03em;
+    }
+
+    .pr-card-head p{
+      margin:7px 0 0;
+      color:var(--pr-muted);
+      font-size:.88rem;
+      line-height:1.45;
+      font-weight:650;
+    }
+
+    .pr-breakdown{
+      padding:18px 20px 20px;
+      display:grid;
+      gap:13px;
+    }
+
+    .pr-bar-row{
+      display:grid;
+      grid-template-columns:54px minmax(0,1fr) 38px;
+      align-items:center;
+      gap:10px;
+      color:var(--pr-muted);
+      font-size:.84rem;
+      font-weight:850;
+    }
+
+    .pr-bar-track{
+      height:11px;
+      border-radius:999px;
+      background:#EDF7F2;
+      overflow:hidden;
+    }
+
+    .pr-bar-fill{
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--pr-green),var(--pr-green-dark));
+      width:0%;
+    }
+
+    .pr-tools{
+      padding:16px 18px 0;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 170px;
+      gap:12px;
+    }
+
+    .pr-search,
+    .pr-select{
+      min-height:46px;
+      border:1px solid var(--pr-line);
+      border-radius:15px;
+      background:#F8FFFB;
+      color:var(--pr-text);
+      outline:none;
+      font:inherit;
+      font-size:.9rem;
+      font-weight:650;
+      transition:.18s var(--pr-ease);
+    }
+
+    .pr-search{
+      padding:0 14px;
+    }
+
+    .pr-select{
+      padding:0 12px;
+    }
+
+    .pr-search:focus,
+    .pr-select:focus{
+      border-color:rgba(0,168,89,.45);
+      background:#fff;
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .pr-reviews{
+      display:grid;
+      gap:14px;
+      padding:18px;
+    }
+
+    .pr-review{
+      border:1px solid var(--pr-line);
+      border-radius:22px;
+      background:
+        radial-gradient(circle at 4% 8%,rgba(0,168,89,.055),transparent 28%),
+        #F8FFFB;
+      padding:18px;
+      display:grid;
+      gap:14px;
+      transition:.2s var(--pr-ease);
+    }
+
+    .pr-review:hover{
+      transform:translateY(-2px);
+      border-color:rgba(0,168,89,.24);
+      box-shadow:0 14px 30px rgba(17,64,38,.07);
+    }
+
+    .pr-review.is-hidden{
+      display:none !important;
+    }
+
+    .pr-review-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:14px;
+    }
+
+    .pr-product{
+      display:grid;
+      grid-template-columns:58px minmax(0,1fr);
+      gap:12px;
+      align-items:center;
+    }
+
+    .pr-product-img{
+      width:58px;
+      height:58px;
+      border-radius:16px;
+      background:#fff;
+      border:1px solid var(--pr-line);
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      color:var(--pr-green-dark);
+      font-weight:900;
+    }
+
+    .pr-product-img img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    }
+
+    .pr-product h4{
+      margin:0;
+      color:var(--pr-text);
+      font-size:1rem;
+      font-weight:950;
+      letter-spacing:-.02em;
+    }
+
+    .pr-review-meta{
+      margin-top:5px;
+      color:var(--pr-muted);
+      font-size:.8rem;
+      line-height:1.45;
+      font-weight:650;
+      word-break:break-word;
+    }
+
+    .pr-rating{
+      min-height:32px;
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      border-radius:999px;
+      padding:0 11px;
+      background:#FFF8E8;
+      color:#A66A00;
+      font-size:.8rem;
+      font-weight:950;
+      white-space:nowrap;
+    }
+
+    .pr-review-text{
+      margin:0;
+      color:#40534A;
+      font-size:.92rem;
+      line-height:1.65;
+      font-weight:650;
+      white-space:pre-wrap;
+    }
+
+    .pr-empty{
+      border:1px dashed rgba(0,168,89,.35);
+      border-radius:22px;
+      background:#F3FFF8;
+      padding:34px 18px;
+      text-align:center;
+      color:var(--pr-muted);
+      font-weight:750;
+      line-height:1.55;
+    }
+
+    .pr-empty b{
+      display:block;
+      margin-bottom:5px;
+      color:var(--pr-green-dark);
+      font-size:1rem;
+    }
+
+    .pr-empty[hidden]{
+      display:none !important;
+    }
+
+    @media(max-width:1280px){
+      .pr-kpis{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+    }
+
+    @media(max-width:1180px){
+      .pr-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media(max-width:760px){
+      .nf-store-product-reviews-page{
+        gap:16px;
+      }
+
+      .pr-hero{
+        border-radius:22px;
+      }
+
+      .pr-hero-content{
+        display:grid;
+        gap:16px;
+      }
+
+      .pr-hero-pill{
+        width:100%;
+      }
+
+      .pr-kpis{
+        grid-template-columns:1fr;
+        gap:12px;
+      }
+
+      .pr-kpi{
+        min-height:96px;
+        border-radius:20px;
+      }
+
+      .pr-card{
+        border-radius:20px;
+      }
+
+      .pr-card-head{
+        padding:17px;
+      }
+
+      .pr-tools{
+        grid-template-columns:1fr;
+        padding:14px 16px 0;
+      }
+
+      .pr-reviews{
+        padding:16px;
+      }
+
+      .pr-review-top{
+        display:grid;
+      }
+
+      .pr-rating{
+        width:max-content;
+      }
+    }
+
+    @media(max-width:430px){
+      .pr-hero{
+        padding:18px;
+      }
+
+      .pr-hero h2{
+        font-size:1.85rem;
+      }
+
+      .pr-kpi{
+        padding:15px;
+      }
+
+      .pr-kpi-icon{
+        width:46px;
+        height:46px;
+        min-width:46px;
+        border-radius:16px;
+      }
+
+      .pr-kpi b{
+        font-size:1.35rem;
+      }
+
+      .pr-bar-row{
+        grid-template-columns:46px minmax(0,1fr) 30px;
+        gap:8px;
+      }
+
+      .pr-product{
+        grid-template-columns:46px minmax(0,1fr);
+      }
+
+      .pr-product-img{
+        width:46px;
+        height:46px;
+        border-radius:14px;
+      }
+    }
+  </style>
+
+  {% set total_reviews = product_review_metrics.get('total_reviews', 0) or 0 %}
+
+  <div class="pr-hero">
+    <div class="pr-hero-content">
+      <div>
+        <span class="pr-kicker">Product Feedback</span>
+        <h2>Product Reviews</h2>
+        <p>
+          Track real-time customer feedback submitted for products from {{ store.store_name or 'your store' }}.
+          Use ratings and comments to improve freshness, packaging, pricing and product quality.
+        </p>
+      </div>
+
+      <div class="pr-hero-pill">
+        ⭐ {{ '%.1f'|format(product_review_metrics.get('avg_rating', 0) or 0) }} Average Rating
+      </div>
+    </div>
+  </div>
+
+  <div class="pr-kpis">
+    <div class="pr-kpi orange">
+      <div class="pr-kpi-icon">⭐</div>
+      <div>
+        <small>Average Rating</small>
+        <b>{{ '%.1f'|format(product_review_metrics.get('avg_rating', 0) or 0) }}</b>
+      </div>
+    </div>
+
+    <div class="pr-kpi blue">
+      <div class="pr-kpi-icon">💬</div>
+      <div>
+        <small>Total Reviews</small>
+        <b>{{ product_review_metrics.get('total_reviews', 0) or 0 }}</b>
+      </div>
+    </div>
+
+    <div class="pr-kpi">
+      <div class="pr-kpi-icon">📦</div>
+      <div>
+        <small>Reviewed Products</small>
+        <b>{{ product_review_metrics.get('reviewed_products', 0) or 0 }}</b>
+      </div>
+    </div>
+
+    <div class="pr-kpi">
+      <div class="pr-kpi-icon">✅</div>
+      <div>
+        <small>Positive Reviews</small>
+        <b>{{ product_review_metrics.get('positive_reviews', 0) or 0 }}</b>
+      </div>
+    </div>
+
+    <div class="pr-kpi red">
+      <div class="pr-kpi-icon">⚠️</div>
+      <div>
+        <small>Low Reviews</small>
+        <b>{{ product_review_metrics.get('low_reviews', 0) or 0 }}</b>
+      </div>
+    </div>
+  </div>
+
+  <div class="pr-grid">
+    <aside class="pr-card">
+      <div class="pr-card-head">
+        <h3>Rating Breakdown</h3>
+        <p>Live distribution of product ratings received by this store.</p>
+      </div>
+
+      <div class="pr-breakdown">
+        {% for star in [5,4,3,2,1] %}
+          {% set count = rating_breakdown.get(star, 0) %}
+          {% set pct = (count / total_reviews * 100) if total_reviews else 0 %}
+
+          <div class="pr-bar-row">
+            <span>{{ star }} ★</span>
+            <div class="pr-bar-track">
+              <div class="pr-bar-fill" style="width:{{ pct }}%;"></div>
+            </div>
+            <span>{{ count }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </aside>
+
+    <section class="pr-card">
+      <div class="pr-card-head">
+        <h3>Received Product Reviews</h3>
+        <p>Latest customer feedback submitted from public product detail pages.</p>
+      </div>
+
+      <div class="pr-tools">
+        <input
+          type="search"
+          class="pr-search"
+          id="prReviewSearch"
+          placeholder="Search product, customer, email, phone or review text..."
+        >
+
+        <select class="pr-select" id="prRatingFilter">
+          <option value="all">All ratings</option>
+          <option value="5">5 star</option>
+          <option value="4">4 star</option>
+          <option value="3">3 star</option>
+          <option value="2">2 star</option>
+          <option value="1">1 star</option>
+        </select>
+      </div>
+
+      <div class="pr-reviews" id="prReviewsList">
+        {% if reviews %}
+          {% for r in reviews %}
+            {% set rating_int = (r.rating or 0)|round(0, 'floor')|int %}
+
+            <article
+              class="pr-review"
+              data-rating="{{ rating_int }}"
+              data-search="{{ (r.product_name ~ ' ' ~ r.reviewer_name ~ ' ' ~ r.reviewer_email ~ ' ' ~ r.reviewer_phone ~ ' ' ~ r.review_text)|lower|e }}"
+            >
+              <div class="pr-review-top">
+                <div class="pr-product">
+                  <div class="pr-product-img">
+                    {% if r.product_image_path %}
+                      <img src="{{ '/' + r.product_image_path if r.product_image_path.startswith('uploads/') else url_for('static', filename=r.product_image_path) }}" alt="{{ r.product_name }}">
+                    {% else %}
+                      📦
+                    {% endif %}
+                  </div>
+
+                  <div>
+                    <h4>{{ r.product_name or 'Product' }}</h4>
+                    <div class="pr-review-meta">
+                      {{ r.reviewer_name or 'Customer' }}
+
+                      {% if r.reviewer_email %}
+                        · {{ r.reviewer_email }}
+                      {% endif %}
+
+                      {% if r.reviewer_phone %}
+                        · {{ r.reviewer_phone }}
+                      {% endif %}
+
+                      {% if r.created_at_display %}
+                        <br>{{ r.created_at_display }}
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+
+                <span class="pr-rating">★ {{ '%.1f'|format(r.rating or 0) }}</span>
+              </div>
+
+              {% if r.review_text %}
+                <p class="pr-review-text">{{ r.review_text }}</p>
+              {% else %}
+                <p class="pr-review-text">No written comment was added.</p>
+              {% endif %}
+            </article>
+          {% endfor %}
+        {% else %}
+          <div class="pr-empty">
+            <b>No product reviews yet.</b>
+            Once customers submit reviews from product detail pages, they will appear here.
+          </div>
+        {% endif %}
+
+        <div class="pr-empty" id="prNoFilteredReviews" hidden>
+          <b>No matching product reviews found.</b>
+          Try another search keyword or rating filter.
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function(){
+      const page = document.querySelector('.nf-store-product-reviews-page');
+      if(!page) return;
+
+      const searchInput = page.querySelector('#prReviewSearch');
+      const ratingFilter = page.querySelector('#prRatingFilter');
+      const reviews = Array.from(page.querySelectorAll('.pr-review'));
+      const emptyFiltered = page.querySelector('#prNoFilteredReviews');
+
+      function normalize(value){
+        return String(value || '').trim().toLowerCase();
+      }
+
+      function applyReviewFilters(){
+        const q = normalize(searchInput ? searchInput.value : '');
+        const rating = ratingFilter ? ratingFilter.value : 'all';
+        let shown = 0;
+
+        reviews.forEach(function(card){
+          const text = normalize(card.getAttribute('data-search'));
+          const cardRating = String(card.getAttribute('data-rating') || '');
+
+          const matchText = !q || text.indexOf(q) !== -1;
+          const matchRating = rating === 'all' || cardRating === rating;
+
+          const show = matchText && matchRating;
+          card.classList.toggle('is-hidden', !show);
+
+          if(show){
+            shown += 1;
+          }
+        });
+
+        if(emptyFiltered){
+          emptyFiltered.hidden = shown !== 0 || reviews.length === 0;
+        }
+      }
+
+      if(searchInput){
+        searchInput.addEventListener('input', applyReviewFilters);
+      }
+
+      if(ratingFilter){
+        ratingFilter.addEventListener('change', applyReviewFilters);
+      }
+
+      applyReviewFilters();
+    })();
+  </script>
+</section>
+{% endblock %}

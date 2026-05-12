@@ -1,0 +1,381 @@
+{% extends "store_base.html" %}
+{% block title %}Store Reviews{% endblock %}
+{% block page_title %}Store Reviews{% endblock %}
+{% block page_subtitle %}View customer ratings and feedback received by your store.{% endblock %}
+
+{% block content %}
+<section class="nf-store-reviews-page">
+  <style>
+    .nf-store-reviews-page{
+      --green:#00A859;
+      --green-dark:#008A48;
+      --green-soft:#E9FFF3;
+      --orange:#FFB84D;
+      --red:#EF4444;
+      --blue:#0284C7;
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --text:#1F332A;
+      --muted:#66756D;
+      --line:#DDECE4;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      display:grid;
+      gap:22px;
+    }
+
+    .sr-hero{
+      border-radius:26px;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(255,184,77,.22), transparent 26%),
+        linear-gradient(135deg,#075C3B 0%,#00A859 100%);
+      color:#fff;
+      padding:26px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .sr-hero h2{
+      margin:0;
+      font-size:clamp(1.6rem,3vw,2.5rem);
+      line-height:1.05;
+      font-weight:900;
+      letter-spacing:-.04em;
+    }
+
+    .sr-hero p{
+      margin:10px 0 0;
+      max-width:760px;
+      color:rgba(255,255,255,.86);
+      font-weight:650;
+      line-height:1.55;
+    }
+
+    .sr-kpis{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:16px;
+    }
+
+    .sr-kpi{
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:#fff;
+      padding:18px;
+      box-shadow:0 10px 26px rgba(17,64,38,.06);
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    .sr-kpi-icon{
+      width:48px;
+      height:48px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      font-size:1.35rem;
+      flex:0 0 auto;
+    }
+
+    .sr-kpi small{
+      display:block;
+      color:var(--muted);
+      font-size:.76rem;
+      font-weight:900;
+      letter-spacing:.07em;
+      text-transform:uppercase;
+    }
+
+    .sr-kpi b{
+      display:block;
+      margin-top:4px;
+      color:var(--text);
+      font-size:1.45rem;
+      line-height:1;
+      font-weight:950;
+    }
+
+    .sr-grid{
+      display:grid;
+      grid-template-columns:360px minmax(0,1fr);
+      gap:18px;
+      align-items:start;
+    }
+
+    .sr-card{
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:#fff;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .sr-card-head{
+      padding:20px;
+      border-bottom:1px solid var(--line);
+    }
+
+    .sr-card-head h3{
+      margin:0;
+      color:var(--text);
+      font-size:1.05rem;
+      font-weight:900;
+      letter-spacing:-.025em;
+    }
+
+    .sr-card-head p{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:.86rem;
+      line-height:1.45;
+      font-weight:650;
+    }
+
+    .sr-breakdown{
+      padding:18px 20px 20px;
+      display:grid;
+      gap:12px;
+    }
+
+    .sr-bar-row{
+      display:grid;
+      grid-template-columns:54px minmax(0,1fr) 36px;
+      align-items:center;
+      gap:10px;
+      color:var(--muted);
+      font-size:.84rem;
+      font-weight:850;
+    }
+
+    .sr-bar-track{
+      height:10px;
+      border-radius:999px;
+      background:#EDF7F2;
+      overflow:hidden;
+    }
+
+    .sr-bar-fill{
+      height:100%;
+      border-radius:999px;
+      background:var(--green);
+      width:0%;
+    }
+
+    .sr-reviews{
+      display:grid;
+      gap:14px;
+      padding:18px;
+    }
+
+    .sr-review{
+      border:1px solid var(--line);
+      border-radius:20px;
+      background:#F8FFFB;
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .sr-review-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+    }
+
+    .sr-review h4{
+      margin:0;
+      color:var(--text);
+      font-size:.96rem;
+      font-weight:900;
+    }
+
+    .sr-review-meta{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:.78rem;
+      line-height:1.4;
+      font-weight:650;
+    }
+
+    .sr-rating{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      border-radius:999px;
+      padding:0 10px;
+      background:#FFF8E8;
+      color:#A66A00;
+      font-size:.78rem;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .sr-review-text{
+      margin:0;
+      color:#40534A;
+      font-size:.9rem;
+      line-height:1.6;
+      font-weight:650;
+      white-space:pre-wrap;
+    }
+
+    .sr-empty{
+      border:1px dashed rgba(0,168,89,.35);
+      border-radius:22px;
+      background:#F3FFF8;
+      padding:30px 18px;
+      text-align:center;
+      color:var(--muted);
+      font-weight:750;
+      line-height:1.55;
+    }
+
+    .sr-empty b{
+      color:var(--green-dark);
+    }
+
+    @media(max-width:1100px){
+      .sr-kpis{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .sr-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media(max-width:640px){
+      .sr-hero{
+        padding:20px;
+        border-radius:20px;
+      }
+
+      .sr-kpis{
+        grid-template-columns:1fr;
+      }
+
+      .sr-kpi{
+        border-radius:18px;
+      }
+
+      .sr-review-top{
+        flex-direction:column;
+      }
+
+      .sr-rating{
+        width:max-content;
+      }
+    }
+  </style>
+
+  <div class="sr-hero">
+    <h2>Customer Reviews</h2>
+    <p>
+      Track the feedback customers have submitted for {{ store.store_name }}.
+      Use this page to understand customer satisfaction and improve service quality.
+    </p>
+  </div>
+
+  <div class="sr-kpis">
+  <div class="sr-kpi orange">
+    <div class="sr-kpi-icon">⭐</div>
+    <div>
+      <small>Average Rating</small>
+      <b>{{ '%.1f'|format(review_metrics.get('avg_rating', 0) or 0) }}</b>
+    </div>
+  </div>
+
+  <div class="sr-kpi blue">
+    <div class="sr-kpi-icon">💬</div>
+    <div>
+      <small>Total Reviews</small>
+      <b>{{ review_metrics.get('total_reviews', 0) or 0 }}</b>
+    </div>
+  </div>
+
+  <div class="sr-kpi">
+    <div class="sr-kpi-icon">✅</div>
+    <div>
+      <small>Positive Reviews</small>
+      <b>{{ review_metrics.get('positive_reviews', 0) or 0 }}</b>
+    </div>
+  </div>
+
+  <div class="sr-kpi red">
+    <div class="sr-kpi-icon">⚠️</div>
+    <div>
+      <small>Low Reviews</small>
+      <b>{{ review_metrics.get('low_reviews', 0) or 0 }}</b>
+    </div>
+  </div>
+</div>
+
+  <div class="sr-grid">
+    <aside class="sr-card">
+      <div class="sr-card-head">
+        <h3>Rating Breakdown</h3>
+        <p>Distribution of customer ratings received by this store.</p>
+      </div>
+
+      <div class="sr-breakdown">
+        {% for star in [5,4,3,2,1] %}
+          {% set count = rating_breakdown.get(star, 0) %}
+          {% set total = metrics.total_reviews or 0 %}
+          {% set pct = (count / total * 100) if total else 0 %}
+          <div class="sr-bar-row">
+            <span>{{ star }} ★</span>
+            <div class="sr-bar-track">
+              <div class="sr-bar-fill" style="width:{{ pct }}%;"></div>
+            </div>
+            <span>{{ count }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </aside>
+
+    <section class="sr-card">
+      <div class="sr-card-head">
+        <h3>Received Reviews</h3>
+        <p>Latest customer feedback submitted from the public store catalog page.</p>
+      </div>
+
+      <div class="sr-reviews">
+        {% if reviews %}
+          {% for r in reviews %}
+            <article class="sr-review">
+              <div class="sr-review-top">
+                <div>
+                  <h4>{{ r.reviewer_name or 'Customer' }}</h4>
+                  <div class="sr-review-meta">
+                    {% if r.reviewer_email %}{{ r.reviewer_email }}{% endif %}
+                    {% if r.reviewer_phone %} · {{ r.reviewer_phone }}{% endif %}
+                    {% if r.created_at_display %}<br>{{ r.created_at_display }}{% endif %}
+                  </div>
+                </div>
+
+                <span class="sr-rating">★ {{ '%.1f'|format(r.rating or 0) }}</span>
+              </div>
+
+              {% if r.review_text %}
+                <p class="sr-review-text">{{ r.review_text }}</p>
+              {% else %}
+                <p class="sr-review-text">No written comment was added.</p>
+              {% endif %}
+            </article>
+          {% endfor %}
+        {% else %}
+          <div class="sr-empty">
+            <b>No store reviews yet.</b><br>
+            Once customers submit reviews from your public store catalog, they will appear here.
+          </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</section>
+{% endblock %}

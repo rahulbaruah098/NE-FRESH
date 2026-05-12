@@ -741,36 +741,265 @@
 
   </div>
 
-  <div class="reviews-wrap">
-    <div class="reviews-card">
-      <h3 style="margin:0 0 14px 0">Customer Reviews</h3>
+   <div class="reviews-wrap">
+    <style>
+      .pd-review-layout{
+        display:grid;
+        grid-template-columns:minmax(0,1fr) 360px;
+        gap:16px;
+        align-items:start;
+      }
 
-      {% if reviews %}
-        <ul class="rev-list">
-          {% for r in reviews %}
-            <li class="rev-item">
-              <div class="review-header">
-                <strong>{{ r.reviewer_name or 'Customer' }}</strong>
-                <span class="small muted">{{ r.created_at }}</span>
-              </div>
+      .pd-review-summary{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:10px;
+        margin-bottom:14px;
+      }
 
-              <div style="margin:8px 0; font-weight:1100; text-transform:uppercase;">
-                <span style="color:#f59e0b;">⭐</span> {{ r.rating }}
-              </div>
+      .pd-review-stat{
+        border:4px solid var(--ink);
+        border-radius:var(--radius-sm);
+        background:var(--page);
+        box-shadow:3px 3px 0 var(--ink);
+        padding:12px;
+        text-align:center;
+      }
 
-              {% if r.comment %}
-                <div style="white-space:pre-wrap; line-height:1.6; font-weight:700;">{{ r.comment }}</div>
-              {% else %}
-                <div class="small muted">No comment provided</div>
-              {% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="muted" style="text-align:center; padding:24px 14px; margin:0;">
-          No reviews yet for this product.
-        </p>
-      {% endif %}
+      .pd-review-stat small{
+        display:block;
+        color:var(--muted);
+        font-size:.72rem;
+        font-weight:1100;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+      }
+
+      .pd-review-stat b{
+        display:block;
+        margin-top:5px;
+        color:var(--ink);
+        font-size:1.35rem;
+        line-height:1;
+        font-weight:1200;
+      }
+
+      .pd-review-form{
+        border:4px solid var(--ink);
+        border-radius:var(--radius);
+        background:
+          radial-gradient(120px 80px at 15% 0%, rgba(139,0,0,.10), transparent 60%),
+          linear-gradient(180deg, var(--card), var(--card-2));
+        box-shadow:var(--shadow);
+        padding:16px;
+      }
+
+      .pd-review-form h3{
+        margin:0 0 10px !important;
+      }
+
+      .pd-review-form p{
+        margin:0 0 12px;
+        color:var(--muted);
+        font-size:.9rem;
+        line-height:1.55;
+        font-weight:850;
+        text-align:center;
+      }
+
+      .pd-review-field{
+        display:grid;
+        gap:7px;
+        margin-bottom:12px;
+      }
+
+      .pd-review-field label{
+        color:var(--ink);
+        font-size:.82rem;
+        font-weight:1100;
+        text-transform:uppercase;
+        letter-spacing:.05em;
+      }
+
+      .pd-review-field select,
+      .pd-review-field textarea{
+        width:100%;
+        border:4px solid var(--ink);
+        border-radius:var(--radius-sm);
+        background:var(--page);
+        color:var(--ink);
+        font:inherit;
+        font-size:.92rem;
+        font-weight:800;
+        outline:none;
+        box-shadow:3px 3px 0 var(--ink);
+      }
+
+      .pd-review-field select{
+        min-height:46px;
+        padding:0 12px;
+      }
+
+      .pd-review-field textarea{
+        min-height:118px;
+        padding:12px;
+        line-height:1.55;
+        resize:vertical;
+      }
+
+      .pd-review-submit{
+        width:100%;
+        min-height:46px;
+        border:4px solid var(--ink);
+        border-radius:var(--radius-sm);
+        background:linear-gradient(135deg, var(--crimson), var(--crimson-2));
+        color:var(--page);
+        font:inherit;
+        font-size:.9rem;
+        font-weight:1200;
+        text-transform:uppercase;
+        cursor:pointer;
+        box-shadow:4px 4px 0 var(--ink);
+        transition:.18s ease;
+      }
+
+      .pd-review-submit:hover{
+        transform:translateY(-2px);
+        box-shadow:6px 6px 0 var(--ink);
+      }
+
+      .pd-review-note{
+        border:4px dashed rgba(0,0,0,.35);
+        border-radius:var(--radius-sm);
+        background:rgba(255,255,255,.38);
+        padding:14px;
+        text-align:center;
+        color:var(--muted);
+        font-weight:900;
+        line-height:1.55;
+      }
+
+      @media(max-width:980px){
+        .pd-review-layout{
+          grid-template-columns:1fr;
+        }
+
+        .pd-review-form{
+          order:-1;
+        }
+      }
+
+      @media(max-width:640px){
+        .pd-review-summary{
+          grid-template-columns:1fr;
+        }
+
+        .reviews-card,
+        .pd-review-form{
+          box-shadow:4px 4px 0 var(--ink);
+        }
+      }
+    </style>
+
+    <div class="pd-review-layout">
+      <div class="reviews-card">
+        <h3 style="margin:0 0 14px 0">Customer Reviews</h3>
+
+        <div class="pd-review-summary">
+          <div class="pd-review-stat">
+            <small>Average Rating</small>
+            <b>{{ '%.1f'|format(rating.avg or 0) }}</b>
+          </div>
+
+          <div class="pd-review-stat">
+            <small>Total Reviews</small>
+            <b>{{ rating.count or 0 }}</b>
+          </div>
+
+          <div class="pd-review-stat">
+            <small>Latest Feedback</small>
+            <b>{{ reviews|length }}</b>
+          </div>
+        </div>
+
+        {% if reviews %}
+          <ul class="rev-list">
+            {% for r in reviews %}
+              <li class="rev-item">
+                <div class="review-header">
+                  <strong>
+                    {{ r.reviewer_name or r.customer_name or 'Customer' }}
+                  </strong>
+                  <span class="small muted">
+                    {{ r.created_at_display or r.created_at or 'Recently reviewed' }}
+                  </span>
+                </div>
+
+                <div style="margin:8px 0; font-weight:1100; text-transform:uppercase;">
+                  <span style="color:#f59e0b;">⭐</span>
+                  {{ '%.1f'|format(r.rating or 0) }}
+                </div>
+
+                {% if r.review %}
+                  <div style="white-space:pre-wrap; line-height:1.6; font-weight:700;">{{ r.review }}</div>
+                {% elif r.comment %}
+                  <div style="white-space:pre-wrap; line-height:1.6; font-weight:700;">{{ r.comment }}</div>
+                {% else %}
+                  <div class="small muted">No comment provided</div>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted" style="text-align:center; padding:24px 14px; margin:0;">
+            No reviews yet for this product.
+          </p>
+        {% endif %}
+      </div>
+
+      <aside class="pd-review-form">
+        <h3>Add Product Review</h3>
+
+        {% if user and user.role == 'customer' %}
+          <p>Share your experience with this product. Your review helps other customers choose better.</p>
+
+          <form method="POST" action="{{ url_for('submit_product_review', pid=product.id) }}">
+            <div class="pd-review-field">
+              <label for="productRating">Your Rating</label>
+              <select id="productRating" name="rating" required>
+                <option value="">Select rating</option>
+                <option value="5">★★★★★ 5 - Excellent</option>
+                <option value="4">★★★★☆ 4 - Very Good</option>
+                <option value="3">★★★☆☆ 3 - Good</option>
+                <option value="2">★★☆☆☆ 2 - Average</option>
+                <option value="1">★☆☆☆☆ 1 - Poor</option>
+              </select>
+            </div>
+
+            <div class="pd-review-field">
+              <label for="productReview">Your Review</label>
+              <textarea
+                id="productReview"
+                name="review"
+                maxlength="800"
+                placeholder="Write about product quality, freshness, packaging, value, taste, etc."></textarea>
+            </div>
+
+            <button class="pd-review-submit" type="submit">
+              Submit Review
+            </button>
+          </form>
+        {% elif not user %}
+          <div class="pd-review-note">
+            Please login as a customer to review this product.<br><br>
+            <a href="{{ url_for('login') }}" style="color:var(--crimson);font-weight:1200;">Login to continue →</a>
+          </div>
+        {% else %}
+          <div class="pd-review-note">
+            Only customer accounts can submit product reviews.
+          </div>
+        {% endif %}
+      </aside>
     </div>
   </div>
 </div>
