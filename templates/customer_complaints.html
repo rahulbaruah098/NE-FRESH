@@ -1,0 +1,605 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="nf-complaints-page">
+  <style>
+    main.container{
+      max-width:none !important;
+      width:100% !important;
+      padding:0 !important;
+      margin:0 !important;
+    }
+
+    .nf-complaints-page{
+      --green:#00A859;
+      --green-dark:#008A48;
+      --green-deep:#075C3B;
+      --green-soft:#E9FFF3;
+      --orange:#FFB84D;
+      --orange-soft:#FFF7E8;
+      --red:#EF4444;
+      --red-soft:#FFF1F2;
+      --blue:#0284C7;
+      --blue-soft:#E0F2FE;
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --text:#1F332A;
+      --muted:#66756D;
+      --line:#DDECE4;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      background:linear-gradient(180deg,#F8FFFB 0%,#FFFFFF 54%,#F8FFFB 100%);
+      color:var(--text);
+      padding:clamp(16px,3vw,42px);
+      min-height:100vh;
+      font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+
+    .nf-comp-wrap{
+      width:100%;
+      max-width:1380px;
+      margin:0 auto;
+      display:grid;
+      gap:22px;
+    }
+
+    .nf-comp-hero{
+      border-radius:30px;
+      padding:clamp(22px,4vw,40px);
+      background:
+        radial-gradient(circle at 12% 15%,rgba(255,184,77,.24),transparent 30%),
+        linear-gradient(135deg,#075C3B 0%,#00A859 100%);
+      color:#fff;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .nf-comp-hero h1{
+      margin:10px 0 0;
+      font-size:clamp(2rem,5vw,4rem);
+      line-height:1.02;
+      font-weight:950;
+      letter-spacing:-.055em;
+    }
+
+    .nf-comp-hero p{
+      margin:12px 0 0;
+      max-width:780px;
+      color:rgba(255,255,255,.88);
+      line-height:1.6;
+      font-weight:650;
+    }
+
+    .nf-comp-kicker{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:0 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.16);
+      border:1px solid rgba(255,255,255,.25);
+      font-size:.74rem;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .nf-comp-kpis{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:16px;
+    }
+
+    .nf-comp-kpi{
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:#fff;
+      padding:18px;
+      box-shadow:0 10px 26px rgba(17,64,38,.06);
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-height:104px;
+    }
+
+    .nf-comp-kpi-icon{
+      width:52px;
+      height:52px;
+      min-width:52px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      font-size:1.35rem;
+    }
+
+    .nf-comp-kpi small{
+      display:block;
+      color:var(--muted);
+      font-size:.72rem;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .nf-comp-kpi b{
+      display:block;
+      margin-top:6px;
+      color:var(--text);
+      font-size:1.55rem;
+      line-height:1;
+      font-weight:950;
+    }
+
+    .nf-comp-grid{
+      display:grid;
+      grid-template-columns:420px minmax(0,1fr);
+      gap:20px;
+      align-items:start;
+    }
+
+    .nf-comp-card{
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:#fff;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      min-width:0;
+    }
+
+    .nf-comp-card-head{
+      padding:20px;
+      border-bottom:1px solid #EAF4EF;
+    }
+
+    .nf-comp-card-head h2{
+      margin:0;
+      color:var(--text);
+      font-size:1.15rem;
+      font-weight:950;
+      letter-spacing:-.03em;
+    }
+
+    .nf-comp-card-head p{
+      margin:7px 0 0;
+      color:var(--muted);
+      font-size:.9rem;
+      line-height:1.5;
+      font-weight:650;
+    }
+
+    .nf-comp-form{
+      padding:20px;
+      display:grid;
+      gap:14px;
+    }
+
+    .nf-field{
+      display:grid;
+      gap:7px;
+    }
+
+    .nf-field label{
+      color:var(--text);
+      font-size:.82rem;
+      font-weight:900;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+    }
+
+    .nf-field input,
+    .nf-field select,
+    .nf-field textarea{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:15px;
+      background:#F8FFFB;
+      color:var(--text);
+      min-height:46px;
+      padding:0 13px;
+      outline:none;
+      font:inherit;
+      font-size:.92rem;
+      font-weight:650;
+    }
+
+    .nf-field textarea{
+      min-height:128px;
+      resize:vertical;
+      padding:13px;
+      line-height:1.55;
+    }
+
+    .nf-field input:focus,
+    .nf-field select:focus,
+    .nf-field textarea:focus{
+      border-color:rgba(0,168,89,.45);
+      background:#fff;
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .nf-comp-submit{
+      min-height:48px;
+      border:0;
+      border-radius:15px;
+      background:var(--green);
+      color:#fff;
+      font:inherit;
+      font-size:.92rem;
+      font-weight:950;
+      cursor:pointer;
+      box-shadow:0 14px 28px rgba(0,168,89,.18);
+      transition:.2s ease;
+    }
+
+    .nf-comp-submit:hover{
+      background:var(--green-dark);
+      transform:translateY(-2px);
+    }
+
+    .nf-complaint-list{
+      padding:18px;
+      display:grid;
+      gap:14px;
+    }
+
+    .nf-complaint-item{
+      border:1px solid var(--line);
+      border-radius:20px;
+      background:#F8FFFB;
+      padding:16px;
+      display:grid;
+      gap:10px;
+    }
+
+    .nf-complaint-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+    }
+
+    .nf-complaint-item h3{
+      margin:0;
+      color:var(--text);
+      font-size:1rem;
+      font-weight:950;
+      letter-spacing:-.02em;
+    }
+
+    .nf-complaint-meta{
+      margin-top:5px;
+      color:var(--muted);
+      font-size:.8rem;
+      line-height:1.45;
+      font-weight:650;
+    }
+
+    .nf-status{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      padding:0 11px;
+      background:var(--orange-soft);
+      color:#A66A00;
+      font-size:.76rem;
+      font-weight:950;
+      white-space:nowrap;
+    }
+
+    .nf-status.resolved{
+      background:var(--green-soft);
+      color:var(--green-dark);
+    }
+
+    .nf-status.in_progress{
+      background:var(--blue-soft);
+      color:var(--blue);
+    }
+
+    .nf-complaint-message{
+      margin:0;
+      color:#40534A;
+      line-height:1.6;
+      font-size:.92rem;
+      font-weight:650;
+      white-space:pre-wrap;
+    }
+
+    .nf-complaint-proof{
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:#fff;
+  padding:12px;
+  display:grid;
+  gap:10px;
+}
+
+.nf-complaint-proof b{
+  color:var(--green-dark);
+  font-size:.82rem;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+
+.nf-complaint-proof img{
+  width:100%;
+  max-height:260px;
+  object-fit:contain;
+  border-radius:14px;
+  background:#F8FFFB;
+  border:1px solid var(--line);
+}
+
+.nf-proof-link{
+  width:max-content;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:34px;
+  padding:0 12px;
+  border-radius:999px;
+  background:var(--green-soft);
+  color:var(--green-dark);
+  font-size:.8rem;
+  font-weight:900;
+  text-decoration:none;
+}
+
+    .nf-reply-box{
+      border-radius:16px;
+      background:#fff;
+      border:1px solid var(--line);
+      padding:12px;
+      color:var(--muted);
+      font-size:.86rem;
+      line-height:1.55;
+      font-weight:650;
+    }
+
+    .nf-reply-box b{
+      color:var(--green-dark);
+    }
+
+    .nf-empty{
+      border:1px dashed rgba(0,168,89,.35);
+      border-radius:22px;
+      background:#F3FFF8;
+      padding:34px 18px;
+      text-align:center;
+      color:var(--muted);
+      font-weight:750;
+      line-height:1.55;
+    }
+
+    .nf-empty b{
+      display:block;
+      color:var(--green-dark);
+      margin-bottom:5px;
+    }
+
+    @media(max-width:1100px){
+      .nf-comp-grid{
+        grid-template-columns:1fr;
+      }
+
+      .nf-comp-kpis{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media(max-width:640px){
+      .nf-complaints-page{
+        padding:12px;
+      }
+
+      .nf-comp-hero{
+        border-radius:22px;
+      }
+
+      .nf-comp-kpis{
+        grid-template-columns:1fr;
+        gap:12px;
+      }
+
+      .nf-comp-card{
+        border-radius:20px;
+      }
+
+      .nf-complaint-top{
+        display:grid;
+      }
+
+      .nf-status{
+        width:max-content;
+      }
+    }
+  </style>
+
+  <div class="nf-comp-wrap">
+    <header class="nf-comp-hero">
+      <span class="nf-comp-kicker">Help & Support</span>
+      <h1>Raise Complaint</h1>
+      <p>
+        Submit issues related to orders, products, stores, delivery, payment or refunds.
+        Your complaint will be tracked and updated by the NE FRESH support team.
+      </p>
+    </header>
+
+    <section class="nf-comp-kpis">
+      <div class="nf-comp-kpi">
+        <div class="nf-comp-kpi-icon">📩</div>
+        <div>
+          <small>Total</small>
+          <b>{{ metrics.total or 0 }}</b>
+        </div>
+      </div>
+
+      <div class="nf-comp-kpi">
+        <div class="nf-comp-kpi-icon">🟠</div>
+        <div>
+          <small>Open</small>
+          <b>{{ metrics.open or 0 }}</b>
+        </div>
+      </div>
+
+      <div class="nf-comp-kpi">
+        <div class="nf-comp-kpi-icon">🔵</div>
+        <div>
+          <small>In Progress</small>
+          <b>{{ metrics.in_progress or 0 }}</b>
+        </div>
+      </div>
+
+      <div class="nf-comp-kpi">
+        <div class="nf-comp-kpi-icon">✅</div>
+        <div>
+          <small>Resolved</small>
+          <b>{{ metrics.resolved or 0 }}</b>
+        </div>
+      </div>
+    </section>
+
+    <section class="nf-comp-grid">
+      <aside class="nf-comp-card">
+        <div class="nf-comp-card-head">
+          <h2>Submit New Complaint</h2>
+          <p>Fill the details below. Add order/store/product information if available.</p>
+        </div>
+
+        <form class="nf-comp-form" method="POST" action="{{ url_for('customer_complaints') }}" enctype="multipart/form-data">
+          <div class="nf-field">
+            <label for="complaintType">Complaint Type</label>
+            <select id="complaintType" name="complaint_type" required>
+              <option value="">Select type</option>
+              <option value="order">Order Issue</option>
+              <option value="product">Product Issue</option>
+              <option value="store">Store Issue</option>
+              <option value="delivery">Delivery Issue</option>
+              <option value="payment">Payment Issue</option>
+              <option value="refund">Refund Issue</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="nf-field">
+            <label for="subject">Subject</label>
+            <input id="subject" name="subject" maxlength="160" placeholder="Example: Wrong product delivered" required>
+          </div>
+
+          <div class="nf-field">
+            <label for="message">Details</label>
+            <textarea id="message" name="message" maxlength="1200" placeholder="Explain the issue clearly..." required></textarea>
+          </div>
+
+          <div class="nf-field">
+            <label for="orderId">Order ID / Reference</label>
+            <input id="orderId" name="order_id" placeholder="Optional">
+          </div>
+
+         <div class="nf-field">
+  <label for="storeId">Select Store</label>
+  <select id="storeId" name="store_id" required>
+    <option value="">Select store</option>
+    {% for s in stores %}
+      <option value="{{ s.id }}">{{ s.store_name }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+        <div class="nf-field">
+  <label for="productName">Product Name</label>
+  <input id="productName" name="product_name" placeholder="Optional">
+</div>
+
+<div class="nf-field">
+  <label for="complaintImage">Upload Image Proof</label>
+  <input id="complaintImage"
+         name="complaint_image"
+         type="file"
+         accept="image/png,image/jpeg,image/jpg,image/webp">
+  <small style="color:var(--muted);font-weight:650;line-height:1.4;">
+    Optional. Upload JPG, PNG or WEBP image proof, such as damaged item, wrong item, payment issue screenshot, etc.
+  </small>
+</div>
+
+<button class="nf-comp-submit" type="submit">
+            Submit Complaint
+          </button>
+        </form>
+      </aside>
+
+      <main class="nf-comp-card">
+        <div class="nf-comp-card-head">
+          <h2>My Complaints</h2>
+          <p>Track complaints submitted by your customer account.</p>
+        </div>
+
+        <div class="nf-complaint-list">
+          {% if complaints %}
+            {% for c in complaints %}
+              <article class="nf-complaint-item">
+                <div class="nf-complaint-top">
+                  <div>
+                    <h3>{{ c.subject }}</h3>
+                    <div class="nf-complaint-meta">
+                      Type: {{ c.complaint_type|replace('_',' ')|title }}
+                      {% if c.order_id %} · Order: {{ c.order_id }}{% endif %}
+                      {% if c.store_name %} · Store: {{ c.store_name }}{% endif %}
+                      {% if c.progress_status_label %} · Progress: {{ c.progress_status_label }}{% endif %}
+                      {% if c.product_name %} · Product: {{ c.product_name }}{% endif %}
+                      {% if c.created_at_display %}<br>{{ c.created_at_display }}{% endif %}
+                    </div>
+                  </div>
+
+                  <span class="nf-status {{ c.status }}">
+                    {{ c.status_label }}
+                  </span>
+                </div>
+
+                <p class="nf-complaint-message">{{ c.message }}</p>
+
+                {% if c.complaint_image_path %}
+  <div class="nf-complaint-proof">
+    <b>Uploaded Image Proof</b>
+    <img src="{{ '/' + c.complaint_image_path }}" alt="Complaint image proof">
+    <a class="nf-proof-link" href="{{ '/' + c.complaint_image_path }}" target="_blank" rel="noopener">
+      View Full Image
+    </a>
+  </div>
+{% endif %}
+
+                {% if c.admin_reply %}
+                  <div class="nf-reply-box">
+                    <b>Admin Reply:</b><br>
+                    {{ c.admin_reply }}
+                  </div>
+                {% endif %}
+
+                {% if c.store_reply %}
+                  <div class="nf-reply-box">
+                    <b>Store Reply:</b><br>
+                    {{ c.store_reply }}
+                  </div>
+                {% endif %}
+              </article>
+            {% endfor %}
+          {% else %}
+            <div class="nf-empty">
+              <b>No complaints yet.</b>
+              Your submitted complaints will appear here with status updates.
+            </div>
+          {% endif %}
+        </div>
+      </main>
+    </section>
+  </div>
+</section>
+
+{% endblock %}

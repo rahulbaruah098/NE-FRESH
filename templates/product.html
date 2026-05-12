@@ -1,1049 +1,1487 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2 class="pd-heading" aria-label="Product Detail">
-  <span class="pd-heading-sub">Product</span>
-  <span class="pd-heading-box">DETAILS</span>
-</h2>
+{% set stock_qty = product.stock_kg or 0 %}
+{% set price_per_kg = product.price_per_kg or 0 %}
+{% set half_price = price_per_kg / 2 %}
+{% set mrp_half = half_price * 1.20 %}
+{% set pct_off = ((1 - (half_price / (mrp_half or 1))) * 100) if half_price else 0 %}
+{% set is_customer = user and user.role == 'customer' %}
+{% set is_in_stock = stock_qty is not none and stock_qty > 0 %}
+{% set default_weight = 1 if stock_qty >= 1 else stock_qty if stock_qty > 0 else 0.25 %}
 
-<style>
-  /* ✅ remove container constraints */
-  main.container{ padding: 0 !important; margin: 0 !important; max-width: none !important; }
-
-  :root{
-    --page:#FAF9F6;
-    --ink:#3a332f;
-    --muted:#2a2a2a;
-
-    --crimson:#8B0000;
-    --crimson-2:#b11212;
-
-    --card:#F6F0E7;
-    --card-2:#EFE6DA;
-
-    --shadow: -10px -10px 0 #d9cdbd;
-    --shadow-hover: -12px -12px 0 #cbbdad;
-
-    --radius: 14px;
-    --radius-sm: 12px;
-  }
-
-  html, body{ overflow-x: hidden; }
-
-  /* Grain overlay */
-  body::after{
-    content:"";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 9999;
-    opacity: 0.08;
-    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="4" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
-    animation: grain 0.5s steps(6) infinite;
-  }
-  @keyframes grain{
-    0%,100%{transform:translate(0,0);}
-    10%{transform:translate(-5%,-10%);}
-    20%{transform:translate(-15%,5%);}
-    30%{transform:translate(7%,-25%);}
-    40%{transform:translate(-5%,25%);}
-    50%{transform:translate(-15%,10%);}
-    60%{transform:translate(15%,0%);}
-    70%{transform:translate(0%,15%);}
-    80%{transform:translate(3%,35%);}
-    90%{transform:translate(-10%,10%);}
-  }
-
-  /* ✅ Chicken cursor (same as before) */
-  @media (min-width: 481px){
-    :root{
-      --chicken-cursor: url("data:image/svg+xml;utf8,\
-<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 64 64'>\
-  <defs>\
-    <linearGradient id='g1' x1='0' y1='0' x2='1' y2='1'>\
-      <stop offset='0' stop-color='%23c07a35'/>\
-      <stop offset='1' stop-color='%238b3c1b'/>\
-    </linearGradient>\
-    <linearGradient id='g2' x1='0' y1='0' x2='1' y2='1'>\
-      <stop offset='0' stop-color='%23f6e7d8'/>\
-      <stop offset='1' stop-color='%23e5d2bf'/>\
-    </linearGradient>\
-  </defs>\
-  <ellipse cx='30' cy='40' rx='18' ry='13' fill='%23000000' opacity='.12'/>\
-  <path d='M18 18c-7 7-9 20 0 28 9 8 27 6 34-3 7-9 2-23-7-29-9-6-21-3-27 4z' fill='url(%23g1)' stroke='%232b2623' stroke-width='1.6'/>\
-  <path d='M26 20c-6 4-8 14-2 20 5 5 16 5 22-1' fill='none' stroke='%23ffffff' stroke-width='2.2' opacity='.28' stroke-linecap='round'/>\
-  <path d='M46 44c4 4 7 6 10 5 3-1 4-5 1-8 2-3 1-7-2-8s-7 1-9 4' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6' stroke-linejoin='round'/>\
-  <circle cx='58' cy='39' r='3' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6'/>\
-  <circle cx='55' cy='49' r='3' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6'/>\
-</svg>") 8 8, auto;
+<section class="nf-product-detail-page">
+  <style>
+    main.container{
+      max-width:none !important;
+      width:100% !important;
+      padding:0 !important;
+      margin:0 !important;
     }
-    .pd-wrap .card,
-    .pd-wrap .card *{ cursor: var(--chicken-cursor); }
-    .pd-wrap a, .pd-wrap button{ cursor: pointer !important; }
-    .pd-wrap input{ cursor: text !important; }
-  }
-  @media (max-width: 480px){
-    .pd-wrap, .pd-wrap *{ cursor:auto !important; }
-  }
 
-  /* ✅ full-bleed heading */
-  .pd-heading{
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    background: var(--page);
-    padding: 22px clamp(14px, 3vw, 44px) 10px;
-    text-align:center;
-    margin-bottom: 10px;
-  }
-  .pd-heading-box{
-    display:inline-block;
-    border: 4px solid var(--ink);
-    padding: 18px clamp(18px, 3vw, 40px);
-    background: rgba(255,255,255,.40);
-    box-shadow: 0 0 0 10px rgba(0,0,0,.03) inset;
+    .nf-product-detail-page{
+      --nf-green:#00A859;
+      --nf-green-dark:#008A48;
+      --nf-green-soft:#E9FFF3;
+      --nf-green-soft-2:#F3FFF8;
+      --nf-ink:#23332A;
+      --nf-text:#50645A;
+      --nf-muted:#93A1A9;
+      --nf-line:#E6EEF0;
+      --nf-card:#FFFFFF;
+      --nf-bg:#F7F8FA;
+      --nf-yellow:#FFB84D;
+      --nf-orange:#FF8A3D;
+      --nf-red:#FF6B5F;
+      --nf-shadow:0 12px 30px rgba(17,64,38,.045);
+      --nf-shadow-hover:0 20px 46px rgba(17,64,38,.10);
+      --nf-radius:14px;
+      --nf-ease:cubic-bezier(.2,.75,.25,1);
 
-    font-family: "Playfair Display","Times New Roman",serif;
-    font-weight: 900;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    line-height: 1;
-    font-size: clamp(2.2rem, 5vw, 4.1rem);
-    color: var(--ink);
-  }
-  .pd-heading-sub{
-    display:block;
-    margin-top: 12px;
-    font-family: "Dancing Script","Brush Script MT",cursive;
-    color: var(--crimson);
-    font-weight: 700;
-    font-size: clamp(2.1rem, 4.6vw, 3.6rem);
-    line-height: 1;
-  }
-
-  /* ✅ full-bleed wrap */
-  .pd-wrap{
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    background: var(--page);
-    padding: 14px clamp(14px, 3vw, 44px) 26px;
-  }
-
-  .pd-grid{
-    display:grid;
-    grid-template-columns: 1.15fr .85fr;
-    gap: 18px;
-    max-width: 1300px;
-    margin: 0 auto;
-    align-items: start;
-  }
-  @media (max-width: 900px){
-    .pd-grid{ grid-template-columns: 1fr; gap: 14px; }
-  }
-
-  .card{
-    border: 4px solid var(--ink);
-    border-radius: var(--radius);
-    background:
-      radial-gradient(140px 90px at 18% 0%, rgba(139,0,0,.10), transparent 60%),
-      linear-gradient(180deg, var(--card), var(--card-2));
-    overflow:hidden;
-    position:relative;
-    box-shadow: var(--shadow);
-    transition: transform .20s ease, box-shadow .20s ease, filter .20s ease;
-  }
-  .card::before{
-    content:"";
-    position:absolute;
-    inset: 10px 10px auto 10px;
-    height: 56px;
-    border: 1px solid rgba(0,0,0,.12);
-    border-radius: calc(var(--radius) - 6px);
-    pointer-events:none;
-    opacity: .55;
-  }
-  .card:hover{ transform: scale(1.01); box-shadow: var(--shadow-hover); }
-  @media (hover:none) and (pointer:coarse){
-    .card:hover{ transform:none; box-shadow: var(--shadow); }
-  }
-
-  .pd-hero-inner{
-    display:grid;
-    grid-template-columns: 1fr 1.05fr;
-    gap: 0;
-    align-items: stretch;
-  }
-  @media (max-width: 900px){
-    .pd-hero-inner{ grid-template-columns: 1fr; }
-  }
-
-  /* ✅ FIX 1: Image always FULL + responsive (aspect-ratio based) */
-  .pd-hero-media{
-   border: 4px solid var(--ink);
-    position: relative;
-    overflow: hidden;
-    background: rgba(255,255,255,.25);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding: 14px;
-
-    width: 100%;
-    aspect-ratio: 4 / 3;           /* ✅ responsive box that adapts */
-    min-height: 240px;
-    max-height: 440px;
-  }
-  @media (max-width: 900px){
-    .pd-hero-media{
-      border-left: 0;
-      border-top: 4px solid var(--ink);
-      padding: 12px;
-      aspect-ratio: 1 / 1;         /* ✅ nicer on mobile */
-      min-height: 220px;
-      max-height: 360px;
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+      overflow:hidden;
+      background:#F7F8FA;
+      color:var(--nf-text);
+      font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
+      min-height:100vh;
     }
-  }
-  @media (max-width: 480px){
-    .pd-hero-media{
-      min-height: 200px;
-      max-height: 320px;
+
+    .nf-product-detail-page *,
+    .nf-product-detail-page *::before,
+    .nf-product-detail-page *::after{
+      box-sizing:border-box;
     }
-  }
 
-  .pd-hero-media img{
-    width: 100%;
-    height: 100%;
-    object-fit: contain;           /* ✅ NEVER crop */
-    display:block;
-    transition: transform .20s ease, filter .20s ease;
-  }
-  .card:hover .pd-hero-media img{
-    transform: scale(1.02);
-    filter: contrast(106%);
-  }
+    .nf-detail-wrap{
+      width:min(1510px,calc(100% - 52px));
+      margin:0 auto;
+    }
 
-  .pd-body{
-    padding: 12px 14px;
-    text-align:center;
-  }
+    .nf-detail-hero{
+      padding:42px 0 28px;
+      background:#F7F8FA;
+      border-top:1px solid rgba(0,168,89,.08);
+    }
 
-  .pd-title{
-    margin: 0 0 4px 0;
-    color: var(--ink);
-    text-transform: uppercase;
-    font-weight: 1100;
-    letter-spacing: -0.6px;
-    line-height: 1.05;
-    font-size: clamp(22px, 2.4vw, 34px);
-  }
-  .store{
-    margin:0 auto 6px;
-    color: var(--muted);
-    font-weight: 850;
-    font-size: .95rem;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    max-width: 100%;
-  }
+    .nf-detail-title{
+      margin:0;
+      text-align:center;
+      color:#3C5950;
+      font-size:clamp(1.85rem,2.45vw,2.7rem);
+      line-height:1.1;
+      font-weight:800;
+      letter-spacing:-.035em;
+    }
 
-  .meta-row{ margin: 8px 0 4px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
-  .price-section{ margin: 8px 0 4px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
-  .deal-row{ margin-top: 0; margin-bottom: 4px; display:flex; justify-content:center; gap:8px; flex-wrap:wrap; }
-  .rating-section{ margin: 8px 0 10px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
+    .nf-detail-subtitle{
+      margin:13px auto 0;
+      max-width:760px;
+      text-align:center;
+      color:#98A2B3;
+      font-size:clamp(.98rem,1.2vw,1.18rem);
+      line-height:1.45;
+      font-weight:520;
+    }
 
-  .badge, .rating-pill{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:6px;
-    background: var(--page);
-    color: var(--ink);
-    padding: 5px 10px;
-    border-radius: 999px;
-    font-size: .76rem;
-    font-weight: 1100;
-    border: 3px solid var(--ink);
-    box-shadow: 3px 3px 0 var(--ink);
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: .35px;
-  }
+    .nf-detail-main{
+      padding:24px 0 58px;
+      background:#F7F8FA;
+    }
 
-  .price{
-    font-size: clamp(22px, 2.6vw, 32px);
-    font-weight: 1200;
-    color: var(--ink);
-    letter-spacing: -0.02em;
-  }
-  .small{ font-size: .9rem; font-weight: 850; color: var(--muted); }
-  .muted{ color: var(--muted); font-weight: 850; }
+    .nf-detail-grid{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 390px;
+      gap:20px;
+      align-items:start;
+    }
 
-  .deal-row .mrp{
-    text-decoration: line-through;
-    color: #545454;
-    font-weight: 1100;
-    font-size: .9rem;
-  }
-  .deal-row .off{
-    background: #0b0b0b;
-    color: var(--page);
-    border: 3px solid var(--ink);
-    border-radius: 999px;
-    padding: 3px 9px;
-    font-weight: 1200;
-    font-size: .75rem;
-    box-shadow: 3px 3px 0 var(--ink);
-    text-transform: uppercase;
-  }
+    .nf-detail-product-card{
+      position:relative;
+      border-radius:12px;
+      background:#fff;
+      border:1px solid #DDEFE6;
+      box-shadow:0 14px 34px rgba(17,64,38,.055);
+      overflow:hidden;
+      display:grid;
+      grid-template-columns:minmax(360px,.95fr) minmax(0,1.05fr);
+      min-height:590px;
+      transition:transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease);
+    }
 
-  .stars{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    font-weight: 1100;
-    text-transform: uppercase;
-    color: var(--ink);
-  }
-  .stars::before{ content:"⭐"; color:#f59e0b; }
+    .nf-detail-product-card:hover{
+      transform:translateY(-4px);
+      box-shadow:0 18px 42px rgba(17,64,38,.09);
+      border-color:rgba(0,168,89,.16);
+    }
 
-  .kvs{
-    display:grid;
-    grid-template-columns: repeat(2, minmax(0,1fr));
-    gap: 10px;
-    margin: 10px auto 10px;
-    max-width: 720px;
-  }
-  @media (max-width: 480px){ .kvs{ grid-template-columns:1fr; } }
+    .nf-detail-media{
+      position:relative;
+      padding:20px;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
+      border-right:1px solid #F0F3F5;
+      display:grid;
+      place-items:center;
+      min-height:540px;
+    }
 
-  .kvs .kv{
-    border: 4px solid var(--ink);
-    border-radius: var(--radius-sm);
-    padding: 10px;
-    background: var(--page);
-    box-shadow: 3px 3px 0 var(--ink);
-    text-align:center;
-  }
-  .kvs .kv .small{
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    font-weight: 1100;
-  }
-  .kvs .kv strong{ font-weight: 1200; }
+    .nf-detail-img-box{
+      width:100%;
+      max-width:520px;
+      aspect-ratio:1 / 1;
+      border-radius:10px;
+      border:1px solid #EEF5F1;
+      background:#fff;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+    }
 
-  h3{
-    margin: 10px 0 8px 0;
-    font-size: 1.02rem;
-    font-weight: 1100;
-    color: var(--ink);
-    text-transform: uppercase;
-    text-align:center;
-  }
+    .nf-detail-img-box img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      padding:24px;
+      display:block;
+      transition:transform .28s var(--nf-ease), filter .28s var(--nf-ease);
+    }
 
-  /* ✅ FIX 2: About text alignment (icon + balanced lines) */
-  .pd-info-dot{
-    display:block;
-    width: 22px;
-    height: 22px;
-    margin: 0 auto 10px;
-    border-radius: 999px;
-    border: 3px solid var(--ink);
-    background: var(--page);
-    font-weight: 1200;
-    line-height: 18px;
-    text-align:center;
-  }
+    .nf-detail-product-card:hover .nf-detail-img-box img{
+      transform:scale(1.045);
+      filter:saturate(1.03) contrast(1.02);
+    }
 
-  .pd-body h3{
-    margin: 14px 0 10px !important;
-    font-size: .95rem;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    color: var(--ink);
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 12px;
-    border: 3px solid var(--ink);
-    border-radius: 999px;
-    background: rgba(255,255,255,.55);
-    box-shadow: 3px 3px 0 var(--ink);
-  }
+    .nf-discount-badge{
+      position:absolute;
+      top:20px;
+      left:20px;
+      z-index:3;
+      min-width:54px;
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:7px;
+      padding:0 10px;
+      background:#FF675D;
+      color:#fff;
+      font-size:1rem;
+      font-weight:800;
+      line-height:1;
+      box-shadow:0 10px 22px rgba(255,103,93,.18);
+    }
 
- /* ✅ Description box: left-aligned text, icon centered */
-.pd-desc{
-  margin: 0 auto;
-  max-width: 520px;
-  padding: 18px 18px;
-  border: 3px solid rgba(0,0,0,.20);
-  border-radius: 12px;
-  background: rgba(255,255,255,.35);
-  line-height: 1.75;
-  font-size: 1rem;
-  font-weight: 800;
-  color: #1f1f1f;
-  white-space: pre-wrap;
+    .nf-stock-badge{
+      position:absolute;
+      top:20px;
+      right:20px;
+      z-index:3;
+      min-height:32px;
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:0 13px;
+      background:var(--nf-green-soft);
+      color:var(--nf-green-dark);
+      font-size:.75rem;
+      font-weight:800;
+      box-shadow:0 8px 18px rgba(0,168,89,.08);
+    }
 
-  /* ✅ key part */
-  display: flex;
-  flex-direction: column;
-  align-items: center; /* centers the "content column" */
-}
+    .nf-stock-badge.out{
+      background:#FFF1F2;
+      color:#B91C1C;
+    }
 
-  .pd-desc.muted{
-    color: #2a2a2a;
-    opacity: .92;
-  }
- /* ✅ About box: SAME on web + mobile */
-.pd-desc{
-  margin: 0 auto;
-  max-width: 520px;
-  padding: 18px 18px;
-  border: 3px solid rgba(0,0,0,.20);
-  border-radius: 12px;
-  background: rgba(255,255,255,.35);
-  line-height: 1.75;
-  font-size: 1rem;
-  font-weight: 800;
-  color: #1f1f1f;
-  white-space: pre-wrap;
+    .nf-stock-panel{
+      position:absolute;
+      left:20px;
+      right:20px;
+      bottom:20px;
+      z-index:4;
+      border:1px solid #DDF4E8;
+      border-radius:14px;
+      background:rgba(255,255,255,.92);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+      box-shadow:0 14px 36px rgba(17,64,38,.10);
+      padding:14px;
+    }
 
-  display: flex;
-  flex-direction: column;
-  align-items: center; /* ✅ keep centered everywhere */
-  text-align: center;  /* ✅ important */
-}
+    .nf-stock-panel-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
 
-.pd-desc.muted{
-  color: #2a2a2a;
-  opacity: .92;
-}
+    .nf-stock-panel-row span{
+      color:#64756B;
+      font-size:.76rem;
+      font-weight:850;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
 
-.pd-info-dot{
-  display:block;
-  width: 22px;
-  height: 22px;
-  margin: 0 auto 14px;
-  border-radius: 999px;
-  border: 3px solid var(--ink);
-  background: var(--page);
-  font-weight: 1200;
-  line-height: 16px;
-  text-align:center;
-}
+    .nf-stock-panel-row b{
+      color:#31554A;
+      font-size:.98rem;
+      font-weight:900;
+    }
 
-/* ✅ keep text centered like web view */
-.pd-desc-text{
-  width: min(420px, 100%);
-  text-align: center;  /* ✅ this is what you want */
-}
+    .nf-stock-track{
+      width:100%;
+      height:9px;
+      border-radius:999px;
+      background:#EEF5F1;
+      overflow:hidden;
+    }
 
-/* ✅ Mobile: ONLY reduce padding (no alignment changes) */
-@media (max-width: 600px){
-  .pd-desc{
-    max-width: 100%;
-    padding: 16px 14px;
-  }
-}
+    .nf-stock-fill{
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--nf-green),var(--nf-green-dark));
+      width:{% if stock_qty >= 20 %}100{% elif stock_qty > 0 %}{{ (stock_qty / 20 * 100)|round(0, 'floor') }}{% else %}0{% endif %}%;
+    }
 
+    .nf-detail-body{
+      padding:28px;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:16px;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFC 100%);
+    }
 
-/* ✅ mobile: keep nice padding */
+    .nf-detail-kicker{
+      width:max-content;
+      max-width:100%;
+      min-height:32px;
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:0 12px;
+      background:var(--nf-green-soft);
+      color:var(--nf-green-dark);
+      font-size:.76rem;
+      font-weight:850;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+    }
 
+    .nf-detail-name{
+      margin:0;
+      color:#40584E;
+      font-size:clamp(1.8rem,3.1vw,3.4rem);
+      line-height:1.06;
+      font-weight:850;
+      letter-spacing:-.045em;
+    }
 
-  /* Buy card */
-  .buy-card{
-    padding: 14px;
-    position: sticky;
-    top: 24px;
-  }
-  @media (max-width: 900px){
-    .buy-card{ position: static; top:auto; }
-  }
+    .nf-store-line{
+      display:block;
+      color:#9AA7B7;
+      font-size:.84rem;
+      line-height:1.35;
+      font-weight:650;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
 
-  .qty{ display:flex; flex-direction:column; gap:8px; margin-bottom: 10px; }
-  .qty label{
-    font-weight: 1100;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    color: var(--ink);
-    font-size: .82rem;
-  }
-  .qty input{
-    width: 100%;
-    padding: 12px 12px;
-    border: 4px solid var(--ink);
-    border-radius: var(--radius-sm);
-    font-size: 1rem;
-    font-weight: 1100;
-    text-align: center;
-    background: var(--page);
-    transition: box-shadow .18s ease, border-color .18s ease, background .18s ease;
-  }
-  .qty input:focus{
-    outline:none;
-    border-color: var(--crimson);
-    box-shadow: 6px 6px 0 var(--crimson);
-    background:#fff;
-  }
+    .nf-detail-rating-row{
+      display:flex;
+      align-items:center;
+      gap:9px;
+      flex-wrap:wrap;
+    }
 
-  .calculation-box{
-    margin: 12px 0;
-    padding: 12px;
-    border: 4px dashed rgba(0,0,0,.35);
-    border-radius: var(--radius-sm);
-    background: rgba(0,0,0,.03);
-    text-align:center;
-  }
-  .calculation-total{
-    font-size: 1.55rem;
-    font-weight: 1200;
-    color: var(--ink);
-    margin: 6px 0;
-  }
+    .nf-rating-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:4px;
+      min-height:27px;
+      border-radius:999px;
+      padding:0 10px;
+      background:#FFF8E8;
+      color:#A66A00;
+      font-size:.76rem;
+      font-weight:800;
+    }
 
-  .actions{
-    display:flex;
-    gap:10px;
-    width:100%;
-    flex-wrap: wrap;
-    margin: 10px 0 6px;
-    align-items: flex-start;
-  }
-  @media (max-width: 480px){ .actions{ flex-direction: column; } }
+    .nf-review-count{
+      color:#98A2B3;
+      font-size:.86rem;
+      font-weight:650;
+    }
 
-  .btn{
-    padding: 11px 12px;
-    border: 4px solid var(--ink);
-    border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, var(--crimson) 0%, var(--crimson-2) 100%);
-    color: var(--page);
-    cursor:pointer;
-    font-weight: 1200;
-    font-size: .92rem;
-    text-align:center;
-    flex:1;
-    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
-    text-transform: uppercase;
-    min-height: 44px;
-  }
+    .nf-price-row{
+      display:flex;
+      align-items:center;
+      gap:11px;
+      flex-wrap:wrap;
+      padding:16px;
+      border:1px solid #DDF4E8;
+      border-radius:14px;
+      background:#F7FFFA;
+    }
 
-  .btn-ghost{
-    padding: 11px 12px;
-    border: 4px solid var(--ink);
-    border-radius: var(--radius-sm);
-    background: var(--page);
-    color: var(--ink);
-    cursor:pointer;
-    font-weight: 1200;
-    font-size: .92rem;
-    text-align:center;
-    text-decoration:none;
-    flex:1;
-    transition: transform .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
-    text-transform: uppercase;
-    min-height: 44px;
-  }
+    .nf-price-main{
+      color:var(--nf-green);
+      font-size:clamp(1.75rem,2.7vw,2.65rem);
+      line-height:1;
+      font-weight:850;
+      letter-spacing:-.035em;
+    }
 
-  .action-slot{
-    flex: 1;
-    display:flex;
-    flex-direction:column;
-    gap:8px;
-    min-width: 180px;
-  }
-  @media (max-width: 480px){
-    .action-slot{ min-width: 100%; }
-  }
+    .nf-price-main small{
+      color:#64756B;
+      font-size:.9rem;
+      font-weight:700;
+      letter-spacing:0;
+    }
 
-  .action-popup{
-    display:none;
-    padding: 9px 10px;
-    border-radius: 12px;
-    font-weight: 1000;
-    border: 3px solid var(--ink);
-    box-shadow: 3px 3px 0 var(--ink);
-    letter-spacing: .1px;
-    line-height: 1.35;
-    background: rgba(11,11,11,.92);
-    color: var(--page);
+    .nf-mrp{
+      color:#9BA7B7;
+      font-size:.95rem;
+      font-weight:600;
+      text-decoration:line-through;
+    }
 
-    font-size: .80rem;
-    text-transform: none;
-    word-break: break-word;
-  }
-  .action-popup.show{ display:block; }
+    .nf-off-chip{
+      min-height:27px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      padding:0 10px;
+      background:#FF675D;
+      color:#fff;
+      font-size:.78rem;
+      font-weight:800;
+    }
 
-  .reviews-wrap{
-    max-width: 1300px;
-    margin: 14px auto 0;
-  }
-  .reviews-card{
-    border: 4px solid var(--ink);
-    border-radius: var(--radius);
-    background: linear-gradient(180deg, var(--card), var(--card-2));
-    padding: 16px;
-    box-shadow: var(--shadow);
-    transition: transform .20s ease, box-shadow .20s ease;
-  }
+    .nf-detail-meta{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
 
-  .rev-list{
-    list-style:none;
-    padding:0;
-    margin:0;
-    display:grid;
-    gap: 12px;
-  }
-  .rev-item{
-    border: 4px solid var(--ink);
-    border-radius: var(--radius-sm);
-    padding: 14px;
-    background: var(--page);
-    box-shadow: 3px 3px 0 var(--ink);
-    transition: transform .18s ease, box-shadow .18s ease;
-  }
+    .nf-meta-box{
+      border:1px solid #DDF4E8;
+      border-radius:12px;
+      background:#fff;
+      padding:13px;
+      min-width:0;
+    }
 
-  .review-header{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 6px;
-    font-weight: 1100;
-    text-transform: uppercase;
-    letter-spacing: -.2px;
-  }
-</style>
+    .nf-meta-box span{
+      display:block;
+      color:#98A2B3;
+      font-size:.68rem;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.07em;
+      margin-bottom:5px;
+    }
 
-<div class="pd-wrap">
-  <div class="pd-grid">
+    .nf-meta-box b{
+      display:block;
+      color:#40584E;
+      font-size:.92rem;
+      font-weight:850;
+      word-break:break-word;
+    }
 
-    <!-- Left product card -->
-    <div class="card pd-hero">
-      <div class="pd-hero-inner">
+    .nf-description-box{
+      border:1px solid #EDF1F4;
+      border-radius:14px;
+      background:#fff;
+      padding:16px;
+    }
 
-        <div class="pd-body">
-          <div class="pd-title">{{ product.name }}</div>
-          <p class="store">{{ product.store_name }}</p>
+    .nf-description-box h3{
+      margin:0 0 9px;
+      color:#40584E;
+      font-size:.9rem;
+      font-weight:850;
+      letter-spacing:-.01em;
+    }
 
-          {% set half_price = (product.price_per_kg or 0) / 2 %}
-          {% set mrp_half = half_price * 1.20 %}
-          {% set pct_off = ((1 - (half_price / (mrp_half or 1))) * 100) %}
+    .nf-description-box p{
+      margin:0;
+      color:#50645A;
+      font-size:.94rem;
+      line-height:1.65;
+      font-weight:560;
+      white-space:pre-wrap;
+    }
 
-          <div class="meta-row">
-            <span class="badge">
-              {% if product.stock_kg is not none and product.stock_kg > 0 %}
-                In stock — {{ '%.2f'|format(product.stock_kg) }} kg
-              {% else %}
-                Out of stock
-              {% endif %}
-            </span>
-          </div>
+    .nf-feature-strip{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
 
-          <div class="price-section">
-            <div class="price">
-              ₹ {{ '%.2f'|format(product.price_per_kg / 2) }}
-              <span class="small">/½kg</span>
-            </div>
-          </div>
+    .nf-feature{
+      min-height:76px;
+      border-radius:12px;
+      background:#F6FFF9;
+      border:1px solid #DDF4E8;
+      padding:12px;
+      display:grid;
+      gap:5px;
+      align-content:center;
+      text-align:center;
+    }
 
-          <div class="deal-row">
-            <span class="mrp">₹ {{ '%.2f'|format(mrp_half) }}</span>
-            <span class="off">{{ (pct_off | round(0, 'floor') | int) }}% OFF</span>
-          </div>
+    .nf-feature b{
+      color:#40584E;
+      font-size:.82rem;
+      font-weight:850;
+    }
 
-          <div class="rating-section">
-            <span class="stars" title="{{ rating.avg }}/5">{{ '%.1f'|format(rating.avg) }}</span>
-            <span class="muted">({{ rating.count }} review{{ '' if rating.count == 1 else 's' }})</span>
-          </div>
+    .nf-feature span{
+      color:#7D8B99;
+      font-size:.74rem;
+      font-weight:620;
+      line-height:1.3;
+    }
 
-          <div class="kvs">
-            <div class="kv">
-              <div class="small muted">Price per ½ kg</div>
-              <div><strong>₹ {{ '%.2f'|format(product.price_per_kg / 2) }}</strong></div>
-            </div>
-            <div class="kv">
-              <div class="small muted">Store</div>
-              <div><strong>{{ product.store_name }}</strong></div>
-            </div>
-          </div>
+    .nf-buy-card{
+      position:sticky;
+      top:calc(var(--topbar-h,72px) + 24px);
+      border-radius:12px;
+      background:#fff;
+      border:1px solid #DDEFE6;
+      box-shadow:0 14px 34px rgba(17,64,38,.055);
+      overflow:hidden;
+    }
 
-          {% if product.description %}
-            <h3>Description</h3>
-            <div class="pd-desc">{{ product.description }}</div>
-          {% else %}
-            <h3>About this item</h3>
-           <div class="pd-desc muted">
-  <span class="pd-info-dot">i</span>
-  <div class="pd-desc-text">
-    Fresh, hygienically processed chicken from {{ product.store_name }}. Cut-to-order and packed with care.
-  </div>
-</div>
-          {% endif %}
-        </div>
+    .nf-buy-head{
+      padding:20px 20px 16px;
+      border-bottom:1px solid #F0F3F5;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFC 100%);
+      text-align:center;
+    }
 
-        <div class="pd-hero-media">
-          <img src="{{ '/' + product.image_path if product.image_path else url_for('static', filename='placeholder.png') }}"
-               alt="{{ product.name }}">
-        </div>
+    .nf-buy-head h2{
+      margin:0;
+      color:#40584E;
+      font-size:1.28rem;
+      line-height:1.2;
+      font-weight:850;
+      letter-spacing:-.02em;
+    }
 
-      </div>
-    </div>
+    .nf-buy-head p{
+      margin:8px 0 0;
+      color:#98A2B3;
+      font-size:.88rem;
+      line-height:1.45;
+      font-weight:560;
+    }
 
-    <!-- Right purchase box -->
-    <div class="card buy-card">
-      <h3 style="margin:0 0 12px 0">Buy Now</h3>
+    .nf-buy-body{
+      padding:18px 20px 20px;
+    }
 
-      {% if user %}
-        <form id="buyForm" class="buy-form" onsubmit="return false;">
-          <input type="hidden" name="product_id" value="{{ product.id }}"/>
+    .nf-weight-field{
+      display:grid;
+      gap:8px;
+      margin-bottom:12px;
+    }
 
-          <div class="qty">
-            <label for="weight_kg" class="small">Weight (kg)</label>
-            <input id="weight_kg" name="weight_kg" type="number" step="0.25" min="0.25" value="1">
-          </div>
+    .nf-weight-field label{
+      color:#64756B;
+      font-size:.76rem;
+      font-weight:780;
+    }
 
-          <div class="small muted" style="margin-bottom:10px;">
-            Minimum order 0.25 kg. Price updates automatically.
-          </div>
+    .nf-weight-field input{
+      width:100%;
+      min-height:42px;
+      border-radius:8px;
+      border:1px solid #DDF4E8;
+      background:#fff;
+      color:var(--nf-ink);
+      font:inherit;
+      font-size:.92rem;
+      font-weight:720;
+      text-align:center;
+      outline:none;
+      transition:.2s var(--nf-ease);
+    }
 
-          <div class="calculation-box">
-            <div class="small muted">Estimated item total</div>
-            <div class="calculation-total">
-              ₹ <span id="estTotal">0.00</span>
-            </div>
-            <div class="small muted">Delivery fee shown at checkout</div>
-          </div>
+    .nf-weight-field input:focus{
+      border-color:var(--nf-green);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
 
-          <div class="actions">
-            <div class="action-slot">
-              <button class="btn-ghost" id="btnAdd">Add to Cart</button>
-              <div class="action-popup" id="popupAdd" role="status" aria-live="polite"></div>
-            </div>
+    .nf-buy-note{
+      border-radius:10px;
+      background:#F6FFF9;
+      border:1px solid #DDF4E8;
+      color:#536B5E;
+      padding:10px;
+      font-size:.78rem;
+      font-weight:700;
+      line-height:1.45;
+      margin-bottom:12px;
+    }
 
-            <div class="action-slot">
-              <button class="btn" id="btnBuy">Buy Now</button>
-              <div class="action-popup" id="popupBuy" role="status" aria-live="polite"></div>
-            </div>
-          </div>
-        </form>
+    .nf-total-box{
+      border-radius:12px;
+      background:#F7FFFA;
+      border:1px solid #DDF4E8;
+      padding:14px;
+      text-align:center;
+      margin-bottom:14px;
+    }
 
-        <div class="small muted" style="text-align:center; margin-top:6px">
-          Tip: Use "Buy Now" to proceed directly to checkout
-        </div>
-      {% else %}
-        <div class="actions">
-          <a class="btn" href="{{ url_for('login') }}">Login to buy</a>
-        </div>
-      {% endif %}
-    </div>
+    .nf-total-box span{
+      display:block;
+      color:#98A2B3;
+      font-size:.72rem;
+      font-weight:800;
+      letter-spacing:.07em;
+      text-transform:uppercase;
+    }
 
-  </div>
+    .nf-total-box b{
+      display:block;
+      margin-top:6px;
+      color:var(--nf-green);
+      font-size:1.7rem;
+      line-height:1;
+      font-weight:850;
+    }
 
-   <div class="reviews-wrap">
-    <style>
-      .pd-review-layout{
-        display:grid;
-        grid-template-columns:minmax(0,1fr) 360px;
-        gap:16px;
-        align-items:start;
+    .nf-action-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .nf-action-slot{
+      display:grid;
+      gap:8px;
+      min-width:0;
+    }
+
+    .nf-add-cart,
+    .nf-buy-now,
+    .nf-login-purchase,
+    .nf-back-products{
+      min-height:42px;
+      border-radius:10px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      padding:0 12px;
+      font:inherit;
+      font-size:.82rem;
+      font-weight:800;
+      cursor:pointer;
+      text-decoration:none;
+      border:1px solid transparent;
+      transition:.22s var(--nf-ease);
+      white-space:nowrap;
+    }
+
+    .nf-add-cart{
+      background:var(--nf-green);
+      color:#fff;
+      box-shadow:0 10px 22px rgba(0,168,89,.18);
+    }
+
+    .nf-add-cart:hover{
+      background:var(--nf-green-dark);
+      transform:translateY(-2px);
+      box-shadow:0 16px 30px rgba(0,168,89,.23);
+    }
+
+    .nf-buy-now,
+    .nf-login-purchase,
+    .nf-back-products{
+      background:#fff;
+      color:var(--nf-green-dark);
+      border-color:#DDF4E8;
+    }
+
+    .nf-buy-now:hover,
+    .nf-login-purchase:hover,
+    .nf-back-products:hover{
+      background:var(--nf-green-soft);
+      border-color:rgba(0,168,89,.30);
+      transform:translateY(-2px);
+    }
+
+    .nf-add-cart:disabled,
+    .nf-buy-now:disabled{
+      opacity:.62;
+      cursor:not-allowed;
+      transform:none !important;
+      box-shadow:none !important;
+    }
+
+    .nf-action-popup{
+      display:none;
+      margin-top:2px;
+      border-radius:10px;
+      padding:9px 10px;
+      font-size:.75rem;
+      line-height:1.25;
+      font-weight:760;
+      text-align:center;
+      background:#F6FFF9;
+      color:var(--nf-green-dark);
+      border:1px solid rgba(0,168,89,.16);
+      animation:nfInlineIn .22s ease both;
+    }
+
+    .nf-action-popup.show{
+      display:block;
+    }
+
+    @keyframes nfInlineIn{
+      from{ opacity:0; transform:translateY(4px); }
+      to{ opacity:1; transform:translateY(0); }
+    }
+
+    .nf-buy-lock{
+      border-radius:12px;
+      background:#F6FFF9;
+      border:1px solid #DDF4E8;
+      padding:16px;
+      text-align:center;
+      display:grid;
+      gap:12px;
+    }
+
+    .nf-buy-lock p{
+      margin:0;
+      color:#536B5E;
+      font-size:.88rem;
+      line-height:1.5;
+      font-weight:650;
+    }
+
+    .nf-reviews-section{
+      margin-top:22px;
+      display:grid;
+      gap:18px;
+    }
+
+    .nf-section-head{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:18px;
+      flex-wrap:wrap;
+      padding-bottom:18px;
+      border-bottom:1px solid #D6DDE3;
+    }
+
+    .nf-section-head h2{
+      margin:0;
+      color:#3C5950;
+      font-size:clamp(1.35rem,1.7vw,1.8rem);
+      line-height:1.2;
+      font-weight:800;
+      letter-spacing:-.02em;
+    }
+
+    .nf-section-head p{
+      margin:6px 0 0;
+      color:#98A2B3;
+      font-size:.94rem;
+      line-height:1.45;
+      font-weight:520;
+    }
+
+    .nf-review-layout{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 360px;
+      gap:20px;
+      align-items:start;
+    }
+
+    .nf-review-card,
+    .nf-review-form{
+      border-radius:12px;
+      background:#fff;
+      border:1px solid #DDEFE6;
+      box-shadow:0 14px 34px rgba(17,64,38,.055);
+      overflow:hidden;
+    }
+
+    .nf-review-card-head,
+    .nf-review-form-head{
+      padding:18px 20px 15px;
+      border-bottom:1px solid #F0F3F5;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFC 100%);
+    }
+
+    .nf-review-card-head h3,
+    .nf-review-form-head h3{
+      margin:0;
+      color:#40584E;
+      font-size:1rem;
+      line-height:1.25;
+      font-weight:800;
+      letter-spacing:-.015em;
+    }
+
+    .nf-review-summary{
+      padding:16px 20px;
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      border-bottom:1px solid #F0F3F5;
+    }
+
+    .nf-review-stat{
+      border:1px solid #DDF4E8;
+      border-radius:10px;
+      background:#F7FFFA;
+      padding:12px;
+      text-align:center;
+    }
+
+    .nf-review-stat span{
+      display:block;
+      color:#98A2B3;
+      font-size:.68rem;
+      font-weight:800;
+      letter-spacing:.07em;
+      text-transform:uppercase;
+    }
+
+    .nf-review-stat b{
+      display:block;
+      margin-top:5px;
+      color:#40584E;
+      font-size:1.25rem;
+      line-height:1;
+      font-weight:850;
+    }
+
+    .nf-review-list{
+      list-style:none;
+      padding:16px 20px 20px;
+      margin:0;
+      display:grid;
+      gap:12px;
+    }
+
+    .nf-review-item{
+      border:1px solid #EDF1F4;
+      border-radius:12px;
+      background:#fff;
+      padding:14px;
+      display:grid;
+      gap:9px;
+    }
+
+    .nf-review-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .nf-review-top strong{
+      color:#40584E;
+      font-size:.9rem;
+      font-weight:800;
+    }
+
+    .nf-review-date{
+      margin-top:3px;
+      color:#98A2B3;
+      font-size:.76rem;
+      font-weight:620;
+    }
+
+    .nf-review-rating{
+      min-height:25px;
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:0 8px;
+      background:#FFF8E8;
+      color:#A66A00;
+      font-size:.7rem;
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .nf-review-text{
+      margin:0;
+      color:#50645A;
+      font-size:.88rem;
+      line-height:1.58;
+      font-weight:560;
+      white-space:pre-wrap;
+    }
+
+    .nf-empty-state{
+      margin:16px 20px 20px;
+      min-height:180px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid #EDF1F4;
+      box-shadow:var(--nf-shadow);
+      display:grid;
+      place-items:center;
+      padding:28px 18px;
+      text-align:center;
+    }
+
+    .nf-empty-state p{
+      margin:0;
+      color:#98A2B3;
+      font-size:.94rem;
+      line-height:1.55;
+      font-weight:620;
+    }
+
+    .nf-review-form-body{
+      padding:18px 20px 20px;
+    }
+
+    .nf-review-form-body p{
+      margin:0 0 14px;
+      color:#98A2B3;
+      font-size:.88rem;
+      line-height:1.5;
+      font-weight:560;
+      text-align:center;
+    }
+
+    .nf-review-field{
+      display:grid;
+      gap:8px;
+      margin-bottom:12px;
+    }
+
+    .nf-review-field label{
+      color:#64756B;
+      font-size:.74rem;
+      font-weight:780;
+    }
+
+    .nf-review-field select,
+    .nf-review-field textarea{
+      width:100%;
+      border-radius:8px;
+      border:1px solid #DDF4E8;
+      background:#fff;
+      color:var(--nf-ink);
+      font:inherit;
+      font-size:.86rem;
+      font-weight:650;
+      outline:none;
+      transition:.2s var(--nf-ease);
+    }
+
+    .nf-review-field select{
+      min-height:42px;
+      padding:0 12px;
+    }
+
+    .nf-review-field textarea{
+      min-height:118px;
+      resize:vertical;
+      padding:12px;
+      line-height:1.5;
+    }
+
+    .nf-review-field select:focus,
+    .nf-review-field textarea:focus{
+      border-color:var(--nf-green);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .nf-review-submit{
+      width:100%;
+      min-height:42px;
+      border:0;
+      border-radius:10px;
+      background:var(--nf-green);
+      color:#fff;
+      font:inherit;
+      font-size:.82rem;
+      font-weight:800;
+      cursor:pointer;
+      box-shadow:0 10px 22px rgba(0,168,89,.18);
+      transition:.22s var(--nf-ease);
+    }
+
+    .nf-review-submit:hover{
+      background:var(--nf-green-dark);
+      transform:translateY(-2px);
+      box-shadow:0 16px 30px rgba(0,168,89,.23);
+    }
+
+    .nf-review-note{
+      border:1px dashed rgba(0,168,89,.28);
+      border-radius:12px;
+      background:#F6FFF9;
+      padding:14px;
+      text-align:center;
+      color:#536B5E;
+      font-size:.86rem;
+      line-height:1.5;
+      font-weight:650;
+    }
+
+    .nf-review-note a{
+      color:var(--nf-green-dark);
+      font-weight:850;
+      text-decoration:none;
+    }
+
+    @media(max-width:1320px){
+      .nf-detail-product-card{
+        grid-template-columns:1fr;
       }
 
-      .pd-review-summary{
-        display:grid;
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:10px;
-        margin-bottom:14px;
+      .nf-detail-media{
+        border-right:0;
+        border-bottom:1px solid #F0F3F5;
+        min-height:auto;
+      }
+    }
+
+    @media(max-width:1080px){
+      .nf-detail-wrap{
+        width:min(100% - 32px,1510px);
       }
 
-      .pd-review-stat{
-        border:4px solid var(--ink);
-        border-radius:var(--radius-sm);
-        background:var(--page);
-        box-shadow:3px 3px 0 var(--ink);
-        padding:12px;
-        text-align:center;
+      .nf-detail-grid{
+        grid-template-columns:1fr;
       }
 
-      .pd-review-stat small{
-        display:block;
-        color:var(--muted);
-        font-size:.72rem;
-        font-weight:1100;
-        letter-spacing:.08em;
-        text-transform:uppercase;
+      .nf-buy-card{
+        position:static;
       }
 
-      .pd-review-stat b{
-        display:block;
-        margin-top:5px;
-        color:var(--ink);
-        font-size:1.35rem;
-        line-height:1;
-        font-weight:1200;
+      .nf-review-layout{
+        grid-template-columns:1fr;
       }
 
-      .pd-review-form{
-        border:4px solid var(--ink);
-        border-radius:var(--radius);
-        background:
-          radial-gradient(120px 80px at 15% 0%, rgba(139,0,0,.10), transparent 60%),
-          linear-gradient(180deg, var(--card), var(--card-2));
-        box-shadow:var(--shadow);
-        padding:16px;
+      .nf-review-form{
+        order:-1;
+      }
+    }
+
+    @media(max-width:900px){
+      .nf-detail-hero{
+        padding:30px 0 22px;
       }
 
-      .pd-review-form h3{
-        margin:0 0 10px !important;
+      .nf-detail-main{
+        padding-top:18px;
+      }
+    }
+
+    @media(max-width:640px){
+      .nf-detail-wrap{
+        width:min(100% - 18px,1510px);
       }
 
-      .pd-review-form p{
-        margin:0 0 12px;
-        color:var(--muted);
-        font-size:.9rem;
-        line-height:1.55;
-        font-weight:850;
-        text-align:center;
+      .nf-detail-title{
+        font-size:1.72rem;
       }
 
-      .pd-review-field{
-        display:grid;
-        gap:7px;
-        margin-bottom:12px;
-      }
-
-      .pd-review-field label{
-        color:var(--ink);
-        font-size:.82rem;
-        font-weight:1100;
-        text-transform:uppercase;
-        letter-spacing:.05em;
-      }
-
-      .pd-review-field select,
-      .pd-review-field textarea{
-        width:100%;
-        border:4px solid var(--ink);
-        border-radius:var(--radius-sm);
-        background:var(--page);
-        color:var(--ink);
-        font:inherit;
+      .nf-detail-subtitle{
         font-size:.92rem;
-        font-weight:800;
-        outline:none;
-        box-shadow:3px 3px 0 var(--ink);
       }
 
-      .pd-review-field select{
-        min-height:46px;
-        padding:0 12px;
+      .nf-detail-body{
+        padding:18px;
       }
 
-      .pd-review-field textarea{
-        min-height:118px;
+      .nf-detail-name{
+        font-size:1.55rem;
+      }
+
+      .nf-detail-meta,
+      .nf-feature-strip,
+      .nf-review-summary{
+        grid-template-columns:1fr;
+      }
+
+      .nf-detail-media{
         padding:12px;
-        line-height:1.55;
-        resize:vertical;
       }
 
-      .pd-review-submit{
-        width:100%;
-        min-height:46px;
-        border:4px solid var(--ink);
-        border-radius:var(--radius-sm);
-        background:linear-gradient(135deg, var(--crimson), var(--crimson-2));
-        color:var(--page);
-        font:inherit;
-        font-size:.9rem;
-        font-weight:1200;
-        text-transform:uppercase;
-        cursor:pointer;
-        box-shadow:4px 4px 0 var(--ink);
-        transition:.18s ease;
+      .nf-detail-img-box{
+        border-radius:8px;
       }
 
-      .pd-review-submit:hover{
-        transform:translateY(-2px);
-        box-shadow:6px 6px 0 var(--ink);
-      }
-
-      .pd-review-note{
-        border:4px dashed rgba(0,0,0,.35);
-        border-radius:var(--radius-sm);
-        background:rgba(255,255,255,.38);
+      .nf-detail-img-box img{
         padding:14px;
-        text-align:center;
-        color:var(--muted);
-        font-weight:900;
-        line-height:1.55;
       }
 
-      @media(max-width:980px){
-        .pd-review-layout{
-          grid-template-columns:1fr;
-        }
-
-        .pd-review-form{
-          order:-1;
-        }
+      .nf-stock-panel{
+        position:static;
+        margin-top:12px;
+        width:100%;
       }
 
-      @media(max-width:640px){
-        .pd-review-summary{
-          grid-template-columns:1fr;
-        }
-
-        .reviews-card,
-        .pd-review-form{
-          box-shadow:4px 4px 0 var(--ink);
-        }
+      .nf-action-row{
+        grid-template-columns:1fr;
       }
-    </style>
 
-    <div class="pd-review-layout">
-      <div class="reviews-card">
-        <h3 style="margin:0 0 14px 0">Customer Reviews</h3>
+      .nf-review-card-head,
+      .nf-review-form-head,
+      .nf-review-summary,
+      .nf-review-list,
+      .nf-review-form-body{
+        padding-left:14px;
+        padding-right:14px;
+      }
+    }
 
-        <div class="pd-review-summary">
-          <div class="pd-review-stat">
-            <small>Average Rating</small>
-            <b>{{ '%.1f'|format(rating.avg or 0) }}</b>
+    @media(max-width:420px){
+      .nf-detail-wrap{
+        width:min(100% - 16px,1510px);
+      }
+
+      .nf-price-row{
+        padding:13px;
+      }
+
+      .nf-price-main{
+        font-size:1.55rem;
+      }
+    }
+
+    @media(hover:none) and (pointer:coarse){
+      .nf-detail-product-card:hover,
+      .nf-add-cart:hover,
+      .nf-buy-now:hover,
+      .nf-login-purchase:hover{
+        transform:none;
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      .nf-product-detail-page *,
+      .nf-product-detail-page *::before,
+      .nf-product-detail-page *::after{
+        transition:none !important;
+        animation:none !important;
+      }
+    }
+  </style>
+
+  <div class="nf-detail-hero">
+    <div class="nf-detail-wrap">
+      <h1 class="nf-detail-title">Product Details</h1>
+      <p class="nf-detail-subtitle">
+        Check product price, stock availability, reviews and purchase options before adding to cart.
+      </p>
+    </div>
+  </div>
+
+  <div class="nf-detail-main">
+    <div class="nf-detail-wrap">
+      <div class="nf-detail-grid">
+
+        <article class="nf-detail-product-card">
+          <div class="nf-detail-media">
+            <div class="nf-discount-badge">
+              {{ (pct_off | round(0, 'floor') | int) }}%
+            </div>
+
+            {% if is_in_stock %}
+              <div class="nf-stock-badge">
+                In stock
+              </div>
+            {% else %}
+              <div class="nf-stock-badge out">
+                Out of stock
+              </div>
+            {% endif %}
+
+            <div class="nf-detail-img-box">
+              <img src="{{ '/' + product.image_path if product.image_path else url_for('static', filename='placeholder.png') }}"
+                   alt="{{ product.name }}">
+            </div>
+
+            <div class="nf-stock-panel">
+              <div class="nf-stock-panel-row">
+                <span>Available Stock</span>
+                <b>{{ '%.2f'|format(stock_qty) }} kg</b>
+              </div>
+
+              <div class="nf-stock-track">
+                <div class="nf-stock-fill"></div>
+              </div>
+            </div>
           </div>
 
-          <div class="pd-review-stat">
-            <small>Total Reviews</small>
-            <b>{{ rating.count or 0 }}</b>
+          <div class="nf-detail-body">
+            <span class="nf-detail-kicker">Fresh grocery product</span>
+
+            <h2 class="nf-detail-name">{{ product.name }}</h2>
+
+            <span class="nf-store-line">{{ product.store_name }}</span>
+
+            <div class="nf-detail-rating-row">
+              <span class="nf-rating-pill">⭐ {{ '%.1f'|format(rating.avg or 0) }}</span>
+              <span class="nf-review-count">
+                {{ rating.count or 0 }} review{{ '' if rating.count == 1 else 's' }}
+              </span>
+            </div>
+
+            <div class="nf-price-row">
+              <div class="nf-price-main">
+                ₹ {{ '%.2f'|format(half_price) }}
+                <small>/½kg</small>
+              </div>
+
+              <div class="nf-mrp">₹ {{ '%.2f'|format(mrp_half) }}</div>
+
+              <div class="nf-off-chip">
+                {{ (pct_off | round(0, 'floor') | int) }}% OFF
+              </div>
+            </div>
+
+            <div class="nf-detail-meta">
+              <div class="nf-meta-box">
+                <span>Price Per ½ KG</span>
+                <b>₹ {{ '%.2f'|format(half_price) }}</b>
+              </div>
+
+              <div class="nf-meta-box">
+                <span>Available Stock</span>
+                <b>{{ '%.2f'|format(stock_qty) }} kg</b>
+              </div>
+
+              <div class="nf-meta-box">
+                <span>Status</span>
+                <b>{{ 'Available' if is_in_stock else 'Out of stock' }}</b>
+              </div>
+            </div>
+
+            <div class="nf-feature-strip">
+              <div class="nf-feature">
+                <b>Fresh Packed</b>
+                <span>Prepared with care</span>
+              </div>
+
+              <div class="nf-feature">
+                <b>Live Stock</b>
+                <span>{{ '%.2f'|format(stock_qty) }} kg available</span>
+              </div>
+
+              <div class="nf-feature">
+                <b>Quick Checkout</b>
+                <span>Buy directly or add to cart</span>
+              </div>
+            </div>
+
+            <div class="nf-description-box">
+              {% if product.description %}
+                <h3>Description</h3>
+                <p>{{ product.description }}</p>
+              {% else %}
+                <h3>About this item</h3>
+                <p>
+                  Fresh, hygienically processed product from {{ product.store_name }}.
+                  Cut-to-order and packed with care.
+                </p>
+              {% endif %}
+            </div>
+          </div>
+        </article>
+
+        <aside class="nf-buy-card">
+          <div class="nf-buy-head">
+            <h2>Buy Now</h2>
+            <p>Select quantity and add this product to your cart.</p>
           </div>
 
-          <div class="pd-review-stat">
-            <small>Latest Feedback</small>
-            <b>{{ reviews|length }}</b>
+          <div class="nf-buy-body">
+            {% if user and user.role == 'customer' %}
+              {% if is_in_stock %}
+                <form id="buyForm" class="buy-form" onsubmit="return false;">
+                  <input type="hidden" name="product_id" value="{{ product.id }}"/>
+
+                  <div class="nf-weight-field">
+                    <label for="weight_kg">Weight (kg)</label>
+                    <input id="weight_kg"
+                           name="weight_kg"
+                           type="number"
+                           step="0.25"
+                           min="0.25"
+                           max="{{ '%.2f'|format(stock_qty) }}"
+                           value="{{ '%.2f'|format(default_weight) }}">
+                  </div>
+
+                  <div class="nf-buy-note">
+                    Available stock: <b>{{ '%.2f'|format(stock_qty) }} kg</b>. Minimum order is 0.25 kg.
+                  </div>
+
+                  <div class="nf-total-box">
+                    <span>Estimated Item Total</span>
+                    <b>₹ <span id="estTotal">0.00</span></b>
+                  </div>
+
+                  <div class="nf-action-row">
+                    <div class="nf-action-slot">
+                      <button class="nf-add-cart" id="btnAdd" type="button">
+                        Add to Cart
+                      </button>
+                      <div class="nf-action-popup" id="popupAdd" role="status" aria-live="polite"></div>
+                    </div>
+
+                    <div class="nf-action-slot">
+                      <button class="nf-buy-now" id="btnBuy" type="button">
+                        Buy Now
+                      </button>
+                      <div class="nf-action-popup" id="popupBuy" role="status" aria-live="polite"></div>
+                    </div>
+                  </div>
+                </form>
+              {% else %}
+                <div class="nf-buy-lock">
+                  <p>This product is currently out of stock.</p>
+                  <a class="nf-back-products" href="{{ url_for('products') }}">View Other Products</a>
+                </div>
+              {% endif %}
+            {% elif not user %}
+              <div class="nf-buy-lock">
+                <p>Please login as a customer to buy this product.</p>
+                <a class="nf-login-purchase" href="{{ url_for('login') }}">Login to Buy</a>
+              </div>
+            {% else %}
+              <div class="nf-buy-lock">
+                <p>Only customer accounts can purchase products. Store and admin users can manage operations but cannot buy.</p>
+                <a class="nf-back-products" href="{{ url_for('products') }}">Back to Products</a>
+              </div>
+            {% endif %}
+          </div>
+        </aside>
+      </div>
+
+      <section class="nf-reviews-section">
+        <div class="nf-section-head">
+          <div>
+            <h2>Customer Reviews</h2>
+            <p>Ratings and feedback submitted by customers for this product.</p>
           </div>
         </div>
 
-        {% if reviews %}
-          <ul class="rev-list">
-            {% for r in reviews %}
-              <li class="rev-item">
-                <div class="review-header">
-                  <strong>
-                    {{ r.reviewer_name or r.customer_name or 'Customer' }}
-                  </strong>
-                  <span class="small muted">
-                    {{ r.created_at_display or r.created_at or 'Recently reviewed' }}
-                  </span>
-                </div>
-
-                <div style="margin:8px 0; font-weight:1100; text-transform:uppercase;">
-                  <span style="color:#f59e0b;">⭐</span>
-                  {{ '%.1f'|format(r.rating or 0) }}
-                </div>
-
-                {% if r.review %}
-                  <div style="white-space:pre-wrap; line-height:1.6; font-weight:700;">{{ r.review }}</div>
-                {% elif r.comment %}
-                  <div style="white-space:pre-wrap; line-height:1.6; font-weight:700;">{{ r.comment }}</div>
-                {% else %}
-                  <div class="small muted">No comment provided</div>
-                {% endif %}
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="muted" style="text-align:center; padding:24px 14px; margin:0;">
-            No reviews yet for this product.
-          </p>
-        {% endif %}
-      </div>
-
-      <aside class="pd-review-form">
-        <h3>Add Product Review</h3>
-
-        {% if user and user.role == 'customer' %}
-          <p>Share your experience with this product. Your review helps other customers choose better.</p>
-
-          <form method="POST" action="{{ url_for('submit_product_review', pid=product.id) }}">
-            <div class="pd-review-field">
-              <label for="productRating">Your Rating</label>
-              <select id="productRating" name="rating" required>
-                <option value="">Select rating</option>
-                <option value="5">★★★★★ 5 - Excellent</option>
-                <option value="4">★★★★☆ 4 - Very Good</option>
-                <option value="3">★★★☆☆ 3 - Good</option>
-                <option value="2">★★☆☆☆ 2 - Average</option>
-                <option value="1">★☆☆☆☆ 1 - Poor</option>
-              </select>
+        <div class="nf-review-layout">
+          <div class="nf-review-card">
+            <div class="nf-review-card-head">
+              <h3>Review Summary</h3>
             </div>
 
-            <div class="pd-review-field">
-              <label for="productReview">Your Review</label>
-              <textarea
-                id="productReview"
-                name="review"
-                maxlength="800"
-                placeholder="Write about product quality, freshness, packaging, value, taste, etc."></textarea>
+            <div class="nf-review-summary">
+              <div class="nf-review-stat">
+                <span>Average Rating</span>
+                <b>{{ '%.1f'|format(rating.avg or 0) }}</b>
+              </div>
+
+              <div class="nf-review-stat">
+                <span>Total Reviews</span>
+                <b>{{ rating.count or 0 }}</b>
+              </div>
+
+              <div class="nf-review-stat">
+                <span>Latest Feedback</span>
+                <b>{{ reviews|length }}</b>
+              </div>
             </div>
 
-            <button class="pd-review-submit" type="submit">
-              Submit Review
-            </button>
-          </form>
-        {% elif not user %}
-          <div class="pd-review-note">
-            Please login as a customer to review this product.<br><br>
-            <a href="{{ url_for('login') }}" style="color:var(--crimson);font-weight:1200;">Login to continue →</a>
+            {% if reviews %}
+              <ul class="nf-review-list">
+                {% for r in reviews %}
+                  <li class="nf-review-item">
+                    <div class="nf-review-top">
+                      <div>
+                        <strong>{{ r.reviewer_name or r.customer_name or 'Customer' }}</strong>
+                        <div class="nf-review-date">
+                          {{ r.created_at_display or r.created_at or 'Recently reviewed' }}
+                        </div>
+                      </div>
+
+                      <span class="nf-review-rating">
+                        ⭐ {{ '%.1f'|format(r.rating or 0) }}
+                      </span>
+                    </div>
+
+                    {% if r.review %}
+                      <p class="nf-review-text">{{ r.review }}</p>
+                    {% elif r.comment %}
+                      <p class="nf-review-text">{{ r.comment }}</p>
+                    {% else %}
+                      <p class="nf-review-text">No comment provided.</p>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="nf-empty-state">
+                <p>No reviews yet for this product.</p>
+              </div>
+            {% endif %}
           </div>
-        {% else %}
-          <div class="pd-review-note">
-            Only customer accounts can submit product reviews.
-          </div>
-        {% endif %}
-      </aside>
+
+          <aside class="nf-review-form">
+            <div class="nf-review-form-head">
+              <h3>Add Product Review</h3>
+            </div>
+
+            <div class="nf-review-form-body">
+              {% if user and user.role == 'customer' %}
+                <p>Share your experience with this product. Your review helps other customers choose better.</p>
+
+                <form method="POST" action="{{ url_for('submit_product_review', pid=product.id) }}">
+                  <div class="nf-review-field">
+                    <label for="productRating">Your Rating</label>
+                    <select id="productRating" name="rating" required>
+                      <option value="">Select rating</option>
+                      <option value="5">★★★★★ 5 - Excellent</option>
+                      <option value="4">★★★★☆ 4 - Very Good</option>
+                      <option value="3">★★★☆☆ 3 - Good</option>
+                      <option value="2">★★☆☆☆ 2 - Average</option>
+                      <option value="1">★☆☆☆☆ 1 - Poor</option>
+                    </select>
+                  </div>
+
+                  <div class="nf-review-field">
+                    <label for="productReview">Your Review</label>
+                    <textarea
+                      id="productReview"
+                      name="review"
+                      maxlength="800"
+                      placeholder="Write about product quality, freshness, packaging, value, taste, etc."></textarea>
+                  </div>
+
+                  <button class="nf-review-submit" type="submit">
+                    Submit Review
+                  </button>
+                </form>
+              {% elif not user %}
+                <div class="nf-review-note">
+                  Please login as a customer to review this product.<br><br>
+                  <a href="{{ url_for('login') }}">Login to continue →</a>
+                </div>
+              {% else %}
+                <div class="nf-review-note">
+                  Only customer accounts can submit product reviews.
+                </div>
+              {% endif %}
+            </div>
+          </aside>
+        </div>
+      </section>
     </div>
   </div>
-</div>
+</section>
 
 <script>
 (function(){
-  {% if user %}
-  const pricePerKg = {{ '%.2f'|format(product.price_per_kg) }};
+  {% if user and user.role == 'customer' and is_in_stock %}
+  const pricePerKg = {{ '%.2f'|format(price_per_kg or 0) }};
+  const availableStock = {{ '%.2f'|format(stock_qty or 0) }};
   const weightEl = document.getElementById('weight_kg');
   const estTotalEl = document.getElementById('estTotal');
   const btnAdd = document.getElementById('btnAdd');
   const btnBuy = document.getElementById('btnBuy');
-
   const popupAdd = document.getElementById('popupAdd');
   const popupBuy = document.getElementById('popupBuy');
 
+  if(!weightEl || !btnAdd || !btnBuy){
+    return;
+  }
+
+  function cleanWeight(){
+    const rawKg = parseFloat(weightEl.value || '{{ "%.2f"|format(default_weight) }}');
+    let kg = isNaN(rawKg) ? {{ '%.2f'|format(default_weight) }} : rawKg;
+
+    if(kg < 0.25){
+      kg = 0.25;
+    }
+
+    if(availableStock > 0 && kg > availableStock){
+      kg = availableStock;
+    }
+
+    return kg;
+  }
+
   function calc(){
-    const kg = Math.max(0.25, parseFloat(weightEl.value||'1') || 1);
+    const kg = cleanWeight();
     const total = kg * pricePerKg;
 
-    /* ✅ safeguard so JS never breaks if HTML changes */
-    if(estTotalEl) estTotalEl.textContent = total.toFixed(2);
+    if(estTotalEl){
+      estTotalEl.textContent = total.toFixed(2);
+    }
   }
+
   weightEl.addEventListener('input', calc);
+
+  weightEl.addEventListener('blur', function(){
+    weightEl.value = cleanWeight().toFixed(2);
+    calc();
+  });
+
   calc();
 
   function clearPopup(el){
     if(!el) return;
+
     el.classList.remove('show');
     el.textContent = '';
-    if(el._t) clearTimeout(el._t);
+
+    if(el._t){
+      clearTimeout(el._t);
+    }
+
     el._t = null;
   }
 
   function showPopup(el, msg){
     if(!el) return;
+
     clearPopup(el);
-    el.textContent = msg;
+    el.textContent = msg || '';
     el.classList.add('show');
-    el._t = setTimeout(()=> clearPopup(el), 2600);
+
+    el._t = setTimeout(function(){
+      clearPopup(el);
+    }, 2800);
   }
 
-  async function addToCart(redirectAfter=false){
-    const kg = Math.max(0.25, parseFloat(weightEl.value||'1') || 1);
+  async function addToCart(redirectAfter){
+    const kg = cleanWeight();
+
+    if(availableStock <= 0){
+      showPopup(redirectAfter ? popupBuy : popupAdd, 'This product is out of stock.');
+      return;
+    }
+
+    if(kg > availableStock){
+      showPopup(redirectAfter ? popupBuy : popupAdd, 'Only ' + availableStock.toFixed(2) + ' kg stock is available.');
+      return;
+    }
+
     const fd = new FormData();
     fd.append('product_id', '{{ product.id }}');
     fd.append('weight_kg', String(kg));
@@ -1067,14 +1505,18 @@
     showPopup(activePopup, redirectAfter ? 'Processing…' : 'Adding…');
 
     try{
-      const r = await fetch('{{ url_for("api_cart_add") }}', {
+      const response = await fetch('{{ url_for("api_cart_add") }}', {
         method:'POST',
-        body: fd,
-        credentials: 'same-origin'
+        body:fd,
+        credentials:'same-origin',
+        headers:{
+          'Accept':'application/json'
+        }
       });
-      const j = await r.json();
 
-      if(j && j.ok){
+      const data = await response.json();
+
+      if(data && data.ok){
         if(redirectAfter){
           showPopup(activePopup, '✓ Added! Redirecting…');
           window.location.href = '{{ url_for("checkout") }}';
@@ -1082,9 +1524,13 @@
           showPopup(activePopup, '✓ Added to cart!');
         }
       }else{
-        showPopup(activePopup, j?.msg || j?.error || 'Failed to add to cart. Please try again.');
+        const errorMessage = data && (data.msg || data.error)
+          ? (data.msg || data.error)
+          : 'Failed to add to cart. Please try again.';
+
+        showPopup(activePopup, errorMessage);
       }
-    }catch(e){
+    }catch(error){
       showPopup(activePopup, 'Network error. Please check your connection.');
     }finally{
       activeBtn.disabled = false;
@@ -1094,8 +1540,15 @@
     }
   }
 
-  btnAdd.addEventListener('click', (e)=>{ e.preventDefault(); addToCart(false); });
-  btnBuy.addEventListener('click', (e)=>{ e.preventDefault(); addToCart(true); });
+  btnAdd.addEventListener('click', function(e){
+    e.preventDefault();
+    addToCart(false);
+  });
+
+  btnBuy.addEventListener('click', function(e){
+    e.preventDefault();
+    addToCart(true);
+  });
   {% endif %}
 })();
 </script>

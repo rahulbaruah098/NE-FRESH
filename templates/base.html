@@ -287,6 +287,53 @@
     .loc-badge.ok{ background:rgba(22,163,74,.18); border-color:rgba(22,163,74,.28); }
     .loc-badge.no{ background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.26); }
 
+/* Customer complaint navbar button */
+.nav-complaint-link{
+  min-height:40px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:0 13px;
+  border-radius:999px;
+  border:1px solid rgba(153,7,7,.18);
+  background:#fff;
+  color:#990707;
+  font-size:.86rem;
+  font-weight:900;
+  white-space:nowrap;
+  text-decoration:none;
+  box-shadow:0 10px 22px rgba(2,6,23,.055);
+  transition:transform .16s ease, box-shadow .18s ease, background .18s ease, color .18s ease;
+}
+
+.nav-complaint-link:hover{
+  background:#990707;
+  color:#fff;
+  transform:translateY(-1px);
+  box-shadow:0 14px 28px rgba(153,7,7,.18);
+}
+
+.nav-complaint-icon{
+  width:24px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  background:rgba(153,7,7,.08);
+  font-size:.92rem;
+}
+
+.nav-complaint-link:hover .nav-complaint-icon{
+  background:rgba(255,255,255,.18);
+}
+
+@media(max-width:900px){
+  .nav-complaint-link{
+    display:none !important;
+  }
+}
+
     /* Auth / icons keep same */
     .icon-links{ display:flex; align-items:center; gap:10px; }
     .icon-btn{
@@ -3466,6 +3513,15 @@ footer.footer .newsletter-pop{
           </button>
         </div>
 
+        {% if user and user.role == 'customer' %}
+  <a href="{{ url_for('customer_complaints') }}"
+     class="nav-complaint-link"
+     aria-label="Raise complaint">
+    <span class="nav-complaint-icon">💬</span>
+    <span>Complaint</span>
+  </a>
+{% endif %}
+
         {% if user %}
           <!-- ✅ Only ICON buttons for: Profile, Cart, Logout -->
           <div class="icon-links">
@@ -3593,6 +3649,13 @@ footer.footer .newsletter-pop{
     <span>Products</span>
     <em>Fresh cuts</em>
   </a>
+
+  {% if user and user.role == 'customer' %}
+    <a class="mm-biglink" href="{{ url_for('customer_complaints') }}">
+      <span>Complaint</span>
+      <em>Support</em>
+    </a>
+  {% endif %}
 
   <!-- ✅ ALWAYS visible to ALL users -->
   <a class="mm-biglink" href="/about">

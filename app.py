@@ -1337,6 +1337,198 @@ def api_address_detect():
         "ok": True,
         "address_id": str(result.inserted_id)
     })
+
+
+
+# =========================================================
+# CUSTOMER COMPLAINTS
+# =========================================================
+@app.route("/complaints", methods=["GET", "POST"], endpoint="customer_complaints")
+@login_required()
+def customer_complaints():
+    u = current_user()
+
+    if not u:
+        flash("Please log in first.", "warning")
+        return redirect(url_for("login"))
+
+    if u.get("role") != "customer":
+        flash("Only customer accounts can raise complaints.", "warning")
+        return redirect(url_for("index"))
+
+    stores = list(
+        mongo.stores.find({
+            "$or": [
+                {"is_active": 1},
+                {"is_active": True},
+                {"is_active": {"$exists": False}}
+            ]
+        }).sort("store_name", 1)
+    )
+
+    for s in stores:
+        s["id"] = str(s["_id"])
+        s["store_name"] = s.get("store_name", "Store")
+
+    if request.method == "POST":
+        complaint_type = (request.form.get("complaint_type") or "").strip()
+        subject = (request.form.get("subject") or "").strip()
+        message = (request.form.get("message") or "").strip()
+        order_id = (request.form.get("order_id") or "").strip()
+        product_name = (request.form.get("product_name") or "").strip()
+        store_id = (request.form.get("store_id") or "").strip()
+
+        allowed_types = {
+            "order",
+            "product",
+            "store",
+            "delivery",
+            "payment",
+            "refund",
+            "other"
+        }
+
+        if complaint_type not in allowed_types:
+            flash("Please select a valid complaint type.", "warning")
+            return redirect(url_for("customer_complaints"))
+
+        if not store_id:
+            flash("Please select the store related to this complaint.", "warning")
+            return redirect(url_for("customer_complaints"))
+
+        try:
+            store_obj_id = ObjectId(store_id)
+        except Exception:
+            flash("Invalid store selected.", "danger")
+            return redirect(url_for("customer_complaints"))
+
+        store = mongo.stores.find_one({"_id": store_obj_id})
+
+        if not store:
+            flash("Selected store was not found.", "danger")
+            return redirect(url_for("customer_complaints"))
+
+        if not subject:
+            flash("Complaint subject is required.", "warning")
+            return redirect(url_for("customer_complaints"))
+
+        if not message:
+            flash("Complaint details are required.", "warning")
+            return redirect(url_for("customer_complaints"))
+
+        if len(subject) > 160:
+            flash("Subject is too long. Please keep it within 160 characters.", "warning")
+            return redirect(url_for("customer_complaints"))
+
+        if len(message) > 1200:
+            flash("Complaint details are too long. Please keep it within 1200 characters.", "warning")
+            return redirect(url_for("customer_complaints"))
+
+        complaint_image_path = ""
+
+        complaint_image = request.files.get("complaint_image")
+
+        if complaint_image and complaint_image.filename:
+            if not allowed_file(complaint_image.filename):
+                flash("Only JPG, JPEG, PNG or WEBP images are allowed.", "warning")
+                return redirect(url_for("customer_complaints"))
+
+            original_name = secure_filename(complaint_image.filename)
+            ext = original_name.rsplit(".", 1)[1].lower()
+            stored_name = "complaint_" + datetime.utcnow().strftime("%Y%m%d%H%M%S") + "_" + secrets.token_hex(6) + "." + ext
+
+            complaint_folder = os.path.join(app.config["UPLOAD_FOLDER"], "complaints")
+            os.makedirs(complaint_folder, exist_ok=True)
+
+            complaint_image.save(os.path.join(complaint_folder, stored_name))
+
+            complaint_image_path = "uploads/complaints/" + stored_name
+
+        now = datetime.utcnow().isoformat()
+
+        mongo.customer_complaints.insert_one({
+            "user_id": str(u["_id"]),
+            "customer_name": u.get("name", "Customer"),
+            "customer_email": u.get("email", ""),
+            "customer_phone": u.get("phone", ""),
+
+            "complaint_type": complaint_type,
+            "subject": subject,
+            "message": message,
+            "order_id": order_id,
+            "product_name": product_name,
+
+            "complaint_image_path": complaint_image_path,
+            "image_path": complaint_image_path,
+            "attachment_type": "image" if complaint_image_path else "",
+
+            "store_id": store_obj_id,
+            "store_id_str": str(store_obj_id),
+            "store_name": store.get("store_name", ""),
+
+            "assigned_to": "store",
+            "target_type": "store",
+
+            "status": "open",
+            "progress_status": "received",
+            "priority": "normal",
+
+            "admin_reply": "",
+            "store_reply": "",
+            "store_progress_note": "",
+
+            "created_at": now,
+            "updated_at": now,
+            "is_active": 1
+        })
+
+        flash("Your complaint has been submitted to the selected store.", "success")
+        return redirect(url_for("customer_complaints"))
+
+    complaints = list(
+        mongo.customer_complaints.find({
+            "user_id": str(u["_id"]),
+            "$or": [
+                {"is_active": 1},
+                {"is_active": True},
+                {"is_active": {"$exists": False}}
+            ]
+        }).sort("created_at", -1)
+    )
+
+    for c in complaints:
+        c["id"] = str(c["_id"])
+        c["status_label"] = str(c.get("status") or "open").replace("_", " ").title()
+        c["progress_status_label"] = str(c.get("progress_status") or "received").replace("_", " ").title()
+        c["complaint_image_path"] = c.get("complaint_image_path") or c.get("image_path") or ""
+
+        created_at = c.get("created_at") or ""
+        c["created_at_display"] = created_at
+
+        try:
+            if isinstance(created_at, str) and created_at:
+                clean_dt = created_at.replace("Z", "")
+                dt_obj = datetime.fromisoformat(clean_dt)
+                c["created_at_display"] = dt_obj.strftime("%d %b %Y, %I:%M %p")
+        except Exception:
+            pass
+
+    metrics = {
+        "total": len(complaints),
+        "open": sum(1 for c in complaints if c.get("status") == "open"),
+        "in_progress": sum(1 for c in complaints if c.get("status") == "in_progress"),
+        "resolved": sum(1 for c in complaints if c.get("status") == "resolved")
+    }
+
+    return render_template(
+        "customer_complaints.html",
+        user=u,
+        stores=stores,
+        complaints=complaints,
+        metrics=metrics
+    )
+
+
 # ----------------------
 # CATALOG + CART
 # ----------------------
@@ -5795,6 +5987,174 @@ def store_product_reviews_page():
         product_review_metrics=product_review_metrics,
         **page_context
     )
+
+
+# =========================================================
+# STORE COMPLAINTS
+# =========================================================
+@app.route('/store/complaints', methods=['GET'], endpoint='store_complaints')
+@login_required(role='store')
+def store_complaints_page():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    page_context = _build_store_split_page_context(store) or {}
+
+    store_id = store["_id"]
+    store_id_str = str(store_id)
+
+    complaints = list(
+        mongo.customer_complaints.find({
+            "$and": [
+                {
+                    "$or": [
+                        {"store_id": store_id},
+                        {"store_id": store_id_str},
+                        {"store_id_str": store_id_str}
+                    ]
+                },
+                {
+                    "$or": [
+                        {"is_active": 1},
+                        {"is_active": True},
+                        {"is_active": {"$exists": False}}
+                    ]
+                }
+            ]
+        }).sort("created_at", -1)
+    )
+
+    for c in complaints:
+        c["id"] = str(c["_id"])
+        c["complaint_image_path"] = c.get("complaint_image_path") or c.get("image_path") or ""
+
+        status = str(c.get("status") or "open").strip().lower()
+        progress_status = str(c.get("progress_status") or "received").strip().lower()
+
+        c["status"] = status
+        c["progress_status"] = progress_status
+        c["status_label"] = status.replace("_", " ").title()
+        c["progress_status_label"] = progress_status.replace("_", " ").title()
+
+        created_at = c.get("created_at") or ""
+        updated_at = c.get("updated_at") or ""
+
+        c["created_at_display"] = created_at
+        c["updated_at_display"] = updated_at
+
+        try:
+            if isinstance(created_at, str) and created_at:
+                clean_dt = created_at.replace("Z", "")
+                dt_obj = datetime.fromisoformat(clean_dt)
+                c["created_at_display"] = dt_obj.strftime("%d %b %Y, %I:%M %p")
+        except Exception:
+            pass
+
+        try:
+            if isinstance(updated_at, str) and updated_at:
+                clean_dt = updated_at.replace("Z", "")
+                dt_obj = datetime.fromisoformat(clean_dt)
+                c["updated_at_display"] = dt_obj.strftime("%d %b %Y, %I:%M %p")
+        except Exception:
+            pass
+
+    complaint_metrics = {
+        "total": len(complaints),
+        "open": sum(1 for c in complaints if c.get("status") == "open"),
+        "in_progress": sum(1 for c in complaints if c.get("status") == "in_progress"),
+        "resolved": sum(1 for c in complaints if c.get("status") == "resolved")
+    }
+
+    return render_template(
+        "store_complaints.html",
+        user=u,
+        store=store,
+        complaints=complaints,
+        complaint_metrics=complaint_metrics,
+        **page_context
+    )
+
+
+@app.route('/store/complaints/<cid>/update', methods=['POST'], endpoint='store_complaint_update')
+@login_required(role='store')
+def store_complaint_update(cid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    try:
+        cid_obj = ObjectId(cid)
+    except Exception:
+        flash("Invalid complaint.", "danger")
+        return redirect(url_for("store_complaints"))
+
+    store_id = store["_id"]
+    store_id_str = str(store_id)
+
+    complaint = mongo.customer_complaints.find_one({
+        "_id": cid_obj,
+        "$or": [
+            {"store_id": store_id},
+            {"store_id": store_id_str},
+            {"store_id_str": store_id_str}
+        ]
+    })
+
+    if not complaint:
+        flash("Complaint not found for your store.", "danger")
+        return redirect(url_for("store_complaints"))
+
+    progress_status = (request.form.get("progress_status") or "").strip().lower()
+    store_reply = (request.form.get("store_reply") or "").strip()
+    store_progress_note = (request.form.get("store_progress_note") or "").strip()
+
+    allowed_progress = {
+        "received",
+        "in_progress",
+        "resolved"
+    }
+
+    if progress_status not in allowed_progress:
+        flash("Please select a valid progress status.", "warning")
+        return redirect(url_for("store_complaints"))
+
+    if len(store_reply) > 1000:
+        flash("Store reply is too long. Please keep it within 1000 characters.", "warning")
+        return redirect(url_for("store_complaints"))
+
+    if len(store_progress_note) > 1000:
+        flash("Progress note is too long. Please keep it within 1000 characters.", "warning")
+        return redirect(url_for("store_complaints"))
+
+    if progress_status == "resolved":
+        final_status = "resolved"
+    elif progress_status == "in_progress":
+        final_status = "in_progress"
+    else:
+        final_status = "open"
+
+    now = datetime.utcnow().isoformat()
+
+    mongo.customer_complaints.update_one(
+        {"_id": cid_obj},
+        {
+            "$set": {
+                "progress_status": progress_status,
+                "status": final_status,
+                "store_reply": store_reply,
+                "store_progress_note": store_progress_note,
+                "store_updated_by": str(u["_id"]),
+                "store_updated_by_name": u.get("name", "Store User"),
+                "updated_at": now
+            }
+        }
+    )
+
+    flash("Complaint progress updated successfully.", "success")
+    return redirect(url_for("store_complaints"))
 
 
 # =========================================================
