@@ -739,61 +739,204 @@ def _session_pin_is_serviceable():
 
 @app.route('/')
 def index():
+    user = current_user()
     allow, pin = _session_pin_is_serviceable()
+
+    products = []
+    latest_products = []
+    popular_products = []
+    discount_products = []
+    featured_products = []
+    stores = []
+    recommended_stores = []
+    new_stores = []
+    categories = []
+    product_rating_map = {}
+    store_rating_map = {}
 
     if session.get("service_area") and not allow:
         flash("Please enter a valid 6-digit pincode.", "warning")
-        products = []
     else:
         products = list(mongo.products.find({
             "is_active": 1,
             "stock_kg": {"$gt": 0}
-        }).sort("created_at", -1).limit(12))
+        }).sort("created_at", -1).limit(30))
 
         for p in products:
             p["id"] = str(p["_id"])
+            p["category"] = (p.get("category") or "Uncategorized").strip()
+            p["sub_category"] = (p.get("sub_category") or "").strip()
+            p["name"] = (p.get("name") or "Product").strip()
+            p["image_path"] = p.get("image_path", "")
+            p["price_per_kg"] = float(p.get("price_per_kg") or 0)
+            p["mrp_per_kg"] = float(p.get("mrp_per_kg") or p.get("old_price") or 0)
+            p["stock_kg"] = float(p.get("stock_kg") or 0)
 
             ratings = list(mongo.product_ratings.find({
                 "product_id": p["_id"]
             }))
 
             rating_count = len(ratings)
+            total_rating = 0
+
+            for r in ratings:
+                try:
+                    total_rating += float(r.get("rating") or 0)
+                except (TypeError, ValueError):
+                    pass
 
             if rating_count > 0:
-                avg_rating = round(
-                    sum(float(r.get("rating") or 0) for r in ratings) / rating_count,
-                    1
-                )
+                avg_rating = round(total_rating / rating_count, 1)
             else:
                 avg_rating = 0
 
             p["avg_rating"] = avg_rating
             p["rating_count"] = rating_count
 
+            product_rating_map[p["id"]] = {
+                "avg": avg_rating,
+                "count": rating_count
+            }
+
             store = None
             if p.get("store_id"):
                 store = mongo.stores.find_one({"_id": p["store_id"]})
 
-            p["store_name"] = store.get("store_name") if store else ""
+            p["store_name"] = store.get("store_name") if store else p.get("store_name", "")
             p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
 
-    product_rating_map = {}
-    store_rating_map = {}
+        latest_products = products[:10]
 
-    for p in products:
-        product_rating_map[p["id"]] = {
-            "avg": p.get("avg_rating", 0),
-            "count": p.get("rating_count", 0)
+        popular_products = sorted(
+            products,
+            key=lambda x: (
+                float(x.get("avg_rating") or 0),
+                int(x.get("rating_count") or 0),
+                float(x.get("stock_kg") or 0)
+            ),
+            reverse=True
+        )[:10]
+
+        discount_products = [
+            p for p in products
+            if float(p.get("mrp_per_kg") or 0) > float(p.get("price_per_kg") or 0)
+        ][:10]
+
+        featured_products = popular_products[:10] if popular_products else latest_products[:10]
+
+        category_map = {}
+
+        for p in products:
+            cat = (p.get("category") or "Uncategorized").strip()
+            if not cat:
+                cat = "Uncategorized"
+
+            if cat not in category_map:
+                category_map[cat] = {
+                    "name": cat,
+                    "count": 0,
+                    "emoji": "🛒"
+                }
+
+            category_map[cat]["count"] += 1
+
+        category_icons = {
+            "Meat": "🥩",
+            "Seafood": "🦐",
+            "Bakery": "🥐",
+            "Beverages": "🍹",
+            "Vegetables": "🥬",
+            "Fruits": "🍎",
+            "Dairy": "🥛",
+            "Eggs": "🥚",
+            "Grocery": "🛒",
+            "Chicken": "🍗",
+            "Fish": "🐟",
+            "Spices": "🌶️",
+            "Snacks": "🍪",
+            "Rice": "🍚",
+            "Uncategorized": "📦"
         }
 
-        sid = p.get("store_id")
-        if sid:
-            store_rating_map[sid] = {"avg": 0, "count": 0}
+        categories = list(category_map.values())
+
+        for c in categories:
+            c["emoji"] = category_icons.get(c["name"], "🛒")
+
+        categories = sorted(
+            categories,
+            key=lambda x: x["count"],
+            reverse=True
+        )
+
+        stores = list(mongo.stores.find({
+            "is_active": 1
+        }).sort("created_at", -1).limit(20))
+
+        for s in stores:
+            s["id"] = str(s["_id"])
+            s["store_name"] = s.get("store_name", "Store")
+            s["address"] = s.get("address", "")
+            s["logo_path"] = s.get("logo_path", "")
+            s["banner_path"] = s.get("banner_path", "")
+            s["is_open"] = int(s.get("is_open", 1))
+            s["created_at"] = s.get("created_at", "")
+
+            s["product_count"] = mongo.products.count_documents({
+                "store_id": s["_id"],
+                "is_active": 1,
+                "stock_kg": {"$gt": 0}
+            })
+
+            store_ratings = list(mongo.store_ratings.find({
+                "store_id": s["_id"]
+            }))
+
+            store_rating_count = len(store_ratings)
+            store_total_rating = 0
+
+            for r in store_ratings:
+                try:
+                    store_total_rating += float(r.get("rating") or 0)
+                except (TypeError, ValueError):
+                    pass
+
+            if store_rating_count > 0:
+                store_avg_rating = round(store_total_rating / store_rating_count, 1)
+            else:
+                store_avg_rating = 0
+
+            s["avg_rating"] = store_avg_rating
+            s["rating_count"] = store_rating_count
+
+            store_rating_map[s["id"]] = {
+                "avg": store_avg_rating,
+                "count": store_rating_count
+            }
+
+        recommended_stores = sorted(
+            stores,
+            key=lambda x: (
+                float(x.get("avg_rating") or 0),
+                int(x.get("product_count") or 0)
+            ),
+            reverse=True
+        )[:10]
+
+        new_stores = stores[:10]
 
     return render_template(
         'index.html',
-        user=current_user(),
+        user=user,
         products=products,
+        latest_products=latest_products,
+        popular_products=popular_products,
+        discount_products=discount_products,
+        featured_products=featured_products,
+        categories=categories,
+        stores=stores,
+        recommended_stores=recommended_stores,
+        new_stores=new_stores,
         product_rating_map=product_rating_map,
         store_rating_map=store_rating_map
     )
@@ -1365,6 +1508,25 @@ def _get_api_or_web_user():
 @api_login_required
 def api_cart_add(user_id):
     data = request.get_json(silent=True) or {}
+
+    user_doc = None
+
+    try:
+        user_doc = mongo.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        user_doc = mongo.users.find_one({"_id": user_id})
+
+    if not user_doc:
+        return jsonify({
+            "ok": False,
+            "msg": "Please log in first."
+        }), 401
+
+    if user_doc.get("role") != "customer":
+        return jsonify({
+            "ok": False,
+            "msg": "Only customer accounts can add products to cart."
+        }), 403
 
     product_id_raw = data.get("product_id") or request.form.get("product_id")
 
@@ -2756,6 +2918,9 @@ def search():
 # ======================
 # STORE CATALOG PAGE (also gated)
 # ======================
+# ======================
+# STORE CATALOG PAGE / PUBLIC STORE PROFILE
+# ======================
 @app.route("/stores/<sid>")
 def store_catalog(sid):
     user = current_user()
@@ -2773,16 +2938,35 @@ def store_catalog(sid):
         return redirect(url_for("products"))
 
     store["id"] = str(store["_id"])
+    store["store_name"] = store.get("store_name", "Store")
+    store["address"] = store.get("address", "")
+    store["description"] = store.get("description", "")
+    store["logo_path"] = store.get("logo_path", "")
+    store["banner_path"] = store.get("banner_path", "")
+    store["opening_time"] = store.get("opening_time", "")
+    store["closing_time"] = store.get("closing_time", "")
+    store["is_open"] = int(store.get("is_open", 1))
+    store["is_active"] = int(store.get("is_active", 1))
 
     allow, pin = _session_pin_is_serviceable()
 
+    products = []
+    categories = []
+    category_counts = {}
+    store_reviews = []
+    store_avg_rating = 0
+    store_rating_count = 0
+    can_review_store = bool(user and user.get("role") == "customer")
+
     if session.get("service_area") and not allow:
         flash("Please enter a valid 6-digit pincode.", "warning")
-        products = []
     else:
         products = list(
             mongo.products.find({
-                "store_id": sid_obj,
+                "$or": [
+                    {"store_id": sid_obj},
+                    {"store_id": str(sid_obj)}
+                ],
                 "is_active": 1,
                 "stock_kg": {"$gt": 0}
             }).sort("created_at", -1)
@@ -2790,12 +2974,101 @@ def store_catalog(sid):
 
         for p in products:
             p["id"] = str(p["_id"])
+            p["name"] = (p.get("name") or "Product").strip()
             p["category"] = (p.get("category") or "Uncategorized").strip()
             p["sub_category"] = (p.get("sub_category") or "").strip()
-            p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
+            p["image_path"] = p.get("image_path", "")
+            p["price_per_kg"] = float(p.get("price_per_kg") or 0)
+            p["mrp_per_kg"] = float(p.get("mrp_per_kg") or p.get("old_price") or 0)
+            p["stock_kg"] = float(p.get("stock_kg") or 0)
+            p["store_id"] = str(sid_obj)
             p["store_name"] = store.get("store_name", "")
 
-    return render_template("store_catalog.html", user=user, store=store, products=products)
+            product_ratings = list(mongo.product_ratings.find({
+                "product_id": p["_id"]
+            }))
+
+            product_rating_count = len(product_ratings)
+            product_total_rating = 0
+
+            for r in product_ratings:
+                try:
+                    product_total_rating += float(r.get("rating") or 0)
+                except (TypeError, ValueError):
+                    pass
+
+            if product_rating_count > 0:
+                p["avg_rating"] = round(product_total_rating / product_rating_count, 1)
+            else:
+                p["avg_rating"] = 0
+
+            p["rating_count"] = product_rating_count
+
+            cat = p["category"] or "Uncategorized"
+
+            if cat not in category_counts:
+                category_counts[cat] = 0
+
+            category_counts[cat] += 1
+
+        categories = [
+            {
+                "name": name,
+                "count": count
+            }
+            for name, count in sorted(category_counts.items())
+        ]
+
+    store_reviews = list(
+        mongo.store_ratings.find({
+            "$or": [
+                {"store_id": sid_obj},
+                {"store_id": str(sid_obj)}
+            ]
+        }).sort("created_at", -1).limit(20)
+    )
+
+    store_rating_count = len(store_reviews)
+    store_total_rating = 0
+
+    for r in store_reviews:
+        r["id"] = str(r["_id"])
+
+        try:
+            store_total_rating += float(r.get("rating") or 0)
+        except (TypeError, ValueError):
+            pass
+
+        if r.get("user_id"):
+            reviewer = None
+
+            try:
+                reviewer = mongo.users.find_one({"_id": ObjectId(str(r.get("user_id")))})
+            except Exception:
+                reviewer = mongo.users.find_one({"_id": str(r.get("user_id"))})
+
+            r["reviewer_name"] = reviewer.get("name", "Customer") if reviewer else r.get("reviewer_name", "Customer")
+        else:
+            r["reviewer_name"] = r.get("reviewer_name", "Customer")
+
+    if store_rating_count > 0:
+        store_avg_rating = round(store_total_rating / store_rating_count, 1)
+
+    store["avg_rating"] = store_avg_rating
+    store["rating_count"] = store_rating_count
+    store["product_count"] = len(products)
+
+    return render_template(
+        "store_catalog.html",
+        user=user,
+        store=store,
+        products=products,
+        categories=categories,
+        store_reviews=store_reviews,
+        store_avg_rating=store_avg_rating,
+        store_rating_count=store_rating_count,
+        can_review_store=can_review_store
+    )
 
 @app.route("/api/search/suggest")
 def api_search_suggest():

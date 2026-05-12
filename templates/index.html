@@ -2596,167 +2596,112 @@ padding-right:clamp(42px,6vw,118px) !important;
     </div>
   </section>
 
-  <!-- CATEGORIES -->
-  <section id="categories" class="nf-section">
-    <div class="nf-wrap">
-      <div class="nf-section-head nf-reveal">
-        <h2>Categories</h2>
-        <a href="#" class="nf-see-all">View all →</a>
-      </div>
+<!-- CATEGORIES -->
+<section id="categories" class="nf-section">
+  <div class="nf-wrap">
+    <div class="nf-section-head nf-reveal">
+      <h2>Categories</h2>
+      <a href="{{ url_for('products') }}" class="nf-see-all">View all →</a>
+    </div>
 
-      <div class="nf-category-wrap nf-reveal">
-        <div class="nf-categories" id="nfCategoryScroller">
-          <a class="nf-cat-card" href="#" style="--cat-bg:#FDECEC;"><div class="ic">🥩</div><span>Meat</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#FFF6D8;"><div class="ic">🦐</div><span>Seafood</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#FFF2DF;"><div class="ic">🥐</div><span>Bakery</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#EFFFFF;"><div class="ic">🍹</div><span>Beverages</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#DCFFEA;"><div class="ic">🥘</div><span>Frozen</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#FFF9F1;"><div class="ic">🧂</div><span>Pantry</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#F6F2D4;"><div class="ic">🍪</div><span>Snacks</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#F0F1FF;"><div class="ic">💊</div><span>Health</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#F4F7F8;"><div class="ic">🧴</div><span>Personal Care</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#F0EDFF;"><div class="ic">🍼</div><span>Baby Care</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#EEFFF6;"><div class="ic">🥬</div><span>Fresh Produce</span></a>
-          <a class="nf-cat-card" href="#" style="--cat-bg:#FFF5EB;"><div class="ic">🍳</div><span>Cooking</span></a>
-        </div>
+    <div class="nf-category-wrap nf-reveal">
+      <div class="nf-categories" id="nfCategoryScroller">
+        {% if categories and categories|length > 0 %}
+          {% for c in categories %}
+            {% set cat_colors = ['#FDECEC', '#FFF6D8', '#FFF2DF', '#EFFFFF', '#DCFFEA', '#FFF9F1', '#F6F2D4', '#F0F1FF', '#F4F7F8', '#F0EDFF', '#EEFFF6', '#FFF5EB'] %}
+            <a class="nf-cat-card"
+               href="{{ url_for('search') }}?q={{ c.name }}"
+               style="--cat-bg:{{ cat_colors[loop.index0 % cat_colors|length] }};">
+              <div class="ic">{{ c.emoji or '🛒' }}</div>
+              <span>{{ c.name }}</span>
+            </a>
+          {% endfor %}
+        {% else %}
+          <a class="nf-cat-card" href="{{ url_for('products') }}" style="--cat-bg:#EEFFF6;">
+            <div class="ic">🛒</div>
+            <span>All Products</span>
+          </a>
+        {% endif %}
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
 
-  <!-- NEW STORES -->
-  <section class="nf-new-stores-section">
-    <div class="nf-wrap">
-      <div class="nf-section-head nf-reveal">
-        <h2>New on NE-Fresh</h2>
-        <a href="#" class="nf-see-all">See All</a>
-      </div>
+<!-- NEW STORES -->
+<section class="nf-new-stores-section">
+  <div class="nf-wrap">
+    <div class="nf-section-head nf-reveal">
+      <h2>New on NE-Fresh</h2>
+      <a href="{{ url_for('products') }}" class="nf-see-all">See All</a>
+    </div>
 
-      <div class="nf-store-carousel-wrap nf-reveal">
-        <button class="nf-store-nav prev" type="button" aria-label="Previous stores">‹</button>
+    <div class="nf-store-carousel-wrap nf-reveal">
+      <button class="nf-store-nav prev" type="button" aria-label="Previous stores">‹</button>
 
-        <div class="nf-new-store-track" id="nfNewStoreScroller">
+      <div class="nf-new-store-track" id="nfNewStoreScroller">
+        {% if new_stores and new_stores|length > 0 %}
+          {% for store in new_stores %}
+            <article class="nf-new-store-card">
+              <span class="nf-store-new-badge">NEW</span>
+
+              <a href="{{ url_for('store_catalog', sid=store.id) }}" class="nf-new-store-logo" style="text-decoration:none;">
+                {% if store.logo_path %}
+                  <img src="{{ url_for('static', filename=store.logo_path) }}"
+                       alt="{{ store.store_name }}"
+                       style="width:100%;height:100%;object-fit:cover;border-radius:18px;">
+                {% else %}
+                  🛍️
+                {% endif %}
+              </a>
+
+              <div class="nf-new-store-info">
+                <h3>
+                  <a href="{{ url_for('store_catalog', sid=store.id) }}"
+                     style="color:inherit;text-decoration:none;">
+                    {{ store.store_name }}
+                  </a>
+                </h3>
+
+                <div class="nf-store-open">
+                  {% if store.is_open %}
+                    🟢 Open Now
+                  {% else %}
+                    🔴 Closed
+                  {% endif %}
+                </div>
+
+                <div class="nf-store-address">
+                  📍 {{ store.address or 'Location not updated' }}
+                </div>
+
+                <div class="nf-store-distance">
+                  🛒 <b>{{ store.product_count or 0 }}</b> products
+                </div>
+              </div>
+
+              <button class="nf-store-heart" type="button" aria-label="Favourite store">♡</button>
+            </article>
+          {% endfor %}
+        {% else %}
           <article class="nf-new-store-card">
             <span class="nf-store-new-badge">NEW</span>
             <div class="nf-new-store-logo">🛍️</div>
             <div class="nf-new-store-info">
-              <h3>Supermarket</h3>
-              <div class="nf-store-open">◷ Open Now</div>
-              <div class="nf-store-address">▣ House: 00, Road: 00, City...</div>
-              <div class="nf-store-distance">⌘ <b>0.00 km</b> from you</div>
+              <h3>No stores available</h3>
+              <div class="nf-store-open">Stores will appear here once approved.</div>
+              <div class="nf-store-address">📍 NE-FRESH</div>
+              <div class="nf-store-distance">🛒 <b>0</b> products</div>
             </div>
-            <button class="nf-store-heart" type="button" aria-label="Add to favourite">♡</button>
+            <button class="nf-store-heart" type="button">♡</button>
           </article>
-
-          <article class="nf-new-store-card">
-            <span class="nf-store-new-badge">NEW</span>
-            <div class="nf-new-store-logo">🛒</div>
-            <div class="nf-new-store-info">
-              <h3>Fast Market</h3>
-              <div class="nf-store-open">◷ Open Now</div>
-              <div class="nf-store-address">▣ House: 00, Road: 00, City...</div>
-              <div class="nf-store-distance">⌘ <b>0.00 km</b> from you</div>
-            </div>
-            <button class="nf-store-heart" type="button" aria-label="Add to favourite">♡</button>
-          </article>
-
-          <article class="nf-new-store-card">
-            <span class="nf-store-new-badge">NEW</span>
-            <div class="nf-new-store-logo">🧺</div>
-            <div class="nf-new-store-info">
-              <h3>Morning Mart</h3>
-              <div class="nf-store-open">◷ Open Now</div>
-              <div class="nf-store-address">▣ House: 00, Road: 00, City...</div>
-              <div class="nf-store-distance">⌘ <b>0.00 km</b> from you</div>
-            </div>
-            <button class="nf-store-heart" type="button" aria-label="Add to favourite">♡</button>
-          </article>
-
-          <article class="nf-new-store-card">
-            <span class="nf-store-new-badge">NEW</span>
-            <div class="nf-new-store-logo">🛍️</div>
-            <div class="nf-new-store-info">
-              <h3>Eco Market</h3>
-              <div class="nf-store-open">◷ Open Now</div>
-              <div class="nf-store-address">▣ House: 00, Road: 00, City...</div>
-              <div class="nf-store-distance">⌘ <b>0.00 km</b> from you</div>
-            </div>
-            <button class="nf-store-heart" type="button" aria-label="Add to favourite">♡</button>
-          </article>
-
-          <article class="nf-new-store-card">
-            <span class="nf-store-new-badge">NEW</span>
-            <div class="nf-new-store-logo">🥬</div>
-            <div class="nf-new-store-info">
-              <h3>Fresh Basket</h3>
-              <div class="nf-store-open">◷ Open Now</div>
-              <div class="nf-store-address">▣ House: 00, Road: 00, City...</div>
-              <div class="nf-store-distance">⌘ <b>0.00 km</b> from you</div>
-            </div>
-            <button class="nf-store-heart" type="button" aria-label="Add to favourite">♡</button>
-          </article>
-        </div>
-
-        <button class="nf-store-nav next" type="button" aria-label="Next stores">›</button>
+        {% endif %}
       </div>
+
+      <button class="nf-store-nav next" type="button" aria-label="Next stores">›</button>
     </div>
-  </section>
-
-  <!-- REWARD BANNER -->
-  <section class="nf-reward-banner-section">
-    <div class="nf-wrap">
-      <div class="nf-reward-banner nf-reveal">
-        <div class="nf-reward-copy">
-          <h2>Shop Fresh, Fast and Smarter with NE-Fresh</h2>
-          <p>Explore groceries, daily essentials, offers and nearby stores from one smooth shopping experience.</p>
-        </div>
-
-        <div class="nf-reward-device-art" aria-hidden="true">
-          <div class="nf-reward-laptop">
-            <div class="nf-reward-screen">
-              <div class="nf-reward-screen-top">
-                <div class="nf-reward-screen-logo">NE-Fresh</div>
-                <div class="nf-reward-screen-nav">
-                  <span></span><span></span><span></span>
-                </div>
-                <div class="nf-reward-mini-icons">
-                  <span></span><span></span><span></span>
-                </div>
-              </div>
-
-              <div class="nf-reward-screen-hero">
-                <div class="nf-reward-screen-copy">
-                  <b>Fresh Groceries<br>Just A Click Away!</b>
-                  <small>Order anytime from anywhere with nearby store delivery.</small>
-                </div>
-                <div class="nf-reward-screen-bag">🛍️</div>
-              </div>
-
-              <div class="nf-reward-screen-cats">
-                <span>🌶️</span><span>🍳</span><span>🥬</span><span>🥚</span>
-                <span>🥩</span><span>🍞</span><span>🧃</span><span>📦</span>
-              </div>
-
-              <div class="nf-reward-screen-products">
-                <span></span><span></span><span></span><span></span><span></span><span></span>
-              </div>
-            </div>
-          </div>
-
-          <div class="nf-reward-phone-preview">
-            <div class="nf-reward-phone-screen">
-              <div class="nf-reward-phone-search"></div>
-              <div class="nf-reward-phone-banner"></div>
-              <div class="nf-reward-phone-grid">
-                <span></span><span></span><span></span>
-              </div>
-              <div class="nf-reward-phone-card"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+  </div>
+</section>
 
   <!-- OFFERS -->
   <section id="special-offer" class="nf-section">
@@ -2782,192 +2727,284 @@ padding-right:clamp(42px,6vw,118px) !important;
     </div>
   </section>
 
-  <!-- POPULAR ITEMS -->
-  <section id="popular-items" class="nf-section">
-    <div class="nf-wrap">
-      <div class="nf-section-head nf-reveal">
-        <h2>Popular Items Nearby</h2>
-        <a href="#" class="nf-see-all">See all →</a>
-      </div>
-
-      <div class="nf-product-grid nf-reveal">
-        <article class="nf-product-card">
-          <span class="nf-discount">15% OFF</span>
-          <button class="nf-fav" type="button">♡</button>
-          <div class="nf-product-img">🍝</div>
-          <div class="nf-product-body">
-            <h3>Barilla Protein Pasta</h3>
-            <span class="nf-store-name">Family supermarket</span>
-            <div class="nf-rating">★ 4.5</div>
-            <div class="nf-price-row"><div class="nf-price"><b>₹ 10.00</b><del>₹ 12.00</del></div><button class="nf-add" type="button">+</button></div>
-          </div>
-        </article>
-
-        <article class="nf-product-card">
-          <span class="nf-discount">5% OFF</span>
-          <button class="nf-fav" type="button">♡</button>
-          <div class="nf-product-img">🥣</div>
-          <div class="nf-product-body">
-            <h3>Birds Eye Frozen Meal</h3>
-            <span class="nf-store-name">Fresh grocery store</span>
-            <div class="nf-rating">★ 4.7</div>
-            <div class="nf-price-row"><div class="nf-price"><b>₹ 8.00</b><del>₹ 9.00</del></div><button class="nf-add" type="button">+</button></div>
-          </div>
-        </article>
-
-        <article class="nf-product-card">
-          <span class="nf-discount">8% OFF</span>
-          <button class="nf-fav" type="button">♡</button>
-          <div class="nf-product-img">🧀</div>
-          <div class="nf-product-body">
-            <h3>Cheese Ravioli</h3>
-            <span class="nf-store-name">Family supermarket</span>
-            <div class="nf-rating">★ 4.4</div>
-            <div class="nf-price-row"><div class="nf-price"><b>₹ 14.00</b><del>₹ 16.00</del></div><button class="nf-add" type="button">+</button></div>
-          </div>
-        </article>
-
-        <article class="nf-product-card">
-          <span class="nf-discount">20% OFF</span>
-          <button class="nf-fav" type="button">♡</button>
-          <div class="nf-product-img">🍗</div>
-          <div class="nf-product-body">
-            <h3>Chicken Breast</h3>
-            <span class="nf-store-name">Meat express</span>
-            <div class="nf-rating">★ 4.8</div>
-            <div class="nf-price-row"><div class="nf-price"><b>₹ 18.00</b><del>₹ 22.00</del></div><button class="nf-add" type="button">+</button></div>
-          </div>
-        </article>
-
-        <article class="nf-product-card">
-          <span class="nf-discount">12% OFF</span>
-          <button class="nf-fav" type="button">♡</button>
-          <div class="nf-product-img">🍉</div>
-          <div class="nf-product-body">
-            <h3>Fresh Watermelon</h3>
-            <span class="nf-store-name">Family supermarket</span>
-            <div class="nf-rating">★ 4.6</div>
-            <div class="nf-price-row"><div class="nf-price"><b>₹ 6.00</b><del>₹ 7.00</del></div><button class="nf-add" type="button">+</button></div>
-          </div>
-        </article>
-      </div>
+ <!-- POPULAR ITEMS -->
+<section id="popular-items" class="nf-section">
+  <div class="nf-wrap">
+    <div class="nf-section-head nf-reveal">
+      <h2>Popular Items Nearby</h2>
+      <a href="{{ url_for('products') }}" class="nf-see-all">See all →</a>
     </div>
-  </section>
+
+    <div class="nf-product-grid nf-reveal">
+      {% if popular_products and popular_products|length > 0 %}
+        {% for p in popular_products[:10] %}
+          {% set price = p.price_per_kg or 0 %}
+          {% set mrp = p.mrp_per_kg or 0 %}
+          {% set discount = 0 %}
+          {% if mrp > price and price > 0 %}
+            {% set discount = ((1 - (price / mrp)) * 100) | round(0, 'floor') | int %}
+          {% endif %}
+
+          <article class="nf-product-card">
+            {% if discount > 0 %}
+              <span class="nf-discount">{{ discount }}% OFF</span>
+            {% endif %}
+
+            <button class="nf-fav" type="button">♡</button>
+
+            <a href="{{ url_for('product_detail', pid=p.id) }}" class="nf-product-img" style="text-decoration:none;color:inherit;">
+              {% if p.image_path %}
+                <img src="{{ url_for('static', filename=p.image_path) }}"
+                     alt="{{ p.name }}"
+                     style="width:100%;height:100%;object-fit:contain;padding:14px;">
+              {% else %}
+                🛒
+              {% endif %}
+            </a>
+
+            <div class="nf-product-body">
+              <h3>
+                <a href="{{ url_for('product_detail', pid=p.id) }}"
+                   style="color:inherit;text-decoration:none;">
+                  {{ p.name }}
+                </a>
+              </h3>
+
+              {% if p.store_id %}
+                <a class="nf-store-name"
+                   href="{{ url_for('store_catalog', sid=p.store_id) }}"
+                   style="text-decoration:none;">
+                  {{ p.store_name or 'Store' }}
+                </a>
+              {% else %}
+                <span class="nf-store-name">{{ p.store_name or 'Store' }}</span>
+              {% endif %}
+
+              <div class="nf-rating">
+                ★ {{ '%.1f'|format(p.avg_rating or 0) }}
+                {% if p.rating_count %}
+                  <span style="color:#8A9890;">({{ p.rating_count }})</span>
+                {% endif %}
+              </div>
+
+              <div class="nf-price-row">
+                <div class="nf-price">
+                  <b>₹ {{ '%.2f'|format(price) }}</b>
+                  {% if mrp > price %}
+                    <del>₹ {{ '%.2f'|format(mrp) }}</del>
+                  {% endif %}
+                </div>
+
+                {% if user and user.role == 'customer' %}
+                  <form action="{{ url_for('api_cart_add') }}"
+                        method="POST"
+                        class="nf-home-cart-form"
+                        style="margin:0;">
+                    <input type="hidden" name="product_id" value="{{ p.id }}">
+                    <input type="hidden" name="weight_kg" value="1">
+                    <button class="nf-add" type="submit">+</button>
+                  </form>
+                {% elif not user %}
+                  <a href="{{ url_for('login') }}" class="nf-add" style="text-decoration:none;">+</a>
+                {% else %}
+                  <button class="nf-add" type="button" title="Only customers can add to cart" disabled style="opacity:.45;cursor:not-allowed;">+</button>
+                {% endif %}
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      {% else %}
+        <article class="nf-product-card">
+          <div class="nf-product-img">🛒</div>
+          <div class="nf-product-body">
+            <h3>No products available</h3>
+            <span class="nf-store-name">Products will appear here once stores add stock.</span>
+            <div class="nf-rating">★ 0.0</div>
+            <div class="nf-price-row">
+              <div class="nf-price"><b>₹ 0.00</b></div>
+              <button class="nf-add" type="button" disabled>+</button>
+            </div>
+          </div>
+        </article>
+      {% endif %}
+    </div>
+  </div>
+</section>
 
   <!-- BEST REVIEWED ITEMS -->
-  <section class="nf-section">
-    <div class="nf-wrap">
-      <div class="nf-section-head nf-reveal">
-        <h2>Best Reviewed Items</h2>
-        <a href="#" class="nf-see-all">See all →</a>
-      </div>
-
-      <div class="nf-product-grid nf-reveal">
-        <article class="nf-product-card">
-          <button class="nf-fav" type="button">♡</button>
-          <div class="nf-product-img">🥛</div>
-          <div class="nf-product-body">
-            <h3>Fresh Organic Milk</h3>
-            <span class="nf-store-name">Daily dairy shop</span>
-            <div class="nf-rating">★ 4.9</div>
-            <div class="nf-price-row"><div class="nf-price"><b>₹ 4.00</b></div><button class="nf-add" type="button">+</button></div>
-          </div>
-        </article>
-
-        <article class="nf-product-card">
-          <button class="nf-fav" type="button">♡</button>
-          <div class="nf-product-img">🍞</div>
-          <div class="nf-product-body">
-            <h3>Soft Sandwich Bread</h3>
-            <span class="nf-store-name">Bakery store</span>
-            <div class="nf-rating">★ 4.8</div>
-            <div class="nf-price-row"><div class="nf-price"><b>₹ 3.00</b></div><button class="nf-add" type="button">+</button></div>
-          </div>
-        </article>
-
-        <article class="nf-product-card">
-          <button class="nf-fav" type="button">♡</button>
-          <div class="nf-product-img">🍎</div>
-          <div class="nf-product-body">
-            <h3>Red Apple Pack</h3>
-            <span class="nf-store-name">Fruit market</span>
-            <div class="nf-rating">★ 4.7</div>
-            <div class="nf-price-row"><div class="nf-price"><b>₹ 5.00</b></div><button class="nf-add" type="button">+</button></div>
-          </div>
-        </article>
-
-        <article class="nf-product-card">
-          <button class="nf-fav" type="button">♡</button>
-          <div class="nf-product-img">🥦</div>
-          <div class="nf-product-body">
-            <h3>Fresh Broccoli</h3>
-            <span class="nf-store-name">Green grocery</span>
-            <div class="nf-rating">★ 4.6</div>
-            <div class="nf-price-row"><div class="nf-price"><b>₹ 4.50</b></div><button class="nf-add" type="button">+</button></div>
-          </div>
-        </article>
-
-        <article class="nf-product-card">
-          <button class="nf-fav" type="button">♡</button>
-          <div class="nf-product-img">🧃</div>
-          <div class="nf-product-body">
-            <h3>Mixed Fruit Juice</h3>
-            <span class="nf-store-name">Beverage point</span>
-            <div class="nf-rating">★ 4.5</div>
-            <div class="nf-price-row"><div class="nf-price"><b>₹ 2.50</b></div><button class="nf-add" type="button">+</button></div>
-          </div>
-        </article>
-      </div>
+<section class="nf-section">
+  <div class="nf-wrap">
+    <div class="nf-section-head nf-reveal">
+      <h2>Best Reviewed Items</h2>
+      <a href="{{ url_for('products') }}" class="nf-see-all">See all →</a>
     </div>
-  </section>
+
+    <div class="nf-product-grid nf-reveal">
+      {% set best_items = featured_products if featured_products else popular_products %}
+
+      {% if best_items and best_items|length > 0 %}
+        {% for p in best_items[:10] %}
+          {% set price = p.price_per_kg or 0 %}
+          {% set mrp = p.mrp_per_kg or 0 %}
+          {% set discount = 0 %}
+          {% if mrp > price and price > 0 %}
+            {% set discount = ((1 - (price / mrp)) * 100) | round(0, 'floor') | int %}
+          {% endif %}
+
+          <article class="nf-product-card">
+            {% if discount > 0 %}
+              <span class="nf-discount">{{ discount }}% OFF</span>
+            {% endif %}
+
+            <button class="nf-fav" type="button">♡</button>
+
+            <a href="{{ url_for('product_detail', pid=p.id) }}"
+               class="nf-product-img"
+               style="text-decoration:none;color:inherit;">
+              {% if p.image_path %}
+                <img src="{{ url_for('static', filename=p.image_path) }}"
+                     alt="{{ p.name }}"
+                     style="width:100%;height:100%;object-fit:contain;padding:14px;">
+              {% else %}
+                🛒
+              {% endif %}
+            </a>
+
+            <div class="nf-product-body">
+              <h3>
+                <a href="{{ url_for('product_detail', pid=p.id) }}"
+                   style="color:inherit;text-decoration:none;">
+                  {{ p.name }}
+                </a>
+              </h3>
+
+              {% if p.store_id %}
+                <a class="nf-store-name"
+                   href="{{ url_for('store_catalog', sid=p.store_id) }}"
+                   style="text-decoration:none;">
+                  {{ p.store_name or 'Store' }}
+                </a>
+              {% else %}
+                <span class="nf-store-name">{{ p.store_name or 'Store' }}</span>
+              {% endif %}
+
+              <div class="nf-rating">
+                ★ {{ '%.1f'|format(p.avg_rating or 0) }}
+                {% if p.rating_count %}
+                  <span style="color:#8A9890;">({{ p.rating_count }})</span>
+                {% endif %}
+              </div>
+
+              <div class="nf-price-row">
+                <div class="nf-price">
+                  <b>₹ {{ '%.2f'|format(price) }}</b>
+                  {% if mrp > price %}
+                    <del>₹ {{ '%.2f'|format(mrp) }}</del>
+                  {% endif %}
+                </div>
+
+                {% if user and user.role == 'customer' %}
+                  <form action="{{ url_for('api_cart_add') }}"
+                        method="POST"
+                        class="nf-home-cart-form"
+                        style="margin:0;">
+                    <input type="hidden" name="product_id" value="{{ p.id }}">
+                    <input type="hidden" name="weight_kg" value="1">
+                    <button class="nf-add" type="submit">+</button>
+                  </form>
+                {% elif not user %}
+                  <a href="{{ url_for('login') }}" class="nf-add" style="text-decoration:none;">+</a>
+                {% else %}
+                  <button class="nf-add"
+                          type="button"
+                          title="Only customers can add to cart"
+                          disabled
+                          style="opacity:.45;cursor:not-allowed;">+</button>
+                {% endif %}
+              </div>
+            </div>
+          </article>
+        {% endfor %}
+      {% else %}
+        <article class="nf-product-card">
+          <div class="nf-product-img">🛒</div>
+          <div class="nf-product-body">
+            <h3>No reviewed products yet</h3>
+            <span class="nf-store-name">Products will appear here after ratings are available.</span>
+            <div class="nf-rating">★ 0.0</div>
+            <div class="nf-price-row">
+              <div class="nf-price"><b>₹ 0.00</b></div>
+              <button class="nf-add" type="button" disabled>+</button>
+            </div>
+          </div>
+        </article>
+      {% endif %}
+    </div>
+  </div>
+</section>
 
   <!-- POPULAR STORES -->
-  <section class="nf-section">
-    <div class="nf-wrap">
-      <div class="nf-section-head nf-reveal">
-        <h2>Popular Stores</h2>
-        <a href="#" class="nf-see-all">See all →</a>
-      </div>
-
-      <div class="nf-store-grid nf-reveal">
-        <article class="nf-store-card">
-          <div class="nf-store-cover"><div class="nf-store-logo">🥦</div></div>
-          <div class="nf-store-content">
-            <h3>Family Supermarket</h3>
-            <p>Fresh grocery, vegetables and daily essentials.</p>
-            <div class="nf-store-meta"><span>★ 4.8</span><span>30-40 min</span></div>
-          </div>
-        </article>
-
-        <article class="nf-store-card">
-          <div class="nf-store-cover"><div class="nf-store-logo">🍎</div></div>
-          <div class="nf-store-content">
-            <h3>Fresh Grocery Store</h3>
-            <p>Organic products and fresh daily items.</p>
-            <div class="nf-store-meta"><span>★ 4.7</span><span>25-35 min</span></div>
-          </div>
-        </article>
-
-        <article class="nf-store-card">
-          <div class="nf-store-cover"><div class="nf-store-logo">🥛</div></div>
-          <div class="nf-store-content">
-            <h3>Daily Dairy Shop</h3>
-            <p>Milk, cheese, bakery and breakfast products.</p>
-            <div class="nf-store-meta"><span>★ 4.6</span><span>20-30 min</span></div>
-          </div>
-        </article>
-
-        <article class="nf-store-card">
-          <div class="nf-store-cover"><div class="nf-store-logo">🍞</div></div>
-          <div class="nf-store-content">
-            <h3>Bakery Store</h3>
-            <p>Fresh bread, snacks and packaged food.</p>
-            <div class="nf-store-meta"><span>★ 4.5</span><span>30-45 min</span></div>
-          </div>
-        </article>
-      </div>
+<section class="nf-section">
+  <div class="nf-wrap">
+    <div class="nf-section-head nf-reveal">
+      <h2>Popular Stores</h2>
+      <a href="{{ url_for('products') }}" class="nf-see-all">See all →</a>
     </div>
-  </section>
+
+    <div class="nf-store-grid nf-reveal">
+      {% if recommended_stores and recommended_stores|length > 0 %}
+        {% for store in recommended_stores[:8] %}
+          <a href="{{ url_for('store_catalog', sid=store.id) }}"
+             class="nf-store-card"
+             style="text-decoration:none;color:inherit;">
+            <div class="nf-store-cover">
+              <div class="nf-store-logo">
+                {% if store.logo_path %}
+                  <img src="{{ url_for('static', filename=store.logo_path) }}"
+                       alt="{{ store.store_name }}"
+                       style="width:100%;height:100%;object-fit:cover;border-radius:18px;">
+                {% else %}
+                  🛍️
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="nf-store-content">
+              <h3>{{ store.store_name or 'Store' }}</h3>
+
+              <p>
+                {% if store.address %}
+                  {{ store.address }}
+                {% else %}
+                  Fresh grocery, vegetables and daily essentials.
+                {% endif %}
+              </p>
+
+              <div class="nf-store-meta">
+                <span>★ {{ '%.1f'|format(store.avg_rating or 0) }}</span>
+                <span>{{ store.product_count or 0 }} products</span>
+              </div>
+            </div>
+          </a>
+        {% endfor %}
+      {% else %}
+        <article class="nf-store-card">
+          <div class="nf-store-cover">
+            <div class="nf-store-logo">🛍️</div>
+          </div>
+          <div class="nf-store-content">
+            <h3>No stores available</h3>
+            <p>Stores will appear here once they are active and approved.</p>
+            <div class="nf-store-meta">
+              <span>★ 0.0</span>
+              <span>0 products</span>
+            </div>
+          </div>
+        </article>
+      {% endif %}
+    </div>
+  </div>
+</section>
 
   <!-- APP PROMO BODY SECTION -->
   <section class="nf-section">
@@ -3368,6 +3405,58 @@ padding-right:clamp(42px,6vw,118px) !important;
         item.classList.add('is-visible');
       });
     }
+
+
+
+    document.querySelectorAll('.nf-home-cart-form').forEach(function(form){
+  form.addEventListener('submit', async function(event){
+    event.preventDefault();
+
+    const btn = form.querySelector('button[type="submit"]');
+    const oldText = btn ? btn.textContent : '+';
+
+    if(btn){
+      btn.disabled = true;
+      btn.textContent = '✓';
+    }
+
+    try{
+      const fd = new FormData(form);
+
+      const res = await fetch(form.action, {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+
+      const data = await res.json();
+
+      if(data && data.ok){
+        document.dispatchEvent(
+          new CustomEvent('cart:updated', {
+            detail: {
+              count: data.cart_count || 0
+            }
+          })
+        );
+      }else{
+        alert((data && data.msg) ? data.msg : 'Unable to add item.');
+      }
+    }catch(error){
+      alert('Network error. Please try again.');
+    }finally{
+      if(btn){
+        setTimeout(function(){
+          btn.disabled = false;
+          btn.textContent = oldText;
+        }, 650);
+      }
+    }
+  });
+});
   })();
 </script>
 
