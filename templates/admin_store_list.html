@@ -762,9 +762,19 @@
           {% for store in stores %}
             <tr
               data-store-row
-              data-store-name="{{ store.store_name|lower }}"
-              data-store-id="{{ store.id }}"
-              data-store="{{ store|tojson|e }}"
+              data-store-name="{{ (store.store_name or '')|lower|e }}"
+              data-store-id="{{ store.id|default('')|e }}"
+              data-store-full-name="{{ store.store_name|default('')|e }}"
+              data-store-address="{{ store.address|default('')|e }}"
+              data-owner-name="{{ store.owner_name|default('')|e }}"
+              data-owner-email="{{ store.owner_email|default('')|e }}"
+              data-owner-phone="{{ store.owner_phone|default('')|e }}"
+              data-store-orders="{{ store.orders|default(0) }}"
+              data-store-products="{{ store.products|default(0) }}"
+              data-store-revenue="{{ store.revenue|default(0) }}"
+              data-store-rating="{{ store.rating|default(0) }}"
+              data-store-active="{{ store.is_active|default(0) }}"
+              data-store-created="{{ store.created_at|default('')|e }}"
             >
               <td>{{ loop.index }}</td>
 
@@ -942,27 +952,83 @@
   const editOwnerEmail = document.getElementById('editOwnerEmail');
   const editOwnerPhone = document.getElementById('editOwnerPhone');
 
+  function text(value, fallback = '-') {
+    const clean = String(value || '').trim();
+    return clean || fallback;
+  }
+
+  function numberValue(value, fallback = 0) {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : fallback;
+  }
+
+  function money(value) {
+    return '₹ ' + numberValue(value, 0).toFixed(2);
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function getStoreFromRow(row) {
+    const d = row.dataset;
+
+    return {
+      id: text(d.storeId, ''),
+      store_name: text(d.storeFullName, ''),
+      address: text(d.storeAddress, ''),
+      owner_name: text(d.ownerName, ''),
+      owner_email: text(d.ownerEmail, ''),
+      owner_phone: text(d.ownerPhone, ''),
+      orders: numberValue(d.storeOrders, 0),
+      products: numberValue(d.storeProducts, 0),
+      revenue: numberValue(d.storeRevenue, 0),
+      rating: numberValue(d.storeRating, 0),
+      is_active: numberValue(d.storeActive, 0),
+      created_at: text(d.storeCreated, '')
+    };
+  }
+
   function filterRows() {
     const query = (searchInput?.value || '').trim().toLowerCase();
     let count = 0;
 
     rows.forEach(function (row) {
-      const name = row.dataset.storeName || '';
-      const storeJson = row.dataset.store || '';
-      const matched = !query || name.includes(query) || storeJson.toLowerCase().includes(query);
+      const store = getStoreFromRow(row);
+      const haystack = [
+        store.store_name,
+        store.id,
+        store.address,
+        store.owner_name,
+        store.owner_email,
+        store.owner_phone
+      ].join(' ').toLowerCase();
+
+      const matched = !query || haystack.includes(query);
 
       row.classList.toggle('sl-hidden', !matched);
 
-      if (matched) count += 1;
+      if (matched) {
+        count += 1;
+      }
     });
 
-    if (visibleCount) visibleCount.textContent = count;
+    if (visibleCount) {
+      visibleCount.textContent = count;
+    }
   }
 
   function openModal(modal) {
     if (!modal) return;
+
     modal.classList.add('open');
     modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sl-modal-open');
   }
 
   function closeModals() {
@@ -970,21 +1036,15 @@
       modal.classList.remove('open');
       modal.setAttribute('aria-hidden', 'true');
     });
-  }
 
-  function parseStore(row) {
-    try {
-      return JSON.parse(row.dataset.store || '{}');
-    } catch (_) {
-      return {};
-    }
+    document.body.classList.remove('sl-modal-open');
   }
 
   function detailBox(label, value) {
     return `
       <div class="sl-detail-box">
-        <span>${label}</span>
-        <strong>${value || '-'}</strong>
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(text(value))}</strong>
       </div>
     `;
   }
@@ -995,7 +1055,7 @@
 
     if (viewBtn) {
       viewBtn.addEventListener('click', function () {
-        const store = parseStore(row);
+        const store = getStoreFromRow(row);
 
         if (viewTitle) {
           viewTitle.textContent = store.store_name || 'Store Details';
@@ -1011,9 +1071,9 @@
             detailBox('Owner Phone', store.owner_phone),
             detailBox('Orders', store.orders),
             detailBox('Products', store.products),
-            detailBox('Revenue', '₹ ' + Number(store.revenue || 0).toFixed(2)),
-            detailBox('Rating', '⭐ ' + Number(store.rating || 0).toFixed(1)),
-            detailBox('Status', Number(store.is_active) === 1 ? 'Active' : 'Inactive'),
+            detailBox('Revenue', money(store.revenue)),
+            detailBox('Rating', '⭐ ' + store.rating.toFixed(1)),
+            detailBox('Status', store.is_active === 1 ? 'Active' : 'Inactive'),
             detailBox('Created At', store.created_at)
           ].join('');
         }
@@ -1024,7 +1084,12 @@
 
     if (editBtn) {
       editBtn.addEventListener('click', function () {
-        const store = parseStore(row);
+        const store = getStoreFromRow(row);
+
+        if (!store.id) {
+          alert('Store ID missing. Cannot edit this store.');
+          return;
+        }
 
         editForm.action = `/admin/stores/${store.id}/update`;
         editStoreName.value = store.store_name || '';

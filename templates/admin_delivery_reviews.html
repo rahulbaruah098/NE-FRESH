@@ -1,0 +1,1086 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "delivery" %}
+{% set active_page = "delivery_reviews" %}
+
+{% block title %}Deliveryman Reviews | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Deliveryman Reviews{% endblock %}
+{% block page_subtitle %}Review delivery partner ratings, customer feedback and service quality.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-delivery-reviews-page {
+    --dr-green: var(--nf-green, #00A859);
+    --dr-green-dark: var(--nf-green-dark, #008A48);
+    --dr-green-deep: var(--nf-green-deep, #075C3B);
+    --dr-green-soft: var(--nf-green-soft, #E9FFF3);
+    --dr-green-soft-2: var(--nf-green-soft-2, #F3FFF8);
+    --dr-orange: var(--nf-orange, #FFB84D);
+    --dr-orange-soft: var(--nf-orange-soft, #FFF7E8);
+    --dr-red: var(--nf-red, #EF4444);
+    --dr-blue: var(--nf-blue, #0284C7);
+    --dr-card: var(--nf-surface, #FFFFFF);
+    --dr-card-2: var(--nf-surface-2, #F2FBF6);
+    --dr-text: var(--nf-text, #1F332A);
+    --dr-muted: var(--nf-muted, #66756D);
+    --dr-muted-2: var(--nf-muted-2, #8A9890);
+    --dr-line: var(--nf-line, #DDECE4);
+    --dr-shadow: var(--nf-shadow, 0 14px 36px rgba(17, 64, 38, .08));
+    --dr-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17, 64, 38, .06));
+
+    display: grid;
+    gap: 20px;
+    animation: drFadeIn .45s ease both;
+  }
+
+  .nf-delivery-reviews-page,
+  .nf-delivery-reviews-page * {
+    box-sizing: border-box;
+  }
+
+  @keyframes drFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes drFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-7px); }
+  }
+
+  .dr-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid var(--dr-line);
+    background:
+      radial-gradient(circle at 12% 12%, rgba(255, 184, 77, .17), transparent 30%),
+      radial-gradient(circle at 86% 18%, rgba(2, 132, 199, .14), transparent 30%),
+      linear-gradient(135deg, var(--dr-card), var(--dr-card-2));
+    box-shadow: var(--dr-shadow);
+    padding: clamp(18px, 3vw, 28px);
+  }
+
+  .dr-hero::before {
+    content: "";
+    position: absolute;
+    width: 240px;
+    height: 240px;
+    right: -94px;
+    bottom: -116px;
+    border-radius: 999px;
+    background: rgba(255, 184, 77, .12);
+  }
+
+  .dr-hero-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .dr-kicker {
+    width: fit-content;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    background: var(--dr-orange-soft);
+    border: 1px solid rgba(255, 184, 77, .26);
+    color: #B45309;
+    padding: 6px 12px;
+    font-size: .76rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .dr-hero h2 {
+    margin: 12px 0 8px;
+    color: var(--dr-text);
+    font-size: clamp(1.45rem, 3vw, 2.25rem);
+    line-height: 1.08;
+    font-weight: 900;
+    letter-spacing: -.045em;
+  }
+
+  .dr-hero p {
+    margin: 0;
+    max-width: 850px;
+    color: var(--dr-muted);
+    font-size: .96rem;
+    font-weight: 650;
+    line-height: 1.65;
+  }
+
+  .dr-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .dr-btn {
+    min-height: 40px;
+    border: 1px solid var(--dr-line);
+    border-radius: 14px;
+    background: var(--dr-card);
+    color: var(--dr-text);
+    padding: 9px 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: .82rem;
+    line-height: 1.1;
+    font-weight: 900;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+    white-space: nowrap;
+  }
+
+  .dr-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--dr-shadow-soft);
+    border-color: rgba(0, 168, 89, .34);
+  }
+
+  .dr-btn-primary {
+    background: var(--dr-green);
+    color: #fff;
+    border-color: var(--dr-green);
+  }
+
+  .dr-btn-primary:hover {
+    background: var(--dr-green-dark);
+    border-color: var(--dr-green-dark);
+  }
+
+  .dr-btn-soft {
+    background: var(--dr-green-soft);
+    color: var(--dr-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .dr-btn-blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .dr-btn-orange {
+    background: var(--dr-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .28);
+  }
+
+  .dr-hero-visual {
+    width: 164px;
+    min-height: 134px;
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 34%),
+      linear-gradient(135deg, var(--dr-orange), var(--dr-blue));
+    display: grid;
+    place-items: center;
+    color: #fff;
+    box-shadow: 0 24px 55px rgba(255, 184, 77, .22);
+    animation: drFloat 4.4s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .dr-hero-visual span {
+    font-size: 3rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .dr-hero-visual small {
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    min-height: 26px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.20);
+    padding: 5px 9px;
+    font-size: .72rem;
+    font-weight: 900;
+  }
+
+  .dr-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .dr-kpi {
+    min-height: 112px;
+    border-radius: 20px;
+    background: var(--dr-card);
+    border: 1px solid var(--dr-line);
+    box-shadow: var(--dr-shadow-soft);
+    padding: 16px;
+    display: grid;
+    align-content: space-between;
+    position: relative;
+    overflow: hidden;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  }
+
+  .dr-kpi:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--dr-shadow);
+    border-color: rgba(255, 184, 77, .30);
+  }
+
+  .dr-kpi::after {
+    content: "";
+    position: absolute;
+    right: -34px;
+    top: -42px;
+    width: 96px;
+    height: 96px;
+    border-radius: 999px;
+    background: rgba(255, 184, 77, .13);
+  }
+
+  .dr-kpi.green::after { background: rgba(0, 168, 89, .10); }
+  .dr-kpi.blue::after { background: rgba(2, 132, 199, .10); }
+
+  .dr-kpi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: var(--dr-orange-soft);
+    color: #B45309;
+    border: 1px solid rgba(255, 184, 77, .25);
+    font-size: 1.18rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .dr-kpi.green .dr-kpi-icon {
+    background: var(--dr-green-soft);
+    color: var(--dr-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .dr-kpi.blue .dr-kpi-icon {
+    background: #E0F2FE;
+    color: var(--dr-blue);
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .dr-kpi strong {
+    display: block;
+    color: var(--dr-text);
+    font-size: 1.45rem;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1;
+    margin-top: 13px;
+  }
+
+  .dr-kpi span {
+    display: block;
+    color: var(--dr-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 850;
+    margin-top: 8px;
+  }
+
+  .dr-list-card {
+    border-radius: 22px;
+    background: var(--dr-card);
+    border: 1px solid var(--dr-line);
+    box-shadow: var(--dr-shadow-soft);
+    overflow: hidden;
+  }
+
+  .dr-toolbar {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--dr-line);
+    display: grid;
+    grid-template-columns: auto 220px 220px minmax(260px, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    background:
+      radial-gradient(circle at top left, rgba(255, 184, 77, .08), transparent 34%),
+      var(--dr-card);
+  }
+
+  .dr-list-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--dr-text);
+    font-size: 1rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .dr-count {
+    min-width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: var(--dr-card-2);
+    color: var(--dr-text);
+    display: inline-grid;
+    place-items: center;
+    padding: 0 8px;
+    font-size: .78rem;
+    font-weight: 900;
+  }
+
+  .dr-toolbar select,
+  .dr-toolbar input {
+    width: 100%;
+    height: 44px;
+    border: 1px solid var(--dr-line);
+    border-radius: 14px;
+    background: var(--dr-card);
+    color: var(--dr-text);
+    padding: 0 13px;
+    outline: none;
+    font-size: .88rem;
+    font-weight: 750;
+    transition: .22s ease;
+  }
+
+  .dr-toolbar select:focus,
+  .dr-toolbar input:focus {
+    border-color: rgba(255, 184, 77, .58);
+    box-shadow: 0 0 0 4px rgba(255, 184, 77, .12);
+  }
+
+  .dr-search-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 46px;
+  }
+
+  .dr-search-wrap input {
+    border-radius: 14px 0 0 14px;
+  }
+
+  .dr-search-btn {
+    height: 44px;
+    border: 1px solid var(--dr-green);
+    border-radius: 0 14px 14px 0;
+    background: var(--dr-green);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 900;
+  }
+
+  .dr-table-shell {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .dr-table {
+    width: 100%;
+    min-width: 1100px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .dr-table th {
+    padding: 15px 16px;
+    background: var(--dr-card-2);
+    color: var(--dr-text);
+    text-align: left;
+    font-size: .74rem;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-weight: 900;
+    border-bottom: 1px solid var(--dr-line);
+    white-space: nowrap;
+  }
+
+  .dr-table td {
+    padding: 17px 16px;
+    border-bottom: 1px solid var(--dr-line);
+    color: var(--dr-text);
+    vertical-align: middle;
+    font-size: .88rem;
+    font-weight: 650;
+  }
+
+  .dr-table tbody tr {
+    transition: background .2s ease;
+  }
+
+  .dr-table tbody tr:hover {
+    background: var(--dr-green-soft-2);
+  }
+
+  .dr-person {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-width: 250px;
+  }
+
+  .dr-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 30%),
+      linear-gradient(135deg, var(--dr-orange), var(--dr-blue));
+    color: #fff;
+    font-size: 1.45rem;
+    box-shadow: 0 12px 24px rgba(255, 184, 77, .18);
+  }
+
+  .dr-person strong {
+    display: block;
+    color: var(--dr-text);
+    font-size: .95rem;
+    line-height: 1.25;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dr-person span {
+    display: block;
+    color: var(--dr-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  .dr-rating-pill {
+    min-width: 82px;
+    min-height: 32px;
+    border-radius: 8px;
+    padding: 6px 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    background: var(--dr-orange-soft);
+    color: #EA580C;
+    border: 1px solid rgba(255, 184, 77, .38);
+    font-size: .82rem;
+    font-weight: 900;
+  }
+
+  .dr-review-text {
+    max-width: 360px;
+    color: var(--dr-muted);
+    font-size: .88rem;
+    line-height: 1.5;
+    font-weight: 700;
+  }
+
+  .dr-order {
+    color: var(--dr-text);
+    font-weight: 850;
+  }
+
+  .dr-customer {
+    color: var(--dr-text);
+    font-weight: 800;
+  }
+
+  .dr-icon-btn {
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--dr-line);
+    border-radius: 13px;
+    background: var(--dr-orange-soft);
+    color: #EA580C;
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: .22s ease;
+    font-size: 1rem;
+  }
+
+  .dr-icon-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: var(--dr-shadow-soft);
+    border-color: rgba(255, 184, 77, .42);
+  }
+
+  .dr-empty {
+    padding: 34px 18px;
+    text-align: center;
+    color: var(--dr-muted);
+    font-size: .92rem;
+    font-weight: 850;
+  }
+
+  .dr-mobile-cards {
+    display: none;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .dr-mobile-card {
+    border: 1px solid var(--dr-line);
+    border-radius: 20px;
+    background: var(--dr-card);
+    box-shadow: var(--dr-shadow-soft);
+    padding: 16px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .dr-mobile-top {
+    display: grid;
+    grid-template-columns: 54px 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .dr-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .dr-mobile-stat {
+    border-radius: 14px;
+    background: var(--dr-card-2);
+    border: 1px solid var(--dr-line);
+    padding: 11px;
+  }
+
+  .dr-mobile-stat span {
+    display: block;
+    color: var(--dr-muted);
+    font-size: .72rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .dr-mobile-stat strong {
+    display: block;
+    color: var(--dr-text);
+    font-size: .95rem;
+    font-weight: 900;
+    margin-top: 5px;
+  }
+
+  .dr-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+
+  .dr-modal.open {
+    display: flex;
+  }
+
+  .dr-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, .48);
+    backdrop-filter: blur(5px);
+  }
+
+  .dr-modal-card {
+    position: relative;
+    z-index: 1;
+    width: min(560px, 100%);
+    max-height: 88vh;
+    overflow-y: auto;
+    border-radius: 24px;
+    background: var(--dr-card);
+    border: 1px solid var(--dr-line);
+    box-shadow: 0 28px 90px rgba(15, 23, 42, .24);
+    animation: drFadeIn .25s ease both;
+  }
+
+  .dr-modal-head {
+    padding: 18px;
+    border-bottom: 1px solid var(--dr-line);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .dr-modal-head h3 {
+    margin: 0;
+    color: var(--dr-text);
+    font-size: 1.08rem;
+    font-weight: 900;
+  }
+
+  .dr-modal-close {
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--dr-line);
+    border-radius: 13px;
+    background: var(--dr-card-2);
+    color: var(--dr-text);
+    cursor: pointer;
+    font-weight: 900;
+  }
+
+  .dr-modal-body {
+    padding: 18px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .dr-detail-row {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 12px;
+    padding: 11px 12px;
+    border-radius: 14px;
+    background: var(--dr-card-2);
+    border: 1px solid var(--dr-line);
+  }
+
+  .dr-detail-row span {
+    color: var(--dr-muted);
+    font-size: .78rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .dr-detail-row strong {
+    color: var(--dr-text);
+    font-size: .88rem;
+    font-weight: 850;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 1200px) {
+    .dr-toolbar {
+      grid-template-columns: auto 1fr 1fr;
+    }
+
+    .dr-search-wrap {
+      grid-column: 1 / -2;
+    }
+
+    .dr-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 900px) {
+    .dr-hero-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .dr-hero-visual {
+      display: none;
+    }
+
+    .dr-toolbar {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .dr-list-title,
+    .dr-search-wrap,
+    .dr-toolbar .dr-btn {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .nf-delivery-reviews-page {
+      gap: 16px;
+    }
+
+    .dr-hero,
+    .dr-list-card {
+      border-radius: 18px;
+    }
+
+    .dr-hero-actions .dr-btn,
+    .dr-toolbar .dr-btn {
+      width: 100%;
+    }
+
+    .dr-kpi-grid,
+    .dr-toolbar {
+      grid-template-columns: 1fr;
+    }
+
+    .dr-table-shell {
+      display: none;
+    }
+
+    .dr-mobile-cards {
+      display: grid;
+    }
+
+    .dr-detail-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nf-delivery-reviews-page,
+    .nf-delivery-reviews-page *,
+    .nf-delivery-reviews-page *::before,
+    .nf-delivery-reviews-page *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nf-delivery-reviews-page">
+
+  <div class="dr-hero">
+    <div class="dr-hero-inner">
+      <div>
+        <span class="dr-kicker">⭐ Delivery Rating & Reviews</span>
+        <h2>Deliveryman Reviews</h2>
+        <p>
+          Monitor customer feedback for delivery partners, review order-level ratings and identify top service performers.
+        </p>
+
+        <div class="dr-hero-actions">
+          <a href="{{ url_for('admin_delivery_overview') }}" class="dr-btn dr-btn-blue">📊 Delivery Overview</a>
+          <a href="{{ url_for('admin_delivery_list') }}" class="dr-btn dr-btn-soft">🛵 Delivery List</a>
+          <a href="{{ url_for('admin_delivery_reviews_export_csv', delivery_id=delivery_id, sort_by=sort_by, search=search) }}" class="dr-btn dr-btn-orange">⬇ Export Reviews</a>
+        </div>
+      </div>
+
+      <div class="dr-hero-visual" aria-hidden="true">
+        <span>⭐</span>
+        <small>{{ metrics.total|default(0) }} Reviews</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="dr-kpi-grid">
+    <div class="dr-kpi">
+      <div class="dr-kpi-icon">⭐</div>
+      <div>
+        <strong>{{ metrics.total|default(0) }}</strong>
+        <span>Total Reviews</span>
+      </div>
+    </div>
+
+    <div class="dr-kpi green">
+      <div class="dr-kpi-icon">📈</div>
+      <div>
+        <strong>{{ metrics.avg_rating|default(0) }}</strong>
+        <span>Average Rating</span>
+      </div>
+    </div>
+
+    <div class="dr-kpi blue">
+      <div class="dr-kpi-icon">🏆</div>
+      <div>
+        <strong>{{ metrics.five_star|default(0) }}</strong>
+        <span>Five Star Reviews</span>
+      </div>
+    </div>
+
+    <div class="dr-kpi green">
+      <div class="dr-kpi-icon">👍</div>
+      <div>
+        <strong>{{ metrics.positive|default(0) }}</strong>
+        <span>Positive Reviews</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="dr-list-card">
+    <form method="get" action="{{ url_for('admin_delivery_reviews') }}" class="dr-toolbar">
+      <div class="dr-list-title">
+        Deliveryman Reviews
+        <span class="dr-count">{{ reviews|length }}</span>
+      </div>
+
+      <select name="delivery_id" aria-label="Deliveryman filter">
+        <option value="" {% if not delivery_id %}selected{% endif %}>All DeliveryMan</option>
+        {% for d in delivery_options %}
+          <option value="{{ d.id }}" {% if delivery_id == d.id %}selected{% endif %}>
+            {{ d.name }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <select name="sort_by" aria-label="Rating sorting">
+        <option value="" {% if not sort_by %}selected{% endif %}>Latest ratings</option>
+        <option value="rating_high" {% if sort_by == 'rating_high' %}selected{% endif %}>Highest rating first</option>
+        <option value="rating_low" {% if sort_by == 'rating_low' %}selected{% endif %}>Lowest rating first</option>
+      </select>
+
+      <div class="dr-search-wrap">
+        <input
+          type="search"
+          name="search"
+          value="{{ search or '' }}"
+          placeholder="Ex : search delivery man, order, review..."
+          aria-label="Search delivery review"
+        >
+        <button type="submit" class="dr-search-btn">⌕</button>
+      </div>
+
+      <a href="{{ url_for('admin_delivery_reviews_export_csv', delivery_id=delivery_id, sort_by=sort_by, search=search) }}" class="dr-btn">⬇ Export</a>
+    </form>
+
+    <div class="dr-table-shell">
+      <table class="dr-table">
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Order ID</th>
+            <th>Deliveryman</th>
+            <th>Customer</th>
+            <th>Rating</th>
+            <th>Review</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for r in reviews %}
+            <tr>
+              <td>{{ loop.index }}</td>
+
+              <td>
+                <span class="dr-order">{{ r.order_ref or r.order_id }}</span>
+              </td>
+
+              <td>
+                <div class="dr-person">
+                  <div class="dr-avatar">🛵</div>
+                  <div>
+                    <strong>{{ r.delivery_name }}</strong>
+                    <span>{{ r.delivery_phone_masked or '+**********' }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <span class="dr-customer">{{ r.customer_name }}</span>
+              </td>
+
+              <td>
+                <span class="dr-rating-pill">{{ r.rating|default(0) }} ★</span>
+              </td>
+
+              <td>
+                <div class="dr-review-text">{{ r.review or 'No written review.' }}</div>
+              </td>
+
+              <td>
+                <button
+                  type="button"
+                  class="dr-icon-btn"
+                  title="View review details"
+                  data-open-review-modal
+                  data-order="{{ r.order_ref or r.order_id|e }}"
+                  data-delivery="{{ r.delivery_name|e }}"
+                  data-customer="{{ r.customer_name|e }}"
+                  data-rating="{{ r.rating|default(0) }}"
+                  data-review="{{ r.review|e }}"
+                  data-created="{{ r.created_at_display|e }}"
+                >👁</button>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="7" class="dr-empty">No delivery reviews found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="dr-mobile-cards">
+      {% for r in reviews %}
+        <article class="dr-mobile-card">
+          <div class="dr-mobile-top">
+            <div class="dr-avatar">🛵</div>
+            <div>
+              <div class="dr-person" style="display:block;min-width:0;">
+                <strong>{{ r.delivery_name }}</strong>
+                <span>{{ r.delivery_phone_masked or '+**********' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="dr-mobile-grid">
+            <div class="dr-mobile-stat">
+              <span>Order ID</span>
+              <strong>{{ r.order_ref or r.order_id }}</strong>
+            </div>
+            <div class="dr-mobile-stat">
+              <span>Customer</span>
+              <strong>{{ r.customer_name }}</strong>
+            </div>
+            <div class="dr-mobile-stat">
+              <span>Rating</span>
+              <strong>{{ r.rating|default(0) }} ★</strong>
+            </div>
+            <div class="dr-mobile-stat">
+              <span>Date</span>
+              <strong>{{ r.created_at_display or '-' }}</strong>
+            </div>
+          </div>
+
+          <div class="dr-review-text">{{ r.review or 'No written review.' }}</div>
+
+          <button
+            type="button"
+            class="dr-btn dr-btn-orange"
+            data-open-review-modal
+            data-order="{{ r.order_ref or r.order_id|e }}"
+            data-delivery="{{ r.delivery_name|e }}"
+            data-customer="{{ r.customer_name|e }}"
+            data-rating="{{ r.rating|default(0) }}"
+            data-review="{{ r.review|e }}"
+            data-created="{{ r.created_at_display|e }}"
+          >View Review</button>
+        </article>
+      {% else %}
+        <div class="dr-empty">No delivery reviews found.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="dr-modal" id="reviewDetailModal" aria-hidden="true">
+    <div class="dr-modal-backdrop" data-close-review-modal></div>
+
+    <div class="dr-modal-card">
+      <div class="dr-modal-head">
+        <h3>Review Details</h3>
+        <button type="button" class="dr-modal-close" data-close-review-modal>×</button>
+      </div>
+
+      <div class="dr-modal-body">
+        <div class="dr-detail-row">
+          <span>Order ID</span>
+          <strong id="modalOrder">-</strong>
+        </div>
+
+        <div class="dr-detail-row">
+          <span>Deliveryman</span>
+          <strong id="modalDelivery">-</strong>
+        </div>
+
+        <div class="dr-detail-row">
+          <span>Customer</span>
+          <strong id="modalCustomer">-</strong>
+        </div>
+
+        <div class="dr-detail-row">
+          <span>Rating</span>
+          <strong id="modalRating">-</strong>
+        </div>
+
+        <div class="dr-detail-row">
+          <span>Review</span>
+          <strong id="modalReview">-</strong>
+        </div>
+
+        <div class="dr-detail-row">
+          <span>Created</span>
+          <strong id="modalCreated">-</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const rows = document.querySelectorAll('.dr-table tbody tr');
+  rows.forEach(function (row, index) {
+    row.style.opacity = '0';
+    row.style.transform = 'translateY(8px)';
+
+    setTimeout(function () {
+      row.style.transition = 'opacity .32s ease, transform .32s ease, background .2s ease';
+      row.style.opacity = '1';
+      row.style.transform = 'translateY(0)';
+    }, Math.min(index * 45, 420));
+  });
+
+  const modal = document.getElementById('reviewDetailModal');
+  const openButtons = document.querySelectorAll('[data-open-review-modal]');
+  const closeButtons = document.querySelectorAll('[data-close-review-modal]');
+
+  const fields = {
+    order: document.getElementById('modalOrder'),
+    delivery: document.getElementById('modalDelivery'),
+    customer: document.getElementById('modalCustomer'),
+    rating: document.getElementById('modalRating'),
+    review: document.getElementById('modalReview'),
+    created: document.getElementById('modalCreated')
+  };
+
+  function openModal(btn) {
+    if (!modal) return;
+
+    fields.order.textContent = btn.dataset.order || '-';
+    fields.delivery.textContent = btn.dataset.delivery || '-';
+    fields.customer.textContent = btn.dataset.customer || '-';
+    fields.rating.textContent = `${btn.dataset.rating || 0} ★`;
+    fields.review.textContent = btn.dataset.review || 'No written review.';
+    fields.created.textContent = btn.dataset.created || '-';
+
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    if (!modal) return;
+
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  openButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openModal(btn);
+    });
+  });
+
+  closeButtons.forEach(function (btn) {
+    btn.addEventListener('click', closeModal);
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      closeModal();
+    }
+  });
+})();
+</script>
+{% endblock %}

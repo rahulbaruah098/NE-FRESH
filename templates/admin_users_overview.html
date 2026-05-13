@@ -9,6 +9,11 @@
 {% block page_subtitle %}Manage customers, store users and delivery partners from one dashboard.{% endblock %}
 
 {% block extra_css %}
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+
 <style>
   .nf-user-overview {
     --uo-green: var(--nf-green, #00A859);
@@ -112,6 +117,7 @@
     align-content: space-between;
     overflow: hidden;
     position: relative;
+    text-decoration: none;
   }
 
   .uo-kpi-card::after {
@@ -230,6 +236,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    text-decoration: none;
   }
 
   .uo-mini-icon {
@@ -314,6 +321,7 @@
 
   .uo-card-head a {
     color: var(--uo-green-dark);
+    text-decoration: none;
   }
 
   .uo-growth-card {
@@ -469,6 +477,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    text-decoration: none;
   }
 
   .uo-delivery-kpi-icon {
@@ -543,13 +552,14 @@
     justify-content: space-between;
     gap: 10px;
     position: relative;
-    z-index: 2;
+    z-index: 4;
+    pointer-events: none;
   }
 
   .uo-map-toolbar strong {
     min-height: 42px;
     border-radius: 13px;
-    background: rgba(255, 255, 255, .94);
+    background: rgba(255, 255, 255, .96);
     border: 1px solid var(--uo-line);
     display: inline-flex;
     align-items: center;
@@ -558,6 +568,7 @@
     font-size: .86rem;
     font-weight: 900;
     box-shadow: var(--uo-shadow-soft);
+    pointer-events: auto;
   }
 
   .uo-map-toolbar input {
@@ -565,76 +576,111 @@
     height: 42px;
     border-radius: 13px;
     border: 1px solid var(--uo-line);
-    background: rgba(255, 255, 255, .95);
+    background: rgba(255, 255, 255, .96);
     color: var(--uo-text);
     outline: none;
     padding: 0 14px;
     font-weight: 700;
     box-shadow: var(--uo-shadow-soft);
+    pointer-events: auto;
   }
 
   .uo-map-bg {
     position: absolute;
     inset: 0;
-    background:
-      linear-gradient(90deg, rgba(2,132,199,.08) 1px, transparent 1px),
-      linear-gradient(0deg, rgba(2,132,199,.08) 1px, transparent 1px),
-      radial-gradient(circle at 28% 45%, rgba(0,168,89,.18), transparent 11%),
-      radial-gradient(circle at 70% 35%, rgba(2,132,199,.18), transparent 12%),
-      radial-gradient(circle at 48% 66%, rgba(255,184,77,.20), transparent 11%),
-      #EEF8F3;
-    background-size: 58px 58px, 58px 58px, auto, auto, auto, auto;
+    background: #EEF8F3;
+    z-index: 1;
   }
 
-  .uo-map-road {
+  #uoLiveDeliveryMap {
     position: absolute;
-    inset: 49% -10% auto -10%;
-    height: 18px;
-    background: rgba(15, 82, 60, .22);
-    transform: rotate(-8deg);
-    border-radius: 999px;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 360px;
+    z-index: 1;
   }
 
-  .uo-map-road.two {
-    inset: 36% -10% auto -10%;
-    transform: rotate(18deg);
-    background: rgba(2, 132, 199, .18);
+  .uo-map-card .leaflet-container {
+    font-family: inherit;
+    background: #EEF8F3;
   }
 
-  .uo-map-pin {
+  .uo-map-card .leaflet-control-attribution {
+    font-size: 10px;
+  }
+
+  .uo-map-card .leaflet-popup-content-wrapper {
+    border-radius: 14px;
+    box-shadow: 0 18px 44px rgba(17, 64, 38, .16);
+  }
+
+  .uo-map-popup {
+    min-width: 190px;
+    color: var(--uo-text);
+  }
+
+  .uo-map-popup strong {
+    display: block;
+    font-size: .92rem;
+    font-weight: 900;
+    margin-bottom: 6px;
+  }
+
+  .uo-map-popup span {
+    display: block;
+    color: var(--uo-muted);
+    font-size: .78rem;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  .uo-live-marker {
     width: 42px;
     height: 42px;
-    border-radius: 999px 999px 999px 8px;
-    position: absolute;
+    border-radius: 999px 999px 999px 10px;
     display: grid;
     place-items: center;
     background: var(--uo-green);
     color: #fff;
     transform: rotate(-45deg);
-    box-shadow: 0 18px 34px rgba(0, 168, 89, .24);
+    box-shadow: 0 18px 34px rgba(0, 168, 89, .28);
     border: 3px solid #fff;
   }
 
-  .uo-map-pin span {
+  .uo-live-marker span {
     transform: rotate(45deg);
     font-size: 1.05rem;
+    line-height: 1;
   }
 
-  .pin-one {
-    left: 27%;
-    top: 47%;
+  .uo-map-empty-note {
+    position: absolute;
+    left: 16px;
+    bottom: 16px;
+    z-index: 4;
+    max-width: 360px;
+    border-radius: 14px;
+    border: 1px solid rgba(221, 236, 228, .9);
+    background: rgba(255, 255, 255, .96);
+    color: var(--uo-text);
+    padding: 12px 14px;
+    box-shadow: var(--uo-shadow-soft);
   }
 
-  .pin-two {
-    left: 66%;
-    top: 34%;
-    background: var(--uo-blue);
+  .uo-map-empty-note strong {
+    display: block;
+    font-size: .86rem;
+    font-weight: 900;
+    margin-bottom: 4px;
   }
 
-  .pin-three {
-    left: 48%;
-    top: 62%;
-    background: var(--uo-orange);
+  .uo-map-empty-note span {
+    display: block;
+    color: var(--uo-muted);
+    font-size: .76rem;
+    line-height: 1.45;
+    font-weight: 700;
   }
 
   .uo-top-list {
@@ -1070,18 +1116,21 @@
 
   <div class="uo-delivery-grid">
     <div class="uo-card uo-map-card">
-      <div class="uo-map-bg"></div>
-      <div class="uo-map-road"></div>
-      <div class="uo-map-road two"></div>
+      <div class="uo-map-bg">
+        <div id="uoLiveDeliveryMap"></div>
+      </div>
 
       <div class="uo-map-toolbar">
         <strong>Currently Active Delivery Men</strong>
-        <input type="search" placeholder="Search Delivery Man ..." aria-label="Search delivery man">
+        <input id="uoDeliveryMapSearch" type="search" placeholder="Search Delivery Man ..." aria-label="Search delivery man">
       </div>
 
-      <div class="uo-map-pin pin-one"><span>🛵</span></div>
-      <div class="uo-map-pin pin-two"><span>📦</span></div>
-      <div class="uo-map-pin pin-three"><span>🥬</span></div>
+      <div id="uoMapEmptyNote" class="uo-map-empty-note" style="display:none;">
+        <strong>No live coordinates found</strong>
+        <span>
+          The real map is loaded. Delivery markers will appear when delivery users have latitude and longitude saved in delivery availability data.
+        </span>
+      </div>
     </div>
 
     <div class="uo-card">
@@ -1182,6 +1231,8 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
 (function () {
   const bars = document.querySelectorAll('.uo-bar');
@@ -1192,6 +1243,168 @@
       bar.style.minHeight = '8px';
     }
   });
+})();
+</script>
+
+<script>
+(function () {
+  const mapEl = document.getElementById('uoLiveDeliveryMap');
+  const searchEl = document.getElementById('uoDeliveryMapSearch');
+  const emptyNote = document.getElementById('uoMapEmptyNote');
+
+  if (!mapEl || typeof L === 'undefined') {
+    return;
+  }
+
+  const fallbackCenter = [26.1445, 91.7362];
+
+  const rawDeliveryPoints = [
+    {% for d in top_deliverymen %}
+      {
+        name: {{ (d.name or 'Delivery Man')|tojson }},
+        phone: {{ (d.phone_masked or '')|tojson }},
+        email: {{ (d.email_masked or '')|tojson }},
+        zone: {{ (d.zone or 'Default Zone')|tojson }},
+        completedOrders: {{ d.total_completed_orders|default(0)|tojson }},
+        assignedOrders: {{ d.assigned_orders|default(0)|tojson }},
+        rating: {{ d.rating|default(0)|tojson }},
+        latitude: {{ d.latitude|default(none)|tojson }},
+        longitude: {{ d.longitude|default(none)|tojson }}
+      }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  const deliveryPoints = rawDeliveryPoints
+    .map(function (item) {
+      return {
+        name: item.name || 'Delivery Man',
+        phone: item.phone || '',
+        email: item.email || '',
+        zone: item.zone || 'Default Zone',
+        completedOrders: Number(item.completedOrders || 0),
+        assignedOrders: Number(item.assignedOrders || 0),
+        rating: Number(item.rating || 0),
+        latitude: Number(item.latitude),
+        longitude: Number(item.longitude)
+      };
+    })
+    .filter(function (item) {
+      return Number.isFinite(item.latitude) &&
+             Number.isFinite(item.longitude) &&
+             Math.abs(item.latitude) <= 90 &&
+             Math.abs(item.longitude) <= 180;
+    });
+
+  const map = L.map(mapEl, {
+    zoomControl: true,
+    scrollWheelZoom: true,
+    attributionControl: true
+  }).setView(fallbackCenter, 12);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const deliveryIcon = L.divIcon({
+    className: '',
+    html: '<div class="uo-live-marker"><span>🛵</span></div>',
+    iconSize: [42, 42],
+    iconAnchor: [21, 42],
+    popupAnchor: [0, -38]
+  });
+
+  const markers = [];
+  const bounds = [];
+
+  function safeText(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  deliveryPoints.forEach(function (point) {
+    const popupHtml = `
+      <div class="uo-map-popup">
+        <strong>${safeText(point.name)}</strong>
+        <span>Zone: ${safeText(point.zone)}</span>
+        <span>Phone: ${safeText(point.phone || 'Not available')}</span>
+        <span>Assigned Orders: ${point.assignedOrders}</span>
+        <span>Completed Orders: ${point.completedOrders}</span>
+        <span>Rating: ${point.rating || 0}</span>
+      </div>
+    `;
+
+    const marker = L.marker([point.latitude, point.longitude], {
+      icon: deliveryIcon,
+      title: point.name
+    })
+      .addTo(map)
+      .bindPopup(popupHtml);
+
+    marker.__deliveryName = String(point.name || '').toLowerCase();
+    marker.__deliveryPhone = String(point.phone || '').toLowerCase();
+    marker.__deliveryEmail = String(point.email || '').toLowerCase();
+
+    markers.push(marker);
+    bounds.push([point.latitude, point.longitude]);
+  });
+
+  if (bounds.length > 0) {
+    map.fitBounds(bounds, {
+      padding: [42, 42],
+      maxZoom: 14
+    });
+  } else {
+    if (emptyNote) {
+      emptyNote.style.display = 'block';
+    }
+
+    L.popup()
+      .setLatLng(fallbackCenter)
+      .setContent(
+        '<div class="uo-map-popup"><strong>Map ready</strong><span>No active delivery location available yet.</span></div>'
+      )
+      .openOn(map);
+  }
+
+  if (searchEl) {
+    searchEl.addEventListener('input', function () {
+      const q = searchEl.value.trim().toLowerCase();
+
+      if (!q) {
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, {
+            padding: [42, 42],
+            maxZoom: 14
+          });
+        } else {
+          map.setView(fallbackCenter, 12);
+        }
+        return;
+      }
+
+      const matchedMarker = markers.find(function (marker) {
+        return marker.__deliveryName.includes(q) ||
+               marker.__deliveryPhone.includes(q) ||
+               marker.__deliveryEmail.includes(q);
+      });
+
+      if (matchedMarker) {
+        map.setView(matchedMarker.getLatLng(), 16, {
+          animate: true
+        });
+        matchedMarker.openPopup();
+      }
+    });
+  }
+
+  setTimeout(function () {
+    map.invalidateSize();
+  }, 250);
 })();
 </script>
 {% endblock %}
