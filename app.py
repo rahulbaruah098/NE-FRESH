@@ -905,6 +905,117 @@ def _session_pin_is_serviceable():
     pin = (sa.get("pincode").strip() if sa and sa.get("pincode") else "")
     return is_serviceable_pincode(pin), pin
 
+
+def _parse_home_dt(value):
+    try:
+        if isinstance(value, datetime):
+            return value
+
+        if not value:
+            return None
+
+        value = str(value).replace("Z", "").strip()
+        return datetime.fromisoformat(value)
+    except Exception:
+        return None
+
+
+def _home_product_sales_count(product_id):
+    try:
+        product_obj_id = product_id if isinstance(product_id, ObjectId) else ObjectId(str(product_id))
+    except Exception:
+        product_obj_id = product_id
+
+    return mongo.order_items.count_documents({
+        "$or": [
+            {"product_id": product_obj_id},
+            {"product_id": str(product_obj_id)}
+        ]
+    })
+
+
+def _home_product_rating_summary(product_id):
+    ratings = list(mongo.product_ratings.find({
+        "$or": [
+            {"product_id": product_id},
+            {"product_id": str(product_id)}
+        ]
+    }))
+
+    rating_count = len(ratings)
+    total_rating = 0
+
+    for r in ratings:
+        try:
+            total_rating += float(r.get("rating") or 0)
+        except (TypeError, ValueError):
+            pass
+
+    avg_rating = round(total_rating / rating_count, 1) if rating_count else 0
+
+    return avg_rating, rating_count
+
+
+def _home_store_rating_summary(store_id):
+    ratings = list(mongo.store_ratings.find({
+        "$or": [
+            {"store_id": store_id},
+            {"store_id": str(store_id)}
+        ]
+    }))
+
+    rating_count = len(ratings)
+    total_rating = 0
+
+    for r in ratings:
+        try:
+            total_rating += float(r.get("rating") or 0)
+        except (TypeError, ValueError):
+            pass
+
+    avg_rating = round(total_rating / rating_count, 1) if rating_count else 0
+
+    return avg_rating, rating_count
+
+
+def _hydrate_home_product(p):
+    p["id"] = str(p["_id"])
+    p["category"] = (p.get("category") or "Uncategorized").strip()
+    p["sub_category"] = (p.get("sub_category") or "").strip()
+    p["name"] = (p.get("name") or "Product").strip()
+    p["image_path"] = p.get("image_path", "")
+    p["price_per_kg"] = float(p.get("price_per_kg") or 0)
+    p["original_price_per_kg"] = float(
+        p.get("original_price_per_kg")
+        or p.get("mrp_per_kg")
+        or p.get("old_price")
+        or p.get("price_per_kg")
+        or 0
+    )
+    p["discount_enabled"] = bool(p.get("discount_enabled"))
+    p["discount_percent"] = float(p.get("discount_percent") or 0)
+    p["discount_amount_per_kg"] = float(p.get("discount_amount_per_kg") or 0)
+    p["stock_kg"] = float(p.get("stock_kg") or 0)
+
+    avg_rating, rating_count = _home_product_rating_summary(p["_id"])
+    p["avg_rating"] = avg_rating
+    p["rating_count"] = rating_count
+    p["sales_count"] = _home_product_sales_count(p["_id"])
+
+    created_dt = _parse_home_dt(p.get("created_at"))
+    p["created_dt"] = created_dt
+    p["is_new_arrival"] = bool(created_dt and created_dt >= (datetime.utcnow() - timedelta(days=7)))
+
+    store = None
+    if p.get("store_id"):
+        store = mongo.stores.find_one({"_id": p["store_id"]})
+
+    p["store_name"] = store.get("store_name") if store else p.get("store_name", "")
+    p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
+
+    return p
+
+
 @app.route('/')
 def index():
     user = current_user()
@@ -912,9 +1023,11 @@ def index():
 
     products = []
     latest_products = []
+    new_products = []
     popular_products = []
     discount_products = []
     featured_products = []
+    best_reviewed_products = []
     stores = []
     recommended_stores = []
     new_stores = []
@@ -926,120 +1039,149 @@ def index():
         flash("Please enter a valid 6-digit pincode.", "warning")
     else:
         products = list(mongo.products.find({
-            "is_active": 1,
-            "stock_kg": {"$gt": 0}
-        }).sort("created_at", -1).limit(30))
+            "is_active": 1
+        }).sort("created_at", -1).limit(80))
 
         for p in products:
-            p["id"] = str(p["_id"])
-            p["category"] = (p.get("category") or "Uncategorized").strip()
-            p["sub_category"] = (p.get("sub_category") or "").strip()
-            p["name"] = (p.get("name") or "Product").strip()
-            p["image_path"] = p.get("image_path", "")
-            p["price_per_kg"] = float(p.get("price_per_kg") or 0)
-            p["mrp_per_kg"] = float(p.get("mrp_per_kg") or p.get("old_price") or 0)
-            p["stock_kg"] = float(p.get("stock_kg") or 0)
-
-            ratings = list(mongo.product_ratings.find({
-                "product_id": p["_id"]
-            }))
-
-            rating_count = len(ratings)
-            total_rating = 0
-
-            for r in ratings:
-                try:
-                    total_rating += float(r.get("rating") or 0)
-                except (TypeError, ValueError):
-                    pass
-
-            if rating_count > 0:
-                avg_rating = round(total_rating / rating_count, 1)
-            else:
-                avg_rating = 0
-
-            p["avg_rating"] = avg_rating
-            p["rating_count"] = rating_count
+            _hydrate_home_product(p)
 
             product_rating_map[p["id"]] = {
-                "avg": avg_rating,
-                "count": rating_count
+                "avg": p.get("avg_rating", 0),
+                "count": p.get("rating_count", 0)
             }
 
-            store = None
-            if p.get("store_id"):
-                store = mongo.stores.find_one({"_id": p["store_id"]})
-
-            p["store_name"] = store.get("store_name") if store else p.get("store_name", "")
-            p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
-
+        # Latest fallback
         latest_products = products[:10]
 
+        # New arrivals = products added within last 7 days
+        new_products = [
+            p for p in products
+            if p.get("is_new_arrival")
+        ]
+
+        new_products = sorted(
+            new_products,
+            key=lambda x: _parse_home_dt(x.get("created_at")) or datetime.min,
+            reverse=True
+        )[:10]
+
+        if not new_products:
+            new_products = latest_products[:10]
+
+        # Popular products = frequent sales/order_items first
         popular_products = sorted(
             products,
             key=lambda x: (
+                int(x.get("sales_count") or 0),
                 float(x.get("avg_rating") or 0),
-                int(x.get("rating_count") or 0),
-                float(x.get("stock_kg") or 0)
+                int(x.get("rating_count") or 0)
             ),
             reverse=True
         )[:10]
 
+        if not popular_products:
+            popular_products = latest_products[:10]
+
+        # Discount products = real discount fields
         discount_products = [
             p for p in products
-            if float(p.get("mrp_per_kg") or 0) > float(p.get("price_per_kg") or 0)
-        ][:10]
+            if bool(p.get("discount_enabled"))
+            and float(p.get("discount_amount_per_kg") or 0) > 0
+        ]
+
+        discount_products = sorted(
+            discount_products,
+            key=lambda x: (
+                float(x.get("discount_percent") or 0),
+                float(x.get("discount_amount_per_kg") or 0)
+            ),
+            reverse=True
+        )[:10]
+
+        # Best reviewed products
+        best_reviewed_products = sorted(
+            products,
+            key=lambda x: (
+                float(x.get("avg_rating") or 0),
+                int(x.get("rating_count") or 0),
+                int(x.get("sales_count") or 0)
+            ),
+            reverse=True
+        )[:10]
 
         featured_products = popular_products[:10] if popular_products else latest_products[:10]
 
+                # Real-time categories from store_categories collection
         category_map = {}
 
-        for p in products:
-            cat = (p.get("category") or "Uncategorized").strip()
-            if not cat:
-                cat = "Uncategorized"
+        store_categories = list(
+            mongo.store_categories.find({
+                "$or": [
+                    {"is_active": 1},
+                    {"is_active": True},
+                    {"is_active": {"$exists": False}}
+                ]
+            }).sort("name", 1)
+        )
 
-            if cat not in category_map:
-                category_map[cat] = {
-                    "name": cat,
+        for cat in store_categories:
+            cat_name = (cat.get("name") or "").strip()
+
+            if not cat_name:
+                continue
+
+            cat_key = cat_name.lower()
+
+            category_image_path = (
+                cat.get("category_image_path")
+                or cat.get("image_path")
+                or cat.get("icon_path")
+                or ""
+            )
+
+            if cat_key not in category_map:
+                category_map[cat_key] = {
+                    "id": str(cat.get("_id")),
+                    "name": cat_name,
                     "count": 0,
-                    "emoji": "🛒"
+                    "emoji": cat.get("emoji") or cat.get("icon") or "🛒",
+                    "image_path": category_image_path,
+                    "category_image_path": category_image_path,
+                    "store_id": str(cat.get("store_id")) if cat.get("store_id") else "",
+                    "sub_categories": cat.get("sub_categories") or []
+                }
+            else:
+                if category_image_path and not category_map[cat_key].get("category_image_path"):
+                    category_map[cat_key]["image_path"] = category_image_path
+                    category_map[cat_key]["category_image_path"] = category_image_path
+
+        # Count active products under each real-time category
+        for p in products:
+            cat_name = (p.get("category") or "Uncategorized").strip() or "Uncategorized"
+            cat_key = cat_name.lower()
+
+            if cat_key not in category_map:
+                category_map[cat_key] = {
+                    "id": "",
+                    "name": cat_name,
+                    "count": 0,
+                    "emoji": "🛒",
+                    "image_path": "",
+                    "category_image_path": "",
+                    "store_id": "",
+                    "sub_categories": []
                 }
 
-            category_map[cat]["count"] += 1
-
-        category_icons = {
-            "Meat": "🥩",
-            "Seafood": "🦐",
-            "Bakery": "🥐",
-            "Beverages": "🍹",
-            "Vegetables": "🥬",
-            "Fruits": "🍎",
-            "Dairy": "🥛",
-            "Eggs": "🥚",
-            "Grocery": "🛒",
-            "Chicken": "🍗",
-            "Fish": "🐟",
-            "Spices": "🌶️",
-            "Snacks": "🍪",
-            "Rice": "🍚",
-            "Uncategorized": "📦"
-        }
-
-        categories = list(category_map.values())
-
-        for c in categories:
-            c["emoji"] = category_icons.get(c["name"], "🛒")
+            category_map[cat_key]["count"] += 1
 
         categories = sorted(
-            categories,
-            key=lambda x: x["count"],
-            reverse=True
+            list(category_map.values()),
+            key=lambda x: x["name"].lower()
         )
 
         stores = list(mongo.stores.find({
             "is_active": 1
-        }).sort("created_at", -1).limit(20))
+        }).sort("created_at", -1).limit(30))
 
         for s in stores:
             s["id"] = str(s["_id"])
@@ -1048,9 +1190,9 @@ def index():
             s["logo_path"] = s.get("logo_path", "")
             s["banner_path"] = s.get("banner_path", "")
             s["profile_intro"] = (
-            s.get("profile_intro")
-            or s.get("description")
-            or "Fresh groceries and daily essentials from this store."
+                s.get("profile_intro")
+                or s.get("description")
+                or "Fresh groceries and daily essentials from this store."
             ).strip()
             s["description"] = (s.get("description") or "").strip()
             s["is_open"] = int(s.get("is_open", 1))
@@ -1058,27 +1200,10 @@ def index():
 
             s["product_count"] = mongo.products.count_documents({
                 "store_id": s["_id"],
-                "is_active": 1,
-                "stock_kg": {"$gt": 0}
+                "is_active": 1
             })
 
-            store_ratings = list(mongo.store_ratings.find({
-                "store_id": s["_id"]
-            }))
-
-            store_rating_count = len(store_ratings)
-            store_total_rating = 0
-
-            for r in store_ratings:
-                try:
-                    store_total_rating += float(r.get("rating") or 0)
-                except (TypeError, ValueError):
-                    pass
-
-            if store_rating_count > 0:
-                store_avg_rating = round(store_total_rating / store_rating_count, 1)
-            else:
-                store_avg_rating = 0
+            store_avg_rating, store_rating_count = _home_store_rating_summary(s["_id"])
 
             s["avg_rating"] = store_avg_rating
             s["rating_count"] = store_rating_count
@@ -1092,6 +1217,7 @@ def index():
             stores,
             key=lambda x: (
                 float(x.get("avg_rating") or 0),
+                int(x.get("rating_count") or 0),
                 int(x.get("product_count") or 0)
             ),
             reverse=True
@@ -1104,9 +1230,11 @@ def index():
         user=user,
         products=products,
         latest_products=latest_products,
+        new_products=new_products,
         popular_products=popular_products,
         discount_products=discount_products,
         featured_products=featured_products,
+        best_reviewed_products=best_reviewed_products,
         categories=categories,
         stores=stores,
         recommended_stores=recommended_stores,
@@ -6446,6 +6574,36 @@ def _get_store_orders(store_id):
 
 
 
+def _save_store_category_image(file_obj, store_id, category_id_prefix="category"):
+    if not file_obj or not file_obj.filename:
+        return ""
+
+    if not allowed_file(file_obj.filename):
+        return ""
+
+    original_name = secure_filename(file_obj.filename)
+    ext = original_name.rsplit(".", 1)[1].lower()
+
+    stored_name = (
+        "store_category_"
+        + str(store_id)
+        + "_"
+        + str(category_id_prefix)
+        + "_"
+        + datetime.utcnow().strftime("%Y%m%d%H%M%S_")
+        + secrets.token_hex(6)
+        + "."
+        + ext
+    )
+
+    category_folder = os.path.join(app.config["UPLOAD_FOLDER"], "store_categories")
+    os.makedirs(category_folder, exist_ok=True)
+
+    file_obj.save(os.path.join(category_folder, stored_name))
+
+    return "uploads/store_categories/" + stored_name
+
+
 # =========================================================
 # STORE CATEGORY HELPERS
 # =========================================================
@@ -6489,11 +6647,14 @@ def _ensure_store_categories(store_id):
             "name": cat["name"],
             "slug": _category_slug(cat["name"]),
             "sub_categories": cat.get("sub_categories", []),
+            "image_path": "",
+            "category_image_path": "",
+            "emoji": "🛒",
             "is_active": 1,
             "is_default": 1,
             "created_at": now,
             "updated_at": now,
-        })
+})
 
     if docs:
         mongo.store_categories.insert_many(docs)
@@ -7230,6 +7391,8 @@ def store_complaint_update(cid):
 
     now = datetime.utcnow().isoformat()
 
+    
+
     mongo.customer_complaints.update_one(
         {"_id": cid_obj},
         {
@@ -7247,6 +7410,9 @@ def store_complaint_update(cid):
 
     flash("Complaint progress updated successfully.", "success")
     return redirect(url_for("store_complaints"))
+
+
+
 
 
 # =========================================================
@@ -7902,16 +8068,33 @@ def store_category_new():
 
     now = datetime.utcnow().isoformat()
 
+    category_image_path = ""
+    category_image = request.files.get("category_image")
+
+    if category_image and category_image.filename:
+        if not allowed_file(category_image.filename):
+            flash("Only JPG, JPEG, PNG or WEBP images are allowed for category image.", "warning")
+            return redirect(url_for("store_categories"))
+
+        category_image_path = _save_store_category_image(
+            category_image,
+            store["_id"],
+            slug
+        )
+
     mongo.store_categories.insert_one({
-        "store_id": store["_id"],
-        "name": name,
-        "slug": slug,
-        "sub_categories": sub_categories,
-        "is_active": 1,
-        "is_default": 0,
-        "created_at": now,
-        "updated_at": now,
-    })
+    "store_id": store["_id"],
+    "name": name,
+    "slug": slug,
+    "sub_categories": sub_categories,
+    "image_path": category_image_path,
+    "category_image_path": category_image_path,
+    "emoji": "🛒",
+    "is_active": 1,
+    "is_default": 0,
+    "created_at": now,
+    "updated_at": now,
+})
 
     flash("Category added.", "success")
     return redirect(url_for("store_categories"))
@@ -7959,17 +8142,35 @@ def store_category_update(cid):
 
     now = datetime.utcnow().isoformat()
 
+    update_data = {
+        "name": name,
+        "slug": slug,
+        "sub_categories": sub_categories,
+        "updated_at": now,
+    }
+
+    category_image = request.files.get("category_image")
+
+    if category_image and category_image.filename:
+        if not allowed_file(category_image.filename):
+            flash("Only JPG, JPEG, PNG or WEBP images are allowed for category image.", "warning")
+            return redirect(url_for("store_categories"))
+
+        category_image_path = _save_store_category_image(
+            category_image,
+            store["_id"],
+            slug
+        )
+
+        update_data["image_path"] = category_image_path
+        update_data["category_image_path"] = category_image_path
+
     mongo.store_categories.update_one(
-        {"_id": cat["_id"]},
-        {
-            "$set": {
-                "name": name,
-                "slug": slug,
-                "sub_categories": sub_categories,
-                "updated_at": now,
-            }
-        }
-    )
+    {"_id": cat["_id"]},
+    {
+        "$set": update_data
+    }
+)
 
     if old_name and old_name != name:
         mongo.products.update_many(

@@ -48,6 +48,35 @@
     .sd-category-title{margin:0;color:var(--ink);font-size:20px;font-weight:900;letter-spacing:-.03em;}
     .sd-category-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:700;line-height:1.45;}
     .sd-pill{display:inline-flex;align-items:center;justify-content:center;min-height:30px;border-radius:999px;padding:0 11px;font-size:12px;font-weight:900;background:var(--green-soft);color:var(--green-dark);border:1px solid rgba(0,168,89,.16);}
+
+.sd-category-image-preview{
+  width:64px;
+  height:64px;
+  border-radius:16px;
+  border:1px solid var(--line);
+  background:var(--soft);
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+  color:var(--green-dark);
+  font-size:22px;
+  font-weight:900;
+}
+
+.sd-category-image-preview img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
+.sd-file-help{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+  line-height:1.4;
+}
+
     .sd-sub-list{display:flex;flex-wrap:wrap;gap:8px;}
     .sd-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
     .sd-btn{min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:14px;border:1px solid var(--line);background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:900;transition:.2s ease;white-space:nowrap;}
@@ -244,7 +273,7 @@
       <p class="sd-panel-sub">Add category name and optional comma-separated sub-categories.</p>
     </div>
 
-    <form class="sd-form" method="post" action="{{ url_for('store_category_new') }}">
+<form class="sd-form" method="post" action="{{ url_for('store_category_new') }}" enctype="multipart/form-data">
       <label>
         Category Name
         <input type="text" name="name" placeholder="Example: Fresh cuts" required>
@@ -254,6 +283,12 @@
         Sub Categories
         <textarea name="sub_categories" placeholder="Example: Curry cuts, Boneless & Mince, Offals"></textarea>
       </label>
+
+      <label>
+  Category Image
+  <input type="file" name="category_image" accept="image/*">
+  <span class="sd-file-help">This image will appear on the homepage category section.</span>
+</label>
 
       <button class="sd-btn sd-btn-primary" type="submit">Add Category</button>
     </form>
@@ -269,12 +304,13 @@
       <table class="sd-table">
         <thead>
           <tr>
-            <th>Category</th>
-            <th>Sub Categories</th>
-            <th>Products</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
+  <th>Image</th>
+  <th>Category</th>
+  <th>Sub Categories</th>
+  <th>Products</th>
+  <th>Status</th>
+  <th>Action</th>
+</tr>
         </thead>
 
         <tbody>
@@ -289,11 +325,23 @@
             {% endif %}
 
             <tr>
-              <td>
-                <form id="catUpdate{{ cat.id }}" method="post" action="{{ url_for('store_category_update', cid=cat.id) }}">
-                  <input type="text" name="name" value="{{ cat.name }}" required>
-                </form>
-              </td>
+  <td>
+    <div class="sd-category-image-preview">
+      {% set cat_img = cat.category_image_path or cat.image_path or '' %}
+      {% if cat_img %}
+        <img src="/{{ cat_img }}" alt="{{ cat.name }}">
+      {% else %}
+        🛒
+      {% endif %}
+    </div>
+  </td>
+
+  <td>
+    <form id="catUpdate{{ cat.id }}" method="post" action="{{ url_for('store_category_update', cid=cat.id) }}" enctype="multipart/form-data">
+      <input type="text" name="name" value="{{ cat.name }}" required>
+      <input type="file" name="category_image" accept="image/*" style="margin-top:8px;">
+    </form>
+  </td>
 
               <td>
                 <textarea form="catUpdate{{ cat.id }}" name="sub_categories">{{ cat.sub_categories|join(', ') if cat.sub_categories else '' }}</textarea>
@@ -329,7 +377,7 @@
             </tr>
           {% else %}
             <tr>
-              <td colspan="5" class="sd-muted" style="text-align:center;">No categories found.</td>
+<td colspan="6" class="sd-muted" style="text-align:center;">No categories found.</td>
             </tr>
           {% endfor %}
         </tbody>
