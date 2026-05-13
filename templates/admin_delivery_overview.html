@@ -1,0 +1,1300 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "delivery" %}
+{% set active_page = "delivery_overview" %}
+
+{% block title %}Delivery Overview | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Delivery Overview{% endblock %}
+{% block page_subtitle %}Monitor delivery partner activity, availability, assigned orders and delivery performance.{% endblock %}
+
+{% block extra_css %}
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+
+<style>
+  .nf-delivery-overview {
+    --do-green: var(--nf-green, #00A859);
+    --do-green-dark: var(--nf-green-dark, #008A48);
+    --do-green-deep: var(--nf-green-deep, #075C3B);
+    --do-green-soft: var(--nf-green-soft, #E9FFF3);
+    --do-green-soft-2: var(--nf-green-soft-2, #F3FFF8);
+    --do-orange: var(--nf-orange, #FFB84D);
+    --do-orange-soft: var(--nf-orange-soft, #FFF7E8);
+    --do-red: var(--nf-red, #EF4444);
+    --do-blue: var(--nf-blue, #0284C7);
+    --do-card: var(--nf-surface, #FFFFFF);
+    --do-card-2: var(--nf-surface-2, #F2FBF6);
+    --do-text: var(--nf-text, #1F332A);
+    --do-muted: var(--nf-muted, #66756D);
+    --do-muted-2: var(--nf-muted-2, #8A9890);
+    --do-line: var(--nf-line, #DDECE4);
+    --do-shadow: var(--nf-shadow, 0 14px 36px rgba(17, 64, 38, .08));
+    --do-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17, 64, 38, .06));
+
+    display: grid;
+    gap: 22px;
+    animation: doFadeIn .45s ease both;
+  }
+
+  .nf-delivery-overview,
+  .nf-delivery-overview * {
+    box-sizing: border-box;
+  }
+
+  @keyframes doFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes doFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-7px); }
+  }
+
+  @keyframes doPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 168, 89, .25); }
+    50% { box-shadow: 0 0 0 11px rgba(0, 168, 89, 0); }
+  }
+
+  @keyframes doMoveRoad {
+    from { background-position: 0 0; }
+    to { background-position: 90px 0; }
+  }
+
+  .do-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid var(--do-line);
+    background:
+      radial-gradient(circle at 10% 14%, rgba(2, 132, 199, .16), transparent 30%),
+      radial-gradient(circle at 88% 18%, rgba(0, 168, 89, .18), transparent 32%),
+      linear-gradient(135deg, var(--do-card), var(--do-card-2));
+    box-shadow: var(--do-shadow);
+    padding: clamp(18px, 3vw, 28px);
+  }
+
+  .do-hero::before {
+    content: "";
+    position: absolute;
+    width: 270px;
+    height: 270px;
+    right: -100px;
+    bottom: -126px;
+    border-radius: 999px;
+    background: rgba(2, 132, 199, .10);
+  }
+
+  .do-hero-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .do-kicker {
+    width: fit-content;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    background: #E0F2FE;
+    border: 1px solid rgba(2, 132, 199, .18);
+    color: #0369A1;
+    padding: 6px 12px;
+    font-size: .76rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .do-hero h2 {
+    margin: 12px 0 8px;
+    color: var(--do-text);
+    font-size: clamp(1.45rem, 3vw, 2.25rem);
+    line-height: 1.08;
+    font-weight: 900;
+    letter-spacing: -.045em;
+  }
+
+  .do-hero p {
+    margin: 0;
+    max-width: 850px;
+    color: var(--do-muted);
+    font-size: .96rem;
+    font-weight: 650;
+    line-height: 1.65;
+  }
+
+  .do-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .do-btn {
+    min-height: 40px;
+    border: 1px solid var(--do-line);
+    border-radius: 14px;
+    background: var(--do-card);
+    color: var(--do-text);
+    padding: 9px 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: .82rem;
+    line-height: 1.1;
+    font-weight: 900;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+    white-space: nowrap;
+  }
+
+  .do-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--do-shadow-soft);
+    border-color: rgba(0, 168, 89, .34);
+  }
+
+  .do-btn-primary {
+    background: var(--do-green);
+    color: #fff;
+    border-color: var(--do-green);
+  }
+
+  .do-btn-primary:hover {
+    background: var(--do-green-dark);
+    border-color: var(--do-green-dark);
+  }
+
+  .do-btn-soft {
+    background: var(--do-green-soft);
+    color: var(--do-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .do-btn-blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .do-btn-orange {
+    background: var(--do-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .28);
+  }
+
+  .do-hero-visual {
+    width: 164px;
+    min-height: 134px;
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 34%),
+      linear-gradient(135deg, var(--do-blue), var(--do-green));
+    display: grid;
+    place-items: center;
+    color: #fff;
+    box-shadow: 0 24px 55px rgba(2, 132, 199, .22);
+    animation: doFloat 4.2s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .do-hero-visual span {
+    font-size: 3rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .do-hero-visual small {
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    min-height: 26px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.20);
+    padding: 5px 9px;
+    font-size: .72rem;
+    font-weight: 900;
+  }
+
+  .do-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .do-kpi {
+    min-height: 112px;
+    border-radius: 20px;
+    background: var(--do-card);
+    border: 1px solid var(--do-line);
+    box-shadow: var(--do-shadow-soft);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    overflow: hidden;
+    position: relative;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  }
+
+  .do-kpi:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--do-shadow);
+    border-color: rgba(0, 168, 89, .24);
+  }
+
+  .do-kpi::after {
+    content: "";
+    position: absolute;
+    right: -38px;
+    top: -42px;
+    width: 100px;
+    height: 100px;
+    border-radius: 999px;
+    background: rgba(0, 168, 89, .08);
+  }
+
+  .do-kpi.blue::after { background: rgba(2, 132, 199, .10); }
+  .do-kpi.orange::after { background: rgba(255, 184, 77, .16); }
+  .do-kpi.red::after { background: rgba(239, 68, 68, .10); }
+
+  .do-kpi-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    background: var(--do-green-soft);
+    color: var(--do-green-dark);
+    border: 1px solid rgba(0, 168, 89, .16);
+    font-size: 1.35rem;
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  .do-kpi.blue .do-kpi-icon {
+    background: #E0F2FE;
+    color: var(--do-blue);
+    border-color: rgba(2, 132, 199, .16);
+  }
+
+  .do-kpi.orange .do-kpi-icon {
+    background: var(--do-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .26);
+  }
+
+  .do-kpi.red .do-kpi-icon {
+    background: #FFF1F2;
+    color: var(--do-red);
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .do-kpi strong {
+    display: block;
+    color: var(--do-text);
+    font-size: 1.5rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -.04em;
+  }
+
+  .do-kpi span {
+    display: block;
+    margin-top: 7px;
+    color: var(--do-text);
+    font-size: .86rem;
+    line-height: 1.3;
+    font-weight: 850;
+  }
+
+  .do-secondary-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .do-stat-card {
+    border-radius: 20px;
+    background: var(--do-card);
+    border: 1px solid var(--do-line);
+    box-shadow: var(--do-shadow-soft);
+    padding: 16px;
+    min-height: 112px;
+    display: grid;
+    align-content: space-between;
+    transition: transform .22s ease, box-shadow .22s ease;
+  }
+
+  .do-stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--do-shadow);
+  }
+
+  .do-stat-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .do-stat-top span {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: var(--do-green-soft);
+    color: var(--do-green-dark);
+    border: 1px solid rgba(0, 168, 89, .16);
+    font-size: 1.25rem;
+  }
+
+  .do-stat-card.blue .do-stat-top span {
+    background: #E0F2FE;
+    color: var(--do-blue);
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .do-stat-card.orange .do-stat-top span {
+    background: var(--do-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .26);
+  }
+
+  .do-stat-card.red .do-stat-top span {
+    background: #FFF1F2;
+    color: var(--do-red);
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .do-stat-card strong {
+    display: block;
+    color: var(--do-text);
+    font-size: 1.45rem;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1;
+    margin-top: 14px;
+  }
+
+  .do-stat-card small {
+    display: block;
+    color: var(--do-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 850;
+    margin-top: 8px;
+  }
+
+  .do-section-title {
+    margin: 2px 0 -4px;
+    color: var(--do-text);
+    font-size: 1.12rem;
+    font-weight: 900;
+    letter-spacing: -.025em;
+  }
+
+  .do-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .do-card {
+    border-radius: 22px;
+    background: var(--do-card);
+    border: 1px solid var(--do-line);
+    box-shadow: var(--do-shadow-soft);
+    overflow: hidden;
+  }
+
+  .do-card-head {
+    min-height: 62px;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--do-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    background:
+      radial-gradient(circle at top left, rgba(2, 132, 199, .07), transparent 34%),
+      var(--do-card);
+  }
+
+  .do-card-title {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+
+  .do-head-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: #E0F2FE;
+    color: var(--do-blue);
+    border: 1px solid rgba(2, 132, 199, .18);
+    font-size: 1.18rem;
+  }
+
+  .do-card-title h3 {
+    margin: 0;
+    color: var(--do-text);
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: -.02em;
+  }
+
+  .do-card-title p {
+    margin: 4px 0 0;
+    color: var(--do-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .do-card-head a {
+    color: var(--do-green-dark);
+    font-size: .82rem;
+    font-weight: 900;
+    text-decoration: none;
+  }
+
+  .do-map-card {
+    min-height: 420px;
+    position: relative;
+    overflow: hidden;
+  }
+
+    .do-map-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: #EEF8F3;
+    }
+
+    #doLiveDeliveryMap {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    min-height: 420px;
+    }
+
+    .do-map-card .leaflet-container {
+    font-family: inherit;
+    background: #EEF8F3;
+    }
+
+    .do-map-card .leaflet-control-zoom a {
+    color: var(--do-text);
+    border-color: var(--do-line);
+    }
+
+    .do-map-card .leaflet-popup-content-wrapper {
+    border-radius: 16px;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, .16);
+    }
+
+    .do-map-card .leaflet-popup-content {
+    margin: 12px 14px;
+    color: var(--do-text);
+    font-weight: 700;
+    line-height: 1.45;
+    }
+
+    .do-map-popup-title {
+    color: var(--do-text);
+    font-size: .92rem;
+    font-weight: 900;
+    margin-bottom: 4px;
+    }
+
+    .do-map-popup-meta {
+    color: var(--do-muted);
+    font-size: .78rem;
+    font-weight: 750;
+    }
+
+    .do-delivery-marker {
+    width: 42px;
+    height: 42px;
+    border-radius: 999px 999px 999px 10px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, var(--do-green), var(--do-blue));
+    color: #fff;
+    border: 3px solid #fff;
+    box-shadow: 0 16px 34px rgba(75, 114, 96, 0.28);
+    transform: rotate(-45deg);
+    }
+
+    .do-delivery-marker span {
+    display: block;
+    transform: rotate(45deg);
+    font-size: 1.05rem;
+    }
+
+
+  .do-active-strip {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 3;
+    border-radius: 18px;
+    background: rgba(255,255,255,.95);
+    border: 1px solid var(--do-line);
+    box-shadow: var(--do-shadow-soft);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .do-active-mini {
+    border-radius: 14px;
+    background: var(--do-card-2);
+    border: 1px solid var(--do-line);
+    padding: 10px;
+    min-width: 0;
+  }
+
+  .do-active-mini strong {
+    display: block;
+    color: var(--do-text);
+    font-size: .82rem;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .do-active-mini span {
+    display: block;
+    margin-top: 4px;
+    color: var(--do-muted);
+    font-size: .72rem;
+    font-weight: 750;
+  }
+
+  .do-top-list {
+    padding: 12px 16px 18px;
+    display: grid;
+    gap: 13px;
+  }
+
+  .do-person-row {
+    display: grid;
+    grid-template-columns: 50px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    min-height: 58px;
+  }
+
+  .do-person-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 30%),
+      linear-gradient(135deg, var(--do-blue), var(--do-green));
+    color: #fff;
+    border: 1px solid rgba(2, 132, 199, .18);
+    font-size: 1.3rem;
+  }
+
+  .do-person-row strong {
+    display: block;
+    color: var(--do-text);
+    font-size: .92rem;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .do-person-row span {
+    display: block;
+    color: var(--do-muted);
+    font-size: .78rem;
+    font-weight: 700;
+    margin-top: 3px;
+  }
+
+  .do-order-pill {
+    min-height: 32px;
+    border-radius: 10px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    background: var(--do-card-2);
+    color: var(--do-green-dark);
+    font-size: .75rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .do-bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .do-table-wrap {
+    overflow-x: auto;
+  }
+
+  .do-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .do-table th {
+    padding: 13px 15px;
+    background: var(--do-card-2);
+    color: var(--do-muted);
+    text-align: left;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    font-weight: 900;
+    border-bottom: 1px solid var(--do-line);
+  }
+
+  .do-table td {
+    padding: 14px 15px;
+    border-bottom: 1px solid var(--do-line);
+    color: var(--do-text);
+    font-size: .86rem;
+    font-weight: 700;
+    vertical-align: middle;
+  }
+
+  .do-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .do-status {
+    min-height: 28px;
+    border-radius: 999px;
+    padding: 5px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: .7rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .045em;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .do-status::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+  }
+
+  .do-status.active,
+  .do-status.online {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5, 150, 105, .18);
+  }
+
+  .do-status.active::before,
+  .do-status.online::before {
+    background: #10B981;
+  }
+
+  .do-status.disabled,
+  .do-status.offline {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .do-status.disabled::before,
+  .do-status.offline::before {
+    background: var(--do-red);
+  }
+
+  .do-progress-list {
+    padding: 16px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .do-progress-row {
+    display: grid;
+    gap: 8px;
+  }
+
+  .do-progress-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--do-text);
+    font-size: .84rem;
+    font-weight: 850;
+  }
+
+  .do-progress-track {
+    height: 11px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--do-card-2);
+    border: 1px solid var(--do-line);
+  }
+
+  .do-progress-fill {
+    height: 100%;
+    width: var(--width, 0%);
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--do-green), var(--do-blue));
+    transition: width .8s ease;
+  }
+
+  .do-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--do-muted);
+    font-size: .9rem;
+    font-weight: 850;
+  }
+
+  @media (max-width: 1180px) {
+    .do-main-grid,
+    .do-bottom-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .do-kpi-grid,
+    .do-secondary-kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 760px) {
+    .nf-delivery-overview {
+      gap: 16px;
+    }
+
+    .do-hero,
+    .do-card {
+      border-radius: 18px;
+    }
+
+    .do-hero-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .do-hero-visual {
+      display: none;
+    }
+
+    .do-hero-actions .do-btn {
+      width: 100%;
+    }
+
+    .do-kpi-grid,
+    .do-secondary-kpis {
+      grid-template-columns: 1fr;
+    }
+
+    .do-map-toolbar {
+      display: grid;
+    }
+
+    .do-map-search {
+      width: 100%;
+    }
+
+    .do-active-strip {
+      position: relative;
+      left: auto;
+      right: auto;
+      bottom: auto;
+      margin: 260px 12px 12px;
+      grid-template-columns: 1fr;
+    }
+
+    .do-map-card {
+      min-height: auto;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nf-delivery-overview,
+    .nf-delivery-overview *,
+    .nf-delivery-overview *::before,
+    .nf-delivery-overview *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nf-delivery-overview">
+
+  <div class="do-hero">
+    <div class="do-hero-inner">
+      <div>
+        <span class="do-kicker">🛵 NE FRESH Delivery Management</span>
+        <h2>Delivery Overview</h2>
+        <p>
+          Track delivery partner availability, currently assigned orders, completed deliveries, review performance and active movement from one dashboard.
+        </p>
+
+        <div class="do-hero-actions">
+          <a href="{{ url_for('admin_create_delivery') }}" class="do-btn do-btn-primary">➕ Create Delivery Person</a>
+          <a href="{{ url_for('admin_delivery_list') }}" class="do-btn do-btn-blue">🛵 Delivery List</a>
+          <a href="{{ url_for('admin_delivery_reviews') }}" class="do-btn do-btn-soft">⭐ Delivery Reviews</a>
+          <a href="{{ url_for('admin_delivery_export_csv') }}" class="do-btn do-btn-orange">⬇ Export CSV</a>
+        </div>
+      </div>
+
+      <div class="do-hero-visual" aria-hidden="true">
+        <span>🛵</span>
+        <small>{{ metrics.total|default(0) }} Partners</small>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="do-section-title">Deliveryman Statistics</h3>
+
+  <div class="do-kpi-grid">
+    <a href="{{ url_for('admin_delivery_list', status='active') }}" class="do-kpi">
+      <div class="do-kpi-icon">🛵</div>
+      <div>
+        <strong>{{ metrics.active|default(0) }}</strong>
+        <span>Active Delivery Man</span>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_delivery_list') }}" class="do-kpi blue">
+      <div class="do-kpi-icon">👷</div>
+      <div>
+        <strong>{{ metrics.new_joined|default(0) }}</strong>
+        <span>Newly Joined Delivery Man</span>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_delivery_list', status='inactive') }}" class="do-kpi orange">
+      <div class="do-kpi-icon">📦</div>
+      <div>
+        <strong>{{ metrics.inactive|default(0) }}</strong>
+        <span>Inactive Deliveryman</span>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_delivery_list', status='inactive') }}" class="do-kpi red">
+      <div class="do-kpi-icon">🚫</div>
+      <div>
+        <strong>{{ metrics.blocked|default(0) }}</strong>
+        <span>Blocked Deliveryman</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="do-secondary-kpis">
+    <a href="{{ url_for('admin_delivery_list', availability='online') }}" class="do-stat-card">
+      <div class="do-stat-top"><span>📡</span></div>
+      <div>
+        <strong>{{ metrics.online|default(0) }}</strong>
+        <small>Currently Online</small>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_delivery_list', availability='offline') }}" class="do-stat-card red">
+      <div class="do-stat-top"><span>📴</span></div>
+      <div>
+        <strong>{{ metrics.offline|default(0) }}</strong>
+        <small>Currently Offline</small>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_delivery_list') }}" class="do-stat-card orange">
+      <div class="do-stat-top"><span>📦</span></div>
+      <div>
+        <strong>{{ metrics.assigned_orders|default(0) }}</strong>
+        <small>Currently Assigned Orders</small>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_delivery_reviews') }}" class="do-stat-card blue">
+      <div class="do-stat-top"><span>⭐</span></div>
+      <div>
+        <strong>{{ metrics.review_count|default(0) }}</strong>
+        <small>Total Delivery Reviews</small>
+      </div>
+    </a>
+  </div>
+
+  <div class="do-main-grid">
+    <div class="do-card do-map-card">
+      <div class="do-map-bg">
+        <div id="doLiveDeliveryMap"></div>
+      </div>
+
+        <div class="do-map-toolbar">
+            <strong>Currently Active Delivery Men</strong>
+            <input type="search" class="do-map-search" placeholder="Search Delivery Man ..." aria-label="Search delivery man">
+            <a href="{{ url_for('admin_delivery_list', availability='online') }}">View All Delivery Men</a>
+        </div>
+
+      <div class="do-active-strip">
+        {% for d in active_deliverymen[:3] %}
+          <div class="do-active-mini">
+            <strong>{{ d.name }}</strong>
+            <span>{{ d.zone or 'Main Zone' }} • {{ d.currently_assigned_orders|default(0) }} assigned</span>
+          </div>
+        {% else %}
+          <div class="do-active-mini">
+            <strong>No active deliveryman</strong>
+            <span>Online partners will appear here.</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="do-card">
+      <div class="do-card-head">
+        <div class="do-card-title">
+          <div class="do-head-icon">🏆</div>
+          <div>
+            <h3>Top Deliveryman</h3>
+            <p>Based on completed deliveries and ratings.</p>
+          </div>
+        </div>
+        <a href="{{ url_for('admin_delivery_list') }}">View All</a>
+      </div>
+
+      <div class="do-top-list">
+        {% for d in top_deliverymen %}
+          <div class="do-person-row">
+            <div class="do-person-img">🛵</div>
+            <div>
+              <strong>{{ d.name }}</strong>
+              <span>{{ d.phone_masked or d.email_masked or '+**********' }}</span>
+            </div>
+            <span class="do-order-pill">Orders : {{ d.total_completed_orders|default(0) }}</span>
+          </div>
+        {% else %}
+          <div class="do-empty">No delivery users found.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="do-bottom-grid">
+    <div class="do-card">
+      <div class="do-card-head">
+        <div class="do-card-title">
+          <div class="do-head-icon">📋</div>
+          <div>
+            <h3>Recent Delivery Partners</h3>
+            <p>Latest delivery accounts created in the system.</p>
+          </div>
+        </div>
+        <a href="{{ url_for('admin_delivery_list') }}">Open List</a>
+      </div>
+
+      <div class="do-table-wrap">
+        <table class="do-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Zone</th>
+              <th>Assigned</th>
+              <th>Availability</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in recent_deliverymen %}
+              <tr>
+                <td>{{ d.name }}</td>
+                <td>{{ d.zone or 'Main Zone' }}</td>
+                <td>{{ d.currently_assigned_orders|default(0) }}</td>
+                <td>
+                  {% if d.is_online %}
+                    <span class="do-status online">Online</span>
+                  {% else %}
+                    <span class="do-status offline">Offline</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if d.is_active %}
+                    <span class="do-status active">Active</span>
+                  {% else %}
+                    <span class="do-status disabled">Disabled</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="5" class="do-empty">No recent delivery users found.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="do-card">
+      <div class="do-card-head">
+        <div class="do-card-title">
+          <div class="do-head-icon">📈</div>
+          <div>
+            <h3>Delivery Health</h3>
+            <p>Operational split from live delivery data.</p>
+          </div>
+        </div>
+      </div>
+
+      {% set total_delivery = metrics.total|default(0) %}
+      {% if total_delivery and total_delivery > 0 %}
+        {% set online_width = (metrics.online|default(0) / total_delivery * 100)|round(0, 'floor') %}
+        {% set active_width = (metrics.active|default(0) / total_delivery * 100)|round(0, 'floor') %}
+        {% set inactive_width = (metrics.inactive|default(0) / total_delivery * 100)|round(0, 'floor') %}
+      {% else %}
+        {% set online_width = 0 %}
+        {% set active_width = 0 %}
+        {% set inactive_width = 0 %}
+      {% endif %}
+
+      <div class="do-progress-list">
+        <div class="do-progress-row">
+          <div class="do-progress-meta">
+            <span>Online Deliverymen</span>
+            <strong>{{ online_width }}%</strong>
+          </div>
+          <div class="do-progress-track">
+            <div class="do-progress-fill" style="--width: {{ online_width }}%;"></div>
+          </div>
+        </div>
+
+        <div class="do-progress-row">
+          <div class="do-progress-meta">
+            <span>Active Accounts</span>
+            <strong>{{ active_width }}%</strong>
+          </div>
+          <div class="do-progress-track">
+            <div class="do-progress-fill" style="--width: {{ active_width }}%;"></div>
+          </div>
+        </div>
+
+        <div class="do-progress-row">
+          <div class="do-progress-meta">
+            <span>Inactive / Blocked</span>
+            <strong>{{ inactive_width }}%</strong>
+          </div>
+          <div class="do-progress-track">
+            <div class="do-progress-fill" style="--width: {{ inactive_width }}%; background: linear-gradient(90deg, var(--do-orange), var(--do-red));"></div>
+          </div>
+        </div>
+
+        <div class="do-progress-row">
+          <div class="do-progress-meta">
+            <span>Completed Deliveries</span>
+            <strong>{{ metrics.completed_orders|default(0) }}</strong>
+          </div>
+          <div class="do-progress-track">
+            <div class="do-progress-fill" style="--width: 100%; background: linear-gradient(90deg, var(--do-blue), var(--do-green));"></div>
+          </div>
+        </div>
+
+        <div class="do-progress-row">
+          <div class="do-progress-meta">
+            <span>Delivered Value</span>
+            <strong>₹{{ "%.2f"|format(metrics.delivered_amount|default(0)|float) }}</strong>
+          </div>
+          <div class="do-progress-track">
+            <div class="do-progress-fill" style="--width: 100%; background: linear-gradient(90deg, var(--do-green), var(--do-orange));"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+(function () {
+  const rows = document.querySelectorAll('.do-person-row, .do-kpi, .do-stat-card');
+
+  rows.forEach(function (item, index) {
+    item.style.opacity = '0';
+    item.style.transform = 'translateY(8px)';
+
+    setTimeout(function () {
+      item.style.transition = 'opacity .32s ease, transform .32s ease, box-shadow .22s ease';
+      item.style.opacity = '1';
+      item.style.transform = 'translateY(0)';
+    }, Math.min(index * 45, 420));
+  });
+
+  const searchInput = document.querySelector('.do-map-search');
+  const activeCards = document.querySelectorAll('.do-active-mini');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      const q = searchInput.value.trim().toLowerCase();
+
+      activeCards.forEach(function (card) {
+        const text = card.textContent.toLowerCase();
+        card.style.display = !q || text.includes(q) ? '' : 'none';
+      });
+    });
+  }
+
+  const mapEl = document.getElementById('doLiveDeliveryMap');
+
+  if (!mapEl || typeof L === 'undefined') {
+    return;
+  }
+
+  const deliveryPoints = [
+    {% for d in active_deliverymen %}
+      {% if d.latitude and d.longitude %}
+        {
+          id: "{{ d.id }}",
+          name: {{ (d.name or 'Delivery Partner')|tojson }},
+          phone: {{ (d.phone_masked or d.phone or '')|tojson }},
+          zone: {{ (d.zone or 'Main Zone')|tojson }},
+          assigned: {{ d.currently_assigned_orders|default(0) }},
+          completed: {{ d.total_completed_orders|default(0) }},
+          rating: {{ d.rating|default(0) }},
+          lat: {{ d.latitude|float }},
+          lng: {{ d.longitude|float }}
+        },
+      {% endif %}
+    {% endfor %}
+  ];
+
+  const fallbackCenter = [26.1445, 91.7362]; // Guwahati fallback
+
+  const map = L.map('doLiveDeliveryMap', {
+    zoomControl: true,
+    scrollWheelZoom: false,
+    attributionControl: true
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  const deliveryIcon = L.divIcon({
+    className: '',
+    html: '<div class="do-delivery-marker"><span>🛵</span></div>',
+    iconSize: [42, 42],
+    iconAnchor: [21, 42],
+    popupAnchor: [0, -42]
+  });
+
+  const bounds = [];
+
+  deliveryPoints.forEach(function (point) {
+    const marker = L.marker([point.lat, point.lng], {
+      icon: deliveryIcon,
+      title: point.name
+    }).addTo(map);
+
+    marker.bindPopup(`
+      <div class="do-map-popup-title">${escapeHtml(point.name)}</div>
+      <div class="do-map-popup-meta">Zone: ${escapeHtml(point.zone)}</div>
+      <div class="do-map-popup-meta">Phone: ${escapeHtml(point.phone || 'Not available')}</div>
+      <div class="do-map-popup-meta">Assigned Orders: ${point.assigned}</div>
+      <div class="do-map-popup-meta">Completed Orders: ${point.completed}</div>
+      <div class="do-map-popup-meta">Rating: ⭐ ${point.rating}</div>
+    `);
+
+    bounds.push([point.lat, point.lng]);
+  });
+
+  if (bounds.length > 0) {
+    map.fitBounds(bounds, {
+      padding: [40, 40],
+      maxZoom: 15
+    });
+  } else {
+    map.setView(fallbackCenter, 12);
+
+    L.popup()
+      .setLatLng(fallbackCenter)
+      .setContent('<div class="do-map-popup-title">No live coordinates found</div><div class="do-map-popup-meta">Delivery partners will appear here when latitude and longitude are available.</div>')
+      .openOn(map);
+  }
+
+  setTimeout(function () {
+    map.invalidateSize();
+  }, 350);
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      const q = searchInput.value.trim().toLowerCase();
+
+      if (!q) {
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+        }
+        return;
+      }
+
+      const found = deliveryPoints.find(function (point) {
+        return [
+          point.name,
+          point.phone,
+          point.zone
+        ].join(' ').toLowerCase().includes(q);
+      });
+
+      if (found) {
+        map.setView([found.lat, found.lng], 16);
+      }
+    });
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+})();
+</script>
+{% endblock %}

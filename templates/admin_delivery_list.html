@@ -1,0 +1,1258 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "delivery" %}
+{% set active_page = "delivery_list" %}
+
+{% block title %}Delivery List | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Deliveryman{% endblock %}
+{% block page_subtitle %}Manage delivery partners, assigned orders, availability and safe account actions.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-delivery-list-page {
+    --dl-green: var(--nf-green, #00A859);
+    --dl-green-dark: var(--nf-green-dark, #008A48);
+    --dl-green-deep: var(--nf-green-deep, #075C3B);
+    --dl-green-soft: var(--nf-green-soft, #E9FFF3);
+    --dl-green-soft-2: var(--nf-green-soft-2, #F3FFF8);
+    --dl-orange: var(--nf-orange, #FFB84D);
+    --dl-orange-soft: var(--nf-orange-soft, #FFF7E8);
+    --dl-red: var(--nf-red, #EF4444);
+    --dl-blue: var(--nf-blue, #0284C7);
+    --dl-card: var(--nf-surface, #FFFFFF);
+    --dl-card-2: var(--nf-surface-2, #F2FBF6);
+    --dl-text: var(--nf-text, #1F332A);
+    --dl-muted: var(--nf-muted, #66756D);
+    --dl-muted-2: var(--nf-muted-2, #8A9890);
+    --dl-line: var(--nf-line, #DDECE4);
+    --dl-shadow: var(--nf-shadow, 0 14px 36px rgba(17, 64, 38, .08));
+    --dl-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17, 64, 38, .06));
+
+    display: grid;
+    gap: 20px;
+    animation: dlFadeIn .45s ease both;
+  }
+
+  .nf-delivery-list-page,
+  .nf-delivery-list-page * {
+    box-sizing: border-box;
+  }
+
+  @keyframes dlFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes dlPing {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(2, 132, 199, .24); }
+    50% { box-shadow: 0 0 0 10px rgba(2, 132, 199, 0); }
+  }
+
+  .dl-page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .dl-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .dl-title-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    background: #E0F2FE;
+    color: var(--dl-blue);
+    border: 1px solid rgba(2, 132, 199, .18);
+    box-shadow: var(--dl-shadow-soft);
+    font-size: 1.3rem;
+  }
+
+  .dl-title h2 {
+    margin: 0;
+    color: var(--dl-text);
+    font-size: clamp(1.35rem, 2.4vw, 1.9rem);
+    line-height: 1.1;
+    font-weight: 900;
+    letter-spacing: -.035em;
+  }
+
+  .dl-title p {
+    margin: 5px 0 0;
+    color: var(--dl-muted);
+    font-size: .9rem;
+    font-weight: 650;
+  }
+
+  .dl-head-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+
+  .dl-btn {
+    min-height: 40px;
+    border: 1px solid var(--dl-line);
+    border-radius: 14px;
+    background: var(--dl-card);
+    color: var(--dl-text);
+    padding: 9px 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: .82rem;
+    line-height: 1.1;
+    font-weight: 900;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+    white-space: nowrap;
+  }
+
+  .dl-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--dl-shadow-soft);
+    border-color: rgba(0, 168, 89, .34);
+  }
+
+  .dl-btn-primary {
+    background: var(--dl-green);
+    color: #fff;
+    border-color: var(--dl-green);
+  }
+
+  .dl-btn-primary:hover {
+    background: var(--dl-green-dark);
+    border-color: var(--dl-green-dark);
+  }
+
+  .dl-btn-soft {
+    background: var(--dl-green-soft);
+    color: var(--dl-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .dl-btn-blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .dl-btn-orange {
+    background: var(--dl-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .28);
+  }
+
+  .dl-btn-danger {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .22);
+  }
+
+  .dl-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .dl-kpi {
+    min-height: 112px;
+    border-radius: 20px;
+    background: var(--dl-card);
+    border: 1px solid var(--dl-line);
+    box-shadow: var(--dl-shadow-soft);
+    padding: 16px;
+    display: grid;
+    align-content: space-between;
+    position: relative;
+    overflow: hidden;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  }
+
+  .dl-kpi:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--dl-shadow);
+    border-color: rgba(2, 132, 199, .24);
+  }
+
+  .dl-kpi::after {
+    content: "";
+    position: absolute;
+    right: -34px;
+    top: -42px;
+    width: 96px;
+    height: 96px;
+    border-radius: 999px;
+    background: rgba(2, 132, 199, .08);
+  }
+
+  .dl-kpi.green::after { background: rgba(0, 168, 89, .10); }
+  .dl-kpi.orange::after { background: rgba(255, 184, 77, .16); }
+  .dl-kpi.red::after { background: rgba(239, 68, 68, .10); }
+
+  .dl-kpi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: #E0F2FE;
+    color: var(--dl-blue);
+    border: 1px solid rgba(2, 132, 199, .16);
+    font-size: 1.18rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .dl-kpi.green .dl-kpi-icon {
+    background: var(--dl-green-soft);
+    color: var(--dl-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .dl-kpi.orange .dl-kpi-icon {
+    background: var(--dl-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .24);
+  }
+
+  .dl-kpi.red .dl-kpi-icon {
+    background: #FFF1F2;
+    color: var(--dl-red);
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .dl-kpi strong {
+    display: block;
+    color: var(--dl-text);
+    font-size: 1.45rem;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1;
+    margin-top: 13px;
+  }
+
+  .dl-kpi span {
+    display: block;
+    color: var(--dl-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 850;
+    margin-top: 8px;
+  }
+
+  .dl-list-card {
+    border-radius: 22px;
+    background: var(--dl-card);
+    border: 1px solid var(--dl-line);
+    box-shadow: var(--dl-shadow-soft);
+    overflow: hidden;
+  }
+
+  .dl-toolbar {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--dl-line);
+    display: grid;
+    grid-template-columns: auto 200px 200px 220px minmax(260px, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    background:
+      radial-gradient(circle at top left, rgba(2, 132, 199, .06), transparent 34%),
+      var(--dl-card);
+  }
+
+  .dl-list-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--dl-text);
+    font-size: .98rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .dl-count {
+    min-width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: var(--dl-card-2);
+    color: var(--dl-text);
+    display: inline-grid;
+    place-items: center;
+    padding: 0 8px;
+    font-size: .78rem;
+    font-weight: 900;
+  }
+
+  .dl-toolbar select,
+  .dl-toolbar input {
+    width: 100%;
+    height: 44px;
+    border: 1px solid var(--dl-line);
+    border-radius: 14px;
+    background: var(--dl-card);
+    color: var(--dl-text);
+    padding: 0 13px;
+    outline: none;
+    font-size: .88rem;
+    font-weight: 750;
+    transition: .22s ease;
+  }
+
+  .dl-toolbar select:focus,
+  .dl-toolbar input:focus {
+    border-color: rgba(2, 132, 199, .42);
+    box-shadow: 0 0 0 4px rgba(2, 132, 199, .10);
+  }
+
+  .dl-search-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 46px;
+  }
+
+  .dl-search-wrap input {
+    border-radius: 14px 0 0 14px;
+  }
+
+  .dl-search-btn {
+    height: 44px;
+    border: 1px solid var(--dl-blue);
+    border-radius: 0 14px 14px 0;
+    background: var(--dl-blue);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 900;
+  }
+
+  .dl-table-shell {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .dl-table {
+    width: 100%;
+    min-width: 1260px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .dl-table th {
+    padding: 15px 16px;
+    background: var(--dl-card-2);
+    color: var(--dl-text);
+    text-align: left;
+    font-size: .74rem;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-weight: 900;
+    border-bottom: 1px solid var(--dl-line);
+    white-space: nowrap;
+  }
+
+  .dl-table td {
+    padding: 17px 16px;
+    border-bottom: 1px solid var(--dl-line);
+    color: var(--dl-text);
+    vertical-align: middle;
+    font-size: .88rem;
+    font-weight: 650;
+  }
+
+  .dl-table tbody tr {
+    transition: background .2s ease;
+  }
+
+  .dl-table tbody tr:hover {
+    background: var(--dl-green-soft-2);
+  }
+
+  .dl-person {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-width: 250px;
+  }
+
+  .dl-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 30%),
+      linear-gradient(135deg, var(--dl-blue), var(--dl-green));
+    color: #fff;
+    font-size: 1.45rem;
+    box-shadow: 0 12px 24px rgba(2, 132, 199, .18);
+    animation: dlPing 3s ease-in-out infinite;
+  }
+
+  .dl-person strong {
+    display: block;
+    color: var(--dl-text);
+    font-size: .95rem;
+    line-height: 1.25;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .dl-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 5px;
+    color: #0891B2;
+    font-size: .78rem;
+    font-weight: 900;
+  }
+
+  .dl-contact {
+    min-width: 190px;
+  }
+
+  .dl-contact span {
+    display: block;
+    color: var(--dl-muted);
+    font-size: .8rem;
+    line-height: 1.45;
+    font-weight: 750;
+  }
+
+  .dl-chip {
+    min-height: 30px;
+    border-radius: 999px;
+    padding: 6px 10px;
+    background: var(--dl-card-2);
+    border: 1px solid var(--dl-line);
+    color: var(--dl-text);
+    font-size: .74rem;
+    font-weight: 900;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dl-chip.green {
+    background: var(--dl-green-soft);
+    color: var(--dl-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .dl-chip.blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .16);
+  }
+
+  .dl-chip.orange {
+    background: var(--dl-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .24);
+  }
+
+  .dl-availability {
+    min-width: 230px;
+    color: var(--dl-muted);
+    line-height: 1.5;
+    font-size: .86rem;
+    font-weight: 750;
+  }
+
+  .dl-availability strong {
+    color: var(--dl-text);
+  }
+
+  .dl-status-pill {
+    min-height: 30px;
+    border-radius: 999px;
+    padding: 6px 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: .72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+
+  .dl-status-pill::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+  }
+
+  .dl-status-pill.active,
+  .dl-status-pill.online {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5, 150, 105, .18);
+  }
+
+  .dl-status-pill.active::before,
+  .dl-status-pill.online::before {
+    background: #10B981;
+  }
+
+  .dl-status-pill.disabled,
+  .dl-status-pill.offline {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .dl-status-pill.disabled::before,
+  .dl-status-pill.offline::before {
+    background: var(--dl-red);
+  }
+
+  .dl-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 175px;
+  }
+
+  .dl-actions form {
+    display: inline-flex;
+  }
+
+  .dl-icon-btn {
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--dl-line);
+    border-radius: 13px;
+    background: var(--dl-card);
+    color: var(--dl-text);
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: .22s ease;
+    font-size: 1rem;
+  }
+
+  .dl-icon-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: var(--dl-shadow-soft);
+    border-color: rgba(2, 132, 199, .32);
+  }
+
+  .dl-icon-btn.view {
+    background: var(--dl-orange-soft);
+    color: #EA580C;
+    border-color: rgba(255, 184, 77, .25);
+  }
+
+  .dl-icon-btn.edit {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .dl-icon-btn.delete {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .dl-icon-btn.enable {
+    background: var(--dl-green-soft);
+    color: var(--dl-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .dl-empty {
+    padding: 34px 18px;
+    text-align: center;
+    color: var(--dl-muted);
+    font-size: .92rem;
+    font-weight: 850;
+  }
+
+  .dl-mobile-cards {
+    display: none;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .dl-mobile-card {
+    border: 1px solid var(--dl-line);
+    border-radius: 20px;
+    background: var(--dl-card);
+    box-shadow: var(--dl-shadow-soft);
+    padding: 16px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .dl-mobile-top {
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .dl-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .dl-mobile-stat {
+    border-radius: 14px;
+    background: var(--dl-card-2);
+    border: 1px solid var(--dl-line);
+    padding: 11px;
+  }
+
+  .dl-mobile-stat span {
+    display: block;
+    color: var(--dl-muted);
+    font-size: .72rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .dl-mobile-stat strong {
+    display: block;
+    color: var(--dl-text);
+    font-size: .95rem;
+    font-weight: 900;
+    margin-top: 5px;
+  }
+
+  .dl-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+  }
+
+  .dl-modal.open {
+    display: flex;
+  }
+
+  .dl-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, .48);
+    backdrop-filter: blur(5px);
+  }
+
+  .dl-modal-card {
+    position: relative;
+    z-index: 1;
+    width: min(560px, 100%);
+    max-height: 88vh;
+    overflow-y: auto;
+    border-radius: 24px;
+    background: var(--dl-card);
+    border: 1px solid var(--dl-line);
+    box-shadow: 0 28px 90px rgba(15, 23, 42, .24);
+    animation: dlFadeIn .25s ease both;
+  }
+
+  .dl-modal-head {
+    padding: 18px;
+    border-bottom: 1px solid var(--dl-line);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .dl-modal-head h3 {
+    margin: 0;
+    color: var(--dl-text);
+    font-size: 1.08rem;
+    font-weight: 900;
+  }
+
+  .dl-modal-close {
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--dl-line);
+    border-radius: 13px;
+    background: var(--dl-card-2);
+    color: var(--dl-text);
+    cursor: pointer;
+    font-weight: 900;
+  }
+
+  .dl-modal-body {
+    padding: 18px;
+    display: grid;
+    gap: 12px;
+  }
+
+  .dl-detail-row {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 12px;
+    padding: 11px 12px;
+    border-radius: 14px;
+    background: var(--dl-card-2);
+    border: 1px solid var(--dl-line);
+  }
+
+  .dl-detail-row span {
+    color: var(--dl-muted);
+    font-size: .78rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .dl-detail-row strong {
+    color: var(--dl-text);
+    font-size: .88rem;
+    font-weight: 850;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 1320px) {
+    .dl-kpi-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .dl-toolbar {
+      grid-template-columns: auto 1fr 1fr 1fr;
+    }
+
+    .dl-search-wrap {
+      grid-column: 1 / -2;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .dl-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dl-toolbar {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .dl-list-title,
+    .dl-search-wrap,
+    .dl-toolbar .dl-btn {
+      grid-column: 1 / -1;
+    }
+
+    .dl-head-actions {
+      width: 100%;
+    }
+
+    .dl-head-actions .dl-btn {
+      flex: 1;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .nf-delivery-list-page {
+      gap: 16px;
+    }
+
+    .dl-page-head {
+      align-items: stretch;
+    }
+
+    .dl-title {
+      align-items: flex-start;
+    }
+
+    .dl-kpi-grid,
+    .dl-toolbar {
+      grid-template-columns: 1fr;
+    }
+
+    .dl-list-card {
+      border-radius: 18px;
+    }
+
+    .dl-table-shell {
+      display: none;
+    }
+
+    .dl-mobile-cards {
+      display: grid;
+    }
+
+    .dl-mobile-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .dl-detail-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nf-delivery-list-page,
+    .nf-delivery-list-page *,
+    .nf-delivery-list-page *::before,
+    .nf-delivery-list-page *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nf-delivery-list-page">
+
+  <div class="dl-page-head">
+    <div class="dl-title">
+      <div class="dl-title-icon">🛵</div>
+      <div>
+        <h2>Deliveryman</h2>
+        <p>Review deliveryman list, order count, availability and account status.</p>
+      </div>
+    </div>
+
+    <div class="dl-head-actions">
+      <a href="{{ url_for('admin_delivery_overview') }}" class="dl-btn dl-btn-blue">📊 Overview</a>
+      <a href="{{ url_for('admin_create_delivery') }}" class="dl-btn dl-btn-primary">➕ Add New</a>
+      <a href="{{ url_for('admin_delivery_export_csv', search=search, status=status, availability=availability) }}" class="dl-btn dl-btn-soft">⬇ Export</a>
+    </div>
+  </div>
+
+  <div class="dl-kpi-grid">
+    <div class="dl-kpi">
+      <div class="dl-kpi-icon">🛵</div>
+      <div>
+        <strong>{{ metrics.total|default(0) }}</strong>
+        <span>Total Deliveryman</span>
+      </div>
+    </div>
+
+    <div class="dl-kpi green">
+      <div class="dl-kpi-icon">✅</div>
+      <div>
+        <strong>{{ metrics.active|default(0) }}</strong>
+        <span>Active Accounts</span>
+      </div>
+    </div>
+
+    <div class="dl-kpi red">
+      <div class="dl-kpi-icon">🚫</div>
+      <div>
+        <strong>{{ metrics.inactive|default(0) }}</strong>
+        <span>Inactive / Blocked</span>
+      </div>
+    </div>
+
+    <div class="dl-kpi green">
+      <div class="dl-kpi-icon">📡</div>
+      <div>
+        <strong>{{ metrics.online|default(0) }}</strong>
+        <span>Online Now</span>
+      </div>
+    </div>
+
+    <div class="dl-kpi orange">
+      <div class="dl-kpi-icon">📦</div>
+      <div>
+        <strong>{{ metrics.assigned_orders|default(0) }}</strong>
+        <span>Assigned Orders</span>
+      </div>
+    </div>
+
+    <div class="dl-kpi">
+      <div class="dl-kpi-icon">🏁</div>
+      <div>
+        <strong>{{ metrics.completed_orders|default(0) }}</strong>
+        <span>Completed Orders</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="dl-list-card">
+    <form method="get" action="{{ url_for('admin_delivery_list') }}" class="dl-toolbar">
+      <div class="dl-list-title">
+        Deliveryman List
+        <span class="dl-count">{{ delivery_users|length }}</span>
+      </div>
+
+      <select name="status" aria-label="Status filter">
+        <option value="" {% if not status %}selected{% endif %}>All Types</option>
+        <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status in ['inactive', 'disabled', 'blocked'] %}selected{% endif %}>Inactive / Blocked</option>
+      </select>
+
+      <select name="availability" aria-label="Availability filter">
+        <option value="" {% if not availability %}selected{% endif %}>All Job Types</option>
+        <option value="online" {% if availability == 'online' %}selected{% endif %}>Online</option>
+        <option value="offline" {% if availability == 'offline' %}selected{% endif %}>Offline</option>
+      </select>
+
+
+
+      <div class="dl-search-wrap">
+        <input
+          type="search"
+          name="search"
+          value="{{ search or '' }}"
+          placeholder="Ex: DM name, email or phone"
+          aria-label="Search deliveryman"
+        >
+        <button type="submit" class="dl-search-btn">⌕</button>
+      </div>
+
+      <a href="{{ url_for('admin_delivery_export_csv', search=search, status=status, availability=availability) }}" class="dl-btn">⬇ Export</a>
+    </form>
+
+    <div class="dl-table-shell">
+      <table class="dl-table">
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Name</th>
+            <th>Contact Info</th>
+            
+            <th>Total Completed Orders</th>
+            <th>Availability Status</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for d in delivery_users %}
+            <tr>
+              <td>{{ loop.index }}</td>
+
+              <td>
+                <div class="dl-person">
+                  <div class="dl-avatar">🛵</div>
+                  <div>
+                    <strong>{{ d.name }}</strong>
+                    <div class="dl-rating">★ {{ d.rating|default(0) }}</div>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <div class="dl-contact">
+                  <span>{{ d.email_masked or d.email or 'No email' }}</span>
+                  <span>{{ d.phone_masked or d.phone or 'No phone' }}</span>
+                </div>
+              </td>
+
+             
+
+              <td>
+                <span class="dl-chip green">{{ d.total_completed_orders|default(0) }}</span>
+              </td>
+
+              <td>
+                <div class="dl-availability">
+                  <div>Currently assigned orders : <strong>{{ d.currently_assigned_orders|default(0) }}</strong></div>
+                  <div>
+                    Active status :
+                    {% if d.is_online %}
+                      <strong style="color:var(--dl-blue);">Online</strong>
+                    {% else %}
+                      <strong style="color:var(--dl-muted);">Offline</strong>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                {% if d.is_active %}
+                  <span class="dl-status-pill active">Active</span>
+                {% else %}
+                  <span class="dl-status-pill disabled">Disabled</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <div class="dl-actions">
+                  <button
+                    type="button"
+                    class="dl-icon-btn view"
+                    title="View deliveryman"
+                    data-open-delivery-modal
+                    data-name="{{ d.name|e }}"
+                    data-email="{{ d.email|e }}"
+                    data-phone="{{ d.phone|e }}"
+                    
+                    data-completed="{{ d.total_completed_orders|default(0) }}"
+                    data-total="{{ d.total_orders|default(0) }}"
+                    data-assigned="{{ d.currently_assigned_orders|default(0) }}"
+                    data-rating="{{ d.rating|default(0) }}"
+                    data-reviews="{{ d.rating_count|default(0) }}"
+                    data-availability="{{ d.availability_status|e }}"
+                    data-status="{{ 'Active' if d.is_active else 'Disabled' }}"
+                    data-created="{{ d.created_at_full|e }}"
+                  >👁</button>
+
+                  <a
+                    href="{{ url_for('admin_user_export_zip', uid=d.id) }}"
+                    class="dl-icon-btn edit"
+                    title="Full export ZIP"
+                  >📦</a>
+
+                  {% if d.is_active %}
+                    <form method="post" action="{{ url_for('admin_user_disable', uid=d.id) }}">
+                      <button type="submit" class="dl-icon-btn view" title="Disable deliveryman">⏸</button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="{{ url_for('admin_user_enable', uid=d.id) }}">
+                      <button type="submit" class="dl-icon-btn enable" title="Activate deliveryman">▶</button>
+                    </form>
+                  {% endif %}
+
+                  <form
+                    method="post"
+                    action="{{ url_for('admin_user_delete', uid=d.id) }}"
+                    onsubmit="return confirmDeliveryDelete('{{ d.name|e }}')"
+                  >
+                    <button type="submit" class="dl-icon-btn delete" title="Delete deliveryman">🗑</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="8" class="dl-empty">No deliveryman found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="dl-mobile-cards">
+      {% for d in delivery_users %}
+        <article class="dl-mobile-card">
+          <div class="dl-mobile-top">
+            <div class="dl-avatar">🛵</div>
+            <div>
+              <div class="dl-person" style="display:block;min-width:0;">
+                <strong>{{ d.name }}</strong>
+                <div class="dl-rating">★ {{ d.rating|default(0) }}</div>
+              </div>
+              <div class="dl-contact" style="margin-top:8px;">
+                <span>{{ d.email_masked or d.email or 'No email' }}</span>
+                <span>{{ d.phone_masked or d.phone or 'No phone' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="dl-mobile-grid">
+            
+            <div class="dl-mobile-stat">
+              <span>Completed</span>
+              <strong>{{ d.total_completed_orders|default(0) }}</strong>
+            </div>
+            <div class="dl-mobile-stat">
+              <span>Assigned</span>
+              <strong>{{ d.currently_assigned_orders|default(0) }}</strong>
+            </div>
+            <div class="dl-mobile-stat">
+              <span>Reviews</span>
+              <strong>{{ d.rating_count|default(0) }}</strong>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            {% if d.is_online %}
+              <span class="dl-status-pill online">Online</span>
+            {% else %}
+              <span class="dl-status-pill offline">Offline</span>
+            {% endif %}
+
+            {% if d.is_active %}
+              <span class="dl-status-pill active">Active</span>
+            {% else %}
+              <span class="dl-status-pill disabled">Disabled</span>
+            {% endif %}
+          </div>
+
+          <div class="dl-actions">
+            <a href="{{ url_for('admin_user_transactions_csv', uid=d.id) }}" class="dl-btn dl-btn-blue" target="_blank">CSV</a>
+            <a href="{{ url_for('admin_user_export_zip', uid=d.id) }}" class="dl-btn dl-btn-soft">ZIP</a>
+
+            {% if d.is_active %}
+              <form method="post" action="{{ url_for('admin_user_disable', uid=d.id) }}">
+                <button type="submit" class="dl-btn dl-btn-orange">Disable</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('admin_user_enable', uid=d.id) }}">
+                <button type="submit" class="dl-btn dl-btn-primary">Activate</button>
+              </form>
+            {% endif %}
+
+            <form
+              method="post"
+              action="{{ url_for('admin_user_delete', uid=d.id) }}"
+              onsubmit="return confirmDeliveryDelete('{{ d.name|e }}')"
+            >
+              <button type="submit" class="dl-btn dl-btn-danger">Delete</button>
+            </form>
+          </div>
+        </article>
+      {% else %}
+        <div class="dl-empty">No deliveryman found.</div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="dl-modal" id="deliveryDetailModal" aria-hidden="true">
+    <div class="dl-modal-backdrop" data-close-delivery-modal></div>
+    <div class="dl-modal-card">
+      <div class="dl-modal-head">
+        <h3>Deliveryman Details</h3>
+        <button type="button" class="dl-modal-close" data-close-delivery-modal>×</button>
+      </div>
+
+      <div class="dl-modal-body">
+        <div class="dl-detail-row">
+          <span>Name</span>
+          <strong id="modalName">-</strong>
+        </div>
+        <div class="dl-detail-row">
+          <span>Email</span>
+          <strong id="modalEmail">-</strong>
+        </div>
+        <div class="dl-detail-row">
+          <span>Phone</span>
+          <strong id="modalPhone">-</strong>
+        </div>
+        
+        <div class="dl-detail-row">
+          <span>Orders</span>
+          <strong id="modalOrders">-</strong>
+        </div>
+        <div class="dl-detail-row">
+          <span>Availability</span>
+          <strong id="modalAvailability">-</strong>
+        </div>
+        <div class="dl-detail-row">
+          <span>Status</span>
+          <strong id="modalStatus">-</strong>
+        </div>
+        <div class="dl-detail-row">
+          <span>Rating</span>
+          <strong id="modalRating">-</strong>
+        </div>
+        <div class="dl-detail-row">
+          <span>Created</span>
+          <strong id="modalCreated">-</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  window.confirmDeliveryDelete = function (name) {
+    return confirm(
+      `Delete deliveryman "${name}"?\n\nThis will only hard-delete if there is no delivery/order history. If history exists, the backend will safely disable the account instead.`
+    );
+  };
+
+  const rows = document.querySelectorAll('.dl-table tbody tr');
+  rows.forEach(function (row, index) {
+    row.style.opacity = '0';
+    row.style.transform = 'translateY(8px)';
+
+    setTimeout(function () {
+      row.style.transition = 'opacity .32s ease, transform .32s ease, background .2s ease';
+      row.style.opacity = '1';
+      row.style.transform = 'translateY(0)';
+    }, Math.min(index * 45, 420));
+  });
+
+  const modal = document.getElementById('deliveryDetailModal');
+  const openButtons = document.querySelectorAll('[data-open-delivery-modal]');
+  const closeButtons = document.querySelectorAll('[data-close-delivery-modal]');
+
+  const fields = {
+    name: document.getElementById('modalName'),
+    email: document.getElementById('modalEmail'),
+    phone: document.getElementById('modalPhone'),
+    
+    orders: document.getElementById('modalOrders'),
+    availability: document.getElementById('modalAvailability'),
+    status: document.getElementById('modalStatus'),
+    rating: document.getElementById('modalRating'),
+    created: document.getElementById('modalCreated')
+  };
+
+  function openModal(btn) {
+    if (!modal) return;
+
+    fields.name.textContent = btn.dataset.name || '-';
+    fields.email.textContent = btn.dataset.email || '-';
+    fields.phone.textContent = btn.dataset.phone || '-';
+    
+    fields.orders.textContent =
+      `${btn.dataset.completed || 0} completed / ${btn.dataset.total || 0} total / ${btn.dataset.assigned || 0} assigned`;
+    fields.availability.textContent = btn.dataset.availability || '-';
+    fields.status.textContent = btn.dataset.status || '-';
+    fields.rating.textContent =
+      `⭐ ${btn.dataset.rating || 0} from ${btn.dataset.reviews || 0} reviews`;
+    fields.created.textContent = btn.dataset.created || '-';
+
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    if (!modal) return;
+
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  openButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openModal(btn);
+    });
+  });
+
+  closeButtons.forEach(function (btn) {
+    btn.addEventListener('click', closeModal);
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      closeModal();
+    }
+  });
+})();
+</script>
+{% endblock %}

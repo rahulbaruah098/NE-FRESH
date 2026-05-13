@@ -5266,7 +5266,619 @@ def admin_store_delete(store_id):
 
 
 
-@app.route('/admin/create-delivery', methods=['GET','POST'])
+
+
+# =========================================================
+# ADMIN DELIVERY MANAGEMENT HELPERS + ROUTES
+# =========================================================
+
+def _ad_now():
+    return datetime.utcnow()
+
+
+def _ad_iso_now():
+    return datetime.utcnow().isoformat()
+
+
+def _ad_safe_float(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return default
+        return float(value)
+    except Exception:
+        return default
+
+
+def _ad_safe_int(value, default=0):
+    try:
+        if value is None or str(value).strip() == "":
+            return default
+        return int(value)
+    except Exception:
+        return default
+
+
+def _ad_money(value):
+    return round(_ad_safe_float(value, 0), 2)
+
+
+def _ad_object_id(value):
+    try:
+        return ObjectId(str(value))
+    except Exception:
+        return None
+
+
+def _ad_norm_status(value):
+    return str(value or "").strip().upper()
+
+
+def _ad_is_active(doc):
+    return 1 if doc and doc.get("is_active") in [1, True, "1", "true", "True", "yes", "Yes"] else 0
+
+
+def _ad_parse_date(value):
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value
+
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day)
+
+    try:
+        clean = str(value).replace("Z", "").strip()
+        return datetime.fromisoformat(clean)
+    except Exception:
+        return None
+
+
+def _ad_date_display(value):
+    dt = _ad_parse_date(value)
+
+    if not dt:
+        return value or ""
+
+    try:
+        return dt.strftime("%d %b %Y")
+    except Exception:
+        return value or ""
+
+
+def _ad_datetime_display(value):
+    dt = _ad_parse_date(value)
+
+    if not dt:
+        return value or ""
+
+    try:
+        return dt.strftime("%d %b %Y, %I:%M %p")
+    except Exception:
+        return value or ""
+
+
+def _ad_created_in_last_days(value, days=30):
+    dt = _ad_parse_date(value)
+
+    if not dt:
+        return False
+
+    return dt >= (_ad_now() - timedelta(days=days))
+
+
+def _ad_mask_phone(phone):
+    phone = str(phone or "").strip()
+
+    if not phone:
+        return ""
+
+    digits = "".join(ch for ch in phone if ch.isdigit())
+
+    if len(digits) <= 4:
+        return phone
+
+    return "+" + "*" * max(4, len(digits) - 4) + digits[-4:]
+
+
+def _ad_mask_email(email):
+    email = str(email or "").strip()
+
+    if not email or "@" not in email:
+        return email
+
+    name, domain = email.split("@", 1)
+
+    if len(name) <= 2:
+        return name[:1] + "*****@" + domain
+
+    return name[:1] + "*****" + name[-1:] + "@" + domain
+
+
+def _ad_order_total(order_doc):
+    if not order_doc:
+        return 0.0
+
+    if order_doc.get("total_payable") is not None:
+        return _ad_safe_float(order_doc.get("total_payable"))
+
+    total_amount = _ad_safe_float(order_doc.get("total_amount"))
+    delivery_fee = _ad_safe_float(order_doc.get("delivery_fee"))
+    tip_amount = _ad_safe_float(order_doc.get("tip_amount"))
+
+    return total_amount + delivery_fee + tip_amount
+
+
+def _ad_is_delivered(order_doc):
+    status = _ad_norm_status(order_doc.get("status"))
+    return status in ["DELIVERED", "COMPLETED", "ORDER_DELIVERED"]
+
+
+def _ad_delivery_order_query(user_id):
+    uid = str(user_id)
+    uid_obj = _ad_object_id(uid)
+
+    query_items = [
+        {"delivery_partner_id": uid}
+    ]
+
+    if uid_obj:
+        query_items.append({"delivery_partner_id": uid_obj})
+
+    return {"$or": query_items}
+
+
+def _ad_delivery_orders(user_id):
+    return list(
+        mongo.orders.find(_ad_delivery_order_query(user_id)).sort("created_at", -1)
+    )
+
+
+def _ad_delivery_active_order_query(user_id):
+    uid = str(user_id)
+    uid_obj = _ad_object_id(uid)
+
+    query_items = [
+        {
+            "delivery_partner_id": uid,
+            "status": {
+                "$in": [
+                    "ASSIGNED_TO_DELIVERY",
+                    "OUT_FOR_DELIVERY",
+                    "ACCEPTED_BY_DELIVERY_MAN",
+                    "PICKED_UP"
+                ]
+            }
+        }
+    ]
+
+    if uid_obj:
+        query_items.append({
+            "delivery_partner_id": uid_obj,
+            "status": {
+                "$in": [
+                    "ASSIGNED_TO_DELIVERY",
+                    "OUT_FOR_DELIVERY",
+                    "ACCEPTED_BY_DELIVERY_MAN",
+                    "PICKED_UP"
+                ]
+            }
+        })
+
+    return {"$or": query_items}
+
+
+def _ad_delivery_assigned_orders(user_id):
+    return mongo.orders.count_documents(_ad_delivery_active_order_query(user_id))
+
+
+def _ad_delivery_availability(user_id):
+    uid = str(user_id)
+
+    row = mongo.delivery_availability.find_one({"user_id": uid})
+
+    if not row:
+        uid_obj = _ad_object_id(uid)
+        if uid_obj:
+            row = mongo.delivery_availability.find_one({"user_id": uid_obj})
+
+    if not row:
+        row = mongo.delivery_availability.find_one({"delivery_partner_id": uid})
+
+    return row or {}
+
+
+def _ad_delivery_is_online(user_id):
+    row = _ad_delivery_availability(user_id)
+    return 1 if row.get("active") in [1, True, "1", "true", "True"] else 0
+
+
+def _ad_rating_summary_for_delivery(user_id):
+    uid = str(user_id)
+    uid_obj = _ad_object_id(uid)
+
+    query_items = [
+        {"delivery_partner_id": uid}
+    ]
+
+    if uid_obj:
+        query_items.append({"delivery_partner_id": uid_obj})
+
+    rows = list(mongo.delivery_ratings.find({"$or": query_items}))
+
+    count = len(rows)
+    total = 0.0
+
+    for row in rows:
+        total += _ad_safe_float(row.get("rating"))
+
+    avg = round(total / count, 1) if count else 0
+
+    return {
+        "avg": avg,
+        "count": count
+    }
+
+
+def _ad_delivery_user_base_row(user_doc):
+    uid = str(user_doc.get("_id"))
+
+    availability = _ad_delivery_availability(uid)
+    orders = _ad_delivery_orders(uid)
+    delivered_orders = [o for o in orders if _ad_is_delivered(o)]
+    rating = _ad_rating_summary_for_delivery(uid)
+
+    is_online = 1 if availability.get("active") in [1, True, "1", "true", "True"] else 0
+
+    return {
+        "id": uid,
+        "name": user_doc.get("name") or "Delivery Partner",
+        "email": user_doc.get("email") or "",
+        "phone": user_doc.get("phone") or "",
+        "email_masked": _ad_mask_email(user_doc.get("email") or ""),
+        "phone_masked": _ad_mask_phone(user_doc.get("phone") or ""),
+        "role": user_doc.get("role") or "delivery",
+        "is_active": _ad_is_active(user_doc),
+        "phone_verified": 1 if user_doc.get("phone_verified") in [1, True, "1", "true", "True"] else 0,
+        "created_at": user_doc.get("created_at") or "",
+        "created_at_display": _ad_date_display(user_doc.get("created_at")),
+        "created_at_full": _ad_datetime_display(user_doc.get("created_at")),
+
+        "zone": availability.get("zone") or availability.get("area") or "Main Zone",
+        "latitude": availability.get("latitude"),
+        "longitude": availability.get("longitude"),
+        "is_online": is_online,
+        "availability_status": "Online" if is_online else "Offline",
+        "active_since": availability.get("active_since") or "",
+        "offline_at": availability.get("offline_at") or "",
+
+        "total_orders": len(orders),
+        "total_completed_orders": len(delivered_orders),
+        "currently_assigned_orders": _ad_delivery_assigned_orders(uid),
+        "delivered_amount": _ad_money(sum(_ad_order_total(o) for o in delivered_orders)),
+        "rating": rating["avg"],
+        "rating_count": rating["count"],
+    }
+
+
+def _ad_delivery_rows():
+    delivery_users = list(
+        mongo.users.find({"role": "delivery"}).sort("created_at", -1)
+    )
+
+    rows = []
+
+    for user_doc in delivery_users:
+        rows.append(_ad_delivery_user_base_row(user_doc))
+
+    return rows
+
+
+def _ad_filter_delivery_rows(rows, search="", status="", availability=""):
+    search = (search or "").strip().lower()
+    status = (status or "").strip().lower()
+    availability = (availability or "").strip().lower()
+
+    filtered = rows
+
+    if status == "active":
+        filtered = [r for r in filtered if r.get("is_active")]
+    elif status in ["inactive", "disabled", "blocked"]:
+        filtered = [r for r in filtered if not r.get("is_active")]
+
+    if availability == "online":
+        filtered = [r for r in filtered if r.get("is_online")]
+    elif availability == "offline":
+        filtered = [r for r in filtered if not r.get("is_online")]
+
+    if search:
+        clean = []
+
+        for row in filtered:
+            haystack = " ".join([
+                str(row.get("name") or ""),
+                str(row.get("email") or ""),
+                str(row.get("phone") or ""),
+                str(row.get("zone") or ""),
+            ]).lower()
+
+            if search in haystack:
+                clean.append(row)
+
+        filtered = clean
+
+    return filtered
+
+
+def _ad_delivery_metrics(rows=None):
+    if rows is None:
+        rows = _ad_delivery_rows()
+
+    active = [r for r in rows if r.get("is_active")]
+    inactive = [r for r in rows if not r.get("is_active")]
+    online = [r for r in rows if r.get("is_online")]
+    offline = [r for r in rows if not r.get("is_online")]
+    new_joined = [r for r in rows if _ad_created_in_last_days(r.get("created_at"), 30)]
+
+    return {
+        "total": len(rows),
+        "active": len(active),
+        "inactive": len(inactive),
+        "blocked": len(inactive),
+        "online": len(online),
+        "offline": len(offline),
+        "new_joined": len(new_joined),
+        "completed_orders": sum(_ad_safe_int(r.get("total_completed_orders")) for r in rows),
+        "assigned_orders": sum(_ad_safe_int(r.get("currently_assigned_orders")) for r in rows),
+        "review_count": sum(_ad_safe_int(r.get("rating_count")) for r in rows),
+        "delivered_amount": _ad_money(sum(_ad_safe_float(r.get("delivered_amount")) for r in rows)),
+    }
+
+
+def _ad_top_deliverymen(limit=6):
+    rows = _ad_delivery_rows()
+
+    rows = sorted(
+        rows,
+        key=lambda row: (
+            _ad_safe_int(row.get("total_completed_orders")),
+            _ad_safe_float(row.get("rating")),
+            _ad_safe_int(row.get("currently_assigned_orders"))
+        ),
+        reverse=True
+    )
+
+    return rows[:limit]
+
+
+def _ad_delivery_review_rows():
+    ratings = list(
+        mongo.delivery_ratings.find({}).sort("created_at", -1)
+    )
+
+    rows = []
+
+    for rating_doc in ratings:
+        delivery_partner_id = rating_doc.get("delivery_partner_id")
+        delivery_user = None
+
+        if delivery_partner_id:
+            delivery_user = mongo.users.find_one({"_id": _ad_object_id(delivery_partner_id)})
+            if not delivery_user:
+                delivery_user = mongo.users.find_one({"_id": delivery_partner_id})
+
+        order_doc = None
+        order_id = rating_doc.get("order_id")
+
+        if order_id:
+            order_doc = mongo.orders.find_one({"_id": order_id})
+
+            if not order_doc:
+                order_obj = _ad_object_id(order_id)
+                if order_obj:
+                    order_doc = mongo.orders.find_one({"_id": order_obj})
+
+        customer_user = None
+        customer_id = rating_doc.get("user_id") or (order_doc.get("user_id") if order_doc else "")
+
+        if customer_id:
+            customer_user = mongo.users.find_one({"_id": _ad_object_id(customer_id)})
+            if not customer_user:
+                customer_user = mongo.users.find_one({"_id": customer_id})
+
+        rows.append({
+            "id": str(rating_doc.get("_id")),
+            "order_id": str(order_id or ""),
+            "order_ref": str(order_doc.get("_id"))[-6:] if order_doc else str(order_id or "")[-6:],
+            "delivery_partner_id": str(delivery_partner_id or ""),
+            "delivery_name": delivery_user.get("name") if delivery_user else rating_doc.get("delivery_name") or "Delivery Partner",
+            "delivery_phone": delivery_user.get("phone") if delivery_user else "",
+            "delivery_phone_masked": _ad_mask_phone(delivery_user.get("phone") if delivery_user else ""),
+            "customer_name": customer_user.get("name") if customer_user else rating_doc.get("customer_name") or "Customer",
+            "rating": _ad_safe_float(rating_doc.get("rating")),
+            "review": rating_doc.get("comment") or rating_doc.get("review") or rating_doc.get("message") or "",
+            "created_at": rating_doc.get("created_at") or "",
+            "created_at_display": _ad_datetime_display(rating_doc.get("created_at")),
+            "raw": rating_doc,
+        })
+
+    return rows
+
+
+def _ad_filter_review_rows(rows, delivery_id="", sort_by="", search=""):
+    delivery_id = (delivery_id or "").strip()
+    sort_by = (sort_by or "").strip()
+    search = (search or "").strip().lower()
+
+    filtered = rows
+
+    if delivery_id:
+        filtered = [
+            r for r in filtered
+            if str(r.get("delivery_partner_id")) == str(delivery_id)
+        ]
+
+    if search:
+        clean = []
+
+        for row in filtered:
+            haystack = " ".join([
+                str(row.get("order_id") or ""),
+                str(row.get("order_ref") or ""),
+                str(row.get("delivery_name") or ""),
+                str(row.get("customer_name") or ""),
+                str(row.get("review") or ""),
+            ]).lower()
+
+            if search in haystack:
+                clean.append(row)
+
+        filtered = clean
+
+    if sort_by == "rating_high":
+        filtered = sorted(filtered, key=lambda r: _ad_safe_float(r.get("rating")), reverse=True)
+    elif sort_by == "rating_low":
+        filtered = sorted(filtered, key=lambda r: _ad_safe_float(r.get("rating")))
+    else:
+        filtered = sorted(
+            filtered,
+            key=lambda r: _ad_parse_date(r.get("created_at")) or datetime.min,
+            reverse=True
+        )
+
+    return filtered
+
+
+def _ad_delivery_review_metrics(rows=None):
+    if rows is None:
+        rows = _ad_delivery_review_rows()
+
+    total = len(rows)
+    avg = round(sum(_ad_safe_float(r.get("rating")) for r in rows) / total, 1) if total else 0
+
+    five_star = sum(1 for r in rows if _ad_safe_float(r.get("rating")) >= 5)
+    positive = sum(1 for r in rows if _ad_safe_float(r.get("rating")) >= 4)
+
+    return {
+        "total": total,
+        "avg_rating": avg,
+        "five_star": five_star,
+        "positive": positive,
+    }
+
+
+def _ad_delivery_csv_response(rows, filename):
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "SL",
+        "User ID",
+        "Name",
+        "Email",
+        "Phone",
+        "Zone",
+        "Completed Orders",
+        "Assigned Orders",
+        "Availability",
+        "Account Status",
+        "Rating",
+        "Reviews",
+        "Created At"
+    ])
+
+    for idx, row in enumerate(rows, start=1):
+        writer.writerow([
+            idx,
+            row.get("id", ""),
+            row.get("name", ""),
+            row.get("email", ""),
+            row.get("phone", ""),
+            row.get("zone", ""),
+            row.get("total_completed_orders", 0),
+            row.get("currently_assigned_orders", 0),
+            row.get("availability_status", ""),
+            "Active" if row.get("is_active") else "Disabled",
+            row.get("rating", 0),
+            row.get("rating_count", 0),
+            row.get("created_at", "")
+        ])
+
+    data = output.getvalue().encode("utf-8")
+
+    return send_file(
+        io.BytesIO(data),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+def _ad_delivery_reviews_csv_response(rows, filename):
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "SL",
+        "Review ID",
+        "Order ID",
+        "Deliveryman",
+        "Customer",
+        "Rating",
+        "Review",
+        "Created At"
+    ])
+
+    for idx, row in enumerate(rows, start=1):
+        writer.writerow([
+            idx,
+            row.get("id", ""),
+            row.get("order_id", ""),
+            row.get("delivery_name", ""),
+            row.get("customer_name", ""),
+            row.get("rating", 0),
+            row.get("review", ""),
+            row.get("created_at", "")
+        ])
+
+    data = output.getvalue().encode("utf-8")
+
+    return send_file(
+        io.BytesIO(data),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+@app.route('/admin/delivery')
+@login_required(role='admin')
+def admin_delivery_overview():
+    delivery_rows = _ad_delivery_rows()
+    metrics = _ad_delivery_metrics(delivery_rows)
+    top_deliverymen = _ad_top_deliverymen(limit=6)
+
+    active_deliverymen = [
+        row for row in delivery_rows
+        if row.get("is_active") and row.get("is_online")
+    ]
+
+    recent_deliverymen = delivery_rows[:8]
+
+    return render_template(
+        "admin_delivery_overview.html",
+        user=current_user(),
+        active_group="delivery",
+        active_page="delivery_overview",
+        metrics=metrics,
+        delivery_rows=delivery_rows,
+        active_deliverymen=active_deliverymen,
+        top_deliverymen=top_deliverymen,
+        recent_deliverymen=recent_deliverymen,
+    )
+
+
+@app.route('/admin/create-delivery', methods=['GET', 'POST'])
 @login_required(role='admin')
 def admin_create_delivery():
     if request.method == 'POST':
@@ -5297,7 +5909,7 @@ def admin_create_delivery():
             return redirect(url_for('admin_create_delivery'))
 
         try:
-            mongo.users.insert_one({
+            result = mongo.users.insert_one({
                 "name": name,
                 "email": email,
                 "phone": phone,
@@ -5307,6 +5919,20 @@ def admin_create_delivery():
                 "is_active": 1,
                 "created_at": datetime.utcnow().isoformat()
             })
+
+            mongo.delivery_availability.update_one(
+                {"user_id": str(result.inserted_id)},
+                {
+                    "$set": {
+                        "user_id": str(result.inserted_id),
+                        "active": False,
+                        "zone": "Main Zone",
+                        "created_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                },
+                upsert=True
+            )
 
         except DuplicateKeyError:
             flash("This email or phone is already registered. Please use different details.", "error")
@@ -5318,7 +5944,116 @@ def admin_create_delivery():
         flash("Delivery partner created.", "success")
         return redirect(url_for('admin_create_delivery'))
 
-    return render_template('admin_create_delivery.html', user=current_user())
+    return render_template(
+        'admin_create_delivery.html',
+        user=current_user(),
+        active_group="delivery",
+        active_page="create_delivery_person"
+    )
+
+
+@app.route('/admin/delivery/list')
+@login_required(role='admin')
+def admin_delivery_list():
+    search = request.args.get("search", "").strip()
+    status = request.args.get("status", "").strip()
+    availability = request.args.get("availability", "").strip()
+
+    rows = _ad_delivery_rows()
+    rows = _ad_filter_delivery_rows(
+        rows,
+        search=search,
+        status=status,
+        availability=availability
+    )
+
+    metrics = _ad_delivery_metrics(rows)
+
+    return render_template(
+        "admin_delivery_list.html",
+        user=current_user(),
+        active_group="delivery",
+        active_page="delivery_list",
+        delivery_users=rows,
+        deliverymen=rows,
+        metrics=metrics,
+        search=search,
+        status=status,
+        availability=availability,
+    )
+
+
+@app.route('/admin/delivery/reviews')
+@login_required(role='admin')
+def admin_delivery_reviews():
+    delivery_id = request.args.get("delivery_id", "").strip()
+    sort_by = request.args.get("sort_by", "").strip()
+    search = request.args.get("search", "").strip()
+
+    delivery_options = _ad_delivery_rows()
+
+    rows = _ad_delivery_review_rows()
+    rows = _ad_filter_review_rows(
+        rows,
+        delivery_id=delivery_id,
+        sort_by=sort_by,
+        search=search
+    )
+
+    metrics = _ad_delivery_review_metrics(rows)
+
+    return render_template(
+        "admin_delivery_reviews.html",
+        user=current_user(),
+        active_group="delivery",
+        active_page="delivery_reviews",
+        reviews=rows,
+        delivery_reviews=rows,
+        delivery_options=delivery_options,
+        metrics=metrics,
+        delivery_id=delivery_id,
+        sort_by=sort_by,
+        search=search,
+    )
+
+
+@app.route('/admin/delivery/export.csv')
+@login_required(role='admin')
+def admin_delivery_export_csv():
+    search = request.args.get("search", "").strip()
+    status = request.args.get("status", "").strip()
+    availability = request.args.get("availability", "").strip()
+
+    rows = _ad_delivery_rows()
+    rows = _ad_filter_delivery_rows(
+        rows,
+        search=search,
+        status=status,
+        availability=availability
+    )
+
+    return _ad_delivery_csv_response(rows, "delivery_users.csv")
+
+
+@app.route('/admin/delivery/reviews/export.csv')
+@login_required(role='admin')
+def admin_delivery_reviews_export_csv():
+    delivery_id = request.args.get("delivery_id", "").strip()
+    sort_by = request.args.get("sort_by", "").strip()
+    search = request.args.get("search", "").strip()
+
+    rows = _ad_delivery_review_rows()
+    rows = _ad_filter_review_rows(
+        rows,
+        delivery_id=delivery_id,
+        sort_by=sort_by,
+        search=search
+    )
+
+    return _ad_delivery_reviews_csv_response(rows, "delivery_reviews.csv")
+
+
+
 
 # ---- Enable/Disable/Delete/Export per-user ----
 @app.route('/admin/users/<uid>/enable', methods=['POST'])
