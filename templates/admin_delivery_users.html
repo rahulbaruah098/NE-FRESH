@@ -1,0 +1,1207 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "users" %}
+{% set active_page = "delivery_users" %}
+
+{% block title %}Delivery Users | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Delivery Users{% endblock %}
+{% block page_subtitle %}Track delivery partners, availability, completed orders and account actions.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-delivery-users-page {
+    --du-green: var(--nf-green, #00A859);
+    --du-green-dark: var(--nf-green-dark, #008A48);
+    --du-green-deep: var(--nf-green-deep, #075C3B);
+    --du-green-soft: var(--nf-green-soft, #E9FFF3);
+    --du-green-soft-2: var(--nf-green-soft-2, #F3FFF8);
+    --du-orange: var(--nf-orange, #FFB84D);
+    --du-orange-soft: var(--nf-orange-soft, #FFF7E8);
+    --du-red: var(--nf-red, #EF4444);
+    --du-blue: var(--nf-blue, #0284C7);
+    --du-bg: var(--nf-bg, #F8FFFB);
+    --du-card: var(--nf-surface, #FFFFFF);
+    --du-card-2: var(--nf-surface-2, #F2FBF6);
+    --du-text: var(--nf-text, #1F332A);
+    --du-muted: var(--nf-muted, #66756D);
+    --du-muted-2: var(--nf-muted-2, #8A9890);
+    --du-line: var(--nf-line, #DDECE4);
+    --du-shadow: var(--nf-shadow, 0 14px 36px rgba(17, 64, 38, .08));
+    --du-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17, 64, 38, .06));
+    display: grid;
+    gap: 20px;
+    animation: duFadeIn .45s ease both;
+  }
+
+  .nf-delivery-users-page,
+  .nf-delivery-users-page * {
+    box-sizing: border-box;
+  }
+
+  @keyframes duFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes duRide {
+    0%, 100% { transform: translateX(0) translateY(0); }
+    50% { transform: translateX(8px) translateY(-4px); }
+  }
+
+  @keyframes duPing {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 168, 89, .26); }
+    50% { box-shadow: 0 0 0 10px rgba(0, 168, 89, 0); }
+  }
+
+  .du-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid var(--du-line);
+    background:
+      radial-gradient(circle at 12% 12%, rgba(2, 132, 199, .14), transparent 32%),
+      radial-gradient(circle at 88% 18%, rgba(0, 168, 89, .16), transparent 30%),
+      linear-gradient(135deg, var(--du-card), var(--du-card-2));
+    box-shadow: var(--du-shadow);
+    padding: clamp(18px, 3vw, 28px);
+  }
+
+  .du-hero::before {
+    content: "";
+    position: absolute;
+    width: 240px;
+    height: 240px;
+    right: -92px;
+    bottom: -110px;
+    border-radius: 999px;
+    background: rgba(2, 132, 199, .10);
+  }
+
+  .du-hero-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .du-kicker {
+    width: fit-content;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    background: #E0F2FE;
+    border: 1px solid rgba(2, 132, 199, .18);
+    color: #0369A1;
+    padding: 6px 12px;
+    font-size: .76rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .du-hero h2 {
+    margin: 12px 0 8px;
+    color: var(--du-text);
+    font-size: clamp(1.45rem, 3vw, 2.25rem);
+    line-height: 1.08;
+    font-weight: 900;
+    letter-spacing: -.045em;
+  }
+
+  .du-hero p {
+    margin: 0;
+    max-width: 860px;
+    color: var(--du-muted);
+    font-size: .96rem;
+    font-weight: 650;
+    line-height: 1.65;
+  }
+
+  .du-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .du-btn {
+    min-height: 40px;
+    border: 1px solid var(--du-line);
+    border-radius: 14px;
+    background: var(--du-card);
+    color: var(--du-text);
+    padding: 9px 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: .82rem;
+    line-height: 1.1;
+    font-weight: 900;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+    white-space: nowrap;
+  }
+
+  .du-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--du-shadow-soft);
+    border-color: rgba(0, 168, 89, .34);
+  }
+
+  .du-btn-primary {
+    background: var(--du-green);
+    color: #fff;
+    border-color: var(--du-green);
+  }
+
+  .du-btn-primary:hover {
+    background: var(--du-green-dark);
+    border-color: var(--du-green-dark);
+  }
+
+  .du-btn-soft {
+    background: var(--du-green-soft);
+    color: var(--du-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .du-btn-blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .du-btn-orange {
+    background: var(--du-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .28);
+  }
+
+  .du-btn-danger {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .22);
+  }
+
+  .du-hero-visual {
+    width: 164px;
+    min-height: 134px;
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 34%),
+      linear-gradient(135deg, var(--du-blue), var(--du-green));
+    display: grid;
+    place-items: center;
+    color: #fff;
+    box-shadow: 0 24px 55px rgba(2, 132, 199, .22);
+    animation: duRide 4s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .du-hero-visual span {
+    font-size: 3rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .du-hero-visual small {
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    min-height: 26px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.20);
+    padding: 5px 9px;
+    font-size: .72rem;
+    font-weight: 900;
+  }
+
+  .du-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .du-kpi {
+    min-height: 118px;
+    border-radius: 20px;
+    background: var(--du-card);
+    border: 1px solid var(--du-line);
+    box-shadow: var(--du-shadow-soft);
+    padding: 16px;
+    display: grid;
+    align-content: space-between;
+    position: relative;
+    overflow: hidden;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  }
+
+  .du-kpi:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--du-shadow);
+    border-color: rgba(2, 132, 199, .24);
+  }
+
+  .du-kpi::after {
+    content: "";
+    position: absolute;
+    right: -34px;
+    top: -42px;
+    width: 96px;
+    height: 96px;
+    border-radius: 999px;
+    background: rgba(2, 132, 199, .08);
+  }
+
+  .du-kpi.green::after { background: rgba(0, 168, 89, .10); }
+  .du-kpi.orange::after { background: rgba(255, 184, 77, .16); }
+  .du-kpi.red::after { background: rgba(239, 68, 68, .10); }
+
+  .du-kpi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: #E0F2FE;
+    color: var(--du-blue);
+    border: 1px solid rgba(2, 132, 199, .16);
+    font-size: 1.2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .du-kpi.green .du-kpi-icon {
+    background: var(--du-green-soft);
+    color: var(--du-green-dark);
+    border-color: rgba(0, 168, 89, .16);
+  }
+
+  .du-kpi.orange .du-kpi-icon {
+    background: var(--du-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .26);
+  }
+
+  .du-kpi.red .du-kpi-icon {
+    background: #FFF1F2;
+    color: var(--du-red);
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .du-kpi strong {
+    display: block;
+    color: var(--du-text);
+    font-size: 1.45rem;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1;
+    margin-top: 14px;
+  }
+
+  .du-kpi span {
+    display: block;
+    color: var(--du-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 850;
+    margin-top: 8px;
+  }
+
+  .du-filter-card,
+  .du-table-card {
+    border-radius: 22px;
+    background: var(--du-card);
+    border: 1px solid var(--du-line);
+    box-shadow: var(--du-shadow-soft);
+    overflow: hidden;
+  }
+
+  .du-filter-head,
+  .du-table-head {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--du-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    background:
+      radial-gradient(circle at top left, rgba(2, 132, 199, .07), transparent 34%),
+      var(--du-card);
+  }
+
+  .du-filter-title,
+  .du-table-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .du-head-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: #E0F2FE;
+    color: var(--du-blue);
+    border: 1px solid rgba(2, 132, 199, .18);
+    font-size: 1.18rem;
+  }
+
+  .du-filter-title h3,
+  .du-table-title h3 {
+    margin: 0;
+    color: var(--du-text);
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: -.02em;
+  }
+
+  .du-filter-title p,
+  .du-table-title p {
+    margin: 4px 0 0;
+    color: var(--du-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .du-count-pill {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 999px;
+    padding: 5px 11px;
+    background: #E0F2FE;
+    color: #0369A1;
+    border: 1px solid rgba(2, 132, 199, .16);
+    font-size: .76rem;
+    font-weight: 900;
+  }
+
+  .du-filter-form {
+    padding: 18px;
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 180px 180px auto auto;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .du-field {
+    display: grid;
+    gap: 7px;
+  }
+
+  .du-field label {
+    color: var(--du-muted);
+    font-size: .74rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .du-field input,
+  .du-field select {
+    width: 100%;
+    height: 44px;
+    border: 1px solid var(--du-line);
+    border-radius: 14px;
+    background: var(--du-card-2);
+    color: var(--du-text);
+    padding: 0 13px;
+    outline: none;
+    font-size: .9rem;
+    font-weight: 750;
+    transition: .22s ease;
+  }
+
+  .du-field input:focus,
+  .du-field select:focus {
+    border-color: rgba(2, 132, 199, .42);
+    box-shadow: 0 0 0 4px rgba(2, 132, 199, .10);
+    background: var(--du-card);
+  }
+
+  .du-table-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    align-items: center;
+  }
+
+  .du-table-shell {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .du-table {
+    width: 100%;
+    min-width: 1240px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .du-table th {
+    padding: 14px 15px;
+    background: var(--du-green-deep);
+    color: #fff;
+    text-align: left;
+    font-size: .72rem;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: .065em;
+    font-weight: 900;
+    border-bottom: 1px solid rgba(255,255,255,.12);
+    white-space: nowrap;
+  }
+
+  .du-table td {
+    padding: 16px 15px;
+    border-bottom: 1px solid var(--du-line);
+    color: var(--du-text);
+    vertical-align: middle;
+    font-size: .88rem;
+    font-weight: 650;
+  }
+
+  .du-table tbody tr {
+    transition: background .2s ease;
+  }
+
+  .du-table tbody tr:hover {
+    background: var(--du-green-soft-2);
+  }
+
+  .du-person {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-width: 260px;
+  }
+
+  .du-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 30%),
+      linear-gradient(135deg, var(--du-blue), var(--du-green));
+    color: #fff;
+    font-size: 1.55rem;
+    box-shadow: 0 12px 24px rgba(2, 132, 199, .18);
+    animation: duPing 3s ease-in-out infinite;
+  }
+
+  .du-person strong {
+    display: block;
+    color: var(--du-text);
+    font-size: .95rem;
+    line-height: 1.25;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .du-person span {
+    display: block;
+    color: var(--du-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  .du-contact {
+    min-width: 230px;
+  }
+
+  .du-contact strong {
+    display: block;
+    color: var(--du-text);
+    font-size: .9rem;
+    font-weight: 900;
+  }
+
+  .du-contact span {
+    display: block;
+    color: var(--du-muted);
+    font-size: .78rem;
+    line-height: 1.4;
+    font-weight: 700;
+    margin-top: 3px;
+  }
+
+  .du-metric-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .du-chip {
+    min-height: 28px;
+    border-radius: 999px;
+    padding: 5px 9px;
+    background: var(--du-card-2);
+    border: 1px solid var(--du-line);
+    color: var(--du-text);
+    font-size: .74rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .du-chip.green {
+    background: var(--du-green-soft);
+    color: var(--du-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .du-chip.blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .16);
+  }
+
+  .du-chip.orange {
+    background: var(--du-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .24);
+  }
+
+  .du-chip.red {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .du-status-pill {
+    min-height: 30px;
+    border-radius: 999px;
+    padding: 6px 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: .72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+
+  .du-status-pill::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+  }
+
+  .du-status-pill.active,
+  .du-status-pill.online {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5, 150, 105, .18);
+  }
+
+  .du-status-pill.active::before,
+  .du-status-pill.online::before {
+    background: #10B981;
+  }
+
+  .du-status-pill.disabled,
+  .du-status-pill.offline {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .du-status-pill.disabled::before,
+  .du-status-pill.offline::before {
+    background: var(--du-red);
+  }
+
+  .du-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 260px;
+  }
+
+  .du-actions form {
+    display: inline-flex;
+  }
+
+  .du-icon-btn {
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--du-line);
+    border-radius: 13px;
+    background: var(--du-card);
+    color: var(--du-text);
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: .22s ease;
+    font-size: 1rem;
+  }
+
+  .du-icon-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: var(--du-shadow-soft);
+    border-color: rgba(2, 132, 199, .32);
+  }
+
+  .du-icon-btn.green {
+    background: var(--du-green-soft);
+    color: var(--du-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .du-icon-btn.blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .du-icon-btn.orange {
+    background: var(--du-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .24);
+  }
+
+  .du-icon-btn.red {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .du-empty {
+    padding: 32px 18px;
+    text-align: center;
+    color: var(--du-muted);
+    font-size: .92rem;
+    font-weight: 850;
+  }
+
+  .du-mobile-cards {
+    display: none;
+    gap: 14px;
+  }
+
+  .du-mobile-card {
+    border: 1px solid var(--du-line);
+    border-radius: 20px;
+    background: var(--du-card);
+    box-shadow: var(--du-shadow-soft);
+    padding: 16px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .du-mobile-top {
+    display: grid;
+    grid-template-columns: 54px 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .du-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .du-mobile-stat {
+    border-radius: 14px;
+    background: var(--du-card-2);
+    border: 1px solid var(--du-line);
+    padding: 11px;
+  }
+
+  .du-mobile-stat span {
+    display: block;
+    color: var(--du-muted);
+    font-size: .72rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .du-mobile-stat strong {
+    display: block;
+    color: var(--du-text);
+    font-size: .95rem;
+    font-weight: 900;
+    margin-top: 5px;
+  }
+
+  .du-mobile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .du-mobile-actions form {
+    display: inline-flex;
+  }
+
+  @media (max-width: 1280px) {
+    .du-kpi-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .du-filter-form {
+      grid-template-columns: minmax(220px, 1fr) 180px 180px auto;
+    }
+  }
+
+  @media (max-width: 920px) {
+    .du-hero-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .du-hero-visual {
+      display: none;
+    }
+
+    .du-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .du-filter-form {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .du-filter-form .du-btn {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .nf-delivery-users-page {
+      gap: 16px;
+    }
+
+    .du-hero,
+    .du-filter-card,
+    .du-table-card {
+      border-radius: 18px;
+    }
+
+    .du-kpi-grid,
+    .du-filter-form {
+      grid-template-columns: 1fr;
+    }
+
+    .du-table-shell {
+      display: none;
+    }
+
+    .du-mobile-cards {
+      display: grid;
+      padding: 14px;
+    }
+
+    .du-table-actions {
+      width: 100%;
+    }
+
+    .du-table-actions .du-btn {
+      flex: 1;
+    }
+
+    .du-hero-actions .du-btn {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nf-delivery-users-page,
+    .nf-delivery-users-page *,
+    .nf-delivery-users-page *::before,
+    .nf-delivery-users-page *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nf-delivery-users-page">
+
+  <div class="du-hero">
+    <div class="du-hero-inner">
+      <div>
+        <span class="du-kicker">🛵 Delivery User Management</span>
+        <h2>Delivery Users</h2>
+        <p>
+          Monitor delivery partners, account status, online availability, assigned orders, completed deliveries and exports.
+          Backend safe-delete protection remains active for delivery users with order history.
+        </p>
+
+        <div class="du-hero-actions">
+          <a href="{{ url_for('admin_create_delivery') }}" class="du-btn du-btn-primary">➕ Create Delivery Person</a>
+          <a href="{{ url_for('admin_users_export_csv', role='delivery') }}" class="du-btn du-btn-soft">⬇ Export Delivery Users</a>
+          <a href="{{ url_for('admin_users') }}" class="du-btn du-btn-blue">📊 Users Overview</a>
+        </div>
+      </div>
+
+      <div class="du-hero-visual" aria-hidden="true">
+        <span>🛵</span>
+        <small>{{ metrics.total|default(0) }} Delivery</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="du-kpi-grid">
+    <div class="du-kpi">
+      <div class="du-kpi-icon">🛵</div>
+      <div>
+        <strong>{{ metrics.total|default(0) }}</strong>
+        <span>Total Delivery Users</span>
+      </div>
+    </div>
+
+    <div class="du-kpi green">
+      <div class="du-kpi-icon">✅</div>
+      <div>
+        <strong>{{ metrics.active|default(0) }}</strong>
+        <span>Active Delivery Users</span>
+      </div>
+    </div>
+
+    <div class="du-kpi red">
+      <div class="du-kpi-icon">🚫</div>
+      <div>
+        <strong>{{ metrics.disabled|default(0) }}</strong>
+        <span>Disabled Delivery Users</span>
+      </div>
+    </div>
+
+    <div class="du-kpi green">
+      <div class="du-kpi-icon">📡</div>
+      <div>
+        <strong>{{ metrics.online|default(0) }}</strong>
+        <span>Currently Online</span>
+      </div>
+    </div>
+
+    <div class="du-kpi orange">
+      <div class="du-kpi-icon">📦</div>
+      <div>
+        <strong>{{ metrics.assigned_orders|default(0) }}</strong>
+        <span>Assigned Active Orders</span>
+      </div>
+    </div>
+
+    <div class="du-kpi">
+      <div class="du-kpi-icon">🏁</div>
+      <div>
+        <strong>{{ metrics.completed_orders|default(0) }}</strong>
+        <span>Completed Orders</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="du-filter-card" aria-label="Delivery user filters">
+    <div class="du-filter-head">
+      <div class="du-filter-title">
+        <div class="du-head-icon">🔎</div>
+        <div>
+          <h3>Search & Filter</h3>
+          <p>Filter delivery users by account status and live availability.</p>
+        </div>
+      </div>
+    </div>
+
+    <form method="get" action="{{ url_for('admin_delivery_users') }}" class="du-filter-form">
+      <div class="du-field">
+        <label for="search">Search Delivery Users</label>
+        <input
+          type="search"
+          id="search"
+          name="search"
+          value="{{ search or '' }}"
+          placeholder="Search by name, email, phone or zone..."
+        >
+      </div>
+
+      <div class="du-field">
+        <label for="status">Account Status</label>
+        <select id="status" name="status">
+          <option value="" {% if not status %}selected{% endif %}>All Status</option>
+          <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+          <option value="inactive" {% if status in ['inactive','disabled'] %}selected{% endif %}>Disabled</option>
+        </select>
+      </div>
+
+      <div class="du-field">
+        <label for="availability">Availability</label>
+        <select id="availability" name="availability">
+          <option value="" {% if not availability %}selected{% endif %}>All Availability</option>
+          <option value="online" {% if availability == 'online' %}selected{% endif %}>Online</option>
+          <option value="offline" {% if availability == 'offline' %}selected{% endif %}>Offline</option>
+        </select>
+      </div>
+
+      <button type="submit" class="du-btn du-btn-primary">Filter</button>
+      <a href="{{ url_for('admin_delivery_users') }}" class="du-btn">Reset</a>
+    </form>
+  </section>
+
+  <section class="du-table-card" aria-label="Delivery users table">
+    <div class="du-table-head">
+      <div class="du-table-title">
+        <div class="du-head-icon">📋</div>
+        <div>
+          <h3>Deliveryman List</h3>
+          <p>Review contact info, zone, completed orders, availability, status and actions.</p>
+        </div>
+      </div>
+
+      <div class="du-table-actions">
+        <span class="du-count-pill">Total: {{ delivery_users|length }}</span>
+        <a href="{{ url_for('admin_users_export_csv', role='delivery') }}" class="du-btn du-btn-soft">⬇ Export</a>
+        <a href="{{ url_for('admin_create_delivery') }}" class="du-btn du-btn-primary">➕ Add New</a>
+      </div>
+    </div>
+
+    <div class="du-table-shell">
+      <table class="du-table">
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Name</th>
+            <th>Contact Info</th>
+            <th>Zone</th>
+            <th>Total Completed Orders</th>
+            <th>Availability Status</th>
+            <th>Status</th>
+            <th>Rating</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for d in delivery_users %}
+            <tr>
+              <td>{{ loop.index }}</td>
+
+              <td>
+                <div class="du-person">
+                  <div class="du-avatar">🛵</div>
+                  <div>
+                    <strong>{{ d.name }}</strong>
+                    <span>
+                      {{ d.currently_assigned_orders|default(0) }} assigned orders
+                    </span>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <div class="du-contact">
+                  <strong>{{ d.email or 'No email' }}</strong>
+                  <span>{{ d.phone or 'No phone' }}</span>
+                </div>
+              </td>
+
+              <td>
+                <span class="du-chip blue">{{ d.zone or 'Default Zone' }}</span>
+              </td>
+
+              <td>
+                <div class="du-metric-inline">
+                  <span class="du-chip green">{{ d.total_completed_orders|default(0) }} Completed</span>
+                  <span class="du-chip">{{ d.total_orders|default(0) }} Total</span>
+                </div>
+              </td>
+
+              <td>
+                {% if d.is_online %}
+                  <span class="du-status-pill online">Online</span>
+                {% else %}
+                  <span class="du-status-pill offline">Offline</span>
+                {% endif %}
+              </td>
+
+              <td>
+                {% if d.is_active %}
+                  <span class="du-status-pill active">Active</span>
+                {% else %}
+                  <span class="du-status-pill disabled">Disabled</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <div class="du-metric-inline">
+                  <span class="du-chip orange">⭐ {{ d.rating|default(0) }}</span>
+                  <span class="du-chip">{{ d.rating_count|default(0) }} Reviews</span>
+                </div>
+              </td>
+
+              <td>
+                <div class="du-actions">
+                  <a
+                    href="{{ url_for('admin_user_transactions_csv', uid=d.id) }}"
+                    class="du-icon-btn blue"
+                    title="Download transactions CSV"
+                    target="_blank"
+                  >📄</a>
+
+                  <a
+                    href="{{ url_for('admin_user_export_zip', uid=d.id) }}"
+                    class="du-icon-btn green"
+                    title="Download full export ZIP"
+                  >📦</a>
+
+                  {% if d.is_active %}
+                    <form method="post" action="{{ url_for('admin_user_disable', uid=d.id) }}">
+                      <button type="submit" class="du-icon-btn orange" title="Disable delivery user">⏸</button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="{{ url_for('admin_user_enable', uid=d.id) }}">
+                      <button type="submit" class="du-icon-btn green" title="Activate delivery user">▶</button>
+                    </form>
+                  {% endif %}
+
+                  <form
+                    method="post"
+                    action="{{ url_for('admin_user_delete', uid=d.id) }}"
+                    onsubmit="return confirmDeliveryUserDelete('{{ d.name|e }}')"
+                  >
+                    <button type="submit" class="du-icon-btn red" title="Safe delete delivery user">🗑</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="9" class="du-empty">No delivery users found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="du-mobile-cards">
+      {% for d in delivery_users %}
+        <article class="du-mobile-card">
+          <div class="du-mobile-top">
+            <div class="du-avatar">🛵</div>
+            <div class="du-person" style="display:block;min-width:0;">
+              <strong>{{ d.name }}</strong>
+              <span>{{ d.email or 'No email' }}</span>
+              <span>{{ d.phone or 'No phone' }}</span>
+            </div>
+          </div>
+
+          <div class="du-mobile-grid">
+            <div class="du-mobile-stat">
+              <span>Zone</span>
+              <strong>{{ d.zone or 'Default Zone' }}</strong>
+            </div>
+            <div class="du-mobile-stat">
+              <span>Completed</span>
+              <strong>{{ d.total_completed_orders|default(0) }}</strong>
+            </div>
+            <div class="du-mobile-stat">
+              <span>Assigned</span>
+              <strong>{{ d.currently_assigned_orders|default(0) }}</strong>
+            </div>
+            <div class="du-mobile-stat">
+              <span>Rating</span>
+              <strong>⭐ {{ d.rating|default(0) }}</strong>
+            </div>
+          </div>
+
+          <div class="du-metric-inline">
+            {% if d.is_online %}
+              <span class="du-status-pill online">Online</span>
+            {% else %}
+              <span class="du-status-pill offline">Offline</span>
+            {% endif %}
+
+            {% if d.is_active %}
+              <span class="du-status-pill active">Active</span>
+            {% else %}
+              <span class="du-status-pill disabled">Disabled</span>
+            {% endif %}
+          </div>
+
+          <div class="du-mobile-actions">
+            <a href="{{ url_for('admin_user_transactions_csv', uid=d.id) }}" class="du-btn du-btn-blue" target="_blank">CSV</a>
+            <a href="{{ url_for('admin_user_export_zip', uid=d.id) }}" class="du-btn du-btn-soft">ZIP</a>
+
+            {% if d.is_active %}
+              <form method="post" action="{{ url_for('admin_user_disable', uid=d.id) }}">
+                <button type="submit" class="du-btn du-btn-orange">Disable</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('admin_user_enable', uid=d.id) }}">
+                <button type="submit" class="du-btn du-btn-primary">Activate</button>
+              </form>
+            {% endif %}
+
+            <form
+              method="post"
+              action="{{ url_for('admin_user_delete', uid=d.id) }}"
+              onsubmit="return confirmDeliveryUserDelete('{{ d.name|e }}')"
+            >
+              <button type="submit" class="du-btn du-btn-danger">Delete</button>
+            </form>
+          </div>
+        </article>
+      {% else %}
+        <div class="du-empty">No delivery users found.</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  window.confirmDeliveryUserDelete = function (name) {
+    return confirm(
+      `Delete delivery user "${name}"?\n\nThis will only hard-delete if there is no delivery/order history. If history exists, the backend will safely disable the account instead.`
+    );
+  };
+
+  const rows = document.querySelectorAll('.du-table tbody tr');
+  rows.forEach(function (row, index) {
+    row.style.opacity = '0';
+    row.style.transform = 'translateY(8px)';
+
+    setTimeout(function () {
+      row.style.transition = 'opacity .32s ease, transform .32s ease, background .2s ease';
+      row.style.opacity = '1';
+      row.style.transform = 'translateY(0)';
+    }, Math.min(index * 45, 420));
+  });
+
+  const cards = document.querySelectorAll('.du-mobile-card, .du-kpi');
+  cards.forEach(function (card, index) {
+    card.style.animationDelay = `${Math.min(index * 45, 350)}ms`;
+  });
+})();
+</script>
+{% endblock %}

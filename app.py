@@ -200,7 +200,6 @@ def _get_float_or_none(value):
 
 
 
-
 def _driver_distance_to_store_km(order_doc, availability_doc):
     driver_lat = _get_float_or_none(availability_doc.get("latitude"))
     driver_lng = _get_float_or_none(availability_doc.get("longitude"))
@@ -4980,6 +4979,7 @@ def admin_transactions_csv():
         download_name="transactions.csv"
     )
 
+
 @app.route('/admin/users/<uid>/transactions.csv')
 @login_required(role='admin')
 def admin_user_transactions_csv(uid):
@@ -5037,6 +5037,7 @@ def admin_user_transactions_csv(uid):
         download_name=f"user_{uid_str}_transactions.csv"
     )
 
+
 @app.route('/admin/users/<uid>/export', methods=['GET'])
 @login_required(role='admin')
 def admin_user_export(uid):
@@ -5052,10 +5053,12 @@ def admin_user_export(uid):
     fn = f"user_{uid}_export_{datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')}.zip"
     return send_file(BytesIO(data), mimetype='application/zip', as_attachment=True, download_name=fn)
 
+
 @app.route('/admin/users/<uid>/export.zip', methods=['GET'])
 @login_required(role='admin')
 def admin_user_export_zip(uid):
     return admin_user_export(uid)
+
 
 @app.route('/admin/users/<uid>/delete-hard', methods=['POST'])
 @login_required(role='admin')
@@ -5072,6 +5075,7 @@ def admin_user_delete_hard(uid):
     except Exception as e:
         flash(f'Hard delete failed: {e}','danger')
     return redirect(request.referrer or url_for('admin_users'))
+
 
 @app.route('/admin/complaints')
 @login_required(role='admin')
@@ -5090,17 +5094,833 @@ def admin_complaint_set_status(cid):
         flash(f'Failed to update: {e}','danger')
     return redirect(url_for('admin_complaints'))
 
+# =========================================================
+# ADMIN USER MANAGEMENT HELPERS + ROUTES
+# =========================================================
+
+def _au_now():
+    return datetime.utcnow()
+
+
+def _au_iso_now():
+    return datetime.utcnow().isoformat()
+
+
+def _au_safe_float(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return default
+        return float(value)
+    except Exception:
+        return default
+
+
+def _au_safe_int(value, default=0):
+    try:
+        if value is None or str(value).strip() == "":
+            return default
+        return int(value)
+    except Exception:
+        return default
+
+
+def _au_money(value):
+    return round(_au_safe_float(value, 0), 2)
+
+
+def _au_object_id(value):
+    try:
+        return ObjectId(str(value))
+    except Exception:
+        return None
+
+
+def _au_is_active(doc):
+    return 1 if doc and doc.get("is_active") in [1, True, "1", "true", "True", "yes", "Yes"] else 0
+
+
+def _au_parse_date(value):
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value
+
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day)
+
+    try:
+        clean = str(value).replace("Z", "").strip()
+        return datetime.fromisoformat(clean)
+    except Exception:
+        return None
+
+
+def _au_date_display(value):
+    dt = _au_parse_date(value)
+
+    if not dt:
+        return value or ""
+
+    try:
+        return dt.strftime("%d %b %Y")
+    except Exception:
+        return value or ""
+
+
+def _au_datetime_display(value):
+    dt = _au_parse_date(value)
+
+    if not dt:
+        return value or ""
+
+    try:
+        return dt.strftime("%d %b %Y, %I:%M %p")
+    except Exception:
+        return value or ""
+
+
+def _au_month_key(value):
+    dt = _au_parse_date(value)
+    if not dt:
+        return None
+    return dt.strftime("%b")
+
+
+def _au_created_in_last_days(value, days=30):
+    dt = _au_parse_date(value)
+    if not dt:
+        return False
+    return dt >= (_au_now() - timedelta(days=days))
+
+
+def _au_mask_email(email):
+    email = (email or "").strip()
+
+    if not email or "@" not in email:
+        return email
+
+    name, domain = email.split("@", 1)
+
+    if len(name) <= 2:
+        return name[0:1] + "*****@" + domain
+
+    return name[0:1] + "*****" + name[-1:] + "@" + domain
+
+
+def _au_mask_phone(phone):
+    phone = (phone or "").strip()
+
+    if not phone:
+        return ""
+
+    digits = "".join(ch for ch in phone if ch.isdigit())
+
+    if len(digits) <= 4:
+        return phone
+
+    return "+" + "*" * max(4, len(digits) - 4) + digits[-4:]
+
+
+def _au_user_base_row(user_doc):
+    user_doc = user_doc or {}
+
+    uid = str(user_doc.get("_id", ""))
+
+    return {
+        "id": uid,
+        "uid": uid,
+        "name": user_doc.get("name") or "User",
+        "email": user_doc.get("email") or "",
+        "phone": user_doc.get("phone") or "",
+        "email_masked": _au_mask_email(user_doc.get("email") or ""),
+        "phone_masked": _au_mask_phone(user_doc.get("phone") or ""),
+        "role": user_doc.get("role") or "customer",
+        "is_active": _au_is_active(user_doc),
+        "phone_verified": 1 if user_doc.get("phone_verified") in [1, True, "1", "true", "True"] else 0,
+        "created_at": user_doc.get("created_at") or "",
+        "created_at_display": _au_date_display(user_doc.get("created_at")),
+        "created_at_full": _au_datetime_display(user_doc.get("created_at")),
+        "raw": user_doc,
+    }
+
+
+def _au_find_store_for_user(user_id):
+    uid = str(user_id)
+
+    store = mongo.stores.find_one({"user_id": uid})
+
+    if store:
+        return store
+
+    uid_obj = _au_object_id(uid)
+    if uid_obj:
+        store = mongo.stores.find_one({"user_id": uid_obj})
+
+    return store
+
+
+def _au_store_order_query(store_id):
+    if not store_id:
+        return {"_id": {"$exists": False}}
+
+    return {
+        "$or": [
+            {"store_id": store_id},
+            {"store_id": str(store_id)}
+        ]
+    }
+
+
+def _au_user_order_query(user_id):
+    uid = str(user_id)
+
+    return {
+        "$or": [
+            {"user_id": uid},
+            {"customer_id": uid},
+            {"delivery_partner_id": uid}
+        ]
+    }
+
+
+def _au_order_total(order_doc):
+    if not order_doc:
+        return 0.0
+
+    if order_doc.get("total_payable") is not None:
+        return _au_safe_float(order_doc.get("total_payable"))
+
+    total_amount = _au_safe_float(order_doc.get("total_amount"))
+    delivery_fee = _au_safe_float(order_doc.get("delivery_fee"))
+    tip_amount = _au_safe_float(order_doc.get("tip_amount"))
+
+    return total_amount + delivery_fee + tip_amount
+
+
+def _au_order_is_delivered(order_doc):
+    status = str(order_doc.get("status") or "").upper()
+    return status in ["DELIVERED", "COMPLETED", "ORDER_DELIVERED"]
+
+
+def _au_user_orders(user_doc):
+    if not user_doc:
+        return []
+
+    uid = str(user_doc.get("_id"))
+    role = user_doc.get("role")
+
+    orders = list(mongo.orders.find(_au_user_order_query(uid)).sort("created_at", -1))
+
+    if role == "store":
+        store = _au_find_store_for_user(uid)
+
+        if store:
+            store_orders = list(
+                mongo.orders.find(_au_store_order_query(store["_id"])).sort("created_at", -1)
+            )
+            orders.extend(store_orders)
+
+    seen = set()
+    clean_orders = []
+
+    for order in orders:
+        oid = str(order.get("_id"))
+
+        if oid in seen:
+            continue
+
+        seen.add(oid)
+        clean_orders.append(order)
+
+    return clean_orders
+
+
+def _au_user_order_summary(user_doc):
+    orders = _au_user_orders(user_doc)
+
+    total_orders = len(orders)
+    delivered_orders = sum(1 for order in orders if _au_order_is_delivered(order))
+    total_amount = sum(_au_order_total(order) for order in orders)
+    delivered_amount = sum(_au_order_total(order) for order in orders if _au_order_is_delivered(order))
+
+    return {
+        "orders": total_orders,
+        "delivered_orders": delivered_orders,
+        "total_amount": _au_money(total_amount),
+        "delivered_amount": _au_money(delivered_amount),
+    }
+
+
+def _au_rating_summary(collection_name, filter_query):
+    try:
+        rows = list(getattr(mongo, collection_name).find(filter_query))
+    except Exception:
+        rows = []
+
+    count = len(rows)
+    total = 0.0
+
+    for row in rows:
+        total += _au_safe_float(row.get("rating"))
+
+    avg = round(total / count, 1) if count else 0
+
+    return {
+        "avg": avg,
+        "count": count
+    }
+
+
+def _au_store_rating_summary(store_id):
+    if not store_id:
+        return {"avg": 0, "count": 0}
+
+    return _au_rating_summary(
+        "store_ratings",
+        {
+            "$or": [
+                {"store_id": store_id},
+                {"store_id": str(store_id)}
+            ]
+        }
+    )
+
+
+def _au_delivery_rating_summary(user_id):
+    uid = str(user_id)
+
+    return _au_rating_summary(
+        "delivery_ratings",
+        {
+            "$or": [
+                {"delivery_partner_id": uid},
+                {"delivery_partner_id": _au_object_id(uid)}
+            ]
+        }
+    )
+
+
+def _au_product_count_for_store(store_id):
+    if not store_id:
+        return 0
+
+    return mongo.products.count_documents(
+        {
+            "$or": [
+                {"store_id": store_id},
+                {"store_id": str(store_id)}
+            ]
+        }
+    )
+
+
+def _au_active_products_for_store(store_id):
+    if not store_id:
+        return 0
+
+    return mongo.products.count_documents(
+        {
+            "$and": [
+                {
+                    "$or": [
+                        {"store_id": store_id},
+                        {"store_id": str(store_id)}
+                    ]
+                },
+                {
+                    "$or": [
+                        {"is_active": 1},
+                        {"is_active": True},
+                        {"is_active": {"$exists": False}}
+                    ]
+                }
+            ]
+        }
+    )
+
+
+def _au_delivery_availability(user_id):
+    uid = str(user_id)
+
+    row = mongo.delivery_availability.find_one({"user_id": uid})
+
+    if not row:
+        row = mongo.delivery_availability.find_one({"delivery_partner_id": uid})
+
+    if not row:
+        row = {}
+
+    return row
+
+
+def _au_delivery_assigned_orders(user_id):
+    uid = str(user_id)
+
+    return mongo.orders.count_documents({
+        "delivery_partner_id": uid,
+        "status": {
+            "$in": [
+                "ASSIGNED_TO_DELIVERY",
+                "OUT_FOR_DELIVERY",
+                "ACCEPTED_BY_DELIVERY_MAN",
+                "PICKED_UP"
+            ]
+        }
+    })
+
+
+def _au_role_users(role):
+    return list(mongo.users.find({"role": role}).sort("created_at", -1))
+
+
+def _au_all_users():
+    return list(mongo.users.find({}).sort("created_at", -1))
+
+
+def _au_customer_rows():
+    rows = []
+
+    for user_doc in _au_role_users("customer"):
+        base = _au_user_base_row(user_doc)
+        summary = _au_user_order_summary(user_doc)
+
+        base.update({
+            "total_order": summary["orders"],
+            "total_order_amount": summary["total_amount"],
+            "joining_date": base["created_at_display"],
+            "joining_date_raw": base["created_at"],
+        })
+
+        rows.append(base)
+
+    return rows
+
+
+def _au_delivery_user_rows():
+    rows = []
+
+    for user_doc in _au_role_users("delivery"):
+        base = _au_user_base_row(user_doc)
+        summary = _au_user_order_summary(user_doc)
+        rating = _au_delivery_rating_summary(base["id"])
+        availability = _au_delivery_availability(base["id"])
+
+        is_online = 1 if availability.get("active") in [1, True, "1", "true", "True"] else 0
+
+        base.update({
+            "total_completed_orders": summary["delivered_orders"],
+            "total_orders": summary["orders"],
+            "rating": rating["avg"],
+            "rating_count": rating["count"],
+            "currently_assigned_orders": _au_delivery_assigned_orders(base["id"]),
+            "availability_status": "Online" if is_online else "Offline",
+            "is_online": is_online,
+            "zone": availability.get("zone") or availability.get("area") or "Default Zone",
+            "latitude": availability.get("latitude"),
+            "longitude": availability.get("longitude"),
+        })
+
+        rows.append(base)
+
+    return rows
+
+
+def _au_store_user_rows():
+    rows = []
+
+    for user_doc in _au_role_users("store"):
+        base = _au_user_base_row(user_doc)
+        store = _au_find_store_for_user(base["id"])
+
+        store_id = store.get("_id") if store else None
+        store_orders = list(mongo.orders.find(_au_store_order_query(store_id)).sort("created_at", -1)) if store_id else []
+
+        total_orders = len(store_orders)
+        delivered_orders = sum(1 for order in store_orders if _au_order_is_delivered(order))
+        revenue = sum(_au_order_total(order) for order in store_orders if _au_order_is_delivered(order))
+        rating = _au_store_rating_summary(store_id)
+
+        base.update({
+            "store_id": str(store_id) if store_id else "",
+            "store_name": store.get("store_name") if store else base["name"],
+            "address": store.get("address") if store else "",
+            "store_is_active": _au_is_active(store) if store else base["is_active"],
+            "products": _au_product_count_for_store(store_id),
+            "active_products": _au_active_products_for_store(store_id),
+            "orders": total_orders,
+            "delivered_orders": delivered_orders,
+            "revenue": _au_money(revenue),
+            "rating": rating["avg"],
+            "rating_count": rating["count"],
+        })
+
+        rows.append(base)
+
+    return rows
+
+
+def _au_user_overview_data():
+    users = _au_all_users()
+
+    customers = [u for u in users if u.get("role") == "customer"]
+    delivery_users = [u for u in users if u.get("role") == "delivery"]
+    store_users = [u for u in users if u.get("role") == "store"]
+    admins = [u for u in users if u.get("role") == "admin"]
+
+    active_customers = [u for u in customers if _au_is_active(u)]
+    inactive_customers = [u for u in customers if not _au_is_active(u)]
+    new_customers = [u for u in customers if _au_created_in_last_days(u.get("created_at"), 30)]
+
+    active_delivery = [u for u in delivery_users if _au_is_active(u)]
+    inactive_delivery = [u for u in delivery_users if not _au_is_active(u)]
+    new_delivery = [u for u in delivery_users if _au_created_in_last_days(u.get("created_at"), 30)]
+
+    active_stores = [u for u in store_users if _au_is_active(u)]
+    inactive_stores = [u for u in store_users if not _au_is_active(u)]
+    new_stores = [u for u in store_users if _au_created_in_last_days(u.get("created_at"), 30)]
+
+    current_year = datetime.utcnow().year
+    month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    customer_growth = {m: 0 for m in month_labels}
+
+    for user_doc in customers:
+        created = _au_parse_date(user_doc.get("created_at"))
+
+        if created and created.year == current_year:
+            customer_growth[created.strftime("%b")] += 1
+
+    rating_rows = list(mongo.store_ratings.find({}))
+    rating_count = len(rating_rows)
+
+    positive = 0
+    good = 0
+    neutral = 0
+    negative = 0
+
+    for row in rating_rows:
+        rating_value = _au_safe_float(row.get("rating"))
+
+        if rating_value >= 4:
+            positive += 1
+        elif rating_value >= 3:
+            good += 1
+        elif rating_value >= 2:
+            neutral += 1
+        else:
+            negative += 1
+
+    def pct(count):
+        if rating_count <= 0:
+            return 0
+        return round((count / rating_count) * 100)
+
+    delivery_rows = _au_delivery_user_rows()
+    top_deliverymen = sorted(
+        delivery_rows,
+        key=lambda row: (
+            _au_safe_int(row.get("total_completed_orders")),
+            _au_safe_float(row.get("rating"))
+        ),
+        reverse=True
+    )[:6]
+
+    store_rows = _au_store_user_rows()
+    top_store_users = sorted(
+        store_rows,
+        key=lambda row: (
+            _au_safe_float(row.get("revenue")),
+            _au_safe_int(row.get("orders"))
+        ),
+        reverse=True
+    )[:6]
+
+    recent_users = []
+
+    for user_doc in users[:10]:
+        base = _au_user_base_row(user_doc)
+        recent_users.append(base)
+
+    metrics = {
+        "total_users": len(users),
+        "total_admins": len(admins),
+
+        "total_customers": len(customers),
+        "active_customers": len(active_customers),
+        "new_customers": len(new_customers),
+        "blocked_customers": len(inactive_customers),
+
+        "total_delivery_users": len(delivery_users),
+        "active_delivery_users": len(active_delivery),
+        "new_delivery_users": len(new_delivery),
+        "inactive_delivery_users": len(inactive_delivery),
+        "blocked_delivery_users": len(inactive_delivery),
+
+        "total_store_users": len(store_users),
+        "active_store_users": len(active_stores),
+        "new_store_users": len(new_stores),
+        "inactive_store_users": len(inactive_stores),
+
+        "review_received": rating_count,
+        "positive_pct": pct(positive),
+        "good_pct": pct(good),
+        "neutral_pct": pct(neutral),
+        "negative_pct": pct(negative),
+    }
+
+    return {
+        "metrics": metrics,
+        "month_labels": month_labels,
+        "customer_growth_values": [customer_growth[m] for m in month_labels],
+        "top_deliverymen": top_deliverymen,
+        "top_store_users": top_store_users,
+        "recent_users": recent_users,
+        "current_year": current_year,
+    }
+
+
+def _au_filter_rows_by_search(rows, search):
+    search = (search or "").strip().lower()
+
+    if not search:
+        return rows
+
+    filtered = []
+
+    for row in rows:
+        haystack = " ".join([
+            str(row.get("name") or ""),
+            str(row.get("email") or ""),
+            str(row.get("phone") or ""),
+            str(row.get("store_name") or ""),
+            str(row.get("address") or ""),
+            str(row.get("role") or ""),
+        ]).lower()
+
+        if search in haystack:
+            filtered.append(row)
+
+    return filtered
+
+
+def _au_filter_rows_by_status(rows, status):
+    status = (status or "").strip().lower()
+
+    if status not in ["active", "inactive", "disabled"]:
+        return rows
+
+    if status == "active":
+        return [row for row in rows if _au_safe_int(row.get("is_active")) == 1]
+
+    return [row for row in rows if _au_safe_int(row.get("is_active")) == 0]
+
+
+def _au_export_users_csv_response(rows, filename):
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "SL",
+        "User ID",
+        "Name",
+        "Email",
+        "Phone",
+        "Role",
+        "Status",
+        "Created At",
+        "Total Orders",
+        "Total Amount"
+    ])
+
+    for idx, row in enumerate(rows, start=1):
+        writer.writerow([
+            idx,
+            row.get("id", ""),
+            row.get("name", ""),
+            row.get("email", ""),
+            row.get("phone", ""),
+            row.get("role", ""),
+            "Active" if row.get("is_active") else "Disabled",
+            row.get("created_at", ""),
+            row.get("total_order") or row.get("orders") or row.get("total_orders") or 0,
+            row.get("total_order_amount") or row.get("revenue") or 0,
+        ])
+
+    data = output.getvalue().encode("utf-8")
+
+    return send_file(
+        io.BytesIO(data),
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=filename
+    )
+
+
 @app.route('/admin/users')
 @login_required(role='admin')
 def admin_users():
-    users = list(mongo.users.find({}).sort("created_at", -1))
+    data = _au_user_overview_data()
 
-    for u in users:
-        u["id"] = str(u["_id"])
-        u["is_active"] = int(u.get("is_active") or 0)
-        u["phone_verified"] = int(u.get("phone_verified") or 0)
+    return render_template(
+        "admin_users_overview.html",
+        user=current_user(),
+        active_group="users",
+        active_page="users_overview",
+        metrics=data["metrics"],
+        month_labels=data["month_labels"],
+        customer_growth_values=data["customer_growth_values"],
+        top_deliverymen=data["top_deliverymen"],
+        top_store_users=data["top_store_users"],
+        recent_users=data["recent_users"],
+        current_year=data["current_year"],
+    )
 
-    return render_template("admin_users.html", users=users, user=current_user())
+
+@app.route('/admin/users/store-users')
+@login_required(role='admin')
+def admin_store_users():
+    search = request.args.get("search", "").strip()
+    status = request.args.get("status", "").strip()
+
+    rows = _au_store_user_rows()
+    rows = _au_filter_rows_by_status(rows, status)
+    rows = _au_filter_rows_by_search(rows, search)
+
+    metrics = {
+        "total": len(rows),
+        "active": sum(1 for row in rows if row.get("is_active")),
+        "disabled": sum(1 for row in rows if not row.get("is_active")),
+        "total_orders": sum(_au_safe_int(row.get("orders")) for row in rows),
+        "total_revenue": _au_money(sum(_au_safe_float(row.get("revenue")) for row in rows)),
+        "total_products": sum(_au_safe_int(row.get("products")) for row in rows),
+    }
+
+    return render_template(
+        "admin_store_users.html",
+        user=current_user(),
+        active_group="users",
+        active_page="store_users",
+        store_users=rows,
+        users=rows,
+        metrics=metrics,
+        search=search,
+        status=status,
+    )
+
+
+@app.route('/admin/users/delivery-users')
+@login_required(role='admin')
+def admin_delivery_users():
+    search = request.args.get("search", "").strip()
+    status = request.args.get("status", "").strip()
+    availability = request.args.get("availability", "").strip().lower()
+
+    rows = _au_delivery_user_rows()
+    rows = _au_filter_rows_by_status(rows, status)
+    rows = _au_filter_rows_by_search(rows, search)
+
+    if availability == "online":
+        rows = [row for row in rows if row.get("is_online")]
+    elif availability == "offline":
+        rows = [row for row in rows if not row.get("is_online")]
+
+    metrics = {
+        "total": len(rows),
+        "active": sum(1 for row in rows if row.get("is_active")),
+        "disabled": sum(1 for row in rows if not row.get("is_active")),
+        "online": sum(1 for row in rows if row.get("is_online")),
+        "offline": sum(1 for row in rows if not row.get("is_online")),
+        "completed_orders": sum(_au_safe_int(row.get("total_completed_orders")) for row in rows),
+        "assigned_orders": sum(_au_safe_int(row.get("currently_assigned_orders")) for row in rows),
+    }
+
+    return render_template(
+        "admin_delivery_users.html",
+        user=current_user(),
+        active_group="users",
+        active_page="delivery_users",
+        delivery_users=rows,
+        users=rows,
+        metrics=metrics,
+        search=search,
+        status=status,
+        availability=availability,
+    )
+
+
+@app.route('/admin/users/customers')
+@login_required(role='admin')
+def admin_customers():
+    search = request.args.get("search", "").strip()
+    status = request.args.get("status", "").strip()
+    sort_by = request.args.get("sort_by", "").strip()
+    limit_raw = request.args.get("limit", "").strip()
+
+    rows = _au_customer_rows()
+    rows = _au_filter_rows_by_status(rows, status)
+    rows = _au_filter_rows_by_search(rows, search)
+
+    if sort_by == "orders_desc":
+        rows = sorted(rows, key=lambda row: _au_safe_int(row.get("total_order")), reverse=True)
+    elif sort_by == "amount_desc":
+        rows = sorted(rows, key=lambda row: _au_safe_float(row.get("total_order_amount")), reverse=True)
+    elif sort_by == "joining_new":
+        rows = sorted(rows, key=lambda row: _au_parse_date(row.get("created_at")) or datetime.min, reverse=True)
+    elif sort_by == "joining_old":
+        rows = sorted(rows, key=lambda row: _au_parse_date(row.get("created_at")) or datetime.min)
+
+    if limit_raw:
+        try:
+            limit = int(limit_raw)
+            if limit > 0:
+                rows = rows[:limit]
+        except Exception:
+            pass
+
+    metrics = {
+        "total": len(rows),
+        "active": sum(1 for row in rows if row.get("is_active")),
+        "disabled": sum(1 for row in rows if not row.get("is_active")),
+        "total_orders": sum(_au_safe_int(row.get("total_order")) for row in rows),
+        "total_amount": _au_money(sum(_au_safe_float(row.get("total_order_amount")) for row in rows)),
+    }
+
+    return render_template(
+        "admin_customers.html",
+        user=current_user(),
+        active_group="users",
+        active_page="customers",
+        customers=rows,
+        users=rows,
+        metrics=metrics,
+        search=search,
+        status=status,
+        sort_by=sort_by,
+        limit=limit_raw,
+    )
+
+
+@app.route('/admin/users/export.csv')
+@login_required(role='admin')
+def admin_users_export_csv():
+    role = (request.args.get("role") or "").strip().lower()
+
+    if role == "store":
+        rows = _au_store_user_rows()
+        filename = "store_users.csv"
+    elif role == "delivery":
+        rows = _au_delivery_user_rows()
+        filename = "delivery_users.csv"
+    elif role == "customer":
+        rows = _au_customer_rows()
+        filename = "customers.csv"
+    else:
+        rows = [_au_user_base_row(user_doc) for user_doc in _au_all_users()]
+        filename = "users.csv"
+
+    return _au_export_users_csv_response(rows, filename)
+
+
 
 @app.route('/admin/users/<uid>/disable', methods=['POST'])
 @login_required(role='admin')
@@ -5118,6 +5938,7 @@ def admin_user_disable(uid):
 
     flash("User disabled.", "info")
     return redirect(request.referrer or url_for("admin_users"))
+
 
 @app.route('/admin/users/<uid>/delete', methods=['POST'])
 @login_required(role='admin')

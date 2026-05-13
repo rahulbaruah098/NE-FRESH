@@ -1,0 +1,1220 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "users" %}
+{% set active_page = "store_users" %}
+
+{% block title %}Store Users | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Store Users{% endblock %}
+{% block page_subtitle %}Manage store owner accounts, store activity, products, orders and account status.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-store-users-page {
+    --su-green: var(--nf-green, #00A859);
+    --su-green-dark: var(--nf-green-dark, #008A48);
+    --su-green-deep: var(--nf-green-deep, #075C3B);
+    --su-green-soft: var(--nf-green-soft, #E9FFF3);
+    --su-green-soft-2: var(--nf-green-soft-2, #F3FFF8);
+    --su-orange: var(--nf-orange, #FFB84D);
+    --su-orange-soft: var(--nf-orange-soft, #FFF7E8);
+    --su-red: var(--nf-red, #EF4444);
+    --su-blue: var(--nf-blue, #0284C7);
+    --su-bg: var(--nf-bg, #F8FFFB);
+    --su-card: var(--nf-surface, #FFFFFF);
+    --su-card-2: var(--nf-surface-2, #F2FBF6);
+    --su-text: var(--nf-text, #1F332A);
+    --su-muted: var(--nf-muted, #66756D);
+    --su-muted-2: var(--nf-muted-2, #8A9890);
+    --su-line: var(--nf-line, #DDECE4);
+    --su-shadow: var(--nf-shadow, 0 14px 36px rgba(17, 64, 38, .08));
+    --su-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17, 64, 38, .06));
+    --su-shadow-heavy: var(--nf-shadow-heavy, 0 24px 70px rgba(17, 64, 38, .16));
+
+    display: grid;
+    gap: 20px;
+    animation: suFadeIn .45s ease both;
+  }
+
+  .nf-store-users-page,
+  .nf-store-users-page * {
+    box-sizing: border-box;
+  }
+
+  @keyframes suFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes suFloat {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-7px);
+    }
+  }
+
+  @keyframes suPulse {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(0, 168, 89, .22);
+    }
+    50% {
+      box-shadow: 0 0 0 10px rgba(0, 168, 89, 0);
+    }
+  }
+
+  .su-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid var(--su-line);
+    background:
+      radial-gradient(circle at 12% 12%, rgba(0, 168, 89, .16), transparent 32%),
+      radial-gradient(circle at 86% 18%, rgba(255, 184, 77, .18), transparent 28%),
+      linear-gradient(135deg, var(--su-card), var(--su-card-2));
+    box-shadow: var(--su-shadow);
+    padding: clamp(18px, 3vw, 28px);
+  }
+
+  .su-hero::before {
+    content: "";
+    position: absolute;
+    width: 210px;
+    height: 210px;
+    right: -80px;
+    bottom: -100px;
+    border-radius: 999px;
+    background: rgba(0, 168, 89, .10);
+  }
+
+  .su-hero-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .su-kicker {
+    width: fit-content;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    background: var(--su-green-soft);
+    border: 1px solid rgba(0, 168, 89, .18);
+    color: var(--su-green-dark);
+    padding: 6px 12px;
+    font-size: .76rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .su-hero h2 {
+    margin: 12px 0 8px;
+    color: var(--su-text);
+    font-size: clamp(1.45rem, 3vw, 2.25rem);
+    line-height: 1.08;
+    font-weight: 900;
+    letter-spacing: -.045em;
+  }
+
+  .su-hero p {
+    margin: 0;
+    max-width: 850px;
+    color: var(--su-muted);
+    font-size: .96rem;
+    font-weight: 650;
+    line-height: 1.65;
+  }
+
+  .su-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .su-btn {
+    min-height: 40px;
+    border: 1px solid var(--su-line);
+    border-radius: 14px;
+    background: var(--su-card);
+    color: var(--su-text);
+    padding: 9px 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: .82rem;
+    line-height: 1.1;
+    font-weight: 900;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+    white-space: nowrap;
+  }
+
+  .su-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--su-shadow-soft);
+    border-color: rgba(0, 168, 89, .34);
+  }
+
+  .su-btn-primary {
+    background: var(--su-green);
+    color: #fff;
+    border-color: var(--su-green);
+  }
+
+  .su-btn-primary:hover {
+    background: var(--su-green-dark);
+    border-color: var(--su-green-dark);
+  }
+
+  .su-btn-soft {
+    background: var(--su-green-soft);
+    color: var(--su-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .su-btn-orange {
+    background: var(--su-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .28);
+  }
+
+  .su-btn-danger {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .22);
+  }
+
+  .su-btn-blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .su-hero-visual {
+    width: 160px;
+    min-height: 132px;
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 34%),
+      linear-gradient(135deg, var(--su-green), var(--su-green-deep));
+    display: grid;
+    place-items: center;
+    color: #fff;
+    box-shadow: 0 24px 55px rgba(0, 168, 89, .24);
+    animation: suFloat 4.5s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .su-hero-visual span {
+    font-size: 3rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .su-hero-visual small {
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    min-height: 26px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.18);
+    padding: 5px 9px;
+    font-size: .72rem;
+    font-weight: 900;
+  }
+
+  .su-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .su-kpi {
+    min-height: 118px;
+    border-radius: 20px;
+    background: var(--su-card);
+    border: 1px solid var(--su-line);
+    box-shadow: var(--su-shadow-soft);
+    padding: 16px;
+    display: grid;
+    align-content: space-between;
+    position: relative;
+    overflow: hidden;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  }
+
+  .su-kpi:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--su-shadow);
+    border-color: rgba(0, 168, 89, .24);
+  }
+
+  .su-kpi::after {
+    content: "";
+    position: absolute;
+    right: -34px;
+    top: -42px;
+    width: 96px;
+    height: 96px;
+    border-radius: 999px;
+    background: rgba(0, 168, 89, .08);
+  }
+
+  .su-kpi.blue::after {
+    background: rgba(2, 132, 199, .10);
+  }
+
+  .su-kpi.orange::after {
+    background: rgba(255, 184, 77, .16);
+  }
+
+  .su-kpi.red::after {
+    background: rgba(239, 68, 68, .10);
+  }
+
+  .su-kpi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: var(--su-green-soft);
+    color: var(--su-green-dark);
+    border: 1px solid rgba(0, 168, 89, .16);
+    font-size: 1.2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .su-kpi.blue .su-kpi-icon {
+    background: #E0F2FE;
+    color: var(--su-blue);
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .su-kpi.orange .su-kpi-icon {
+    background: var(--su-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .26);
+  }
+
+  .su-kpi.red .su-kpi-icon {
+    background: #FFF1F2;
+    color: var(--su-red);
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .su-kpi strong {
+    display: block;
+    color: var(--su-text);
+    font-size: 1.45rem;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1;
+    margin-top: 14px;
+  }
+
+  .su-kpi span {
+    display: block;
+    color: var(--su-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 850;
+    margin-top: 8px;
+  }
+
+  .su-filter-card,
+  .su-table-card {
+    border-radius: 22px;
+    background: var(--su-card);
+    border: 1px solid var(--su-line);
+    box-shadow: var(--su-shadow-soft);
+    overflow: hidden;
+  }
+
+  .su-filter-head,
+  .su-table-head {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--su-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    background:
+      radial-gradient(circle at top left, rgba(0, 168, 89, .07), transparent 34%),
+      var(--su-card);
+  }
+
+  .su-filter-title,
+  .su-table-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .su-head-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: var(--su-green-soft);
+    color: var(--su-green-dark);
+    border: 1px solid rgba(0, 168, 89, .18);
+    font-size: 1.18rem;
+  }
+
+  .su-filter-title h3,
+  .su-table-title h3 {
+    margin: 0;
+    color: var(--su-text);
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: -.02em;
+  }
+
+  .su-filter-title p,
+  .su-table-title p {
+    margin: 4px 0 0;
+    color: var(--su-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .su-count-pill {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 999px;
+    padding: 5px 11px;
+    background: var(--su-green-soft);
+    color: var(--su-green-dark);
+    border: 1px solid rgba(0, 168, 89, .16);
+    font-size: .76rem;
+    font-weight: 900;
+  }
+
+  .su-filter-form {
+    padding: 18px;
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 190px auto auto;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .su-field {
+    display: grid;
+    gap: 7px;
+  }
+
+  .su-field label {
+    color: var(--su-muted);
+    font-size: .74rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .su-field input,
+  .su-field select {
+    width: 100%;
+    height: 44px;
+    border: 1px solid var(--su-line);
+    border-radius: 14px;
+    background: var(--su-card-2);
+    color: var(--su-text);
+    padding: 0 13px;
+    outline: none;
+    font-size: .9rem;
+    font-weight: 750;
+    transition: .22s ease;
+  }
+
+  .su-field input:focus,
+  .su-field select:focus {
+    border-color: rgba(0, 168, 89, .42);
+    box-shadow: 0 0 0 4px rgba(0, 168, 89, .10);
+    background: var(--su-card);
+  }
+
+  .su-table-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    align-items: center;
+  }
+
+  .su-table-shell {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .su-table {
+    width: 100%;
+    min-width: 1220px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .su-table th {
+    padding: 14px 15px;
+    background: var(--su-green-deep);
+    color: #fff;
+    text-align: left;
+    font-size: .72rem;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: .065em;
+    font-weight: 900;
+    border-bottom: 1px solid rgba(255,255,255,.12);
+    white-space: nowrap;
+  }
+
+  .su-table td {
+    padding: 16px 15px;
+    border-bottom: 1px solid var(--su-line);
+    color: var(--su-text);
+    vertical-align: middle;
+    font-size: .88rem;
+    font-weight: 650;
+  }
+
+  .su-table tbody tr {
+    transition: background .2s ease, transform .2s ease;
+  }
+
+  .su-table tbody tr:hover {
+    background: var(--su-green-soft-2);
+  }
+
+  .su-store-info {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-width: 270px;
+  }
+
+  .su-store-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 17px;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 30%),
+      linear-gradient(135deg, var(--su-green), var(--su-green-dark));
+    color: #fff;
+    font-size: 1.45rem;
+    box-shadow: 0 12px 24px rgba(0, 168, 89, .18);
+    animation: suPulse 3s ease-in-out infinite;
+  }
+
+  .su-store-info strong {
+    display: block;
+    color: var(--su-text);
+    font-size: .95rem;
+    line-height: 1.25;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .su-store-info span {
+    display: block;
+    color: var(--su-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 700;
+    margin-top: 4px;
+    max-width: 330px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .su-owner-info {
+    min-width: 230px;
+  }
+
+  .su-owner-info strong {
+    display: block;
+    color: var(--su-text);
+    font-size: .9rem;
+    font-weight: 900;
+  }
+
+  .su-owner-info span {
+    display: block;
+    color: var(--su-muted);
+    font-size: .78rem;
+    line-height: 1.4;
+    font-weight: 700;
+    margin-top: 3px;
+  }
+
+  .su-metric-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .su-metric-chip {
+    min-height: 28px;
+    border-radius: 999px;
+    padding: 5px 9px;
+    background: var(--su-card-2);
+    border: 1px solid var(--su-line);
+    color: var(--su-text);
+    font-size: .74rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .su-metric-chip.green {
+    background: var(--su-green-soft);
+    color: var(--su-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .su-metric-chip.blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .16);
+  }
+
+  .su-metric-chip.orange {
+    background: var(--su-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .24);
+  }
+
+  .su-status-pill {
+    min-height: 30px;
+    border-radius: 999px;
+    padding: 6px 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: .72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+
+  .su-status-pill::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+  }
+
+  .su-status-pill.active {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5, 150, 105, .18);
+  }
+
+  .su-status-pill.active::before {
+    background: #10B981;
+  }
+
+  .su-status-pill.disabled {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .su-status-pill.disabled::before {
+    background: var(--su-red);
+  }
+
+  .su-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 260px;
+  }
+
+  .su-actions form {
+    display: inline-flex;
+  }
+
+  .su-icon-btn {
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--su-line);
+    border-radius: 13px;
+    background: var(--su-card);
+    color: var(--su-text);
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: .22s ease;
+    font-size: 1rem;
+  }
+
+  .su-icon-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: var(--su-shadow-soft);
+    border-color: rgba(0, 168, 89, .32);
+  }
+
+  .su-icon-btn.green {
+    background: var(--su-green-soft);
+    color: var(--su-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .su-icon-btn.blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .su-icon-btn.orange {
+    background: var(--su-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .24);
+  }
+
+  .su-icon-btn.red {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .su-empty {
+    padding: 32px 18px;
+    text-align: center;
+    color: var(--su-muted);
+    font-size: .92rem;
+    font-weight: 850;
+  }
+
+  .su-mobile-cards {
+    display: none;
+    gap: 14px;
+  }
+
+  .su-mobile-card {
+    border: 1px solid var(--su-line);
+    border-radius: 20px;
+    background: var(--su-card);
+    box-shadow: var(--su-shadow-soft);
+    padding: 16px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .su-mobile-top {
+    display: grid;
+    grid-template-columns: 52px 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .su-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .su-mobile-stat {
+    border-radius: 14px;
+    background: var(--su-card-2);
+    border: 1px solid var(--su-line);
+    padding: 11px;
+  }
+
+  .su-mobile-stat span {
+    display: block;
+    color: var(--su-muted);
+    font-size: .72rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .su-mobile-stat strong {
+    display: block;
+    color: var(--su-text);
+    font-size: .95rem;
+    font-weight: 900;
+    margin-top: 5px;
+  }
+
+  .su-mobile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .su-mobile-actions form {
+    display: inline-flex;
+  }
+
+  @media (max-width: 1280px) {
+    .su-kpi-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .su-filter-form {
+      grid-template-columns: minmax(220px, 1fr) 180px auto;
+    }
+
+    .su-filter-form .su-reset-btn {
+      grid-column: auto;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .su-hero-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .su-hero-visual {
+      display: none;
+    }
+
+    .su-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .su-filter-form {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .su-filter-form .su-btn {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .nf-store-users-page {
+      gap: 16px;
+    }
+
+    .su-hero,
+    .su-filter-card,
+    .su-table-card {
+      border-radius: 18px;
+    }
+
+    .su-kpi-grid,
+    .su-filter-form {
+      grid-template-columns: 1fr;
+    }
+
+    .su-table-shell {
+      display: none;
+    }
+
+    .su-mobile-cards {
+      display: grid;
+      padding: 14px;
+    }
+
+    .su-table-actions {
+      width: 100%;
+    }
+
+    .su-table-actions .su-btn {
+      flex: 1;
+    }
+
+    .su-hero-actions .su-btn {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nf-store-users-page,
+    .nf-store-users-page *,
+    .nf-store-users-page *::before,
+    .nf-store-users-page *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nf-store-users-page">
+
+  <div class="su-hero">
+    <div class="su-hero-inner">
+      <div>
+        <span class="su-kicker">🏪 Store User Management</span>
+        <h2>Store Users</h2>
+        <p>
+          Review store owner accounts, store activity, product count, order performance, revenue and account status.
+          Safe delete remains protected by backend rules: stores with order history are disabled instead of being hard deleted.
+        </p>
+
+        <div class="su-hero-actions">
+          <a href="{{ url_for('admin_create_store') }}" class="su-btn su-btn-primary">➕ Add New Store User</a>
+          <a href="{{ url_for('admin_users_export_csv', role='store') }}" class="su-btn su-btn-soft">⬇ Export Store Users</a>
+          <a href="{{ url_for('admin_users') }}" class="su-btn su-btn-orange">📊 Users Overview</a>
+        </div>
+      </div>
+
+      <div class="su-hero-visual" aria-hidden="true">
+        <span>🏪</span>
+        <small>{{ metrics.total|default(0) }} Stores</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="su-kpi-grid">
+    <div class="su-kpi">
+      <div class="su-kpi-icon">🏪</div>
+      <div>
+        <strong>{{ metrics.total|default(0) }}</strong>
+        <span>Total Store Users</span>
+      </div>
+    </div>
+
+    <div class="su-kpi">
+      <div class="su-kpi-icon">✅</div>
+      <div>
+        <strong>{{ metrics.active|default(0) }}</strong>
+        <span>Active Store Users</span>
+      </div>
+    </div>
+
+    <div class="su-kpi red">
+      <div class="su-kpi-icon">🚫</div>
+      <div>
+        <strong>{{ metrics.disabled|default(0) }}</strong>
+        <span>Disabled Store Users</span>
+      </div>
+    </div>
+
+    <div class="su-kpi blue">
+      <div class="su-kpi-icon">📦</div>
+      <div>
+        <strong>{{ metrics.total_orders|default(0) }}</strong>
+        <span>Total Store Orders</span>
+      </div>
+    </div>
+
+    <div class="su-kpi orange">
+      <div class="su-kpi-icon">🥬</div>
+      <div>
+        <strong>{{ metrics.total_products|default(0) }}</strong>
+        <span>Total Products</span>
+      </div>
+    </div>
+
+    <div class="su-kpi">
+      <div class="su-kpi-icon">₹</div>
+      <div>
+        <strong>₹{{ "%.2f"|format(metrics.total_revenue|default(0)|float) }}</strong>
+        <span>Delivered Revenue</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="su-filter-card" aria-label="Store user filters">
+    <div class="su-filter-head">
+      <div class="su-filter-title">
+        <div class="su-head-icon">🔎</div>
+        <div>
+          <h3>Search & Filter</h3>
+          <p>Find stores by name, owner, email, phone or address.</p>
+        </div>
+      </div>
+    </div>
+
+    <form method="get" action="{{ url_for('admin_store_users') }}" class="su-filter-form">
+      <div class="su-field">
+        <label for="search">Search Store Users</label>
+        <input
+          type="search"
+          id="search"
+          name="search"
+          value="{{ search or '' }}"
+          placeholder="Search by store name, owner, email, phone..."
+        >
+      </div>
+
+      <div class="su-field">
+        <label for="status">Status</label>
+        <select id="status" name="status">
+          <option value="" {% if not status %}selected{% endif %}>All Status</option>
+          <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+          <option value="inactive" {% if status in ['inactive','disabled'] %}selected{% endif %}>Disabled</option>
+        </select>
+      </div>
+
+      <button type="submit" class="su-btn su-btn-primary">Filter</button>
+      <a href="{{ url_for('admin_store_users') }}" class="su-btn su-reset-btn">Reset</a>
+    </form>
+  </section>
+
+  <section class="su-table-card" aria-label="Store users table">
+    <div class="su-table-head">
+      <div class="su-table-title">
+        <div class="su-head-icon">📋</div>
+        <div>
+          <h3>Store User Table</h3>
+          <p>Showing store owners with store details, product count, orders, revenue and actions.</p>
+        </div>
+      </div>
+
+      <div class="su-table-actions">
+        <span class="su-count-pill">Total: {{ store_users|length }}</span>
+        <a href="{{ url_for('admin_users_export_csv', role='store') }}" class="su-btn su-btn-soft">⬇ Export</a>
+        <a href="{{ url_for('admin_create_store') }}" class="su-btn su-btn-primary">➕ Add New</a>
+      </div>
+    </div>
+
+    <div class="su-table-shell">
+      <table class="su-table">
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Store Information</th>
+            <th>Owner Information</th>
+            <th>Products</th>
+            <th>Orders</th>
+            <th>Revenue</th>
+            <th>Rating</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for s in store_users %}
+            <tr>
+              <td>{{ loop.index }}</td>
+
+              <td>
+                <div class="su-store-info">
+                  <div class="su-store-avatar">🏪</div>
+                  <div>
+                    <strong>{{ s.store_name or s.name }}</strong>
+                    <span>{{ s.address or 'Address not updated' }}</span>
+                    {% if s.store_id %}
+                      <span>Store ID: {{ s.store_id }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <div class="su-owner-info">
+                  <strong>{{ s.name }}</strong>
+                  <span>{{ s.email or 'No email' }}</span>
+                  <span>{{ s.phone or 'No phone' }}</span>
+                </div>
+              </td>
+
+              <td>
+                <div class="su-metric-inline">
+                  <span class="su-metric-chip green">{{ s.products|default(0) }} Total</span>
+                  <span class="su-metric-chip">{{ s.active_products|default(0) }} Active</span>
+                </div>
+              </td>
+
+              <td>
+                <div class="su-metric-inline">
+                  <span class="su-metric-chip blue">{{ s.orders|default(0) }} Orders</span>
+                  <span class="su-metric-chip">{{ s.delivered_orders|default(0) }} Delivered</span>
+                </div>
+              </td>
+
+              <td>
+                <strong>₹{{ "%.2f"|format(s.revenue|default(0)|float) }}</strong>
+              </td>
+
+              <td>
+                <div class="su-metric-inline">
+                  <span class="su-metric-chip orange">⭐ {{ s.rating|default(0) }}</span>
+                  <span class="su-metric-chip">{{ s.rating_count|default(0) }} Reviews</span>
+                </div>
+              </td>
+
+              <td>
+                {% if s.is_active %}
+                  <span class="su-status-pill active">Active</span>
+                {% else %}
+                  <span class="su-status-pill disabled">Disabled</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <div class="su-actions">
+                  <a
+                    href="{{ url_for('admin_user_transactions_csv', uid=s.id) }}"
+                    class="su-icon-btn blue"
+                    title="Download transactions CSV"
+                    target="_blank"
+                  >📄</a>
+
+                  <a
+                    href="{{ url_for('admin_user_export_zip', uid=s.id) }}"
+                    class="su-icon-btn green"
+                    title="Download full export ZIP"
+                  >📦</a>
+
+                  {% if s.is_active %}
+                    <form method="post" action="{{ url_for('admin_user_disable', uid=s.id) }}">
+                      <button type="submit" class="su-icon-btn orange" title="Disable store user">⏸</button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="{{ url_for('admin_user_enable', uid=s.id) }}">
+                      <button type="submit" class="su-icon-btn green" title="Activate store user">▶</button>
+                    </form>
+                  {% endif %}
+
+                  <form
+                    method="post"
+                    action="{{ url_for('admin_user_delete', uid=s.id) }}"
+                    onsubmit="return confirmStoreUserDelete('{{ s.store_name or s.name|e }}')"
+                  >
+                    <button type="submit" class="su-icon-btn red" title="Safe delete store user">🗑</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="9" class="su-empty">No store users found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="su-mobile-cards">
+      {% for s in store_users %}
+        <article class="su-mobile-card">
+          <div class="su-mobile-top">
+            <div class="su-store-avatar">🏪</div>
+            <div class="su-store-info" style="display:block;min-width:0;">
+              <strong>{{ s.store_name or s.name }}</strong>
+              <span>{{ s.address or 'Address not updated' }}</span>
+            </div>
+          </div>
+
+          <div class="su-owner-info">
+            <strong>{{ s.name }}</strong>
+            <span>{{ s.email or 'No email' }}</span>
+            <span>{{ s.phone or 'No phone' }}</span>
+          </div>
+
+          <div class="su-mobile-grid">
+            <div class="su-mobile-stat">
+              <span>Products</span>
+              <strong>{{ s.products|default(0) }}</strong>
+            </div>
+            <div class="su-mobile-stat">
+              <span>Orders</span>
+              <strong>{{ s.orders|default(0) }}</strong>
+            </div>
+            <div class="su-mobile-stat">
+              <span>Revenue</span>
+              <strong>₹{{ "%.2f"|format(s.revenue|default(0)|float) }}</strong>
+            </div>
+            <div class="su-mobile-stat">
+              <span>Rating</span>
+              <strong>⭐ {{ s.rating|default(0) }}</strong>
+            </div>
+          </div>
+
+          <div>
+            {% if s.is_active %}
+              <span class="su-status-pill active">Active</span>
+            {% else %}
+              <span class="su-status-pill disabled">Disabled</span>
+            {% endif %}
+          </div>
+
+          <div class="su-mobile-actions">
+            <a href="{{ url_for('admin_user_transactions_csv', uid=s.id) }}" class="su-btn su-btn-blue" target="_blank">CSV</a>
+            <a href="{{ url_for('admin_user_export_zip', uid=s.id) }}" class="su-btn su-btn-soft">ZIP</a>
+
+            {% if s.is_active %}
+              <form method="post" action="{{ url_for('admin_user_disable', uid=s.id) }}">
+                <button type="submit" class="su-btn su-btn-orange">Disable</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('admin_user_enable', uid=s.id) }}">
+                <button type="submit" class="su-btn su-btn-primary">Activate</button>
+              </form>
+            {% endif %}
+
+            <form
+              method="post"
+              action="{{ url_for('admin_user_delete', uid=s.id) }}"
+              onsubmit="return confirmStoreUserDelete('{{ s.store_name or s.name|e }}')"
+            >
+              <button type="submit" class="su-btn su-btn-danger">Delete</button>
+            </form>
+          </div>
+        </article>
+      {% else %}
+        <div class="su-empty">No store users found.</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  window.confirmStoreUserDelete = function (name) {
+    return confirm(
+      `Delete store user "${name}"?\n\nThis will only hard-delete if there is no order history. If order history exists, the backend will safely disable the account instead.`
+    );
+  };
+
+  const rows = document.querySelectorAll('.su-table tbody tr');
+  rows.forEach(function (row, index) {
+    row.style.opacity = '0';
+    row.style.transform = 'translateY(8px)';
+
+    setTimeout(function () {
+      row.style.transition = 'opacity .32s ease, transform .32s ease, background .2s ease';
+      row.style.opacity = '1';
+      row.style.transform = 'translateY(0)';
+    }, Math.min(index * 45, 420));
+  });
+
+  const cards = document.querySelectorAll('.su-mobile-card, .su-kpi');
+  cards.forEach(function (card, index) {
+    card.style.animationDelay = `${Math.min(index * 45, 350)}ms`;
+  });
+})();
+</script>
+{% endblock %}

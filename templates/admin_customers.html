@@ -1,0 +1,1185 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "users" %}
+{% set active_page = "customers" %}
+
+{% block title %}Customers | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Customers{% endblock %}
+{% block page_subtitle %}Manage customer accounts, order value, joining status and safe account actions.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-customers-page {
+    --cu-green: var(--nf-green, #00A859);
+    --cu-green-dark: var(--nf-green-dark, #008A48);
+    --cu-green-deep: var(--nf-green-deep, #075C3B);
+    --cu-green-soft: var(--nf-green-soft, #E9FFF3);
+    --cu-green-soft-2: var(--nf-green-soft-2, #F3FFF8);
+    --cu-orange: var(--nf-orange, #FFB84D);
+    --cu-orange-soft: var(--nf-orange-soft, #FFF7E8);
+    --cu-red: var(--nf-red, #EF4444);
+    --cu-blue: var(--nf-blue, #0284C7);
+    --cu-bg: var(--nf-bg, #F8FFFB);
+    --cu-card: var(--nf-surface, #FFFFFF);
+    --cu-card-2: var(--nf-surface-2, #F2FBF6);
+    --cu-text: var(--nf-text, #1F332A);
+    --cu-muted: var(--nf-muted, #66756D);
+    --cu-muted-2: var(--nf-muted-2, #8A9890);
+    --cu-line: var(--nf-line, #DDECE4);
+    --cu-shadow: var(--nf-shadow, 0 14px 36px rgba(17, 64, 38, .08));
+    --cu-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17, 64, 38, .06));
+
+    display: grid;
+    gap: 20px;
+    animation: cuFadeIn .45s ease both;
+  }
+
+  .nf-customers-page,
+  .nf-customers-page * {
+    box-sizing: border-box;
+  }
+
+  @keyframes cuFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes cuFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-7px); }
+  }
+
+  @keyframes cuPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(0, 168, 89, .22); }
+    50% { box-shadow: 0 0 0 10px rgba(0, 168, 89, 0); }
+  }
+
+  .cu-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid var(--cu-line);
+    background:
+      radial-gradient(circle at 12% 12%, rgba(0, 168, 89, .15), transparent 32%),
+      radial-gradient(circle at 86% 16%, rgba(255, 184, 77, .18), transparent 30%),
+      linear-gradient(135deg, var(--cu-card), var(--cu-card-2));
+    box-shadow: var(--cu-shadow);
+    padding: clamp(18px, 3vw, 28px);
+  }
+
+  .cu-hero::before {
+    content: "";
+    position: absolute;
+    width: 230px;
+    height: 230px;
+    right: -90px;
+    bottom: -108px;
+    border-radius: 999px;
+    background: rgba(0, 168, 89, .09);
+  }
+
+  .cu-hero-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .cu-kicker {
+    width: fit-content;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    background: var(--cu-green-soft);
+    border: 1px solid rgba(0, 168, 89, .18);
+    color: var(--cu-green-dark);
+    padding: 6px 12px;
+    font-size: .76rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .cu-hero h2 {
+    margin: 12px 0 8px;
+    color: var(--cu-text);
+    font-size: clamp(1.45rem, 3vw, 2.25rem);
+    line-height: 1.08;
+    font-weight: 900;
+    letter-spacing: -.045em;
+  }
+
+  .cu-hero p {
+    margin: 0;
+    max-width: 850px;
+    color: var(--cu-muted);
+    font-size: .96rem;
+    font-weight: 650;
+    line-height: 1.65;
+  }
+
+  .cu-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .cu-btn {
+    min-height: 40px;
+    border: 1px solid var(--cu-line);
+    border-radius: 14px;
+    background: var(--cu-card);
+    color: var(--cu-text);
+    padding: 9px 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: .82rem;
+    line-height: 1.1;
+    font-weight: 900;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease;
+    white-space: nowrap;
+  }
+
+  .cu-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--cu-shadow-soft);
+    border-color: rgba(0, 168, 89, .34);
+  }
+
+  .cu-btn-primary {
+    background: var(--cu-green);
+    color: #fff;
+    border-color: var(--cu-green);
+  }
+
+  .cu-btn-primary:hover {
+    background: var(--cu-green-dark);
+    border-color: var(--cu-green-dark);
+  }
+
+  .cu-btn-soft {
+    background: var(--cu-green-soft);
+    color: var(--cu-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .cu-btn-blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .cu-btn-orange {
+    background: var(--cu-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .28);
+  }
+
+  .cu-btn-danger {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .22);
+  }
+
+  .cu-hero-visual {
+    width: 164px;
+    min-height: 134px;
+    border-radius: 26px;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 34%),
+      linear-gradient(135deg, var(--cu-green), var(--cu-green-deep));
+    display: grid;
+    place-items: center;
+    color: #fff;
+    box-shadow: 0 24px 55px rgba(0, 168, 89, .22);
+    animation: cuFloat 4.4s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cu-hero-visual span {
+    font-size: 3rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cu-hero-visual small {
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    min-height: 26px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.20);
+    padding: 5px 9px;
+    font-size: .72rem;
+    font-weight: 900;
+  }
+
+  .cu-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .cu-kpi {
+    min-height: 118px;
+    border-radius: 20px;
+    background: var(--cu-card);
+    border: 1px solid var(--cu-line);
+    box-shadow: var(--cu-shadow-soft);
+    padding: 16px;
+    display: grid;
+    align-content: space-between;
+    position: relative;
+    overflow: hidden;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+  }
+
+  .cu-kpi:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--cu-shadow);
+    border-color: rgba(0, 168, 89, .24);
+  }
+
+  .cu-kpi::after {
+    content: "";
+    position: absolute;
+    right: -34px;
+    top: -42px;
+    width: 96px;
+    height: 96px;
+    border-radius: 999px;
+    background: rgba(0, 168, 89, .08);
+  }
+
+  .cu-kpi.blue::after { background: rgba(2, 132, 199, .10); }
+  .cu-kpi.orange::after { background: rgba(255, 184, 77, .16); }
+  .cu-kpi.red::after { background: rgba(239, 68, 68, .10); }
+
+  .cu-kpi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: var(--cu-green-soft);
+    color: var(--cu-green-dark);
+    border: 1px solid rgba(0, 168, 89, .16);
+    font-size: 1.2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .cu-kpi.blue .cu-kpi-icon {
+    background: #E0F2FE;
+    color: var(--cu-blue);
+    border-color: rgba(2, 132, 199, .16);
+  }
+
+  .cu-kpi.orange .cu-kpi-icon {
+    background: var(--cu-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .26);
+  }
+
+  .cu-kpi.red .cu-kpi-icon {
+    background: #FFF1F2;
+    color: var(--cu-red);
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .cu-kpi strong {
+    display: block;
+    color: var(--cu-text);
+    font-size: 1.45rem;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1;
+    margin-top: 14px;
+  }
+
+  .cu-kpi span {
+    display: block;
+    color: var(--cu-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 850;
+    margin-top: 8px;
+  }
+
+  .cu-filter-card,
+  .cu-table-card {
+    border-radius: 22px;
+    background: var(--cu-card);
+    border: 1px solid var(--cu-line);
+    box-shadow: var(--cu-shadow-soft);
+    overflow: hidden;
+  }
+
+  .cu-filter-head,
+  .cu-table-head {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--cu-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    background:
+      radial-gradient(circle at top left, rgba(0, 168, 89, .07), transparent 34%),
+      var(--cu-card);
+  }
+
+  .cu-filter-title,
+  .cu-table-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .cu-head-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: var(--cu-green-soft);
+    color: var(--cu-green-dark);
+    border: 1px solid rgba(0, 168, 89, .18);
+    font-size: 1.18rem;
+  }
+
+  .cu-filter-title h3,
+  .cu-table-title h3 {
+    margin: 0;
+    color: var(--cu-text);
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: -.02em;
+  }
+
+  .cu-filter-title p,
+  .cu-table-title p {
+    margin: 4px 0 0;
+    color: var(--cu-muted);
+    font-size: .82rem;
+    font-weight: 650;
+  }
+
+  .cu-count-pill {
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border-radius: 999px;
+    padding: 5px 11px;
+    background: var(--cu-green-soft);
+    color: var(--cu-green-dark);
+    border: 1px solid rgba(0, 168, 89, .16);
+    font-size: .76rem;
+    font-weight: 900;
+  }
+
+  .cu-filter-form {
+    padding: 18px;
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) 180px 190px 170px auto auto;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .cu-field {
+    display: grid;
+    gap: 7px;
+  }
+
+  .cu-field label {
+    color: var(--cu-muted);
+    font-size: .74rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .cu-field input,
+  .cu-field select {
+    width: 100%;
+    height: 44px;
+    border: 1px solid var(--cu-line);
+    border-radius: 14px;
+    background: var(--cu-card-2);
+    color: var(--cu-text);
+    padding: 0 13px;
+    outline: none;
+    font-size: .9rem;
+    font-weight: 750;
+    transition: .22s ease;
+  }
+
+  .cu-field input:focus,
+  .cu-field select:focus {
+    border-color: rgba(0, 168, 89, .42);
+    box-shadow: 0 0 0 4px rgba(0, 168, 89, .10);
+    background: var(--cu-card);
+  }
+
+  .cu-table-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    align-items: center;
+  }
+
+  .cu-table-shell {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .cu-table {
+    width: 100%;
+    min-width: 1120px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .cu-table th {
+    padding: 14px 15px;
+    background: var(--cu-green-deep);
+    color: #fff;
+    text-align: left;
+    font-size: .72rem;
+    line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: .065em;
+    font-weight: 900;
+    border-bottom: 1px solid rgba(255,255,255,.12);
+    white-space: nowrap;
+  }
+
+  .cu-table td {
+    padding: 16px 15px;
+    border-bottom: 1px solid var(--cu-line);
+    color: var(--cu-text);
+    vertical-align: middle;
+    font-size: .88rem;
+    font-weight: 650;
+  }
+
+  .cu-table tbody tr {
+    transition: background .2s ease;
+  }
+
+  .cu-table tbody tr:hover {
+    background: var(--cu-green-soft-2);
+  }
+
+  .cu-user {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    min-width: 260px;
+  }
+
+  .cu-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(255,255,255,.9), transparent 30%),
+      linear-gradient(135deg, var(--cu-green), var(--cu-green-dark));
+    color: #fff;
+    font-size: 1.35rem;
+    font-weight: 900;
+    box-shadow: 0 12px 24px rgba(0, 168, 89, .18);
+    animation: cuPulse 3s ease-in-out infinite;
+  }
+
+  .cu-user strong {
+    display: block;
+    color: var(--cu-text);
+    font-size: .95rem;
+    line-height: 1.25;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cu-user span {
+    display: block;
+    color: var(--cu-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+    font-weight: 700;
+    margin-top: 4px;
+  }
+
+  .cu-contact {
+    min-width: 230px;
+  }
+
+  .cu-contact strong {
+    display: block;
+    color: var(--cu-text);
+    font-size: .9rem;
+    font-weight: 900;
+  }
+
+  .cu-contact span {
+    display: block;
+    color: var(--cu-muted);
+    font-size: .78rem;
+    line-height: 1.4;
+    font-weight: 700;
+    margin-top: 3px;
+  }
+
+  .cu-chip {
+    min-height: 28px;
+    border-radius: 999px;
+    padding: 5px 9px;
+    background: var(--cu-card-2);
+    border: 1px solid var(--cu-line);
+    color: var(--cu-text);
+    font-size: .74rem;
+    font-weight: 900;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .cu-chip.green {
+    background: var(--cu-green-soft);
+    color: var(--cu-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .cu-chip.blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .16);
+  }
+
+  .cu-chip.orange {
+    background: var(--cu-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .24);
+  }
+
+  .cu-status-pill {
+    min-height: 30px;
+    border-radius: 999px;
+    padding: 6px 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: .72rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+
+  .cu-status-pill::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+  }
+
+  .cu-status-pill.active {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5, 150, 105, .18);
+  }
+
+  .cu-status-pill.active::before {
+    background: #10B981;
+  }
+
+  .cu-status-pill.disabled {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .cu-status-pill.disabled::before {
+    background: var(--cu-red);
+  }
+
+  .cu-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 260px;
+  }
+
+  .cu-actions form {
+    display: inline-flex;
+  }
+
+  .cu-icon-btn {
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--cu-line);
+    border-radius: 13px;
+    background: var(--cu-card);
+    color: var(--cu-text);
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: .22s ease;
+    font-size: 1rem;
+  }
+
+  .cu-icon-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: var(--cu-shadow-soft);
+    border-color: rgba(0, 168, 89, .32);
+  }
+
+  .cu-icon-btn.green {
+    background: var(--cu-green-soft);
+    color: var(--cu-green-dark);
+    border-color: rgba(0, 168, 89, .18);
+  }
+
+  .cu-icon-btn.blue {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .cu-icon-btn.orange {
+    background: var(--cu-orange-soft);
+    color: #B45309;
+    border-color: rgba(255, 184, 77, .24);
+  }
+
+  .cu-icon-btn.red {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .cu-empty {
+    padding: 32px 18px;
+    text-align: center;
+    color: var(--cu-muted);
+    font-size: .92rem;
+    font-weight: 850;
+  }
+
+  .cu-mobile-cards {
+    display: none;
+    gap: 14px;
+  }
+
+  .cu-mobile-card {
+    border: 1px solid var(--cu-line);
+    border-radius: 20px;
+    background: var(--cu-card);
+    box-shadow: var(--cu-shadow-soft);
+    padding: 16px;
+    display: grid;
+    gap: 14px;
+  }
+
+  .cu-mobile-top {
+    display: grid;
+    grid-template-columns: 54px 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .cu-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .cu-mobile-stat {
+    border-radius: 14px;
+    background: var(--cu-card-2);
+    border: 1px solid var(--cu-line);
+    padding: 11px;
+  }
+
+  .cu-mobile-stat span {
+    display: block;
+    color: var(--cu-muted);
+    font-size: .72rem;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+
+  .cu-mobile-stat strong {
+    display: block;
+    color: var(--cu-text);
+    font-size: .95rem;
+    font-weight: 900;
+    margin-top: 5px;
+  }
+
+  .cu-mobile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .cu-mobile-actions form {
+    display: inline-flex;
+  }
+
+  @media (max-width: 1320px) {
+    .cu-kpi-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cu-filter-form {
+      grid-template-columns: minmax(220px, 1fr) 180px 190px auto;
+    }
+  }
+
+  @media (max-width: 920px) {
+    .cu-hero-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .cu-hero-visual {
+      display: none;
+    }
+
+    .cu-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cu-filter-form {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .cu-filter-form .cu-btn {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .nf-customers-page {
+      gap: 16px;
+    }
+
+    .cu-hero,
+    .cu-filter-card,
+    .cu-table-card {
+      border-radius: 18px;
+    }
+
+    .cu-kpi-grid,
+    .cu-filter-form {
+      grid-template-columns: 1fr;
+    }
+
+    .cu-table-shell {
+      display: none;
+    }
+
+    .cu-mobile-cards {
+      display: grid;
+      padding: 14px;
+    }
+
+    .cu-table-actions {
+      width: 100%;
+    }
+
+    .cu-table-actions .cu-btn {
+      flex: 1;
+    }
+
+    .cu-hero-actions .cu-btn {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nf-customers-page,
+    .nf-customers-page *,
+    .nf-customers-page *::before,
+    .nf-customers-page *::after {
+      animation: none !important;
+      transition: none !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nf-customers-page">
+
+  <div class="cu-hero">
+    <div class="cu-hero-inner">
+      <div>
+        <span class="cu-kicker">👤 Customer Management</span>
+        <h2>Customers</h2>
+        <p>
+          View customer profiles, joining date, account activity, total orders, total order amount and safe account actions.
+          Customers with order history are protected by backend safe-delete logic.
+        </p>
+
+        <div class="cu-hero-actions">
+          <a href="{{ url_for('admin_users_export_csv', role='customer') }}" class="cu-btn cu-btn-soft">⬇ Export Customers</a>
+          <a href="{{ url_for('admin_users') }}" class="cu-btn cu-btn-blue">📊 Users Overview</a>
+          <a href="{{ url_for('admin_customers', status='active') }}" class="cu-btn cu-btn-primary">✅ Active Customers</a>
+        </div>
+      </div>
+
+      <div class="cu-hero-visual" aria-hidden="true">
+        <span>🛒</span>
+        <small>{{ metrics.total|default(0) }} Customers</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="cu-kpi-grid">
+    <div class="cu-kpi">
+      <div class="cu-kpi-icon">👥</div>
+      <div>
+        <strong>{{ metrics.total|default(0) }}</strong>
+        <span>Total Customers</span>
+      </div>
+    </div>
+
+    <div class="cu-kpi">
+      <div class="cu-kpi-icon">✅</div>
+      <div>
+        <strong>{{ metrics.active|default(0) }}</strong>
+        <span>Active Customers</span>
+      </div>
+    </div>
+
+    <div class="cu-kpi red">
+      <div class="cu-kpi-icon">🚫</div>
+      <div>
+        <strong>{{ metrics.disabled|default(0) }}</strong>
+        <span>Disabled Customers</span>
+      </div>
+    </div>
+
+    <div class="cu-kpi blue">
+      <div class="cu-kpi-icon">📦</div>
+      <div>
+        <strong>{{ metrics.total_orders|default(0) }}</strong>
+        <span>Total Orders</span>
+      </div>
+    </div>
+
+    <div class="cu-kpi orange">
+      <div class="cu-kpi-icon">₹</div>
+      <div>
+        <strong>₹{{ "%.2f"|format(metrics.total_amount|default(0)|float) }}</strong>
+        <span>Total Order Amount</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="cu-filter-card" aria-label="Customer filters">
+    <div class="cu-filter-head">
+      <div class="cu-filter-title">
+        <div class="cu-head-icon">🔎</div>
+        <div>
+          <h3>Customer Filters</h3>
+          <p>Filter customers by status, order amount, joining date and search text.</p>
+        </div>
+      </div>
+    </div>
+
+    <form method="get" action="{{ url_for('admin_customers') }}" class="cu-filter-form">
+      <div class="cu-field">
+        <label for="search">Search Customers</label>
+        <input
+          type="search"
+          id="search"
+          name="search"
+          value="{{ search or '' }}"
+          placeholder="Search by name, email or phone..."
+        >
+      </div>
+
+      <div class="cu-field">
+        <label for="status">Customer Status</label>
+        <select id="status" name="status">
+          <option value="" {% if not status %}selected{% endif %}>All Status</option>
+          <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+          <option value="inactive" {% if status in ['inactive','disabled'] %}selected{% endif %}>Disabled</option>
+        </select>
+      </div>
+
+      <div class="cu-field">
+        <label for="sort_by">Sort By</label>
+        <select id="sort_by" name="sort_by">
+          <option value="" {% if not sort_by %}selected{% endif %}>Default</option>
+          <option value="orders_desc" {% if sort_by == 'orders_desc' %}selected{% endif %}>Highest Orders</option>
+          <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>Highest Amount</option>
+          <option value="joining_new" {% if sort_by == 'joining_new' %}selected{% endif %}>Newest Joined</option>
+          <option value="joining_old" {% if sort_by == 'joining_old' %}selected{% endif %}>Oldest Joined</option>
+        </select>
+      </div>
+
+      <div class="cu-field">
+        <label for="limit">Choose First</label>
+        <select id="limit" name="limit">
+          <option value="" {% if not limit %}selected{% endif %}>All</option>
+          <option value="10" {% if limit == '10' %}selected{% endif %}>First 10</option>
+          <option value="25" {% if limit == '25' %}selected{% endif %}>First 25</option>
+          <option value="50" {% if limit == '50' %}selected{% endif %}>First 50</option>
+          <option value="100" {% if limit == '100' %}selected{% endif %}>First 100</option>
+        </select>
+      </div>
+
+      <button type="submit" class="cu-btn cu-btn-primary">Filter</button>
+      <a href="{{ url_for('admin_customers') }}" class="cu-btn">Reset</a>
+    </form>
+  </section>
+
+  <section class="cu-table-card" aria-label="Customer list table">
+    <div class="cu-table-head">
+      <div class="cu-table-title">
+        <div class="cu-head-icon">📋</div>
+        <div>
+          <h3>Customer List</h3>
+          <p>Manage customer contact information, orders, amount, joining date and account status.</p>
+        </div>
+      </div>
+
+      <div class="cu-table-actions">
+        <span class="cu-count-pill">Total: {{ customers|length }}</span>
+        <a href="{{ url_for('admin_users_export_csv', role='customer') }}" class="cu-btn cu-btn-soft">⬇ Export</a>
+      </div>
+    </div>
+
+    <div class="cu-table-shell">
+      <table class="cu-table">
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Name</th>
+            <th>Contact Information</th>
+            <th>Total Order</th>
+            <th>Total Order Amount</th>
+            <th>Joining Date</th>
+            <th>Active / Inactive</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for c in customers %}
+            <tr>
+              <td>{{ loop.index }}</td>
+
+              <td>
+                <div class="cu-user">
+                  <div class="cu-avatar">
+                    {{ (c.name[0] if c.name else 'C')|upper }}
+                  </div>
+                  <div>
+                    <strong>{{ c.name }}</strong>
+                    <span>Customer ID: {{ c.id }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <div class="cu-contact">
+                  <strong>{{ c.email or 'No email' }}</strong>
+                  <span>{{ c.phone or 'No phone' }}</span>
+                  {% if c.phone_verified %}
+                    <span class="cu-chip green" style="margin-top:7px;">Verified</span>
+                  {% else %}
+                    <span class="cu-chip orange" style="margin-top:7px;">Not Verified</span>
+                  {% endif %}
+                </div>
+              </td>
+
+              <td>
+                <span class="cu-chip blue">{{ c.total_order|default(0) }} Orders</span>
+              </td>
+
+              <td>
+                <strong>₹{{ "%.2f"|format(c.total_order_amount|default(0)|float) }}</strong>
+              </td>
+
+              <td>
+                <span class="cu-chip">{{ c.joining_date or c.created_at_display }}</span>
+              </td>
+
+              <td>
+                {% if c.is_active %}
+                  <span class="cu-status-pill active">Active</span>
+                {% else %}
+                  <span class="cu-status-pill disabled">Disabled</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <div class="cu-actions">
+                  <a
+                    href="{{ url_for('admin_user_transactions_csv', uid=c.id) }}"
+                    class="cu-icon-btn blue"
+                    title="Download transactions CSV"
+                    target="_blank"
+                  >📄</a>
+
+                  <a
+                    href="{{ url_for('admin_user_export_zip', uid=c.id) }}"
+                    class="cu-icon-btn green"
+                    title="Download full export ZIP"
+                  >📦</a>
+
+                  {% if c.is_active %}
+                    <form method="post" action="{{ url_for('admin_user_disable', uid=c.id) }}">
+                      <button type="submit" class="cu-icon-btn orange" title="Disable customer">⏸</button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="{{ url_for('admin_user_enable', uid=c.id) }}">
+                      <button type="submit" class="cu-icon-btn green" title="Activate customer">▶</button>
+                    </form>
+                  {% endif %}
+
+                  <form
+                    method="post"
+                    action="{{ url_for('admin_user_delete', uid=c.id) }}"
+                    onsubmit="return confirmCustomerDelete('{{ c.name|e }}')"
+                  >
+                    <button type="submit" class="cu-icon-btn red" title="Safe delete customer">🗑</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="8" class="cu-empty">No customers found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cu-mobile-cards">
+      {% for c in customers %}
+        <article class="cu-mobile-card">
+          <div class="cu-mobile-top">
+            <div class="cu-avatar">
+              {{ (c.name[0] if c.name else 'C')|upper }}
+            </div>
+            <div class="cu-user" style="display:block;min-width:0;">
+              <strong>{{ c.name }}</strong>
+              <span>{{ c.email or 'No email' }}</span>
+              <span>{{ c.phone or 'No phone' }}</span>
+            </div>
+          </div>
+
+          <div class="cu-mobile-grid">
+            <div class="cu-mobile-stat">
+              <span>Total Orders</span>
+              <strong>{{ c.total_order|default(0) }}</strong>
+            </div>
+            <div class="cu-mobile-stat">
+              <span>Total Amount</span>
+              <strong>₹{{ "%.2f"|format(c.total_order_amount|default(0)|float) }}</strong>
+            </div>
+            <div class="cu-mobile-stat">
+              <span>Joining Date</span>
+              <strong>{{ c.joining_date or c.created_at_display }}</strong>
+            </div>
+            <div class="cu-mobile-stat">
+              <span>Phone</span>
+              <strong>{{ 'Verified' if c.phone_verified else 'Not Verified' }}</strong>
+            </div>
+          </div>
+
+          <div>
+            {% if c.is_active %}
+              <span class="cu-status-pill active">Active</span>
+            {% else %}
+              <span class="cu-status-pill disabled">Disabled</span>
+            {% endif %}
+          </div>
+
+          <div class="cu-mobile-actions">
+            <a href="{{ url_for('admin_user_transactions_csv', uid=c.id) }}" class="cu-btn cu-btn-blue" target="_blank">CSV</a>
+            <a href="{{ url_for('admin_user_export_zip', uid=c.id) }}" class="cu-btn cu-btn-soft">ZIP</a>
+
+            {% if c.is_active %}
+              <form method="post" action="{{ url_for('admin_user_disable', uid=c.id) }}">
+                <button type="submit" class="cu-btn cu-btn-orange">Disable</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('admin_user_enable', uid=c.id) }}">
+                <button type="submit" class="cu-btn cu-btn-primary">Activate</button>
+              </form>
+            {% endif %}
+
+            <form
+              method="post"
+              action="{{ url_for('admin_user_delete', uid=c.id) }}"
+              onsubmit="return confirmCustomerDelete('{{ c.name|e }}')"
+            >
+              <button type="submit" class="cu-btn cu-btn-danger">Delete</button>
+            </form>
+          </div>
+        </article>
+      {% else %}
+        <div class="cu-empty">No customers found.</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  window.confirmCustomerDelete = function (name) {
+    return confirm(
+      `Delete customer "${name}"?\n\nThis will only hard-delete if the customer has no order history. If order history exists, the backend will safely disable the account instead.`
+    );
+  };
+
+  const rows = document.querySelectorAll('.cu-table tbody tr');
+  rows.forEach(function (row, index) {
+    row.style.opacity = '0';
+    row.style.transform = 'translateY(8px)';
+
+    setTimeout(function () {
+      row.style.transition = 'opacity .32s ease, transform .32s ease, background .2s ease';
+      row.style.opacity = '1';
+      row.style.transform = 'translateY(0)';
+    }, Math.min(index * 45, 420));
+  });
+
+  const cards = document.querySelectorAll('.cu-mobile-card, .cu-kpi');
+  cards.forEach(function (card, index) {
+    card.style.animationDelay = `${Math.min(index * 45, 350)}ms`;
+  });
+})();
+</script>
+{% endblock %}

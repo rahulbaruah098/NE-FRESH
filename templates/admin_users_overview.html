@@ -1,0 +1,1197 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "users" %}
+{% set active_page = "users_overview" %}
+
+{% block title %}User Overview | NE FRESH Admin{% endblock %}
+
+{% block page_title %}User Overview{% endblock %}
+{% block page_subtitle %}Manage customers, store users and delivery partners from one dashboard.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-user-overview {
+    --uo-green: var(--nf-green, #00A859);
+    --uo-green-dark: var(--nf-green-dark, #008A48);
+    --uo-green-deep: var(--nf-green-deep, #075C3B);
+    --uo-green-soft: var(--nf-green-soft, #E9FFF3);
+    --uo-orange: var(--nf-orange, #FFB84D);
+    --uo-orange-soft: var(--nf-orange-soft, #FFF7E8);
+    --uo-red: var(--nf-red, #EF4444);
+    --uo-blue: var(--nf-blue, #0284C7);
+    --uo-bg: var(--nf-bg, #F8FFFB);
+    --uo-card: var(--nf-surface, #FFFFFF);
+    --uo-card-2: var(--nf-surface-2, #F2FBF6);
+    --uo-text: var(--nf-text, #1F332A);
+    --uo-muted: var(--nf-muted, #66756D);
+    --uo-muted-2: var(--nf-muted-2, #8A9890);
+    --uo-line: var(--nf-line, #DDECE4);
+    --uo-shadow: var(--nf-shadow, 0 14px 36px rgba(17, 64, 38, .08));
+    --uo-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17, 64, 38, .06));
+
+    display: grid;
+    gap: 22px;
+  }
+
+  .nf-user-overview,
+  .nf-user-overview * {
+    box-sizing: border-box;
+  }
+
+  .uo-page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+
+  .uo-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .uo-title-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, var(--uo-green-soft), #fff);
+    border: 1px solid rgba(0, 168, 89, .18);
+    box-shadow: var(--uo-shadow-soft);
+    font-size: 1.35rem;
+  }
+
+  .uo-title-wrap h2 {
+    margin: 0;
+    color: var(--uo-text);
+    font-size: clamp(1.35rem, 2vw, 1.9rem);
+    font-weight: 900;
+    letter-spacing: -.035em;
+    line-height: 1.1;
+  }
+
+  .uo-title-wrap p {
+    margin: 5px 0 0;
+    color: var(--uo-muted);
+    font-size: .92rem;
+    font-weight: 650;
+  }
+
+  .uo-zone-select {
+    width: min(280px, 100%);
+    height: 46px;
+    border: 1px solid var(--uo-line);
+    border-radius: 14px;
+    background: var(--uo-card);
+    color: var(--uo-text);
+    padding: 0 14px;
+    outline: none;
+    font-size: .92rem;
+    font-weight: 750;
+    box-shadow: var(--uo-shadow-soft);
+  }
+
+  .uo-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .uo-kpi-card {
+    min-height: 142px;
+    border-radius: 20px;
+    background: var(--uo-card);
+    border: 1px solid var(--uo-line);
+    box-shadow: var(--uo-shadow-soft);
+    padding: 18px;
+    display: grid;
+    align-content: space-between;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .uo-kpi-card::after {
+    content: "";
+    position: absolute;
+    width: 110px;
+    height: 110px;
+    border-radius: 999px;
+    right: -44px;
+    top: -48px;
+    background: rgba(0, 168, 89, .08);
+  }
+
+  .uo-kpi-card.delivery::after {
+    background: rgba(2, 132, 199, .10);
+  }
+
+  .uo-kpi-card.store::after {
+    background: rgba(255, 184, 77, .16);
+  }
+
+  .uo-avatar-strip {
+    display: flex;
+    align-items: center;
+    min-height: 34px;
+  }
+
+  .uo-mini-badge {
+    min-width: 36px;
+    height: 32px;
+    padding: 0 9px;
+    border-radius: 999px;
+    display: inline-grid;
+    place-items: center;
+    background: var(--uo-green-deep);
+    color: #fff;
+    font-size: .82rem;
+    font-weight: 900;
+    margin-right: -4px;
+    z-index: 2;
+  }
+
+  .uo-kpi-card.delivery .uo-mini-badge {
+    background: var(--uo-blue);
+  }
+
+  .uo-kpi-card.store .uo-mini-badge {
+    background: var(--uo-orange);
+    color: #fff;
+  }
+
+  .uo-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background: var(--uo-green-soft);
+    border: 2px solid var(--uo-card);
+    color: var(--uo-green-dark);
+    font-size: .95rem;
+    margin-left: -6px;
+    box-shadow: 0 8px 16px rgba(17, 64, 38, .08);
+  }
+
+  .uo-kpi-value {
+    margin-top: 12px;
+    color: var(--uo-green-deep);
+    font-size: 1.75rem;
+    font-weight: 900;
+    letter-spacing: -.04em;
+  }
+
+  .uo-kpi-card.delivery .uo-kpi-value {
+    color: var(--uo-blue);
+  }
+
+  .uo-kpi-card.store .uo-kpi-value {
+    color: var(--uo-orange);
+  }
+
+  .uo-kpi-label {
+    color: var(--uo-text);
+    font-size: .92rem;
+    font-weight: 850;
+    margin-top: 6px;
+  }
+
+  .uo-section-title {
+    margin: 8px 0 0;
+    color: var(--uo-text);
+    font-size: 1.12rem;
+    font-weight: 900;
+    letter-spacing: -.025em;
+  }
+
+  .uo-customer-grid {
+    display: grid;
+    grid-template-columns: 235px minmax(0, 1fr) 360px;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .uo-mini-stack {
+    display: grid;
+    gap: 12px;
+  }
+
+  .uo-mini-stat {
+    min-height: 100px;
+    border-radius: 18px;
+    background: var(--uo-card);
+    border: 1px solid var(--uo-line);
+    box-shadow: var(--uo-shadow-soft);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .uo-mini-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: var(--uo-green-soft);
+    color: var(--uo-green-dark);
+    font-size: 1.35rem;
+    flex: 0 0 auto;
+  }
+
+  .uo-mini-stat.orange .uo-mini-icon {
+    background: var(--uo-orange-soft);
+    color: #B45309;
+  }
+
+  .uo-mini-stat.red .uo-mini-icon {
+    background: #FFF1F2;
+    color: var(--uo-red);
+  }
+
+  .uo-mini-content strong {
+    display: block;
+    color: var(--uo-green-dark);
+    font-size: 1.55rem;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1;
+  }
+
+  .uo-mini-stat.orange .uo-mini-content strong {
+    color: var(--uo-blue);
+  }
+
+  .uo-mini-stat.red .uo-mini-content strong {
+    color: var(--uo-red);
+  }
+
+  .uo-mini-content span {
+    display: block;
+    margin-top: 8px;
+    color: var(--uo-text);
+    font-size: .9rem;
+    font-weight: 850;
+  }
+
+  .uo-card {
+    border-radius: 20px;
+    background: var(--uo-card);
+    border: 1px solid var(--uo-line);
+    box-shadow: var(--uo-shadow-soft);
+    overflow: hidden;
+  }
+
+  .uo-card-head {
+    min-height: 58px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--uo-line);
+  }
+
+  .uo-card-head h3 {
+    margin: 0;
+    color: var(--uo-text);
+    font-size: .98rem;
+    font-weight: 900;
+    letter-spacing: -.02em;
+  }
+
+  .uo-card-head span,
+  .uo-card-head a {
+    color: var(--uo-muted);
+    font-size: .86rem;
+    font-weight: 750;
+  }
+
+  .uo-card-head a {
+    color: var(--uo-green-dark);
+  }
+
+  .uo-growth-card {
+    min-height: 322px;
+  }
+
+  .uo-chart {
+    height: 242px;
+    padding: 18px 18px 12px;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    gap: 10px;
+  }
+
+  .uo-chart-area {
+    position: relative;
+    height: 100%;
+    border-left: 1px solid var(--uo-line);
+    border-bottom: 1px solid var(--uo-line);
+    background:
+      linear-gradient(to bottom, transparent 0, transparent calc(20% - 1px), var(--uo-line) calc(20% - 1px), transparent 20%),
+      linear-gradient(to bottom, transparent 0, transparent calc(40% - 1px), var(--uo-line) calc(40% - 1px), transparent 40%),
+      linear-gradient(to bottom, transparent 0, transparent calc(60% - 1px), var(--uo-line) calc(60% - 1px), transparent 60%),
+      linear-gradient(to bottom, transparent 0, transparent calc(80% - 1px), var(--uo-line) calc(80% - 1px), transparent 80%);
+    display: flex;
+    align-items: end;
+    gap: 12px;
+    padding: 0 12px;
+  }
+
+  .uo-bar {
+    flex: 1;
+    min-width: 12px;
+    border-radius: 9px 9px 0 0;
+    background: linear-gradient(180deg, var(--uo-green), var(--uo-green-dark));
+    height: calc(var(--bar-height, 0) * 1%);
+    min-height: 2px;
+    position: relative;
+    box-shadow: 0 10px 22px rgba(0, 168, 89, .14);
+  }
+
+  .uo-bar:hover::after {
+    content: attr(data-value);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    background: var(--uo-green-deep);
+    color: #fff;
+    border-radius: 10px;
+    padding: 5px 8px;
+    font-size: .72rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .uo-chart-labels {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 8px;
+    color: var(--uo-muted);
+    font-size: .78rem;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .uo-satisfaction {
+    min-height: 322px;
+    padding-bottom: 12px;
+  }
+
+  .uo-review-count {
+    padding: 0 18px 12px;
+  }
+
+  .uo-review-count strong {
+    display: block;
+    color: var(--uo-text);
+    font-size: 1.35rem;
+    font-weight: 900;
+  }
+
+  .uo-review-count span {
+    color: var(--uo-muted);
+    font-size: .85rem;
+    font-weight: 700;
+  }
+
+  .uo-satisfaction-rows {
+    display: grid;
+    gap: 10px;
+    padding: 0 12px;
+  }
+
+  .uo-sat-row {
+    display: grid;
+    grid-template-columns: 70px 1fr 46px;
+    gap: 10px;
+    align-items: center;
+    min-height: 42px;
+    border-radius: 12px;
+    background: var(--uo-card-2);
+    padding: 0 12px;
+  }
+
+  .uo-sat-row span:first-child {
+    color: var(--uo-muted);
+    font-size: .78rem;
+    font-weight: 850;
+  }
+
+  .uo-sat-icons {
+    display: flex;
+    gap: 5px;
+    overflow: hidden;
+  }
+
+  .uo-sat-icons i {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--uo-line);
+    display: inline-block;
+  }
+
+  .uo-sat-row.positive .uo-sat-icons i:nth-child(-n+9),
+  .uo-sat-row.good .uo-sat-icons i:nth-child(-n+6),
+  .uo-sat-row.neutral .uo-sat-icons i:nth-child(-n+3),
+  .uo-sat-row.negative .uo-sat-icons i:nth-child(-n+1) {
+    background: var(--uo-green);
+  }
+
+  .uo-sat-row strong {
+    color: var(--uo-text);
+    font-size: .82rem;
+    font-weight: 900;
+    text-align: right;
+  }
+
+  .uo-delivery-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .uo-delivery-kpi {
+    min-height: 106px;
+    border-radius: 18px;
+    background: var(--uo-card);
+    border: 1px solid var(--uo-line);
+    box-shadow: var(--uo-shadow-soft);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .uo-delivery-kpi-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: var(--uo-green-soft);
+    color: var(--uo-green-dark);
+    font-size: 1.25rem;
+    flex: 0 0 auto;
+  }
+
+  .uo-delivery-kpi.blue .uo-delivery-kpi-icon {
+    background: #E0F2FE;
+    color: var(--uo-blue);
+  }
+
+  .uo-delivery-kpi.orange .uo-delivery-kpi-icon {
+    background: var(--uo-orange-soft);
+    color: #B45309;
+  }
+
+  .uo-delivery-kpi.red .uo-delivery-kpi-icon {
+    background: #FFF1F2;
+    color: var(--uo-red);
+  }
+
+  .uo-delivery-kpi strong {
+    display: block;
+    color: var(--uo-green-dark);
+    font-size: 1.55rem;
+    line-height: 1;
+    font-weight: 900;
+  }
+
+  .uo-delivery-kpi.blue strong {
+    color: var(--uo-blue);
+  }
+
+  .uo-delivery-kpi.orange strong,
+  .uo-delivery-kpi.red strong {
+    color: var(--uo-red);
+  }
+
+  .uo-delivery-kpi span {
+    display: block;
+    margin-top: 8px;
+    color: var(--uo-text);
+    font-size: .86rem;
+    line-height: 1.28;
+    font-weight: 850;
+  }
+
+  .uo-delivery-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 356px;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .uo-map-card {
+    min-height: 360px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .uo-map-toolbar {
+    padding: 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .uo-map-toolbar strong {
+    min-height: 42px;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, .94);
+    border: 1px solid var(--uo-line);
+    display: inline-flex;
+    align-items: center;
+    padding: 0 14px;
+    color: var(--uo-text);
+    font-size: .86rem;
+    font-weight: 900;
+    box-shadow: var(--uo-shadow-soft);
+  }
+
+  .uo-map-toolbar input {
+    width: min(380px, 50%);
+    height: 42px;
+    border-radius: 13px;
+    border: 1px solid var(--uo-line);
+    background: rgba(255, 255, 255, .95);
+    color: var(--uo-text);
+    outline: none;
+    padding: 0 14px;
+    font-weight: 700;
+    box-shadow: var(--uo-shadow-soft);
+  }
+
+  .uo-map-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, rgba(2,132,199,.08) 1px, transparent 1px),
+      linear-gradient(0deg, rgba(2,132,199,.08) 1px, transparent 1px),
+      radial-gradient(circle at 28% 45%, rgba(0,168,89,.18), transparent 11%),
+      radial-gradient(circle at 70% 35%, rgba(2,132,199,.18), transparent 12%),
+      radial-gradient(circle at 48% 66%, rgba(255,184,77,.20), transparent 11%),
+      #EEF8F3;
+    background-size: 58px 58px, 58px 58px, auto, auto, auto, auto;
+  }
+
+  .uo-map-road {
+    position: absolute;
+    inset: 49% -10% auto -10%;
+    height: 18px;
+    background: rgba(15, 82, 60, .22);
+    transform: rotate(-8deg);
+    border-radius: 999px;
+  }
+
+  .uo-map-road.two {
+    inset: 36% -10% auto -10%;
+    transform: rotate(18deg);
+    background: rgba(2, 132, 199, .18);
+  }
+
+  .uo-map-pin {
+    width: 42px;
+    height: 42px;
+    border-radius: 999px 999px 999px 8px;
+    position: absolute;
+    display: grid;
+    place-items: center;
+    background: var(--uo-green);
+    color: #fff;
+    transform: rotate(-45deg);
+    box-shadow: 0 18px 34px rgba(0, 168, 89, .24);
+    border: 3px solid #fff;
+  }
+
+  .uo-map-pin span {
+    transform: rotate(45deg);
+    font-size: 1.05rem;
+  }
+
+  .pin-one {
+    left: 27%;
+    top: 47%;
+  }
+
+  .pin-two {
+    left: 66%;
+    top: 34%;
+    background: var(--uo-blue);
+  }
+
+  .pin-three {
+    left: 48%;
+    top: 62%;
+    background: var(--uo-orange);
+  }
+
+  .uo-top-list {
+    padding: 12px 16px 18px;
+    display: grid;
+    gap: 13px;
+  }
+
+  .uo-person-row {
+    display: grid;
+    grid-template-columns: 50px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    min-height: 58px;
+  }
+
+  .uo-person-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: var(--uo-green-soft);
+    color: var(--uo-green-dark);
+    border: 1px solid rgba(0, 168, 89, .18);
+    font-size: 1.3rem;
+  }
+
+  .uo-person-row strong {
+    display: block;
+    color: var(--uo-text);
+    font-size: .92rem;
+    font-weight: 900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .uo-person-row span {
+    display: block;
+    color: var(--uo-muted);
+    font-size: .78rem;
+    font-weight: 700;
+    margin-top: 3px;
+  }
+
+  .uo-order-pill {
+    min-height: 32px;
+    border-radius: 10px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    background: var(--uo-card-2);
+    color: var(--uo-green-dark);
+    font-size: .75rem;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .uo-bottom-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .uo-recent-table-wrap {
+    overflow-x: auto;
+  }
+
+  .uo-recent-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .uo-recent-table th {
+    padding: 13px 15px;
+    background: var(--uo-card-2);
+    color: var(--uo-muted);
+    text-align: left;
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    font-weight: 900;
+    border-bottom: 1px solid var(--uo-line);
+  }
+
+  .uo-recent-table td {
+    padding: 14px 15px;
+    border-bottom: 1px solid var(--uo-line);
+    color: var(--uo-text);
+    font-size: .86rem;
+    font-weight: 700;
+    vertical-align: middle;
+  }
+
+  .uo-recent-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .uo-role-badge,
+  .uo-status-badge {
+    min-height: 26px;
+    border-radius: 999px;
+    padding: 4px 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .045em;
+    border: 1px solid transparent;
+  }
+
+  .uo-role-admin {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5, 150, 105, .18);
+  }
+
+  .uo-role-store {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2, 132, 199, .18);
+  }
+
+  .uo-role-delivery {
+    background: #FFF7ED;
+    color: #C2410C;
+    border-color: rgba(255, 138, 31, .22);
+  }
+
+  .uo-role-customer {
+    background: #F5F3FF;
+    color: #6D28D9;
+    border-color: rgba(109, 40, 217, .18);
+  }
+
+  .uo-status-active {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5, 150, 105, .18);
+  }
+
+  .uo-status-disabled {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239, 68, 68, .20);
+  }
+
+  .uo-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--uo-muted);
+    font-size: .9rem;
+    font-weight: 800;
+  }
+
+  @media (max-width: 1180px) {
+    .uo-customer-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .uo-mini-stack {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .uo-delivery-grid,
+    .uo-bottom-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .uo-kpi-grid,
+    .uo-delivery-kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .uo-mini-stack {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .nf-user-overview {
+      gap: 16px;
+    }
+
+    .uo-page-head {
+      align-items: stretch;
+    }
+
+    .uo-title-wrap {
+      align-items: flex-start;
+    }
+
+    .uo-title-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+    }
+
+    .uo-zone-select,
+    .uo-kpi-grid,
+    .uo-delivery-kpis {
+      width: 100%;
+      grid-template-columns: 1fr;
+    }
+
+    .uo-map-toolbar {
+      display: grid;
+    }
+
+    .uo-map-toolbar input {
+      width: 100%;
+    }
+
+    .uo-chart-area {
+      gap: 5px;
+      padding: 0 8px;
+    }
+
+    .uo-chart-labels {
+      font-size: .68rem;
+      gap: 2px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nf-user-overview">
+
+  <div class="uo-page-head">
+    <div class="uo-title-wrap">
+      <div class="uo-title-icon" aria-hidden="true">👥</div>
+      <div>
+        <h2>User Overview</h2>
+        <p>Hello here you can manage your users by role and account status.</p>
+      </div>
+    </div>
+
+    <select class="uo-zone-select" aria-label="Zone filter">
+      <option>All Zones</option>
+      <option>Default Zone</option>
+      <option>North Guwahati</option>
+      <option>South Guwahati</option>
+    </select>
+  </div>
+
+  <div class="uo-kpi-grid">
+    <a href="{{ url_for('admin_customers') }}" class="uo-kpi-card customer">
+      <div class="uo-avatar-strip">
+        <span class="uo-mini-badge">+{{ metrics.new_customers|default(0) }}</span>
+        <span class="uo-avatar">👤</span>
+        <span class="uo-avatar">🛒</span>
+        <span class="uo-avatar">🏠</span>
+      </div>
+      <div>
+        <div class="uo-kpi-value">{{ metrics.total_customers|default(0) }}</div>
+        <div class="uo-kpi-label">Total Customer</div>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_delivery_users') }}" class="uo-kpi-card delivery">
+      <div class="uo-avatar-strip">
+        <span class="uo-mini-badge">+{{ metrics.new_delivery_users|default(0) }}</span>
+        <span class="uo-avatar">🛵</span>
+        <span class="uo-avatar">📦</span>
+        <span class="uo-avatar">📍</span>
+      </div>
+      <div>
+        <div class="uo-kpi-value">{{ metrics.total_delivery_users|default(0) }}</div>
+        <div class="uo-kpi-label">Total Delivery Man</div>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_store_users') }}" class="uo-kpi-card store">
+      <div class="uo-avatar-strip">
+        <span class="uo-mini-badge">+{{ metrics.new_store_users|default(0) }}</span>
+        <span class="uo-avatar">🏪</span>
+        <span class="uo-avatar">🥬</span>
+        <span class="uo-avatar">📋</span>
+      </div>
+      <div>
+        <div class="uo-kpi-value">{{ metrics.total_store_users|default(0) }}</div>
+        <div class="uo-kpi-label">Total Store Users</div>
+      </div>
+    </a>
+  </div>
+
+  <h3 class="uo-section-title">Customer Statistics</h3>
+
+  <div class="uo-customer-grid">
+    <div class="uo-mini-stack">
+      <a href="{{ url_for('admin_customers', status='active') }}" class="uo-mini-stat">
+        <div class="uo-mini-icon">👨‍👩‍👧</div>
+        <div class="uo-mini-content">
+          <strong>{{ metrics.active_customers|default(0) }}</strong>
+          <span>Active Customer</span>
+        </div>
+      </a>
+
+      <a href="{{ url_for('admin_customers', sort_by='joining_new') }}" class="uo-mini-stat orange">
+        <div class="uo-mini-icon">🆕</div>
+        <div class="uo-mini-content">
+          <strong>{{ metrics.new_customers|default(0) }}</strong>
+          <span>Newly Joined</span>
+        </div>
+      </a>
+
+      <a href="{{ url_for('admin_customers', status='inactive') }}" class="uo-mini-stat red">
+        <div class="uo-mini-icon">🚫</div>
+        <div class="uo-mini-content">
+          <strong>{{ metrics.blocked_customers|default(0) }}</strong>
+          <span>Blocked Customer</span>
+        </div>
+      </a>
+    </div>
+
+    <div class="uo-card uo-growth-card">
+      <div class="uo-card-head">
+        <h3>Customer Growth</h3>
+        <span>● This year ({{ current_year|default(2026) }})</span>
+      </div>
+
+      <div class="uo-chart">
+        <div class="uo-chart-area">
+          {% set max_growth = customer_growth_values|max if customer_growth_values else 0 %}
+          {% for value in customer_growth_values %}
+            {% if max_growth and max_growth > 0 %}
+              {% set height = (value / max_growth * 100)|round(0, 'floor') %}
+            {% else %}
+              {% set height = 0 %}
+            {% endif %}
+            <div class="uo-bar" style="--bar-height: {{ height }};" data-value="{{ value }}"></div>
+          {% endfor %}
+        </div>
+
+        <div class="uo-chart-labels">
+          {% for month in month_labels %}
+            <span>{{ month }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="uo-card uo-satisfaction">
+      <div class="uo-card-head">
+        <h3>Customer Satisfaction</h3>
+        <span>⭐</span>
+      </div>
+
+      <div class="uo-review-count">
+        <strong>{{ metrics.review_received|default(0) }}</strong>
+        <span>Review Received</span>
+      </div>
+
+      <div class="uo-satisfaction-rows">
+        <div class="uo-sat-row positive">
+          <span>Positive</span>
+          <div class="uo-sat-icons">
+            {% for i in range(10) %}<i></i>{% endfor %}
+          </div>
+          <strong>{{ metrics.positive_pct|default(0) }}%</strong>
+        </div>
+
+        <div class="uo-sat-row good">
+          <span>Good</span>
+          <div class="uo-sat-icons">
+            {% for i in range(10) %}<i></i>{% endfor %}
+          </div>
+          <strong>{{ metrics.good_pct|default(0) }}%</strong>
+        </div>
+
+        <div class="uo-sat-row neutral">
+          <span>Neutral</span>
+          <div class="uo-sat-icons">
+            {% for i in range(10) %}<i></i>{% endfor %}
+          </div>
+          <strong>{{ metrics.neutral_pct|default(0) }}%</strong>
+        </div>
+
+        <div class="uo-sat-row negative">
+          <span>Negative</span>
+          <div class="uo-sat-icons">
+            {% for i in range(10) %}<i></i>{% endfor %}
+          </div>
+          <strong>{{ metrics.negative_pct|default(0) }}%</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="uo-section-title">Deliveryman Statistics</h3>
+
+  <div class="uo-delivery-kpis">
+    <a href="{{ url_for('admin_delivery_users', status='active') }}" class="uo-delivery-kpi">
+      <div class="uo-delivery-kpi-icon">🛵</div>
+      <div>
+        <strong>{{ metrics.active_delivery_users|default(0) }}</strong>
+        <span>Active Delivery Man</span>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_delivery_users') }}" class="uo-delivery-kpi blue">
+      <div class="uo-delivery-kpi-icon">👷</div>
+      <div>
+        <strong>{{ metrics.new_delivery_users|default(0) }}</strong>
+        <span>Newly Joined Delivery Man</span>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_delivery_users', status='inactive') }}" class="uo-delivery-kpi orange">
+      <div class="uo-delivery-kpi-icon">📦</div>
+      <div>
+        <strong>{{ metrics.inactive_delivery_users|default(0) }}</strong>
+        <span>Inactive Deliveryman</span>
+      </div>
+    </a>
+
+    <a href="{{ url_for('admin_delivery_users', status='inactive') }}" class="uo-delivery-kpi red">
+      <div class="uo-delivery-kpi-icon">🚫</div>
+      <div>
+        <strong>{{ metrics.blocked_delivery_users|default(0) }}</strong>
+        <span>Blocked Deliveryman</span>
+      </div>
+    </a>
+  </div>
+
+  <div class="uo-delivery-grid">
+    <div class="uo-card uo-map-card">
+      <div class="uo-map-bg"></div>
+      <div class="uo-map-road"></div>
+      <div class="uo-map-road two"></div>
+
+      <div class="uo-map-toolbar">
+        <strong>Currently Active Delivery Men</strong>
+        <input type="search" placeholder="Search Delivery Man ..." aria-label="Search delivery man">
+      </div>
+
+      <div class="uo-map-pin pin-one"><span>🛵</span></div>
+      <div class="uo-map-pin pin-two"><span>📦</span></div>
+      <div class="uo-map-pin pin-three"><span>🥬</span></div>
+    </div>
+
+    <div class="uo-card">
+      <div class="uo-card-head">
+        <h3>Top Deliveryman</h3>
+        <a href="{{ url_for('admin_delivery_users') }}">View All</a>
+      </div>
+
+      <div class="uo-top-list">
+        {% for d in top_deliverymen %}
+          <div class="uo-person-row">
+            <div class="uo-person-img">🛵</div>
+            <div>
+              <strong>{{ d.name }}</strong>
+              <span>{{ d.phone_masked or d.email_masked }}</span>
+            </div>
+            <span class="uo-order-pill">Orders : {{ d.total_completed_orders|default(0) }}</span>
+          </div>
+        {% else %}
+          <div class="uo-empty">No delivery users found.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="uo-bottom-grid">
+    <div class="uo-card">
+      <div class="uo-card-head">
+        <h3>Top Store Users</h3>
+        <a href="{{ url_for('admin_store_users') }}">View All</a>
+      </div>
+
+      <div class="uo-top-list">
+        {% for s in top_store_users %}
+          <div class="uo-person-row">
+            <div class="uo-person-img">🏪</div>
+            <div>
+              <strong>{{ s.store_name or s.name }}</strong>
+              <span>{{ s.email_masked or s.phone_masked }}</span>
+            </div>
+            <span class="uo-order-pill">Orders : {{ s.orders|default(0) }}</span>
+          </div>
+        {% else %}
+          <div class="uo-empty">No store users found.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="uo-card">
+      <div class="uo-card-head">
+        <h3>Recent Users</h3>
+        <span>Total : {{ metrics.total_users|default(0) }}</span>
+      </div>
+
+      <div class="uo-recent-table-wrap">
+        <table class="uo-recent-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email / Phone</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Joined</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in recent_users %}
+              <tr>
+                <td>{{ u.name }}</td>
+                <td>
+                  <div>{{ u.email_masked }}</div>
+                  <div style="color:var(--uo-muted);font-size:.78rem;margin-top:3px;">{{ u.phone_masked }}</div>
+                </td>
+                <td>
+                  <span class="uo-role-badge uo-role-{{ u.role }}">{{ u.role }}</span>
+                </td>
+                <td>
+                  {% if u.is_active %}
+                    <span class="uo-status-badge uo-status-active">Active</span>
+                  {% else %}
+                    <span class="uo-status-badge uo-status-disabled">Disabled</span>
+                  {% endif %}
+                </td>
+                <td>{{ u.created_at_display }}</td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="5" class="uo-empty">No users found.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const bars = document.querySelectorAll('.uo-bar');
+
+  bars.forEach(function (bar) {
+    const value = Number(bar.dataset.value || 0);
+    if (value > 0 && parseFloat(getComputedStyle(bar).height) < 6) {
+      bar.style.minHeight = '8px';
+    }
+  });
+})();
+</script>
+{% endblock %}
