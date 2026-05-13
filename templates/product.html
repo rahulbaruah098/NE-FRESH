@@ -650,6 +650,38 @@
       display:block;
     }
 
+    .nf-stock-warning{
+  display:none;
+  margin:0 0 12px;
+  border-radius:10px;
+  background:#FFF1F2;
+  border:1px solid rgba(185,28,28,.16);
+  color:#B91C1C;
+  padding:10px 12px;
+  font-size:.78rem;
+  font-weight:800;
+  line-height:1.45;
+  text-align:center;
+}
+
+.nf-stock-warning.show{
+  display:block;
+}
+
+.nf-weight-field input.is-invalid{
+  border-color:rgba(185,28,28,.45) !important;
+  box-shadow:0 0 0 4px rgba(185,28,28,.08) !important;
+}
+
+.nf-add-cart:disabled,
+.nf-buy-now:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+  pointer-events:none;
+  transform:none !important;
+  box-shadow:none !important;
+}
+
     @keyframes nfInlineIn{
       from{ opacity:0; transform:translateY(4px); }
       to{ opacity:1; transform:translateY(0); }
@@ -1228,12 +1260,16 @@
                            step="0.25"
                            min="0.25"
                            max="{{ '%.2f'|format(stock_qty) }}"
-                           value="{{ '%.2f'|format(default_weight) }}">
+       value="{{ '%.2f'|format(selected_weight_kg|default(default_weight)) }}">
                   </div>
 
                   <div class="nf-buy-note">
                     Available stock: <b>{{ '%.2f'|format(stock_qty) }} kg</b>. Minimum order is 0.25 kg.
                   </div>
+
+                  <div class="nf-stock-warning" id="stockWarning" role="status" aria-live="polite">
+  Requested amount is not available in stock. Please change the amount.
+</div>
 
                   <div class="nf-total-box">
                     <span>Estimated Item Total</span>
@@ -1398,7 +1434,7 @@
 <script>
 (function(){
   {% if user and user.role == 'customer' and is_in_stock %}
-  const pricePerKg = {{ '%.2f'|format(price_per_kg or 0) }};
+    const pricePerKg = {{ '%.2f'|format(price_per_kg or 0) }};
   const availableStock = {{ '%.2f'|format(stock_qty or 0) }};
   const weightEl = document.getElementById('weight_kg');
   const estTotalEl = document.getElementById('estTotal');
@@ -1406,29 +1442,66 @@
   const btnBuy = document.getElementById('btnBuy');
   const popupAdd = document.getElementById('popupAdd');
   const popupBuy = document.getElementById('popupBuy');
+  const stockWarning = document.getElementById('stockWarning');
 
   if(!weightEl || !btnAdd || !btnBuy){
     return;
   }
 
-  function cleanWeight(){
+  function getEnteredWeight(){
     const rawKg = parseFloat(weightEl.value || '{{ "%.2f"|format(default_weight) }}');
-    let kg = isNaN(rawKg) ? {{ '%.2f'|format(default_weight) }} : rawKg;
+    return Number.isFinite(rawKg) ? rawKg : 0;
+  }
+
+  function getQtyError(kg){
+    if(!Number.isFinite(kg) || kg <= 0){
+      return 'Please enter a valid quantity.';
+    }
 
     if(kg < 0.25){
-      kg = 0.25;
+      return 'Minimum order quantity is 0.25 kg.';
     }
 
-    if(availableStock > 0 && kg > availableStock){
-      kg = availableStock;
+    if(availableStock <= 0){
+      return 'This product is out of stock.';
     }
 
-    return kg;
+    if(kg > availableStock){
+      return 'Requested amount is not available in stock. Only ' + availableStock.toFixed(2) + ' kg is available. Please change the amount.';
+    }
+
+    return '';
+  }
+
+  function setInvalidState(message){
+    const invalid = !!message;
+
+    weightEl.classList.toggle('is-invalid', invalid);
+
+    btnAdd.disabled = invalid;
+    btnBuy.disabled = invalid;
+
+    if(stockWarning){
+      stockWarning.textContent = message || '';
+      stockWarning.classList.toggle('show', invalid);
+    }
+
+    if(invalid){
+      btnAdd.title = message;
+      btnBuy.title = message;
+    }else{
+      btnAdd.removeAttribute('title');
+      btnBuy.removeAttribute('title');
+    }
   }
 
   function calc(){
-    const kg = cleanWeight();
-    const total = kg * pricePerKg;
+    const kg = getEnteredWeight();
+    const message = getQtyError(kg);
+
+    setInvalidState(message);
+
+    const total = Number.isFinite(kg) && kg > 0 ? kg * pricePerKg : 0;
 
     if(estTotalEl){
       estTotalEl.textContent = total.toFixed(2);
@@ -1436,11 +1509,8 @@
   }
 
   weightEl.addEventListener('input', calc);
-
-  weightEl.addEventListener('blur', function(){
-    weightEl.value = cleanWeight().toFixed(2);
-    calc();
-  });
+  weightEl.addEventListener('change', calc);
+  weightEl.addEventListener('blur', calc);
 
   calc();
 
@@ -1470,24 +1540,21 @@
   }
 
   async function addToCart(redirectAfter){
-    const kg = cleanWeight();
+    const kg = getEnteredWeight();
+    const message = getQtyError(kg);
+    const activePopup = redirectAfter ? popupBuy : popupAdd;
 
-    if(availableStock <= 0){
-      showPopup(redirectAfter ? popupBuy : popupAdd, 'This product is out of stock.');
-      return;
-    }
-
-    if(kg > availableStock){
-      showPopup(redirectAfter ? popupBuy : popupAdd, 'Only ' + availableStock.toFixed(2) + ' kg stock is available.');
+    if(message){
+      setInvalidState(message);
+      showPopup(activePopup, message);
       return;
     }
 
     const fd = new FormData();
     fd.append('product_id', '{{ product.id }}');
-    fd.append('weight_kg', String(kg));
+    fd.append('weight_kg', String(kg.toFixed(2)));
 
     const activeBtn = redirectAfter ? btnBuy : btnAdd;
-    const activePopup = redirectAfter ? popupBuy : popupAdd;
     const otherBtn = redirectAfter ? btnAdd : btnBuy;
     const otherPopup = redirectAfter ? popupAdd : popupBuy;
 
@@ -1529,6 +1596,7 @@
           : 'Failed to add to cart. Please try again.';
 
         showPopup(activePopup, errorMessage);
+        calc();
       }
     }catch(error){
       showPopup(activePopup, 'Network error. Please check your connection.');
@@ -1537,6 +1605,7 @@
       otherBtn.disabled = false;
       activeBtn.textContent = originalActiveText;
       otherBtn.textContent = originalOtherText;
+      calc();
     }
   }
 

@@ -197,7 +197,91 @@ def _get_float_or_none(value):
     except Exception:
         return None
 
+# =========================================================
+# PRODUCT DISCOUNT HELPERS
+# =========================================================
+def _safe_float(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return float(default)
+        return float(value)
+    except Exception:
+        return float(default)
 
+
+def _calculate_product_pricing_from_form(request_form, fallback_original_price=0):
+    """
+    Product pricing rules:
+    - original_price_per_kg = store-entered base price
+    - price_per_kg = final customer selling price after discount
+    - discount can be disabled, percent-based, or fixed-amount based
+    """
+
+    original_price = _safe_float(
+        request_form.get("original_price_per_kg") or request_form.get("price_per_kg"),
+        fallback_original_price
+    )
+
+    if original_price < 0:
+        original_price = -1
+
+    discount_enabled_raw = (
+        request_form.get("discount_enabled")
+        or request_form.get("is_discount_enabled")
+        or ""
+    )
+
+    discount_enabled = str(discount_enabled_raw).strip().lower() in {
+        "1",
+        "true",
+        "on",
+        "yes",
+        "enabled"
+    }
+
+    discount_type = (request_form.get("discount_type") or "percent").strip().lower()
+
+    if discount_type not in {"percent", "amount"}:
+        discount_type = "percent"
+
+    discount_value = _safe_float(request_form.get("discount_value"), 0)
+
+    if discount_value < 0:
+        discount_value = 0
+
+    discount_amount = 0.0
+    discount_percent = 0.0
+    final_price = original_price
+
+    if discount_enabled and original_price > 0 and discount_value > 0:
+        if discount_type == "percent":
+            if discount_value > 100:
+                discount_value = 100
+
+            discount_percent = discount_value
+            discount_amount = original_price * (discount_percent / 100)
+            final_price = original_price - discount_amount
+
+        elif discount_type == "amount":
+            if discount_value > original_price:
+                discount_value = original_price
+
+            discount_amount = discount_value
+            final_price = original_price - discount_amount
+            discount_percent = (discount_amount / original_price * 100) if original_price else 0
+
+    if final_price < 0:
+        final_price = 0
+
+    return {
+        "original_price_per_kg": round(original_price, 2),
+        "price_per_kg": round(final_price, 2),
+        "discount_enabled": bool(discount_enabled and discount_amount > 0),
+        "discount_type": discount_type,
+        "discount_value": round(discount_value, 2),
+        "discount_amount_per_kg": round(discount_amount, 2),
+        "discount_percent": round(discount_percent, 2)
+    }
 
 
 def _driver_distance_to_store_km(order_doc, availability_doc):
@@ -878,6 +962,12 @@ def index():
             s["address"] = s.get("address", "")
             s["logo_path"] = s.get("logo_path", "")
             s["banner_path"] = s.get("banner_path", "")
+            s["profile_intro"] = (
+            s.get("profile_intro")
+            or s.get("description")
+            or "Fresh groceries and daily essentials from this store."
+            ).strip()
+            s["description"] = (s.get("description") or "").strip()
             s["is_open"] = int(s.get("is_open", 1))
             s["created_at"] = s.get("created_at", "")
 
@@ -1540,8 +1630,7 @@ def products():
         products = []
     else:
         products = list(mongo.products.find({
-            "is_active": 1,
-            "stock_kg": {"$gt": 0}
+        "is_active": 1
         }).sort("created_at", -1))
 
     for p in products:
@@ -1578,6 +1667,48 @@ def products():
 
         p["store_name"] = store.get("store_name") if store else ""
         p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
+
+        if store:
+            p["store_address"] = store.get("address", "")
+            p["store_logo_path"] = store.get("logo_path", "")
+            p["store_banner_path"] = store.get("banner_path", "")
+            p["store_profile_intro"] = (
+                store.get("profile_intro")
+                or store.get("description")
+                or "Fresh groceries and daily essentials from this store."
+            ).strip()
+        else:
+            p["store_address"] = ""
+            p["store_logo_path"] = ""
+            p["store_banner_path"] = ""
+            p["store_profile_intro"] = "Fresh groceries and daily essentials from this store."
+
+        store_rating_avg = 0
+        store_rating_count = 0
+
+        if store:
+            store_rating_query = {
+                "$or": [
+                    {"store_id": store["_id"]},
+                    {"store_id": str(store["_id"])}
+                ]
+            }
+
+            store_ratings = list(mongo.store_ratings.find(store_rating_query))
+            store_rating_count = len(store_ratings)
+            store_rating_total = 0
+
+            for sr in store_ratings:
+                try:
+                    store_rating_total += float(sr.get("rating") or 0)
+                except (TypeError, ValueError):
+                    pass
+
+            if store_rating_count > 0:
+                store_rating_avg = round(store_rating_total / store_rating_count, 2)
+
+        p["store_avg_rating"] = store_rating_avg
+        p["store_rating_count"] = store_rating_count
 
     return render_template(
         'products.html',
@@ -1694,7 +1825,6 @@ def _get_api_or_web_user():
     return None
 
 
-
 @app.route('/api/cart/add', methods=['POST'])
 @api_login_required
 def api_cart_add(user_id):
@@ -1749,7 +1879,10 @@ def api_cart_add(user_id):
         return jsonify({'ok': False, 'msg': 'This item is sold out'}), 409
 
     if weight_kg > stock:
-        return jsonify({'ok': False, 'msg': f'Max available is {stock:.2f} kg'}), 409
+        return jsonify({
+            'ok': False,
+            'msg': f'Only {stock:.2f} kg stock is available. Please enter a quantity equal to or below available stock.'
+        }), 409
 
     cid = get_or_create_cart(user_id)
 
@@ -1797,6 +1930,7 @@ def api_cart_add(user_id):
         'msg': 'Added to cart',
         'cart_count': cart_count
     })
+
 
 @app.route('/api/cart/remove', methods=['POST'])
 @api_login_required
@@ -2021,8 +2155,8 @@ def checkout():
             if updated_product and float(updated_product.get("stock_kg") or 0) <= 0:
                 mongo.products.update_one(
                     {"_id": order_item["product_id"]},
-                    {"$set": {"is_active": 0, "stock_kg": 0}}
-                )
+                    {"$set": {"stock_kg": 0}}
+            )
 
         mongo.transactions.insert_one({
             "order_id": oid,
@@ -2701,12 +2835,54 @@ def product_detail(pid):
     p["store_name"] = store.get("store_name") if store else ""
     p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
 
+    # Store profile fields for Products page → Stores tab
+    if store:
+        p["store_address"] = store.get("address", "")
+        p["store_logo_path"] = store.get("logo_path", "")
+        p["store_banner_path"] = store.get("banner_path", "")
+        p["store_profile_intro"] = (
+            store.get("profile_intro")
+            or store.get("description")
+            or "Fresh groceries and daily essentials from this store."
+        ).strip()
+    else:
+        p["store_address"] = ""
+        p["store_logo_path"] = ""
+        p["store_banner_path"] = ""
+        p["store_profile_intro"] = "Fresh groceries and daily essentials from this store."
+
+    # Real store rating for Products page → Stores tab
+    store_rating_avg = 0
+    store_rating_count = 0
+
+    if store:
+        store_rating_query = {
+            "$or": [
+                {"store_id": store["_id"]},
+                {"store_id": str(store["_id"])}
+            ]
+        }
+
+        store_ratings = list(mongo.store_ratings.find(store_rating_query))
+        store_rating_count = len(store_ratings)
+        store_rating_total = 0
+
+        for sr in store_ratings:
+            try:
+                store_rating_total += float(sr.get("rating") or 0)
+            except (TypeError, ValueError):
+                pass
+
+        if store_rating_count > 0:
+            store_rating_avg = round(store_rating_total / store_rating_count, 2)
+
+    p["store_avg_rating"] = store_rating_avg
+    p["store_rating_count"] = store_rating_count
+
     u = current_user()
     is_staff = bool(u and (u.get("role") in ("admin", "store")))
 
-    if not is_staff and (
-        int(p.get("is_active") or 0) != 1 or float(p.get("stock_kg") or 0) <= 0
-    ):
+    if not is_staff and int(p.get("is_active") or 0) != 1:
         abort(404)
 
     ratings = list(mongo.product_ratings.find({
@@ -2746,14 +2922,24 @@ def product_detail(pid):
             "customer_name": customer.get("name") if customer else "Customer"
         })
 
+    selected_weight_kg = request.args.get("weight_kg", "1.00")
+
+    try:
+        selected_weight_kg = float(selected_weight_kg)
+    except (TypeError, ValueError):
+        selected_weight_kg = 1.00
+
+    if selected_weight_kg < 0.25:
+        selected_weight_kg = 0.25
+
     return render_template(
         'product.html',
         user=u,
         product=p,
         rating=rating_summary,
-        reviews=reviews
+        reviews=reviews,
+        selected_weight_kg=selected_weight_kg
     )
-
 
 # ======================
 # CUSTOMER PRODUCT REVIEW
@@ -7018,6 +7204,16 @@ def _build_store_profile_context(store, owner):
             "label": "Store description added",
             "done": bool((store.get("description") or "").strip())
         },
+
+{
+    "label": "Store intro line added",
+    "done": bool((store.get("profile_intro") or "").strip())
+},
+{
+    "label": "Store banner uploaded",
+    "done": bool((store.get("banner_path") or "").strip())
+},
+
         {
             "label": "Store logo uploaded",
             "done": bool((store.get("logo_path") or "").strip())
@@ -7101,6 +7297,7 @@ def store_profile_update():
     address = (request.form.get("address") or "").strip()
     pincode = (request.form.get("pincode") or "").strip()
     description = (request.form.get("description") or "").strip()
+    profile_intro = (request.form.get("profile_intro") or "").strip()
     opening_time = (request.form.get("opening_time") or "").strip()
     closing_time = (request.form.get("closing_time") or "").strip()
     working_days = request.form.getlist("working_days")
@@ -7159,6 +7356,7 @@ def store_profile_update():
         "address": address,
         "pincode": pincode,
         "description": description,
+        "profile_intro": profile_intro,
         "latitude": latitude,
         "longitude": longitude,
         "opening_time": opening_time,
@@ -7185,6 +7383,19 @@ def store_profile_update():
 
         logo.save(os.path.join(folder, stored_name))
         update_data["logo_path"] = f"uploads/store_profiles/{stored_name}"
+
+        banner = request.files.get("banner")
+
+    if banner and banner.filename:
+        if not allowed_file(banner.filename):
+            flash("Invalid banner image file type.", "warning")
+            return redirect(url_for("store_profile"))
+
+            fn = secure_filename(banner.filename)
+            save_as = "store_banner_" + str(store["_id"]) + "_" + datetime.utcnow().strftime("%Y%m%d%H%M%S_") + fn
+            os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+            banner.save(os.path.join(app.config["UPLOAD_FOLDER"], save_as))
+            update_data["banner_path"] = f"uploads/{save_as}"
 
     mongo.stores.update_one(
         {"_id": store["_id"]},
@@ -7773,10 +7984,10 @@ def store_product_new():
 
     name = request.form.get('name', '').strip()
 
-    try:
-        price_per_kg = float(request.form.get('price_per_kg', '0') or 0)
-    except Exception:
-        price_per_kg = 0
+    pricing = _calculate_product_pricing_from_form(request.form)
+
+    price_per_kg = pricing["price_per_kg"]
+    original_price_per_kg = pricing["original_price_per_kg"]
 
     try:
         stock_kg = float(request.form.get('stock_kg', '0') or 0)
@@ -7808,8 +8019,12 @@ def store_product_new():
         flash('Product name is required.', 'warning')
         return redirect(url_for('store_add_product'))
 
-    if price_per_kg <= 0:
+    if original_price_per_kg <= 0:
         flash('Price must be greater than 0.', 'warning')
+        return redirect(url_for('store_add_product'))
+
+    if price_per_kg <= 0:
+        flash('Final selling price must be greater than 0.', 'warning')
         return redirect(url_for('store_add_product'))
 
     if stock_kg < 0:
@@ -7835,25 +8050,39 @@ def store_product_new():
             image_path = f"uploads/{save_as}"
         else:
             flash("Invalid image file type.", "warning")
-            return redirect(url_for("store_dashboard"))
+            return redirect(url_for("store_add_product"))
+
+    now = datetime.utcnow().isoformat()
 
     mongo.products.insert_one({
         "store_id": sid,
         "store_name": store.get("store_name", ""),
+
         "name": name,
+
+        "original_price_per_kg": original_price_per_kg,
         "price_per_kg": price_per_kg,
+        "discount_enabled": pricing["discount_enabled"],
+        "discount_type": pricing["discount_type"],
+        "discount_value": pricing["discount_value"],
+        "discount_amount_per_kg": pricing["discount_amount_per_kg"],
+        "discount_percent": pricing["discount_percent"],
+
         "stock_kg": stock_kg,
-        "image_path": image_path,
-        "is_active": 1,
+
         "category_id": category_id,
         "category": category,
         "sub_category": sub_category,
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat()
+
+        "image_path": image_path,
+        "is_active": 1 if stock_kg > 0 else 0,
+
+        "created_at": now,
+        "updated_at": now
     })
 
-    flash('Product added.', 'success')
-    return redirect(url_for('store_products'))
+    flash("Product added successfully.", "success")
+    return redirect(url_for("store_products"))
 
 @app.route('/store/product/<pid>/toggle', methods=['POST'])
 @login_required(role='store')
@@ -8077,10 +8306,19 @@ def store_product_update(pid):
     category_id = str(category_doc["_id"])
     allowed_subs = category_doc.get("sub_categories") or []
 
-    try:
-        price = float(request.form.get("price_per_kg", "0") or 0)
-    except Exception:
-        price = -1
+    fallback_original_price = (
+        product.get("original_price_per_kg")
+        if product.get("original_price_per_kg") is not None
+        else product.get("price_per_kg", 0)
+    )
+
+    pricing = _calculate_product_pricing_from_form(
+        request.form,
+        fallback_original_price=fallback_original_price
+    )
+
+    price = pricing["price_per_kg"]
+    original_price = pricing["original_price_per_kg"]
 
     try:
         stock = float(request.form.get("stock_kg", "0") or 0)
@@ -8091,8 +8329,16 @@ def store_product_update(pid):
         flash("Product name is required.", "warning")
         return redirect(url_for("store_product_edit", pid=pid))
 
-    if price < 0:
+    if original_price < 0:
         flash("Enter a valid non-negative price.", "warning")
+        return redirect(url_for("store_product_edit", pid=pid))
+
+    if original_price <= 0:
+        flash("Price must be greater than 0.", "warning")
+        return redirect(url_for("store_product_edit", pid=pid))
+
+    if price <= 0:
+        flash("Final selling price must be greater than 0.", "warning")
         return redirect(url_for("store_product_edit", pid=pid))
 
     if stock < 0:
@@ -8111,10 +8357,21 @@ def store_product_update(pid):
 
     update_data = {
         "name": name,
+
+        "original_price_per_kg": original_price,
         "price_per_kg": price,
+        "discount_enabled": pricing["discount_enabled"],
+        "discount_type": pricing["discount_type"],
+        "discount_value": pricing["discount_value"],
+        "discount_amount_per_kg": pricing["discount_amount_per_kg"],
+        "discount_percent": pricing["discount_percent"],
+
         "stock_kg": stock,
+
+        "category_id": category_id,
         "category": category,
         "sub_category": sub_category,
+
         "is_active": 1 if stock > 0 else int(product.get("is_active") or 0),
         "updated_at": datetime.utcnow().isoformat()
     }

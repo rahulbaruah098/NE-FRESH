@@ -185,6 +185,115 @@
     .sd-form-grid input[type="file"]{height:auto;padding:10px 12px;}
     .sd-form-actions{padding:0 20px 20px;display:flex;gap:10px;flex-wrap:wrap;}
 
+    .sd-discount-panel{
+  grid-column:1/-1;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:linear-gradient(135deg,#FFFFFF,var(--green-soft));
+  padding:16px;
+  display:grid;
+  gap:14px;
+}
+
+.sd-discount-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  flex-wrap:wrap;
+}
+
+.sd-discount-title{
+  margin:0;
+  color:var(--ink);
+  font-size:16px;
+  font-weight:900;
+  letter-spacing:-.03em;
+}
+
+.sd-discount-sub{
+  margin:5px 0 0;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+  line-height:1.45;
+}
+
+.sd-discount-toggle{
+  min-height:36px;
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  border:1px solid rgba(0,168,89,.18);
+  border-radius:999px;
+  background:#fff;
+  color:var(--green-dark);
+  padding:0 12px;
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+  user-select:none;
+}
+
+.sd-discount-toggle input{
+  width:16px;
+  height:16px;
+  accent-color:var(--green);
+}
+
+.sd-discount-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+}
+
+.sd-discount-preview{
+  grid-column:1/-1;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+
+.sd-preview-box{
+  border:1px solid var(--line2);
+  border-radius:16px;
+  background:#fff;
+  padding:13px;
+}
+
+.sd-preview-box span{
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+
+.sd-preview-box strong{
+  display:block;
+  margin-top:6px;
+  color:var(--ink);
+  font-size:18px;
+  font-weight:900;
+  line-height:1;
+}
+
+.sd-preview-box.is-final strong{
+  color:var(--green-dark);
+}
+
+.sd-preview-box.is-discount strong{
+  color:var(--orange);
+}
+
+@media(max-width:900px){
+  .sd-discount-grid,
+  .sd-discount-preview{
+    grid-template-columns:1fr;
+  }
+}
+
     .sd-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:#fff;border-bottom:1px solid var(--line2);flex-wrap:wrap;}
     .sd-search-wrap{width:min(360px,100%);position:relative;}
     .sd-search-input{padding-left:38px;}
@@ -262,8 +371,79 @@
     <option value="">Select sub-category</option>
   </select>
 </label>
-            <label>Price per kg (₹)<input name="price_per_kg" type="number" step="0.01" min="0" required></label>
+<label>
+  Original Price per kg (₹)
+  <input id="originalPricePerKg"
+         name="original_price_per_kg"
+         type="number"
+         step="0.01"
+         min="0"
+         required>
+</label>
+
+<input id="finalPricePerKg" name="price_per_kg" type="hidden" value="">
             <label>Stock (kg)<input name="stock_kg" type="number" step="0.01" min="0" required></label>
+            <div class="sd-discount-panel">
+  <div class="sd-discount-head">
+    <div>
+      <h3 class="sd-discount-title">Product Discount</h3>
+      <p class="sd-discount-sub">
+        Optional. Enable discount to automatically calculate the final customer selling price.
+      </p>
+    </div>
+
+    <label class="sd-discount-toggle">
+      <input id="discountEnabled" name="discount_enabled" type="checkbox" value="1">
+      Enable Discount
+    </label>
+  </div>
+
+  <div class="sd-discount-grid">
+    <label>
+      Discount Type
+      <select id="discountType" name="discount_type">
+        <option value="percent">Percentage (%)</option>
+        <option value="amount">Fixed Amount (₹/kg)</option>
+      </select>
+    </label>
+
+    <label>
+      Discount Value
+      <input id="discountValue"
+             name="discount_value"
+             type="number"
+             step="0.01"
+             min="0"
+             value="0">
+    </label>
+
+    <label>
+      Final Price per kg (₹)
+      <input id="finalPriceDisplay"
+             type="number"
+             step="0.01"
+             min="0"
+             readonly>
+    </label>
+  </div>
+
+  <div class="sd-discount-preview">
+    <div class="sd-preview-box">
+      <span>Original Price</span>
+      <strong>₹ <em id="previewOriginal">0.00</em></strong>
+    </div>
+
+    <div class="sd-preview-box is-discount">
+      <span>Discount</span>
+      <strong>₹ <em id="previewDiscount">0.00</em></strong>
+    </div>
+
+    <div class="sd-preview-box is-final">
+      <span>Final Selling Price</span>
+      <strong>₹ <em id="previewFinal">0.00</em></strong>
+    </div>
+  </div>
+</div>
             <label>Image (upload or capture)<input type="file" name="image" accept="image/*" capture="environment"></label>
           </div>
           <div class="sd-form-actions"><button type="submit">Add Product</button></div>
@@ -336,6 +516,87 @@ if (cat && catName && subWrap && subSel) {
 
         bindSearch('[data-sd-product-search]', '[data-sd-product-table]');
         bindSearch('[data-sd-order-search]', '[data-sd-order-table]');
+
+        const originalPriceInput = document.getElementById('originalPricePerKg');
+const finalPriceHidden = document.getElementById('finalPricePerKg');
+const finalPriceDisplay = document.getElementById('finalPriceDisplay');
+const discountEnabled = document.getElementById('discountEnabled');
+const discountType = document.getElementById('discountType');
+const discountValue = document.getElementById('discountValue');
+const previewOriginal = document.getElementById('previewOriginal');
+const previewDiscount = document.getElementById('previewDiscount');
+const previewFinal = document.getElementById('previewFinal');
+
+function toMoney(value){
+  const n = parseFloat(value || 0);
+  return Number.isFinite(n) ? n.toFixed(2) : '0.00';
+}
+
+function calculateDiscountPrice(){
+  if (!originalPriceInput || !finalPriceHidden || !finalPriceDisplay) return;
+
+  let original = parseFloat(originalPriceInput.value || '0');
+  let dValue = parseFloat(discountValue ? discountValue.value || '0' : '0');
+
+  if (!Number.isFinite(original) || original < 0) original = 0;
+  if (!Number.isFinite(dValue) || dValue < 0) dValue = 0;
+
+  const enabled = discountEnabled && discountEnabled.checked;
+  const type = discountType ? discountType.value : 'percent';
+
+  let discountAmount = 0;
+
+  if (enabled && original > 0 && dValue > 0) {
+    if (type === 'percent') {
+      if (dValue > 100) {
+        dValue = 100;
+        discountValue.value = '100';
+      }
+
+      discountAmount = original * (dValue / 100);
+    } else {
+      if (dValue > original) {
+        dValue = original;
+        discountValue.value = original.toFixed(2);
+      }
+
+      discountAmount = dValue;
+    }
+  }
+
+  let finalPrice = original - discountAmount;
+
+  if (finalPrice < 0) finalPrice = 0;
+
+  finalPriceHidden.value = finalPrice.toFixed(2);
+  finalPriceDisplay.value = finalPrice.toFixed(2);
+
+  if (previewOriginal) previewOriginal.textContent = toMoney(original);
+  if (previewDiscount) previewDiscount.textContent = toMoney(discountAmount);
+  if (previewFinal) previewFinal.textContent = toMoney(finalPrice);
+}
+
+[
+  originalPriceInput,
+  discountEnabled,
+  discountType,
+  discountValue
+].forEach(function(el){
+  if (el) {
+    el.addEventListener('input', calculateDiscountPrice);
+    el.addEventListener('change', calculateDiscountPrice);
+  }
+});
+
+calculateDiscountPrice();
+
+const addProductForm = document.querySelector('form[action="{{ url_for("store_product_new") }}"]');
+
+if (addProductForm) {
+  addProductForm.addEventListener('submit', function(){
+    calculateDiscountPrice();
+  });
+}
       });
     })();
   </script>
