@@ -1,0 +1,231 @@
+"""Cart routes extracted from the updated app.py.
+
+Logic, decorators, endpoint names and route paths are intentionally preserved.
+Only the file location changed.
+"""
+
+from app_core import *
+
+
+@app.route('/cart')
+@login_required()
+def cart_page():
+    u = current_user()
+    cid = get_or_create_cart(u["id"])
+
+    cart_items = list(mongo.cart_items.find({"cart_id": cid}).sort("created_at", -1))
+
+    items = []
+
+    for ci in cart_items:
+        product = mongo.products.find_one({"_id": ci.get("product_id")})
+        if not product:
+            continue
+
+        store = None
+        if product.get("store_id"):
+            store = mongo.stores.find_one({"_id": product.get("store_id")})
+
+        item = {
+            "cart_item_id": str(ci["_id"]),
+            "weight_kg": float(ci.get("weight_kg") or 0),
+            "product_id": str(product["_id"]),
+            "name": product.get("name", ""),
+            "price_per_kg": float(product.get("price_per_kg") or 0),
+            "image_path": product.get("image_path", ""),
+            "stock_kg": float(product.get("stock_kg") or 0),
+            "is_active": int(product.get("is_active") or 0),
+            "store_id": str(product.get("store_id")) if product.get("store_id") else "",
+            "store_name": store.get("store_name") if store else "",
+        }
+
+        items.append(item)
+
+    total = sum([
+        float(row["weight_kg"] or 0) * float(row["price_per_kg"] or 0)
+        for row in items
+    ])
+
+    return render_template('cart.html', items=items, total=total, user=u)
+
+@app.route('/api/cart/add', methods=['POST'])
+@api_login_required
+def api_cart_add(user_id):
+    data = request.get_json(silent=True) or {}
+
+    user_doc = None
+
+    try:
+        user_doc = mongo.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        user_doc = mongo.users.find_one({"_id": user_id})
+
+    if not user_doc:
+        return jsonify({
+            "ok": False,
+            "msg": "Please log in first."
+        }), 401
+
+    if user_doc.get("role") != "customer":
+        return jsonify({
+            "ok": False,
+            "msg": "Only customer accounts can add products to cart."
+        }), 403
+
+    product_id_raw = data.get("product_id") or request.form.get("product_id")
+
+    try:
+        product_obj_id = ObjectId(product_id_raw)
+    except Exception:
+        return jsonify({'ok': False, 'msg': 'Invalid product'}), 400
+
+    try:
+        weight_kg = float(data.get("weight_kg") or request.form.get('weight_kg', '1') or 1)
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'msg': 'Invalid weight'}), 400
+
+    if weight_kg < 0.25:
+        return jsonify({'ok': False, 'msg': 'Minimum 0.25 kg'}), 400
+
+    weight_kg = round(round(weight_kg * 4) / 4, 2)
+
+    product = mongo.products.find_one({"_id": product_obj_id})
+
+    if not product:
+        return jsonify({'ok': False, 'msg': 'Product not found'}), 404
+
+    stock = float(product.get("stock_kg") or 0)
+    active = int(product.get("is_active") or 0)
+    new_store_id = product.get("store_id")
+
+    if active != 1 or stock <= 0:
+        return jsonify({'ok': False, 'msg': 'This item is sold out'}), 409
+
+    if weight_kg > stock:
+        return jsonify({
+            'ok': False,
+            'msg': f'Only {stock:.2f} kg stock is available. Please enter a quantity equal to or below available stock.'
+        }), 409
+
+    cid = get_or_create_cart(user_id)
+
+    existing_items = list(mongo.cart_items.find({"cart_id": cid}))
+
+    for item in existing_items:
+        existing_product = mongo.products.find_one({"_id": item.get("product_id")})
+        if existing_product and existing_product.get("store_id") != new_store_id:
+            return jsonify({
+                "ok": False,
+                "code": "DIFF_STORE",
+                "msg": "Your cart already has items from another store. Please clear the cart first to add from this store."
+            }), 409
+
+    existing_cart_item = mongo.cart_items.find_one({
+        "cart_id": cid,
+        "product_id": product_obj_id
+    })
+
+    now = datetime.utcnow().isoformat()
+
+    if existing_cart_item:
+        mongo.cart_items.update_one(
+            {"_id": existing_cart_item["_id"]},
+            {
+                "$set": {
+                    "weight_kg": weight_kg,
+                    "updated_at": now
+                }
+            }
+        )
+    else:
+        mongo.cart_items.insert_one({
+            "cart_id": cid,
+            "product_id": product_obj_id,
+            "weight_kg": weight_kg,
+            "created_at": now,
+            "updated_at": now
+        })
+
+    cart_count = mongo.cart_items.count_documents({"cart_id": cid})
+
+    return jsonify({
+        'ok': True,
+        'msg': 'Added to cart',
+        'cart_count': cart_count
+    })
+
+@app.route('/api/cart/remove', methods=['POST'])
+@api_login_required
+def api_cart_remove(user_id):
+    data = request.get_json(silent=True) or {}
+    item_id = data.get('item_id') or request.form.get('item_id')
+
+    try:
+        item_obj_id = ObjectId(item_id)
+    except Exception:
+        return jsonify({'ok': False, 'msg': 'Invalid item'}), 400
+
+    cid = get_or_create_cart(user_id)
+
+    mongo.cart_items.delete_one({
+        "_id": item_obj_id,
+        "cart_id": cid
+    })
+
+    cart_count = mongo.cart_items.count_documents({"cart_id": cid})
+
+    return jsonify({
+        'ok': True,
+        'cart_count': cart_count
+    })
+
+@app.route('/api/cart', methods=['GET'])
+@api_login_required
+def api_cart_get(user_id):
+    cid = get_or_create_cart(user_id)
+
+    cart_items = list(
+        mongo.cart_items.find({"cart_id": cid}).sort("created_at", -1)
+    )
+
+    items = []
+
+    for ci in cart_items:
+        product = mongo.products.find_one({"_id": ci.get("product_id")})
+
+        if not product:
+            continue
+
+        items.append({
+            'id': str(ci['_id']),
+            'product_id': str(product['_id']),
+            'name': product.get('name', ''),
+            'price_per_kg': float(product.get('price_per_kg') or 0),
+            'weight_kg': float(ci.get('weight_kg') or 0),
+            'image_path': product.get('image_path', ''),
+            'stock_kg': float(product.get('stock_kg') or 0),
+            'store_id': str(product.get('store_id')) if product.get('store_id') else None,
+        })
+
+    total = sum([
+        float(item['weight_kg'] or 0) * float(item['price_per_kg'] or 0)
+        for item in items
+    ])
+
+    return jsonify({
+        'success': True,
+        'items': items,
+        'total': float(total)
+    }), 200
+
+@app.route('/api/cart/clear', methods=['POST'])
+@api_login_required
+def api_cart_clear(user_id):
+    cid = get_or_create_cart(user_id)
+
+    mongo.cart_items.delete_many({"cart_id": cid})
+
+    return jsonify({
+        'success': True,
+        'cart_count': 0
+    })
