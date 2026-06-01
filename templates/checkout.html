@@ -1,6 +1,952 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  .checkout-page{
+    --nf-green:#00A859;
+    --nf-green-dark:#008A48;
+    --nf-green-soft:#E9FFF3;
+    --nf-green-soft-2:#F3FFF8;
+    --nf-bg:#F8FFFB;
+    --nf-card:#FFFFFF;
+    --nf-ink:#23332A;
+    --nf-text:#66756D;
+    --nf-muted:#8A9890;
+    --nf-line:#E3F1E9;
+    --nf-yellow:#FFB84D;
+    --nf-red:#EF4444;
+    --nf-dark:#102319;
+    --nf-shadow:0 14px 36px rgba(17,64,38,.08);
+    --nf-shadow-hover:0 22px 58px rgba(17,64,38,.13);
+    --nf-radius-xl:26px;
+    --nf-radius-lg:20px;
+    --nf-radius-md:16px;
+    --nf-radius-sm:12px;
+    --nf-ease:cubic-bezier(.2,.75,.25,1);
+
+    width:100vw;
+    margin-left:calc(50% - 50vw);
+    margin-right:calc(50% - 50vw);
+    min-height:100vh;
+    overflow-x:hidden;
+    background:
+      radial-gradient(circle at 12% 0%, rgba(0,168,89,.08), transparent 30%),
+      radial-gradient(circle at 86% 6%, rgba(255,184,77,.12), transparent 28%),
+      linear-gradient(180deg,#F8FFFB 0%,#FFFFFF 45%,#F8FFFB 100%);
+    color:var(--nf-text);
+    font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  .checkout-page,
+  .checkout-page *{
+    box-sizing:border-box;
+  }
+
+  .checkout-page a,
+  .checkout-page button,
+  .checkout-page input,
+  .checkout-page textarea{
+    font-family:inherit;
+  }
+
+  .checkout-page .grain{
+    display:none !important;
+  }
+
+  .checkout-page ::selection{
+    background:var(--nf-green);
+    color:#fff;
+  }
+
+  /* PAGE TOP */
+  .checkout-page .top-bar{
+    width:100%;
+    min-height:42px;
+    padding:0 clamp(18px,4vw,72px);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    background:#fff;
+    border-bottom:1px solid var(--nf-line);
+    color:var(--nf-green-dark);
+    font-size:.72rem;
+    font-weight:900;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    box-shadow:0 8px 22px rgba(17,64,38,.04);
+  }
+
+  .checkout-page .top-bar span{
+    white-space:nowrap;
+  }
+
+  /* NEW CHECKOUT HEADER - NO OVERLAP */
+  .checkout-page .hero{
+    width:100%;
+    padding:26px clamp(18px,4vw,72px) 0;
+    background:transparent;
+    border:0;
+    text-align:left;
+  }
+
+  .checkout-page .checkout-hero-card{
+    min-height:138px;
+    border-radius:var(--nf-radius-xl);
+    border:1px solid rgba(0,168,89,.16);
+    background:
+      radial-gradient(circle at 90% 18%, rgba(255,255,255,.96), rgba(255,255,255,0) 34%),
+      radial-gradient(circle at 78% 84%, rgba(255,184,77,.16), transparent 28%),
+      linear-gradient(105deg,#E4FFE9 0%,#F2FFF8 56%,#FFFFFF 100%);
+    box-shadow:var(--nf-shadow);
+    padding:26px clamp(20px,3vw,36px);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:22px;
+    overflow:hidden;
+  }
+
+  .checkout-page .checkout-hero-copy{
+    min-width:0;
+  }
+
+  .checkout-page .checkout-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    min-height:30px;
+    padding:0 12px;
+    border-radius:999px;
+    background:#fff;
+    color:var(--nf-green-dark);
+    border:1px solid rgba(0,168,89,.16);
+    box-shadow:0 8px 20px rgba(17,64,38,.06);
+    font-size:.72rem;
+    font-weight:900;
+    letter-spacing:.02em;
+    text-transform:uppercase;
+    margin-bottom:10px;
+  }
+
+  .checkout-page .checkout-pill::before{
+    content:"";
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--nf-green);
+    box-shadow:0 0 0 5px rgba(0,168,89,.10);
+  }
+
+  .checkout-page .hero-title{
+    margin:0;
+    color:var(--nf-green-dark);
+    font-size:clamp(1.75rem,3.2vw,2.8rem);
+    line-height:1.05;
+    letter-spacing:-.045em;
+    font-weight:900;
+  }
+
+  .checkout-page .hero-sub{
+    margin:8px 0 0;
+    max-width:690px;
+    color:#53665B;
+    font-size:.95rem;
+    line-height:1.6;
+    font-weight:650;
+    letter-spacing:0;
+    text-transform:none;
+  }
+
+  .checkout-page .hero-divider{
+    display:none;
+  }
+
+  .checkout-page .checkout-hero-icon{
+    flex:0 0 auto;
+    width:76px;
+    height:76px;
+    display:grid;
+    place-items:center;
+    border-radius:24px;
+    background:#fff;
+    border:1px solid var(--nf-line);
+    box-shadow:0 14px 30px rgba(17,64,38,.08);
+    font-size:2.2rem;
+  }
+
+  /* WRAP */
+  .checkout-page .wrap{
+    position:relative;
+    z-index:2;
+    width:100%;
+    max-width:none;
+    margin:0;
+    padding:22px clamp(18px,4vw,72px) 46px;
+  }
+
+  /* MAIN LAYOUT */
+  .checkout-page .checkout-section{
+    width:100%;
+    max-width:none !important;
+    margin:0 auto !important;
+    padding:0 !important;
+    background:transparent !important;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(360px,430px);
+    gap:22px;
+    align-items:start;
+  }
+
+  .checkout-page .checkout-section > h2{
+    display:none;
+  }
+
+  .checkout-page .left-col{
+    min-width:0;
+  }
+
+  .checkout-page #checkout-form{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+
+  .checkout-page .right-rail{
+    min-width:0;
+    position:sticky;
+    top:18px;
+    max-height:calc(100vh - 36px);
+    overflow:auto;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    padding:1px 2px 4px;
+    overscroll-behavior:contain;
+  }
+
+  .checkout-page .right-rail::-webkit-scrollbar{
+    width:8px;
+  }
+
+  .checkout-page .right-rail::-webkit-scrollbar-thumb{
+    background:rgba(0,168,89,.22);
+    border-radius:999px;
+  }
+
+  .checkout-page .right-rail::-webkit-scrollbar-track{
+    background:transparent;
+  }
+
+  /* SECTION CARDS */
+  .checkout-page .checkout-card,
+  .checkout-page .items-total,
+  .checkout-page #fee-preview,
+  .checkout-page .loc-box,
+  .checkout-page #checkout-form > label,
+  .checkout-page #checkout-form > .card,
+  .checkout-page #checkout-form > p.muted,
+  .checkout-page .multi-store-warn,
+  .checkout-page #total-preview{
+    margin:0 !important;
+    border-radius:var(--nf-radius-lg);
+    background:#fff;
+    border:1px solid var(--nf-line);
+    box-shadow:0 8px 24px rgba(17,64,38,.055);
+  }
+
+  .checkout-page .checkout-card{
+    overflow:hidden;
+  }
+
+  .checkout-page .checkout-card-head{
+    min-height:64px;
+    padding:16px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    border-bottom:1px solid var(--nf-line);
+    background:
+      radial-gradient(circle at 12% 0%, rgba(0,168,89,.09), transparent 36%),
+      linear-gradient(180deg,#FFFFFF,#F8FFFB);
+  }
+
+  .checkout-page .checkout-card-title{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    min-width:0;
+  }
+
+  .checkout-page .step-badge{
+    width:38px;
+    height:38px;
+    display:grid;
+    place-items:center;
+    border-radius:14px;
+    background:var(--nf-green-soft);
+    border:1px solid rgba(0,168,89,.12);
+    color:var(--nf-green-dark);
+    font-size:.9rem;
+    font-weight:950;
+    flex:0 0 auto;
+  }
+
+  .checkout-page .checkout-card-title h3{
+    margin:0;
+    color:var(--nf-ink);
+    font-size:1rem;
+    line-height:1.2;
+    font-weight:900;
+    letter-spacing:-.02em;
+  }
+
+  .checkout-page .checkout-card-title p{
+    margin:3px 0 0;
+    color:var(--nf-muted);
+    font-size:.78rem;
+    font-weight:650;
+  }
+
+  .checkout-page .checkout-card-body{
+    padding:16px;
+  }
+
+  /* WARNING */
+  .checkout-page .multi-store-warn{
+    grid-column:1 / -1;
+    padding:16px 18px;
+    background:#FFF7F7;
+    color:#9F1D1D;
+    border-color:rgba(239,68,68,.22);
+    font-size:.92rem;
+    line-height:1.55;
+    font-weight:700;
+  }
+
+  .checkout-page .multi-store-warn strong{
+    display:block;
+    margin-bottom:5px;
+    color:var(--nf-red);
+    font-size:.95rem;
+    font-weight:900;
+  }
+
+  .checkout-page .multi-store-warn a{
+    color:var(--nf-red);
+    font-weight:900;
+    text-decoration:none;
+  }
+
+  .checkout-page .multi-store-warn a:hover{
+    text-decoration:underline;
+  }
+
+  /* TIP CARD */
+  .checkout-page #checkout-form > label{
+    padding:16px;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 180px;
+    align-items:center;
+    gap:14px;
+    color:var(--nf-ink);
+    font-size:.92rem;
+    font-weight:900;
+  }
+
+  .checkout-page #checkout-form > label::before{
+    content:"Rider tip";
+    display:block;
+    color:var(--nf-muted);
+    font-size:.76rem;
+    font-weight:850;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    margin-bottom:2px;
+  }
+
+  .checkout-page #checkout-form input[name="tip_amount"]{
+    width:100% !important;
+    min-height:44px;
+    margin-left:0 !important;
+    border:1px solid #DDEFE6;
+    border-radius:14px;
+    background:#F8FFFB;
+    color:var(--nf-ink);
+    outline:none;
+    padding:0 14px;
+    font-size:.92rem;
+    font-weight:800;
+    transition:border-color .22s var(--nf-ease), box-shadow .22s var(--nf-ease), background .22s var(--nf-ease);
+  }
+
+  .checkout-page #checkout-form input[name="tip_amount"]:focus{
+    background:#fff;
+    border-color:rgba(0,168,89,.42);
+    box-shadow:0 0 0 4px rgba(0,168,89,.10);
+  }
+
+  /* ADDRESS TITLE */
+  .checkout-page #checkout-form > h3{
+    display:none;
+  }
+
+  /* ADDRESS LIST */
+  .checkout-page #checkout-form > .card{
+    padding:14px !important;
+    background:#fff !important;
+    border:0 !important;
+    box-shadow:none;
+  }
+
+  .checkout-page #checkout-form > .card > label{
+    width:100%;
+    margin:0 0 12px !important;
+    padding:15px !important;
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    min-width:0;
+    border-radius:var(--nf-radius-md);
+    background:#F8FFFB !important;
+    border:1px solid #DDEFE6 !important;
+    transition:background .22s var(--nf-ease), transform .22s var(--nf-ease), border-color .22s var(--nf-ease), box-shadow .22s var(--nf-ease);
+  }
+
+  .checkout-page #checkout-form > .card > label:last-child{
+    margin-bottom:0 !important;
+  }
+
+  .checkout-page #checkout-form > .card > label:hover{
+    background:#fff !important;
+    border-color:rgba(0,168,89,.28) !important;
+    transform:translateY(-2px);
+    box-shadow:0 10px 24px rgba(17,64,38,.06);
+  }
+
+  .checkout-page input[type="radio"]{
+    width:18px;
+    height:18px;
+    margin-top:4px;
+    flex:0 0 auto;
+    accent-color:var(--nf-green);
+  }
+
+  .checkout-page #checkout-form > .card strong{
+    color:var(--nf-ink);
+    font-size:.95rem;
+    font-weight:900;
+  }
+
+  .checkout-page .tag{
+    display:inline-flex;
+    align-items:center;
+    min-height:23px;
+    padding:2px 8px !important;
+    border-radius:999px;
+    background:var(--nf-green-soft) !important;
+    color:var(--nf-green-dark) !important;
+    border:1px solid rgba(0,168,89,.16) !important;
+    font-size:.68rem !important;
+    line-height:1;
+    font-weight:900;
+  }
+
+  .checkout-page .muted{
+    color:var(--nf-muted) !important;
+    font-weight:650;
+  }
+
+  .checkout-page #checkout-form > p.muted{
+    padding:16px;
+    background:#FFF7F7;
+    border-color:rgba(239,68,68,.22);
+    color:var(--nf-red) !important;
+    font-size:.92rem;
+    line-height:1.55;
+    font-weight:750;
+  }
+
+  .checkout-page #checkout-form > p.muted a{
+    color:var(--nf-red);
+    font-weight:900;
+    text-decoration:none;
+  }
+
+  .checkout-page #checkout-form > p.muted a:hover{
+    text-decoration:underline;
+  }
+
+  /* PLACE ORDER BUTTON */
+  .checkout-page #checkout-form > .btn{
+    width:100% !important;
+    min-height:54px;
+    margin:0 !important;
+    border:0 !important;
+    border-radius:16px !important;
+    padding:0 20px !important;
+    background:var(--nf-green) !important;
+    color:#fff !important;
+    font-size:.92rem !important;
+    font-weight:950 !important;
+    text-decoration:none;
+    cursor:pointer;
+    box-shadow:0 12px 26px rgba(0,168,89,.22);
+    transition:background .22s var(--nf-ease), transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), opacity .22s var(--nf-ease);
+  }
+
+  .checkout-page #checkout-form > .btn::after{
+    content:" →";
+  }
+
+  .checkout-page #checkout-form > .btn:hover{
+    background:var(--nf-green-dark) !important;
+    transform:translateY(-2px);
+    box-shadow:0 18px 34px rgba(0,168,89,.26);
+  }
+
+  .checkout-page #checkout-form > .btn[disabled]{
+    opacity:.55;
+    cursor:not-allowed;
+    transform:none !important;
+    box-shadow:none;
+  }
+
+  /* ORDER SUMMARY */
+  .checkout-page .summary-card{
+    border-radius:var(--nf-radius-xl);
+    background:#fff;
+    border:1px solid var(--nf-line);
+    box-shadow:var(--nf-shadow);
+    overflow:hidden;
+  }
+
+  .checkout-page .summary-head{
+    padding:18px;
+    background:
+      radial-gradient(circle at 12% 0%, rgba(0,168,89,.10), transparent 36%),
+      linear-gradient(180deg,#FFFFFF,#F8FFFB);
+    border-bottom:1px solid var(--nf-line);
+  }
+
+  .checkout-page .summary-head h3{
+    margin:0;
+    color:var(--nf-ink);
+    font-size:1.08rem;
+    font-weight:950;
+    letter-spacing:-.02em;
+  }
+
+  .checkout-page .summary-head p{
+    margin:5px 0 0;
+    color:var(--nf-muted);
+    font-size:.82rem;
+    font-weight:650;
+  }
+
+  .checkout-page .summary-body{
+    padding:14px;
+    display:grid;
+    gap:12px;
+  }
+
+  .checkout-page .items-total{
+    padding:14px;
+    background:var(--nf-green-soft-2);
+    color:var(--nf-muted);
+    font-size:.88rem;
+    font-weight:800;
+  }
+
+  .checkout-page .items-total strong{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    color:var(--nf-green);
+    font-size:1.05rem;
+    font-weight:950;
+  }
+
+  .checkout-page .items-total strong::before{
+    content:"🛒";
+    width:34px;
+    height:34px;
+    display:grid;
+    place-items:center;
+    border-radius:13px;
+    background:#fff;
+    border:1px solid rgba(0,168,89,.12);
+  }
+
+  .checkout-page #fee-preview{
+    padding:14px;
+    color:var(--nf-muted) !important;
+    font-size:.88rem;
+    line-height:1.55;
+    font-weight:750;
+  }
+
+  .checkout-page #fee-preview::before{
+    content:"Delivery fee";
+    display:block;
+    color:var(--nf-ink);
+    font-size:.96rem;
+    font-weight:900;
+    margin-bottom:7px;
+  }
+
+  .checkout-page #fee-preview strong{
+    color:var(--nf-green);
+    font-size:1.16rem;
+    font-weight:950;
+  }
+
+  .checkout-page #fee-meta{
+    margin-top:8px;
+    color:var(--nf-muted);
+    font-size:.8rem;
+    line-height:1.45;
+    font-weight:650;
+    word-break:break-word;
+  }
+
+  .checkout-page #fee-warn{
+    margin-top:12px;
+    display:none;
+    padding:11px 12px;
+    border-radius:14px;
+    background:#FFF7F7;
+    border:1px solid rgba(239,68,68,.22);
+    color:var(--nf-red);
+    font-size:.84rem;
+    line-height:1.45;
+    font-weight:800;
+  }
+
+  /* LOCATION BOX */
+  .checkout-page .loc-box{
+    padding:14px;
+  }
+
+  .checkout-page .loc-title{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin-bottom:12px;
+    color:var(--nf-ink);
+    font-size:.95rem;
+    line-height:1.3;
+    font-weight:900;
+  }
+
+  .checkout-page .loc-title::before{
+    content:"📍";
+    width:34px;
+    height:34px;
+    display:grid;
+    place-items:center;
+    border-radius:13px;
+    background:var(--nf-green-soft);
+    border:1px solid rgba(0,168,89,.12);
+  }
+
+  .checkout-page .loc-actions{
+    display:grid;
+    gap:11px;
+  }
+
+  .checkout-page .loc-row{
+    display:flex;
+    align-items:stretch;
+    gap:10px;
+    min-width:0;
+  }
+
+  .checkout-page .loc-row input{
+    flex:1 1 auto;
+    min-width:0;
+    min-height:44px;
+    border:1px solid #DDEFE6;
+    border-radius:14px;
+    background:#F8FFFB;
+    color:var(--nf-ink);
+    outline:none;
+    padding:0 14px;
+    font-size:.9rem;
+    font-weight:750;
+    transition:border-color .22s var(--nf-ease), box-shadow .22s var(--nf-ease), background .22s var(--nf-ease);
+  }
+
+  .checkout-page .loc-row input:focus{
+    background:#fff;
+    border-color:rgba(0,168,89,.42);
+    box-shadow:0 0 0 4px rgba(0,168,89,.10);
+  }
+
+  .checkout-page .loc-or{
+    color:var(--nf-muted);
+    font-size:.78rem;
+    font-weight:800;
+  }
+
+  .checkout-page .loc-btn,
+  .checkout-page .loc-btn-outline{
+    min-height:44px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    padding:0 16px;
+    font-size:.82rem;
+    font-weight:900;
+    cursor:pointer;
+    transition:background .22s var(--nf-ease), color .22s var(--nf-ease), transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease);
+  }
+
+  .checkout-page .loc-btn{
+    width:100%;
+    border:0;
+    background:var(--nf-green);
+    color:#fff;
+    box-shadow:0 12px 26px rgba(0,168,89,.20);
+  }
+
+  .checkout-page .loc-btn:hover{
+    background:var(--nf-green-dark);
+    transform:translateY(-2px);
+  }
+
+  .checkout-page .loc-btn-outline{
+    flex:0 0 auto;
+    background:#fff;
+    color:var(--nf-green);
+    border:1px solid rgba(0,168,89,.22);
+  }
+
+  .checkout-page .loc-btn-outline:hover{
+    background:var(--nf-green);
+    color:#fff;
+    transform:translateY(-2px);
+  }
+
+  .checkout-page .loc-msg{
+    margin-top:11px;
+    color:var(--nf-muted);
+    font-size:.84rem;
+    line-height:1.45;
+    font-weight:750;
+    word-break:break-word;
+  }
+
+  /* TOTAL PAYABLE */
+  .checkout-page #total-preview{
+    padding:18px;
+    background:
+      radial-gradient(circle at 14% 0%, rgba(0,168,89,.18), transparent 40%),
+      linear-gradient(135deg,#102319,#1C2C22);
+    color:#fff;
+    border:1px solid rgba(0,168,89,.28);
+    box-shadow:0 18px 42px rgba(17,64,38,.18);
+    transition:transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease);
+  }
+
+  .checkout-page #total-preview:hover{
+    transform:translateY(-3px);
+    box-shadow:0 24px 54px rgba(17,64,38,.22);
+  }
+
+  .checkout-page #total-preview strong{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+    color:#fff;
+    font-size:.9rem;
+    font-weight:900;
+  }
+
+  .checkout-page #total-payable{
+    color:#6AFFB2;
+    font-size:1.38rem;
+    font-weight:950;
+  }
+
+  .checkout-page #total-breakdown{
+    margin-top:10px;
+    color:rgba(255,255,255,.78);
+    font-size:.84rem;
+    line-height:1.55;
+    font-weight:650;
+    word-break:break-word;
+  }
+
+  .checkout-page #total-breakdown b{
+    color:#fff;
+    font-weight:900;
+  }
+
+  /* MOBILE */
+  @media(max-width:1100px){
+    .checkout-page .checkout-section{
+      grid-template-columns:minmax(0,1fr) minmax(330px,380px);
+      gap:18px;
+    }
+  }
+
+  @media(max-width:980px){
+    .checkout-page .checkout-section{
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .checkout-page .left-col,
+    .checkout-page .right-rail,
+    .checkout-page #checkout-form{
+      display:contents;
+    }
+
+    .checkout-page .right-rail{
+      position:static;
+      max-height:none;
+      overflow:visible;
+    }
+
+    .checkout-page .multi-store-warn{ order:1; }
+    .checkout-page .summary-card{ order:2; }
+    .checkout-page .loc-box{ order:3; }
+    .checkout-page #checkout-form > label{ order:4; }
+    .checkout-page .checkout-card{ order:5; }
+    .checkout-page #total-preview{ order:98; }
+    .checkout-page #place-order-btn,
+    .checkout-page #checkout-form > .btn{ order:99; }
+
+    .checkout-page .hero{
+      padding-top:22px;
+    }
+
+    .checkout-page .checkout-hero-card{
+      min-height:132px;
+      padding:22px 20px;
+      border-radius:22px;
+    }
+
+    .checkout-page .checkout-hero-icon{
+      display:none;
+    }
+
+    .checkout-page .hero-title{
+      font-size:2rem;
+    }
+
+    .checkout-page .hero-sub{
+      font-size:.88rem;
+    }
+
+    .checkout-page .wrap{
+      padding-left:14px;
+      padding-right:14px;
+    }
+
+    .checkout-page #checkout-form > label{
+      grid-template-columns:1fr;
+      gap:10px;
+    }
+
+    .checkout-page #checkout-form input[name="tip_amount"]{
+      width:100% !important;
+      min-width:0;
+    }
+
+    .checkout-page .loc-row{
+      flex-direction:column;
+      align-items:stretch;
+    }
+
+    .checkout-page .loc-btn-outline{
+      width:100%;
+    }
+  }
+
+  @media(max-width:520px){
+    .checkout-page .top-bar{
+      min-height:38px;
+      padding-left:14px;
+      padding-right:14px;
+      font-size:.66rem;
+      letter-spacing:.04em;
+    }
+
+    .checkout-page .hero{
+      padding-left:14px;
+      padding-right:14px;
+    }
+
+    .checkout-page .hero-title{
+      font-size:1.65rem;
+    }
+
+    .checkout-page .hero-sub{
+      font-size:.82rem;
+    }
+
+    .checkout-page .checkout-card-head{
+      padding:14px;
+    }
+
+    .checkout-page .checkout-card-body{
+      padding:14px;
+    }
+
+    .checkout-page .step-badge{
+      width:36px;
+      height:36px;
+      border-radius:13px;
+    }
+
+    .checkout-page .checkout-card-title h3{
+      font-size:.96rem;
+    }
+
+    .checkout-page .checkout-card-title p{
+      font-size:.74rem;
+    }
+
+    .checkout-page #total-payable{
+      font-size:1.2rem;
+    }
+
+    .checkout-page #checkout-form > .card > label{
+      padding:12px !important;
+    }
+  }
+
+  @media(hover:none) and (pointer:coarse){
+    .checkout-page .loc-btn:hover,
+    .checkout-page .loc-btn-outline:hover,
+    .checkout-page #checkout-form > .btn:hover,
+    .checkout-page #total-preview:hover,
+    .checkout-page #checkout-form > .card > label:hover{
+      transform:none;
+    }
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    .checkout-page *,
+    .checkout-page *::before,
+    .checkout-page *::after{
+      transition:none !important;
+    }
+  }
+</style>
+
 <section class="checkout-page" data-page="checkout"
   data-store-lat="{{ store_lat or '' }}"
   data-store-lng="{{ store_lng or '' }}"
@@ -9,622 +955,6 @@
   data-session-pin="{{ session.get('location_pincode','') }}"
   data-cart-store-count="{{ cart_store_count|default(0) }}"
 >
-  <style>
-    /* =========================================
-       CHECKOUT — MATCH STORE DASHBOARD THEME
-       ✅ NO route/logic changes (UI only)
-       ✅ Fully web responsive + mobile/app responsive
-       ✅ Aligns all boxes to same margins
-       ✅ Right column becomes sticky + scrolls if long
-       ✅ Removes extra gaps + adds hover to total
-       Scoped to .checkout-page
-       ========================================= */
-
-    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
-
-    .checkout-page{
-      --crimson:#8B0000;
-      --black:#000;
-      --off-white:#FAF9F6;
-      --light-crimson:#FFF5F5;
-      --border:4px;
-      --t:.28s;
-
-      width: 100vw;
-      margin-left: calc(50% - 50vw);
-      margin-right: calc(50% - 50vw);
-      background: var(--off-white);
-      color: var(--black);
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1.125rem;
-      line-height: 1.6;
-      min-height: 100vh;
-      position: relative;
-      overflow-x: hidden;
-    }
-
-    /* ✅ Prevent any child from causing horizontal scroll */
-    .checkout-page,
-    .checkout-page *{ box-sizing:border-box; border-radius:0 !important; }
-    .checkout-page img,
-    .checkout-page video,
-    .checkout-page iframe{ max-width:100%; height:auto; }
-
-    /* Cursor */
-    .checkout-page,
-    .checkout-page *{
-      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
-    }
-    .checkout-page a,
-    .checkout-page button,
-    .checkout-page input,
-    .checkout-page textarea{ cursor:pointer; }
-
-    .checkout-page ::selection{ background: var(--crimson); color:#fff; }
-
-    /* Film grain */
-    .checkout-page .grain{
-      position: fixed;
-      inset: 0;
-      pointer-events:none;
-      z-index: 1;
-      opacity: .12;
-      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
-    }
-
-    /* Top bar + hero */
-    .checkout-page .top-bar{
-      position: relative;
-      z-index: 2;
-      width: 100%;
-      padding: .95rem 2rem;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      border-bottom: var(--border) solid var(--black);
-      background: var(--off-white);
-      font-family: 'Italiana', serif;
-      font-size: .875rem;
-      letter-spacing: .5em;
-      text-transform: uppercase;
-      font-variant: small-caps;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .checkout-page .hero{
-      position: relative;
-      z-index: 2;
-      text-align:center;
-      padding: clamp(2.1rem, 5vw, 4rem) 1rem clamp(1.5rem, 4vw, 2.8rem);
-      border-bottom: var(--border) solid var(--black);
-      background: var(--off-white);
-    }
-    .checkout-page .hero-title{
-      font-family: 'Dancing Script', cursive;
-      font-size: clamp(2.3rem, 8vw, 5.2rem);
-      color: var(--crimson);
-      font-style: italic;
-      font-weight: 700;
-      text-transform: uppercase;
-      line-height: 1.12;
-      margin: 0 0 .55rem 0;
-      padding: 0 6px;
-      word-break: break-word;
-    }
-    .checkout-page .hero-sub{
-      font-family: 'Italiana', serif;
-      font-size: .875rem;
-      letter-spacing: .45em;
-      text-transform: uppercase;
-      font-variant: small-caps;
-      margin: 0 0 1.05rem 0;
-      padding: 0 6px;
-    }
-    .checkout-page .hero-divider{
-      width: 6rem;
-      height: 4px;
-      background: var(--crimson);
-      margin: 0 auto;
-    }
-
-    .checkout-page .wrap{
-      position: relative;
-      z-index: 2;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: clamp(1rem, 3vw, 2.1rem) 1rem clamp(1.35rem, 4vw, 2.6rem);
-    }
-
-    /* =========================
-       ✅ NEW: Tight, aligned 2-col layout
-       ========================= */
-    .checkout-page .checkout-section{
-      max-width: 1200px !important;
-      margin: 0 auto !important;
-      padding: 0 !important;
-      background: transparent !important;
-
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
-      gap: 1rem;
-      align-items: start;
-    }
-
-    .checkout-page .checkout-section > h2{
-      grid-column: 1 / -1;
-      margin: 0 0 .35rem 0;
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(1.4rem, 3vw, 2rem);
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-
-    .checkout-page .multi-store-warn{
-      grid-column: 1 / -1;
-      border: var(--border) solid var(--black);
-      background: var(--light-crimson);
-      padding: 1rem 1.05rem;
-      font-weight: 900;
-      color: var(--crimson);
-      margin: 0;
-    }
-    .checkout-page .multi-store-warn strong{
-      font-family: 'Playfair Display', serif;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      color: var(--black);
-      display:block;
-      margin-bottom: .35rem;
-    }
-    .checkout-page .multi-store-warn a{
-      color: var(--crimson);
-      text-decoration: underline;
-      font-weight: 900;
-    }
-
-    /* Left / Right columns (keeps same overall margins) */
-    .checkout-page .left-col{
-      grid-column: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem; /* ✅ removes random gaps, consistent spacing */
-      min-width: 0;
-    }
-
-    .checkout-page .right-rail{
-      grid-column: 2;
-      min-width: 0;
-
-      /* ✅ Sticky rail: stays visible when left is long */
-      position: sticky;
-      top: 18px;
-
-      /* ✅ If rail becomes taller than viewport, it scrolls inside */
-      max-height: calc(100vh - 36px);
-      overflow: auto;
-
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-
-      /* Better scrolling feel */
-      padding-bottom: 2px;
-      overscroll-behavior: contain;
-    }
-
-    /* Nice thin scrollbar (optional, safe) */
-    .checkout-page .right-rail::-webkit-scrollbar{ width: 10px; }
-    .checkout-page .right-rail::-webkit-scrollbar-thumb{ background: rgba(0,0,0,.25); border: 2px solid var(--off-white); }
-    .checkout-page .right-rail::-webkit-scrollbar-track{ background: transparent; }
-
-    /* Cards baseline */
-    .checkout-page .cardbox{
-      border: var(--border) solid var(--black);
-      background: var(--off-white);
-      padding: 1rem 1.05rem;
-      margin: 0 !important;
-      min-width: 0;
-    }
-
-    /* Items Total */
-    .checkout-page .items-total{
-      border: var(--border) solid var(--black);
-      background: var(--light-crimson);
-      padding: 1rem 1.05rem;
-      margin: 0 !important;
-      font-family: 'Cormorant Garamond', serif;
-      font-weight: 800;
-    }
-    .checkout-page .items-total strong{
-      font-family: 'Playfair Display', serif;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-    }
-
-    /* Tip row */
-    .checkout-page #checkout-form > label{
-      border: var(--border) solid var(--black);
-      background: var(--off-white);
-      padding: 1rem 1.05rem;
-      margin: 0 !important;
-
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap: 12px;
-
-      font-family: 'Italiana', serif;
-      font-size: .75rem;
-      letter-spacing: .25em;
-      text-transform: uppercase;
-      color: var(--crimson);
-      font-weight: 900;
-      min-width: 0;
-    }
-    .checkout-page #checkout-form input[name="tip_amount"]{
-      width: min(180px, 44vw) !important;
-      margin-left: 0 !important;
-      border: 2px solid var(--black);
-      background: var(--off-white);
-      padding: .7rem .8rem;
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1rem;
-      color: var(--black);
-      outline: none;
-      min-width: 120px;
-    }
-    .checkout-page #checkout-form input[name="tip_amount"]:focus{
-      outline: 3px solid var(--crimson);
-      outline-offset: 3px;
-    }
-
-    /* Delivery fee preview (in rail) */
-    .checkout-page #fee-preview{
-      border: var(--border) solid var(--black);
-      background: var(--off-white);
-      padding: 1rem 1.05rem;
-      margin: 0 !important;
-
-      color: var(--black) !important;
-      font-family: 'Cormorant Garamond', serif;
-      font-weight: 700;
-      min-width: 0;
-    }
-    .checkout-page #fee-preview strong{
-      font-family: 'Playfair Display', serif;
-      font-weight: 900;
-    }
-    .checkout-page #fee-meta{
-      margin-top: 8px;
-      font-size: .95rem;
-      color: rgba(0,0,0,.75);
-      word-break: break-word;
-    }
-    .checkout-page #fee-warn{
-      margin-top: 10px;
-      border: 2px dashed var(--black);
-      background: var(--light-crimson);
-      padding: 10px 12px;
-      display:none;
-      font-weight: 800;
-      color: var(--crimson);
-    }
-
-    /* Location box (in rail) */
-    .checkout-page .loc-box{
-      border: var(--border) solid var(--black);
-      background: var(--off-white);
-      padding: 1rem 1.05rem;
-      margin: 0 !important;
-      min-width: 0;
-    }
-    .checkout-page .loc-title{
-      font-family: 'Playfair Display', serif;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      margin-bottom: .65rem;
-      font-size: 1rem;
-    }
-    .checkout-page .loc-actions{
-      display: grid;
-      gap: .65rem;
-    }
-    .checkout-page .loc-row{
-      display:flex;
-      gap: 10px;
-      align-items:stretch;
-      min-width: 0;
-    }
-    .checkout-page .loc-row input{
-      flex: 1 1 auto;
-      min-width: 0;
-      border: 2px solid var(--black);
-      background: var(--off-white);
-      padding: .7rem .8rem;
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1rem;
-      outline: none;
-    }
-    .checkout-page .loc-row input:focus{
-      outline: 3px solid var(--crimson);
-      outline-offset: 3px;
-    }
-    .checkout-page .loc-or{
-      font-family: 'Italiana', serif;
-      letter-spacing: .2em;
-      font-weight: 900;
-      color: rgba(0,0,0,.7);
-    }
-    .checkout-page .loc-btn,
-    .checkout-page .loc-btn-outline{
-      border: 2px solid var(--black);
-      padding: .85rem 1rem;
-      font-family: 'Italiana', serif;
-      letter-spacing: .22em;
-      text-transform: uppercase;
-      font-weight: 900;
-      width: 100%;
-      transition: transform var(--t), background var(--t), color var(--t);
-    }
-    .checkout-page .loc-btn{
-      background: var(--crimson);
-      color: #fff;
-    }
-    .checkout-page .loc-btn:hover{
-      background: var(--black);
-      transform: translateY(-2px);
-    }
-    .checkout-page .loc-btn-outline{
-      background: #fff;
-      color: var(--crimson);
-      white-space: nowrap;
-      width: auto;
-      padding-left: 1.1rem;
-      padding-right: 1.1rem;
-    }
-    .checkout-page .loc-btn-outline:hover{
-      background: var(--light-crimson);
-      transform: translateY(-2px);
-    }
-    .checkout-page .loc-msg{
-      margin-top: .65rem;
-      font-size: .95rem;
-      font-weight: 800;
-      color: rgba(0,0,0,.8);
-      word-break: break-word;
-    }
-
-    /* Address section title */
-    .checkout-page #checkout-form > h3{
-      border: var(--border) solid var(--black);
-      border-bottom: 0;
-      background: var(--black);
-      color: #fff;
-      padding: .95rem 1.05rem;
-      margin: 0 !important;
-
-      font-family: 'Italiana', serif;
-      font-size: .75rem;
-      letter-spacing: .35em;
-      text-transform: uppercase;
-    }
-
-    /* Address list card */
-    .checkout-page #checkout-form > .card{
-      border: var(--border) solid var(--black) !important;
-      background: var(--off-white) !important;
-      padding: 1rem 1rem !important;
-      margin: 0 !important;
-      min-width: 0;
-    }
-
-    .checkout-page #checkout-form > .card > label{
-      margin: 10px 0 !important;
-      padding: 12px !important;
-      border: 2px dashed var(--black) !important;
-      background: var(--light-crimson) !important;
-      transition: transform var(--t), background var(--t);
-      width: 100%;
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      min-width: 0;
-    }
-    .checkout-page #checkout-form > .card > label:hover{
-      transform: translateY(-3px);
-      background: var(--off-white) !important;
-    }
-
-    .checkout-page input[type="radio"]{
-      width: 18px;
-      height: 18px;
-      accent-color: var(--crimson);
-      margin-top: 3px;
-      flex: 0 0 auto;
-    }
-
-    .checkout-page .tag{
-      border: 2px solid var(--black) !important;
-      background: #fff !important;
-      color: var(--crimson) !important;
-      font-family: 'Italiana', serif;
-      letter-spacing: .18em;
-      text-transform: uppercase;
-      font-weight: 900;
-      display: inline-block;
-      vertical-align: middle;
-    }
-
-    .checkout-page #checkout-form > p.muted{
-      border: var(--border) solid var(--black);
-      background: var(--light-crimson);
-      padding: 1rem 1.05rem;
-      margin: 0 !important;
-      font-weight: 700;
-    }
-    .checkout-page #checkout-form > p.muted a{
-      color: var(--crimson);
-      text-decoration: underline;
-      font-weight: 900;
-    }
-
-    /* ✅ Total Summary (in rail) + hover */
-    .checkout-page #total-preview{
-      border: var(--border) solid var(--black);
-      background: var(--black);
-      color: #fff;
-      padding: 1rem 1.05rem;
-      margin: 0 !important;
-      min-width: 0;
-
-      transition: transform var(--t), box-shadow var(--t), filter var(--t);
-      box-shadow: 6px 6px 0 rgba(0,0,0,1);
-    }
-    .checkout-page #total-preview:hover{
-      transform: translateY(-3px);
-      box-shadow: 10px 10px 0 rgba(0,0,0,1);
-      filter: brightness(1.02);
-    }
-    .checkout-page #total-preview strong{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      font-family: 'Playfair Display', serif;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .checkout-page #total-breakdown{
-      margin-top: 10px;
-      font-size: 1rem;
-      color: rgba(255,255,255,.85);
-      font-weight: 700;
-      word-break: break-word;
-    }
-    .checkout-page #total-breakdown b{
-      color:#fff;
-      font-weight: 900;
-    }
-
-    /* Place order button */
-    .checkout-page #checkout-form > .btn{
-      width: 100% !important;
-      margin: 0 !important;
-      padding: 1.05rem 1.1rem !important;
-      border: var(--border) solid var(--black) !important;
-      background: var(--crimson) !important;
-      color: #fff !important;
-      font-family: 'Italiana', serif !important;
-      font-size: .8rem !important;
-      letter-spacing: .35em !important;
-      text-transform: uppercase !important;
-      font-weight: 900 !important;
-      transition: transform var(--t), background var(--t), color var(--t);
-      box-shadow: 6px 6px 0 var(--black);
-      border-radius: 0 !important;
-      word-break: break-word;
-    }
-    .checkout-page #checkout-form > .btn:hover{
-      transform: translateY(-4px);
-      background: var(--black) !important;
-      color: #fff !important;
-    }
-    .checkout-page #checkout-form > .btn[disabled]{
-      opacity: .55;
-      cursor: not-allowed;
-      box-shadow: none;
-      transform: none;
-    }
-
-    .checkout-page .muted{ color: rgba(0,0,0,.7) !important; }
-
-    /* ✅ RESPONSIVE BREAKPOINTS (web + app/mobile) */
-    @media (max-width: 1100px){
-      .checkout-page .checkout-section{
-        grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
-        gap: .95rem;
-      }
-    }
-
-    @media (max-width: 980px){
-
-  /* ✅ Make the whole checkout stack as a single column */
-  .checkout-page .checkout-section{
-    display:flex;
-    flex-direction:column;
-    gap: .95rem;
-  }
-
-  /* ✅ Flatten wrappers ONLY on mobile so we can reorder blocks */
-  .checkout-page .left-col{ display: contents; }
-  .checkout-page .right-rail{
-    display: contents;
-    position: static;
-    max-height: none;
-    overflow: visible;
-  }
-
-  /* ✅ Flatten form wrapper so its children can be ordered too (no logic change) */
-  .checkout-page #checkout-form{ display: contents; }
-
-  /* =========================
-     ✅ MOBILE ORDER (top → bottom)
-     1) Items Total
-     2) Delivery Fee
-     3) Location Box
-     4) Tip
-     5) Address Title
-     6) Address Card / No address note
-     7) Total Payable
-     8) Place Order
-     ========================= */
-
-  .checkout-page .checkout-section > h2{ order: 0; }
-  .checkout-page .multi-store-warn{ order: 1; }
-
-  .checkout-page .items-total{ order: 2; }
-  .checkout-page #fee-preview{ order: 3; }
-  .checkout-page #loc-box{ order: 4; }
-
-  .checkout-page #checkout-form > label{ order: 5; }
-  .checkout-page #checkout-form > h3{ order: 6; }
-
-  .checkout-page #checkout-form > .card{ order: 7; }
-  .checkout-page #checkout-form > p.muted{ order: 7; }
-
-  /* ✅ Make these ALWAYS last on mobile */
-  .checkout-page #total-preview{ order: 98; }
-  .checkout-page #place-order-btn,
-  .checkout-page #checkout-form > .btn{ order: 99; }
-
-  /* keep your existing mobile field stacking */
-  .checkout-page #checkout-form > label{
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .checkout-page #checkout-form input[name="tip_amount"]{
-    width: 100% !important;
-    min-width: 0;
-  }
-  .checkout-page .loc-row{
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .checkout-page .loc-btn-outline{ width: 100%; }
-}
-
-  </style>
-
   <div class="grain" aria-hidden="true"></div>
 
   <div class="top-bar">
@@ -633,9 +963,16 @@
   </div>
 
   <header class="hero">
-    <h1 class="hero-title">Checkout</h1>
-    <p class="hero-sub">Cash on Delivery</p>
-    <div class="hero-divider"></div>
+    <div class="checkout-hero-card">
+      <div class="checkout-hero-copy">
+        <span class="checkout-pill">Secure checkout</span>
+        <h1 class="hero-title">Complete your order</h1>
+        <p class="hero-sub">
+          Confirm your delivery address, location and payable amount before placing your Cash on Delivery order.
+        </p>
+      </div>
+      <div class="checkout-hero-icon" aria-hidden="true">🛵</div>
+    </div>
   </header>
 
   <div class="wrap">
@@ -653,10 +990,69 @@
         </div>
       {% endif %}
 
-      <!-- ✅ LEFT COLUMN (form content) -->
       <div class="left-col">
         <form method="post" id="checkout-form">
-          <!-- Tip Input -->
+
+          <div class="checkout-card">
+            <div class="checkout-card-head">
+              <div class="checkout-card-title">
+                <span class="step-badge">1</span>
+                <div>
+                  <h3>Delivery address</h3>
+                  <p>Select where the order should be delivered</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="checkout-card-body">
+              <h3>Select Delivery Address</h3>
+
+              {% if addresses %}
+                <div class="card">
+                  {% for a in addresses %}
+                    <label>
+                      <input
+                        type="radio"
+                        name="address_id"
+                        value="{{ a.id }}"
+                        {% if a.is_default %}checked{% elif loop.first %}checked{% endif %}
+                        data-lat="{{ a.latitude or '' }}"
+                        data-lng="{{ a.longitude or '' }}"
+                        data-pin="{{ a.pincode or '' }}"
+                      >
+                      <div style="min-width:0;">
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                          <strong>{{ a.label or 'Address' }}</strong>
+                          {% if a.is_default %}
+                            <span class="tag" style="padding:2px 6px;font-size:12px;">Default</span>
+                          {% endif %}
+                        </div>
+
+                        <div>{{ a.line1 }}{% if a.line2 %}, {{ a.line2 }}{% endif %}</div>
+                        <div>{{ a.city }}, {{ a.state }} {{ a.pincode }}</div>
+
+                        {% if a.latitude and a.longitude %}
+                          <div class="muted" style="font-size:12px;">
+                            Lat: {{ a.latitude }}, Lng: {{ a.longitude }}
+                          </div>
+                        {% else %}
+                          <div class="muted" style="font-size:12px;">
+                            Coordinates missing — please allow GPS on checkout to calculate delivery fee.
+                          </div>
+                        {% endif %}
+                      </div>
+                    </label>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="muted">
+                  You have no saved addresses.
+                  <a href="{{ url_for('profile') }}">Add one in Profile</a>.
+                </p>
+              {% endif %}
+            </div>
+          </div>
+
           <label>
             Tip for Rider (optional):
             <input
@@ -670,56 +1066,8 @@
             >
           </label>
 
-          <!-- ✅ hidden resolved coords (GPS fallback) -->
           <input type="hidden" name="resolved_lat" id="resolved_lat" value="">
           <input type="hidden" name="resolved_lng" id="resolved_lng" value="">
-
-          <!-- Address Selection -->
-          <h3>Select Delivery Address</h3>
-
-          {% if addresses %}
-            <div class="card">
-              {% for a in addresses %}
-                <label>
-                  <input
-                    type="radio"
-                    name="address_id"
-                    value="{{ a.id }}"
-                    {% if a.is_default %}checked{% elif loop.first %}checked{% endif %}
-                    data-lat="{{ a.latitude or '' }}"
-                    data-lng="{{ a.longitude or '' }}"
-                    data-pin="{{ a.pincode or '' }}"
-                  >
-                  <div style="min-width:0;">
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                      <strong>{{ a.label or 'Address' }}</strong>
-                      {% if a.is_default %}
-                        <span class="tag" style="padding:2px 6px;font-size:12px;">Default</span>
-                      {% endif %}
-                    </div>
-
-                    <div>{{ a.line1 }}{% if a.line2 %}, {{ a.line2 }}{% endif %}</div>
-                    <div>{{ a.city }}, {{ a.state }} {{ a.pincode }}</div>
-
-                    {% if a.latitude and a.longitude %}
-                      <div class="muted" style="font-size:12px;">
-                        Lat: {{ a.latitude }}, Lng: {{ a.longitude }}
-                      </div>
-                    {% else %}
-                      <div class="muted" style="font-size:12px;">
-                        Coordinates missing — please allow GPS on checkout to calculate delivery fee.
-                      </div>
-                    {% endif %}
-                  </div>
-                </label>
-              {% endfor %}
-            </div>
-          {% else %}
-            <p class="muted">
-              You have no saved addresses.
-              <a href="{{ url_for('profile') }}">Add one in Profile</a>.
-            </p>
-          {% endif %}
 
           <button class="btn" id="place-order-btn" type="submit"
             {% if not addresses or (cart_store_count and cart_store_count > 1) %}disabled{% endif %}>
@@ -728,28 +1076,33 @@
         </form>
       </div>
 
-      <!-- ✅ RIGHT COLUMN (sticky rail) -->
       <aside class="right-rail" aria-label="Checkout summary and fee calculation">
-        <!-- Items Total from backend -->
-        <p class="items-total">
-          <strong>Items Total (COD): ₹{{ '%.2f'|format(total) }}</strong>
-        </p>
+        <div class="summary-card">
+          <div class="summary-head">
+            <h3>Order summary</h3>
+            <p>Review the order amount and delivery fee</p>
+          </div>
 
-        <!-- Delivery Fee Estimate -->
-        <div id="fee-preview" aria-live="polite">
-          Estimated Delivery Fee:
-          <strong id="fee-amount">₹{{ '%.2f'|format(base_fee|default(40)) }}</strong>
-          <div id="fee-meta" class="muted"></div>
-          <div id="fee-warn" role="alert" aria-live="polite"></div>
+          <div class="summary-body">
+            <p class="items-total">
+              <strong>Items Total (COD): ₹{{ '%.2f'|format(total) }}</strong>
+            </p>
+
+            <div id="fee-preview" aria-live="polite">
+              Estimated Delivery Fee:
+              <strong id="fee-amount">₹{{ '%.2f'|format(base_fee|default(40)) }}</strong>
+              <div id="fee-meta" class="muted"></div>
+              <div id="fee-warn" role="alert" aria-live="polite"></div>
+            </div>
+          </div>
         </div>
 
-        <!-- ✅ Set Location -->
         <div id="loc-box" class="loc-box" aria-live="polite">
-          <div class="loc-title">Set delivery location (for fee calculation)</div>
+          <div class="loc-title">Set delivery location</div>
 
           <div class="loc-actions">
             <button type="button" id="btnGps" class="loc-btn">Use Current Location</button>
-            <span class="loc-or">Check for Pincode Availability</span>
+            <span class="loc-or">Check pincode availability</span>
             <div class="loc-row">
               <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="Enter 6-digit pincode" />
               <button type="button" id="btnPin" class="loc-btn-outline">Confirm</button>
@@ -759,10 +1112,9 @@
           <div id="locMsg" class="loc-msg"></div>
         </div>
 
-        <!-- Total Summary -->
         <p id="total-preview">
           <strong>
-            <span>Total Payable (approx.)</span>
+            <span>Total Payable</span>
             <span id="total-payable">₹0.00</span>
           </strong>
           <div id="total-breakdown"></div>
@@ -772,9 +1124,6 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // =========================
-      // BACKEND-MATCHING SETTINGS
-      // =========================
       const BASE_DELIVERY_FEE = Number({{ (base_fee|default(40))|tojson }});
       const MAX_DELIVERY_KM   = Number({{ (max_km|default(10.0))|tojson }});
       const SLABS_RAW         = {{ (slabs|default([(0,2,0),(2,5,15),(5,7,25),(7,10,35)]))|tojson }};
@@ -784,9 +1133,6 @@
         ? SLABS_RAW.map(s => ({ low: Number(s[0]), high: Number(s[1]), fee: Number(s[2]) }))
         : [];
 
-      // =========================
-      // DOM
-      // =========================
       const page = document.querySelector('.checkout-page');
       const tipInput = document.querySelector('input[name="tip_amount"]');
       const feeAmountEl = document.getElementById('fee-amount');
@@ -799,42 +1145,41 @@
       const resolvedLatInput = document.getElementById('resolved_lat');
       const resolvedLngInput = document.getElementById('resolved_lng');
 
-      // Location box
       const locMsg   = document.getElementById("locMsg");
       const btnGps   = document.getElementById("btnGps");
       const btnPin   = document.getElementById("btnPin");
       const pinInput = document.getElementById("pinInput");
 
-      // ✅ Multi-store guard from backend
       const cartStoreCount = (() => {
         const v = page?.getAttribute('data-cart-store-count');
         const n = parseInt(v || "0", 10);
         return Number.isFinite(n) ? n : 0;
       })();
 
-      // Store coords
       const storeLat = (() => {
         const v = page?.getAttribute('data-store-lat');
         const n = parseFloat(v);
         return Number.isFinite(n) ? n : null;
       })();
+
       const storeLng = (() => {
         const v = page?.getAttribute('data-store-lng');
         const n = parseFloat(v);
         return Number.isFinite(n) ? n : null;
       })();
 
-      // Session location injected (optional)
       const initialSessionLat = (() => {
         const v = page?.getAttribute('data-session-lat');
         const n = parseFloat(v);
         return Number.isFinite(n) ? n : null;
       })();
+
       const initialSessionLng = (() => {
         const v = page?.getAttribute('data-session-lng');
         const n = parseFloat(v);
         return Number.isFinite(n) ? n : null;
       })();
+
       const initialSessionPin = (() => {
         const v = page?.getAttribute('data-session-pin');
         const p = String(v || "").trim().replace(/\D/g, "");
@@ -848,9 +1193,6 @@
         source: (initialSessionLat && initialSessionLng) ? "session" : null
       };
 
-      // =========================
-      // Address selection helpers
-      // =========================
       function radios(){ return Array.from(document.querySelectorAll('input[name="address_id"]')); }
       function selectedAddress(){ return document.querySelector('input[name="address_id"]:checked'); }
       function ensureSelected(){
@@ -862,9 +1204,6 @@
         return all[0];
       }
 
-      // =========================
-      // Utils
-      // =========================
       function haversineKm(lat1, lon1, lat2, lon2){
         if ([lat1, lon1, lat2, lon2].some(v => v === null || v === undefined)) return null;
         const R = 6371.0;
@@ -885,6 +1224,7 @@
         if (tip > 10000) tip = 10000;
         return Math.round(tip * 100) / 100;
       }
+
       function format2(n){ return (Number(n) || 0).toFixed(2); }
       function cleanPin(pin){ return String(pin || "").trim().replace(/\D/g, ""); }
 
@@ -922,31 +1262,21 @@
         if (feeMeta) feeMeta.textContent = metaLine || "";
       }
 
-   
-     // =========================
-// Assam-wide delivery pincode validation (UI only)
-// =========================
-async function loadPins(){
-  // Old fixed pincode list removed.
-  // Kept as no-op because init still calls loadPins().
-  return true;
-}
+      async function loadPins(){
+        return true;
+      }
 
-function isPinServiceable(pin){
-  const p = cleanPin(pin);
-  return /^\d{6}$/.test(p);
-}
+      function isPinServiceable(pin){
+        const p = cleanPin(pin);
+        return /^\d{6}$/.test(p);
+      }
 
-      // =========================
-      // Backend slab logic
-      // =========================
       function slabExtraMatchingBackend(km){
         if (km === null || !Number.isFinite(km)) return null;
         if (!SLAB_LIST.length) return null;
 
         const lastHigh = SLAB_LIST[SLAB_LIST.length - 1].high;
 
-        // hard safety: never match beyond last slab high
         if (km > lastHigh) return null;
 
         for (const s of SLAB_LIST){
@@ -958,10 +1288,8 @@ function isPinServiceable(pin){
         return null;
       }
 
-      // =========================
-      // GPS cache
-      // =========================
-      let gpsCache = null; // {lat,lng}
+      let gpsCache = null;
+
       function getGPSOnce(){
         return new Promise((resolve) => {
           if (!navigator.geolocation) return resolve(null);
@@ -984,15 +1312,12 @@ function isPinServiceable(pin){
         });
       }
 
-      // =========================
-      // Pincode -> Lat/Lng (approx)
-      // =========================
       async function geocodePincode(pincode){
         const p = cleanPin(pincode);
         if (!/^\d{6}$/.test(p)) return null;
 
         const queries = [
-         `${p}, Assam, India`,
+          `${p}, Assam, India`,
           `${p}, India`,
           `Pincode ${p}, India`,
           `${p}`
@@ -1014,9 +1339,6 @@ function isPinServiceable(pin){
         return null;
       }
 
-      // =========================
-      // Save location into backend session
-      // =========================
       async function apiSetLocation({ address, pincode, lat, lng }){
         const payload = {
           address: address || "",
@@ -1037,11 +1359,7 @@ function isPinServiceable(pin){
         return j;
       }
 
-      // =========================
-      // MAIN recalculation
-      // =========================
       async function recalc(){
-        // ✅ Multi-store: never allow checkout
         if (cartStoreCount > 1){
           setWarn("Your cart has items from multiple stores. Please order from one store at a time.");
           setButtonEnabled(false);
@@ -1070,6 +1388,7 @@ function isPinServiceable(pin){
           updateUI(deliveryFee, tip, "");
           return;
         }
+
         if (!isPinServiceable(aPin)){
           setWarn(`This address pincode (${aPin}) is not serviceable. Please choose another address.`);
           setButtonEnabled(false);
@@ -1084,7 +1403,6 @@ function isPinServiceable(pin){
           return;
         }
 
-        // Address coords
         const rawLat = addr.getAttribute('data-lat');
         const rawLng = addr.getAttribute('data-lng');
         const aLat = rawLat === null ? NaN : parseFloat(rawLat);
@@ -1092,7 +1410,6 @@ function isPinServiceable(pin){
         const addrLatOk = Number.isFinite(aLat);
         const addrLngOk = Number.isFinite(aLng);
 
-        // Resolve coords for fee
         let rLat = null, rLng = null;
 
         if (addrLatOk && addrLngOk){
@@ -1136,16 +1453,11 @@ function isPinServiceable(pin){
           return;
         }
 
-       // Assam-wide delivery: no frontend max-distance blocking.
-// Distance is used only for fee calculation.
-
         let extra = slabExtraMatchingBackend(km);
 
-if (extra === null){
-  // Assam-wide fallback: if distance is beyond known slabs or slabs are unavailable,
-  // allow checkout with base delivery fee.
-  extra = 0;
-}
+        if (extra === null){
+          extra = 0;
+        }
 
         deliveryFee = BASE_DELIVERY_FEE + extra;
         setButtonEnabled(true);
@@ -1156,9 +1468,6 @@ if (extra === null){
         );
       }
 
-      // =========================
-      // Location Box actions
-      // =========================
       function setLocMsg(text, ok){
         if(!locMsg) return;
         locMsg.textContent = text || "";
@@ -1189,6 +1498,7 @@ if (extra === null){
           setLocMsg("Selected address has no pincode. Please update pincode in Profile.", false);
           return;
         }
+
         if (!isPinServiceable(aPin)){
           setLocMsg(`Pincode ${aPin} not serviceable. Choose another address.`, false);
           return;
@@ -1225,6 +1535,7 @@ if (extra === null){
           setLocMsg("Please enter a valid 6-digit pincode.", false);
           return;
         }
+
         if (!isPinServiceable(p)){
           setLocMsg(`Pincode ${p} is not serviceable.`, false);
           return;
@@ -1260,7 +1571,7 @@ if (extra === null){
           if (resolvedLatInput) resolvedLatInput.value = String(loc.lat);
           if (resolvedLngInput) resolvedLngInput.value = String(loc.lng);
 
-setLocMsg(`Pincode ${p} is valid. Delivery is available across Assam.`, true);
+          setLocMsg(`Pincode ${p} is valid. Delivery is available across Assam.`, true);
 
           await recalc();
         }catch(e){
@@ -1268,9 +1579,6 @@ setLocMsg(`Pincode ${p} is valid. Delivery is available across Assam.`, true);
         }
       }
 
-      // =========================
-      // Events + Init
-      // =========================
       radios().forEach(r => r.addEventListener('change', () => recalc()));
       if (tipInput) tipInput.addEventListener('input', () => recalc());
 

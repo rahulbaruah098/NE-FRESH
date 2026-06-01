@@ -3,654 +3,926 @@
 
 <section class="my-orders-page" data-page="my-orders">
   <style>
-    /* ========================================
-       MY ORDERS — MATCH STORE DASHBOARD THEME
-       ✅ NO logic/route changes
-       ✅ Keep your HTML structure (table + cards + classes)
-       ✅ Only replace theme/design
-       ✅ Mobile/App + Web responsive
-       Scoped to .my-orders-page
-       ======================================== */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-    /* Font imports (page-scoped) */
-    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
-
-    /* ✅ Page tokens + full-bleed like dashboard */
     .my-orders-page{
-      --crimson: #8B0000;
-      --black: #000000;
-      --off-white: #FAF9F6;
-      --light-crimson: #FFF5F5;
-      --border-standard: 4px;
-      --transition-speed: 0.3s;
+      --nf-green:#00A859;
+      --nf-green-dark:#008A48;
+      --nf-green-soft:#E9FFF3;
+      --nf-green-soft-2:#F3FFF8;
+      --nf-bg:#F8FFFB;
+      --nf-card:#FFFFFF;
+      --nf-ink:#23332A;
+      --nf-text:#66756D;
+      --nf-muted:#8A9890;
+      --nf-line:#E3F1E9;
+      --nf-yellow:#FFB84D;
+      --nf-red:#EF4444;
+      --nf-dark:#102319;
+      --nf-shadow:0 14px 36px rgba(17,64,38,.08);
+      --nf-shadow-hover:0 22px 58px rgba(17,64,38,.13);
+      --nf-radius-xl:26px;
+      --nf-radius-lg:20px;
+      --nf-radius-md:16px;
+      --nf-radius-sm:12px;
+      --nf-ease:cubic-bezier(.2,.75,.25,1);
 
-      width: 100vw;
-      margin-left: calc(50% - 50vw);
-      margin-right: calc(50% - 50vw);
-
-      background: var(--off-white);
-      color: var(--black);
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1.125rem;
-      line-height: 1.6;
-      min-height: 100vh;
-      overflow-x: hidden;
-      position: relative;
-      font-weight: bold;
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+      min-height:100vh;
+      overflow-x:hidden;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(0,168,89,.08), transparent 30%),
+        radial-gradient(circle at 86% 6%, rgba(255,184,77,.12), transparent 28%),
+        linear-gradient(180deg,#F8FFFB 0%,#FFFFFF 45%,#F8FFFB 100%);
+      color:var(--nf-text);
+      font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
     }
 
     .my-orders-page,
-    .my-orders-page *{ box-sizing: border-box; }
-
-    /* Reset only inside page */
     .my-orders-page *{
-      margin: 0;
-      padding: 0;
-      border-radius: 0 !important;
+      box-sizing:border-box;
     }
 
-    /* ✅ Cursor (same as dashboard) */
-    .my-orders-page,
-    .my-orders-page *{
-      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
-    }
     .my-orders-page a,
-    .my-orders-page button{ cursor: pointer; }
+    .my-orders-page button{
+      font-family:inherit;
+    }
 
-    .my-orders-page ::selection{ background: var(--crimson); color: #fff; }
+    .my-orders-page a{
+      color:inherit;
+      text-decoration:none;
+    }
 
-    /* ========================================
-       FILM GRAIN OVERLAY
-       ======================================== */
+    .my-orders-page ::selection{
+      background:var(--nf-green);
+      color:#fff;
+    }
+
     .my-orders-page .grain-overlay{
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
-      z-index: 1;
-      opacity: 0.12;
-      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+      display:none !important;
     }
 
-    /* ========================================
-       TOP BAR + HERO (dashboard style)
-       ======================================== */
+    /* TOP BAR */
     .my-orders-page .top-bar{
-      position: relative;
-      z-index: 2;
-      width: 100%;
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      font-variant: small-caps;
+      width:100%;
+      min-height:42px;
+      padding:0 clamp(18px,4vw,72px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      background:#fff;
+      border-bottom:1px solid var(--nf-line);
+      color:var(--nf-green-dark);
+      font-size:.72rem;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      box-shadow:0 8px 22px rgba(17,64,38,.04);
+      position:relative;
+      z-index:2;
     }
 
+    .my-orders-page .top-bar span{
+      white-space:nowrap;
+    }
+
+    /* HERO */
     .my-orders-page .hero-section{
-      position: relative;
-      z-index: 2;
-      text-align: center;
-      padding: 5.25rem 2rem 4.25rem;
-      border-bottom: var(--border-standard) solid var(--black);
-      background: var(--off-white);
+      width:100%;
+      padding:26px clamp(18px,4vw,72px) 0;
+      background:transparent;
+      border:0;
+      text-align:left;
+      position:relative;
+      z-index:2;
+    }
+
+    .my-orders-page .orders-hero-card{
+      min-height:138px;
+      border-radius:var(--nf-radius-xl);
+      border:1px solid rgba(0,168,89,.16);
+      background:
+        radial-gradient(circle at 90% 18%, rgba(255,255,255,.96), rgba(255,255,255,0) 34%),
+        radial-gradient(circle at 78% 84%, rgba(255,184,77,.16), transparent 28%),
+        linear-gradient(105deg,#E4FFE9 0%,#F2FFF8 56%,#FFFFFF 100%);
+      box-shadow:var(--nf-shadow);
+      padding:26px clamp(20px,3vw,36px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:22px;
+      overflow:hidden;
+    }
+
+    .my-orders-page .orders-hero-copy{
+      min-width:0;
+    }
+
+    .my-orders-page .orders-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:30px;
+      padding:0 12px;
+      border-radius:999px;
+      background:#fff;
+      color:var(--nf-green-dark);
+      border:1px solid rgba(0,168,89,.16);
+      box-shadow:0 8px 20px rgba(17,64,38,.06);
+      font-size:.72rem;
+      font-weight:900;
+      letter-spacing:.02em;
+      text-transform:uppercase;
+      margin-bottom:10px;
+    }
+
+    .my-orders-page .orders-pill::before{
+      content:"";
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:var(--nf-green);
+      box-shadow:0 0 0 5px rgba(0,168,89,.10);
     }
 
     .my-orders-page .hero-title{
-      font-family: 'Dancing Script', cursive;
-      font-size: clamp(3rem, 10vw, 6rem);
-      color: var(--crimson);
-      font-style: italic;
-      font-weight: 700;
-      margin: 0 0 0.75rem 0;
-      line-height: 1.15;
-      text-transform: uppercase;
+      margin:0;
+      color:var(--nf-green-dark);
+      font-size:clamp(1.75rem,3.2vw,2.8rem);
+      line-height:1.05;
+      letter-spacing:-.045em;
+      font-weight:900;
+      text-transform:none;
     }
 
     .my-orders-page .hero-subtitle{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      font-variant: small-caps;
-      margin-bottom: 1.75rem;
+      margin:8px 0 0;
+      max-width:690px;
+      color:#53665B;
+      font-size:.95rem;
+      line-height:1.6;
+      font-weight:650;
+      letter-spacing:0;
+      text-transform:none;
     }
 
     .my-orders-page .hero-divider{
-      width: 6rem;
-      height: 4px;
-      background: var(--crimson);
-      margin: 0 auto;
+      display:none;
     }
 
-    /* ========================================
-       MAIN CONTAINER
-       ======================================== */
+    .my-orders-page .orders-hero-icon{
+      flex:0 0 auto;
+      width:76px;
+      height:76px;
+      display:grid;
+      place-items:center;
+      border-radius:24px;
+      background:#fff;
+      border:1px solid var(--nf-line);
+      box-shadow:0 14px 30px rgba(17,64,38,.08);
+      font-size:2.2rem;
+    }
+
+    /* MAIN */
     .my-orders-page .main-container{
-      position: relative;
-      z-index: 2;
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 3rem 2rem;
+      position:relative;
+      z-index:2;
+      width:100%;
+      max-width:none;
+      margin:0;
+      padding:22px clamp(18px,4vw,72px) 46px;
     }
 
-    /* Keep your original wrapper but make it full width + theme */
     .my-orders-page .orders-container{
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0;
+      width:100%;
+      max-width:none;
+      margin:0 auto;
+      padding:0;
     }
 
-    /* Header (keep classes) */
     .my-orders-page .orders-header{
-      margin-bottom: 1.75rem;
-      text-align: center;
+      margin-bottom:16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
     }
+
     .my-orders-page .orders-header h2{
-      font-family: 'Playfair Display', serif;
-      font-size: 2.2rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      color: var(--black);
+      margin:0;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:var(--nf-ink);
+      font-size:1.18rem;
+      line-height:1.2;
+      font-weight:900;
+      letter-spacing:-.025em;
+      text-transform:none;
     }
+
+    .my-orders-page .orders-header h2::before{
+      content:"📦";
+      width:40px;
+      height:40px;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:var(--nf-green-soft);
+      border:1px solid rgba(0,168,89,.12);
+    }
+
     .my-orders-page .orders-subtitle{
-      margin-top: .35rem;
-      font-family: 'Cormorant Garamond', serif;
-      color: rgba(0,0,0,.7);
-      font-size: 1.05rem;
+      margin:0;
+      color:var(--nf-muted);
+      font-size:.86rem;
+      line-height:1.45;
+      font-weight:700;
     }
 
-    .my-orders-page .muted{ color: rgba(0,0,0,.65); }
+    .my-orders-page .muted{
+      color:var(--nf-muted) !important;
+      font-weight:650;
+    }
 
-    /* ========================================
-       TABLE SHELL (desktop/tablet) — dashboard table style
-       ======================================== */
+    /* DESKTOP TABLE */
     .my-orders-page .table-responsive{
-      overflow-x: auto;
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      box-shadow: none;
+      overflow-x:auto;
+      border-radius:var(--nf-radius-xl);
+      background:#fff;
+      border:1px solid var(--nf-line);
+      box-shadow:var(--nf-shadow);
     }
 
     .my-orders-page .orders-table{
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 980px;
-      background: var(--off-white);
+      width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      min-width:980px;
+      background:#fff;
+      color:var(--nf-ink);
     }
 
     .my-orders-page .orders-table thead{
-      background: var(--black);
-      color: #fff;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(0,168,89,.09), transparent 36%),
+        linear-gradient(180deg,#FFFFFF,#F8FFFB);
     }
 
     .my-orders-page .orders-table th{
-      padding: 1rem;
-      text-align: left;
-      font-family: 'Italiana', serif;
-      font-size: 0.75rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      font-weight: 800;
-      border-right: 2px solid var(--crimson);
-      white-space: nowrap;
+      padding:16px;
+      text-align:left;
+      border-bottom:1px solid var(--nf-line);
+      color:var(--nf-green-dark);
+      font-size:.76rem;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      white-space:nowrap;
     }
-    .my-orders-page .orders-table th:last-child{ border-right: none; }
 
     .my-orders-page .orders-table td{
-      padding: 1rem;
-      border-bottom: 2px solid var(--black);
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1rem;
-      color: var(--black);
-      vertical-align: top;
+      padding:16px;
+      border-bottom:1px solid #EEF6F1;
+      color:var(--nf-ink);
+      vertical-align:middle;
+      font-size:.92rem;
+      font-weight:700;
     }
 
-    .my-orders-page .order-row:nth-child(even){
-      background: var(--light-crimson);
+    .my-orders-page .orders-table tbody tr:last-child td{
+      border-bottom:0;
+    }
+
+    .my-orders-page .order-row{
+      transition:background .22s var(--nf-ease), transform .22s var(--nf-ease);
     }
 
     .my-orders-page .order-row:hover{
-      background: var(--light-crimson);
+      background:#F8FFFB;
     }
 
-    .my-orders-page .order-id{ font-weight: 900; white-space: nowrap; }
-    .my-orders-page .store-name{ font-weight: 700; }
-    .my-orders-page .order-total{ font-weight: 900; }
-    .my-orders-page .order-date{ color: rgba(0,0,0,.7); font-size: .95rem; }
+    .my-orders-page .order-id{
+      color:var(--nf-green-dark);
+      font-weight:950;
+      white-space:nowrap;
+    }
 
-    /* ========================================
-       BADGES (keep same class names)
-       ======================================== */
+    .my-orders-page .store-name{
+      font-weight:850;
+      color:var(--nf-ink);
+    }
+
+    .my-orders-page .order-total{
+      color:var(--nf-green);
+      font-weight:950;
+      white-space:nowrap;
+    }
+
+    .my-orders-page .order-date{
+      color:var(--nf-muted);
+      font-size:.84rem;
+      font-weight:700;
+      white-space:nowrap;
+    }
+
+    .my-orders-page .order-actions{
+      display:flex;
+      align-items:center;
+      gap:9px;
+      flex-wrap:wrap;
+    }
+
+    /* BADGES */
     .my-orders-page .status-badge,
     .my-orders-page .payment-badge{
-      display: inline-flex;
-      align-items: center;
-      padding: .28rem .75rem;
-      font-family: 'Italiana', serif;
-      font-size: .625rem;
-      letter-spacing: .2em;
-      text-transform: uppercase;
-      border: 2px solid var(--black);
-      background: var(--off-white);
-      color: var(--black);
-      white-space: nowrap;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      font-size:.72rem;
+      line-height:1;
+      font-weight:950;
+      white-space:nowrap;
+      border:1px solid transparent;
+      text-transform:capitalize;
     }
 
-    /* Status variations (still deterministic, on-theme) */
-    .my-orders-page .status-placed{ background: var(--off-white); color: var(--black); }
-    .my-orders-page .status-confirmed{ background: var(--light-crimson); color: var(--black); }
-    .my-orders-page .status-out-for-delivery{ background: var(--black); color: #fff; border-color: var(--crimson); }
-    .my-orders-page .status-delivered{ background: var(--crimson); color: #fff; border-color: var(--black); }
-    .my-orders-page .status-cancelled{ background: #fff; color: var(--crimson); border-color: var(--crimson); }
-    .my-orders-page .status-processing{ background: var(--light-crimson); color: var(--black); }
-    .my-orders-page .status-completed{ background: var(--crimson); color: #fff; }
-    .my-orders-page .status-shipped{ background: var(--black); color: #fff; border-color: var(--crimson); }
+    .my-orders-page .status-placed,
+    .my-orders-page .status-processing{
+      background:#FFF8E8;
+      color:#A96800;
+      border-color:rgba(255,184,77,.30);
+    }
 
-    /* Payment variations */
-    .my-orders-page .payment-paid{ background: var(--crimson); color:#fff; border-color: var(--black); }
-    .my-orders-page .payment-pending{ background: var(--off-white); color: var(--black); }
-    .my-orders-page .payment-failed{ background: #fff; color: var(--crimson); border-color: var(--crimson); }
-    .my-orders-page .payment-processing{ background: var(--light-crimson); color: var(--black); }
+    .my-orders-page .status-confirmed{
+      background:var(--nf-green-soft);
+      color:var(--nf-green-dark);
+      border-color:rgba(0,168,89,.18);
+    }
 
-    /* ========================================
-       ACTION BUTTONS (Track / Cancel) — dashboard buttons language
-       ======================================== */
-    .my-orders-page a{ color: inherit; text-decoration: none; }
+    .my-orders-page .status-out-for-delivery,
+    .my-orders-page .status-shipped{
+      background:#EAF3FF;
+      color:#2563EB;
+      border-color:rgba(37,99,235,.18);
+    }
+
+    .my-orders-page .status-delivered,
+    .my-orders-page .status-completed{
+      background:var(--nf-green);
+      color:#fff;
+      border-color:var(--nf-green);
+    }
+
+    .my-orders-page .status-cancelled{
+      background:#FFF1F1;
+      color:var(--nf-red);
+      border-color:rgba(239,68,68,.22);
+    }
+
+    .my-orders-page .payment-paid{
+      background:var(--nf-green-soft);
+      color:var(--nf-green-dark);
+      border-color:rgba(0,168,89,.18);
+    }
+
+    .my-orders-page .payment-pending,
+    .my-orders-page .payment-processing{
+      background:#FFF8E8;
+      color:#A96800;
+      border-color:rgba(255,184,77,.30);
+    }
+
+    .my-orders-page .payment-failed{
+      background:#FFF1F1;
+      color:var(--nf-red);
+      border-color:rgba(239,68,68,.22);
+    }
+
+    /* BUTTONS */
+    .my-orders-page .btn-track,
+    .my-orders-page .btn-cancel{
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      border-radius:13px;
+      padding:0 13px;
+      font-size:.78rem;
+      font-weight:950;
+      border:0;
+      cursor:pointer;
+      transition:background .22s var(--nf-ease), color .22s var(--nf-ease), transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease);
+      white-space:nowrap;
+    }
 
     .my-orders-page .btn-track{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: .6rem;
-      border: var(--border-standard) solid var(--black);
-      background: var(--crimson);
-      color: #fff;
-      padding: .75rem 1rem;
-      font-family: 'Italiana', serif;
-      font-size: .75rem;
-      letter-spacing: .25em;
-      text-transform: uppercase;
-      box-shadow: 4px 4px 0 var(--black);
-      transition: all var(--transition-speed);
-      white-space: nowrap;
+      background:var(--nf-green);
+      color:#fff;
+      box-shadow:0 10px 22px rgba(0,168,89,.18);
     }
-    .my-orders-page .btn-track svg{ stroke: currentColor; stroke-width: 2; }
-    .my-orders-page .btn-track:hover{ transform: translateY(-4px); }
 
-    .my-orders-page .btn-track.full{ width: 100%; }
+    .my-orders-page .btn-track:hover{
+      background:var(--nf-green-dark);
+      color:#fff;
+      transform:translateY(-2px);
+    }
+
+    .my-orders-page .btn-track svg{
+      stroke:currentColor;
+      stroke-width:2;
+    }
+
+    .my-orders-page .btn-track.full,
+    .my-orders-page .btn-cancel.full{
+      width:100%;
+    }
 
     .my-orders-page .btn-cancel{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: .4rem;
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      color: var(--black);
-      padding: .75rem 1rem;
-      font-family: 'Italiana', serif;
-      font-size: .75rem;
-      letter-spacing: .25em;
-      text-transform: uppercase;
-      transition: all var(--transition-speed);
-      box-shadow: none;
-      white-space: nowrap;
-      cursor: pointer;
+      background:#FFF7F7;
+      color:var(--nf-red);
+      border:1px solid rgba(239,68,68,.24);
     }
-    .my-orders-page .btn-cancel:hover{
-      background: var(--black);
-      color: #fff;
-      transform: translateY(-4px);
-    }
-    .my-orders-page .btn-cancel.full{ width: 100%; }
 
-    /* ========================================
-       MOBILE CARDS — on-theme (keep structure)
-       ======================================== */
+    .my-orders-page .btn-cancel:hover{
+      background:var(--nf-red);
+      color:#fff;
+      transform:translateY(-2px);
+    }
+
+    /* MOBILE CARDS */
     .my-orders-page .orders-cards{
-      display: grid;
-      gap: 16px;
+      display:grid;
+      gap:14px;
     }
 
     .my-orders-page .order-card{
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      overflow: hidden;
-      box-shadow: none;
+      border-radius:var(--nf-radius-lg);
+      background:#fff;
+      border:1px solid var(--nf-line);
+      box-shadow:0 8px 24px rgba(17,64,38,.055);
+      overflow:hidden;
     }
 
     .my-orders-page .order-card .card-head{
       display:flex;
       align-items:flex-start;
       justify-content:space-between;
-      padding: 14px 14px 10px 14px;
-      border-bottom: 2px solid var(--black);
-      background: var(--light-crimson);
+      gap:12px;
+      padding:15px;
+      border-bottom:1px solid var(--nf-line);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(0,168,89,.09), transparent 36%),
+        linear-gradient(180deg,#FFFFFF,#F8FFFB);
     }
 
     .my-orders-page .order-card .left .oid{
-      font-family: 'Playfair Display', serif;
-      font-weight: 900;
-      color: var(--black);
-      letter-spacing: .03em;
+      color:var(--nf-green-dark);
+      font-size:.98rem;
+      font-weight:950;
     }
+
     .my-orders-page .order-card .left .store{
-      margin-top: 4px;
-      font-family: 'Cormorant Garamond', serif;
-      font-weight: 700;
-      color: rgba(0,0,0,.75);
+      margin-top:4px;
+      color:var(--nf-muted);
+      font-size:.82rem;
+      font-weight:750;
     }
 
     .my-orders-page .order-card .card-body{
-      padding: 12px 14px;
-      display: grid;
-      gap: 10px;
+      padding:14px 15px;
+      display:grid;
+      gap:11px;
     }
 
     .my-orders-page .order-card .row{
       display:flex;
       justify-content:space-between;
       align-items:center;
-      gap: 12px;
-      border-bottom: 1px dashed rgba(0,0,0,.35);
-      padding-bottom: 10px;
+      gap:12px;
+      padding-bottom:10px;
+      border-bottom:1px dashed #DCECE4;
     }
+
     .my-orders-page .order-card .row:last-child{
-      border-bottom: 0;
-      padding-bottom: 0;
+      border-bottom:0;
+      padding-bottom:0;
     }
 
     .my-orders-page .order-card .label{
-      font-family: 'Italiana', serif;
-      font-size: .75rem;
-      letter-spacing: .25em;
-      text-transform: uppercase;
-      color: var(--crimson);
-      white-space: nowrap;
+      color:var(--nf-muted);
+      font-size:.76rem;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      white-space:nowrap;
     }
+
     .my-orders-page .order-card .value{
-      font-family: 'Cormorant Garamond', serif;
-      color: var(--black);
-      text-align: right;
+      color:var(--nf-ink);
+      text-align:right;
+      font-size:.88rem;
+      font-weight:800;
     }
+
     .my-orders-page .order-card .value.strong{
-      font-family: 'Playfair Display', serif;
-      font-weight: 900;
+      color:var(--nf-green);
+      font-size:1rem;
+      font-weight:950;
     }
 
     .my-orders-page .order-card .card-actions{
-      padding: 12px 14px 14px;
-      border-top: 2px solid var(--black);
-      background: var(--light-crimson);
+      padding:14px 15px 15px;
+      border-top:1px solid var(--nf-line);
+      background:#F8FFFB;
+      display:grid;
+      gap:9px;
     }
 
-    /* ========================================
-       EMPTY STATE — on-theme
-       ======================================== */
+    /* EMPTY */
     .my-orders-page .empty-state{
-      text-align: center;
-      padding: 3rem 1rem;
-      border: var(--border-standard) solid var(--black);
-      background: var(--light-crimson);
-      margin-top: 1.5rem;
+      text-align:center;
+      padding:42px 20px;
+      border-radius:var(--nf-radius-xl);
+      background:
+        radial-gradient(circle at 50% 0%, rgba(0,168,89,.10), transparent 34%),
+        linear-gradient(180deg,#F8FFFB,#FFFFFF);
+      border:1px dashed rgba(0,168,89,.28);
+      box-shadow:var(--nf-shadow);
+      margin-top:18px;
     }
+
     .my-orders-page .empty-icon{
-      margin-bottom: .75rem;
-      color: var(--black);
-      opacity: .65;
+      width:82px;
+      height:82px;
+      display:grid;
+      place-items:center;
+      margin:0 auto 16px;
+      border-radius:26px;
+      background:#fff;
+      border:1px solid var(--nf-line);
+      box-shadow:0 14px 30px rgba(17,64,38,.08);
+      color:var(--nf-green);
     }
+
     .my-orders-page .empty-state h3{
-      font-family: 'Playfair Display', serif;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      margin-bottom: .35rem;
+      margin:0;
+      color:var(--nf-ink);
+      font-size:1.2rem;
+      font-weight:950;
+      letter-spacing:-.025em;
     }
+
     .my-orders-page .empty-state p{
-      color: rgba(0,0,0,.75);
-      max-width: 520px;
-      margin: 0.35rem auto 0;
+      margin:8px auto 0;
+      max-width:520px;
+      color:var(--nf-muted);
+      font-size:.92rem;
+      line-height:1.55;
+      font-weight:650;
     }
 
-    /* Visibility helpers (keep behavior) */
-    .my-orders-page .desktop-only{ display:block; }
-    .my-orders-page .mobile-only{ display:none; }
+    .my-orders-page .desktop-only{
+      display:block;
+    }
 
-    /* Accessibility */
+    .my-orders-page .mobile-only{
+      display:none;
+    }
+
     .my-orders-page *:focus-visible{
-      outline: 3px solid var(--crimson);
-      outline-offset: 3px;
+      outline:3px solid rgba(0,168,89,.35);
+      outline-offset:3px;
     }
 
-    /* ========================================
-       ✅ CUSTOM POPUP MODAL (replaces browser confirm)
-       ======================================== */
+    /* CANCEL MODAL */
     .my-orders-page .cc-modal{
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      padding: 16px;
-    }
-    .my-orders-page .cc-modal.is-open{ display: flex; }
-
-    .my-orders-page .cc-modal .cc-backdrop{
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,.55);
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
+      padding:16px;
     }
 
-    .my-orders-page .cc-modal .cc-dialog{
-      position: relative;
-      width: min(520px, 100%);
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      box-shadow: 6px 6px 0 var(--black);
-      z-index: 1;
-      overflow: hidden;
+    .my-orders-page .cc-modal.is-open{
+      display:flex;
     }
 
-    .my-orders-page .cc-modal .cc-head{
-      padding: 14px 16px;
-      border-bottom: 2px solid var(--black);
-      background: var(--light-crimson);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .my-orders-page .cc-modal .cc-title{
-      font-family: 'Italiana', serif;
-      font-size: .85rem;
-      letter-spacing: .25em;
-      text-transform: uppercase;
-      color: var(--black);
-      font-weight: 800;
-    }
-    .my-orders-page .cc-modal .cc-x{
-      border: 2px solid var(--black);
-      background: var(--off-white);
-      color: var(--black);
-      width: 38px;
-      height: 32px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Italiana', serif;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      transition: all var(--transition-speed);
-    }
-    .my-orders-page .cc-modal .cc-x:hover{
-      background: var(--black);
-      color: #fff;
+    .my-orders-page .cc-backdrop{
+      position:absolute;
+      inset:0;
+      background:rgba(16,35,25,.52);
+      backdrop-filter:blur(5px);
+      -webkit-backdrop-filter:blur(5px);
     }
 
-    .my-orders-page .cc-modal .cc-body{
-      padding: 16px;
-      display: grid;
-      gap: 10px;
-    }
-    .my-orders-page .cc-modal .cc-body .msg{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1.15rem;
-      color: rgba(0,0,0,.85);
-      line-height: 1.5;
-    }
-    .my-orders-page .cc-modal .cc-body .meta{
-      font-family: 'Italiana', serif;
-      font-size: .7rem;
-      letter-spacing: .22em;
-      text-transform: uppercase;
-      color: rgba(0,0,0,.75);
-    }
-    .my-orders-page .cc-modal .cc-actions{
-      padding: 14px 16px 16px;
-      border-top: 2px solid var(--black);
-      background: var(--light-crimson);
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      flex-wrap: wrap;
+    .my-orders-page .cc-dialog{
+      position:relative;
+      z-index:1;
+      width:min(520px,100%);
+      overflow:hidden;
+      border-radius:var(--nf-radius-xl);
+      background:#fff;
+      border:1px solid var(--nf-line);
+      box-shadow:0 28px 80px rgba(17,64,38,.22);
     }
 
-    .my-orders-page .cc-modal .cc-btn{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: .4rem;
-      padding: .75rem 1rem;
-      font-family: 'Italiana', serif;
-      font-size: .75rem;
-      letter-spacing: .25em;
-      text-transform: uppercase;
-      border: var(--border-standard) solid var(--black);
-      transition: all var(--transition-speed);
-      white-space: nowrap;
-      background: var(--off-white);
-      color: var(--black);
-    }
-    .my-orders-page .cc-modal .cc-btn:hover{
-      transform: translateY(-3px);
+    .my-orders-page .cc-head{
+      padding:16px 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      border-bottom:1px solid var(--nf-line);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(239,68,68,.10), transparent 36%),
+        linear-gradient(180deg,#FFFFFF,#FFF7F7);
     }
 
-    .my-orders-page .cc-modal .cc-btn.secondary:hover{
-      background: var(--black);
-      color: #fff;
+    .my-orders-page .cc-title{
+      color:var(--nf-red);
+      font-size:1rem;
+      line-height:1.2;
+      font-weight:950;
     }
 
-    .my-orders-page .cc-modal .cc-btn.danger{
-      background: var(--crimson);
-      color: #fff;
-      box-shadow: 4px 4px 0 var(--black);
-    }
-    .my-orders-page .cc-modal .cc-btn.danger:hover{
-      transform: translateY(-4px);
+    .my-orders-page .cc-x{
+      width:36px;
+      height:36px;
+      display:grid;
+      place-items:center;
+      border:1px solid rgba(239,68,68,.24);
+      border-radius:13px;
+      background:#fff;
+      color:var(--nf-red);
+      font-size:.82rem;
+      font-weight:950;
+      cursor:pointer;
+      transition:.22s var(--nf-ease);
     }
 
-    /* Responsive */
-    @media (max-width: 992px){
-      .my-orders-page .main-container{ padding: 2.5rem 1.25rem; }
+    .my-orders-page .cc-x:hover{
+      background:var(--nf-red);
+      color:#fff;
     }
 
-    @media (max-width: 768px){
-      .my-orders-page .main-container{ padding: 2rem 1rem; }
+    .my-orders-page .cc-body{
+      padding:18px;
+      display:grid;
+      gap:10px;
+    }
+
+    .my-orders-page .cc-body .meta{
+      color:var(--nf-muted);
+      font-size:.78rem;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .my-orders-page .cc-body .msg{
+      color:var(--nf-ink);
+      font-size:.98rem;
+      line-height:1.55;
+      font-weight:700;
+    }
+
+    .my-orders-page .cc-actions{
+      padding:16px 18px 18px;
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+      border-top:1px solid var(--nf-line);
+      background:#F8FFFB;
+    }
+
+    .my-orders-page .cc-btn{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:14px;
+      padding:0 16px;
+      border:1px solid var(--nf-line);
+      background:#fff;
+      color:var(--nf-ink);
+      font-size:.82rem;
+      font-weight:950;
+      cursor:pointer;
+      transition:.22s var(--nf-ease);
+    }
+
+    .my-orders-page .cc-btn:hover{
+      transform:translateY(-2px);
+    }
+
+    .my-orders-page .cc-btn.secondary:hover{
+      background:#F8FFFB;
+      border-color:rgba(0,168,89,.22);
+      color:var(--nf-green-dark);
+    }
+
+    .my-orders-page .cc-btn.danger{
+      border-color:rgba(239,68,68,.24);
+      background:var(--nf-red);
+      color:#fff;
+      box-shadow:0 10px 22px rgba(239,68,68,.18);
+    }
+
+    .my-orders-page .cc-btn.danger:hover{
+      background:#DC2626;
+    }
+
+    /* RESPONSIVE */
+    @media(max-width:768px){
       .my-orders-page .top-bar{
-        padding: 1rem;
-        font-size: 0.625rem;
-        letter-spacing: 0.35em;
+        min-height:38px;
+        padding-left:14px;
+        padding-right:14px;
+        font-size:.66rem;
+        letter-spacing:.04em;
       }
-      .my-orders-page .hero-section{ padding: 4rem 1rem 3rem; }
-      .my-orders-page .desktop-only{ display:none; }
-      .my-orders-page .mobile-only{ display:grid; }
-      .my-orders-page .orders-header h2{ font-size: 1.75rem; }
+
+      .my-orders-page .hero-section{
+        padding-left:14px;
+        padding-right:14px;
+        padding-top:22px;
+      }
+
+      .my-orders-page .orders-hero-card{
+        min-height:132px;
+        padding:22px 20px;
+        border-radius:22px;
+      }
+
+      .my-orders-page .orders-hero-icon{
+        display:none;
+      }
+
+      .my-orders-page .hero-title{
+        font-size:2rem;
+      }
+
+      .my-orders-page .hero-subtitle{
+        font-size:.88rem;
+      }
+
+      .my-orders-page .main-container{
+        padding-left:14px;
+        padding-right:14px;
+        padding-top:18px;
+      }
+
+      .my-orders-page .orders-header{
+        align-items:flex-start;
+        flex-direction:column;
+        gap:5px;
+      }
+
+      .my-orders-page .desktop-only{
+        display:none;
+      }
+
+      .my-orders-page .mobile-only{
+        display:grid;
+      }
     }
 
-    @media (prefers-reduced-motion: reduce){
+    @media(max-width:520px){
+      .my-orders-page .hero-title{
+        font-size:1.65rem;
+      }
+
+      .my-orders-page .hero-subtitle{
+        font-size:.82rem;
+      }
+
+      .my-orders-page .orders-header h2{
+        font-size:1.08rem;
+      }
+
+      .my-orders-page .orders-header h2::before{
+        width:36px;
+        height:36px;
+        border-radius:13px;
+      }
+
+      .my-orders-page .order-card .card-head{
+        flex-direction:column;
+      }
+
+      .my-orders-page .order-card .right{
+        width:100%;
+      }
+
+      .my-orders-page .order-card .right .status-badge{
+        width:100%;
+      }
+
+      .my-orders-page .cc-actions{
+        flex-direction:column-reverse;
+      }
+
+      .my-orders-page .cc-btn{
+        width:100%;
+      }
+    }
+
+    @media(hover:none) and (pointer:coarse){
+      .my-orders-page .btn-track:hover,
+      .my-orders-page .btn-cancel:hover,
+      .my-orders-page .order-card:hover,
+      .my-orders-page .cc-btn:hover{
+        transform:none;
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce){
       .my-orders-page *,
       .my-orders-page *::before,
       .my-orders-page *::after{
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
+        transition:none !important;
       }
     }
   </style>
 
-  <!-- Film Grain Overlay -->
   <div class="grain-overlay" aria-hidden="true"></div>
 
-  <!-- Top Bar -->
   <div class="top-bar">
     <span>EST. 2018</span>
     <span>MIZORAM, INDIA</span>
   </div>
 
-  <!-- Hero -->
   <header class="hero-section">
-    <h1 class="hero-title">My Orders</h1>
-    <p class="hero-subtitle">Order History & Tracking</p>
-    <div class="hero-divider"></div>
+    <div class="orders-hero-card">
+      <div class="orders-hero-copy">
+        <span class="orders-pill">Order history</span>
+        <h1 class="hero-title">My Orders</h1>
+        <p class="hero-subtitle">Track your grocery orders, delivery status, payment updates, and cancellation options.</p>
+      </div>
+      <div class="orders-hero-icon" aria-hidden="true">📦</div>
+    </div>
   </header>
 
   <main class="main-container">
-
-    <!-- ✅ YOUR ORIGINAL HTML STARTS (kept) -->
     <div class="orders-container">
       <div class="orders-header">
-        <h2>My Orders</h2>
-        <p class="orders-subtitle">View and track your order history</p>
+        <div>
+          <h2>Recent Orders</h2>
+          <p class="orders-subtitle">View and track your order history</p>
+        </div>
       </div>
 
-      <!-- Desktop / Tablet table -->
       <div class="table-responsive desktop-only">
         <table class="table orders-table">
           <thead>
             <tr>
               <th scope="col">Order #</th>
               <th scope="col">Store</th>
-              <th scope="col">Total (₹)</th>
+              <th scope="col">Total</th>
               <th scope="col">Status</th>
               <th scope="col">Payment</th>
               <th scope="col">Placed</th>
               <th scope="col">Actions</th>
             </tr>
           </thead>
+
           <tbody>
             {% for o in orders %}
             <tr class="order-row">
               <td class="order-id">#{{ o.id }}</td>
               <td class="store-name">{{ o.store_name }}</td>
               <td class="order-total">₹{{ '%.2f'|format(o.total_amount) }}</td>
+
               <td class="order-status">
                 <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
                   {{ o.status.replace('_',' ') }}
                 </span>
               </td>
+
               <td class="payment-status">
                 <span class="payment-badge payment-{{ o.payment_status|lower|replace(' ', '-')|replace('_','-') }}">
                   {{ o.payment_status }}
                 </span>
               </td>
+
               <td class="order-date">{{ o.created_at }}</td>
+
               <td class="order-actions">
                 <a class="btn-track" href="{{ url_for('order_track', oid=o.id) }}">
-                  <span>Track Order</span>
+                  <span>Track</span>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path d="M5 12h14M12 5l7 7-7 7"/>
                   </svg>
@@ -674,7 +946,6 @@
         </table>
       </div>
 
-      <!-- Mobile cards -->
       <div class="orders-cards mobile-only">
         {% for o in orders %}
         <article class="order-card">
@@ -683,6 +954,7 @@
               <div class="oid">#{{ o.id }}</div>
               <div class="store">{{ o.store_name }}</div>
             </div>
+
             <div class="right">
               <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
                 {{ o.status.replace('_',' ') }}
@@ -695,6 +967,7 @@
               <span class="label">Total</span>
               <span class="value strong">₹{{ '%.2f'|format(o.total_amount) }}</span>
             </div>
+
             <div class="row">
               <span class="label">Payment</span>
               <span class="value">
@@ -703,6 +976,7 @@
                 </span>
               </span>
             </div>
+
             <div class="row">
               <span class="label">Placed</span>
               <span class="value muted">{{ o.created_at }}</span>
@@ -743,26 +1017,26 @@
           </svg>
         </div>
         <h3>No orders yet</h3>
-        <p>You haven't placed any orders. Start shopping to see your orders here.</p>
+        <p>You have not placed any orders yet. Start shopping to see your order history here.</p>
       </div>
       {% endif %}
     </div>
-    <!-- ✅ YOUR ORIGINAL HTML ENDS -->
-
   </main>
 
-  <!-- ✅ Custom Cancel Confirmation Modal (replaces browser confirm prompt) -->
   <div class="cc-modal" id="ccCancelModal" aria-hidden="true">
     <div class="cc-backdrop" data-close="1"></div>
+
     <div class="cc-dialog" role="dialog" aria-modal="true" aria-labelledby="ccTitle" aria-describedby="ccDesc">
       <div class="cc-head">
         <div class="cc-title" id="ccTitle">Cancel Order</div>
         <button class="cc-x" type="button" data-close="1" aria-label="Close">X</button>
       </div>
+
       <div class="cc-body">
         <div class="meta" id="ccMeta">ORDER</div>
         <div class="msg" id="ccDesc">Are you sure you want to cancel this order?</div>
       </div>
+
       <div class="cc-actions">
         <button class="cc-btn secondary" type="button" data-close="1">Keep Order</button>
         <button class="cc-btn danger" type="button" id="ccConfirmBtn">Yes, Cancel</button>
@@ -771,7 +1045,6 @@
   </div>
 
   <script>
-    // Replace any browser confirm() prompt with a themed modal popup (Cancel Order)
     (function(){
       const page = document.querySelector('.my-orders-page[data-page="my-orders"]');
       if(!page) return;
@@ -795,10 +1068,8 @@
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
 
-        // focus confirm for keyboard users
         setTimeout(()=>{ confirmBtn && confirmBtn.focus(); }, 0);
 
-        // prevent background scroll
         document.documentElement.style.overflow = 'hidden';
         document.body.style.overflow = 'hidden';
       }
@@ -812,7 +1083,6 @@
         document.body.style.overflow = '';
       }
 
-      // Intercept submit for cancel forms ONLY (no route/logic changes)
       page.addEventListener('submit', function(e){
         const form = e.target;
         if(!form || !form.classList || !form.classList.contains('cancel-form')) return;
@@ -827,14 +1097,12 @@
         openModal(form, orderId, store, total);
       }, true);
 
-      // Confirm cancel => submit original form
       confirmBtn.addEventListener('click', function(){
         if(pendingForm){
           pendingForm.submit();
         }
       });
 
-      // Close actions
       modal.addEventListener('click', function(e){
         const t = e.target;
         if(t && (t.getAttribute('data-close') === '1')){
@@ -842,13 +1110,11 @@
         }
       });
 
-      // ESC closes
       document.addEventListener('keydown', function(e){
         if(e.key === 'Escape' && modal.classList.contains('is-open')){
           closeModal();
         }
       });
-
     })();
   </script>
 

@@ -1,785 +1,1344 @@
 {# =========================
-   search.html (MATCH PRODUCT DETAIL PAGE EXACTLY)
-   - FIX: Stores column sticky works until Products column ends
-   - FIX: Results meta spacing not hidden
-   - NO logic changes, NO route changes, NO JS changes
+   search.html
+   NE FRESH THEME REDESIGN
+   - Same routes
+   - Same Jinja variables
+   - Same product/store logic
+   - Same close-search JS
+   - Sticky store column kept
    ========================= #}
 
 {% extends "base.html" %}
 {% block content %}
 
-<h2 class="pd-heading" aria-label="Search">
-  <span class="pd-heading-sub">Search</span>
-  <span class="pd-heading-box">RESULTS</span>
-</h2>
-
 <style>
-  main.container{ padding: 0 !important; margin: 0 !important; max-width: none !important; }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  main.container{
+    padding:0 !important;
+    margin:0 !important;
+    max-width:none !important;
+  }
 
   :root{
-    --page:#FAF9F6;
-    --ink:#3a332f;
-    --muted:#2a2a2a;
-
-    --crimson:#8B0000;
-    --crimson-2:#b11212;
-
-    --card:#F6F0E7;
-    --card-2:#EFE6DA;
-
-    --shadow: -10px -10px 0 #d9cdbd;
-    --shadow-hover: -12px -12px 0 #cbbdad;
-
-    --radius: 14px;
-    --radius-sm: 12px;
+    --nf-green:#00A859;
+    --nf-green-dark:#008A48;
+    --nf-green-soft:#E9FFF3;
+    --nf-green-soft-2:#F3FFF8;
+    --nf-bg:#F8FFFB;
+    --nf-card:#FFFFFF;
+    --nf-ink:#23332A;
+    --nf-text:#66756D;
+    --nf-muted:#8A9890;
+    --nf-line:#E3F1E9;
+    --nf-yellow:#FFB84D;
+    --nf-red:#EF4444;
+    --nf-shadow:0 14px 36px rgba(17,64,38,.08);
+    --nf-shadow-hover:0 22px 58px rgba(17,64,38,.13);
+    --nf-radius-xl:26px;
+    --nf-radius-lg:20px;
+    --nf-radius-md:16px;
+    --nf-radius-sm:12px;
+    --nf-ease:cubic-bezier(.2,.75,.25,1);
   }
 
-  html, body{ overflow-x: hidden; }
-
-  /* Grain overlay */
-  body::after{
-    content:"";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 9999;
-    opacity: 0.08;
-    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="4" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
-    animation: grain 0.5s steps(6) infinite;
-  }
-  @keyframes grain{
-    0%,100%{transform:translate(0,0);}
-    10%{transform:translate(-5%,-10%);}
-    20%{transform:translate(-15%,5%);}
-    30%{transform:translate(7%,-25%);}
-    40%{transform:translate(-5%,25%);}
-    50%{transform:translate(-15%,10%);}
-    60%{transform:translate(15%,0%);}
-    70%{transform:translate(0%,15%);}
-    80%{transform:translate(3%,35%);}
-    90%{transform:translate(-10%,10%);}
+  html,
+  body{
+    overflow-x:hidden;
   }
 
-  /* Chicken cursor */
-  @media (min-width: 481px){
-    :root{
-      --chicken-cursor: url("data:image/svg+xml;utf8,\
-<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 64 64'>\
-  <defs>\
-    <linearGradient id='g1' x1='0' y1='0' x2='1' y2='1'>\
-      <stop offset='0' stop-color='%23c07a35'/>\
-      <stop offset='1' stop-color='%238b3c1b'/>\
-    </linearGradient>\
-    <linearGradient id='g2' x1='0' y1='0' x2='1' y2='1'>\
-      <stop offset='0' stop-color='%23f6e7d8'/>\
-      <stop offset='1' stop-color='%23e5d2bf'/>\
-    </linearGradient>\
-  </defs>\
-  <ellipse cx='30' cy='40' rx='18' ry='13' fill='%23000000' opacity='.12'/>\
-  <path d='M18 18c-7 7-9 20 0 28 9 8 27 6 34-3 7-9 2-23-7-29-9-6-21-3-27 4z' fill='url(%23g1)' stroke='%232b2623' stroke-width='1.6'/>\
-  <path d='M26 20c-6 4-8 14-2 20 5 5 16 5 22-1' fill='none' stroke='%23ffffff' stroke-width='2.2' opacity='.28' stroke-linecap='round'/>\
-  <path d='M46 44c4 4 7 6 10 5 3-1 4-5 1-8 2-3 1-7-2-8s-7 1-9 4' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6' stroke-linejoin='round'/>\
-  <circle cx='58' cy='39' r='3' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6'/>\
-  <circle cx='55' cy='49' r='3' fill='url(%23g2)' stroke='%232b2623' stroke-width='1.6'/>\
-</svg>") 8 8, auto;
-    }
-    #searchWrap .card,
-    #searchWrap .card *{ cursor: var(--chicken-cursor); }
-    #searchWrap a, #searchWrap button{ cursor: pointer !important; }
-    #searchWrap input{ cursor: text !important; }
-  }
-  @media (max-width: 480px){
-    #searchWrap, #searchWrap *{ cursor:auto !important; }
-  }
-
-  /* Heading like product.html */
-  .pd-heading{
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    background: var(--page);
-    padding: 22px clamp(14px, 3vw, 44px) 10px;
-    text-align:center;
-    margin-bottom: 10px;
-  }
-  .pd-heading-box{
-    display:inline-block;
-    border: 4px solid var(--ink);
-    padding: 18px clamp(18px, 3vw, 40px);
-    background: rgba(255,255,255,.40);
-    box-shadow: 0 0 0 10px rgba(0,0,0,.03) inset;
-
-    font-family: "Playfair Display","Times New Roman",serif;
-    font-weight: 900;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    line-height: 1;
-    font-size: clamp(2.2rem, 5vw, 4.1rem);
-    color: var(--ink);
-  }
-  .pd-heading-sub{
-    display:block;
-    margin-top: 12px;
-    font-family: "Dancing Script","Brush Script MT",cursive;
-    color: var(--crimson);
-    font-weight: 700;
-    font-size: clamp(2.1rem, 4.6vw, 3.6rem);
-    line-height: 1;
-  }
-
-  .search-wrap{
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    background: var(--page);
-    padding: 14px clamp(14px, 3vw, 44px) 26px;
-  }
-
-  .search-head{
-    max-width: 1300px;
-    margin: 0 auto;
-    display:flex;
-    flex-direction:column;
-    gap: 12px;
-    position: relative;
-    z-index: 5;
-    padding-bottom: 10px;
-  }
-
-  .search-bar{
-    display:flex;
-    gap: 10px;
-    align-items: stretch;
-    flex-wrap: wrap;
-  }
-
-  .search-bar input{
-    flex: 1 1 380px;
-    min-width: 220px;
-    padding: 12px 12px;
-    border: 4px solid var(--ink);
-    border-radius: var(--radius-sm);
-    font-size: 1rem;
-    font-weight: 1100;
-    background: var(--page);
-    color: var(--ink);
-    outline:none;
-    transition: box-shadow .18s ease, border-color .18s ease, background .18s ease;
-  }
-  .search-bar input:focus{
-    border-color: var(--crimson);
-    box-shadow: 6px 6px 0 var(--crimson);
-    background:#fff;
-  }
-
-  .search-bar button[type="submit"]{
-    flex: 0 0 auto;
-    padding: 11px 14px;
-    border: 4px solid var(--ink);
-    border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, var(--crimson) 0%, var(--crimson-2) 100%);
-    color: var(--page);
-    font-weight: 1200;
-    font-size: .92rem;
-    text-transform: uppercase;
-    letter-spacing: -0.2px;
-    min-height: 44px;
-    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
-  }
-  .search-bar button[type="submit"]:hover{
-    transform: translateY(-1px);
-    box-shadow: 0 0 0 4px rgba(139,0,0,.18);
-    filter: contrast(1.03);
-  }
-
-  .close-btn{
-    flex: 0 0 auto;
-    padding: 11px 14px;
-    border: 4px solid var(--ink);
-    border-radius: var(--radius-sm);
-    background: var(--page);
-    color: var(--ink);
-    font-weight: 1200;
-    font-size: .92rem;
-    text-transform: uppercase;
-    letter-spacing: -0.2px;
-    min-height: 44px;
-    transition: transform .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap: 8px;
-    user-select:none;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .close-btn:hover{
-    background:#0b0b0b;
-    color: var(--page);
-    transform: translateY(-1px);
-    box-shadow: 0 0 0 4px rgba(139,0,0,.18);
-  }
-  .close-icon{
-    width: 14px;
-    height: 14px;
-    position: relative;
-    display:inline-block;
-  }
-  .close-icon::before,
-  .close-icon::after{
-    content:"";
-    position:absolute;
-    top:50%;
-    left:50%;
-    width: 14px;
-    height: 2.2px;
-    background: currentColor;
-    border-radius: 99px;
-    transform: translate(-50%,-50%) rotate(45deg);
-  }
-  .close-icon::after{
-    transform: translate(-50%,-50%) rotate(-45deg);
-  }
-
-  /* Results meta: never hidden */
-  .search-meta{
-    max-width: 1300px;
-    margin: 0 auto;
-    display:flex;
-    justify-content:center;
-    position: relative;
-    z-index: 6;
-    padding-bottom: 10px;
-  }
-  .search-meta .muted{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    padding: 8px 14px;
-    border: 3px solid var(--ink);
-    border-radius: 999px;
-    background: rgba(255,255,255,.55);
-    box-shadow: 3px 3px 0 var(--ink);
-    font-weight: 1100;
-    color: #222;
-    max-width: 100%;
-    text-align:center;
-  }
-
-  .muted{ color: var(--muted); font-weight: 850; }
-
-  .search-grid{
-    max-width: 1300px;
-    margin: 22px auto 0;
-    display:grid;
-    grid-template-columns: 2.15fr 1fr;
-    gap: 20px;
-    align-items:start;
-    position: relative;
-    z-index: 1;
-  }
-  @media (max-width: 980px){
-    .search-grid{ grid-template-columns: 1fr; gap: 16px; margin-top: 16px; }
-  }
-
-  /* ✅ IMPORTANT: sticky wrapper (NOT the card itself) */
-  @media (min-width: 981px){
-    .stores-sticky-wrap{
-      position: sticky;
-      top: 92px;
-      align-self: start;
-    }
-  }
-
-  .search-section{
-    border: 4px solid var(--ink);
-    border-radius: var(--radius);
+  .nf-search-page{
+    width:100vw;
+    margin-left:calc(50% - 50vw);
+    margin-right:calc(50% - 50vw);
+    min-height:100vh;
     background:
-      radial-gradient(140px 90px at 18% 0%, rgba(139,0,0,.10), transparent 60%),
-      linear-gradient(180deg, var(--card), var(--card-2));
-    box-shadow: var(--shadow);
-    overflow:hidden;
+      radial-gradient(circle at 12% 0%, rgba(0,168,89,.08), transparent 32%),
+      radial-gradient(circle at 86% 8%, rgba(255,184,77,.13), transparent 30%),
+      linear-gradient(180deg,#F8FFFB 0%,#FFFFFF 44%,#F8FFFB 100%);
+    color:var(--nf-text);
+    font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  .nf-search-page *,
+  .nf-search-page *::before,
+  .nf-search-page *::after{
+    box-sizing:border-box;
+  }
+
+  .nf-wrap{
+    width:100%;
+    max-width:none;
+    padding-left:clamp(18px,4vw,72px);
+    padding-right:clamp(18px,4vw,72px);
+  }
+
+  /* HERO */
+  .nf-search-hero{
+    padding:34px 0 18px;
+  }
+
+  .nf-hero-card{
     position:relative;
-    transition: transform .20s ease, box-shadow .20s ease;
-  }
-  .search-section:hover{ transform: scale(1.01); box-shadow: var(--shadow-hover); }
-
-  .section-head{
-    padding: 14px 16px;
-    border-bottom: 4px solid var(--ink);
-    background: rgba(0,0,0,.03);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-  .section-head h3{
-    margin:0;
-    font-size: 1.02rem;
-    font-weight: 1100;
-    color: var(--ink);
-    text-transform: uppercase;
-    letter-spacing: .08em;
-  }
-  .section-body{ padding: 14px; }
-
-  .grid{
-    display:grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px 14px;
-    align-items: stretch;
-  }
-  @media (max-width: 720px){
-    .grid{ grid-template-columns: 1fr; }
-  }
-
-  .card{
-    border: 4px solid var(--ink);
-    border-radius: var(--radius);
+    overflow:hidden;
+    border-radius:var(--nf-radius-xl);
+    border:1px solid rgba(0,168,89,.16);
     background:
-      radial-gradient(140px 90px at 18% 0%, rgba(139,0,0,.10), transparent 60%),
-      linear-gradient(180deg, var(--card), var(--card-2));
-    overflow:hidden;
-    display:flex;
-    flex-direction:column;
-    position:relative;
-    box-shadow: var(--shadow);
-    transition: transform .20s ease, box-shadow .20s ease, filter .20s ease;
-    will-change: transform;
-    min-height: 420px;
-  }
-  @media (max-width: 720px){
-    .card{ min-height: 400px; }
+      radial-gradient(circle at 82% 18%, rgba(255,255,255,.95), rgba(255,255,255,0) 32%),
+      linear-gradient(105deg,#E4FFE9 0%,#F2FFF8 55%,#FFFFFF 100%);
+    box-shadow:var(--nf-shadow);
+    min-height:190px;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) 260px;
+    align-items:center;
+    gap:22px;
+    padding:34px clamp(22px,4vw,46px);
   }
 
-  .card::before{
+  .nf-hero-card::before{
     content:"";
     position:absolute;
-    inset: 10px 10px auto 10px;
-    height: 52px;
-    border: 1px solid rgba(0,0,0,.12);
-    border-radius: calc(var(--radius) - 6px);
-    pointer-events:none;
-    opacity: .55;
-  }
-  .card:hover{ transform: scale(1.02); box-shadow: var(--shadow-hover); }
-
-  .card-link{ display:block; text-decoration:none; color:inherit; }
-
-  .card-media{
-    border-bottom: 4px solid var(--ink);
-    background: rgba(255,255,255,.25);
-    padding: 12px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-  .card-media img{
-    width: 100%;
-    height: 230px;
-    object-fit: contain;
-    display:block;
-    transition: transform .20s ease, filter .20s ease;
-  }
-  .card:hover .card-media img{
-    transform: scale(1.02);
-    filter: contrast(106%);
-  }
-  @media (max-width: 600px){
-    .card-media img{ height: 200px; }
+    right:-80px;
+    top:-90px;
+    width:260px;
+    height:260px;
+    border-radius:50%;
+    background:rgba(0,168,89,.10);
   }
 
-  .stock-badge{
+  .nf-hero-card::after{
+    content:"";
     position:absolute;
-    top:12px;
-    right:12px;
-    background: #0b0b0b;
-    color: #d7ffe7;
-    border: 3px solid var(--ink);
-    padding: 6px 10px;
-    border-radius: 999px;
-    font-size: .72rem;
-    font-weight: 1100;
-    text-transform: uppercase;
-    letter-spacing: .45px;
-    box-shadow: 4px 4px 0 var(--ink);
+    right:170px;
+    bottom:-120px;
+    width:260px;
+    height:260px;
+    border-radius:50%;
+    background:rgba(255,184,77,.16);
   }
 
-  .card-body{
-    padding: 12px 12px 12px;
-    display:flex;
-    flex-direction:column;
-    gap: 8px;
-    flex-grow:1;
-    text-align: center;
-    justify-content: space-between;
+  .nf-hero-copy{
+    position:relative;
+    z-index:2;
   }
 
-  .title-line{
-    display:flex;
-    justify-content:center;
-    align-items:flex-start;
-    gap: 10px;
-  }
-  .title-line a{
-    font-weight: 1100;
-    color: var(--ink);
-    text-decoration:none;
-    font-size: 1rem;
-    line-height: 1.2;
-    text-transform: uppercase;
-    letter-spacing: -0.2px;
-    text-align:center;
-    display:block;
-    width: 100%;
-  }
-
-  .store{
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    font-size: .90rem;
-    margin: 0 auto;
-    max-width: 100%;
-  }
-
-  .price-row{
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    margin-top: 4px;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .price{
-    font-size: 1.18rem;
-    font-weight: 1200;
-    color: var(--ink);
-    letter-spacing: -0.02em;
-  }
-
-  .deal-row{
-    display:flex;
-    justify-content:center;
+  .nf-hero-pill{
+    display:inline-flex;
     align-items:center;
     gap:8px;
-    margin-top: 2px;
-    flex-wrap: wrap;
-  }
-  .deal-row .mrp{
-    text-decoration: line-through;
-    color: #545454;
-    font-weight: 1100;
-    font-size: .90rem;
-  }
-  .deal-row .off{
-    background: #0b0b0b;
-    color: var(--page);
-    border: 3px solid var(--ink);
-    border-radius: 999px;
-    padding: 4px 10px;
-    font-weight: 1200;
-    font-size: .74rem;
-    line-height: 1.2;
-    letter-spacing: .3px;
-    box-shadow: 3px 3px 0 var(--ink);
-    text-transform: uppercase;
+    min-height:32px;
+    padding:0 13px;
+    border-radius:999px;
+    background:#FFFFFF;
+    color:var(--nf-green-dark);
+    border:1px solid rgba(0,168,89,.16);
+    box-shadow:0 8px 20px rgba(17,64,38,.06);
+    font-size:.78rem;
+    font-weight:900;
+    letter-spacing:.02em;
+    text-transform:uppercase;
+    margin-bottom:14px;
   }
 
-  .btn-ghost{
-    padding: 10px 12px;
-    border: 4px solid var(--ink);
-    border-radius: var(--radius-sm);
-    background: var(--page);
-    color: var(--ink);
-    cursor:pointer;
-    font-weight: 1200;
-    font-size: .92rem;
-    text-align:center;
-    text-decoration:none;
-    transition: transform .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
-    text-transform: uppercase;
-    letter-spacing: -0.2px;
-    min-height: 42px;
-  }
-  .btn-ghost:hover{
-    background:#0b0b0b;
-    color: var(--page);
-    transform: translateY(-1px);
-    box-shadow: 0 0 0 4px rgba(139,0,0,.18);
+  .nf-hero-pill::before{
+    content:"";
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--nf-green);
+    box-shadow:0 0 0 5px rgba(0,168,89,.10);
   }
 
-  .price-row .btn-ghost{
-    padding: 7px 12px;
-    font-size: .82rem;
-    flex: 0 0 auto;
-    min-height: 38px;
+  .nf-hero-copy h1{
+    margin:0;
+    color:var(--nf-green-dark);
+    font-size:clamp(1.85rem,3.6vw,3.35rem);
+    line-height:1.05;
+    letter-spacing:-.045em;
+    font-weight:900;
   }
 
-  .store-list{ display:grid; gap: 14px; }
+  .nf-hero-copy p{
+    margin:12px 0 0;
+    max-width:660px;
+    color:#53665B;
+    font-size:1rem;
+    line-height:1.65;
+    font-weight:550;
+  }
 
-  .store-card{
-    border: 4px solid var(--ink);
-    border-radius: var(--radius);
-    background: var(--page);
-    box-shadow: 3px 3px 0 var(--ink);
-    padding: 14px;
+  .nf-hero-art{
+    position:relative;
+    z-index:2;
+    display:grid;
+    place-items:center;
+  }
+
+  .nf-grocery-bag{
+    width:180px;
+    min-height:138px;
+    border-radius:32px;
+    display:grid;
+    place-items:center;
+    font-size:4.8rem;
+    background:
+      radial-gradient(circle at 50% 20%,rgba(255,255,255,.92),rgba(255,255,255,.12) 44%,transparent 62%),
+      linear-gradient(145deg,#D8F7CB,#FEF2C9);
+    box-shadow:0 22px 48px rgba(17,64,38,.12);
+    position:relative;
+  }
+
+  .nf-grocery-bag small{
+    position:absolute;
+    right:12px;
+    bottom:10px;
+    width:48px;
+    height:48px;
+    display:grid;
+    place-items:center;
+    border-radius:17px;
+    background:#fff;
+    font-size:1.75rem;
+    box-shadow:0 10px 24px rgba(17,64,38,.10);
+  }
+
+  /* SEARCH BAR */
+  .nf-search-toolbar{
+    padding:8px 0 20px;
+  }
+
+  .nf-search-panel{
     display:flex;
-    align-items:flex-start;
-    gap: 12px;
-    transition: transform .18s ease, box-shadow .18s ease;
-    min-height: 116px;
-  }
-  .store-card:hover{
-    transform: translateY(-1px);
-    box-shadow: 0 0 0 4px rgba(139,0,0,.18);
+    flex-direction:column;
+    gap:14px;
+    border-radius:var(--nf-radius-lg);
+    background:#fff;
+    border:1px solid var(--nf-line);
+    box-shadow:0 10px 28px rgba(17,64,38,.055);
+    padding:16px;
   }
 
-  .store-ico{
-    width: 52px;
-    height: 52px;
-    border-radius: var(--radius-sm);
-    border: 4px solid var(--ink);
-    background: #0b0b0b;
-    color: var(--page);
+  .nf-search-bar{
+    display:flex;
+    align-items:stretch;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+
+  .nf-search-input-wrap{
+    position:relative;
+    flex:1 1 440px;
+    min-width:220px;
+  }
+
+  .nf-search-input-wrap::before{
+    content:"🔎";
+    position:absolute;
+    left:16px;
+    top:50%;
+    transform:translateY(-50%);
+    font-size:1rem;
+    pointer-events:none;
+  }
+
+  .nf-search-bar input{
+    width:100%;
+    min-height:50px;
+    border:1px solid #DDEFE6;
+    border-radius:15px;
+    background:#F8FFFB;
+    color:var(--nf-ink);
+    outline:none;
+    padding:0 16px 0 44px;
+    font-size:.98rem;
+    font-weight:700;
+    transition:border-color .22s var(--nf-ease), box-shadow .22s var(--nf-ease), background .22s var(--nf-ease);
+  }
+
+  .nf-search-bar input::placeholder{
+    color:#94A39B;
+    font-weight:600;
+  }
+
+  .nf-search-bar input:focus{
+    background:#fff;
+    border-color:rgba(0,168,89,.42);
+    box-shadow:0 0 0 4px rgba(0,168,89,.10);
+  }
+
+  .nf-search-btn,
+  .nf-close-btn,
+  .nf-view-btn{
+    min-height:50px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    border:0;
+    border-radius:15px;
+    padding:0 20px;
+    font-size:.9rem;
+    font-weight:900;
+    text-decoration:none;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), background .22s var(--nf-ease), color .22s var(--nf-ease), border-color .22s var(--nf-ease);
+  }
+
+  .nf-search-btn{
+    background:var(--nf-green);
+    color:#fff;
+    box-shadow:0 12px 26px rgba(0,168,89,.22);
+  }
+
+  .nf-search-btn:hover{
+    background:var(--nf-green-dark);
+    transform:translateY(-2px);
+  }
+
+  .nf-close-btn{
+    background:#fff;
+    color:#53665B;
+    border:1px solid #DDEFE6;
+  }
+
+  .nf-close-btn:hover{
+    color:var(--nf-red);
+    border-color:rgba(239,68,68,.28);
+    background:#FFF7F7;
+    transform:translateY(-2px);
+  }
+
+  .nf-close-icon{
+    width:15px;
+    height:15px;
+    position:relative;
+    display:inline-block;
+  }
+
+  .nf-close-icon::before,
+  .nf-close-icon::after{
+    content:"";
+    position:absolute;
+    left:50%;
+    top:50%;
+    width:15px;
+    height:2px;
+    border-radius:99px;
+    background:currentColor;
+    transform:translate(-50%,-50%) rotate(45deg);
+  }
+
+  .nf-close-icon::after{
+    transform:translate(-50%,-50%) rotate(-45deg);
+  }
+
+  .nf-search-meta{
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size: 1.35rem;
-    box-shadow: 4px 4px 0 var(--ink);
-    flex: 0 0 auto;
   }
 
-  .store-body{ flex: 1 1 auto; min-width: 0; }
-  .store-title{
-    display:block;
-    font-weight: 1100;
-    color: var(--ink);
-    text-decoration:none;
-    text-transform: uppercase;
-    letter-spacing: -0.2px;
-    white-space:nowrap;
+  .nf-result-chip{
+    min-height:36px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    padding:0 15px;
+    border-radius:999px;
+    background:var(--nf-green-soft);
+    color:var(--nf-green-dark);
+    border:1px solid rgba(0,168,89,.16);
+    font-size:.86rem;
+    font-weight:850;
+  }
+
+  .nf-result-chip b{
+    color:var(--nf-ink);
+  }
+
+  /* LAYOUT */
+  .nf-search-content{
+    padding:0 0 42px;
+  }
+
+  .nf-search-grid{
+    display:grid;
+    grid-template-columns:minmax(0,2.2fr) minmax(330px,1fr);
+    gap:22px;
+    align-items:start;
+  }
+
+  @media(min-width:981px){
+    .stores-sticky-wrap{
+      position:sticky;
+      top:92px;
+      align-self:start;
+    }
+  }
+
+  .nf-section-card{
+    border-radius:var(--nf-radius-xl);
+    background:#fff;
+    border:1px solid var(--nf-line);
+    box-shadow:var(--nf-shadow);
     overflow:hidden;
-    text-overflow:ellipsis;
-    font-size: .98rem;
-    line-height: 1.15;
-  }
-  .store-title:hover{ color: var(--crimson); }
-
-  .store-addr{
-    margin-top: 8px;
-    font-size: .92rem;
-    font-weight: 850;
-    color: #222;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
   }
 
-  .store-meta{
+  .nf-section-head{
+    min-height:68px;
+    padding:18px 22px;
     display:flex;
     align-items:center;
     justify-content:space-between;
-    gap: 10px;
-    margin-top: 10px;
-    flex-wrap: wrap;
+    gap:14px;
+    background:
+      radial-gradient(circle at 12% 0%, rgba(0,168,89,.10), transparent 38%),
+      linear-gradient(180deg,#FFFFFF 0%,#F8FFFB 100%);
+    border-bottom:1px solid var(--nf-line);
   }
 
-  @media (max-width: 980px){
-    .store-meta{
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    .store-meta .btn-ghost{
-      width: 100%;
-      text-align:center;
-    }
+  .nf-section-title{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    min-width:0;
   }
 
-  .empty-state{
+  .nf-section-icon{
+    width:42px;
+    height:42px;
+    flex:0 0 auto;
+    border-radius:15px;
+    display:grid;
+    place-items:center;
+    background:var(--nf-green-soft);
+    color:var(--nf-green);
+    font-size:1.28rem;
+    box-shadow:inset 0 0 0 1px rgba(0,168,89,.12);
+  }
+
+  .nf-section-head h3{
+    margin:0;
+    color:var(--nf-ink);
+    font-size:1.05rem;
+    line-height:1.2;
+    font-weight:900;
+    letter-spacing:-.025em;
+  }
+
+  .nf-section-head p{
+    margin:3px 0 0;
+    color:var(--nf-muted);
+    font-size:.82rem;
+    font-weight:650;
+  }
+
+  .nf-section-body{
+    padding:18px;
+  }
+
+  /* PRODUCT GRID */
+  .nf-product-grid{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:16px;
+  }
+
+  .nf-product-card{
+    position:relative;
+    min-height:325px;
+    border-radius:var(--nf-radius-lg);
+    background:#fff;
+    border:1px solid var(--nf-line);
+    box-shadow:0 8px 24px rgba(17,64,38,.045);
+    overflow:hidden;
+    transition:transform .24s var(--nf-ease), box-shadow .24s var(--nf-ease), border-color .24s var(--nf-ease);
+  }
+
+  .nf-product-card:hover{
+    transform:translateY(-5px);
+    box-shadow:var(--nf-shadow-hover);
+    border-color:rgba(0,168,89,.26);
+  }
+
+  .nf-product-link{
+    display:block;
+    color:inherit;
+    text-decoration:none;
+  }
+
+  .nf-product-img{
+    height:165px;
+    display:grid;
+    place-items:center;
+    padding:14px;
+    background:linear-gradient(180deg,#F6FFFA 0%,#FFFFFF 100%);
+    border-bottom:1px solid #EEF6F1;
+  }
+
+  .nf-product-img img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    display:block;
+    transition:transform .24s var(--nf-ease);
+  }
+
+  .nf-product-card:hover .nf-product-img img{
+    transform:scale(1.045);
+  }
+
+  .nf-stock-badge{
+    position:absolute;
+    top:12px;
+    left:12px;
+    min-height:26px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:0 10px;
+    border-radius:999px;
+    background:#E9FFF3;
+    color:var(--nf-green-dark);
+    border:1px solid rgba(0,168,89,.16);
+    font-size:.72rem;
+    font-weight:900;
+    z-index:3;
+  }
+
+  .nf-stock-badge.out{
+    background:#FFF1F1;
+    color:var(--nf-red);
+    border-color:rgba(239,68,68,.20);
+  }
+
+  .nf-discount{
+    position:absolute;
+    top:12px;
+    right:12px;
+    min-height:26px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:0 10px;
+    border-radius:999px;
+    background:#FFF4E2;
+    color:#B86800;
+    border:1px solid rgba(255,184,77,.25);
+    font-size:.72rem;
+    font-weight:900;
+    z-index:3;
+  }
+
+  .nf-product-body{
+    padding:15px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .nf-product-title{
+    margin:0;
+    min-height:42px;
+  }
+
+  .nf-product-title a{
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+    color:var(--nf-ink);
+    text-decoration:none;
+    font-size:.98rem;
+    line-height:1.35;
+    font-weight:850;
+    letter-spacing:-.015em;
+  }
+
+  .nf-product-title a:hover{
+    color:var(--nf-green-dark);
+  }
+
+  .nf-store-name{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    color:var(--nf-muted);
+    font-size:.79rem;
+    font-weight:700;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .nf-price-area{
+    margin-top:auto;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .nf-price-row{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:12px;
+  }
+
+  .nf-price{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    min-width:0;
+  }
+
+  .nf-price b{
+    color:var(--nf-green);
+    font-size:1.08rem;
+    line-height:1;
+    font-weight:950;
+  }
+
+  .nf-price del{
+    color:#AEB8B2;
+    font-size:.78rem;
+    font-weight:700;
+  }
+
+  .nf-view-btn{
+    min-height:38px;
+    border-radius:13px;
+    padding:0 13px;
+    background:var(--nf-green);
+    color:#fff;
+    font-size:.8rem;
+    box-shadow:0 10px 22px rgba(0,168,89,.18);
+  }
+
+  .nf-view-btn:hover{
+    background:var(--nf-green-dark);
+    transform:translateY(-2px);
+  }
+
+  /* STORE LIST */
+  .nf-store-list{
+    display:grid;
+    gap:14px;
+  }
+
+  .nf-store-card{
+    display:grid;
+    grid-template-columns:58px minmax(0,1fr);
+    gap:13px;
+    padding:14px;
+    min-height:118px;
+    border-radius:var(--nf-radius-lg);
+    background:#fff;
+    border:1px solid var(--nf-line);
+    box-shadow:0 8px 22px rgba(17,64,38,.045);
+    transition:transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease);
+  }
+
+  .nf-store-card:hover{
+    transform:translateY(-4px);
+    box-shadow:var(--nf-shadow-hover);
+    border-color:rgba(0,168,89,.24);
+  }
+
+  .nf-store-ico{
+    width:58px;
+    height:58px;
+    display:grid;
+    place-items:center;
+    border-radius:18px;
+    background:linear-gradient(145deg,#E9FFF3,#FFFFFF);
+    border:1px solid rgba(0,168,89,.16);
+    font-size:1.65rem;
+    box-shadow:0 10px 24px rgba(17,64,38,.06);
+  }
+
+  .nf-store-body{
+    min-width:0;
+  }
+
+  .nf-store-title{
+    display:block;
+    color:var(--nf-ink);
+    text-decoration:none;
+    font-size:.98rem;
+    line-height:1.25;
+    font-weight:900;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .nf-store-title:hover{
+    color:var(--nf-green-dark);
+  }
+
+  .nf-store-addr{
+    margin-top:7px;
+    color:var(--nf-muted);
+    font-size:.82rem;
+    line-height:1.4;
+    font-weight:650;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .nf-store-meta{
+    margin-top:12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+
+  .nf-product-count{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    min-height:30px;
+    padding:0 11px;
+    border-radius:999px;
+    background:var(--nf-green-soft-2);
+    color:var(--nf-green-dark);
+    border:1px solid rgba(0,168,89,.12);
+    font-size:.78rem;
+    font-weight:850;
+  }
+
+  .nf-store-btn{
+    min-height:34px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:12px;
+    padding:0 12px;
+    background:#fff;
+    color:var(--nf-green);
+    border:1px solid rgba(0,168,89,.22);
+    text-decoration:none;
+    font-size:.78rem;
+    font-weight:900;
+    transition:.22s var(--nf-ease);
+  }
+
+  .nf-store-btn:hover{
+    background:var(--nf-green);
+    color:#fff;
+    transform:translateY(-2px);
+  }
+
+  /* EMPTY STATE */
+  .nf-empty-state{
+    min-height:260px;
     display:flex;
     flex-direction:column;
     align-items:center;
     justify-content:center;
     text-align:center;
-    background: linear-gradient(180deg, var(--card), var(--card-2));
-    border-radius: var(--radius);
-    padding: 36px 18px;
-    border: 4px solid var(--ink);
-    box-shadow: -12px -12px 0 var(--crimson);
-  }
-  .empty-state .icon{
-    width: 70px;
-    height: 70px;
-    border-radius: var(--radius);
-    background: #0b0b0b;
-    color: var(--page);
-    border: 4px solid var(--ink);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size: 2rem;
-    margin-bottom: 14px;
-    box-shadow: -8px -8px 0 var(--crimson);
-  }
-  .empty-state h3{
-    margin: 0 0 8px 0;
-    font-size: 1.25rem;
-    font-weight: 1200;
-    color: var(--ink);
-    text-transform: uppercase;
-    letter-spacing: -0.3px;
-  }
-  .empty-state p{
-    margin: 0;
-    font-size: 1rem;
-    color: #222;
-    max-width: 520px;
-    font-weight: 850;
-    line-height: 1.55;
+    border-radius:var(--nf-radius-lg);
+    background:
+      radial-gradient(circle at 50% 0%, rgba(0,168,89,.10), transparent 34%),
+      linear-gradient(180deg,#F8FFFB,#FFFFFF);
+    border:1px dashed rgba(0,168,89,.28);
+    padding:34px 20px;
   }
 
-  @media (hover:none) and (pointer:coarse){
-    .card:hover{ transform:none; box-shadow: var(--shadow); }
-    .search-section:hover{ transform:none; box-shadow: var(--shadow); }
-    .store-card:hover{ transform:none; box-shadow: 3px 3px 0 var(--ink); }
-    .btn-ghost:hover, .close-btn:hover{ transform:none; box-shadow:none; }
+  .nf-empty-icon{
+    width:76px;
+    height:76px;
+    display:grid;
+    place-items:center;
+    border-radius:24px;
+    background:#fff;
+    border:1px solid var(--nf-line);
+    box-shadow:0 14px 30px rgba(17,64,38,.08);
+    font-size:2.2rem;
+    margin-bottom:16px;
   }
+
+  .nf-empty-state h3{
+    margin:0;
+    color:var(--nf-ink);
+    font-size:1.16rem;
+    line-height:1.25;
+    font-weight:900;
+    letter-spacing:-.025em;
+  }
+
+  .nf-empty-state p{
+    margin:8px 0 0;
+    max-width:420px;
+    color:var(--nf-muted);
+    font-size:.92rem;
+    line-height:1.55;
+    font-weight:600;
+  }
+
+  /* RESPONSIVE */
+  @media(max-width:1180px){
+    .nf-product-grid{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+  }
+
+  @media(max-width:980px){
+    .nf-search-grid{
+      grid-template-columns:1fr;
+    }
+
+    .stores-sticky-wrap{
+      position:relative;
+      top:auto;
+    }
+
+    .nf-hero-card{
+      grid-template-columns:1fr;
+      min-height:auto;
+    }
+
+    .nf-hero-art{
+      display:none;
+    }
+  }
+
+  @media(max-width:720px){
+    .nf-search-hero{
+      padding-top:22px;
+    }
+
+    .nf-hero-card{
+      padding:26px 20px;
+      border-radius:22px;
+    }
+
+    .nf-hero-copy h1{
+      font-size:2rem;
+    }
+
+    .nf-hero-copy p{
+      font-size:.92rem;
+    }
+
+    .nf-search-panel{
+      padding:13px;
+      border-radius:18px;
+    }
+
+    .nf-search-bar{
+      gap:10px;
+    }
+
+    .nf-search-input-wrap{
+      flex-basis:100%;
+    }
+
+    .nf-search-btn,
+    .nf-close-btn{
+      flex:1 1 calc(50% - 6px);
+      padding:0 14px;
+    }
+
+    .nf-section-head{
+      padding:16px;
+    }
+
+    .nf-section-body{
+      padding:14px;
+    }
+
+    .nf-product-grid{
+      grid-template-columns:1fr;
+      gap:13px;
+    }
+
+    .nf-product-card{
+      min-height:auto;
+      display:grid;
+      grid-template-columns:132px minmax(0,1fr);
+    }
+
+    .nf-product-img{
+      height:100%;
+      min-height:170px;
+      border-bottom:0;
+      border-right:1px solid #EEF6F1;
+    }
+
+    .nf-product-body{
+      min-height:170px;
+    }
+
+    .nf-product-title{
+      min-height:auto;
+    }
+
+    .nf-stock-badge{
+      top:9px;
+      left:9px;
+    }
+
+    .nf-discount{
+      top:9px;
+      right:9px;
+    }
+  }
+
+  @media(max-width:480px){
+    .nf-wrap{
+      padding-left:14px;
+      padding-right:14px;
+    }
+
+    .nf-hero-card{
+      padding:22px 18px;
+    }
+
+    .nf-hero-pill{
+      font-size:.72rem;
+    }
+
+    .nf-hero-copy h1{
+      font-size:1.65rem;
+    }
+
+    .nf-search-btn,
+    .nf-close-btn{
+      flex-basis:100%;
+    }
+
+    .nf-section-title{
+      gap:10px;
+    }
+
+    .nf-section-icon{
+      width:38px;
+      height:38px;
+      border-radius:14px;
+    }
+
+    .nf-product-card{
+      grid-template-columns:1fr;
+    }
+
+    .nf-product-img{
+      height:150px;
+      min-height:150px;
+      border-right:0;
+      border-bottom:1px solid #EEF6F1;
+    }
+
+    .nf-product-body{
+      min-height:auto;
+    }
+
+    .nf-store-card{
+      grid-template-columns:48px minmax(0,1fr);
+      padding:12px;
+    }
+
+    .nf-store-ico{
+      width:48px;
+      height:48px;
+      border-radius:15px;
+      font-size:1.35rem;
+    }
+
+    .nf-store-meta{
+      flex-direction:column;
+      align-items:flex-start;
+    }
+
+    .nf-store-btn{
+      width:100%;
+    }
+  }
+
+  @media(hover:none) and (pointer:coarse){
+    .nf-product-card:hover,
+    .nf-store-card:hover{
+      transform:none;
+      box-shadow:0 8px 24px rgba(17,64,38,.045);
+    }
+
+    .nf-search-btn:hover,
+    .nf-close-btn:hover,
+    .nf-view-btn:hover,
+    .nf-store-btn:hover{
+      transform:none;
+    }
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    .nf-product-card,
+    .nf-store-card,
+    .nf-search-btn,
+    .nf-close-btn,
+    .nf-view-btn,
+    .nf-store-btn,
+    .nf-product-img img{
+      transition:none !important;
+    }
+  }
+
+
+
+  /* =====================================================
+   FIX: PRODUCT CARD IMAGE/TEXT SEPARATION
+   - Image stays only in top image box
+   - Text stays clearly below image
+   - No text overlap on product image
+   ===================================================== */
+
+.nf-product-card{
+  display:flex !important;
+  flex-direction:column !important;
+  min-height:360px !important;
+  overflow:hidden !important;
+  background:#fff !important;
+}
+
+.nf-product-link{
+  display:block !important;
+  flex:0 0 auto !important;
+  text-decoration:none !important;
+}
+
+.nf-product-img{
+  width:100% !important;
+  height:185px !important;
+  min-height:185px !important;
+  max-height:185px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:18px !important;
+  overflow:hidden !important;
+  background:linear-gradient(180deg,#F6FFFA 0%,#FFFFFF 100%) !important;
+  border-bottom:1px solid #EEF6F1 !important;
+}
+
+.nf-product-img img{
+  width:100% !important;
+  height:100% !important;
+  max-width:100% !important;
+  max-height:100% !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  display:block !important;
+  position:static !important;
+}
+
+.nf-product-body{
+  position:relative !important;
+  z-index:5 !important;
+  flex:1 1 auto !important;
+  background:#fff !important;
+  padding:15px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+}
+
+.nf-product-title{
+  margin:0 !important;
+  min-height:auto !important;
+}
+
+.nf-product-title a{
+  color:var(--nf-ink) !important;
+  font-size:.98rem !important;
+  line-height:1.35 !important;
+  font-weight:850 !important;
+  text-decoration:none !important;
+  display:-webkit-box !important;
+  -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
+  overflow:hidden !important;
+}
+
+.nf-store-name{
+  margin-top:8px !important;
+  color:var(--nf-muted) !important;
+  font-size:.8rem !important;
+  font-weight:700 !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:6px !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+.nf-price-area{
+  margin-top:12px !important;
+}
+
+.nf-price-row{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+}
+
+.nf-price b{
+  color:var(--nf-green) !important;
+  font-size:1.08rem !important;
+  font-weight:950 !important;
+}
+
+.nf-price del{
+  color:#AEB8B2 !important;
+  font-size:.78rem !important;
+  font-weight:700 !important;
+}
+
+/* Keep badges above image only */
+.nf-stock-badge,
+.nf-discount{
+  z-index:10 !important;
+}
+
+/* Desktop product grid stays clean */
+.nf-product-grid{
+  align-items:stretch !important;
+}
+
+/* Mobile: do NOT force side-by-side card if it causes overlap */
+@media(max-width:720px){
+  .nf-product-card{
+    display:flex !important;
+    flex-direction:column !important;
+    min-height:auto !important;
+  }
+
+  .nf-product-img{
+    height:170px !important;
+    min-height:170px !important;
+    max-height:170px !important;
+    border-right:0 !important;
+    border-bottom:1px solid #EEF6F1 !important;
+  }
+
+  .nf-product-body{
+    min-height:auto !important;
+  }
+}
 </style>
 
-<div class="search-wrap" id="searchWrap">
-  <div class="search-head">
-    <form action="{{ url_for('search') }}" method="get" class="search-bar" role="search" aria-label="Search">
-      <input type="search" name="q" value="{{ q }}" placeholder="Search products or stores..." required>
-      <button type="submit">Search</button>
+<main class="nf-search-page" id="searchWrap">
 
-      <button class="close-btn" id="searchCloseBtn" type="button" aria-label="Close search" title="Close">
-        <span class="close-icon" aria-hidden="true"></span>
-        <span style="font-weight:1200;">Close</span>
-      </button>
-    </form>
+  <!-- HERO -->
+  <section class="nf-search-hero">
+    <div class="nf-wrap">
+      <div class="nf-hero-card">
+        <div class="nf-hero-copy">
+          <span class="nf-hero-pill">Search</span>
+          <h1>Find fresh products and nearby stores</h1>
+          <p>
+            Search groceries, daily essentials, fresh items, and stores available on NE FRESH.
+          </p>
+        </div>
 
-    {% if q %}
-      <div class="search-meta">
-        <span class="muted">Results for “{{ q }}”</span>
+        <div class="nf-hero-art" aria-hidden="true">
+          <div class="nf-grocery-bag">🛍️<small>🥦</small></div>
+        </div>
       </div>
-    {% endif %}
-  </div>
+    </div>
+  </section>
 
-  <div class="search-grid">
-    <!-- Products -->
-    <section class="search-section">
-      <div class="section-head">
-        <h3>Products</h3>
-      </div>
-
-      <div class="section-body">
-        {% if products %}
-          <div class="grid">
-            {% for p in products %}
-
-              {% set half_price = (p.price_per_kg or 0) / 2 %}
-              {% set mrp_half = half_price * 1.20 %}
-              {% set pct_off = ((1 - (half_price / (mrp_half or 1))) * 100) %}
-
-              <article class="card">
-                {% if p.stock_kg is not none and p.stock_kg > 0 %}
-                  <div class="stock-badge">In Stock</div>
-                {% else %}
-                  <div class="stock-badge" style="color:#ffb3b3;">Out of Stock</div>
-                {% endif %}
-
-                <a class="card-link"
-                   href="{{ url_for('product_detail', pid=p.id) }}?back={{ request.full_path|urlencode }}">
-                  <div class="card-media">
-                    <img
-                      src="{{ '/' + p.image_path if p.image_path else url_for('static', filename='placeholder.png') }}"
-                      alt="{{ p.name }}"
-                      loading="lazy">
-                  </div>
-                </a>
-
-                <div class="card-body">
-                  <div>
-                    <div class="title-line">
-                      <a href="{{ url_for('product_detail', pid=p.id) }}?back={{ request.full_path|urlencode }}">{{ p.name }}</a>
-                    </div>
-
-                    <p class="muted store">{{ p.store_name }}</p>
-                  </div>
-
-                  <div>
-                    <div class="price-row">
-                      <span class="price">₹ {{ '%.2f'|format(half_price) }}/½kg</span>
-                      <a class="btn-ghost" href="{{ url_for('product_detail', pid=p.id) }}?back={{ request.full_path|urlencode }}">View</a>
-                    </div>
-
-                    <div class="deal-row">
-                      <span class="mrp">₹ {{ '%.2f'|format(mrp_half) }}</span>
-                      <span class="off">{{ (pct_off | round(0, 'floor') | int) }}% OFF</span>
-                    </div>
-                  </div>
-                </div>
-              </article>
-
-            {% endfor %}
+  <!-- SEARCH BAR -->
+  <section class="nf-search-toolbar">
+    <div class="nf-wrap">
+      <div class="nf-search-panel">
+        <form action="{{ url_for('search') }}" method="get" class="nf-search-bar" role="search" aria-label="Search">
+          <div class="nf-search-input-wrap">
+            <input
+              type="search"
+              name="q"
+              value="{{ q }}"
+              placeholder="Search products or stores..."
+              required>
           </div>
-        {% else %}
-          <div class="empty-state">
-            <div class="icon">📦</div>
-            <h3>No Products Found</h3>
-            <p>Try a different keyword or check back later.</p>
+
+          <button type="submit" class="nf-search-btn">Search</button>
+
+          <button class="nf-close-btn" id="searchCloseBtn" type="button" aria-label="Close search" title="Close">
+            <span class="nf-close-icon" aria-hidden="true"></span>
+            <span>Close</span>
+          </button>
+        </form>
+
+        {% if q %}
+          <div class="nf-search-meta">
+            <span class="nf-result-chip">Results for <b>“{{ q }}”</b></span>
           </div>
         {% endif %}
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- Stores (✅ sticky wrapper outside the card) -->
-    <div class="stores-sticky-wrap">
-      <section class="search-section">
-        <div class="section-head">
-          <h3>Stores</h3>
-        </div>
+  <!-- RESULTS -->
+  <section class="nf-search-content">
+    <div class="nf-wrap">
+      <div class="nf-search-grid">
 
-        <div class="section-body">
-          {% if stores %}
-            <div class="store-list">
-              {% for s in stores %}
-                <article class="store-card">
-                  <div class="store-ico">🏬</div>
-                  <div class="store-body">
-                    <a class="store-title"
-                       href="{{ url_for('store_catalog', sid=s.id) }}?back={{ request.full_path|urlencode }}">
-                      {{ s.store_name }}
-                    </a>
+        <!-- PRODUCTS -->
+        <section class="nf-section-card">
+          <div class="nf-section-head">
+            <div class="nf-section-title">
+              <div class="nf-section-icon">🛒</div>
+              <div>
+                <h3>Products</h3>
+                <p>Fresh items matching your search</p>
+              </div>
+            </div>
+          </div>
 
-                    {% if s.address %}
-                      <div class="store-addr">{{ s.address }}</div>
+          <div class="nf-section-body">
+            {% if products %}
+              <div class="nf-product-grid">
+                {% for p in products %}
+
+                  {% set half_price = (p.price_per_kg or 0) / 2 %}
+                  {% set mrp_half = half_price * 1.20 %}
+                  {% set pct_off = ((1 - (half_price / (mrp_half or 1))) * 100) %}
+
+                  <article class="nf-product-card">
+                    {% if p.stock_kg is not none and p.stock_kg > 0 %}
+                      <div class="nf-stock-badge">In Stock</div>
+                    {% else %}
+                      <div class="nf-stock-badge out">Out of Stock</div>
                     {% endif %}
 
-                    <div class="store-meta">
-                      <span class="muted">{{ s.product_count }} products</span>
-                      <a class="btn-ghost"
-                         href="{{ url_for('store_catalog', sid=s.id) }}?back={{ request.full_path|urlencode }}">
-                        View store
-                      </a>
+                    <div class="nf-discount">
+                      {{ (pct_off | round(0, 'floor') | int) }}% OFF
                     </div>
-                  </div>
-                </article>
-              {% endfor %}
-            </div>
-          {% else %}
-            <div class="empty-state">
-              <div class="icon">🏪</div>
-              <h3>No Stores Found</h3>
-              <p>Try searching with a different store name.</p>
-            </div>
-          {% endif %}
-        </div>
-      </section>
-    </div>
 
-  </div>
-</div>
+                    <a class="nf-product-link"
+                       href="{{ url_for('product_detail', pid=p.id) }}?back={{ request.full_path|urlencode }}">
+                      <div class="nf-product-img">
+                        <img
+                          src="{{ '/' + p.image_path if p.image_path else url_for('static', filename='placeholder.png') }}"
+                          alt="{{ p.name }}"
+                          loading="lazy">
+                      </div>
+                    </a>
+
+                    <div class="nf-product-body">
+                      <div>
+                        <h3 class="nf-product-title">
+                          <a href="{{ url_for('product_detail', pid=p.id) }}?back={{ request.full_path|urlencode }}">
+                            {{ p.name }}
+                          </a>
+                        </h3>
+
+                        <div class="nf-store-name" title="{{ p.store_name }}">
+                          <span>🏬</span>
+                          <span>{{ p.store_name }}</span>
+                        </div>
+                      </div>
+
+                      <div class="nf-price-area">
+                        <div class="nf-price-row">
+                          <div class="nf-price">
+                            <b>₹ {{ '%.2f'|format(half_price) }}/½kg</b>
+                            <del>₹ {{ '%.2f'|format(mrp_half) }}</del>
+                          </div>
+
+                          <a class="nf-view-btn"
+                             href="{{ url_for('product_detail', pid=p.id) }}?back={{ request.full_path|urlencode }}">
+                            View
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="nf-empty-state">
+                <div class="nf-empty-icon">📦</div>
+                <h3>No Products Found</h3>
+                <p>Try a different keyword or check back later for more fresh products.</p>
+              </div>
+            {% endif %}
+          </div>
+        </section>
+
+        <!-- STORES -->
+        <div class="stores-sticky-wrap">
+          <section class="nf-section-card">
+            <div class="nf-section-head">
+              <div class="nf-section-title">
+                <div class="nf-section-icon">🏬</div>
+                <div>
+                  <h3>Stores</h3>
+                  <p>Stores matching your search</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="nf-section-body">
+              {% if stores %}
+                <div class="nf-store-list">
+                  {% for s in stores %}
+                    <article class="nf-store-card">
+                      <div class="nf-store-ico">🏪</div>
+
+                      <div class="nf-store-body">
+                        <a class="nf-store-title"
+                           href="{{ url_for('store_catalog', sid=s.id) }}?back={{ request.full_path|urlencode }}">
+                          {{ s.store_name }}
+                        </a>
+
+                        {% if s.address %}
+                          <div class="nf-store-addr" title="{{ s.address }}">
+                            📍 {{ s.address }}
+                          </div>
+                        {% endif %}
+
+                        <div class="nf-store-meta">
+                          <span class="nf-product-count">
+                            🛍️ {{ s.product_count }} products
+                          </span>
+
+                          <a class="nf-store-btn"
+                             href="{{ url_for('store_catalog', sid=s.id) }}?back={{ request.full_path|urlencode }}">
+                            View store
+                          </a>
+                        </div>
+                      </div>
+                    </article>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="nf-empty-state">
+                  <div class="nf-empty-icon">🏪</div>
+                  <h3>No Stores Found</h3>
+                  <p>Try searching with another store name or product keyword.</p>
+                </div>
+              {% endif %}
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+</main>
 
 <script>
   (function(){
