@@ -7,13 +7,18 @@
 
 {% block content %}
 {% set categories_for_edit = active_categories if active_categories is defined and active_categories else [] %}
-
-{% set edit_original_price = product.get('original_price_per_kg', product.price_per_kg or 0) %}
-{% set edit_final_price = product.price_per_kg or 0 %}
+{% set edit_unit_type = product.unit_type|default('WEIGHT') %}
+{% set edit_unit_label = product.unit_label|default('kg') %}
+{% set known_unit_labels = ['kg','gram','liter','ml','piece','packet','bottle','box','tray','dozen','bunch','bundle','set','jar','can','pouch','tin','bag','crate','roll'] %}
+{% set edit_is_custom_unit = edit_unit_label not in known_unit_labels %}
+{% set edit_original_price = product.get('original_price_per_unit', product.get('original_price_per_kg', product.price_per_kg or 0)) %}
+{% set edit_final_price = product.get('price_per_unit', product.price_per_kg or 0) %}
+{% set edit_stock_quantity = product.get('stock_quantity', product.stock_kg or 0) %}
+{% set edit_mrp_per_unit = product.get('mrp_per_unit', product.get('mrp_per_kg', 0)) %}
 {% set edit_discount_enabled = product.get('discount_enabled', false) %}
 {% set edit_discount_type = product.get('discount_type', 'percent') %}
 {% set edit_discount_value = product.get('discount_value', 0) %}
-{% set edit_discount_amount = product.get('discount_amount_per_kg', 0) %}
+{% set edit_discount_amount = product.get('discount_amount_per_unit', product.get('discount_amount_per_kg', 0)) %}
 {% set edit_discount_percent = product.get('discount_percent', 0) %}
 
 <section class="nf-edit-product-page" data-page="store-edit-product">
@@ -41,23 +46,39 @@
       --red:#EF4444;
       --red-soft:#FFF1F2;
       --blue:#0284C7;
+      --blue-soft:#E0F2FE;
       --shadow:0 14px 36px rgba(17,64,38,.08);
       --shadow2:0 22px 58px rgba(17,64,38,.12);
       --radius:24px;
       --ease:cubic-bezier(.2,.75,.25,1);
       width:100%;
       min-height:100%;
-      background:var(--bg);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(0,168,89,.08), transparent 34%),
+        radial-gradient(circle at 96% 8%, rgba(255,138,31,.08), transparent 28%),
+        var(--bg);
       color:var(--ink);
       font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
       overflow-x:hidden;
     }
 
     .nf-edit-product-page,
-    .nf-edit-product-page *{box-sizing:border-box;}
+    .nf-edit-product-page *{
+      box-sizing:border-box;
+    }
 
-    .ep-shell{width:100%;max-width:1420px;margin:0 auto;padding:24px;}
-    .ep-stack{display:grid;gap:20px;}
+    .ep-shell{
+      width:100%;
+      max-width:1680px;
+      margin:0 auto;
+      padding:24px;
+    }
+
+    .ep-stack{
+      display:grid;
+      gap:20px;
+    }
+
     .ep-hero{
       display:grid;
       grid-template-columns:minmax(0,1fr) auto;
@@ -65,25 +86,123 @@
       align-items:center;
       padding:24px;
       border-radius:28px;
-      background:#fff;
+      background:rgba(255,255,255,.96);
       border:1px solid var(--line);
       box-shadow:var(--shadow);
       overflow:hidden;
     }
-    .ep-kicker{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:0 11px;border-radius:999px;background:var(--green-soft);border:1px solid rgba(0,168,89,.18);color:var(--green-dark);font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;}
-    .ep-title{margin:14px 0 8px;color:var(--ink);font-size:clamp(26px,3vw,42px);line-height:1.04;font-weight:900;letter-spacing:-.05em;}
-    .ep-copy{max-width:900px;margin:0;color:var(--muted);font-size:15px;font-weight:650;line-height:1.65;}
-    .ep-hero-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;}
 
-    .ep-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:20px;align-items:start;}
-    .ep-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
-    .ep-card-head{padding:20px 22px;border-bottom:1px solid var(--line2);background:var(--card2);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
-    .ep-card-title{margin:0;color:var(--ink);font-size:18px;font-weight:900;letter-spacing:-.03em;}
-    .ep-card-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:650;line-height:1.45;}
+    .ep-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:30px;
+      padding:0 11px;
+      border-radius:999px;
+      background:var(--green-soft);
+      border:1px solid rgba(0,168,89,.18);
+      color:var(--green-dark);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
 
-    .ep-form{padding:22px;display:grid;gap:18px;}
-    .ep-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
-    .ep-field{display:grid;gap:8px;}
+    .ep-title{
+      margin:14px 0 8px;
+      color:var(--ink);
+      font-size:clamp(28px,3.2vw,46px);
+      line-height:1.04;
+      font-weight:900;
+      letter-spacing:-.05em;
+    }
+
+    .ep-copy{
+      max-width:980px;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      font-weight:650;
+      line-height:1.65;
+    }
+
+    .ep-hero-actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .ep-layout{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:20px;
+      align-items:start;
+      width:100%;
+    }
+
+    .ep-card{
+      width:100%;
+      background:rgba(255,255,255,.98);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .ep-card-head{
+      padding:20px 22px;
+      border-bottom:1px solid var(--line2);
+      background:var(--card2);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .ep-card-title{
+      margin:0;
+      color:var(--ink);
+      font-size:20px;
+      font-weight:900;
+      letter-spacing:-.03em;
+    }
+
+    .ep-card-sub{
+      margin:5px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:650;
+      line-height:1.45;
+    }
+
+    .ep-form{
+      padding:22px;
+      display:grid;
+      gap:18px;
+      width:100%;
+    }
+
+    .ep-form-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:16px;
+      align-items:start;
+      width:100%;
+    }
+
+    .ep-field{
+      display:grid;
+      gap:8px;
+      min-width:0;
+    }
+
+    .ep-field.full,
+    .ep-discount-panel{
+      grid-column:1/-1;
+    }
+
     .ep-field label,
     .ep-label{
       color:var(--text);
@@ -92,10 +211,12 @@
       text-transform:uppercase;
       letter-spacing:.07em;
     }
+
     .ep-input,
     .ep-select,
     .ep-file{
       width:100%;
+      min-width:0;
       min-height:46px;
       border:1px solid var(--line);
       border-radius:14px;
@@ -106,14 +227,26 @@
       font-weight:800;
       font-family:inherit;
     }
-    .ep-file{height:auto;padding:12px 13px;}
+
+    .ep-file{
+      height:auto;
+      padding:12px 13px;
+    }
+
     .ep-input:focus,
     .ep-select:focus,
     .ep-file:focus{
       border-color:rgba(0,168,89,.42);
       box-shadow:0 0 0 4px rgba(0,168,89,.08);
     }
-    .ep-help{color:var(--muted);font-size:12px;font-weight:700;line-height:1.4;}
+
+    .ep-help{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:700;
+      line-height:1.4;
+    }
+
     .ep-current{
       display:inline-flex;
       align-items:center;
@@ -129,155 +262,123 @@
       font-size:12px;
       font-weight:800;
       line-height:1.25;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
+
     .ep-current strong{
       color:var(--green-dark);
       font-weight:900;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
-    .ep-image-preview{padding:22px;display:grid;gap:16px;}
-    .ep-image-box{
-  border:1px solid var(--line);
-  border-radius:22px;
-  background:var(--soft2);
-  min-height:260px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
-  padding:14px;
-}
-
-.ep-image-box img{
-  width:100%;
-  height:auto;
-  max-width:100%;
-  max-height:420px;
-  object-fit:contain;
-  display:block;
-  border-radius:16px;
-}
-    .ep-no-image{color:var(--muted);font-size:14px;font-weight:800;text-align:center;}
-    .ep-product-mini{display:grid;gap:10px;border:1px solid var(--line2);background:var(--soft2);border-radius:18px;padding:15px;}
-    .ep-mini-row{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--text);font-size:13px;font-weight:800;}
-    .ep-mini-row strong{color:var(--ink);font-size:15px;font-weight:900;text-align:right;}
-    .ep-pill{display:inline-flex;align-items:center;justify-content:center;min-height:28px;border-radius:999px;padding:0 10px;background:var(--green-soft);color:var(--green-dark);border:1px solid rgba(0,168,89,.16);font-size:12px;font-weight:900;}
-    .ep-pill-off{background:var(--red-soft);color:#B91C1C;border-color:#FECACA;}
-
     .ep-discount-panel{
-  grid-column:1/-1;
-  border:1px solid var(--line);
-  border-radius:20px;
-  background:linear-gradient(135deg,#FFFFFF,var(--green-soft));
-  padding:16px;
-  display:grid;
-  gap:14px;
-}
+      border:1px solid var(--line);
+      border-radius:20px;
+      background:linear-gradient(135deg,#FFFFFF,var(--green-soft));
+      padding:16px;
+      display:grid;
+      gap:14px;
+    }
 
-.ep-discount-head{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:14px;
-  flex-wrap:wrap;
-}
+    .ep-discount-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+    }
 
-.ep-discount-title{
-  margin:0;
-  color:var(--ink);
-  font-size:16px;
-  font-weight:900;
-  letter-spacing:-.03em;
-}
+    .ep-discount-title{
+      margin:0;
+      color:var(--ink);
+      font-size:16px;
+      font-weight:900;
+      letter-spacing:-.03em;
+    }
 
-.ep-discount-sub{
-  margin:5px 0 0;
-  color:var(--muted);
-  font-size:12px;
-  font-weight:700;
-  line-height:1.45;
-}
+    .ep-discount-sub{
+      margin:5px 0 0;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:700;
+      line-height:1.45;
+    }
 
-.ep-discount-toggle{
-  min-height:36px;
-  display:inline-flex;
-  align-items:center;
-  gap:9px;
-  border:1px solid rgba(0,168,89,.18);
-  border-radius:999px;
-  background:#fff;
-  color:var(--green-dark);
-  padding:0 12px;
-  font-size:12px;
-  font-weight:900;
-  cursor:pointer;
-  user-select:none;
-}
+    .ep-discount-toggle{
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      border:1px solid rgba(0,168,89,.18);
+      border-radius:999px;
+      background:#fff;
+      color:var(--green-dark);
+      padding:0 12px;
+      font-size:12px;
+      font-weight:900;
+      cursor:pointer;
+      user-select:none;
+      white-space:nowrap;
+    }
 
-.ep-discount-toggle input{
-  width:16px;
-  height:16px;
-  accent-color:var(--green);
-}
+    .ep-discount-toggle input{
+      width:16px;
+      height:16px;
+      accent-color:var(--green);
+    }
 
-.ep-discount-grid{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:14px;
-}
+    .ep-discount-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+    }
 
-.ep-discount-preview{
-  grid-column:1/-1;
-  display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:12px;
-}
+    .ep-discount-preview{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
 
-.ep-preview-box{
-  border:1px solid var(--line2);
-  border-radius:16px;
-  background:#fff;
-  padding:13px;
-}
+    .ep-preview-box{
+      border:1px solid var(--line2);
+      border-radius:16px;
+      background:#fff;
+      padding:13px;
+      min-width:0;
+    }
 
-.ep-preview-box span{
-  display:block;
-  color:var(--muted);
-  font-size:11px;
-  font-weight:900;
-  letter-spacing:.07em;
-  text-transform:uppercase;
-}
+    .ep-preview-box span{
+      display:block;
+      color:var(--muted);
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.07em;
+      text-transform:uppercase;
+    }
 
-.ep-preview-box strong{
-  display:block;
-  margin-top:6px;
-  color:var(--ink);
-  font-size:18px;
-  font-weight:900;
-  line-height:1;
-}
+    .ep-preview-box strong{
+      display:block;
+      margin-top:6px;
+      color:var(--ink);
+      font-size:18px;
+      font-weight:900;
+      line-height:1;
+      word-break:break-word;
+    }
 
-.ep-preview-box.is-final strong{
-  color:var(--green-dark);
-}
+    .ep-preview-box.is-final strong{color:var(--green-dark);}
+    .ep-preview-box.is-discount strong{color:var(--orange);}
+    .ep-preview-box.is-percent strong{color:var(--blue);}
 
-.ep-preview-box.is-discount strong{
-  color:var(--orange);
-}
+    .ep-btn-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      padding-top:4px;
+    }
 
-.ep-preview-box.is-percent strong{
-  color:var(--blue);
-}
-
-@media(max-width:900px){
-  .ep-discount-grid,
-  .ep-discount-preview{
-    grid-template-columns:1fr;
-  }
-}
-
-    .ep-btn-row{display:flex;gap:10px;flex-wrap:wrap;padding-top:4px;}
     .ep-btn{
       min-height:44px;
       display:inline-flex;
@@ -297,36 +398,136 @@
       white-space:nowrap;
       font-family:inherit;
     }
-    .ep-btn-primary{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;box-shadow:0 12px 24px rgba(0,168,89,.18);}
-    .ep-btn-danger{background:var(--red-soft)!important;border-color:#FECACA!important;color:#B91C1C!important;}
-    .ep-btn:hover{transform:translateY(-1px);border-color:rgba(0,168,89,.30);color:var(--green-dark);box-shadow:0 12px 24px rgba(17,64,38,.09);}
+
+    .ep-btn-primary{
+      background:var(--green)!important;
+      border-color:var(--green)!important;
+      color:#fff!important;
+      box-shadow:0 12px 24px rgba(0,168,89,.18);
+    }
+
+    .ep-btn-danger{
+      background:var(--red-soft)!important;
+      border-color:#FECACA!important;
+      color:#B91C1C!important;
+    }
+
+    .ep-btn:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.30);
+      color:var(--green-dark);
+      box-shadow:0 12px 24px rgba(17,64,38,.09);
+    }
+
     .ep-btn-primary:hover{color:#fff!important;}
+
+    .ep-preview-layout{
+      display:grid;
+      grid-template-columns:minmax(280px,.9fr) minmax(0,1.1fr);
+      gap:18px;
+      padding:22px;
+      align-items:stretch;
+    }
+
+    .ep-image-box{
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:var(--soft2);
+      min-height:280px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      padding:14px;
+    }
+
+    .ep-image-box img{
+      width:100%;
+      height:auto;
+      max-width:100%;
+      max-height:440px;
+      object-fit:contain;
+      display:block;
+      border-radius:16px;
+    }
+
+    .ep-no-image{
+      color:var(--muted);
+      font-size:14px;
+      font-weight:800;
+      text-align:center;
+    }
+
+    .ep-product-mini{
+      display:grid;
+      gap:10px;
+      border:1px solid var(--line2);
+      background:var(--soft2);
+      border-radius:18px;
+      padding:15px;
+      align-content:start;
+      min-width:0;
+    }
+
+    .ep-mini-row{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      color:var(--text);
+      font-size:13px;
+      font-weight:800;
+      min-width:0;
+    }
+
+    .ep-mini-row span{
+      color:var(--muted);
+      flex:0 0 auto;
+    }
+
+    .ep-mini-row strong{
+      color:var(--ink);
+      font-size:15px;
+      font-weight:900;
+      text-align:right;
+      min-width:0;
+      word-break:break-word;
+    }
+
+    .ep-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      border-radius:999px;
+      padding:0 10px;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      border:1px solid rgba(0,168,89,.16);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .ep-pill-off{
+      background:var(--red-soft);
+      color:#B91C1C;
+      border-color:#FECACA;
+    }
 
     .ep-confirm-backdrop{
       --bg:#F8FFFB;
       --card:#FFFFFF;
       --card2:#FBFFFD;
       --soft:#F3FFF8;
-      --soft2:#F7FBF9;
       --line:#DDECE4;
       --line2:#EAF4EF;
       --ink:#1F332A;
       --text:#40534A;
       --muted:#66756D;
-      --muted2:#8A9890;
       --green:#00A859;
       --green-dark:#008A48;
-      --green-deep:#075C3B;
       --green-soft:#E9FFF3;
-      --orange:#FF8A1F;
-      --orange-soft:#FFF4EA;
-      --red:#EF4444;
-      --red-soft:#FFF1F2;
-      --blue:#0284C7;
-      --blue-soft:#E0F2FE;
-      --shadow:0 14px 36px rgba(17,64,38,.08);
       --shadow2:0 22px 58px rgba(17,64,38,.12);
-      --radius:24px;
       --ease:cubic-bezier(.2,.75,.25,1);
       position:fixed;
       inset:0;
@@ -438,17 +639,87 @@
     .ep-confirm-cancel{background:#fff;color:var(--text);}
     .ep-confirm-ok{background:var(--green);color:#fff;border-color:var(--green)!important;box-shadow:0 12px 24px rgba(0,168,89,.18);}
 
-    @media(max-width:1100px){
-      .ep-grid{grid-template-columns:1fr;}
+    @media(max-width:1180px){
+      .ep-form-grid,
+      .ep-discount-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .ep-discount-preview{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .ep-preview-layout{
+        grid-template-columns:1fr;
+      }
     }
+
     @media(max-width:760px){
-      .ep-shell{padding:12px;}
-      .ep-hero{grid-template-columns:1fr;padding:18px;border-radius:20px;}
-      .ep-hero-actions{justify-content:flex-start;}
-      .ep-form-grid{grid-template-columns:1fr;}
-      .ep-card-head{padding:16px;flex-direction:column;}
-      .ep-form,.ep-image-preview{padding:16px;}
-      .ep-btn-row .ep-btn,.ep-hero-actions .ep-btn,.ep-confirm-actions button{width:100%;}
+      .ep-shell{
+        padding:14px;
+      }
+
+      .ep-hero{
+        grid-template-columns:1fr;
+        padding:18px;
+        border-radius:20px;
+      }
+
+      .ep-hero-actions{
+        justify-content:flex-start;
+      }
+
+      .ep-form-grid,
+      .ep-discount-grid,
+      .ep-discount-preview{
+        grid-template-columns:1fr;
+      }
+
+      .ep-card-head{
+        padding:16px;
+        flex-direction:column;
+      }
+
+      .ep-form,
+      .ep-preview-layout{
+        padding:16px;
+      }
+
+      .ep-btn-row .ep-btn,
+      .ep-hero-actions .ep-btn,
+      .ep-confirm-actions button{
+        width:100%;
+      }
+
+      .ep-current{
+        width:100%;
+        justify-content:flex-start;
+      }
+    }
+
+    @media(max-width:430px){
+      .ep-shell{
+        padding:10px;
+      }
+
+      .ep-hero,
+      .ep-card{
+        border-radius:18px;
+      }
+
+      .ep-form,
+      .ep-preview-layout{
+        padding:14px;
+      }
+
+      .ep-mini-row{
+        flex-direction:column;
+        gap:5px;
+      }
+
+      .ep-mini-row strong{
+        text-align:left;
+      }
     }
   </style>
 
@@ -459,7 +730,7 @@
           <span class="ep-kicker">✎ Product Edit</span>
           <h1 class="ep-title">Edit Product</h1>
           <p class="ep-copy">
-            Update product name, category, price, available stock and image. Restocking is handled here to keep the product list clean.
+            Update product name, category, price, unit, available stock and image. Restocking is handled here to keep the product list clean.
           </p>
         </div>
         <div class="ep-hero-actions">
@@ -468,7 +739,7 @@
         </div>
       </section>
 
-      <section class="ep-grid">
+      <section class="ep-layout">
         <div class="ep-card">
           <div class="ep-card-head">
             <div>
@@ -486,121 +757,123 @@
               </div>
 
               <div class="ep-field">
-  <label for="originalPricePerKg">Original Price per kg (₹)</label>
-  <input class="ep-input"
-         id="originalPricePerKg"
-         type="number"
-         name="original_price_per_kg"
-         step="0.01"
-         min="0"
-         value="{{ '%.2f'|format(edit_original_price or 0) }}"
-         placeholder="{{ '%.2f'|format(edit_original_price or 0) }}"
-         required>
-
-  <input id="finalPricePerKg"
-         name="price_per_kg"
-         type="hidden"
-         value="{{ '%.2f'|format(edit_final_price or 0) }}">
-
-  <div class="ep-current">
-    Current final price:
-    <strong>₹ {{ '%.2f'|format(edit_final_price or 0) }} / kg</strong>
-  </div>
-</div>
+                <label for="unitTypeSelect">Selling Unit Type</label>
+                <select class="ep-select" id="unitTypeSelect" name="unit_type" required>
+                  <option value="WEIGHT" {{ 'selected' if edit_unit_type == 'WEIGHT' else '' }}>Weight</option>
+                  <option value="VOLUME" {{ 'selected' if edit_unit_type == 'VOLUME' else '' }}>Volume</option>
+                  <option value="COUNT" {{ 'selected' if edit_unit_type == 'COUNT' else '' }}>Count / Unit</option>
+                </select>
+                <div class="ep-current">Current type: <strong>{{ edit_unit_type }}</strong></div>
+              </div>
 
               <div class="ep-field">
-                <label for="productStock">Stock / Restock (kg)</label>
-                <input class="ep-input" id="productStock" type="number" name="stock_kg" step="0.01" min="0" value="{{ '%.2f'|format(product.stock_kg or 0) }}" placeholder="{{ '%.2f'|format(product.stock_kg or 0) }}" required>
-                <div class="ep-current">Current stock: <strong>{{ '%.2f'|format(product.stock_kg or 0) }} kg</strong></div>
+                <label for="unitLabelSelect">Unit Label</label>
+                <select class="ep-select" id="unitLabelSelect" name="unit_label" required>
+                  <option value="kg" data-type="WEIGHT" {{ 'selected' if edit_unit_label == 'kg' else '' }}>kg</option>
+                  <option value="gram" data-type="WEIGHT" {{ 'selected' if edit_unit_label == 'gram' else '' }}>gram</option>
+                  <option value="liter" data-type="VOLUME" {{ 'selected' if edit_unit_label == 'liter' else '' }}>liter</option>
+                  <option value="ml" data-type="VOLUME" {{ 'selected' if edit_unit_label == 'ml' else '' }}>ml</option>
+                  <option value="piece" data-type="COUNT" {{ 'selected' if edit_unit_label == 'piece' else '' }}>piece</option>
+                  <option value="packet" data-type="COUNT" {{ 'selected' if edit_unit_label == 'packet' else '' }}>packet</option>
+                  <option value="bottle" data-type="COUNT" {{ 'selected' if edit_unit_label == 'bottle' else '' }}>bottle</option>
+                  <option value="box" data-type="COUNT" {{ 'selected' if edit_unit_label == 'box' else '' }}>box</option>
+                  <option value="tray" data-type="COUNT" {{ 'selected' if edit_unit_label == 'tray' else '' }}>tray</option>
+                  <option value="dozen" data-type="COUNT" {{ 'selected' if edit_unit_label == 'dozen' else '' }}>dozen</option>
+                  <option value="bunch" data-type="COUNT" {{ 'selected' if edit_unit_label == 'bunch' else '' }}>bunch</option>
+                  <option value="bundle" data-type="COUNT" {{ 'selected' if edit_unit_label == 'bundle' else '' }}>bundle</option>
+                  <option value="set" data-type="COUNT" {{ 'selected' if edit_unit_label == 'set' else '' }}>set</option>
+                  <option value="jar" data-type="COUNT" {{ 'selected' if edit_unit_label == 'jar' else '' }}>jar</option>
+                  <option value="can" data-type="COUNT" {{ 'selected' if edit_unit_label == 'can' else '' }}>can</option>
+                  <option value="pouch" data-type="COUNT" {{ 'selected' if edit_unit_label == 'pouch' else '' }}>pouch</option>
+                  <option value="tin" data-type="COUNT" {{ 'selected' if edit_unit_label == 'tin' else '' }}>tin</option>
+                  <option value="bag" data-type="COUNT" {{ 'selected' if edit_unit_label == 'bag' else '' }}>bag</option>
+                  <option value="crate" data-type="COUNT" {{ 'selected' if edit_unit_label == 'crate' else '' }}>crate</option>
+                  <option value="roll" data-type="COUNT" {{ 'selected' if edit_unit_label == 'roll' else '' }}>roll</option>
+                  <option value="custom" data-type="COUNT" {{ 'selected' if edit_is_custom_unit else '' }}>custom</option>
+                </select>
+                <div class="ep-current">Current unit: <strong>{{ edit_unit_label }}</strong></div>
+              </div>
+
+              <div class="ep-field" id="customUnitWrap" style="display:none;">
+                <label for="customUnitLabel">Custom Unit Label</label>
+                <input class="ep-input" id="customUnitLabel" name="custom_unit_label" type="text" value="{{ edit_unit_label if edit_is_custom_unit else '' }}" placeholder="Example: slab, pack, cup">
+              </div>
+
+              <div class="ep-field">
+                <label for="originalPricePerKg" id="originalPriceLabel">Original Price per {{ edit_unit_label }} (₹)</label>
+                <input class="ep-input" id="originalPricePerKg" type="number" name="original_price_per_kg" step="0.01" min="0" value="{{ '%.2f'|format(edit_original_price or 0) }}" placeholder="{{ '%.2f'|format(edit_original_price or 0) }}" required>
+                <input id="finalPricePerKg" name="price_per_kg" type="hidden" value="{{ '%.2f'|format(edit_final_price or 0) }}">
+                <input id="finalPricePerUnit" name="price_per_unit" type="hidden" value="{{ '%.2f'|format(edit_final_price or 0) }}">
+                <input id="originalPricePerUnit" name="original_price_per_unit" type="hidden" value="{{ '%.2f'|format(edit_original_price or 0) }}">
+                <div class="ep-current">Current final price: <strong>₹ {{ '%.2f'|format(edit_final_price or 0) }} / {{ edit_unit_label }}</strong></div>
+              </div>
+
+              <div class="ep-field">
+                <label for="productStock" id="stockQuantityLabel">Stock / Restock ({{ edit_unit_label }})</label>
+                <input class="ep-input" id="productStock" type="number" name="stock_quantity" step="0.01" min="0" value="{{ '%.2f'|format(edit_stock_quantity or 0) }}" placeholder="{{ '%.2f'|format(edit_stock_quantity or 0) }}" required>
+                <input id="stockKgInput" name="stock_kg" type="hidden" value="{{ '%.2f'|format(edit_stock_quantity or 0) }}">
+                <div class="ep-current">Current stock: <strong>{{ '%.2f'|format(edit_stock_quantity or 0) }} {{ edit_unit_label }}</strong></div>
                 <div class="ep-help">Update the complete available stock here. This replaces the old Add Stock button.</div>
               </div>
 
               <div class="ep-discount-panel">
-  <div class="ep-discount-head">
-    <div>
-      <h3 class="ep-discount-title">Product Discount</h3>
-      <p class="ep-discount-sub">
-        Enable, disable or edit the product discount. Final customer selling price is calculated automatically.
-      </p>
-    </div>
+                <div class="ep-discount-head">
+                  <div>
+                    <h3 class="ep-discount-title">Product Discount</h3>
+                    <p class="ep-discount-sub">Enable, disable or edit the product discount. Final customer selling price is calculated automatically.</p>
+                  </div>
+                  <label class="ep-discount-toggle">
+                    <input id="discountEnabled" name="discount_enabled" type="checkbox" value="1" {% if edit_discount_enabled %}checked{% endif %}>
+                    Enable Discount
+                  </label>
+                </div>
 
-    <label class="ep-discount-toggle">
-      <input id="discountEnabled"
-             name="discount_enabled"
-             type="checkbox"
-             value="1"
-             {% if edit_discount_enabled %}checked{% endif %}>
-      Enable Discount
-    </label>
-  </div>
+                <div class="ep-discount-grid">
+                  <div class="ep-field">
+                    <label for="discountType">Discount Type</label>
+                    <select class="ep-select" id="discountType" name="discount_type">
+                      <option value="percent" {% if edit_discount_type == 'percent' %}selected{% endif %}>Percentage (%)</option>
+                      <option value="amount" id="fixedDiscountOption" {% if edit_discount_type == 'amount' %}selected{% endif %}>Fixed Amount (₹/{{ edit_unit_label }})</option>
+                    </select>
+                  </div>
 
-  <div class="ep-discount-grid">
-    <div class="ep-field">
-      <label for="discountType">Discount Type</label>
-      <select class="ep-select" id="discountType" name="discount_type">
-        <option value="percent" {% if edit_discount_type == 'percent' %}selected{% endif %}>Percentage (%)</option>
-        <option value="amount" {% if edit_discount_type == 'amount' %}selected{% endif %}>Fixed Amount (₹/kg)</option>
-      </select>
-    </div>
+                  <div class="ep-field">
+                    <label for="discountValue">Discount Value</label>
+                    <input class="ep-input" id="discountValue" name="discount_value" type="number" step="0.01" min="0" value="{{ '%.2f'|format(edit_discount_value or 0) }}">
+                  </div>
 
-    <div class="ep-field">
-      <label for="discountValue">Discount Value</label>
-      <input class="ep-input"
-             id="discountValue"
-             name="discount_value"
-             type="number"
-             step="0.01"
-             min="0"
-             value="{{ '%.2f'|format(edit_discount_value or 0) }}">
-    </div>
+                  <div class="ep-field">
+                    <label for="finalPriceDisplay" id="finalPriceLabel">Final Price per {{ edit_unit_label }} (₹)</label>
+                    <input class="ep-input" id="finalPriceDisplay" type="number" step="0.01" min="0" value="{{ '%.2f'|format(edit_final_price or 0) }}" readonly>
+                  </div>
+                </div>
 
-    <div class="ep-field">
-      <label for="finalPriceDisplay">Final Price per kg (₹)</label>
-      <input class="ep-input"
-             id="finalPriceDisplay"
-             type="number"
-             step="0.01"
-             min="0"
-             value="{{ '%.2f'|format(edit_final_price or 0) }}"
-             readonly>
-    </div>
-  </div>
-
-  <div class="ep-discount-preview">
-    <div class="ep-preview-box">
-      <span>Original Price</span>
-      <strong>₹ <em id="previewOriginal">{{ '%.2f'|format(edit_original_price or 0) }}</em></strong>
-    </div>
-
-    <div class="ep-preview-box is-discount">
-      <span>Discount Amount</span>
-      <strong>₹ <em id="previewDiscount">{{ '%.2f'|format(edit_discount_amount or 0) }}</em></strong>
-    </div>
-
-    <div class="ep-preview-box is-percent">
-      <span>Discount Percent</span>
-      <strong><em id="previewPercent">{{ '%.2f'|format(edit_discount_percent or 0) }}</em>%</strong>
-    </div>
-
-    <div class="ep-preview-box is-final">
-      <span>Final Selling Price</span>
-      <strong>₹ <em id="previewFinal">{{ '%.2f'|format(edit_final_price or 0) }}</em></strong>
-    </div>
-  </div>
-</div>
+                <div class="ep-discount-preview">
+                  <div class="ep-preview-box">
+                    <span>Original Price</span>
+                    <strong>₹ <em id="previewOriginal">{{ '%.2f'|format(edit_original_price or 0) }}</em></strong>
+                  </div>
+                  <div class="ep-preview-box is-discount">
+                    <span>Discount Amount</span>
+                    <strong>₹ <em id="previewDiscount">{{ '%.2f'|format(edit_discount_amount or 0) }}</em></strong>
+                  </div>
+                  <div class="ep-preview-box is-percent">
+                    <span>Discount Percent</span>
+                    <strong><em id="previewPercent">{{ '%.2f'|format(edit_discount_percent or 0) }}</em>%</strong>
+                  </div>
+                  <div class="ep-preview-box is-final">
+                    <span>Final Selling Price</span>
+                    <strong>₹ <em id="previewFinal">{{ '%.2f'|format(edit_final_price or 0) }}</em></strong>
+                  </div>
+                </div>
+              </div>
 
               <div class="ep-field">
                 <label for="productCategory">Category</label>
                 <select class="ep-select" id="productCategory" name="category_id">
                   {% if categories_for_edit %}
                     {% for cat in categories_for_edit %}
-                      <option
-                        value="{{ cat.id }}"
-                        data-name="{{ cat.name }}"
-                        data-subcategories='{{ cat.sub_categories|tojson }}'
-                        {{ 'selected' if (product.category_id and product.category_id|string == cat.id|string) or (not product.category_id and product.category == cat.name) else '' }}>
-                        {{ cat.name }}
-                      </option>
+                      <option value="{{ cat.id }}" data-name="{{ cat.name }}" data-subcategories='{{ cat.sub_categories|tojson }}' {{ 'selected' if (product.category_id and product.category_id|string == cat.id|string) or (not product.category_id and product.category == cat.name) else '' }}>{{ cat.name }}</option>
                     {% endfor %}
                   {% else %}
                     <option value="" data-name="{{ product.category or '' }}" data-subcategories='[]' selected>{{ product.category or 'Current category' }}</option>
@@ -627,13 +900,7 @@
             </div>
 
             <div class="ep-btn-row">
-              <button class="ep-btn ep-btn-primary"
-                      type="submit"
-                      data-confirm-submit
-                      data-confirm-title="Save product changes?"
-                      data-confirm-message="This will update the product details, stock, category and image if selected.">
-                Save Changes
-              </button>
+              <button class="ep-btn ep-btn-primary" type="submit" data-confirm-submit data-confirm-title="Save product changes?" data-confirm-message="This will update the product details, stock, category and image if selected.">Save Changes</button>
               <a class="ep-btn" href="{{ url_for('store_products') }}">Cancel</a>
             </div>
           </form>
@@ -647,7 +914,7 @@
             </div>
           </div>
 
-          <div class="ep-image-preview">
+          <div class="ep-preview-layout">
             <div class="ep-image-box">
               {% if product.image_path %}
                 <img src="/{{ product.image_path }}" alt="{{ product.name }}">
@@ -660,17 +927,18 @@
               <div class="ep-mini-row"><span>Product</span><strong>{{ product.name }}</strong></div>
               <div class="ep-mini-row"><span>Category</span><strong>{{ product.category or '—' }}</strong></div>
               <div class="ep-mini-row"><span>Sub Category</span><strong>{{ product.sub_category or '—' }}</strong></div>
-<div class="ep-mini-row"><span>Original Price</span><strong>₹ {{ '%.2f'|format(edit_original_price or 0) }}/kg</strong></div>
-<div class="ep-mini-row"><span>Final Price</span><strong>₹ {{ '%.2f'|format(edit_final_price or 0) }}/kg</strong></div>
-<div class="ep-mini-row">
-  <span>Discount</span>
-  {% if edit_discount_enabled %}
-    <strong><span class="ep-pill">{{ '%.2f'|format(edit_discount_percent or 0) }}% OFF</span></strong>
-  {% else %}
-    <strong><span class="ep-pill ep-pill-off">No Discount</span></strong>
-  {% endif %}
-</div>
-              <div class="ep-mini-row"><span>Stock</span><strong>{{ '%.2f'|format(product.stock_kg or 0) }} kg</strong></div>
+              <div class="ep-mini-row"><span>Unit</span><strong>{{ edit_unit_label }}</strong></div>
+              <div class="ep-mini-row"><span>Original Price</span><strong>₹ {{ '%.2f'|format(edit_original_price or 0) }}/{{ edit_unit_label }}</strong></div>
+              <div class="ep-mini-row"><span>Final Price</span><strong>₹ {{ '%.2f'|format(edit_final_price or 0) }}/{{ edit_unit_label }}</strong></div>
+              <div class="ep-mini-row">
+                <span>Discount</span>
+                {% if edit_discount_enabled %}
+                  <strong><span class="ep-pill">{{ '%.2f'|format(edit_discount_percent or 0) }}% OFF</span></strong>
+                {% else %}
+                  <strong><span class="ep-pill ep-pill-off">No Discount</span></strong>
+                {% endif %}
+              </div>
+              <div class="ep-mini-row"><span>Stock</span><strong>{{ '%.2f'|format(edit_stock_quantity or 0) }} {{ edit_unit_label }}</strong></div>
               <div class="ep-mini-row">
                 <span>Status</span>
                 {% if product.is_active %}
@@ -741,83 +1009,155 @@
           syncCategory();
         }
 
+        const unitTypeSelect = document.getElementById('unitTypeSelect');
+        const unitLabelSelect = document.getElementById('unitLabelSelect');
+        const customUnitWrap = document.getElementById('customUnitWrap');
+        const customUnitLabel = document.getElementById('customUnitLabel');
+        const originalPriceLabel = document.getElementById('originalPriceLabel');
+        const finalPriceLabel = document.getElementById('finalPriceLabel');
+        const fixedDiscountOption = document.getElementById('fixedDiscountOption');
+        const stockQuantityLabel = document.getElementById('stockQuantityLabel');
+        const stockQuantityInput = document.getElementById('productStock');
+        const stockKgInput = document.getElementById('stockKgInput');
+        const finalPricePerUnit = document.getElementById('finalPricePerUnit');
+        const originalPricePerUnit = document.getElementById('originalPricePerUnit');
+
+        function currentUnitLabel(){
+          if (!unitLabelSelect) return 'kg';
+
+          const selected = unitLabelSelect.value || 'kg';
+
+          if (selected === 'custom' && customUnitLabel && customUnitLabel.value.trim()) {
+            return customUnitLabel.value.trim().toLowerCase();
+          }
+
+          return selected;
+        }
+
+        function syncUnitFields(){
+          if (!unitTypeSelect || !unitLabelSelect) return;
+
+          const selectedType = unitTypeSelect.value || 'WEIGHT';
+
+          Array.from(unitLabelSelect.options).forEach(function(option){
+            const optionType = option.getAttribute('data-type');
+
+            if (!optionType) return;
+
+            option.hidden = optionType !== selectedType;
+            option.disabled = optionType !== selectedType;
+          });
+
+          const selectedOption = unitLabelSelect.options[unitLabelSelect.selectedIndex];
+
+          if (!selectedOption || selectedOption.hidden || selectedOption.disabled) {
+            const firstVisible = Array.from(unitLabelSelect.options).find(function(option){
+              return !option.hidden && !option.disabled;
+            });
+
+            if (firstVisible) unitLabelSelect.value = firstVisible.value;
+          }
+
+          const label = currentUnitLabel();
+
+          if (customUnitWrap && customUnitLabel) {
+            const isCustom = unitLabelSelect.value === 'custom';
+            customUnitWrap.style.display = isCustom ? '' : 'none';
+            customUnitLabel.required = isCustom;
+          }
+
+          if (originalPriceLabel) originalPriceLabel.textContent = 'Original Price per ' + label + ' (₹)';
+          if (finalPriceLabel) finalPriceLabel.textContent = 'Final Price per ' + label + ' (₹)';
+          if (fixedDiscountOption) fixedDiscountOption.textContent = 'Fixed Amount (₹/' + label + ')';
+          if (stockQuantityLabel) stockQuantityLabel.textContent = 'Stock / Restock (' + label + ')';
+
+          if (stockQuantityInput) {
+            stockQuantityInput.min = '0';
+            stockQuantityInput.step = selectedType === 'COUNT' ? '1' : '0.01';
+          }
+        }
+
+        if (unitTypeSelect) unitTypeSelect.addEventListener('change', syncUnitFields);
+        if (unitLabelSelect) unitLabelSelect.addEventListener('change', syncUnitFields);
+        if (customUnitLabel) customUnitLabel.addEventListener('input', syncUnitFields);
+
+        syncUnitFields();
+
         const originalPriceInput = document.getElementById('originalPricePerKg');
-const finalPriceHidden = document.getElementById('finalPricePerKg');
-const finalPriceDisplay = document.getElementById('finalPriceDisplay');
-const discountEnabled = document.getElementById('discountEnabled');
-const discountType = document.getElementById('discountType');
-const discountValue = document.getElementById('discountValue');
-const previewOriginal = document.getElementById('previewOriginal');
-const previewDiscount = document.getElementById('previewDiscount');
-const previewPercent = document.getElementById('previewPercent');
-const previewFinal = document.getElementById('previewFinal');
+        const finalPriceHidden = document.getElementById('finalPricePerKg');
+        const finalPriceDisplay = document.getElementById('finalPriceDisplay');
+        const discountEnabled = document.getElementById('discountEnabled');
+        const discountType = document.getElementById('discountType');
+        const discountValue = document.getElementById('discountValue');
+        const previewOriginal = document.getElementById('previewOriginal');
+        const previewDiscount = document.getElementById('previewDiscount');
+        const previewPercent = document.getElementById('previewPercent');
+        const previewFinal = document.getElementById('previewFinal');
 
-function toMoney(value){
-  const n = parseFloat(value || 0);
-  return Number.isFinite(n) ? n.toFixed(2) : '0.00';
-}
+        function toMoney(value){
+          const n = parseFloat(value || 0);
+          return Number.isFinite(n) ? n.toFixed(2) : '0.00';
+        }
 
-function calculateDiscountPrice(){
-  if (!originalPriceInput || !finalPriceHidden || !finalPriceDisplay) return;
+        function calculateDiscountPrice(){
+          if (!originalPriceInput || !finalPriceHidden || !finalPriceDisplay) return;
 
-  let original = parseFloat(originalPriceInput.value || '0');
-  let dValue = parseFloat(discountValue ? discountValue.value || '0' : '0');
+          let original = parseFloat(originalPriceInput.value || '0');
+          let dValue = parseFloat(discountValue ? discountValue.value || '0' : '0');
 
-  if (!Number.isFinite(original) || original < 0) original = 0;
-  if (!Number.isFinite(dValue) || dValue < 0) dValue = 0;
+          if (!Number.isFinite(original) || original < 0) original = 0;
+          if (!Number.isFinite(dValue) || dValue < 0) dValue = 0;
 
-  const enabled = discountEnabled && discountEnabled.checked;
-  const type = discountType ? discountType.value : 'percent';
+          const enabled = discountEnabled && discountEnabled.checked;
+          const type = discountType ? discountType.value : 'percent';
 
-  let discountAmount = 0;
-  let discountPercent = 0;
+          let discountAmount = 0;
+          let discountPercent = 0;
 
-  if (enabled && original > 0 && dValue > 0) {
-    if (type === 'percent') {
-      if (dValue > 100) {
-        dValue = 100;
-        discountValue.value = '100';
-      }
+          if (enabled && original > 0 && dValue > 0) {
+            if (type === 'percent') {
+              if (dValue > 100) {
+                dValue = 100;
+                discountValue.value = '100';
+              }
 
-      discountPercent = dValue;
-      discountAmount = original * (discountPercent / 100);
-    } else {
-      if (dValue > original) {
-        dValue = original;
-        discountValue.value = original.toFixed(2);
-      }
+              discountPercent = dValue;
+              discountAmount = original * (discountPercent / 100);
+            } else {
+              if (dValue > original) {
+                dValue = original;
+                discountValue.value = original.toFixed(2);
+              }
 
-      discountAmount = dValue;
-      discountPercent = original > 0 ? (discountAmount / original * 100) : 0;
-    }
-  }
+              discountAmount = dValue;
+              discountPercent = original > 0 ? (discountAmount / original * 100) : 0;
+            }
+          }
 
-  let finalPrice = original - discountAmount;
+          let finalPrice = original - discountAmount;
 
-  if (finalPrice < 0) finalPrice = 0;
+          if (finalPrice < 0) finalPrice = 0;
 
-  finalPriceHidden.value = finalPrice.toFixed(2);
-  finalPriceDisplay.value = finalPrice.toFixed(2);
+          finalPriceHidden.value = finalPrice.toFixed(2);
+          finalPriceDisplay.value = finalPrice.toFixed(2);
 
-  if (previewOriginal) previewOriginal.textContent = toMoney(original);
-  if (previewDiscount) previewDiscount.textContent = toMoney(discountAmount);
-  if (previewPercent) previewPercent.textContent = toMoney(discountPercent);
-  if (previewFinal) previewFinal.textContent = toMoney(finalPrice);
-}
+          if (finalPricePerUnit) finalPricePerUnit.value = finalPrice.toFixed(2);
+          if (originalPricePerUnit) originalPricePerUnit.value = original.toFixed(2);
 
-[
-  originalPriceInput,
-  discountEnabled,
-  discountType,
-  discountValue
-].forEach(function(el){
-  if (el) {
-    el.addEventListener('input', calculateDiscountPrice);
-    el.addEventListener('change', calculateDiscountPrice);
-  }
-});
+          if (previewOriginal) previewOriginal.textContent = toMoney(original);
+          if (previewDiscount) previewDiscount.textContent = toMoney(discountAmount);
+          if (previewPercent) previewPercent.textContent = toMoney(discountPercent);
+          if (previewFinal) previewFinal.textContent = toMoney(finalPrice);
+        }
 
-calculateDiscountPrice();
+        [originalPriceInput, discountEnabled, discountType, discountValue].forEach(function(el){
+          if (el) {
+            el.addEventListener('input', calculateDiscountPrice);
+            el.addEventListener('change', calculateDiscountPrice);
+          }
+        });
+
+        calculateDiscountPrice();
 
         const restoreKey = 'nfStoreProductEditScrollY';
 
@@ -913,7 +1253,13 @@ calculateDiscountPrice();
 
         if (form) {
           form.addEventListener('submit', function(event){
+            syncUnitFields();
             calculateDiscountPrice();
+
+            if (stockKgInput && stockQuantityInput) stockKgInput.value = stockQuantityInput.value || '0';
+            if (finalPricePerUnit && finalPriceHidden) finalPricePerUnit.value = finalPriceHidden.value || '0';
+            if (originalPricePerUnit && originalPriceInput) originalPricePerUnit.value = originalPriceInput.value || '0';
+
             if (allowSubmit) return;
 
             event.preventDefault();
@@ -952,10 +1298,7 @@ calculateDiscountPrice();
               redirect: 'follow'
             })
             .then(function(response){
-              if (!response.ok) {
-                throw new Error('Save failed');
-              }
-
+              if (!response.ok) throw new Error('Save failed');
               window.location.reload();
             })
             .catch(function(){

@@ -26,14 +26,39 @@ def cart_page():
         if product.get("store_id"):
             store = mongo.stores.find_one({"_id": product.get("store_id")})
 
+        hydrate_product_unit_fields(product)
+
+        quantity = cart_item_quantity(ci)
+        unit_type = ci.get("unit_type") or product.get("unit_type") or "WEIGHT"
+        unit_label = ci.get("unit_label") or product.get("unit_label") or "kg"
+        price_per_unit = float(
+            ci.get("price_per_unit_snapshot")
+            if ci.get("price_per_unit_snapshot") is not None
+            else product.get("price_per_unit") or product.get("price_per_kg") or 0
+        )
+        stock_quantity = float(product.get("stock_quantity") or product.get("stock_kg") or 0)
+        line_total = quantity * price_per_unit
+
         item = {
             "cart_item_id": str(ci["_id"]),
-            "weight_kg": float(ci.get("weight_kg") or 0),
+
+            # New unit-aware fields.
+            "cart_quantity": quantity,
+            "quantity": quantity,
+            "unit_type": unit_type,
+            "unit_label": unit_label,
+            "price_per_unit": price_per_unit,
+            "stock_quantity": stock_quantity,
+            "line_total": line_total,
+
+            # Legacy compatibility fields.
+            "weight_kg": quantity,
+            "price_per_kg": price_per_unit,
+            "stock_kg": stock_quantity,
+
             "product_id": str(product["_id"]),
             "name": product.get("name", ""),
-            "price_per_kg": float(product.get("price_per_kg") or 0),
             "image_path": product.get("image_path", ""),
-            "stock_kg": float(product.get("stock_kg") or 0),
             "is_active": int(product.get("is_active") or 0),
             "store_id": str(product.get("store_id")) if product.get("store_id") else "",
             "store_name": store.get("store_name") if store else "",
@@ -42,7 +67,7 @@ def cart_page():
         items.append(item)
 
     total = sum([
-        float(row["weight_kg"] or 0) * float(row["price_per_kg"] or 0)
+        float(row.get("line_total") or 0)
         for row in items
     ])
 
@@ -79,32 +104,47 @@ def api_cart_add(user_id):
     except Exception:
         return jsonify({'ok': False, 'msg': 'Invalid product'}), 400
 
-    try:
-        weight_kg = float(data.get("weight_kg") or request.form.get('weight_kg', '1') or 1)
-    except (TypeError, ValueError):
-        return jsonify({'ok': False, 'msg': 'Invalid weight'}), 400
-
-    if weight_kg < 0.25:
-        return jsonify({'ok': False, 'msg': 'Minimum 0.25 kg'}), 400
-
-    weight_kg = round(round(weight_kg * 4) / 4, 2)
-
     product = mongo.products.find_one({"_id": product_obj_id})
 
     if not product:
         return jsonify({'ok': False, 'msg': 'Product not found'}), 404
 
-    stock = float(product.get("stock_kg") or 0)
+    hydrate_product_unit_fields(product)
+
+    unit_type = product.get("unit_type") or "WEIGHT"
+    unit_label = product.get("unit_label") or "kg"
+
+    quantity_raw = (
+        data.get("quantity")
+        or request.form.get("quantity")
+        or data.get("cart_quantity")
+        or request.form.get("cart_quantity")
+        or data.get("weight_kg")
+        or request.form.get("weight_kg", "1")
+        or 1
+    )
+
+    quantity, quantity_error = normalize_quantity_by_unit(
+        quantity_raw,
+        unit_type,
+        unit_label
+    )
+
+    if quantity_error:
+        return jsonify({'ok': False, 'msg': quantity_error}), 400
+
+    stock = float(product.get("stock_quantity") or product.get("stock_kg") or 0)
+    price_per_unit = float(product.get("price_per_unit") or product.get("price_per_kg") or 0)
     active = int(product.get("is_active") or 0)
     new_store_id = product.get("store_id")
 
     if active != 1 or stock <= 0:
         return jsonify({'ok': False, 'msg': 'This item is sold out'}), 409
 
-    if weight_kg > stock:
+    if quantity > stock:
         return jsonify({
             'ok': False,
-            'msg': f'Only {stock:.2f} kg stock is available. Please enter a quantity equal to or below available stock.'
+            'msg': f'Only {stock:.2f} {unit_label} stock is available. Please enter a quantity equal to or below available stock.'
         }), 409
 
     cid = get_or_create_cart(user_id)
@@ -126,31 +166,43 @@ def api_cart_add(user_id):
     })
 
     now = datetime.utcnow().isoformat()
+    line_total = float(quantity or 0) * float(price_per_unit or 0)
+
+    cart_update_data = {
+        "cart_quantity": quantity,
+        "quantity": quantity,
+        "unit_type": unit_type,
+        "unit_label": unit_label,
+        "price_per_unit_snapshot": price_per_unit,
+        "line_total": line_total,
+
+        # Legacy compatibility.
+        "weight_kg": quantity,
+
+        "updated_at": now
+    }
 
     if existing_cart_item:
         mongo.cart_items.update_one(
             {"_id": existing_cart_item["_id"]},
             {
-                "$set": {
-                    "weight_kg": weight_kg,
-                    "updated_at": now
-                }
+                "$set": cart_update_data
             }
         )
     else:
-        mongo.cart_items.insert_one({
+        cart_update_data.update({
             "cart_id": cid,
             "product_id": product_obj_id,
-            "weight_kg": weight_kg,
-            "created_at": now,
-            "updated_at": now
+            "created_at": now
         })
+
+        mongo.cart_items.insert_one(cart_update_data)
 
     cart_count = mongo.cart_items.count_documents({"cart_id": cid})
 
     return jsonify({
         'ok': True,
-        'msg': 'Added to cart',
+        'msg': f'Added {quantity:g} {unit_label} to cart',
         'cart_count': cart_count
     })
 
@@ -196,19 +248,44 @@ def api_cart_get(user_id):
         if not product:
             continue
 
+        hydrate_product_unit_fields(product)
+
+        quantity = cart_item_quantity(ci)
+        unit_type = ci.get("unit_type") or product.get("unit_type") or "WEIGHT"
+        unit_label = ci.get("unit_label") or product.get("unit_label") or "kg"
+        price_per_unit = float(
+            ci.get("price_per_unit_snapshot")
+            if ci.get("price_per_unit_snapshot") is not None
+            else product.get("price_per_unit") or product.get("price_per_kg") or 0
+        )
+        stock_quantity = float(product.get("stock_quantity") or product.get("stock_kg") or 0)
+        line_total = quantity * price_per_unit
+
         items.append({
             'id': str(ci['_id']),
             'product_id': str(product['_id']),
             'name': product.get('name', ''),
-            'price_per_kg': float(product.get('price_per_kg') or 0),
-            'weight_kg': float(ci.get('weight_kg') or 0),
+
+            # New unit-aware fields.
+            'cart_quantity': quantity,
+            'quantity': quantity,
+            'unit_type': unit_type,
+            'unit_label': unit_label,
+            'price_per_unit': price_per_unit,
+            'stock_quantity': stock_quantity,
+            'line_total': line_total,
+
+            # Legacy compatibility fields.
+            'price_per_kg': price_per_unit,
+            'weight_kg': quantity,
+            'stock_kg': stock_quantity,
+
             'image_path': product.get('image_path', ''),
-            'stock_kg': float(product.get('stock_kg') or 0),
             'store_id': str(product.get('store_id')) if product.get('store_id') else None,
         })
 
     total = sum([
-        float(item['weight_kg'] or 0) * float(item['price_per_kg'] or 0)
+        float(item.get('line_total') or 0)
         for item in items
     ])
 

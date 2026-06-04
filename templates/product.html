@@ -1,14 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% set stock_qty = product.stock_kg or 0 %}
-{% set price_per_kg = product.price_per_kg or 0 %}
-{% set half_price = price_per_kg / 2 %}
-{% set mrp_half = half_price * 1.20 %}
-{% set pct_off = ((1 - (half_price / (mrp_half or 1))) * 100) if half_price else 0 %}
+{% set unit_label = product.get('unit_label', 'kg') or 'kg' %}
+{% set unit_type = product.get('unit_type', 'WEIGHT') or 'WEIGHT' %}
+{% set stock_qty = product.get('stock_quantity', product.get('stock_kg', 0)) or 0 %}
+{% set price_per_unit = product.get('price_per_unit', product.get('price_per_kg', 0)) or 0 %}
+{% set original_price = product.get('original_price_per_unit', product.get('original_price_per_kg', price_per_unit)) or price_per_unit %}
+{% set discount_amount = product.get('discount_amount_per_unit', product.get('discount_amount_per_kg', 0)) or 0 %}
+{% set discount_percent = product.get('discount_percent', 0) or 0 %}
+{% set has_discount = product.get('discount_enabled') and discount_amount > 0 and original_price > price_per_unit %}
+{% set pct_off = discount_percent if has_discount else 0 %}
+{% set quantity_min = product.get('quantity_min', 0.25) or 0.25 %}
+{% set quantity_step = product.get('quantity_step', 0.25) or 0.25 %}
+{% set selected_qty = selected_quantity|default(selected_weight_kg|default(quantity_min)) %}
 {% set is_customer = user and user.role == 'customer' %}
 {% set is_in_stock = stock_qty is not none and stock_qty > 0 %}
-{% set default_weight = 1 if stock_qty >= 1 else stock_qty if stock_qty > 0 else 0.25 %}
+{% set default_quantity = selected_qty if selected_qty else quantity_min %}
 
 <section class="nf-product-detail-page">
   <style>
@@ -1155,7 +1162,7 @@
             <div class="nf-stock-panel">
               <div class="nf-stock-panel-row">
                 <span>Available Stock</span>
-                <b>{{ '%.2f'|format(stock_qty) }} kg</b>
+               <b>{{ '%.2f'|format(stock_qty) }} {{ unit_label }}</b>
               </div>
 
               <div class="nf-stock-track">
@@ -1179,28 +1186,30 @@
             </div>
 
             <div class="nf-price-row">
-              <div class="nf-price-main">
-                ₹ {{ '%.2f'|format(half_price) }}
-                <small>/½kg</small>
-              </div>
+  <div class="nf-price-main">
+    ₹ {{ '%.2f'|format(price_per_unit) }}
+    <small>/{{ unit_label }}</small>
+  </div>
 
-              <div class="nf-mrp">₹ {{ '%.2f'|format(mrp_half) }}</div>
+  {% if has_discount %}
+    <div class="nf-mrp">₹ {{ '%.2f'|format(original_price) }}</div>
 
-              <div class="nf-off-chip">
-                {{ (pct_off | round(0, 'floor') | int) }}% OFF
-              </div>
-            </div>
+    <div class="nf-off-chip">
+      {{ (pct_off | round(0, 'floor') | int) }}% OFF
+    </div>
+  {% endif %}
+</div>
 
             <div class="nf-detail-meta">
               <div class="nf-meta-box">
-                <span>Price Per ½ KG</span>
-                <b>₹ {{ '%.2f'|format(half_price) }}</b>
-              </div>
+  <span>Price Per {{ unit_label }}</span>
+  <b>₹ {{ '%.2f'|format(price_per_unit) }}</b>
+</div>
 
-              <div class="nf-meta-box">
-                <span>Available Stock</span>
-                <b>{{ '%.2f'|format(stock_qty) }} kg</b>
-              </div>
+<div class="nf-meta-box">
+  <span>Available Stock</span>
+  <b>{{ '%.2f'|format(stock_qty) }} {{ unit_label }}</b>
+</div>
 
               <div class="nf-meta-box">
                 <span>Status</span>
@@ -1216,7 +1225,7 @@
 
               <div class="nf-feature">
                 <b>Live Stock</b>
-                <span>{{ '%.2f'|format(stock_qty) }} kg available</span>
+                <span>{{ '%.2f'|format(stock_qty) }} {{ unit_label }} available</span>
               </div>
 
               <div class="nf-feature">
@@ -1252,20 +1261,24 @@
                 <form id="buyForm" class="buy-form" onsubmit="return false;">
                   <input type="hidden" name="product_id" value="{{ product.id }}"/>
 
-                  <div class="nf-weight-field">
-                    <label for="weight_kg">Weight (kg)</label>
-                    <input id="weight_kg"
-                           name="weight_kg"
-                           type="number"
-                           step="0.25"
-                           min="0.25"
-                           max="{{ '%.2f'|format(stock_qty) }}"
-       value="{{ '%.2f'|format(selected_weight_kg|default(default_weight)) }}">
-                  </div>
+                 <input type="hidden" name="unit_type" value="{{ unit_type }}">
+<input type="hidden" name="unit_label" value="{{ unit_label }}">
+<input type="hidden" name="weight_kg" id="legacy_weight_kg" value="{{ default_quantity }}">
 
-                  <div class="nf-buy-note">
-                    Available stock: <b>{{ '%.2f'|format(stock_qty) }} kg</b>. Minimum order is 0.25 kg.
-                  </div>
+<div class="nf-weight-field">
+  <label for="quantity">Quantity ({{ unit_label }})</label>
+  <input id="quantity"
+         name="quantity"
+         type="number"
+         step="{{ quantity_step }}"
+         min="{{ quantity_min }}"
+         max="{{ '%.2f'|format(stock_qty) }}"
+         value="{{ default_quantity }}">
+</div>
+
+<div class="nf-buy-note">
+  Available stock: <b>{{ '%.2f'|format(stock_qty) }} {{ unit_label }}</b>. Minimum order is {{ quantity_min }} {{ unit_label }}.
+</div>
 
                   <div class="nf-stock-warning" id="stockWarning" role="status" aria-live="polite">
   Requested amount is not available in stock. Please change the amount.
@@ -1434,9 +1447,14 @@
 <script>
 (function(){
   {% if user and user.role == 'customer' and is_in_stock %}
-    const pricePerKg = {{ '%.2f'|format(price_per_kg or 0) }};
+  const pricePerUnit = {{ '%.2f'|format(price_per_unit or 0) }};
   const availableStock = {{ '%.2f'|format(stock_qty or 0) }};
-  const weightEl = document.getElementById('weight_kg');
+  const unitLabel = {{ unit_label|tojson }};
+  const quantityMin = {{ quantity_min|float }};
+  const quantityStep = {{ quantity_step|float }};
+
+  const quantityEl = document.getElementById('quantity');
+  const legacyWeightEl = document.getElementById('legacy_weight_kg');
   const estTotalEl = document.getElementById('estTotal');
   const btnAdd = document.getElementById('btnAdd');
   const btnBuy = document.getElementById('btnBuy');
@@ -1444,30 +1462,50 @@
   const popupBuy = document.getElementById('popupBuy');
   const stockWarning = document.getElementById('stockWarning');
 
-  if(!weightEl || !btnAdd || !btnBuy){
+  if(!quantityEl || !btnAdd || !btnBuy){
     return;
   }
 
-  function getEnteredWeight(){
-    const rawKg = parseFloat(weightEl.value || '{{ "%.2f"|format(default_weight) }}');
-    return Number.isFinite(rawKg) ? rawKg : 0;
+  function formatQty(value){
+    const num = Number(value);
+
+    if(!Number.isFinite(num)){
+      return '0';
+    }
+
+    if(Number.isInteger(num)){
+      return String(num);
+    }
+
+    return String(parseFloat(num.toFixed(2)));
   }
 
-  function getQtyError(kg){
-    if(!Number.isFinite(kg) || kg <= 0){
+  function getEnteredQuantity(){
+    const rawQty = parseFloat(quantityEl.value || '{{ default_quantity }}');
+    return Number.isFinite(rawQty) ? rawQty : 0;
+  }
+
+  function syncLegacyQuantity(){
+    if(legacyWeightEl){
+      legacyWeightEl.value = String(getEnteredQuantity());
+    }
+  }
+
+  function getQtyError(qty){
+    if(!Number.isFinite(qty) || qty <= 0){
       return 'Please enter a valid quantity.';
     }
 
-    if(kg < 0.25){
-      return 'Minimum order quantity is 0.25 kg.';
+    if(qty < quantityMin){
+      return 'Minimum order quantity is ' + formatQty(quantityMin) + ' ' + unitLabel + '.';
     }
 
     if(availableStock <= 0){
       return 'This product is out of stock.';
     }
 
-    if(kg > availableStock){
-      return 'Requested amount is not available in stock. Only ' + availableStock.toFixed(2) + ' kg is available. Please change the amount.';
+    if(qty > availableStock){
+      return 'Requested amount is not available in stock. Only ' + availableStock.toFixed(2) + ' ' + unitLabel + ' is available. Please change the amount.';
     }
 
     return '';
@@ -1476,7 +1514,7 @@
   function setInvalidState(message){
     const invalid = !!message;
 
-    weightEl.classList.toggle('is-invalid', invalid);
+    quantityEl.classList.toggle('is-invalid', invalid);
 
     btnAdd.disabled = invalid;
     btnBuy.disabled = invalid;
@@ -1496,21 +1534,22 @@
   }
 
   function calc(){
-    const kg = getEnteredWeight();
-    const message = getQtyError(kg);
+    const qty = getEnteredQuantity();
+    const message = getQtyError(qty);
 
+    syncLegacyQuantity();
     setInvalidState(message);
 
-    const total = Number.isFinite(kg) && kg > 0 ? kg * pricePerKg : 0;
+    const total = Number.isFinite(qty) && qty > 0 ? qty * pricePerUnit : 0;
 
     if(estTotalEl){
       estTotalEl.textContent = total.toFixed(2);
     }
   }
 
-  weightEl.addEventListener('input', calc);
-  weightEl.addEventListener('change', calc);
-  weightEl.addEventListener('blur', calc);
+  quantityEl.addEventListener('input', calc);
+  quantityEl.addEventListener('change', calc);
+  quantityEl.addEventListener('blur', calc);
 
   calc();
 
@@ -1540,9 +1579,11 @@
   }
 
   async function addToCart(redirectAfter){
-    const kg = getEnteredWeight();
-    const message = getQtyError(kg);
+    const qty = getEnteredQuantity();
+    const message = getQtyError(qty);
     const activePopup = redirectAfter ? popupBuy : popupAdd;
+
+    syncLegacyQuantity();
 
     if(message){
       setInvalidState(message);
@@ -1552,7 +1593,10 @@
 
     const fd = new FormData();
     fd.append('product_id', '{{ product.id }}');
-    fd.append('weight_kg', String(kg.toFixed(2)));
+    fd.append('quantity', String(qty));
+    fd.append('weight_kg', String(qty));
+    fd.append('unit_type', {{ unit_type|tojson }});
+    fd.append('unit_label', unitLabel);
 
     const activeBtn = redirectAfter ? btnBuy : btnAdd;
     const otherBtn = redirectAfter ? btnAdd : btnBuy;
@@ -1588,7 +1632,7 @@
           showPopup(activePopup, '✓ Added! Redirecting…');
           window.location.href = '{{ url_for("checkout") }}';
         }else{
-          showPopup(activePopup, '✓ Added to cart!');
+          showPopup(activePopup, '✓ ' + formatQty(qty) + ' ' + unitLabel + ' added to cart!');
         }
       }else{
         const errorMessage = data && (data.msg || data.error)

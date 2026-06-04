@@ -88,9 +88,19 @@
   {% if products %}
     {% for p in products %}
       {% if p.is_active %}{% set ns.active = ns.active + 1 %}{% else %}{% set ns.inactive = ns.inactive + 1 %}{% endif %}
-      {% if p.stock_kg is not none and p.stock_kg <= 1.0 and p.stock_kg > 0 %}{% set ns.low = ns.low + 1 %}{% endif %}
-      {% if p.stock_kg is not none and p.stock_kg <= 0 %}{% set ns.out = ns.out + 1 %}{% endif %}
-      {% set ns.total_stock = ns.total_stock + (p.stock_kg or 0) %}
+      {% set p_stock = p.stock_quantity if p.stock_quantity is not none else (p.stock_kg or 0) %}
+{% set p_unit = p.unit_label or 'kg' %}
+{% set low_limit = 500 if p_unit in ['gram', 'ml'] else 5 %}
+
+{% if p_stock is not none and p_stock <= low_limit and p_stock > 0 %}
+  {% set ns.low = ns.low + 1 %}
+{% endif %}
+
+{% if p_stock is not none and p_stock <= 0 %}
+  {% set ns.out = ns.out + 1 %}
+{% endif %}
+
+{% set ns.total_stock = ns.total_stock + (p_stock or 0) %}
     {% endfor %}
   {% endif %}
 
@@ -105,8 +115,8 @@
       <section class="sd-kpi-grid">
         <div class="sd-kpi-card"><div><div class="sd-kpi-label">Total Products</div><div class="sd-kpi-value">{{ products|length if products else 0 }}</div><div class="sd-kpi-meta">All store products</div></div><div class="sd-kpi-icon">🛍️</div></div>
         <div class="sd-kpi-card"><div><div class="sd-kpi-label">Active Products</div><div class="sd-kpi-value">{{ ns.active }}</div><div class="sd-kpi-meta">Visible for ordering</div></div><div class="sd-kpi-icon">✅</div></div>
-        <div class="sd-kpi-card"><div><div class="sd-kpi-label">Low Stock</div><div class="sd-kpi-value">{{ ns.low }}</div><div class="sd-kpi-meta">At or below 1 kg</div></div><div class="sd-kpi-icon">⚠️</div></div>
-        <div class="sd-kpi-card"><div><div class="sd-kpi-label">Total Stock</div><div class="sd-kpi-value">{{ '%.2f'|format(ns.total_stock or 0) }}</div><div class="sd-kpi-meta">Kg available</div></div><div class="sd-kpi-icon">📦</div></div>
+        <div class="sd-kpi-card"><div><div class="sd-kpi-label">Low Stock</div><div class="sd-kpi-value">{{ ns.low }}</div><div class="sd-kpi-meta">At or below unit threshold</div></div><div class="sd-kpi-icon">⚠️</div></div>
+        <div class="sd-kpi-card"><div><div class="sd-kpi-label">Total Stock</div><div class="sd-kpi-value">{{ '%.2f'|format(ns.total_stock or 0) }}</div><div class="sd-kpi-meta">Total quantity across products</div></div><div class="sd-kpi-icon">📦</div></div>
       </section>
 
       <section class="sd-card">
@@ -141,16 +151,24 @@
               {% if products %}
                 {% for p in products %}
                   <tr>
-                    <td><strong>{{ p.name }}</strong><div class="sd-muted">₹ {{ '%.2f'|format(p.price_per_kg or 0) }} / kg</div></td>
+                    {% set p_stock = p.stock_quantity if p.stock_quantity is not none else (p.stock_kg or 0) %}
+{% set p_unit = p.unit_label or 'kg' %}
+{% set p_price = p.price_per_unit if p.price_per_unit is not none else (p.price_per_kg or 0) %}
+{% set low_limit = 500 if p_unit in ['gram', 'ml'] else 5 %}
+
+<td>
+  <strong>{{ p.name }}</strong>
+  <div class="sd-muted">₹ {{ '%.2f'|format(p_price or 0) }} / {{ p_unit }}</div>
+</td>
                     <td>{{ p.category or '—' }}</td>
                     <td>{{ p.sub_category or '—' }}</td>
-                    <td>{{ '%.2f'|format(p.stock_kg or 0) }} kg</td>
+<td>{{ '%.2f'|format(p_stock or 0) }} {{ p_unit }}</td>
                     <td>{% if p.is_active %}<span class="sd-pill">Active</span>{% else %}<span class="sd-pill sd-pill-danger">Inactive</span>{% endif %}</td>
                     <td>
-                      {% if (p.stock_kg or 0) <= 0 %}
-                        <span class="sd-pill sd-pill-danger">Out of Stock</span>
-                      {% elif (p.stock_kg or 0) <= 1 %}
-                        <span class="sd-pill sd-pill-warning">Low Stock</span>
+                     {% if (p_stock or 0) <= 0 %}
+  <span class="sd-pill sd-pill-danger">Out of Stock</span>
+{% elif (p_stock or 0) <= low_limit %}
+  <span class="sd-pill sd-pill-warning">Low Stock</span>
                       {% else %}
                         <span class="sd-pill">Good</span>
                       {% endif %}

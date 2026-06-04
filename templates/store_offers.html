@@ -1,0 +1,697 @@
+{% extends "store_base.html" %}
+{% set active_page = "offers" %}
+
+{% block title %}Manage Offers | NE FRESH{% endblock %}
+{% block page_title %}Manage Offers{% endblock %}
+{% block page_subtitle %}Create buy-one-get-one, percentage and cart-value offers for your customers.{% endblock %}
+
+{% block content %}
+<section class="nf-offer-admin-page">
+  <style>
+    .nf-offer-admin-page{
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --soft:#F3FFF8;
+      --line:#DDECE4;
+      --line2:#EAF4EF;
+      --ink:#1F332A;
+      --text:#40534A;
+      --muted:#66756D;
+      --green:#00A859;
+      --green-dark:#008A48;
+      --orange:#FF8A1F;
+      --red:#EF4444;
+      --red-soft:#FFF1F2;
+      --blue:#0284C7;
+      --blue-soft:#E0F2FE;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      --radius:24px;
+      --ease:cubic-bezier(.2,.75,.25,1);
+      width:100%;
+      min-height:100%;
+      background:
+        radial-gradient(circle at top left, rgba(0,168,89,.08), transparent 30%),
+        var(--bg);
+      color:var(--ink);
+      overflow-x:hidden;
+    }
+
+    .nf-offer-admin-page,
+    .nf-offer-admin-page *{
+      box-sizing:border-box;
+    }
+
+    .of-shell{
+      width:100%;
+      max-width:1540px;
+      margin:0 auto;
+      padding:24px;
+    }
+
+    .of-stack{
+      display:grid;
+      gap:22px;
+    }
+
+    .of-hero{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:18px;
+      align-items:center;
+      padding:26px;
+      border-radius:30px;
+      background:
+        radial-gradient(circle at right top, rgba(255,184,77,.16), transparent 32%),
+        linear-gradient(135deg,#FFFFFF 0%,#F3FFF8 100%);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .of-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:30px;
+      padding:0 12px;
+      border-radius:999px;
+      background:#E9FFF3;
+      color:var(--green-dark);
+      border:1px solid rgba(0,168,89,.18);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .of-title{
+      margin:14px 0 8px;
+      color:var(--ink);
+      font-size:clamp(28px,3vw,44px);
+      line-height:1.04;
+      font-weight:900;
+      letter-spacing:-.05em;
+    }
+
+    .of-copy{
+      max-width:850px;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      font-weight:650;
+    }
+
+    .of-hero-card{
+      width:230px;
+      min-height:150px;
+      border-radius:24px;
+      background:#fff;
+      border:1px solid var(--line2);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      box-shadow:0 18px 42px rgba(17,64,38,.10);
+      padding:18px;
+    }
+
+    .of-hero-card strong{
+      display:block;
+      color:var(--green-dark);
+      font-size:36px;
+      font-weight:950;
+      line-height:1;
+    }
+
+    .of-hero-card span{
+      display:block;
+      margin-top:8px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .of-grid{
+      display:grid;
+      grid-template-columns:minmax(340px,.85fr) minmax(0,1.15fr);
+      gap:22px;
+      align-items:start;
+    }
+
+    .of-card{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .of-card-head{
+      padding:20px 22px;
+      border-bottom:1px solid var(--line2);
+      background:#FBFFFD;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .of-card-title{
+      margin:0;
+      color:var(--ink);
+      font-size:18px;
+      font-weight:900;
+      letter-spacing:-.03em;
+    }
+
+    .of-card-sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:650;
+      line-height:1.5;
+    }
+
+    .of-card-body{
+      padding:22px;
+    }
+
+    .of-form{
+      display:grid;
+      gap:16px;
+    }
+
+    .of-field{
+      display:grid;
+      gap:8px;
+    }
+
+    .of-label{
+      color:var(--ink);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .of-input,
+    .of-select{
+      width:100%;
+      min-height:46px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--ink);
+      padding:0 14px;
+      outline:none;
+      font:inherit;
+      font-size:14px;
+      font-weight:700;
+      transition:.2s var(--ease);
+    }
+
+    .of-input:focus,
+    .of-select:focus{
+      border-color:var(--green);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .of-help{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:650;
+      line-height:1.45;
+    }
+
+    .of-two{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .of-hidden{
+      display:none !important;
+    }
+
+    .of-actions{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      padding-top:6px;
+    }
+
+    .of-btn{
+      min-height:44px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--green-dark);
+      padding:0 18px;
+      font:inherit;
+      font-size:13px;
+      font-weight:900;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      transition:.2s var(--ease);
+    }
+
+    .of-btn:hover{
+      transform:translateY(-2px);
+      box-shadow:0 12px 24px rgba(17,64,38,.10);
+    }
+
+    .of-btn-primary{
+      background:var(--green);
+      border-color:var(--green);
+      color:#fff;
+      box-shadow:0 12px 26px rgba(0,168,89,.20);
+    }
+
+    .of-btn-primary:hover{
+      background:var(--green-dark);
+      border-color:var(--green-dark);
+    }
+
+    .of-btn-danger{
+      background:#fff;
+      border-color:#FFD1D1;
+      color:#B91C1C;
+    }
+
+    .of-btn-small{
+      min-height:34px;
+      padding:0 12px;
+      font-size:12px;
+    }
+
+    .of-table-wrap{
+      width:100%;
+      overflow:auto;
+      padding:0 22px 22px;
+    }
+
+    .of-table{
+      width:100%;
+      min-width:900px;
+      border-collapse:collapse;
+    }
+
+    .of-table th{
+      padding:14px 10px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      text-align:left;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      border-bottom:1px solid var(--line2);
+      white-space:nowrap;
+    }
+
+    .of-table td{
+      padding:14px 10px;
+      border-bottom:1px solid var(--line2);
+      color:var(--text);
+      font-size:13px;
+      font-weight:700;
+      vertical-align:middle;
+    }
+
+    .of-pill{
+      display:inline-flex;
+      align-items:center;
+      min-height:26px;
+      padding:0 10px;
+      border-radius:999px;
+      background:#E9FFF3;
+      color:var(--green-dark);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .of-pill.off{
+      background:var(--red-soft);
+      color:#B91C1C;
+    }
+
+    .of-pill.orange{
+      background:#FFF7E8;
+      color:#A66A00;
+    }
+
+    .of-empty{
+      padding:34px 22px;
+      text-align:center;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+    }
+
+    .of-inline-actions{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    @media(max-width:980px){
+      .of-hero,
+      .of-grid{
+        grid-template-columns:1fr;
+      }
+
+      .of-hero-card{
+        width:100%;
+      }
+    }
+
+    @media(max-width:640px){
+      .of-shell{
+        padding:14px;
+      }
+
+      .of-hero,
+      .of-card-body,
+      .of-card-head{
+        padding:18px;
+      }
+
+      .of-two{
+        grid-template-columns:1fr;
+      }
+
+      .of-actions .of-btn{
+        width:100%;
+      }
+    }
+  </style>
+
+  <div class="of-shell">
+    <div class="of-stack">
+
+      <section class="of-hero">
+        <div>
+          <span class="of-kicker">🎁 Offers and More</span>
+          <h1 class="of-title">Create customer offers for your store</h1>
+          <p class="of-copy">
+            Add BOGO, percentage and cart-value offers. Only enabled offers will later appear on the customer homepage and offer pages.
+          </p>
+        </div>
+
+        <aside class="of-hero-card">
+          <strong>{{ offers|length if offers else 0 }}</strong>
+          <span>Total offers created</span>
+        </aside>
+      </section>
+
+      <section class="of-grid">
+        <div class="of-card">
+          <div class="of-card-head">
+            <div>
+              <h2 class="of-card-title">Add New Offer</h2>
+              <p class="of-card-sub">Choose offer type, target and live status.</p>
+            </div>
+          </div>
+
+          <div class="of-card-body">
+            <form class="of-form" method="POST" action="{{ url_for('store_offers') }}">
+              <div class="of-field">
+                <label class="of-label" for="offerType">Offer Type</label>
+                <select class="of-select" id="offerType" name="offer_type" required>
+                  <option value="">Select offer type</option>
+                  <option value="bogo">Buy One Get One Free</option>
+                  <option value="percentage">Percentage Discount</option>
+                  <option value="cart_value">Cart Value Discount</option>
+                </select>
+              </div>
+
+              <div class="of-field">
+                <label class="of-label" for="targetType">Apply On</label>
+                <select class="of-select" id="targetType" name="target_type" required>
+                  <option value="all">All Products</option>
+                  <option value="category">Specific Category</option>
+                  <option value="product">Specific Product</option>
+                </select>
+              </div>
+
+              <div class="of-field of-hidden" id="categoryWrap">
+                <label class="of-label" for="offerCategory">Select Category</label>
+                <select class="of-select" id="offerCategory" name="category">
+                  <option value="">Select category</option>
+                  {% for c in categories %}
+                    <option value="{{ c }}">{{ c }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="of-field of-hidden" id="productWrap">
+                <label class="of-label" for="offerProduct">Select Product</label>
+                <select class="of-select" id="offerProduct" name="product_id">
+                  <option value="">Select product</option>
+                  {% for p in products %}
+                    <option value="{{ p.id }}">
+                      {{ p.name }} — {{ p.category }} — ₹{{ '%.2f'|format(p.price_per_kg or 0) }}/kg
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="of-field" id="discountWrap">
+                <label class="of-label" for="discountPercent">Discount Percentage</label>
+                <select class="of-select" id="discountPercent" name="discount_percent">
+                  <option value="0">No percentage needed</option>
+                  <option value="90">90% Discount</option>
+                  <option value="80">80% Discount</option>
+                  <option value="70">70% Discount</option>
+                  <option value="60">60% Discount</option>
+                  <option value="50">50% Discount</option>
+                  <option value="40">40% Discount</option>
+                  <option value="30">30% Discount</option>
+                  <option value="20">20% Discount</option>
+                  <option value="10">10% Discount</option>
+                </select>
+                <div class="of-help">
+                  Required for percentage offers. For cart offers, use 5% or 10% below.
+                </div>
+              </div>
+
+              <div class="of-two" id="cartValueWrap">
+                <div class="of-field">
+                  <label class="of-label" for="minCartValue">Minimum Cart Value</label>
+                  <select class="of-select" id="minCartValue" name="min_cart_value">
+                    <option value="0">No cart value</option>
+                    <option value="500">₹500 and above</option>
+                    <option value="1000">₹1000 and above</option>
+                  </select>
+                </div>
+
+                <div class="of-field">
+                  <label class="of-label" for="cartDiscountPercent">Cart Discount</label>
+                  <select class="of-select" id="cartDiscountPercent">
+                    <option value="">Select cart discount</option>
+                    <option value="5">5% Discount</option>
+                    <option value="10">10% Discount</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="of-two">
+                <div class="of-field">
+                  <label class="of-label" for="startDate">Start Date</label>
+                  <input class="of-input" id="startDate" type="date" name="start_date">
+                </div>
+
+                <div class="of-field">
+                  <label class="of-label" for="endDate">End Date</label>
+                  <input class="of-input" id="endDate" type="date" name="end_date">
+                </div>
+              </div>
+
+              <div class="of-field">
+                <label class="of-label" for="offerStatus">Status</label>
+                <select class="of-select" id="offerStatus" name="status">
+                  <option value="enabled">Enabled - Go Live</option>
+                  <option value="disabled">Disabled - Save Draft</option>
+                </select>
+              </div>
+
+              <div class="of-actions">
+                <button class="of-btn of-btn-primary" type="submit">＋ Create Offer</button>
+                <a class="of-btn" href="{{ url_for('store_dashboard') }}">Back to Dashboard</a>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="of-card">
+          <div class="of-card-head">
+            <div>
+              <h2 class="of-card-title">Existing Offers</h2>
+              <p class="of-card-sub">Enable, disable or delete offers.</p>
+            </div>
+          </div>
+
+          {% if offers and offers|length > 0 %}
+            <div class="of-table-wrap">
+              <table class="of-table">
+                <thead>
+                  <tr>
+                    <th>Offer</th>
+                    <th>Target</th>
+                    <th>Discount</th>
+                    <th>Cart Value</th>
+                    <th>Status</th>
+                    <th>Dates</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for offer in offers %}
+                    <tr>
+                      <td>
+                        {% if offer.offer_type == 'bogo' %}
+                          <strong>Buy One Get One Free</strong>
+                        {% elif offer.offer_type == 'percentage' %}
+                          <strong>Percentage Discount</strong>
+                        {% elif offer.offer_type == 'cart_value' %}
+                          <strong>Cart Value Discount</strong>
+                        {% else %}
+                          <strong>{{ offer.offer_type }}</strong>
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {% if offer.target_type == 'all' %}
+                          All Products
+                        {% elif offer.target_type == 'category' %}
+                          Category: {{ offer.category or '—' }}
+                        {% elif offer.target_type == 'product' %}
+                          Product ID: {{ offer.product_id or '—' }}
+                        {% else %}
+                          —
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {% if offer.offer_type == 'bogo' %}
+                          <span class="of-pill orange">BOGO</span>
+                        {% elif offer.discount_percent %}
+                          <span class="of-pill">{{ '%.0f'|format(offer.discount_percent or 0) }}% OFF</span>
+                        {% else %}
+                          —
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {% if offer.min_cart_value and offer.min_cart_value > 0 %}
+                          ₹{{ '%.0f'|format(offer.min_cart_value or 0) }}+
+                        {% else %}
+                          —
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {% if offer.status == 'enabled' %}
+                          <span class="of-pill">Enabled</span>
+                        {% else %}
+                          <span class="of-pill off">Disabled</span>
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {{ offer.start_date or 'No start' }}<br>
+                        {{ offer.end_date or 'No end' }}
+                      </td>
+
+                      <td>
+                        <div class="of-inline-actions">
+                          <form method="POST" action="{{ url_for('store_offer_toggle', offer_id=offer.id) }}">
+                            <button class="of-btn of-btn-small" type="submit">
+                              {% if offer.status == 'enabled' %}Disable{% else %}Enable{% endif %}
+                            </button>
+                          </form>
+
+                          <form method="POST"
+                                action="{{ url_for('store_offer_delete', offer_id=offer.id) }}"
+                                onsubmit="return confirm('Delete this offer?');">
+                            <button class="of-btn of-btn-small of-btn-danger" type="submit">Delete</button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="of-empty">
+              No offers created yet. Add your first offer from the form.
+            </div>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const offerType = document.getElementById('offerType');
+      const targetType = document.getElementById('targetType');
+      const categoryWrap = document.getElementById('categoryWrap');
+      const productWrap = document.getElementById('productWrap');
+      const discountPercent = document.getElementById('discountPercent');
+      const cartDiscountPercent = document.getElementById('cartDiscountPercent');
+      const minCartValue = document.getElementById('minCartValue');
+
+      function syncTargetFields(){
+        const value = targetType ? targetType.value : 'all';
+
+        if(categoryWrap){
+          categoryWrap.classList.toggle('of-hidden', value !== 'category');
+        }
+
+        if(productWrap){
+          productWrap.classList.toggle('of-hidden', value !== 'product');
+        }
+      }
+
+      function syncOfferFields(){
+        const value = offerType ? offerType.value : '';
+
+        if(value === 'bogo'){
+          if(discountPercent) discountPercent.value = '0';
+          if(minCartValue) minCartValue.value = '0';
+        }
+
+        if(value === 'cart_value'){
+          if(targetType) targetType.value = 'all';
+          syncTargetFields();
+        }
+      }
+
+      if(cartDiscountPercent && discountPercent){
+        cartDiscountPercent.addEventListener('change', function(){
+          if(cartDiscountPercent.value){
+            discountPercent.value = cartDiscountPercent.value;
+          }
+        });
+      }
+
+      if(offerType){
+        offerType.addEventListener('change', syncOfferFields);
+      }
+
+      if(targetType){
+        targetType.addEventListener('change', syncTargetFields);
+      }
+
+      syncTargetFields();
+      syncOfferFields();
+    })();
+  </script>
+</section>
+{% endblock %}

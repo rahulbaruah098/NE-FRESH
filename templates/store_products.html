@@ -33,9 +33,19 @@
 {% if products %}
   {% for p in products %}
     {% if p.is_active %}{% set ns.active_products = ns.active_products + 1 %}{% else %}{% set ns.inactive_products = ns.inactive_products + 1 %}{% endif %}
-    {% if (p.stock_kg or 0) <= 0 %}{% set ns.out_stock = ns.out_stock + 1 %}{% endif %}
-    {% if (p.stock_kg or 0) > 0 and (p.stock_kg or 0) <= 1.0 %}{% set ns.low_stock = ns.low_stock + 1 %}{% endif %}
-    {% set ns.total_stock = ns.total_stock + (p.stock_kg or 0) %}
+    {% set p_stock = p.stock_quantity if p.stock_quantity is not none else (p.stock_kg or 0) %}
+{% set p_unit = p.unit_label or 'kg' %}
+{% set low_limit = 500 if p_unit in ['gram', 'ml'] else 5 %}
+
+{% if (p_stock or 0) <= 0 %}
+  {% set ns.out_stock = ns.out_stock + 1 %}
+{% endif %}
+
+{% if (p_stock or 0) > 0 and (p_stock or 0) <= low_limit %}
+  {% set ns.low_stock = ns.low_stock + 1 %}
+{% endif %}
+
+{% set ns.total_stock = ns.total_stock + (p_stock or 0) %}
   {% endfor %}
 {% endif %}
 
@@ -520,9 +530,9 @@
             <thead>
             <tr>
   <th>Name</th>
-  <th>₹/kg</th>
+<th>Price / Unit</th>
   <th>Discount</th>
-  <th>Stock (kg)</th>
+ <th>Stock</th>
   <th>Status</th>
   <th>Image</th>
   <th style="min-width:320px">Actions</th>
@@ -531,8 +541,14 @@
             <tbody>
             {% if products and products|length %}
               {% for p in products %}
-                {% set low = ((p.stock_kg or 0) <= 1.0 and (p.stock_kg or 0) > 0) %}
-                {% set out = ((p.stock_kg or 0) <= 0) %}
+                {% set p_stock = p.stock_quantity if p.stock_quantity is not none else (p.stock_kg or 0) %}
+{% set p_unit = p.unit_label or 'kg' %}
+{% set p_price = p.price_per_unit if p.price_per_unit is not none else (p.price_per_kg or 0) %}
+{% set p_original = p.original_price_per_unit if p.original_price_per_unit is not none else (p.original_price_per_kg or p.price_per_kg or 0) %}
+{% set p_discount = p.discount_amount_per_unit if p.discount_amount_per_unit is not none else (p.discount_amount_per_kg or 0) %}
+{% set low_limit = 500 if p_unit in ['gram', 'ml'] else 5 %}
+{% set low = ((p_stock or 0) <= low_limit and (p_stock or 0) > 0) %}
+{% set out = ((p_stock or 0) <= 0) %}
                 <tr>
                   <td>
                     <div class="sd-name">{{ p.name }}</div>
@@ -547,12 +563,12 @@
                     {% if out %}
                       <span class="sd-tag sd-tag-off">Out of stock</span>
                     {% elif low %}
-                      <span class="sd-tag sd-stock-low">Low: {{ '%.2f'|format(p.stock_kg or 0) }} kg</span>
+<span class="sd-tag sd-stock-low">Low: {{ '%.2f'|format(p_stock or 0) }} {{ p_unit }}</span>
                     {% else %}
-                      <span class="sd-tag">Left: {{ '%.2f'|format(p.stock_kg or 0) }} kg</span>
+<span class="sd-tag">Left: {{ '%.2f'|format(p_stock or 0) }} {{ p_unit }}</span>
                     {% endif %}
                   </td>
-                  <td>₹ {{ '%.2f'|format(p.price_per_kg or 0) }}</td>
+                  <td>₹ {{ '%.2f'|format(p_price or 0) }} / {{ p_unit }}</td>
                   <td>
   <div class="sd-discount-box">
     {% if p.discount_enabled %}
@@ -561,25 +577,25 @@
       </span>
 
       <div class="sd-discount-line">
-        Original: <strong>₹ {{ '%.2f'|format(p.original_price_per_kg or p.price_per_kg or 0) }}/kg</strong>
+Original: <strong>₹ {{ '%.2f'|format(p_original or 0) }}/{{ p_unit }}</strong>
       </div>
 
       <div class="sd-discount-line">
-        Discount: <strong>₹ {{ '%.2f'|format(p.discount_amount_per_kg or 0) }}/kg</strong>
+Discount: <strong>₹ {{ '%.2f'|format(p_discount or 0) }}/{{ p_unit }}</strong>
       </div>
 
       <div class="sd-discount-line">
-        Final: <strong>₹ {{ '%.2f'|format(p.price_per_kg or 0) }}/kg</strong>
+       Final: <strong>₹ {{ '%.2f'|format(p_price or 0) }}/{{ p_unit }}</strong>
       </div>
     {% else %}
       <span class="sd-discount-off">No Discount</span>
       <div class="sd-discount-line">
-        Selling: <strong>₹ {{ '%.2f'|format(p.price_per_kg or 0) }}/kg</strong>
+Selling: <strong>₹ {{ '%.2f'|format(p_price or 0) }}/{{ p_unit }}</strong>
       </div>
     {% endif %}
   </div>
 </td>
-                  <td>{{ '%.2f'|format(p.stock_kg or 0) }}</td>
+<td>{{ '%.2f'|format(p_stock or 0) }} {{ p_unit }}</td>
                   <td>
                     {% if p.is_active %}
                       <span class="sd-tag">Active</span>

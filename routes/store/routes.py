@@ -143,12 +143,23 @@ def store_catalog(sid):
     else:
         products = list(
             mongo.products.find({
-                "$or": [
-                    {"store_id": sid_obj},
-                    {"store_id": str(sid_obj)}
-                ],
-                "is_active": 1,
-                "stock_kg": {"$gt": 0}
+                "$and": [
+                    {
+                        "$or": [
+                            {"store_id": sid_obj},
+                            {"store_id": str(sid_obj)}
+                        ]
+                    },
+                    {
+                        "is_active": 1
+                    },
+                    {
+                        "$or": [
+                            {"stock_quantity": {"$gt": 0}},
+                            {"stock_kg": {"$gt": 0}}
+                        ]
+                    }
+                ]
             }).sort("created_at", -1)
         )
 
@@ -158,9 +169,7 @@ def store_catalog(sid):
             p["category"] = (p.get("category") or "Uncategorized").strip()
             p["sub_category"] = (p.get("sub_category") or "").strip()
             p["image_path"] = p.get("image_path", "")
-            p["price_per_kg"] = float(p.get("price_per_kg") or 0)
-            p["mrp_per_kg"] = float(p.get("mrp_per_kg") or p.get("old_price") or 0)
-            p["stock_kg"] = float(p.get("stock_kg") or 0)
+            hydrate_product_unit_fields(p)
             p["store_id"] = str(sid_obj)
             p["store_name"] = store.get("store_name", "")
 
@@ -426,6 +435,8 @@ def store_add_product_page():
         "store_add_product.html",
         user=u,
         store=store,
+        unit_options=UNIT_OPTIONS,
+        unit_type_labels=UNIT_TYPE_LABELS,
         **page_context
     )
 
@@ -1571,15 +1582,11 @@ def store_product_new():
 
     name = request.form.get('name', '').strip()
 
-    pricing = _calculate_product_pricing_from_form(request.form)
+    pricing = build_unit_product_update_from_form(request.form)
 
     price_per_kg = pricing["price_per_kg"]
     original_price_per_kg = pricing["original_price_per_kg"]
-
-    try:
-        stock_kg = float(request.form.get('stock_kg', '0') or 0)
-    except Exception:
-        stock_kg = 0
+    stock_kg = pricing["stock_kg"]
 
     category_id = (request.form.get("category_id") or "").strip()
     category = (request.form.get("category") or "").strip()
@@ -1647,11 +1654,22 @@ def store_product_new():
 
         "name": name,
 
+        "unit_type": pricing["unit_type"],
+        "unit_label": pricing["unit_label"],
+
+        "original_price_per_unit": pricing["original_price_per_unit"],
+        "price_per_unit": pricing["price_per_unit"],
+        "mrp_per_unit": pricing["mrp_per_unit"],
+        "stock_quantity": pricing["stock_quantity"],
+
         "original_price_per_kg": original_price_per_kg,
         "price_per_kg": price_per_kg,
+        "mrp_per_kg": pricing["mrp_per_kg"],
+
         "discount_enabled": pricing["discount_enabled"],
         "discount_type": pricing["discount_type"],
         "discount_value": pricing["discount_value"],
+        "discount_amount_per_unit": pricing["discount_amount_per_unit"],
         "discount_amount_per_kg": pricing["discount_amount_per_kg"],
         "discount_percent": pricing["discount_percent"],
 
@@ -1832,16 +1850,19 @@ def store_product_edit(pid):
 
     product["id"] = str(product["_id"])
     product["store_id"] = str(product.get("store_id")) if product.get("store_id") else ""
+    hydrate_product_unit_fields(product)
 
     active_categories = _get_store_categories(store["_id"], active_only=True)
 
     return render_template(
-    "store_product_edit.html",
-    user=u,
-    store=store,
-    product=product,
-    active_categories=active_categories
-)
+        "store_product_edit.html",
+        user=u,
+        store=store,
+        product=product,
+        active_categories=active_categories,
+        unit_options=UNIT_OPTIONS,
+        unit_type_labels=UNIT_TYPE_LABELS
+    )
 
 @app.route('/store/product/<pid>/edit', methods=['POST'], endpoint='store_product_update')
 @login_required(role='store')
@@ -1890,24 +1911,16 @@ def store_product_update(pid):
     category_id = str(category_doc["_id"])
     allowed_subs = category_doc.get("sub_categories") or []
 
-    fallback_original_price = (
-        product.get("original_price_per_kg")
-        if product.get("original_price_per_kg") is not None
-        else product.get("price_per_kg", 0)
-    )
+    fallback_original_price = product_original_price_per_unit(product)
 
-    pricing = _calculate_product_pricing_from_form(
+    pricing = build_unit_product_update_from_form(
         request.form,
         fallback_original_price=fallback_original_price
     )
 
     price = pricing["price_per_kg"]
     original_price = pricing["original_price_per_kg"]
-
-    try:
-        stock = float(request.form.get("stock_kg", "0") or 0)
-    except Exception:
-        stock = -1
+    stock = pricing["stock_kg"]
 
     if not name:
         flash("Product name is required.", "warning")
@@ -1942,11 +1955,22 @@ def store_product_update(pid):
     update_data = {
         "name": name,
 
+        "unit_type": pricing["unit_type"],
+        "unit_label": pricing["unit_label"],
+
+        "original_price_per_unit": pricing["original_price_per_unit"],
+        "price_per_unit": pricing["price_per_unit"],
+        "mrp_per_unit": pricing["mrp_per_unit"],
+        "stock_quantity": pricing["stock_quantity"],
+
         "original_price_per_kg": original_price,
         "price_per_kg": price,
+        "mrp_per_kg": pricing["mrp_per_kg"],
+
         "discount_enabled": pricing["discount_enabled"],
         "discount_type": pricing["discount_type"],
         "discount_value": pricing["discount_value"],
+        "discount_amount_per_unit": pricing["discount_amount_per_unit"],
         "discount_amount_per_kg": pricing["discount_amount_per_kg"],
         "discount_percent": pricing["discount_percent"],
 

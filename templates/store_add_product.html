@@ -372,7 +372,53 @@
   </select>
 </label>
 <label>
-  Original Price per kg (₹)
+  Selling Unit Type
+  <select id="unitTypeSelect" name="unit_type" required>
+    <option value="WEIGHT" selected>Weight</option>
+    <option value="VOLUME">Volume</option>
+    <option value="COUNT">Count / Unit</option>
+  </select>
+</label>
+
+<label>
+  Unit Label
+  <select id="unitLabelSelect" name="unit_label" required>
+    <option value="kg" data-type="WEIGHT" selected>kg</option>
+    <option value="gram" data-type="WEIGHT">gram</option>
+
+    <option value="liter" data-type="VOLUME">liter</option>
+    <option value="ml" data-type="VOLUME">ml</option>
+
+    <option value="piece" data-type="COUNT">piece</option>
+    <option value="packet" data-type="COUNT">packet</option>
+    <option value="bottle" data-type="COUNT">bottle</option>
+    <option value="box" data-type="COUNT">box</option>
+    <option value="tray" data-type="COUNT">tray</option>
+    <option value="dozen" data-type="COUNT">dozen</option>
+    <option value="bunch" data-type="COUNT">bunch</option>
+    <option value="bundle" data-type="COUNT">bundle</option>
+    <option value="set" data-type="COUNT">set</option>
+    <option value="jar" data-type="COUNT">jar</option>
+    <option value="can" data-type="COUNT">can</option>
+    <option value="pouch" data-type="COUNT">pouch</option>
+    <option value="tin" data-type="COUNT">tin</option>
+    <option value="bag" data-type="COUNT">bag</option>
+    <option value="crate" data-type="COUNT">crate</option>
+    <option value="roll" data-type="COUNT">roll</option>
+    <option value="custom" data-type="COUNT">custom</option>
+  </select>
+</label>
+
+<label id="customUnitWrap" style="display:none;">
+  Custom Unit Label
+  <input id="customUnitLabel"
+         name="custom_unit_label"
+         type="text"
+         placeholder="Example: slab, pack, cup">
+</label>
+
+<label>
+  <span id="originalPriceLabel">Original Price per kg (₹)</span>
   <input id="originalPricePerKg"
          name="original_price_per_kg"
          type="number"
@@ -382,7 +428,20 @@
 </label>
 
 <input id="finalPricePerKg" name="price_per_kg" type="hidden" value="">
-            <label>Stock (kg)<input name="stock_kg" type="number" step="0.01" min="0" required></label>
+<input id="finalPricePerUnit" name="price_per_unit" type="hidden" value="">
+<input id="originalPricePerUnit" name="original_price_per_unit" type="hidden" value="">
+
+<label>
+  <span id="stockQuantityLabel">Stock (kg)</span>
+  <input id="stockQuantityInput"
+         name="stock_quantity"
+         type="number"
+         step="0.01"
+         min="0"
+         required>
+</label>
+
+<input id="stockKgInput" name="stock_kg" type="hidden" value="">
             <div class="sd-discount-panel">
   <div class="sd-discount-head">
     <div>
@@ -403,7 +462,7 @@
       Discount Type
       <select id="discountType" name="discount_type">
         <option value="percent">Percentage (%)</option>
-        <option value="amount">Fixed Amount (₹/kg)</option>
+<option value="amount" id="fixedDiscountOption">Fixed Amount</option>
       </select>
     </label>
 
@@ -418,7 +477,7 @@
     </label>
 
     <label>
-      Final Price per kg (₹)
+<span id="finalPriceLabel">Final Price per kg (₹)</span>
       <input id="finalPriceDisplay"
              type="number"
              step="0.01"
@@ -517,6 +576,97 @@ if (cat && catName && subWrap && subSel) {
         bindSearch('[data-sd-product-search]', '[data-sd-product-table]');
         bindSearch('[data-sd-order-search]', '[data-sd-order-table]');
 
+
+        const unitTypeSelect = document.getElementById('unitTypeSelect');
+const unitLabelSelect = document.getElementById('unitLabelSelect');
+const customUnitWrap = document.getElementById('customUnitWrap');
+const customUnitLabel = document.getElementById('customUnitLabel');
+const originalPriceLabel = document.getElementById('originalPriceLabel');
+const finalPriceLabel = document.getElementById('finalPriceLabel');
+const fixedDiscountOption = document.getElementById('fixedDiscountOption');
+const stockQuantityLabel = document.getElementById('stockQuantityLabel');
+const stockQuantityInput = document.getElementById('stockQuantityInput');
+const stockKgInput = document.getElementById('stockKgInput');
+const finalPricePerUnit = document.getElementById('finalPricePerUnit');
+const originalPricePerUnit = document.getElementById('originalPricePerUnit');
+
+function currentUnitLabel(){
+  if (!unitLabelSelect) return 'kg';
+
+  const selected = unitLabelSelect.value || 'kg';
+
+  if (selected === 'custom' && customUnitLabel && customUnitLabel.value.trim()) {
+    return customUnitLabel.value.trim().toLowerCase();
+  }
+
+  return selected;
+}
+
+function syncUnitFields(){
+  if (!unitTypeSelect || !unitLabelSelect) return;
+
+  const selectedType = unitTypeSelect.value || 'WEIGHT';
+
+  Array.from(unitLabelSelect.options).forEach(function(option){
+    const optionType = option.getAttribute('data-type');
+
+    if (!optionType) return;
+
+    option.hidden = optionType !== selectedType;
+    option.disabled = optionType !== selectedType;
+  });
+
+  const selectedOption = unitLabelSelect.options[unitLabelSelect.selectedIndex];
+
+  if (!selectedOption || selectedOption.hidden || selectedOption.disabled) {
+    const firstVisible = Array.from(unitLabelSelect.options).find(function(option){
+      return !option.hidden && !option.disabled;
+    });
+
+    if (firstVisible) unitLabelSelect.value = firstVisible.value;
+  }
+
+  const label = currentUnitLabel();
+
+  if (customUnitWrap && customUnitLabel) {
+    const isCustom = unitLabelSelect.value === 'custom';
+    customUnitWrap.style.display = isCustom ? '' : 'none';
+    customUnitLabel.required = isCustom;
+  }
+
+  if (originalPriceLabel) {
+    originalPriceLabel.textContent = 'Original Price per ' + label + ' (₹)';
+  }
+
+  if (finalPriceLabel) {
+    finalPriceLabel.textContent = 'Final Price per ' + label + ' (₹)';
+  }
+
+  if (fixedDiscountOption) {
+    fixedDiscountOption.textContent = 'Fixed Amount (₹/' + label + ')';
+  }
+
+  if (stockQuantityLabel) {
+    stockQuantityLabel.textContent = 'Stock (' + label + ')';
+  }
+
+  if (stockQuantityInput) {
+  stockQuantityInput.min = '0';
+
+  if (selectedType === 'COUNT') {
+    stockQuantityInput.step = '1';
+  } else {
+    stockQuantityInput.step = '0.01';
+  }
+}
+}
+
+if (unitTypeSelect) unitTypeSelect.addEventListener('change', syncUnitFields);
+if (unitLabelSelect) unitLabelSelect.addEventListener('change', syncUnitFields);
+if (customUnitLabel) customUnitLabel.addEventListener('input', syncUnitFields);
+
+syncUnitFields();
+
         const originalPriceInput = document.getElementById('originalPricePerKg');
 const finalPriceHidden = document.getElementById('finalPricePerKg');
 const finalPriceDisplay = document.getElementById('finalPriceDisplay');
@@ -568,8 +718,16 @@ function calculateDiscountPrice(){
 
   if (finalPrice < 0) finalPrice = 0;
 
-  finalPriceHidden.value = finalPrice.toFixed(2);
-  finalPriceDisplay.value = finalPrice.toFixed(2);
+ finalPriceHidden.value = finalPrice.toFixed(2);
+finalPriceDisplay.value = finalPrice.toFixed(2);
+
+if (finalPricePerUnit) {
+  finalPricePerUnit.value = finalPrice.toFixed(2);
+}
+
+if (originalPricePerUnit) {
+  originalPricePerUnit.value = original.toFixed(2);
+}
 
   if (previewOriginal) previewOriginal.textContent = toMoney(original);
   if (previewDiscount) previewDiscount.textContent = toMoney(discountAmount);
@@ -594,7 +752,20 @@ const addProductForm = document.querySelector('form[action="{{ url_for("store_pr
 
 if (addProductForm) {
   addProductForm.addEventListener('submit', function(){
+    syncUnitFields();
     calculateDiscountPrice();
+
+    if (stockKgInput && stockQuantityInput) {
+      stockKgInput.value = stockQuantityInput.value || '0';
+    }
+
+    if (finalPricePerUnit && finalPriceHidden) {
+      finalPricePerUnit.value = finalPriceHidden.value || '0';
+    }
+
+    if (originalPricePerUnit && originalPriceInput) {
+      originalPricePerUnit.value = originalPriceInput.value || '0';
+    }
   });
 }
       });

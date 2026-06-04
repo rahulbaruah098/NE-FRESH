@@ -21,6 +21,7 @@ def products():
 
     for p in products:
         p["id"] = str(p["_id"])
+        hydrate_product_unit_fields(p)
 
         # Prevent Jinja sort/groupby crash when MongoDB has null category fields
         p["category"] = (p.get("category") or "Uncategorized").strip()
@@ -148,6 +149,7 @@ def product_detail(pid):
         return redirect(url_for('products'))
 
     p["id"] = str(p["_id"])
+    hydrate_product_unit_fields(p)
 
     store = None
     if p.get("store_id"):
@@ -243,15 +245,22 @@ def product_detail(pid):
             "customer_name": customer.get("name") if customer else "Customer"
         })
 
-    selected_weight_kg = request.args.get("weight_kg", "1.00")
+    selected_quantity_raw = (
+        request.args.get("quantity")
+        or request.args.get("weight_kg")
+        or p.get("quantity_min")
+        or 1
+    )
 
     try:
-        selected_weight_kg = float(selected_weight_kg)
+        selected_quantity = float(selected_quantity_raw)
     except (TypeError, ValueError):
-        selected_weight_kg = 1.00
+        selected_quantity = float(p.get("quantity_min", 1) or 1)
 
-    if selected_weight_kg < 0.25:
-        selected_weight_kg = 0.25
+    min_quantity = float(p.get("quantity_min", 0.25) or 0.25)
+
+    if selected_quantity < min_quantity:
+        selected_quantity = min_quantity
 
     return render_template(
         'product.html',
@@ -259,7 +268,8 @@ def product_detail(pid):
         product=p,
         rating=rating_summary,
         reviews=reviews,
-        selected_weight_kg=selected_weight_kg
+        selected_quantity=selected_quantity,
+        selected_weight_kg=selected_quantity
     )
 
 @app.route("/products/<pid>/review", methods=["POST"], endpoint="submit_product_review")

@@ -568,9 +568,9 @@
       gap:12px;
     }
 
-    .cart-page .cart-table td:nth-child(2)::before{
-      content:"Weight";
-    }
+   .cart-page .cart-table td:nth-child(2)::before{
+  content:"Quantity";
+}
 
     .cart-page .cart-table td:nth-child(3)::before{
       content:"Rate";
@@ -716,8 +716,8 @@
           <thead>
             <tr>
               <th>Item</th>
-              <th>Weight (kg)</th>
-              <th>₹/kg</th>
+             <th>Quantity</th>
+<th>Rate</th>
               <th>Subtotal</th>
               <th></th>
             </tr>
@@ -728,15 +728,24 @@
             {% set cart_item_id = i['cart_item_id'] %}
             {% set img = '/' + i['image_path'] if i['image_path'] else url_for('static', filename='placeholder.png') %}
             {% set name = i['name'] %}
-            {% set price = i['price_per_kg'] or 0 %}
-            {% set w = i['weight_kg'] or 0 %}
-            {% set stock = i['stock_kg'] or 0 %}
-            {% set store_name = i['store_name'] %}
+            {% set unit_label = i.get('unit_label', 'kg') or 'kg' %}
+{% set unit_type = i.get('unit_type', 'WEIGHT') or 'WEIGHT' %}
+{% set price = i.get('price_per_unit', i.get('price_per_kg', 0)) or 0 %}
+{% set w = i.get('cart_quantity', i.get('quantity', i.get('weight_kg', 0))) or 0 %}
+{% set stock = i.get('stock_quantity', i.get('stock_kg', 0)) or 0 %}
+{% set line_total = i.get('line_total', w * price) or 0 %}
+{% set qty_step = 1 if unit_type == 'COUNT' else (50 if unit_label in ['gram', 'ml'] else 0.25) %}
+{% set qty_min = 1 if unit_type == 'COUNT' else (50 if unit_label in ['gram', 'ml'] else 0.25) %}
+{% set store_name = i['store_name'] %}
             <tr class="cart-row"
-                data-pid="{{ pid }}"
-                data-item-id="{{ cart_item_id }}"
-                data-price="{{ '%.2f'|format(price) }}"
-                data-stock="{{ '%.2f'|format(stock) }}">
+    data-pid="{{ pid }}"
+    data-item-id="{{ cart_item_id }}"
+    data-price="{{ '%.2f'|format(price) }}"
+    data-stock="{{ '%.2f'|format(stock) }}"
+    data-unit-label="{{ unit_label }}"
+    data-unit-type="{{ unit_type }}"
+    data-step="{{ qty_step }}"
+    data-min="{{ qty_min }}">
               <td>
                 <a href="{{ url_for('product_detail', pid=pid) }}" class="thumb-link">
                   <img src="{{ img }}" alt="{{ name }}">
@@ -750,16 +759,16 @@
               <td>
                 <div class="qty-wrap">
                   <button type="button" class="btn-qty btn-minus" aria-label="Decrease">−</button>
-                  <input class="qty-input" type="text"
-                         value="{{ '%.2f'|format(w) }}"
-                         inputmode="decimal" autocomplete="off">
+                 <input class="qty-input" type="text"
+       value="{{ '%g'|format(w) }}"
+       inputmode="decimal" autocomplete="off">
                   <button type="button" class="btn-qty btn-plus" aria-label="Increase">+</button>
                 </div>
-                <div class="qty-hint">Step: 0.25 kg</div>
+               <div class="qty-hint">Step: {{ qty_step }} {{ unit_label }}</div>
               </td>
 
-              <td>₹ {{ '%.2f'|format(price) }}</td>
-              <td class="cell-subtotal">₹ {{ '%.2f'|format(w * price) }}</td>
+            <td>₹ {{ '%.2f'|format(price) }} / {{ unit_label }}</td>
+<td class="cell-subtotal">₹ {{ '%.2f'|format(line_total) }}</td>
 
               <td>
                 <form class="inline" method="post" action="{{ url_for('api_cart_remove') }}">
@@ -805,150 +814,260 @@
   }
 
 (function(){
-  const STEP=0.25,MIN=0.25;
   const body=document.getElementById('cartBody');
   const elGrand=document.getElementById('grandTotal');
-  function round2(x){return Math.round(x*100)/100;}
-  function fmtINR(x){return '₹ '+Number(x).toFixed(2);}
+
+  function round2(x){
+    return Math.round(x * 100) / 100;
+  }
+
+  function fmtINR(x){
+    return '₹ ' + Number(x || 0).toFixed(2);
+  }
+
+  function fmtQty(x){
+    const n = Number(x || 0);
+
+    if(!Number.isFinite(n)){
+      return '0';
+    }
+
+    if(Number.isInteger(n)){
+      return String(n);
+    }
+
+    return String(parseFloat(n.toFixed(2)));
+  }
+
+  function getStep(tr){
+    return Number(tr.dataset.step || 0.25);
+  }
+
+  function getMin(tr){
+    return Number(tr.dataset.min || 0.25);
+  }
+
+  function getUnitLabel(tr){
+    return tr.dataset.unitLabel || 'kg';
+  }
+
+  function normalizeQty(tr, value){
+    const step = getStep(tr);
+    const min = getMin(tr);
+    const stock = Number(tr.dataset.stock || 0);
+
+    let q = Number(value || 0);
+
+    if(!Number.isFinite(q)){
+      q = min;
+    }
+
+    q = Math.max(min, q);
+
+    if(stock > 0){
+      q = Math.min(q, stock);
+    }
+
+    if(step > 0){
+      q = Math.round(q / step) * step;
+    }
+
+    q = round2(q);
+
+    if(q < min){
+      q = min;
+    }
+
+    return q;
+  }
+
   function recomputeRow(tr){
-    const price=Number(tr.dataset.price||0);
-    const input=tr.querySelector('.qty-input');
-    const w=Number(input.value||0);
-    const sub=tr.querySelector('.cell-subtotal');
-    if(sub)sub.textContent=fmtINR(price*w);
+    const price = Number(tr.dataset.price || 0);
+    const input = tr.querySelector('.qty-input');
+    const q = Number(input.value || 0);
+    const sub = tr.querySelector('.cell-subtotal');
+
+    if(sub){
+      sub.textContent = fmtINR(price * q);
+    }
   }
+
   function recomputeTotal(){
-    let sum=0;
-    document.querySelectorAll('tr.cart-row').forEach(tr=>{
-      const price=Number(tr.dataset.price||0);
-      const w=Number(tr.querySelector('.qty-input').value||0);
-      sum+=price*w;
+    let sum = 0;
+
+    document.querySelectorAll('tr.cart-row').forEach(tr => {
+      const price = Number(tr.dataset.price || 0);
+      const q = Number(tr.querySelector('.qty-input').value || 0);
+      sum += price * q;
     });
-    if(elGrand)elGrand.textContent=fmtINR(sum);
+
+    if(elGrand){
+      elGrand.textContent = fmtINR(sum);
+    }
   }
+
   async function saveRow(tr){
-    const pid=tr.dataset.pid;
-    const stock=Number(tr.dataset.stock||0);
-    const input=tr.querySelector('.qty-input');
-    let w=Number(input.value||0);
-    if(!isFinite(w))w=MIN;
-    w=Math.max(MIN,w);
-    if(stock>0)w=Math.min(w,stock);
-    w=Math.max(MIN,Math.round(w/STEP)*STEP);
-    w=round2(w);
-    input.value=w.toFixed(2);
-    const fd=new FormData();
-    fd.append('product_id',pid);
-    fd.append('weight_kg',String(w));
+    const pid = tr.dataset.pid;
+    const input = tr.querySelector('.qty-input');
+    const unitLabel = getUnitLabel(tr);
+
+    let q = normalizeQty(tr, input.value);
+    input.value = fmtQty(q);
+
+    const fd = new FormData();
+    fd.append('product_id', pid);
+    fd.append('quantity', String(q));
+    fd.append('weight_kg', String(q));
+    fd.append('unit_type', tr.dataset.unitType || 'WEIGHT');
+    fd.append('unit_label', unitLabel);
+
     try{
-      const r=await fetch('{{ url_for("api_cart_add") }}',{method:'POST',body:fd});
-      const j=await r.json();
-      if(!j.ok){alert(j.error||'Could not update item.');}
-    }catch(e){console.error(e);}
-    recomputeRow(tr);recomputeTotal();
+      const r = await fetch('{{ url_for("api_cart_add") }}', {
+        method:'POST',
+        body:fd,
+        credentials:'same-origin',
+        headers:{ 'Accept':'application/json' }
+      });
+
+      const j = await r.json();
+
+      if(!r.ok || !j.ok){
+        alert(j.msg || j.error || 'Could not update item.');
+      }else{
+        showToast(fmtQty(q) + ' ' + unitLabel + ' updated');
+      }
+    }catch(e){
+      console.error(e);
+      alert('Network error while updating item.');
+    }
+
+    recomputeRow(tr);
+    recomputeTotal();
   }
-  body?.addEventListener('click',ev=>{
-    const btn=ev.target.closest('.btn-qty');
-    if(!btn)return;
-    const tr=ev.target.closest('tr.cart-row');
-    if(!tr)return;
-    const input=tr.querySelector('.qty-input');
-    const stock=Number(tr.dataset.stock||0);
-    let v=Number(input.value||0);
-    if(!isFinite(v)||v<=0)v=MIN;
-    if(btn.classList.contains('btn-plus'))v+=STEP;
-    if(btn.classList.contains('btn-minus'))v-=STEP;
-    if(stock>0)v=Math.min(v,stock);
-    v=Math.max(MIN,v);
-    v=Math.round(v/STEP)*STEP;
-    v=round2(v);
-    input.value=v.toFixed(2);
+
+  body?.addEventListener('click', ev => {
+    const btn = ev.target.closest('.btn-qty');
+
+    if(!btn) return;
+
+    const tr = ev.target.closest('tr.cart-row');
+
+    if(!tr) return;
+
+    const input = tr.querySelector('.qty-input');
+    const step = getStep(tr);
+
+    let v = Number(input.value || 0);
+
+    if(!Number.isFinite(v) || v <= 0){
+      v = getMin(tr);
+    }
+
+    if(btn.classList.contains('btn-plus')){
+      v += step;
+    }
+
+    if(btn.classList.contains('btn-minus')){
+      v -= step;
+    }
+
+    v = normalizeQty(tr, v);
+    input.value = fmtQty(v);
+
     saveRow(tr);
   });
-  body?.addEventListener('keydown',ev=>{
-    if(ev.key!=='Enter')return;
-    const input=ev.target.closest('.qty-input');
-    if(!input)return;
+
+  body?.addEventListener('keydown', ev => {
+    if(ev.key !== 'Enter') return;
+
+    const input = ev.target.closest('.qty-input');
+
+    if(!input) return;
+
     ev.preventDefault();
-    const tr=ev.target.closest('tr.cart-row');
-    if(tr)saveRow(tr);
+
+    const tr = ev.target.closest('tr.cart-row');
+
+    if(tr){
+      saveRow(tr);
+    }
   });
-  body?.addEventListener('blur',ev=>{
-    const input=ev.target.closest('.qty-input');
-    if(!input)return;
-    const tr=ev.target.closest('tr.cart-row');
-    if(tr)saveRow(tr);
-  },true);
 
-    // ✅ REMOVE ITEM: prevent full page JSON navigation
- // ✅ REMOVE ITEM: prevent full page JSON navigation + JSON-safe parsing
-    // ✅ REMOVE ITEM: prevent full page JSON navigation + JSON-safe parsing
-    document.querySelectorAll('form.inline[action="{{ url_for("api_cart_remove") }}"]').forEach(form=>{
-      form.addEventListener('submit', async (ev) => {
-        ev.preventDefault();
+  body?.addEventListener('blur', ev => {
+    const input = ev.target.closest('.qty-input');
 
-        const tr = form.closest('tr.cart-row');
-        const fd = new FormData(form);
+    if(!input) return;
 
-        try{
-          const r = await fetch(form.action, {
-            method: 'POST',
-            body: fd,
-            credentials: 'same-origin',
-            headers: { 'Accept': 'application/json' }
-          });
+    const tr = ev.target.closest('tr.cart-row');
 
-          const ct = (r.headers.get('content-type') || '').toLowerCase();
+    if(tr){
+      saveRow(tr);
+    }
+  }, true);
 
-          if (r.redirected) {
-            alert('Session expired. Please login again.');
-            window.location.href = r.url;
-            return;
-          }
+  document.querySelectorAll('form.inline[action="{{ url_for("api_cart_remove") }}"]').forEach(form => {
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
 
-          if (!ct.includes('application/json')) {
-            const text = await r.text();
-            console.error('Remove returned non-JSON:', text.slice(0, 200));
-            alert('Server did not return JSON. Check login / error logs.');
-            return;
-          }
+      const tr = form.closest('tr.cart-row');
+      const fd = new FormData(form);
 
-          const j = await r.json();
+      try{
+        const r = await fetch(form.action, {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { 'Accept': 'application/json' }
+        });
 
-          if(!r.ok || !j.ok){
-            alert(j.msg || j.error || 'Could not remove item.');
-            return;
-          }
+        const ct = (r.headers.get('content-type') || '').toLowerCase();
 
-          // ✅ remove row
-          if(tr) tr.remove();
-
-          // ✅ totals
-          recomputeTotal();
-
-          // ✅ toast
-          showToast('Removed');
-
-          // ✅ GLOBAL cart icon update
-          document.dispatchEvent(
-            new CustomEvent("cart:updated", {
-              detail: { count: j.cart_count ?? 0 }
-            })
-          );
-
-          // ✅ empty cart -> reload
-          if(document.querySelectorAll('tr.cart-row').length === 0){
-            window.location.reload();
-          }
-
-        }catch(e){
-          console.error(e);
-          alert('Network error while removing item.');
+        if (r.redirected) {
+          alert('Session expired. Please login again.');
+          window.location.href = r.url;
+          return;
         }
-      });
-    });
 
-})();   // ✅ IMPORTANT: closes (function(){ ... })();
+        if (!ct.includes('application/json')) {
+          const text = await r.text();
+          console.error('Remove returned non-JSON:', text.slice(0, 200));
+          alert('Server did not return JSON. Check login / error logs.');
+          return;
+        }
+
+        const j = await r.json();
+
+        if(!r.ok || !j.ok){
+          alert(j.msg || j.error || 'Could not remove item.');
+          return;
+        }
+
+        if(tr){
+          tr.remove();
+        }
+
+        recomputeTotal();
+        showToast('Removed');
+
+        document.dispatchEvent(
+          new CustomEvent("cart:updated", {
+            detail: { count: j.cart_count ?? 0 }
+          })
+        );
+
+        if(document.querySelectorAll('tr.cart-row').length === 0){
+          window.location.reload();
+        }
+
+      }catch(e){
+        console.error(e);
+        alert('Network error while removing item.');
+      }
+    });
+  });
+})();
+
+
 </script>
 
 {% endblock %}

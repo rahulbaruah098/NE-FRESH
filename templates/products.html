@@ -2256,19 +2256,22 @@
             {% if all_products and all_products|length > 0 %}
               <section class="nf-products-grid" id="nfProductsGrid" aria-label="Product list">
                 {% for p in all_products %}
-                  {% set final_price_per_kg = p.price_per_kg or 0 %}
-                  {% set original_price_per_kg = p.original_price_per_kg if p.original_price_per_kg is defined and p.original_price_per_kg else final_price_per_kg %}
-                  {% set discount_amount_per_kg = p.discount_amount_per_kg if p.discount_amount_per_kg is defined and p.discount_amount_per_kg else 0 %}
-                  {% set discount_percent = p.discount_percent if p.discount_percent is defined and p.discount_percent else 0 %}
-                  {% set has_discount = p.discount_enabled and discount_amount_per_kg > 0 and original_price_per_kg > final_price_per_kg %}
-                  {% set half_price = final_price_per_kg / 2 %}
-                  {% set mrp_half = original_price_per_kg / 2 if has_discount else half_price %}
-                  {% set pct_off = discount_percent if has_discount else 0 %}
-                  {% set category_name = p.category if p.category else 'Uncategorized' %}
-                  {% set subcat_name = p.sub_category if p.sub_category else '' %}
-                  {% set stock_value = p.stock_kg or 0 %}
-                  {% set in_stock = stock_value > 0 %}
-                  {% set low_stock = stock_value > 0 and stock_value <= 1 %}
+{% set unit_label = p.get('unit_label', 'kg') or 'kg' %}
+{% set unit_type = p.get('unit_type', 'WEIGHT') or 'WEIGHT' %}
+{% set final_price = p.get('price_per_unit', p.get('price_per_kg', 0)) or 0 %}
+{% set original_price = p.get('original_price_per_unit', p.get('original_price_per_kg', final_price)) or final_price %}
+{% set discount_amount = p.get('discount_amount_per_unit', p.get('discount_amount_per_kg', 0)) or 0 %}
+{% set discount_percent = p.get('discount_percent', 0) or 0 %}
+{% set has_discount = p.discount_enabled and discount_amount > 0 and original_price > final_price %}
+{% set pct_off = discount_percent if has_discount else 0 %}
+{% set category_name = p.category if p.category else 'Uncategorized' %}
+{% set subcat_name = p.sub_category if p.sub_category else '' %}
+{% set stock_value = p.stock_quantity if p.stock_quantity is not none else (p.stock_kg or 0) %}
+{% set qty_min = p.quantity_min or 0.25 %}
+{% set qty_step = p.quantity_step or 0.25 %}
+{% set low_limit = 500 if unit_label in ['gram', 'ml'] else 5 %}
+{% set in_stock = stock_value > 0 %}
+{% set low_stock = stock_value > 0 and stock_value <= low_limit %}
 
                   <article
                     class="nf-product-card nf-reveal-card"
@@ -2277,13 +2280,14 @@
                     data-store="{{ p.store_name|lower|e }}"
                     data-category="{{ category_name|lower|trim|e }}"
                     data-subcategory="{{ subcat_name|lower|trim|e }}"
-                    data-price="{{ '%.2f'|format(half_price) }}"
-                    data-original-price="{{ '%.2f'|format(mrp_half) }}"
-                    data-stock="{{ '%.2f'|format(stock_value) }}"
-                    data-stock-qty="{{ '%.2f'|format(stock_value) }}"
-                    data-discount-enabled="{{ '1' if has_discount else '0' }}"
-                    data-discount-amount="{{ '%.2f'|format(discount_amount_per_kg / 2 if has_discount else 0) }}"
-                    data-offer="{{ (pct_off | round(0, 'floor') | int) }}"
+                    data-price="{{ '%.2f'|format(final_price) }}"
+data-original-price="{{ '%.2f'|format(original_price) }}"
+data-stock="{{ '%.2f'|format(stock_value) }}"
+data-stock-qty="{{ '%.2f'|format(stock_value) }}"
+data-unit="{{ unit_label }}"
+data-discount-enabled="{{ '1' if has_discount else '0' }}"
+data-discount-amount="{{ '%.2f'|format(discount_amount if has_discount else 0) }}"
+data-offer="{{ (pct_off | round(0, 'floor') | int) }}"
                   >
                     <a class="nf-product-img-link" href="{{ url_for('product_detail', pid=p.id) }}">
                       <div class="nf-product-img">
@@ -2291,9 +2295,9 @@
                           <span class="nf-discount-badge">{{ (pct_off | round(0, 'floor') | int) }}% OFF</span>
                         {% endif %}
                         {% if low_stock %}
-                          <span class="nf-stock-badge low">Low: {{ '%.2f'|format(stock_value) }} kg</span>
+<span class="nf-stock-badge low">Low: {{ '%.2f'|format(stock_value) }} {{ unit_label }}</span>
                         {% elif in_stock %}
-                          <span class="nf-stock-badge">{{ '%.2f'|format(stock_value) }} kg</span>
+<span class="nf-stock-badge">{{ '%.2f'|format(stock_value) }} {{ unit_label }}</span>
                         {% else %}
                           <span class="nf-stock-badge out">Out of stock</span>
                         {% endif %}
@@ -2325,13 +2329,13 @@
 
                       <div class="nf-price-row">
                         <div class="nf-price-block">
-                          <span class="nf-price-main">₹{{ '%.2f'|format(half_price) }}</span>
-                          {% if has_discount %}
-                            <span class="nf-mrp">₹{{ '%.2f'|format(mrp_half) }}</span>
-                          {% endif %}
+                          <span class="nf-price-main">₹{{ '%.2f'|format(final_price) }} / {{ unit_label }}</span>
+{% if has_discount %}
+  <span class="nf-mrp">₹{{ '%.2f'|format(original_price) }} / {{ unit_label }}</span>
+{% endif %}
                         </div>
                         {% if has_discount %}
-                          <span class="nf-discount-line">Save ₹{{ '%.2f'|format(discount_amount_per_kg / 2) }}/½kg</span>
+                          <span class="nf-discount-line">Save ₹{{ '%.2f'|format(discount_amount) }}/{{ unit_label }}</span>
                         {% endif %}
                         <a class="nf-quick-view" href="{{ url_for('product_detail', pid=p.id) }}">View Details</a>
                       </div>
@@ -2339,12 +2343,27 @@
 
                     <div class="nf-card-actions">
                       {% if user %}
-                        <form class="nf-cart-add" method="post" action="{{ url_for('api_cart_add') }}" data-available-stock="{{ '%.2f'|format(stock_value) }}" novalidate>
-                          <input type="hidden" name="product_id" value="{{ p.id }}">
-                          <div class="nf-weight-row">
-                            <label>Weight (kg)</label>
-                            <input type="number" name="weight_kg" min="0.25" max="{{ '%.2f'|format(stock_value) }}" step="0.25" value="1.00">
-                          </div>
+                        <form class="nf-cart-add"
+      method="post"
+      action="{{ url_for('api_cart_add') }}"
+      data-available-stock="{{ '%.2f'|format(stock_value) }}"
+      data-unit-label="{{ unit_label }}"
+      novalidate>
+  <input type="hidden" name="product_id" value="{{ p.id }}">
+  <input type="hidden" name="unit_type" value="{{ unit_type }}">
+  <input type="hidden" name="unit_label" value="{{ unit_label }}">
+  <input type="hidden" name="weight_kg" data-legacy-weight value="{{ qty_min }}">
+
+  <div class="nf-weight-row">
+    <label>Quantity ({{ unit_label }})</label>
+    <input type="number"
+           name="quantity"
+           data-cart-quantity
+           min="{{ qty_min }}"
+           max="{{ '%.2f'|format(stock_value) }}"
+           step="{{ qty_step }}"
+           value="{{ qty_min }}">
+  </div>
 
 <div class="nf-stock-warning" data-stock-warning role="status" aria-live="polite">
   Requested amount is not available in stock. Please change the amount.
@@ -3321,25 +3340,26 @@ function restoreScrollPosition(savedY){
       })();
 
       function validateProductCardQty(form){
-  if(!form) return false;
-
-  const input = form.querySelector('input[name="weight_kg"]');
-  const addBtn = form.querySelector('.nf-add-cart');
-  const buyBtn = form.querySelector('.nf-buy-now');
-  const warning = form.querySelector('[data-stock-warning]');
+  const input = getQuantityInput(form);
+  const addBtn = form ? form.querySelector('button[type="submit"]') : null;
+  const buyBtn = form ? form.querySelector('.nf-buy-now') : null;
+  const warning = form ? form.querySelector('.nf-stock-warning') : null;
   const availableStock = parseFloat(form.getAttribute('data-available-stock') || '0');
+  const unitLabel = getUnitLabel(form);
+
+  const minQty = input ? parseFloat(input.getAttribute('min') || '0.25') : 0.25;
   const qty = input ? parseFloat(input.value || '') : NaN;
 
   let message = '';
 
   if(!Number.isFinite(qty)){
     message = 'Please enter a valid quantity.';
-  }else if(qty < 0.25){
-    message = 'Minimum order quantity is 0.25 kg.';
+  }else if(qty < minQty){
+    message = 'Minimum order quantity is ' + minQty + ' ' + unitLabel + '.';
   }else if(availableStock <= 0){
     message = 'This item is sold out.';
   }else if(qty > availableStock){
-    message = 'Requested amount is not available in stock. Only ' + availableStock.toFixed(2) + ' kg is available. Please change the amount.';
+    message = 'Requested amount is not available in stock. Only ' + availableStock.toFixed(2) + ' ' + unitLabel + ' is available. Please change the amount.';
   }
 
   const invalid = !!message;
@@ -3372,38 +3392,65 @@ function restoreScrollPosition(savedY){
   return !invalid;
 }
 
+function getUnitLabel(form){
+  return form ? (form.getAttribute('data-unit-label') || 'unit') : 'unit';
+}
+
+function getQuantityInput(form){
+  return form ? form.querySelector('[data-cart-quantity]') : null;
+}
+
+function getLegacyWeightInput(form){
+  return form ? form.querySelector('[data-legacy-weight]') : null;
+}
+
+function syncLegacyQuantity(form){
+  const quantityInput = getQuantityInput(form);
+  const legacyInput = getLegacyWeightInput(form);
+
+  if (!quantityInput || !legacyInput) return;
+
+  legacyInput.value = quantityInput.value || '1';
+}
+
 document.querySelectorAll('form.nf-cart-add').forEach(function(form){
-  const input = form.querySelector('input[name="weight_kg"]');
+  const input = getQuantityInput(form);
 
   if(input){
     input.addEventListener('input', function(){
+      syncLegacyQuantity(form);
       validateProductCardQty(form);
     });
 
     input.addEventListener('change', function(){
+      syncLegacyQuantity(form);
       validateProductCardQty(form);
     });
 
     input.addEventListener('blur', function(){
+      syncLegacyQuantity(form);
       validateProductCardQty(form);
     });
   }
 
+  syncLegacyQuantity(form);
   validateProductCardQty(form);
 });
 
       function bindStockQuantityValidation(){
         document.querySelectorAll('form.nf-cart-add').forEach(function(form){
-          const input = form.querySelector('input[name="weight_kg"]');
-          const addBtn = form.querySelector('button[type="submit"]');
-          const buyBtn = form.querySelector('.nf-buy-now');
-          const availableStock = parseFloat(form.getAttribute('data-available-stock') || '0');
+          const input = getQuantityInput(form);
+const addBtn = form.querySelector('button[type="submit"]');
+const buyBtn = form.querySelector('.nf-buy-now');
+const availableStock = parseFloat(form.getAttribute('data-available-stock') || '0');
+const unitLabel = getUnitLabel(form);
+const minQty = input ? parseFloat(input.getAttribute('min') || '0.25') : 0.25;
 
           if(!input || !addBtn) return;
 
           function validateQty(){
             const qty = parseFloat(input.value || '');
-            const invalid = !Number.isFinite(qty) || qty < 0.25 || availableStock <= 0 || qty > availableStock;
+            const invalid = !Number.isFinite(qty) || qty < minQty || availableStock <= 0 || qty > availableStock;
 
             input.classList.toggle('is-invalid', invalid);
             addBtn.disabled = invalid;
@@ -3412,7 +3459,7 @@ document.querySelectorAll('form.nf-cart-add').forEach(function(form){
               buyBtn.classList.toggle('is-disabled', invalid);
               if(invalid){
                 buyBtn.setAttribute('aria-disabled', 'true');
-                buyBtn.setAttribute('title', availableStock > 0 ? 'Only ' + availableStock.toFixed(2) + ' kg stock is available.' : 'This item is sold out.');
+               buyBtn.setAttribute('title', availableStock > 0 ? 'Only ' + availableStock.toFixed(2) + ' ' + unitLabel + ' stock is available.' : 'This item is sold out.');
               }else{
                 buyBtn.removeAttribute('aria-disabled');
                 buyBtn.removeAttribute('title');
@@ -3432,12 +3479,13 @@ document.querySelectorAll('form.nf-cart-add').forEach(function(form){
       document.querySelectorAll('form.nf-cart-add').forEach(function(form){
         form.addEventListener('submit', async function(e){
           e.preventDefault();
+          syncLegacyQuantity(form);
 
           if(!validateProductCardQty(form)){
   const availableStock = parseFloat(form.getAttribute('data-available-stock') || '0');
   showToast(
     availableStock > 0
-      ? 'Requested amount is not available in stock. Only ' + availableStock.toFixed(2) + ' kg is available. Please change the amount.'
+? 'Requested amount is not available in stock. Only ' + availableStock.toFixed(2) + ' ' + getUnitLabel(form) + ' is available. Please change the amount.'
       : 'This item is sold out.',
     'error'
   );
@@ -3469,10 +3517,15 @@ document.querySelectorAll('form.nf-cart-add').forEach(function(form){
           }
 
           try{
-            const fd = new FormData(form);
-            const raw = fd.get('weight_kg');
-            const w = parseFloat(raw);
-            const availableStock = parseFloat(form.getAttribute('data-available-stock') || '0');
+           syncLegacyQuantity(form);
+
+const fd = new FormData(form);
+const quantityInput = getQuantityInput(form);
+const raw = quantityInput ? quantityInput.value : (fd.get('quantity') || fd.get('weight_kg'));
+const w = parseFloat(raw);
+const availableStock = parseFloat(form.getAttribute('data-available-stock') || '0');
+const unitLabel = getUnitLabel(form);
+const minQty = quantityInput ? parseFloat(quantityInput.getAttribute('min') || '0.25') : 0.25;
 
             if(!Number.isFinite(w)){
               inline('Please enter a valid quantity.', 'error');
@@ -3480,11 +3533,11 @@ document.querySelectorAll('form.nf-cart-add').forEach(function(form){
               return;
             }
 
-            if(w < 0.25){
-              inline('Minimum order quantity is 0.25 kg.', 'error');
-              showToast('Minimum order quantity is 0.25 kg.', 'error');
-              return;
-            }
+           if(w < minQty){
+  inline('Minimum order quantity is ' + minQty + ' ' + unitLabel + '.', 'error');
+  showToast('Minimum order quantity is ' + minQty + ' ' + unitLabel + '.', 'error');
+  return;
+}
 
             if(availableStock <= 0){
               inline('This item is sold out.', 'error');
@@ -3493,12 +3546,13 @@ document.querySelectorAll('form.nf-cart-add').forEach(function(form){
             }
 
             if(w > availableStock){
-              inline('Only ' + availableStock.toFixed(2) + ' kg stock is available.', 'error');
-              showToast('Only ' + availableStock.toFixed(2) + ' kg stock is available.', 'error');
-              return;
-            }
+  inline('Only ' + availableStock.toFixed(2) + ' ' + unitLabel + ' stock is available.', 'error');
+  showToast('Only ' + availableStock.toFixed(2) + ' ' + unitLabel + ' stock is available.', 'error');
+  return;
+}
 
-            fd.set('weight_kg', String(w.toFixed(2)));
+            fd.set('quantity', String(w));
+fd.set('weight_kg', String(w));
 
             const r = await fetch(form.action, {
               method:'POST',

@@ -1,0 +1,627 @@
+{% extends "store_base.html" %}
+{% set active_page = "deals" %}
+
+{% block title %}Best Deals of the Day | NE FRESH{% endblock %}
+{% block page_title %}Best Deals of the Day{% endblock %}
+{% block page_subtitle %}Create product or category discounts and apply them to live product prices.{% endblock %}
+
+{% block content %}
+<section class="nf-deal-admin-page">
+  <style>
+    .nf-deal-admin-page{
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --soft:#F3FFF8;
+      --line:#DDECE4;
+      --line2:#EAF4EF;
+      --ink:#1F332A;
+      --text:#40534A;
+      --muted:#66756D;
+      --green:#00A859;
+      --green-dark:#008A48;
+      --orange:#FF8A1F;
+      --red:#EF4444;
+      --red-soft:#FFF1F2;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      --radius:24px;
+      --ease:cubic-bezier(.2,.75,.25,1);
+      width:100%;
+      min-height:100%;
+      background:
+        radial-gradient(circle at top right, rgba(0,168,89,.08), transparent 30%),
+        var(--bg);
+      color:var(--ink);
+      overflow-x:hidden;
+    }
+
+    .nf-deal-admin-page,
+    .nf-deal-admin-page *{
+      box-sizing:border-box;
+    }
+
+    .dl-shell{
+      width:100%;
+      max-width:1540px;
+      margin:0 auto;
+      padding:24px;
+    }
+
+    .dl-stack{
+      display:grid;
+      gap:22px;
+    }
+
+    .dl-hero{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:18px;
+      align-items:center;
+      padding:26px;
+      border-radius:30px;
+      background:
+        radial-gradient(circle at right top, rgba(0,168,89,.14), transparent 32%),
+        linear-gradient(135deg,#FFFFFF 0%,#F3FFF8 100%);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .dl-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:30px;
+      padding:0 12px;
+      border-radius:999px;
+      background:#E9FFF3;
+      color:var(--green-dark);
+      border:1px solid rgba(0,168,89,.18);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .dl-title{
+      margin:14px 0 8px;
+      color:var(--ink);
+      font-size:clamp(28px,3vw,44px);
+      line-height:1.04;
+      font-weight:900;
+      letter-spacing:-.05em;
+    }
+
+    .dl-copy{
+      max-width:860px;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      font-weight:650;
+    }
+
+    .dl-hero-card{
+      width:230px;
+      min-height:150px;
+      border-radius:24px;
+      background:#fff;
+      border:1px solid var(--line2);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      box-shadow:0 18px 42px rgba(17,64,38,.10);
+      padding:18px;
+    }
+
+    .dl-hero-card strong{
+      display:block;
+      color:var(--green-dark);
+      font-size:36px;
+      font-weight:950;
+      line-height:1;
+    }
+
+    .dl-hero-card span{
+      display:block;
+      margin-top:8px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .dl-grid{
+      display:grid;
+      grid-template-columns:minmax(340px,.85fr) minmax(0,1.15fr);
+      gap:22px;
+      align-items:start;
+    }
+
+    .dl-card{
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .dl-card-head{
+      padding:20px 22px;
+      border-bottom:1px solid var(--line2);
+      background:#FBFFFD;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .dl-card-title{
+      margin:0;
+      color:var(--ink);
+      font-size:18px;
+      font-weight:900;
+      letter-spacing:-.03em;
+    }
+
+    .dl-card-sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:650;
+      line-height:1.5;
+    }
+
+    .dl-card-body{
+      padding:22px;
+    }
+
+    .dl-form{
+      display:grid;
+      gap:16px;
+    }
+
+    .dl-field{
+      display:grid;
+      gap:8px;
+    }
+
+    .dl-label{
+      color:var(--ink);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .dl-input,
+    .dl-select{
+      width:100%;
+      min-height:46px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--ink);
+      padding:0 14px;
+      outline:none;
+      font:inherit;
+      font-size:14px;
+      font-weight:700;
+      transition:.2s var(--ease);
+    }
+
+    .dl-input:focus,
+    .dl-select:focus{
+      border-color:var(--green);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .dl-help{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:650;
+      line-height:1.45;
+    }
+
+    .dl-two{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .dl-hidden{
+      display:none !important;
+    }
+
+    .dl-actions{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      padding-top:6px;
+    }
+
+    .dl-btn{
+      min-height:44px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--green-dark);
+      padding:0 18px;
+      font:inherit;
+      font-size:13px;
+      font-weight:900;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      transition:.2s var(--ease);
+    }
+
+    .dl-btn:hover{
+      transform:translateY(-2px);
+      box-shadow:0 12px 24px rgba(17,64,38,.10);
+    }
+
+    .dl-btn-primary{
+      background:var(--green);
+      border-color:var(--green);
+      color:#fff;
+      box-shadow:0 12px 26px rgba(0,168,89,.20);
+    }
+
+    .dl-btn-primary:hover{
+      background:var(--green-dark);
+      border-color:var(--green-dark);
+    }
+
+    .dl-btn-danger{
+      background:#fff;
+      border-color:#FFD1D1;
+      color:#B91C1C;
+    }
+
+    .dl-btn-small{
+      min-height:34px;
+      padding:0 12px;
+      font-size:12px;
+    }
+
+    .dl-table-wrap{
+      width:100%;
+      overflow:auto;
+      padding:0 22px 22px;
+    }
+
+    .dl-table{
+      width:100%;
+      min-width:880px;
+      border-collapse:collapse;
+    }
+
+    .dl-table th{
+      padding:14px 10px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      text-align:left;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      border-bottom:1px solid var(--line2);
+      white-space:nowrap;
+    }
+
+    .dl-table td{
+      padding:14px 10px;
+      border-bottom:1px solid var(--line2);
+      color:var(--text);
+      font-size:13px;
+      font-weight:700;
+      vertical-align:middle;
+    }
+
+    .dl-pill{
+      display:inline-flex;
+      align-items:center;
+      min-height:26px;
+      padding:0 10px;
+      border-radius:999px;
+      background:#E9FFF3;
+      color:var(--green-dark);
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .dl-pill.off{
+      background:var(--red-soft);
+      color:#B91C1C;
+    }
+
+    .dl-pill.orange{
+      background:#FFF7E8;
+      color:#A66A00;
+    }
+
+    .dl-empty{
+      padding:34px 22px;
+      text-align:center;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+    }
+
+    .dl-inline-actions{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .dl-warning{
+      border:1px solid rgba(255,138,31,.20);
+      background:#FFF7E8;
+      color:#8A4F00;
+      border-radius:16px;
+      padding:12px 14px;
+      font-size:13px;
+      font-weight:750;
+      line-height:1.5;
+    }
+
+    @media(max-width:980px){
+      .dl-hero,
+      .dl-grid{
+        grid-template-columns:1fr;
+      }
+
+      .dl-hero-card{
+        width:100%;
+      }
+    }
+
+    @media(max-width:640px){
+      .dl-shell{
+        padding:14px;
+      }
+
+      .dl-hero,
+      .dl-card-body,
+      .dl-card-head{
+        padding:18px;
+      }
+
+      .dl-two{
+        grid-template-columns:1fr;
+      }
+
+      .dl-actions .dl-btn{
+        width:100%;
+      }
+    }
+  </style>
+
+  <div class="dl-shell">
+    <div class="dl-stack">
+
+      <section class="dl-hero">
+        <div>
+          <span class="dl-kicker">🏷️ Best Deals of the Day</span>
+          <h1 class="dl-title">Create live product and category discounts</h1>
+          <p class="dl-copy">
+            Add a discount to selected products or complete categories. When enabled, product prices update automatically and reflect on customer product cards.
+          </p>
+        </div>
+
+        <aside class="dl-hero-card">
+          <strong>{{ deals|length if deals else 0 }}</strong>
+          <span>Total deals created</span>
+        </aside>
+      </section>
+
+      <section class="dl-grid">
+        <div class="dl-card">
+          <div class="dl-card-head">
+            <div>
+              <h2 class="dl-card-title">Add New Deal</h2>
+              <p class="dl-card-sub">Choose product/category and discount amount.</p>
+            </div>
+          </div>
+
+          <div class="dl-card-body">
+            <form class="dl-form" method="POST" action="{{ url_for('store_deals') }}">
+              <div class="dl-warning">
+                Enabled deals immediately update matching product prices. Disabling or deleting a deal will restore the previous product prices saved by the system.
+              </div>
+
+              <div class="dl-field">
+                <label class="dl-label" for="dealTargetType">Apply Deal On</label>
+                <select class="dl-select" id="dealTargetType" name="target_type" required>
+                  <option value="">Select target type</option>
+                  <option value="product">Specific Product</option>
+                  <option value="category">Specific Category</option>
+                </select>
+              </div>
+
+              <div class="dl-field dl-hidden" id="dealCategoryWrap">
+                <label class="dl-label" for="dealCategory">Select Category</label>
+                <select class="dl-select" id="dealCategory" name="category">
+                  <option value="">Select category</option>
+                  {% for c in categories %}
+                    <option value="{{ c }}">{{ c }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="dl-field dl-hidden" id="dealProductWrap">
+                <label class="dl-label" for="dealProduct">Select Product</label>
+                <select class="dl-select" id="dealProduct" name="product_id">
+                  <option value="">Select product</option>
+                  {% for p in products %}
+                    <option value="{{ p.id }}">
+                      {{ p.name }} — {{ p.category }} — ₹{{ '%.2f'|format(p.price_per_kg or 0) }}/kg
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="dl-two">
+                <div class="dl-field">
+                  <label class="dl-label" for="discountType">Discount Type</label>
+                  <select class="dl-select" id="discountType" name="discount_type" required>
+                    <option value="percent">Percentage</option>
+                    <option value="fixed">Fixed Amount / kg</option>
+                  </select>
+                </div>
+
+                <div class="dl-field">
+                  <label class="dl-label" for="discountValue">Discount Value</label>
+                  <input class="dl-input"
+                         id="discountValue"
+                         type="number"
+                         name="discount_value"
+                         min="1"
+                         step="0.01"
+                         placeholder="Example: 20"
+                         required>
+                  <div class="dl-help">If percentage, enter 10, 20, 30 etc. If fixed, enter rupees per kg.</div>
+                </div>
+              </div>
+
+              <div class="dl-two">
+                <div class="dl-field">
+                  <label class="dl-label" for="startDate">Start Date</label>
+                  <input class="dl-input" id="startDate" type="date" name="start_date">
+                </div>
+
+                <div class="dl-field">
+                  <label class="dl-label" for="endDate">End Date</label>
+                  <input class="dl-input" id="endDate" type="date" name="end_date">
+                </div>
+              </div>
+
+              <div class="dl-field">
+                <label class="dl-label" for="dealStatus">Status</label>
+                <select class="dl-select" id="dealStatus" name="status">
+                  <option value="enabled">Enabled - Apply Now</option>
+                  <option value="disabled">Disabled - Save Draft</option>
+                </select>
+              </div>
+
+              <div class="dl-actions">
+                <button class="dl-btn dl-btn-primary" type="submit">＋ Create Deal</button>
+                <a class="dl-btn" href="{{ url_for('store_products') }}">View Products</a>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="dl-card">
+          <div class="dl-card-head">
+            <div>
+              <h2 class="dl-card-title">Existing Deals</h2>
+              <p class="dl-card-sub">Enable, disable or delete live deals.</p>
+            </div>
+          </div>
+
+          {% if deals and deals|length > 0 %}
+            <div class="dl-table-wrap">
+              <table class="dl-table">
+                <thead>
+                  <tr>
+                    <th>Target</th>
+                    <th>Discount</th>
+                    <th>Status</th>
+                    <th>Dates</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for deal in deals %}
+                    <tr>
+                      <td>
+                        {% if deal.target_type == 'category' %}
+                          <strong>Category:</strong> {{ deal.category or '—' }}
+                        {% elif deal.target_type == 'product' %}
+                          <strong>Product ID:</strong> {{ deal.product_id or '—' }}
+                        {% else %}
+                          —
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {% if deal.discount_type == 'percent' %}
+                          <span class="dl-pill">{{ '%.2f'|format(deal.discount_value or 0) }}% OFF</span>
+                        {% else %}
+                          <span class="dl-pill orange">₹{{ '%.2f'|format(deal.discount_value or 0) }}/kg OFF</span>
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {% if deal.status == 'enabled' %}
+                          <span class="dl-pill">Enabled</span>
+                        {% else %}
+                          <span class="dl-pill off">Disabled</span>
+                        {% endif %}
+                      </td>
+
+                      <td>
+                        {{ deal.start_date or 'No start' }}<br>
+                        {{ deal.end_date or 'No end' }}
+                      </td>
+
+                      <td>
+                        <div class="dl-inline-actions">
+                          <form method="POST" action="{{ url_for('store_deal_toggle', deal_id=deal.id) }}">
+                            <button class="dl-btn dl-btn-small" type="submit">
+                              {% if deal.status == 'enabled' %}Disable{% else %}Enable{% endif %}
+                            </button>
+                          </form>
+
+                          <form method="POST"
+                                action="{{ url_for('store_deal_delete', deal_id=deal.id) }}"
+                                onsubmit="return confirm('Delete this deal? Product prices linked with this deal will be restored.');">
+                            <button class="dl-btn dl-btn-small dl-btn-danger" type="submit">Delete</button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="dl-empty">
+              No deals created yet. Add your first deal from the form.
+            </div>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const targetType = document.getElementById('dealTargetType');
+      const categoryWrap = document.getElementById('dealCategoryWrap');
+      const productWrap = document.getElementById('dealProductWrap');
+
+      function syncDealTarget(){
+        const value = targetType ? targetType.value : '';
+
+        if(categoryWrap){
+          categoryWrap.classList.toggle('dl-hidden', value !== 'category');
+        }
+
+        if(productWrap){
+          productWrap.classList.toggle('dl-hidden', value !== 'product');
+        }
+      }
+
+      if(targetType){
+        targetType.addEventListener('change', syncDealTarget);
+      }
+
+      syncDealTarget();
+    })();
+  </script>
+</section>
+{% endblock %}
