@@ -58,9 +58,9 @@
 {% if products %}
   {% for p in products %}
     {% if p.is_active %}{% set ns.active_products = ns.active_products + 1 %}{% else %}{% set ns.inactive_products = ns.inactive_products + 1 %}{% endif %}
-    {% if (p.stock_kg or 0) <= 0 %}{% set ns.out_stock = ns.out_stock + 1 %}{% endif %}
-    {% if (p.stock_kg or 0) > 0 and (p.stock_kg or 0) <= 5.0 %}{% set ns.low_stock = ns.low_stock + 1 %}{% endif %}
-    {% set ns.total_stock = ns.total_stock + (p.stock_kg or 0) %}
+    {% if (p.stock_quantity or 0) <= 0 %}{% set ns.out_stock = ns.out_stock + 1 %}{% endif %}
+   {% if (p.stock_quantity or 0) > 0 and (p.stock_quantity or 0) <= 5.0 %}{% set ns.low_stock = ns.low_stock + 1 %}{% endif %}
+   {% set ns.total_stock = ns.total_stock + (p.stock_quantity or 0) %}
   {% endfor %}
 {% endif %}
 
@@ -827,7 +827,7 @@
             {% set shown_low = namespace(count=0) %}
             {% if products %}
               {% for p in products %}
-                {% if (p.stock_kg or 0) <= 5.0 and shown_low.count < 6 %}
+{% if (p.stock_quantity or 0) <= 5.0 and shown_low.count < 6 %}
                   {% set shown_low.count = shown_low.count + 1 %}
                   <div class="sd-row">
                     <div class="sd-row-left">
@@ -839,10 +839,10 @@
                         <div class="sd-meta">{{ p.category or 'No category' }}{% if p.sub_category %} · {{ p.sub_category }}{% endif %}</div>
                       </div>
                     </div>
-                    {% if (p.stock_kg or 0) <= 0 %}
+                  {% if (p.stock_quantity or 0) <= 0 %}
                       <span class="sd-pill sd-alert-pill">Out</span>
                     {% else %}
-                      <span class="sd-pill sd-stock-low">{{ '%.2f'|format(p.stock_kg or 0) }} kg</span>
+<span class="sd-pill sd-stock-low">{{ '%.2f'|format(p.stock_quantity or 0) }} {{ p.unit_label or 'unit' }}</span>
                     {% endif %}
                   </div>
                 {% endif %}

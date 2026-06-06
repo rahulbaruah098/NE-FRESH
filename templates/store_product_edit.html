@@ -11,14 +11,14 @@
 {% set edit_unit_label = product.unit_label|default('kg') %}
 {% set known_unit_labels = ['kg','gram','liter','ml','piece','packet','bottle','box','tray','dozen','bunch','bundle','set','jar','can','pouch','tin','bag','crate','roll'] %}
 {% set edit_is_custom_unit = edit_unit_label not in known_unit_labels %}
-{% set edit_original_price = product.get('original_price_per_unit', product.get('original_price_per_kg', product.price_per_kg or 0)) %}
-{% set edit_final_price = product.get('price_per_unit', product.price_per_kg or 0) %}
-{% set edit_stock_quantity = product.get('stock_quantity', product.stock_kg or 0) %}
-{% set edit_mrp_per_unit = product.get('mrp_per_unit', product.get('mrp_per_kg', 0)) %}
+{% set edit_original_price = product.get('original_price_per_unit', product.price_per_unit or 0) %}
+{% set edit_final_price = product.get('price_per_unit', 0) %}
+{% set edit_stock_quantity = product.get('stock_quantity', 0) %}
+{% set edit_mrp_per_unit = product.get('mrp_per_unit', 0) %}
 {% set edit_discount_enabled = product.get('discount_enabled', false) %}
 {% set edit_discount_type = product.get('discount_type', 'percent') %}
 {% set edit_discount_value = product.get('discount_value', 0) %}
-{% set edit_discount_amount = product.get('discount_amount_per_unit', product.get('discount_amount_per_kg', 0)) %}
+{% set edit_discount_amount = product.get('discount_amount_per_unit', 0) %}
 {% set edit_discount_percent = product.get('discount_percent', 0) %}
 
 <section class="nf-edit-product-page" data-page="store-edit-product">
@@ -800,18 +800,17 @@
               </div>
 
               <div class="ep-field">
-                <label for="originalPricePerKg" id="originalPriceLabel">Original Price per {{ edit_unit_label }} (₹)</label>
-                <input class="ep-input" id="originalPricePerKg" type="number" name="original_price_per_kg" step="0.01" min="0" value="{{ '%.2f'|format(edit_original_price or 0) }}" placeholder="{{ '%.2f'|format(edit_original_price or 0) }}" required>
-                <input id="finalPricePerKg" name="price_per_kg" type="hidden" value="{{ '%.2f'|format(edit_final_price or 0) }}">
-                <input id="finalPricePerUnit" name="price_per_unit" type="hidden" value="{{ '%.2f'|format(edit_final_price or 0) }}">
-                <input id="originalPricePerUnit" name="original_price_per_unit" type="hidden" value="{{ '%.2f'|format(edit_original_price or 0) }}">
+               <label for="originalPricePerUnit" id="originalPriceLabel">Original Price per {{ edit_unit_label }} (₹)</label>
+<input class="ep-input" id="originalPricePerUnit" type="number" name="original_price_per_unit" step="0.01" min="0" value="{{ '%.2f'|format(edit_original_price or 0) }}" placeholder="{{ '%.2f'|format(edit_original_price or 0) }}" required>
+<input id="finalPricePerUnit" name="price_per_unit" type="hidden" value="{{ '%.2f'|format(edit_final_price or 0) }}">
+               
                 <div class="ep-current">Current final price: <strong>₹ {{ '%.2f'|format(edit_final_price or 0) }} / {{ edit_unit_label }}</strong></div>
               </div>
 
               <div class="ep-field">
                 <label for="productStock" id="stockQuantityLabel">Stock / Restock ({{ edit_unit_label }})</label>
                 <input class="ep-input" id="productStock" type="number" name="stock_quantity" step="0.01" min="0" value="{{ '%.2f'|format(edit_stock_quantity or 0) }}" placeholder="{{ '%.2f'|format(edit_stock_quantity or 0) }}" required>
-                <input id="stockKgInput" name="stock_kg" type="hidden" value="{{ '%.2f'|format(edit_stock_quantity or 0) }}">
+<input id="stockQuantityHidden" name="stock_quantity" type="hidden" value="{{ '%.2f'|format(edit_stock_quantity or 0) }}">
                 <div class="ep-current">Current stock: <strong>{{ '%.2f'|format(edit_stock_quantity or 0) }} {{ edit_unit_label }}</strong></div>
                 <div class="ep-help">Update the complete available stock here. This replaces the old Add Stock button.</div>
               </div>
@@ -1018,9 +1017,8 @@
         const fixedDiscountOption = document.getElementById('fixedDiscountOption');
         const stockQuantityLabel = document.getElementById('stockQuantityLabel');
         const stockQuantityInput = document.getElementById('productStock');
-        const stockKgInput = document.getElementById('stockKgInput');
-        const finalPricePerUnit = document.getElementById('finalPricePerUnit');
-        const originalPricePerUnit = document.getElementById('originalPricePerUnit');
+        const stockQuantityHidden = document.getElementById('stockQuantityHidden');
+       
 
         function currentUnitLabel(){
           if (!unitLabelSelect) return 'kg';
@@ -1083,8 +1081,8 @@
 
         syncUnitFields();
 
-        const originalPriceInput = document.getElementById('originalPricePerKg');
-        const finalPriceHidden = document.getElementById('finalPricePerKg');
+        const originalPriceInput = document.getElementById('originalPricePerUnit');
+const finalPriceHidden = document.getElementById('finalPricePerUnit');
         const finalPriceDisplay = document.getElementById('finalPriceDisplay');
         const discountEnabled = document.getElementById('discountEnabled');
         const discountType = document.getElementById('discountType');
@@ -1141,8 +1139,8 @@
           finalPriceHidden.value = finalPrice.toFixed(2);
           finalPriceDisplay.value = finalPrice.toFixed(2);
 
-          if (finalPricePerUnit) finalPricePerUnit.value = finalPrice.toFixed(2);
-          if (originalPricePerUnit) originalPricePerUnit.value = original.toFixed(2);
+          if (finalPriceHidden) finalPriceHidden.value = finalPrice.toFixed(2);
+if (originalPriceInput) originalPriceInput.value = original.toFixed(2);
 
           if (previewOriginal) previewOriginal.textContent = toMoney(original);
           if (previewDiscount) previewDiscount.textContent = toMoney(discountAmount);
@@ -1256,9 +1254,8 @@
             syncUnitFields();
             calculateDiscountPrice();
 
-            if (stockKgInput && stockQuantityInput) stockKgInput.value = stockQuantityInput.value || '0';
-            if (finalPricePerUnit && finalPriceHidden) finalPricePerUnit.value = finalPriceHidden.value || '0';
-            if (originalPricePerUnit && originalPriceInput) originalPricePerUnit.value = originalPriceInput.value || '0';
+if (stockQuantityHidden && stockQuantityInput) stockQuantityHidden.value = stockQuantityInput.value || '0';
+
 
             if (allowSubmit) return;
 

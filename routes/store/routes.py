@@ -154,11 +154,8 @@ def store_catalog(sid):
                         "is_active": 1
                     },
                     {
-                        "$or": [
-                            {"stock_quantity": {"$gt": 0}},
-                            {"stock_kg": {"$gt": 0}}
-                        ]
-                    }
+                        "stock_quantity": {"$gt": 0}
+                }
                 ]
             }).sort("created_at", -1)
         )
@@ -672,8 +669,10 @@ def store_product_reviews_page():
             "name": p.get("name", "Product"),
             "image_path": p.get("image_path", ""),
             "category": p.get("category", ""),
-            "stock_kg": float(p.get("stock_kg") or 0),
-            "price_per_kg": float(p.get("price_per_kg") or 0)
+            "stock_quantity": float(p.get("stock_quantity") or 0),
+            "price_per_unit": float(p.get("price_per_unit") or 0),
+            "unit_type": p.get("unit_type") or "WEIGHT",
+            "unit_label": p.get("unit_label") or "kg"
         }
 
     reviews = []
@@ -1584,9 +1583,9 @@ def store_product_new():
 
     pricing = build_unit_product_update_from_form(request.form)
 
-    price_per_kg = pricing["price_per_kg"]
-    original_price_per_kg = pricing["original_price_per_kg"]
-    stock_kg = pricing["stock_kg"]
+    price_per_unit = pricing["price_per_unit"]
+    original_price_per_unit = pricing["original_price_per_unit"]
+    stock_quantity = pricing["stock_quantity"]
 
     category_id = (request.form.get("category_id") or "").strip()
     category = (request.form.get("category") or "").strip()
@@ -1613,15 +1612,15 @@ def store_product_new():
         flash('Product name is required.', 'warning')
         return redirect(url_for('store_add_product'))
 
-    if original_price_per_kg <= 0:
+    if original_price_per_unit <= 0:
         flash('Price must be greater than 0.', 'warning')
         return redirect(url_for('store_add_product'))
 
-    if price_per_kg <= 0:
+    if price_per_unit <= 0:
         flash('Final selling price must be greater than 0.', 'warning')
         return redirect(url_for('store_add_product'))
 
-    if stock_kg < 0:
+    if stock_quantity < 0:
         flash('Stock cannot be negative.', 'warning')
         return redirect(url_for('store_add_product'))
 
@@ -1662,25 +1661,24 @@ def store_product_new():
         "mrp_per_unit": pricing["mrp_per_unit"],
         "stock_quantity": pricing["stock_quantity"],
 
-        "original_price_per_kg": original_price_per_kg,
-        "price_per_kg": price_per_kg,
-        "mrp_per_kg": pricing["mrp_per_kg"],
+        "original_price_per_unit": original_price_per_unit,
+        "price_per_unit": price_per_unit,
+        "mrp_per_unit": pricing["mrp_per_unit"],
 
         "discount_enabled": pricing["discount_enabled"],
         "discount_type": pricing["discount_type"],
         "discount_value": pricing["discount_value"],
         "discount_amount_per_unit": pricing["discount_amount_per_unit"],
-        "discount_amount_per_kg": pricing["discount_amount_per_kg"],
         "discount_percent": pricing["discount_percent"],
 
-        "stock_kg": stock_kg,
+        "stock_quantity": stock_quantity,
 
         "category_id": category_id,
         "category": category,
         "sub_category": sub_category,
 
         "image_path": image_path,
-        "is_active": 1 if stock_kg > 0 else 0,
+        "is_active": 1 if stock_quantity > 0 else 0,
 
         "created_at": now,
         "updated_at": now
@@ -1812,7 +1810,7 @@ def store_product_add_stock(pid):
     mongo.products.update_one(
         {"_id": pid_obj},
         {
-            "$inc": {"stock_kg": add_kg},
+            "$inc": {"stock_quantity": add_kg},
             "$set": {
                 "is_active": 1,
                 "updated_at": datetime.utcnow().isoformat()
@@ -1918,9 +1916,9 @@ def store_product_update(pid):
         fallback_original_price=fallback_original_price
     )
 
-    price = pricing["price_per_kg"]
-    original_price = pricing["original_price_per_kg"]
-    stock = pricing["stock_kg"]
+    price = pricing["price_per_unit"]
+    original_price = pricing["original_price_per_unit"]
+    stock = pricing["stock_quantity"]
 
     if not name:
         flash("Product name is required.", "warning")
@@ -1963,18 +1961,17 @@ def store_product_update(pid):
         "mrp_per_unit": pricing["mrp_per_unit"],
         "stock_quantity": pricing["stock_quantity"],
 
-        "original_price_per_kg": original_price,
-        "price_per_kg": price,
-        "mrp_per_kg": pricing["mrp_per_kg"],
+        "original_price_per_unit": original_price,
+        "price_per_unit": price,
+        "mrp_per_unit": pricing["mrp_per_unit"],
 
         "discount_enabled": pricing["discount_enabled"],
         "discount_type": pricing["discount_type"],
         "discount_value": pricing["discount_value"],
         "discount_amount_per_unit": pricing["discount_amount_per_unit"],
-        "discount_amount_per_kg": pricing["discount_amount_per_kg"],
         "discount_percent": pricing["discount_percent"],
 
-        "stock_kg": stock,
+        "stock_quantity": stock,
 
         "category_id": category_id,
         "category": category,

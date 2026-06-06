@@ -77,14 +77,14 @@ def index():
         discount_products = [
             p for p in products
             if bool(p.get("discount_enabled"))
-            and float(p.get("discount_amount_per_kg") or 0) > 0
+            and float(p.get("discount_amount_per_unit") or 0) > 0
         ]
 
         discount_products = sorted(
             discount_products,
             key=lambda x: (
                 float(x.get("discount_percent") or 0),
-                float(x.get("discount_amount_per_kg") or 0)
+               float(x.get("discount_amount_per_unit") or 0)
             ),
             reverse=True
         )[:10]
@@ -295,7 +295,7 @@ def search():
         products = list(
             mongo.products.find({
                 "is_active": 1,
-                "stock_kg": {"$gt": 0},
+                "stock_quantity": {"$gt": 0},
                 "$or": [
                     {"name": {"$regex": q, "$options": "i"}},
                     {"category": {"$regex": q, "$options": "i"}},
@@ -329,7 +329,7 @@ def search():
             s["product_count"] = mongo.products.count_documents({
                 "store_id": s["_id"],
                 "is_active": 1,
-                "stock_kg": {"$gt": 0}
+                "stock_quantity": {"$gt": 0}
             })
 
     return render_template("search.html", user=user, q=q, products=products, stores=stores)

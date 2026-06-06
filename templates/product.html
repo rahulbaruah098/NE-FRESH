@@ -3,16 +3,16 @@
 
 {% set unit_label = product.get('unit_label', 'kg') or 'kg' %}
 {% set unit_type = product.get('unit_type', 'WEIGHT') or 'WEIGHT' %}
-{% set stock_qty = product.get('stock_quantity', product.get('stock_kg', 0)) or 0 %}
-{% set price_per_unit = product.get('price_per_unit', product.get('price_per_kg', 0)) or 0 %}
-{% set original_price = product.get('original_price_per_unit', product.get('original_price_per_kg', price_per_unit)) or price_per_unit %}
-{% set discount_amount = product.get('discount_amount_per_unit', product.get('discount_amount_per_kg', 0)) or 0 %}
+{% set stock_qty = product.get('stock_quantity', 0) or 0 %}
+{% set price_per_unit = product.get('price_per_unit', 0) or 0 %}
+{% set original_price = product.get('original_price_per_unit', price_per_unit) or price_per_unit %}
+{% set discount_amount = product.get('discount_amount_per_unit', 0) or 0 %}
 {% set discount_percent = product.get('discount_percent', 0) or 0 %}
 {% set has_discount = product.get('discount_enabled') and discount_amount > 0 and original_price > price_per_unit %}
 {% set pct_off = discount_percent if has_discount else 0 %}
 {% set quantity_min = product.get('quantity_min', 0.25) or 0.25 %}
 {% set quantity_step = product.get('quantity_step', 0.25) or 0.25 %}
-{% set selected_qty = selected_quantity|default(selected_weight_kg|default(quantity_min)) %}
+{% set selected_qty = selected_quantity|default(quantity_min) %}
 {% set is_customer = user and user.role == 'customer' %}
 {% set is_in_stock = stock_qty is not none and stock_qty > 0 %}
 {% set default_quantity = selected_qty if selected_qty else quantity_min %}
@@ -1263,7 +1263,6 @@
 
                  <input type="hidden" name="unit_type" value="{{ unit_type }}">
 <input type="hidden" name="unit_label" value="{{ unit_label }}">
-<input type="hidden" name="weight_kg" id="legacy_weight_kg" value="{{ default_quantity }}">
 
 <div class="nf-weight-field">
   <label for="quantity">Quantity ({{ unit_label }})</label>
@@ -1454,7 +1453,6 @@
   const quantityStep = {{ quantity_step|float }};
 
   const quantityEl = document.getElementById('quantity');
-  const legacyWeightEl = document.getElementById('legacy_weight_kg');
   const estTotalEl = document.getElementById('estTotal');
   const btnAdd = document.getElementById('btnAdd');
   const btnBuy = document.getElementById('btnBuy');
@@ -1485,11 +1483,9 @@
     return Number.isFinite(rawQty) ? rawQty : 0;
   }
 
-  function syncLegacyQuantity(){
-    if(legacyWeightEl){
-      legacyWeightEl.value = String(getEnteredQuantity());
-    }
-  }
+  function syncQuantity(){
+  return getEnteredQuantity();
+}
 
   function getQtyError(qty){
     if(!Number.isFinite(qty) || qty <= 0){
@@ -1537,7 +1533,7 @@
     const qty = getEnteredQuantity();
     const message = getQtyError(qty);
 
-    syncLegacyQuantity();
+    syncQuantity();
     setInvalidState(message);
 
     const total = Number.isFinite(qty) && qty > 0 ? qty * pricePerUnit : 0;
@@ -1583,7 +1579,7 @@
     const message = getQtyError(qty);
     const activePopup = redirectAfter ? popupBuy : popupAdd;
 
-    syncLegacyQuantity();
+    syncQuantity();
 
     if(message){
       setInvalidState(message);
@@ -1594,7 +1590,6 @@
     const fd = new FormData();
     fd.append('product_id', '{{ product.id }}');
     fd.append('quantity', String(qty));
-    fd.append('weight_kg', String(qty));
     fd.append('unit_type', {{ unit_type|tojson }});
     fd.append('unit_label', unitLabel);
 

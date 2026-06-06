@@ -33,7 +33,7 @@
 {% if products %}
   {% for p in products %}
     {% if p.is_active %}{% set ns.active_products = ns.active_products + 1 %}{% else %}{% set ns.inactive_products = ns.inactive_products + 1 %}{% endif %}
-    {% if p.stock_kg is not none and p.stock_kg <= 1.0 %}{% set ns.low_stock = ns.low_stock + 1 %}{% endif %}
+{% if p.stock_quantity is not none and p.stock_quantity <= 5.0 %}{% set ns.low_stock = ns.low_stock + 1 %}{% endif %}
   {% endfor %}
 {% endif %}
 
@@ -418,18 +418,16 @@
 </label>
 
 <label>
-  <span id="originalPriceLabel">Original Price per kg (₹)</span>
-  <input id="originalPricePerKg"
-         name="original_price_per_kg"
+<span id="originalPriceLabel">Original Price per Unit (₹)</span>
+ <input id="originalPricePerUnit"
+        name="original_price_per_unit"
          type="number"
          step="0.01"
          min="0"
          required>
 </label>
 
-<input id="finalPricePerKg" name="price_per_kg" type="hidden" value="">
 <input id="finalPricePerUnit" name="price_per_unit" type="hidden" value="">
-<input id="originalPricePerUnit" name="original_price_per_unit" type="hidden" value="">
 
 <label>
   <span id="stockQuantityLabel">Stock (kg)</span>
@@ -441,7 +439,7 @@
          required>
 </label>
 
-<input id="stockKgInput" name="stock_kg" type="hidden" value="">
+<input id="stockQuantityHidden" name="stock_quantity" type="hidden" value="">
             <div class="sd-discount-panel">
   <div class="sd-discount-head">
     <div>
@@ -477,7 +475,7 @@
     </label>
 
     <label>
-<span id="finalPriceLabel">Final Price per kg (₹)</span>
+<span id="finalPriceLabel">Final Price per Unit (₹)</span>
       <input id="finalPriceDisplay"
              type="number"
              step="0.01"
@@ -586,9 +584,8 @@ const finalPriceLabel = document.getElementById('finalPriceLabel');
 const fixedDiscountOption = document.getElementById('fixedDiscountOption');
 const stockQuantityLabel = document.getElementById('stockQuantityLabel');
 const stockQuantityInput = document.getElementById('stockQuantityInput');
-const stockKgInput = document.getElementById('stockKgInput');
-const finalPricePerUnit = document.getElementById('finalPricePerUnit');
-const originalPricePerUnit = document.getElementById('originalPricePerUnit');
+const stockQuantityHidden = document.getElementById('stockQuantityHidden');
+
 
 function currentUnitLabel(){
   if (!unitLabelSelect) return 'kg';
@@ -667,8 +664,8 @@ if (customUnitLabel) customUnitLabel.addEventListener('input', syncUnitFields);
 
 syncUnitFields();
 
-        const originalPriceInput = document.getElementById('originalPricePerKg');
-const finalPriceHidden = document.getElementById('finalPricePerKg');
+const originalPriceInput = document.getElementById('originalPricePerUnit');
+const finalPriceHidden = document.getElementById('finalPricePerUnit');
 const finalPriceDisplay = document.getElementById('finalPriceDisplay');
 const discountEnabled = document.getElementById('discountEnabled');
 const discountType = document.getElementById('discountType');
@@ -721,12 +718,12 @@ function calculateDiscountPrice(){
  finalPriceHidden.value = finalPrice.toFixed(2);
 finalPriceDisplay.value = finalPrice.toFixed(2);
 
-if (finalPricePerUnit) {
-  finalPricePerUnit.value = finalPrice.toFixed(2);
+if (finalPriceHidden) {
+  finalPriceHidden.value = finalPrice.toFixed(2);
 }
 
-if (originalPricePerUnit) {
-  originalPricePerUnit.value = original.toFixed(2);
+if (originalPriceInput) {
+  originalPriceInput.value = original.toFixed(2);
 }
 
   if (previewOriginal) previewOriginal.textContent = toMoney(original);
@@ -755,17 +752,10 @@ if (addProductForm) {
     syncUnitFields();
     calculateDiscountPrice();
 
-    if (stockKgInput && stockQuantityInput) {
-      stockKgInput.value = stockQuantityInput.value || '0';
-    }
+    if (stockQuantityHidden && stockQuantityInput) {
+  stockQuantityHidden.value = stockQuantityInput.value || '0';
+}
 
-    if (finalPricePerUnit && finalPriceHidden) {
-      finalPricePerUnit.value = finalPriceHidden.value || '0';
-    }
-
-    if (originalPricePerUnit && originalPriceInput) {
-      originalPricePerUnit.value = originalPriceInput.value || '0';
-    }
   });
 }
       });

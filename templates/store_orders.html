@@ -33,7 +33,10 @@
 {% if products %}
   {% for p in products %}
     {% if p.is_active %}{% set ns.active_products = ns.active_products + 1 %}{% else %}{% set ns.inactive_products = ns.inactive_products + 1 %}{% endif %}
-    {% if p.stock_kg is not none and p.stock_kg <= 1.0 %}{% set ns.low_stock = ns.low_stock + 1 %}{% endif %}
+{% set p_stock = p.stock_quantity or 0 %}
+{% set p_unit = p.unit_label or 'unit' %}
+{% set low_limit = 500 if p_unit in ['gram', 'ml'] else 5 %}
+{% if p_stock <= low_limit %}{% set ns.low_stock = ns.low_stock + 1 %}{% endif %}
   {% endfor %}
 {% endif %}
 

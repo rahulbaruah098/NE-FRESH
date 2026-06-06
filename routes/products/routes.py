@@ -247,7 +247,6 @@ def product_detail(pid):
 
     selected_quantity_raw = (
         request.args.get("quantity")
-        or request.args.get("weight_kg")
         or p.get("quantity_min")
         or 1
     )
@@ -268,8 +267,7 @@ def product_detail(pid):
         product=p,
         rating=rating_summary,
         reviews=reviews,
-        selected_quantity=selected_quantity,
-        selected_weight_kg=selected_quantity
+        selected_quantity=selected_quantity
     )
 
 @app.route("/products/<pid>/review", methods=["POST"], endpoint="submit_product_review")
@@ -373,7 +371,7 @@ def api_products_list():
 
     mongo_filter = {
         "is_active": 1,
-        "stock_kg": {"$gt": 0}
+        "stock_quantity": {"$gt": 0}
     }
 
     if category:
@@ -425,8 +423,10 @@ def api_products_list():
         result.append({
             "id": str(p["_id"]),
             "name": p.get("name", ""),
-            "price_per_kg": float(p.get("price_per_kg") or 0),
-            "stock_kg": float(p.get("stock_kg") or 0),
+            "price_per_unit": float(p.get("price_per_unit") or 0),
+            "stock_quantity": float(p.get("stock_quantity") or 0),
+            "unit_type": p.get("unit_type") or "WEIGHT",
+            "unit_label": p.get("unit_label") or "kg",
             "image_path": p.get("image_path", ""),
             "store_name": store.get("store_name") if store else p.get("store_name", ""),
             "store_id": str(p.get("store_id")) if p.get("store_id") else "",
@@ -454,7 +454,7 @@ def api_product_detail(pid):
     p = mongo.products.find_one({
         "_id": pid_obj,
         "is_active": 1,
-        "stock_kg": {"$gt": 0}
+        "stock_quantity": {"$gt": 0}
     })
 
     if not p:
@@ -504,8 +504,10 @@ def api_product_detail(pid):
         "product": {
             "id": str(p["_id"]),
             "name": p.get("name", ""),
-            "price_per_kg": float(p.get("price_per_kg") or 0),
-            "stock_kg": float(p.get("stock_kg") or 0),
+            "price_per_unit": float(p.get("price_per_unit") or 0),
+            "stock_quantity": float(p.get("stock_quantity") or 0),
+            "unit_type": p.get("unit_type") or "WEIGHT",
+            "unit_label": p.get("unit_label") or "kg",
             "image_path": p.get("image_path", ""),
             "store_name": store.get("store_name") if store else p.get("store_name", ""),
             "store_id": str(p.get("store_id")) if p.get("store_id") else "",

@@ -4,6 +4,8 @@ Logic, decorators, endpoint names and route paths are intentionally preserved.
 Only the file location changed.
 """
 
+from itertools import product
+
 from app_core import *
 
 
@@ -34,9 +36,9 @@ def cart_page():
         price_per_unit = float(
             ci.get("price_per_unit_snapshot")
             if ci.get("price_per_unit_snapshot") is not None
-            else product.get("price_per_unit") or product.get("price_per_kg") or 0
+            else product.get("price_per_unit") or 0
         )
-        stock_quantity = float(product.get("stock_quantity") or product.get("stock_kg") or 0)
+        stock_quantity = float(product.get("stock_quantity") or 0)
         line_total = quantity * price_per_unit
 
         item = {
@@ -50,11 +52,6 @@ def cart_page():
             "price_per_unit": price_per_unit,
             "stock_quantity": stock_quantity,
             "line_total": line_total,
-
-            # Legacy compatibility fields.
-            "weight_kg": quantity,
-            "price_per_kg": price_per_unit,
-            "stock_kg": stock_quantity,
 
             "product_id": str(product["_id"]),
             "name": product.get("name", ""),
@@ -119,8 +116,6 @@ def api_cart_add(user_id):
         or request.form.get("quantity")
         or data.get("cart_quantity")
         or request.form.get("cart_quantity")
-        or data.get("weight_kg")
-        or request.form.get("weight_kg", "1")
         or 1
     )
 
@@ -133,8 +128,8 @@ def api_cart_add(user_id):
     if quantity_error:
         return jsonify({'ok': False, 'msg': quantity_error}), 400
 
-    stock = float(product.get("stock_quantity") or product.get("stock_kg") or 0)
-    price_per_unit = float(product.get("price_per_unit") or product.get("price_per_kg") or 0)
+    stock = float(product.get("stock_quantity") or 0)
+    price_per_unit = float(product.get("price_per_unit") or 0)
     active = int(product.get("is_active") or 0)
     new_store_id = product.get("store_id")
 
@@ -175,9 +170,6 @@ def api_cart_add(user_id):
         "unit_label": unit_label,
         "price_per_unit_snapshot": price_per_unit,
         "line_total": line_total,
-
-        # Legacy compatibility.
-        "weight_kg": quantity,
 
         "updated_at": now
     }
@@ -256,9 +248,9 @@ def api_cart_get(user_id):
         price_per_unit = float(
             ci.get("price_per_unit_snapshot")
             if ci.get("price_per_unit_snapshot") is not None
-            else product.get("price_per_unit") or product.get("price_per_kg") or 0
+            else product.get("price_per_unit") or 0
         )
-        stock_quantity = float(product.get("stock_quantity") or product.get("stock_kg") or 0)
+        stock_quantity = float(product.get("stock_quantity") or 0)
         line_total = quantity * price_per_unit
 
         items.append({
@@ -274,11 +266,6 @@ def api_cart_get(user_id):
             'price_per_unit': price_per_unit,
             'stock_quantity': stock_quantity,
             'line_total': line_total,
-
-            # Legacy compatibility fields.
-            'price_per_kg': price_per_unit,
-            'weight_kg': quantity,
-            'stock_kg': stock_quantity,
 
             'image_path': product.get('image_path', ''),
             'store_id': str(product.get('store_id')) if product.get('store_id') else None,

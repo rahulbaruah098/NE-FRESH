@@ -223,13 +223,13 @@ def _safe_float(value, default=0.0):
 def _calculate_product_pricing_from_form(request_form, fallback_original_price=0):
     """
     Product pricing rules:
-    - original_price_per_kg = store-entered base price
-    - price_per_kg = final customer selling price after discount
+    - original_price_per_unit = store-entered base price for selected unit
+    - price_per_unit = final customer selling price after discount
     - discount can be disabled, percent-based, or fixed-amount based
     """
 
     original_price = _safe_float(
-        request_form.get("original_price_per_kg") or request_form.get("price_per_kg"),
+        request_form.get("original_price_per_unit") or request_form.get("price_per_unit"),
         fallback_original_price
     )
 
@@ -285,95 +285,21 @@ def _calculate_product_pricing_from_form(request_form, fallback_original_price=0
         final_price = 0
 
     return {
-        "original_price_per_kg": round(original_price, 2),
-        "price_per_kg": round(final_price, 2),
+        "original_price_per_unit": round(original_price, 2),
+        "price_per_unit": round(final_price, 2),
         "discount_enabled": bool(discount_enabled and discount_amount > 0),
         "discount_type": discount_type,
         "discount_value": round(discount_value, 2),
-        "discount_amount_per_kg": round(discount_amount, 2),
-        "discount_percent": round(discount_percent, 2)
-    }
-
-def _calculate_product_pricing_from_form(request_form, fallback_original_price=0):
-    """
-    Product pricing rules:
-    - original_price_per_kg = store-entered base price
-    - price_per_kg = final customer selling price after discount
-    - discount can be disabled, percent-based, or fixed-amount based
-    """
-
-    original_price = _safe_float(
-        request_form.get("original_price_per_kg") or request_form.get("price_per_kg"),
-        fallback_original_price
-    )
-
-    if original_price < 0:
-        original_price = -1
-
-    discount_enabled_raw = (
-        request_form.get("discount_enabled")
-        or request_form.get("is_discount_enabled")
-        or ""
-    )
-
-    discount_enabled = str(discount_enabled_raw).strip().lower() in {
-        "1",
-        "true",
-        "on",
-        "yes",
-        "enabled"
-    }
-
-    discount_type = (request_form.get("discount_type") or "percent").strip().lower()
-
-    if discount_type not in {"percent", "amount"}:
-        discount_type = "percent"
-
-    discount_value = _safe_float(request_form.get("discount_value"), 0)
-
-    if discount_value < 0:
-        discount_value = 0
-
-    discount_amount = 0.0
-    discount_percent = 0.0
-    final_price = original_price
-
-    if discount_enabled and original_price > 0 and discount_value > 0:
-        if discount_type == "percent":
-            if discount_value > 100:
-                discount_value = 100
-
-            discount_percent = discount_value
-            discount_amount = original_price * (discount_percent / 100)
-            final_price = original_price - discount_amount
-
-        elif discount_type == "amount":
-            if discount_value > original_price:
-                discount_value = original_price
-
-            discount_amount = discount_value
-            final_price = original_price - discount_amount
-            discount_percent = (discount_amount / original_price * 100) if original_price else 0
-
-    if final_price < 0:
-        final_price = 0
-
-    return {
-        "original_price_per_kg": round(original_price, 2),
-        "price_per_kg": round(final_price, 2),
-        "discount_enabled": bool(discount_enabled and discount_amount > 0),
-        "discount_type": discount_type,
-        "discount_value": round(discount_value, 2),
-        "discount_amount_per_kg": round(discount_amount, 2),
+        "discount_amount_per_unit": round(discount_amount, 2),
         "discount_percent": round(discount_percent, 2)
     }
 
 
-    # =========================================================
+# =========================================================
 # PRODUCT UNIT HELPERS
 # Supports kg, gram, liter, ml, packet, piece, bottle, box, etc.
-# Backward compatible with old kg-only fields:
-# price_per_kg, mrp_per_kg, stock_kg, weight_kg
+# Single source of truth:
+# quantity, unit_type, unit_label, price_per_unit, stock_quantity
 # =========================================================
 
 UNIT_OPTIONS = {
@@ -521,13 +447,8 @@ def product_unit_label(product):
 
 
 def product_price_per_unit(product):
-    value = product.get("price_per_unit")
-
-    if value is None:
-        value = product.get("price_per_kg")
-
     try:
-        return float(value or 0)
+        return float(product.get("price_per_unit") or 0)
     except (TypeError, ValueError):
         return 0.0
 
@@ -536,13 +457,7 @@ def product_original_price_per_unit(product):
     value = product.get("original_price_per_unit")
 
     if value is None:
-        value = product.get("original_price_per_kg")
-
-    if value is None:
         value = product.get("price_per_unit")
-
-    if value is None:
-        value = product.get("price_per_kg")
 
     try:
         return float(value or 0)
@@ -551,28 +466,15 @@ def product_original_price_per_unit(product):
 
 
 def product_mrp_per_unit(product):
-    value = product.get("mrp_per_unit")
-
-    if value is None:
-        value = product.get("mrp_per_kg")
-
-    if value is None:
-        value = product.get("old_price")
-
     try:
-        return float(value or 0)
+        return float(product.get("mrp_per_unit") or product.get("old_price") or 0)
     except (TypeError, ValueError):
         return 0.0
 
 
 def product_stock_quantity(product):
-    value = product.get("stock_quantity")
-
-    if value is None:
-        value = product.get("stock_kg")
-
     try:
-        return float(value or 0)
+        return float(product.get("stock_quantity") or 0)
     except (TypeError, ValueError):
         return 0.0
 
@@ -594,13 +496,6 @@ def hydrate_product_unit_fields(product):
     product["original_price_per_unit"] = original_price_per_unit
     product["mrp_per_unit"] = mrp_per_unit
     product["stock_quantity"] = stock_quantity
-
-    # Backward compatibility for existing kg-only pages/routes.
-    product["price_per_kg"] = float(product.get("price_per_kg") or price_per_unit or 0)
-    product["original_price_per_kg"] = float(product.get("original_price_per_kg") or original_price_per_unit or price_per_unit or 0)
-    product["mrp_per_kg"] = float(product.get("mrp_per_kg") or mrp_per_unit or 0)
-    product["stock_kg"] = float(product.get("stock_kg") or stock_quantity or 0)
-
     product["quantity_min"] = rules["min"]
     product["quantity_step"] = rules["step"]
     product["quantity_message"] = rules["message"]
@@ -613,9 +508,6 @@ def cart_item_quantity(cart_item):
 
     if value is None:
         value = cart_item.get("quantity")
-
-    if value is None:
-        value = cart_item.get("weight_kg")
 
     try:
         return float(value or 0)
@@ -637,17 +529,17 @@ def build_unit_product_update_from_form(form, fallback_original_price=0):
         fallback_original_price=fallback_original_price
     )
 
-    original_price_per_unit = float(pricing.get("original_price_per_kg") or 0)
-    price_per_unit = float(pricing.get("price_per_kg") or 0)
-    discount_amount_per_unit = float(pricing.get("discount_amount_per_kg") or 0)
+    original_price_per_unit = float(pricing.get("original_price_per_unit") or 0)
+    price_per_unit = float(pricing.get("price_per_unit") or 0)
+    discount_amount_per_unit = float(pricing.get("discount_amount_per_unit") or 0)
 
     try:
-        mrp_per_unit = float(form.get("mrp_per_unit") or form.get("mrp_per_kg") or 0)
+        mrp_per_unit = float(form.get("mrp_per_unit") or 0)
     except (TypeError, ValueError):
         mrp_per_unit = 0.0
 
     try:
-        stock_quantity = float(form.get("stock_quantity") or form.get("stock_kg") or 0)
+        stock_quantity = float(form.get("stock_quantity") or 0)
     except (TypeError, ValueError):
         stock_quantity = 0.0
 
@@ -664,13 +556,6 @@ def build_unit_product_update_from_form(form, fallback_original_price=0):
         "discount_value": pricing.get("discount_value", 0),
         "discount_amount_per_unit": round(discount_amount_per_unit, 2),
         "discount_percent": pricing.get("discount_percent", 0),
-
-        # Legacy compatibility fields.
-        "original_price_per_kg": round(original_price_per_unit, 2),
-        "price_per_kg": round(price_per_unit, 2),
-        "mrp_per_kg": round(mrp_per_unit, 2),
-        "stock_kg": round(stock_quantity, 2),
-        "discount_amount_per_kg": round(discount_amount_per_unit, 2),
     }
 
 
@@ -1094,18 +979,11 @@ def _hydrate_home_product(p):
     p["sub_category"] = (p.get("sub_category") or "").strip()
     p["name"] = (p.get("name") or "Product").strip()
     p["image_path"] = p.get("image_path", "")
-    p["price_per_kg"] = float(p.get("price_per_kg") or 0)
-    p["original_price_per_kg"] = float(
-        p.get("original_price_per_kg")
-        or p.get("mrp_per_kg")
-        or p.get("old_price")
-        or p.get("price_per_kg")
-        or 0
-    )
+    hydrate_product_unit_fields(p)
+
     p["discount_enabled"] = bool(p.get("discount_enabled"))
     p["discount_percent"] = float(p.get("discount_percent") or 0)
-    p["discount_amount_per_kg"] = float(p.get("discount_amount_per_kg") or 0)
-    p["stock_kg"] = float(p.get("stock_kg") or 0)
+    p["discount_amount_per_unit"] = float(p.get("discount_amount_per_unit") or 0)
 
     avg_rating, rating_count = _home_product_rating_summary(p["_id"])
     p["avg_rating"] = avg_rating
@@ -1253,7 +1131,12 @@ def get_order_full(oid, for_user_id=None):
         item["id"] = str(item["_id"])
         item["product_id"] = str(item.get("product_id"))
         item["name"] = item.get("product_name", "")
-        item["price_per_kg"] = item.get("unit_price_per_kg", 0)
+        item["quantity"] = float(item.get("quantity") or item.get("cart_quantity") or 0)
+        item["unit_label"] = item.get("unit_label") or "unit"
+        item["unit_type"] = item.get("unit_type") or "COUNT"
+        item["price_per_unit"] = float(item.get("price_per_unit") or item.get("unit_price") or 0)
+        item["unit_price"] = item["price_per_unit"]
+        item["line_total"] = float(item.get("line_total") or (item["quantity"] * item["price_per_unit"]))
 
     addr = mongo.order_addresses.find_one({"order_id": oid_obj})
 
@@ -1530,7 +1413,7 @@ def _rating_summary(collection_name, target_field, lookup_collection, lookup_nam
 
 
 def _top_selling_items(limit=6):
-    buckets = defaultdict(lambda: {"sold": 0, "sold_kg": 0.0, "revenue": 0.0})
+    buckets = defaultdict(lambda: {"sold": 0, "sold_quantity": 0.0, "revenue": 0.0})
 
     for row in mongo.order_items.find({}):
         pid = row.get("product_id")
@@ -1539,7 +1422,7 @@ def _top_selling_items(limit=6):
 
         key = str(pid)
         buckets[key]["sold"] += 1
-        buckets[key]["sold_kg"] += float(row.get("weight_kg") or 0)
+        buckets[key]["sold_quantity"] += float(row.get("quantity") or row.get("cart_quantity") or 0)
         buckets[key]["revenue"] += float(row.get("line_total") or 0)
 
     result = []
@@ -1552,7 +1435,7 @@ def _top_selling_items(limit=6):
             "product_id": key,
             "product_name": product.get("name", "") or product.get("product_name", "") or "Product",
             "sold": agg["sold"],
-            "sold_kg": round(agg["sold_kg"], 2),
+            "sold_quantity": round(agg["sold_quantity"], 2),
             "revenue": round(agg["revenue"], 2),
             "image_url": product.get("image_path") or product.get("image_url") or "",
         })

@@ -1143,8 +1143,8 @@
             <thead>
               <tr>
                 <th>Product</th>
-                <th>Weight (kg)</th>
-                <th>₹/kg</th>
+                <th>Quantity</th>
+<th>Rate</th>
                 <th>Subtotal</th>
               </tr>
             </thead>
@@ -1155,9 +1155,13 @@
                   <img class="thumb" src="{{ '/' + i.image_path if i.image_path else url_for('static', filename='placeholder.png') }}" alt="">
                   <div class="prod-name">{{ i.name }}</div>
                 </td>
-                <td>{{ '%.2f'|format(i.weight_kg) }}</td>
-                <td>₹ {{ '%.2f'|format(i.unit_price_per_kg) }}</td>
-                <td>₹ {{ '%.2f'|format(i.line_total) }}</td>
+              {% set qty = i.quantity or i.cart_quantity or 0 %}
+{% set unit_label = i.unit_label or 'unit' %}
+{% set price = i.price_per_unit or i.unit_price or 0 %}
+
+<td>{{ '%g'|format(qty) }} {{ unit_label }}</td>
+<td>₹ {{ '%.2f'|format(price) }} / {{ unit_label }}</td>
+<td>₹ {{ '%.2f'|format(i.line_total or (qty * price)) }}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -1174,9 +1178,13 @@
             <div class="right">
               <div class="name">{{ i.name }}</div>
               <div class="meta">
-                <span>{{ '%.2f'|format(i.weight_kg) }} kg</span>
-                <span>•</span>
-                <span>₹{{ '%.2f'|format(i.unit_price_per_kg) }}/kg</span>
+               {% set qty = i.quantity or i.cart_quantity or 0 %}
+{% set unit_label = i.unit_label or 'unit' %}
+{% set price = i.price_per_unit or i.unit_price or 0 %}
+
+<span>{{ '%g'|format(qty) }} {{ unit_label }}</span>
+<span>•</span>
+<span>₹{{ '%.2f'|format(price) }}/{{ unit_label }}</span>
               </div>
               <div class="price">₹{{ '%.2f'|format(i.line_total) }}</div>
             </div>

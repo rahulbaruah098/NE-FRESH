@@ -227,7 +227,7 @@ def api_search_suggest():
     products = list(
         mongo.products.find({
             "is_active": 1,
-            "stock_kg": {"$gt": 0},
+            "stock_quantity": {"$gt": 0},
             "$or": [
                 {"name": {"$regex": q, "$options": "i"}},
                 {"category": {"$regex": q, "$options": "i"}},
@@ -337,27 +337,42 @@ def api_checkout(user_id):
                 "error": "One product no longer exists"
             }), 400
 
-        weight_kg = float(ci.get("weight_kg") or 0)
-        stock_kg = float(product.get("stock_kg") or 0)
+        hydrate_product_unit_fields(product)
 
-        if int(product.get("is_active") or 0) != 1 or stock_kg <= 0:
+        quantity = cart_item_quantity(ci)
+        unit_type = ci.get("unit_type") or product.get("unit_type") or "WEIGHT"
+        unit_label = ci.get("unit_label") or product.get("unit_label") or "kg"
+
+        price_per_unit = float(
+            ci.get("price_per_unit_snapshot")
+            if ci.get("price_per_unit_snapshot") is not None
+            else product.get("price_per_unit") or 0
+        )
+
+        stock_quantity = float(product.get("stock_quantity") or 0)
+
+        if int(product.get("is_active") or 0) != 1 or stock_quantity <= 0:
             return jsonify({
                 "success": False,
                 "error": f"{product.get('name', 'Product')} is sold out"
             }), 400
 
-        if weight_kg > stock_kg:
+        if quantity > stock_quantity:
             return jsonify({
                 "success": False,
-                "error": f"{product.get('name', 'Product')} has only {stock_kg:.2f} kg available"
+                "error": f"{product.get('name', 'Product')} has only {stock_quantity:.2f} {unit_label} available"
             }), 400
 
         items.append({
             "product_id": product["_id"],
             "product_name": product.get("name", ""),
-            "weight_kg": weight_kg,
-            "unit_price_per_kg": float(product.get("price_per_kg") or 0),
-            "line_total": weight_kg * float(product.get("price_per_kg") or 0),
+            "quantity": quantity,
+            "cart_quantity": quantity,
+            "unit_type": unit_type,
+            "unit_label": unit_label,
+            "price_per_unit": price_per_unit,
+            "unit_price": price_per_unit,
+            "line_total": quantity * price_per_unit,
             "image_path": product.get("image_path", ""),
             "store_id": product.get("store_id")
         })
@@ -454,27 +469,35 @@ def api_checkout(user_id):
     order_id = order_result.inserted_id
 
     for item in items:
-        mongo.order_items.insert_one({
+        order_item_doc = {
             "order_id": order_id,
             "product_id": item["product_id"],
             "product_name": item["product_name"],
-            "weight_kg": float(item["weight_kg"]),
-            "unit_price_per_kg": float(item["unit_price_per_kg"]),
-            "line_total": float(item["line_total"]),
+            "quantity": float(item.get("quantity") or item.get("cart_quantity") or 0),
+            "cart_quantity": float(item.get("quantity") or item.get("cart_quantity") or 0),
+            "unit_type": item.get("unit_type") or "WEIGHT",
+            "unit_label": item.get("unit_label") or "kg",
+            "price_per_unit": float(item.get("price_per_unit") or item.get("unit_price") or 0),
+            "unit_price": float(item.get("price_per_unit") or item.get("unit_price") or 0),
+            "line_total": float(item.get("line_total") or 0),
             "image_path": item.get("image_path", "")
-        })
+        }
+
+        mongo.order_items.insert_one(order_item_doc)
+
+        deduct_qty = float(order_item_doc.get("quantity") or 0)
 
         mongo.products.update_one(
             {"_id": item["product_id"]},
-            {"$inc": {"stock_kg": -float(item["weight_kg"])}}
+            {"$inc": {"stock_quantity": -deduct_qty}}
         )
 
         updated_product = mongo.products.find_one({"_id": item["product_id"]})
 
-        if updated_product and float(updated_product.get("stock_kg") or 0) <= 0:
+        if updated_product and float(updated_product.get("stock_quantity") or 0) <= 0:
             mongo.products.update_one(
                 {"_id": item["product_id"]},
-                {"$set": {"stock_kg": 0, "is_active": 0}}
+                {"$set": {"stock_quantity": 0, "is_active": 0}}
             )
 
     mongo.transactions.insert_one({

@@ -35,15 +35,14 @@ def order_cancel(oid):
 
     for line in order_items:
         product_id = line.get("product_id")
-        restore_qty = float(line.get("quantity") or line.get("cart_quantity") or line.get("weight_kg") or 0)
+        restore_qty = float(line.get("quantity") or line.get("cart_quantity") or 0)
 
         if product_id and restore_qty > 0:
             mongo.products.update_one(
                 {"_id": product_id},
                 {
                     "$inc": {
-                        "stock_quantity": restore_qty,
-                        "stock_kg": restore_qty
+                        "stock_quantity": restore_qty
                     },
                     "$set": {"is_active": 1}
                 }
@@ -113,17 +112,15 @@ def checkout():
         price_per_unit = float(
             ci.get("price_per_unit_snapshot")
             if ci.get("price_per_unit_snapshot") is not None
-            else product.get("price_per_unit") or product.get("price_per_kg") or 0
+            else product.get("price_per_unit") or 0
         )
 
-        stock_quantity = float(product.get("stock_quantity") or product.get("stock_kg") or 0)
+        stock_quantity = float(product.get("stock_quantity") or 0)
         line_total = float(quantity or 0) * float(price_per_unit or 0)
 
         item = {
             "product_id": product["_id"],
             "product_id_str": str(product["_id"]),
-
-            # Unit-aware fields.
             "quantity": quantity,
             "cart_quantity": quantity,
             "unit_type": unit_type,
@@ -131,12 +128,6 @@ def checkout():
             "price_per_unit": price_per_unit,
             "stock_quantity": stock_quantity,
             "line_total": line_total,
-
-            # Legacy compatibility fields.
-            "weight_kg": quantity,
-            "price_per_kg": price_per_unit,
-            "stock_kg": stock_quantity,
-
             "store_id": product.get("store_id"),
             "is_active": int(product.get("is_active") or 0),
             "name": product.get("name", ""),
@@ -265,14 +256,11 @@ def checkout():
         order_items_docs = []
 
         for it in items:
-            for it in items:
-                line_total = float(it["quantity"]) * float(it["price_per_unit"])
+            line_total = float(it["quantity"]) * float(it["price_per_unit"])
 
-        order_items_docs.append({
+            order_items_docs.append({
                 "product_id": it["product_id"],
                 "product_name": it.get("name", ""),
-
-                # Unit-aware fields.
                 "quantity": float(it["quantity"]),
                 "cart_quantity": float(it["quantity"]),
                 "unit_type": it.get("unit_type") or "WEIGHT",
@@ -280,12 +268,6 @@ def checkout():
                 "price_per_unit": float(it["price_per_unit"]),
                 "unit_price": float(it["price_per_unit"]),
                 "line_total": line_total,
-
-                # Legacy compatibility fields.
-                "weight_kg": float(it["quantity"]),
-                "unit_price_per_kg": float(it["price_per_unit"]),
-                "price_per_kg": float(it["price_per_unit"]),
-
                 "image_path": it.get("image_path", "")
             })
 
@@ -312,14 +294,13 @@ def checkout():
             order_item["order_id"] = oid
             mongo.order_items.insert_one(order_item)
 
-            deduct_qty = float(order_item.get("quantity") or order_item.get("weight_kg") or 0)
+            deduct_qty = float(order_item.get("quantity") or 0)
 
             mongo.products.update_one(
                 {"_id": order_item["product_id"]},
                 {
                     "$inc": {
-                        "stock_quantity": -deduct_qty,
-                        "stock_kg": -deduct_qty
+                        "stock_quantity": -deduct_qty
                     }
                 }
             )
@@ -327,7 +308,7 @@ def checkout():
             updated_product = mongo.products.find_one({"_id": order_item["product_id"]})
 
             if updated_product:
-                updated_stock = float(updated_product.get("stock_quantity") or updated_product.get("stock_kg") or 0)
+                updated_stock = float(updated_product.get("stock_quantity") or 0)
 
                 if updated_stock <= 0:
                     mongo.products.update_one(
@@ -335,7 +316,6 @@ def checkout():
                         {
                             "$set": {
                                 "stock_quantity": 0,
-                                "stock_kg": 0,
                                 "is_active": 0
                             }
                         }
@@ -635,22 +615,18 @@ def api_order_detail(user_id, oid):
     items = []
 
     for item in data.get("items", []):
-        quantity = float(item.get("quantity") or item.get("cart_quantity") or item.get("weight_kg") or 0)
-        unit_label = item.get("unit_label") or "kg"
-        unit_type = item.get("unit_type") or "WEIGHT"
+        quantity = float(item.get("quantity") or item.get("cart_quantity") or 0)
+        unit_label = item.get("unit_label") or "unit"
+        unit_type = item.get("unit_type") or "COUNT"
         price_per_unit = float(
             item.get("price_per_unit")
             or item.get("unit_price")
-            or item.get("unit_price_per_kg")
-            or item.get("price_per_kg")
             or 0
         )
 
         items.append({
             "product_id": str(item.get("product_id")) if item.get("product_id") else "",
             "name": item.get("product_name") or item.get("name", ""),
-
-            # Unit-aware fields.
             "quantity": quantity,
             "cart_quantity": quantity,
             "unit_type": unit_type,
@@ -658,12 +634,6 @@ def api_order_detail(user_id, oid):
             "price_per_unit": price_per_unit,
             "unit_price": price_per_unit,
             "line_total": float(item.get("line_total") or (quantity * price_per_unit)),
-
-            # Legacy compatibility fields.
-            "weight_kg": quantity,
-            "unit_price_per_kg": price_per_unit,
-            "price_per_kg": price_per_unit,
-
             "image_path": item.get("image_path", "")
         })
 
