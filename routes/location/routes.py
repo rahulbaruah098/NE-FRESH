@@ -6,6 +6,9 @@ Only the file location changed.
 
 from app_core import *
 
+import urllib.parse
+import urllib.request
+
 
 @app.route("/api/service/pincodes")
 def api_service_pincodes():
@@ -16,57 +19,210 @@ def api_service_pincodes():
         "pincodes": []
     })
 
+
+def _float_or_none(value):
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _locationiq_reverse_geocode(lat, lng):
+    """
+    Convert GPS latitude/longitude into address details using LocationIQ.
+
+    Required .env:
+        LOCATIONIQ_API_KEY=your_key_here
+    """
+    api_key = os.getenv("LOCATIONIQ_API_KEY", "").strip()
+
+    if not api_key:
+        raise RuntimeError("LOCATIONIQ_API_KEY is missing in .env")
+
+    query = urllib.parse.urlencode({
+        "key": api_key,
+        "lat": str(lat),
+        "lon": str(lng),
+        "format": "json",
+        "addressdetails": "1",
+        "normalizeaddress": "1",
+    })
+
+    url = f"https://us1.locationiq.com/v1/reverse?{query}"
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "NE-Fresh/1.0",
+            "Accept": "application/json",
+        }
+    )
+
+    with urllib.request.urlopen(req, timeout=12) as response:
+        raw = response.read().decode("utf-8", errors="replace")
+        return json.loads(raw)
+
+
+@app.route("/api/location/reverse", methods=["POST"])
+def api_location_reverse():
+    """
+    Frontend sends:
+        { "lat": 26.1445, "lng": 91.7362 }
+
+    Backend returns:
+        address, pincode, city, state, lat, lng
+
+    This route is used by checkout's "Use Current Location" button.
+    """
+    data = request.get_json(silent=True) or {}
+
+    lat = _float_or_none(data.get("lat"))
+    lng = _float_or_none(data.get("lng"))
+
+    if lat is None or lng is None:
+        return jsonify({
+            "ok": False,
+            "error": "Latitude and longitude are required."
+        }), 400
+
+    if lat < -90 or lat > 90 or lng < -180 or lng > 180:
+        return jsonify({
+            "ok": False,
+            "error": "Invalid latitude or longitude."
+        }), 400
+
+    try:
+        result = _locationiq_reverse_geocode(lat, lng)
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "error": "Could not detect address from current location.",
+            "detail": str(exc)
+        }), 502
+
+    address_data = result.get("address") or {}
+
+    pincode = _clean_pin(
+        address_data.get("postcode")
+        or address_data.get("postal_code")
+        or ""
+    )
+
+    city = (
+        address_data.get("city")
+        or address_data.get("town")
+        or address_data.get("village")
+        or address_data.get("municipality")
+        or address_data.get("county")
+        or ""
+    )
+
+    state = address_data.get("state") or ""
+    country = address_data.get("country") or ""
+    display_address = result.get("display_name") or ""
+
+    if not pincode:
+        return jsonify({
+            "ok": False,
+            "error": "Pincode could not be detected from this GPS location. Please enter pincode manually.",
+            "lat": lat,
+            "lng": lng,
+            "address": display_address,
+            "city": city,
+            "state": state,
+            "country": country,
+        }), 422
+
+    serviceable = is_serviceable_pincode(pincode)
+    assam = is_assam_state(state)
+
+    return jsonify({
+        "ok": True,
+        "lat": lat,
+        "lng": lng,
+        "pincode": pincode,
+        "address": display_address or f"Pincode {pincode}",
+        "city": city,
+        "state": state,
+        "country": country,
+        "serviceable": serviceable,
+        "assam": assam,
+        "message": "Location detected successfully."
+    })
+
+
 @app.route("/api/location/set", methods=["POST"])
 def api_location_set():
     data = request.get_json(silent=True) or {}
+
     address = (data.get("address") or "").strip()
     pincode_raw = data.get("pincode")
     lat = data.get("lat")
     lng = data.get("lng")
+    city = (data.get("city") or "").strip()
+    state = (data.get("state") or "").strip()
+    source = (data.get("source") or "manual").strip()
 
     pincode = _clean_pin(pincode_raw)
-    if not pincode:
-        return jsonify({"ok": False, "error": "no pincode"}), 400
 
-    # normalize coords
-    try:
-        lat_f = float(lat) if lat is not None and str(lat).strip() != "" else None
-    except Exception:
-        lat_f = None
-    try:
-        lng_f = float(lng) if lng is not None and str(lng).strip() != "" else None
-    except Exception:
-        lng_f = None
+    if not pincode:
+        return jsonify({
+            "ok": False,
+            "error": "no pincode"
+        }), 400
+
+    lat_f = _float_or_none(lat)
+    lng_f = _float_or_none(lng)
 
     serviceable = is_serviceable_pincode(pincode)
 
-    # ✅ keep existing structure
     session["service_area"] = {
         "address": address or f"Pincode {pincode}",
         "pincode": pincode,
         "lat": lat_f,
         "lng": lng_f,
+        "city": city,
+        "state": state,
+        "source": source,
     }
 
-    # ✅ add keys that your checkout() already uses
     session["location_pincode"] = pincode
     session["location_lat"] = lat_f
     session["location_lng"] = lng_f
+    session["location_address"] = address or f"Pincode {pincode}"
+    session["location_city"] = city
+    session["location_state"] = state
+    session["location_source"] = source
 
     session.modified = True
-    return jsonify({"ok": True, "serviceable": serviceable, "service_area": session["service_area"]})
+
+    return jsonify({
+        "ok": True,
+        "serviceable": serviceable,
+        "service_area": session["service_area"]
+    })
+
 
 @app.route("/api/location/clear", methods=["POST"])
 def api_location_clear():
     session.pop("service_area", None)
 
-    # ✅ also clear these
     session.pop("location_pincode", None)
     session.pop("location_lat", None)
     session.pop("location_lng", None)
+    session.pop("location_address", None)
+    session.pop("location_city", None)
+    session.pop("location_state", None)
+    session.pop("location_source", None)
 
     session.modified = True
-    return jsonify({"ok": True})
+
+    return jsonify({
+        "ok": True
+    })
+
 
 @app.route("/detect-location", methods=["GET", "POST"])
 def detect_location():
@@ -86,19 +242,31 @@ def detect_location():
         flash("Could not detect pincode.", "warning")
         return redirect(request.referrer or url_for("index"))
 
+    clean_pincode = _clean_pin(pincode)
+    lat_f = _float_or_none(lat)
+    lng_f = _float_or_none(lng)
+
     session["service_area"] = {
-        "address": address or f"Pincode {pincode}",
-        "pincode": pincode,
-        "lat": float(lat) if lat else None,
-        "lng": float(lng) if lng else None,
+        "address": address or f"Pincode {clean_pincode}",
+        "pincode": clean_pincode,
+        "lat": lat_f,
+        "lng": lng_f,
     }
+
+    session["location_pincode"] = clean_pincode
+    session["location_lat"] = lat_f
+    session["location_lng"] = lng_f
+    session["location_address"] = address or f"Pincode {clean_pincode}"
+
     session.modified = True
-    if not is_serviceable_pincode(pincode):
+
+    if not is_serviceable_pincode(clean_pincode):
         flash("Please enter a valid 6-digit pincode.", "warning")
     else:
-        flash(f"Location set to {pincode}. Delivery is available across Assam.", "success")
+        flash(f"Location set to {clean_pincode}. Delivery is available across Assam.", "success")
 
     return redirect(request.referrer or url_for("index"))
+
 
 @app.route('/api/orders/<oid>/rider_location', methods=['GET'])
 @api_login_required

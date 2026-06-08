@@ -134,6 +134,153 @@ def address_new():
 
     return redirect(url_for("profile"))
 
+@app.route("/api/checkout/address/save", methods=["POST"])
+@login_required()
+def api_checkout_address_save():
+    """
+    Save a delivery address directly from checkout modal.
+
+    Used by checkout flow:
+    Use Current Location -> detect GPS/pincode -> user fills house/landmark
+    -> save address without leaving checkout page.
+    """
+    u = current_user()
+    data = request.get_json(silent=True) or {}
+
+    line1 = (data.get("line1") or "").strip()
+    line2 = (data.get("line2") or "").strip()
+    city = (data.get("city") or "").strip()
+    state = (data.get("state") or "").strip()
+    pincode = _clean_pin(data.get("pincode") or "")
+    label = (data.get("label") or "Home").strip() or "Home"
+
+    lat_raw = data.get("latitude")
+    lng_raw = data.get("longitude")
+
+    def _safe_float(value, min_value=None, max_value=None):
+        try:
+            if value is None or str(value).strip() == "":
+                return None
+
+            n = float(value)
+
+            if min_value is not None and n < min_value:
+                return None
+
+            if max_value is not None and n > max_value:
+                return None
+
+            return n
+        except Exception:
+            return None
+
+    latitude = _safe_float(lat_raw, -90, 90)
+    longitude = _safe_float(lng_raw, -180, 180)
+
+    existing_count = mongo.addresses.count_documents({
+        "user_id": u["id"]
+    })
+
+    is_default = 1 if data.get("is_default") in [1, "1", True, "true", "yes"] else 0
+
+    # If this is the user's first address, force it as default.
+    if existing_count == 0:
+        is_default = 1
+
+    if not line1:
+        return jsonify({
+            "ok": False,
+            "error": "House / flat / building details are required."
+        }), 400
+
+    if not pincode or not is_serviceable_pincode(pincode):
+        return jsonify({
+            "ok": False,
+            "error": "Please enter a valid 6-digit pincode."
+        }), 400
+
+    if not state:
+        return jsonify({
+            "ok": False,
+            "error": "State is required."
+        }), 400
+
+    if not is_assam_state(state):
+        return jsonify({
+            "ok": False,
+            "error": "Delivery is currently available only within Assam."
+        }), 400
+
+    if not city:
+        return jsonify({
+            "ok": False,
+            "error": "City / town / area is required."
+        }), 400
+
+    if is_default:
+        mongo.addresses.update_many(
+            {"user_id": u["id"]},
+            {"$set": {"is_default": 0}}
+        )
+
+    now = datetime.utcnow().isoformat()
+
+    address_doc = {
+        "user_id": u["id"],
+        "label": label,
+        "line1": line1,
+        "line2": line2,
+        "city": city,
+        "state": state,
+        "pincode": pincode,
+        "latitude": latitude,
+        "longitude": longitude,
+        "is_default": is_default,
+        "source": data.get("source") or "checkout",
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    result = mongo.addresses.insert_one(address_doc)
+    address_id = str(result.inserted_id)
+
+    # Keep global/session location synced for checkout fee calculation.
+    session["service_area"] = {
+        "address": ", ".join([x for x in [line1, line2, city, state, pincode] if x]),
+        "pincode": pincode,
+        "lat": latitude,
+        "lng": longitude,
+        "city": city,
+        "state": state,
+        "source": "checkout_address",
+    }
+
+    session["location_pincode"] = pincode
+    session["location_lat"] = latitude
+    session["location_lng"] = longitude
+    session["location_address"] = session["service_area"]["address"]
+    session["location_city"] = city
+    session["location_state"] = state
+    session["location_source"] = "checkout_address"
+    session.modified = True
+
+    return jsonify({
+        "ok": True,
+        "message": "Address saved successfully.",
+        "address": {
+            "id": address_id,
+            "label": label,
+            "line1": line1,
+            "line2": line2,
+            "city": city,
+            "state": state,
+            "pincode": pincode,
+            "latitude": latitude,
+            "longitude": longitude,
+            "is_default": is_default,
+        }
+    })
+
 @app.route("/profile/address/<aid>/delete", methods=["POST"])
 @login_required()
 def address_delete(aid):

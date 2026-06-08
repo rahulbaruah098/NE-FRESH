@@ -266,13 +266,43 @@ def checkout():
         store_lat = store.get("latitude")
         store_lng = store.get("longitude")
 
-        addr_lat = sel.get("latitude") if sel.get("latitude") else session.get("location_lat")
-        addr_lng = sel.get("longitude") if sel.get("longitude") else session.get("location_lng")
+        def _safe_float(value):
+            try:
+                if value is None or str(value).strip() == "":
+                    return None
+                return float(value)
+            except Exception:
+                return None
 
-        km = haversine_km(store_lat, store_lng, addr_lat, addr_lng)
+        # Location priority:
+        # 1. Fresh checkout GPS/current-location hidden fields
+        # 2. Session location from navbar/checkout location API
+        # 3. Saved address coordinates
+        form_lat = _safe_float(request.form.get("resolved_lat"))
+        form_lng = _safe_float(request.form.get("resolved_lng"))
 
-# Assam-wide delivery: no distance blocking.
-# Delivery fee is calculated by distance if coordinates are available.
+        session_lat = _safe_float(session.get("location_lat"))
+        session_lng = _safe_float(session.get("location_lng"))
+
+        saved_lat = _safe_float(sel.get("latitude"))
+        saved_lng = _safe_float(sel.get("longitude"))
+
+        final_lat = form_lat if form_lat is not None else session_lat if session_lat is not None else saved_lat
+        final_lng = form_lng if form_lng is not None else session_lng if session_lng is not None else saved_lng
+
+        if form_lat is not None and form_lng is not None:
+            location_source = "checkout_gps"
+        elif session_lat is not None and session_lng is not None:
+            location_source = session.get("location_source") or "session_location"
+        elif saved_lat is not None and saved_lng is not None:
+            location_source = "saved_address"
+        else:
+            location_source = "missing_coordinates"
+
+        km = haversine_km(store_lat, store_lng, final_lat, final_lng)
+
+        # Assam-wide delivery: no distance blocking.
+        # Delivery fee is calculated by distance if coordinates are available.
         delivery_fee = calculate_delivery_fee_by_distance(km)
 
         tip_amount = request.form.get("tip_amount", "0").strip()
@@ -313,22 +343,34 @@ def checkout():
                 "image_path": it.get("image_path", "")
             })
 
-        order_result = mongo.orders.insert_one({
-            "user_id": u["id"],
-            "customer_name": u.get("name"),
-            "customer_phone": u.get("phone"),
-            "store_id": store_id,
-            "store_name": store.get("store_name", ""),
-            "total_amount": float(items_total),
-            "status": "PLACED",
-            "payment_status": "PENDING",
-            "delivery_partner_id": None,
-            "delivery_fee": float(delivery_fee),
-            "distance_km": float(km) if km is not None else None,
-            "tip_amount": float(tip_amount),
-            "total_payable": float(total_payable),
-            "created_at": now
-        })
+            order_result = mongo.orders.insert_one({
+                "user_id": u["id"],
+                "customer_name": u.get("name"),
+                "customer_phone": u.get("phone"),
+                "store_id": store_id,
+                "store_name": store.get("store_name", ""),
+                "total_amount": float(items_total),
+                "status": "PLACED",
+                "payment_status": "PENDING",
+                "delivery_partner_id": None,
+                "delivery_fee": float(delivery_fee),
+                "distance_km": float(km) if km is not None else None,
+                "tip_amount": float(tip_amount),
+                "total_payable": float(total_payable),
+
+            # Final checkout delivery location used for fee calculation.
+                "delivery_latitude": final_lat,
+                "delivery_longitude": final_lng,
+                "delivery_location_source": location_source,
+
+            # Session/global detected location info, if available.
+                "delivery_location_address": session.get("location_address"),
+                "delivery_location_pincode": session.get("location_pincode"),
+                "delivery_location_city": session.get("location_city"),
+                "delivery_location_state": session.get("location_state"),
+
+                "created_at": now
+            })
 
         oid = order_result.inserted_id
 
@@ -378,8 +420,16 @@ def checkout():
             "city": sel.get("city"),
             "state": sel.get("state"),
             "pincode": sel.get("pincode"),
-            "latitude": sel.get("latitude"),
-            "longitude": sel.get("longitude"),
+
+            # Final coordinates actually used at checkout.
+            "latitude": final_lat,
+            "longitude": final_lng,
+            "location_source": location_source,
+
+            # Original saved-address coordinates for reference.
+            "saved_address_latitude": saved_lat,
+            "saved_address_longitude": saved_lng,
+
             "created_at": now
         })
 
