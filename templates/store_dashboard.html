@@ -18,6 +18,10 @@
 {% set delivered_orders_total = metrics.delivered_orders|default(0) %}
 {% set categories_list = categories if categories is defined else [] %}
 {% set active_categories_list = active_categories if active_categories is defined else [] %}
+{% set store_online = store.is_online|default(store.is_open|default(1))|int %}
+{% set delivery_on = store.delivery_enabled|default(1 if store.delivery_available else 0)|int %}
+{% set zone_ready = store.delivery_zone_configured|default(1 if store.delivery_zone_polygon else 0)|int %}
+{% set has_store_coords = store.latitude is not none and store.longitude is not none %}
 
 {% set ns = namespace(
   placed=0,
@@ -289,6 +293,232 @@
       line-height:1.45;
     }
 
+    /* ===== Store Operation Quick Controls ===== */
+.sd-live-control-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:16px;
+  padding:20px;
+}
+
+.sd-live-card{
+  position:relative;
+  min-height:148px;
+  border:1px solid var(--line);
+  border-radius:24px;
+  background:#fff;
+  box-shadow:0 10px 28px rgba(17,64,38,.06);
+  padding:18px;
+  overflow:hidden;
+}
+
+.sd-live-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at 88% 8%, rgba(0,168,89,.12), transparent 34%);
+  pointer-events:none;
+}
+
+.sd-live-card.is-warning::before{
+  background:radial-gradient(circle at 88% 8%, rgba(255,138,31,.16), transparent 34%);
+}
+
+.sd-live-card.is-danger::before{
+  background:radial-gradient(circle at 88% 8%, rgba(239,68,68,.14), transparent 34%);
+}
+
+.sd-live-card-inner{
+  position:relative;
+  z-index:1;
+  display:grid;
+  gap:14px;
+  height:100%;
+}
+
+.sd-live-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+}
+
+.sd-live-title{
+  color:var(--ink);
+  font-size:16px;
+  font-weight:900;
+  letter-spacing:-.03em;
+}
+
+.sd-live-sub{
+  margin-top:5px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:750;
+  line-height:1.45;
+}
+
+.sd-live-pill{
+  min-height:30px;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:950;
+  white-space:nowrap;
+  border:1px solid rgba(5,150,105,.18);
+  color:#047857;
+  background:#ECFDF5;
+}
+
+.sd-live-pill.off{
+  color:#475569;
+  background:#F1F5F9;
+  border-color:rgba(100,116,139,.22);
+}
+
+.sd-live-pill.warn{
+  color:#C2410C;
+  background:#FFF7ED;
+  border-color:rgba(249,115,22,.24);
+}
+
+.sd-live-pill.bad{
+  color:#B91C1C;
+  background:#FEF2F2;
+  border-color:rgba(239,68,68,.22);
+}
+
+.sd-live-toggle{
+  width:164px;
+  min-height:44px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:#F1F5F9;
+  color:#475569;
+  padding:5px;
+  display:grid;
+  grid-template-columns:38px 1fr;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  font-weight:950;
+  font-family:inherit;
+  cursor:pointer;
+  transition:.2s var(--ease);
+}
+
+.sd-live-toggle.is-on{
+  grid-template-columns:1fr 38px;
+  background:#ECFDF5;
+  color:#047857;
+  border-color:rgba(5,150,105,.22);
+}
+
+.sd-live-toggle.delivery-on{
+  grid-template-columns:1fr 38px;
+  background:#EFF6FF;
+  color:#1D4ED8;
+  border-color:rgba(59,130,246,.24);
+}
+
+.sd-live-toggle.delivery-off{
+  background:#FFF7ED;
+  color:#C2410C;
+  border-color:rgba(249,115,22,.26);
+}
+
+.sd-live-toggle:disabled{
+  opacity:.68;
+  cursor:not-allowed;
+}
+
+.sd-toggle-knob{
+  width:38px;
+  height:34px;
+  border-radius:999px;
+  background:#fff;
+  display:grid;
+  place-items:center;
+  box-shadow:0 6px 16px rgba(15,23,42,.16);
+}
+
+.sd-toggle-dot{
+  width:11px;
+  height:11px;
+  border-radius:50%;
+  background:currentColor;
+}
+
+.sd-toggle-text{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
+}
+
+.sd-live-toggle.is-on .sd-toggle-text,
+.sd-live-toggle.delivery-on .sd-toggle-text{
+  grid-column:1;
+  grid-row:1;
+}
+
+.sd-live-toggle.is-on .sd-toggle-knob,
+.sd-live-toggle.delivery-on .sd-toggle-knob{
+  grid-column:2;
+  grid-row:1;
+}
+
+.sd-live-meta{
+  display:grid;
+  gap:7px;
+  margin-top:auto;
+}
+
+.sd-live-meta-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+}
+
+.sd-live-meta-row strong{
+  color:var(--ink);
+  text-align:right;
+}
+
+.sd-live-link{
+  color:var(--green-dark);
+  text-decoration:none;
+  font-size:12px;
+  font-weight:950;
+}
+
+@media (max-width:1180px){
+  .sd-live-control-grid{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:760px){
+  .sd-live-control-grid{
+    padding:16px;
+  }
+
+  .sd-live-top{
+    flex-direction:column;
+  }
+
+  .sd-live-toggle{
+    width:100%;
+  }
+}
+
     .sd-section-head{
       display:flex;
       align-items:flex-start;
@@ -546,6 +776,148 @@
         </div>
 
         
+            </section>
+
+      <section class="sd-card" id="store-live-controls">
+        <div class="sd-section-head">
+          <div>
+            <h2 class="sd-section-title">Store Live Controls</h2>
+            <p class="sd-section-sub">
+              Quickly control whether the store accepts orders and whether delivery is currently available.
+            </p>
+          </div>
+          <a class="sd-view-link" href="{{ url_for('store_profile') }}">Open delivery settings</a>
+        </div>
+
+        <div class="sd-live-control-grid">
+
+          <div class="sd-live-card {% if store_online != 1 %}is-warning{% endif %}">
+            <div class="sd-live-card-inner">
+              <div class="sd-live-top">
+                <div>
+                  <div class="sd-live-title">Store Operation</div>
+                  <div class="sd-live-sub">
+                    Offline stores remain visible, but customers cannot place new orders.
+                  </div>
+                </div>
+
+                {% if store_online == 1 %}
+                  <span class="sd-live-pill">● Online</span>
+                {% else %}
+                  <span class="sd-live-pill off">● Offline</span>
+                {% endif %}
+              </div>
+
+              <form method="post" action="{{ url_for('store_online_toggle') }}" data-store-toggle-form>
+                <button
+                  type="submit"
+                  class="sd-live-toggle {% if store_online == 1 %}is-on{% else %}is-off{% endif %}"
+                  data-store-toggle-button
+                  data-on-text="Online"
+                  data-off-text="Offline"
+                >
+                  <span class="sd-toggle-knob">
+                    <span class="sd-toggle-dot"></span>
+                  </span>
+                  <span class="sd-toggle-text">
+                    {% if store_online == 1 %}Online{% else %}Offline{% endif %}
+                  </span>
+                </button>
+              </form>
+
+              <div class="sd-live-meta">
+                <div class="sd-live-meta-row">
+                  <span>Status meaning</span>
+                  <strong>{{ 'Accepting orders' if store_online == 1 else 'Orders blocked' }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sd-live-card {% if delivery_on != 1 %}is-warning{% endif %}">
+            <div class="sd-live-card-inner">
+              <div class="sd-live-top">
+                <div>
+                  <div class="sd-live-title">Delivery Availability</div>
+                  <div class="sd-live-sub">
+                    Delivery must be enabled and zone must be configured before checkout can proceed.
+                  </div>
+                </div>
+
+                {% if delivery_on == 1 %}
+                  <span class="sd-live-pill">● Delivery On</span>
+                {% else %}
+                  <span class="sd-live-pill warn">● Delivery Off</span>
+                {% endif %}
+              </div>
+
+              <form method="post" action="{{ url_for('store_delivery_toggle') }}" data-delivery-toggle-form>
+                <button
+                  type="submit"
+                  class="sd-live-toggle {% if delivery_on == 1 %}delivery-on{% else %}delivery-off{% endif %}"
+                  data-delivery-toggle-button
+                  data-on-text="Delivery On"
+                  data-off-text="Delivery Off"
+                >
+                  <span class="sd-toggle-knob">
+                    <span class="sd-toggle-dot"></span>
+                  </span>
+                  <span class="sd-toggle-text">
+                    {% if delivery_on == 1 %}Delivery On{% else %}Delivery Off{% endif %}
+                  </span>
+                </button>
+              </form>
+
+              <div class="sd-live-meta">
+                <div class="sd-live-meta-row">
+                  <span>Delivery status</span>
+                  <strong>{{ 'Available' if delivery_on == 1 else 'Unavailable' }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sd-live-card {% if zone_ready != 1 or not has_store_coords %}is-danger{% endif %}">
+            <div class="sd-live-card-inner">
+              <div class="sd-live-top">
+                <div>
+                  <div class="sd-live-title">Delivery Setup Readiness</div>
+                  <div class="sd-live-sub">
+                    Store pickup coordinates and delivery zone are required for final checkout serviceability.
+                  </div>
+                </div>
+
+                {% if zone_ready == 1 and has_store_coords %}
+                  <span class="sd-live-pill">● Ready</span>
+                {% else %}
+                  <span class="sd-live-pill bad">● Setup Needed</span>
+                {% endif %}
+              </div>
+
+              <div class="sd-live-meta">
+                <div class="sd-live-meta-row">
+                  <span>Pickup coordinates</span>
+                  <strong>{{ 'Available' if has_store_coords else 'Missing' }}</strong>
+                </div>
+
+                <div class="sd-live-meta-row">
+                  <span>Delivery zone</span>
+                  <strong>{{ 'Configured' if zone_ready == 1 else 'Missing' }}</strong>
+                </div>
+
+                <div class="sd-live-meta-row">
+                  <span>Base delivery fee</span>
+                  <strong>₹ {{ store.delivery_base_fee|default(40) }}</strong>
+                </div>
+
+                <a class="sd-live-link" href="{{ url_for('store_profile') }}">
+                  Configure location and zone →
+                </a>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </section>
 
       <section class="sd-card" id="notifications">
@@ -983,6 +1355,8 @@
       const ding = document.getElementById('ding');
       let storePollTimer = null;
       let storeLastId = localStorage.getItem('storeLastAlertId') || '';
+      const storeToggleForm = document.querySelector('[data-store-toggle-form]');
+const deliveryToggleForm = document.querySelector('[data-delivery-toggle-form]');
 
       function showNotifyToast(message, type = 'on') {
         let wrap = document.getElementById('notifyStateToastWrap');
@@ -1075,6 +1449,68 @@
         } catch (e) {}
       }
 
+      function updateLiveToggleButton(button, isOn, onText, offText, onClass, offClass) {
+  if (!button) return;
+
+  button.disabled = false;
+  button.classList.remove(onClass, offClass, 'is-on', 'is-off', 'delivery-on', 'delivery-off');
+  button.classList.add(isOn ? onClass : offClass);
+
+  const text = button.querySelector('.sd-toggle-text');
+  if (text) {
+    text.textContent = isOn ? onText : offText;
+  }
+}
+
+async function submitLiveToggle(form, button, config) {
+  if (!form || !button) return;
+
+  form.addEventListener('submit', async function(event){
+    event.preventDefault();
+
+    button.disabled = true;
+
+    try {
+      const res = await fetch(form.action, {
+        method:'POST',
+        credentials:'same-origin',
+        headers:{
+          'X-Requested-With':'XMLHttpRequest'
+        }
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        button.disabled = false;
+        showNotifyToast(data.message || 'Could not update status.', 'off');
+        return;
+      }
+
+      const isOn = Boolean(Number(data[config.responseKey]));
+
+      updateLiveToggleButton(
+        button,
+        isOn,
+        config.onText,
+        config.offText,
+        config.onClass,
+        config.offClass
+      );
+
+      showNotifyToast(data.message || 'Status updated.', isOn ? 'on' : 'off');
+
+      setTimeout(function(){
+        window.location.reload();
+      }, 500);
+
+    } catch (error) {
+      button.disabled = false;
+      showNotifyToast('Network error while updating status.', 'off');
+    }
+  });
+}
+
       function syncNotificationButton() {
         if (!enableBtn) return;
         const enabled = localStorage.getItem('alertsEnabled') === '1';
@@ -1130,6 +1566,30 @@
           storePollTimer = null;
         }
       }
+
+      submitLiveToggle(
+  storeToggleForm,
+  document.querySelector('[data-store-toggle-button]'),
+  {
+    responseKey:'is_online',
+    onText:'Online',
+    offText:'Offline',
+    onClass:'is-on',
+    offClass:'is-off'
+  }
+);
+
+submitLiveToggle(
+  deliveryToggleForm,
+  document.querySelector('[data-delivery-toggle-button]'),
+  {
+    responseKey:'delivery_enabled',
+    onText:'Delivery On',
+    offText:'Delivery Off',
+    onClass:'delivery-on',
+    offClass:'delivery-off'
+  }
+);
 
       syncNotificationButton();
       if (localStorage.getItem('alertsEnabled') === '1') startStorePolling();

@@ -7,6 +7,89 @@ Only the file location changed.
 from app_core import *
 
 
+def _store_bool_from_form(name, default=False):
+    value = request.form.get(name)
+
+    if value is None:
+        return bool(default)
+
+    return str(value).strip().lower() in ["1", "true", "yes", "on"]
+
+
+def _store_float_or_none(value, min_value=None, max_value=None):
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+
+        number = float(value)
+
+        if min_value is not None and number < min_value:
+            return None
+
+        if max_value is not None and number > max_value:
+            return None
+
+        return number
+    except Exception:
+        return None
+
+
+def _store_money_or_default(value, default=0):
+    try:
+        if value is None or str(value).strip() == "":
+            return float(default)
+
+        number = float(value)
+
+        if number < 0:
+            return float(default)
+
+        return round(number, 2)
+    except Exception:
+        return float(default)
+
+
+def _parse_delivery_zone_polygon(raw):
+    """
+    Expected hidden input format:
+    [
+      [26.12345, 91.12345],
+      [26.12400, 91.13000],
+      [26.11800, 91.13200]
+    ]
+
+    Returns clean polygon list or [].
+    """
+    try:
+        if not raw or not str(raw).strip():
+            return []
+
+        data = json.loads(raw)
+
+        if not isinstance(data, list):
+            return []
+
+        cleaned = []
+
+        for point in data:
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                continue
+
+            lat = _store_float_or_none(point[0], -90, 90)
+            lng = _store_float_or_none(point[1], -180, 180)
+
+            if lat is not None and lng is not None:
+                cleaned.append([lat, lng])
+
+        # Polygon needs at least 3 points.
+        if len(cleaned) < 3:
+            return []
+
+        return cleaned
+    except Exception:
+        return []
+
+
 @app.route("/api/store/<store_id>/location")
 def api_store_location(store_id):
     try:
@@ -382,6 +465,77 @@ def store_dashboard():
         store=store,
         **page_context
     )
+
+
+@app.route("/store/online-toggle", methods=["POST"], endpoint="store_online_toggle")
+@login_required(role="store")
+def store_online_toggle():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return jsonify({
+            "ok": False,
+            "message": "Store not found."
+        }), 404
+
+    current_status = int(store.get("is_online", store.get("is_open", 1)) or 0)
+    next_status = 0 if current_status == 1 else 1
+
+    now = datetime.utcnow().isoformat()
+
+    mongo.stores.update_one(
+        {"_id": store["_id"]},
+        {
+            "$set": {
+                "is_online": next_status,
+                "is_open": next_status,
+                "updated_at": now,
+                "online_status_updated_at": now
+            }
+        }
+    )
+
+    return jsonify({
+        "ok": True,
+        "is_online": next_status,
+        "message": "Store is now online." if next_status else "Store is now offline."
+    })
+
+
+@app.route("/store/delivery-toggle", methods=["POST"], endpoint="store_delivery_toggle")
+@login_required(role="store")
+def store_delivery_toggle():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return jsonify({
+            "ok": False,
+            "message": "Store not found."
+        }), 404
+
+    current_status = int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0)
+    next_status = 0 if current_status == 1 else 1
+
+    now = datetime.utcnow().isoformat()
+
+    mongo.stores.update_one(
+        {"_id": store["_id"]},
+        {
+            "$set": {
+                "delivery_enabled": next_status,
+                "delivery_available": bool(next_status),
+                "updated_at": now,
+                "delivery_status_updated_at": now
+            }
+        }
+    )
+
+    return jsonify({
+        "ok": True,
+        "delivery_enabled": next_status,
+        "message": "Delivery is now enabled." if next_status else "Delivery is now disabled."
+    })
+
 
 @app.route('/store/delivered-orders')
 @login_required(role='store')
@@ -1052,33 +1206,74 @@ def store_profile_update():
     phone = normalize_phone(phone_raw)
 
     address = (request.form.get("address") or "").strip()
-    pincode = (request.form.get("pincode") or "").strip()
+    banner = request.files.get("banner")
+    logo = request.files.get("logo")
+    image = request.files.get("image")
+    city = (request.form.get("city") or "").strip()
+    state = (request.form.get("state") or "Assam").strip()
+    pincode = _clean_pin(request.form.get("pincode") or "")
+
     description = (request.form.get("description") or "").strip()
     profile_intro = (request.form.get("profile_intro") or "").strip()
     opening_time = (request.form.get("opening_time") or "").strip()
     closing_time = (request.form.get("closing_time") or "").strip()
     working_days = request.form.getlist("working_days")
+
     preparation_time_raw = (request.form.get("preparation_time") or "").strip()
     min_order_amount_raw = (request.form.get("min_order_amount") or "").strip()
-    delivery_available = True if request.form.get("delivery_available") == "1" else False
+
+       # Delivery enabled/off.
+    # IMPORTANT:
+    # If the new delivery_enabled field is not submitted by some form,
+    # keep the existing DB value instead of silently turning delivery off.
+    existing_delivery_enabled = bool(
+        int(
+            store.get(
+                "delivery_enabled",
+                1 if store.get("delivery_available", False) else 0
+            ) or 0
+        )
+    )
+
+    delivery_enabled = _store_bool_from_form(
+        "delivery_enabled",
+        existing_delivery_enabled
+    )
+
+    # Keep old field in sync with new field.
+    delivery_available = bool(delivery_enabled)
+
+    # Store operational status. Separate from is_active.
+    is_online = _store_bool_from_form(
+        "is_online",
+        bool(int(store.get("is_online", store.get("is_open", 1)) or 0))
+    )
+
+    delivery_mode = (request.form.get("delivery_mode") or "polygon").strip().lower()
+    if delivery_mode not in ["polygon"]:
+        delivery_mode = "polygon"
+
+        existing_delivery_zone_polygon = store.get("delivery_zone_polygon") or []
+
+    if "delivery_zone_polygon" in request.form:
+        delivery_zone_raw = (request.form.get("delivery_zone_polygon") or "").strip()
+        delivery_zone_polygon = _parse_delivery_zone_polygon(delivery_zone_raw)
+    else:
+        delivery_zone_polygon = existing_delivery_zone_polygon
+
+    delivery_base_fee = _store_money_or_default(
+        request.form.get("delivery_base_fee"),
+        store.get("delivery_base_fee", 40)
+    )
 
     lat_raw = (request.form.get("latitude") or "").strip()
     lng_raw = (request.form.get("longitude") or "").strip()
 
-    latitude = None
-    longitude = None
+    latitude = _store_float_or_none(lat_raw, -90, 90)
+    longitude = _store_float_or_none(lng_raw, -180, 180)
+
     preparation_time = None
     min_order_amount = None
-
-    try:
-        latitude = float(lat_raw) if lat_raw else None
-    except Exception:
-        latitude = None
-
-    try:
-        longitude = float(lng_raw) if lng_raw else None
-    except Exception:
-        longitude = None
 
     try:
         preparation_time = int(float(preparation_time_raw)) if preparation_time_raw else None
@@ -1105,23 +1300,53 @@ def store_profile_update():
     if not address:
         flash("Store address is required.", "warning")
         return redirect(url_for("store_profile"))
+    
+    if pincode and not is_serviceable_pincode(pincode):
+        flash("Please enter a valid 6-digit store pincode.", "warning")
+        return redirect(url_for("store_profile"))
+
+    if state and not is_assam_state(state):
+        flash("Store state must be Assam for delivery operations.", "warning")
+        return redirect(url_for("store_profile"))
+
+    if delivery_enabled and delivery_mode == "polygon" and not delivery_zone_polygon:
+        flash("Delivery zone polygon is required when delivery is enabled.", "warning")
+        return redirect(url_for("store_profile"))
 
     update_data = {
         "store_name": store_name,
         "owner_name": owner_name,
         "phone": phone,
+
         "address": address,
+        "city": city,
+        "state": state,
         "pincode": pincode,
+
         "description": description,
         "profile_intro": profile_intro,
+
         "latitude": latitude,
         "longitude": longitude,
+
         "opening_time": opening_time,
         "closing_time": closing_time,
         "working_days": working_days,
         "preparation_time": preparation_time,
         "min_order_amount": min_order_amount,
-        "delivery_available": delivery_available,
+
+        # Backward compatibility with old field.
+        "delivery_available": bool(delivery_enabled),
+
+        # New delivery/serviceability fields.
+        "is_online": 1 if is_online else 0,
+        "is_open": 1 if is_online else 0,
+        "delivery_enabled": 1 if delivery_enabled else 0,
+        "delivery_mode": delivery_mode,
+        "delivery_zone_polygon": delivery_zone_polygon,
+        "delivery_zone_configured": 1 if delivery_zone_polygon else 0,
+        "delivery_base_fee": delivery_base_fee,
+
         "profile_updated_at": now,
         "updated_at": now
     }
@@ -1140,6 +1365,9 @@ def store_profile_update():
 
         logo.save(os.path.join(folder, stored_name))
         update_data["logo_path"] = f"uploads/store_profiles/{stored_name}"
+
+        logo = request.files.get("logo")
+        image = request.files.get("image")
 
         banner = request.files.get("banner")
 

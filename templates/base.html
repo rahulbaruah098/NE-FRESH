@@ -4022,11 +4022,11 @@ footer.footer .newsletter-pop{
       <div class="nef-loc-info">
         <div class="nef-loc-info-icon">📍</div>
         <div>
-          <strong>Check service availability</strong>
-          <p>
-            We currently deliver across Assam. Use your current location
-            or enter your pincode manually.
-          </p>
+         <strong>Set your browsing location</strong>
+<p>
+  Save your location once. Final delivery availability will be checked
+  store-wise during checkout.
+</p>
         </div>
       </div>
 
@@ -4279,6 +4279,8 @@ if (sessionStorage.getItem(k) === 'pending'){
     const pinInput = document.getElementById('navPinInput');
     const addrInput = document.getElementById('navAddrInput');
     const svcStatus = document.getElementById('svcStatus');
+    let lastResolvedPinLocation = null;
+let pinResolveTimer = null;
 
     function safeNormalizePin(pin){
       if (typeof normalizePin === "function") {
@@ -4352,23 +4354,13 @@ if (sessionStorage.getItem(k) === 'pending'){
     }
 
     function isPinAllowed(pin){
-      const p = safeNormalizePin(pin);
-      const list = allowed();
+  const p = safeNormalizePin(pin);
 
-      if (!p) return false;
+  if (!p) return false;
 
-      /*
-        Assam-wide mode:
-        /api/service/pincodes returns [].
-        So any valid 6-digit pincode is accepted here.
-        Backend still validates again through /api/location/set and checkout.
-      */
-      if (!list.length) {
-        return isPinValid(p);
-      }
-
-      return list.includes(p);
-    }
+  // Navbar only validates format. Real delivery check happens store-wise at checkout.
+  return isPinValid(p);
+}
 
     function toggleNavWidth(){
       const pin = localStorage.getItem('cc_pin');
@@ -4456,6 +4448,32 @@ if (sessionStorage.getItem(k) === 'pending'){
       return data;
     }
 
+    async function resolvePincodeByBackend(pin){
+  const clean = safeNormalizePin(pin);
+
+  if (!/^\d{6}$/.test(clean)) {
+    throw new Error("Please enter a valid 6-digit pincode.");
+  }
+
+  const res = await fetch('{{ url_for("api_location_pincode_resolve") }}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      pincode: clean
+    })
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok || !data.ok) {
+    throw new Error(data.error || "Could not resolve this pincode.");
+  }
+
+  return data;
+}
+
     async function pushToBackend(pin, addr, lat, lng, city = '', state = '', source = 'navbar'){
       try{
         const res = await fetch('{{ url_for("api_location_set") }}', {
@@ -4498,14 +4516,14 @@ if (sessionStorage.getItem(k) === 'pending'){
             navBadge.hidden = false;
 
             if (isPinAllowed(p)){
-              navBadge.textContent = 'Serviceable';
-              navBadge.classList.remove('no');
-              navBadge.classList.add('ok');
-            } else {
-              navBadge.textContent = 'Not serviceable';
-              navBadge.classList.remove('ok');
-              navBadge.classList.add('no');
-            }
+  navBadge.textContent = 'Location set';
+  navBadge.classList.remove('no');
+  navBadge.classList.add('ok');
+} else {
+  navBadge.textContent = 'Invalid pin';
+  navBadge.classList.remove('ok');
+  navBadge.classList.add('no');
+}
           } else {
             navBadge.hidden = true;
             navBadge.classList.remove('ok','no');
@@ -4528,14 +4546,14 @@ if (sessionStorage.getItem(k) === 'pending'){
           stripBadge.hidden = false;
 
           if (isPinAllowed(p)){
-            stripBadge.textContent = 'Serviceable';
-            stripBadge.classList.remove('no');
-            stripBadge.classList.add('ok');
-          } else {
-            stripBadge.textContent = 'Not serviceable';
-            stripBadge.classList.remove('ok');
-            stripBadge.classList.add('no');
-          }
+  stripBadge.textContent = 'Location set';
+  stripBadge.classList.remove('no');
+  stripBadge.classList.add('ok');
+} else {
+  stripBadge.textContent = 'Invalid pin';
+  stripBadge.classList.remove('ok');
+  stripBadge.classList.add('no');
+}
         } else {
           stripBadge.hidden = true;
           stripBadge.classList.remove('ok','no');
@@ -4546,32 +4564,69 @@ if (sessionStorage.getItem(k) === 'pending'){
     }
 
     function renderStatus(pin){
-      if (!svcStatus) return;
+  if (!svcStatus) return;
 
-      const p = safeNormalizePin(pin);
+  const p = safeNormalizePin(pin);
 
-      if (!p){
-        svcStatus.textContent = '';
-        svcStatus.classList.remove('ok','no');
-        return;
-      }
+  if (!p){
+    svcStatus.textContent = '';
+    svcStatus.classList.remove('ok','no');
+    return;
+  }
 
-      if (!isPinValid(p)){
-        svcStatus.textContent = 'Please enter a valid 6-digit pincode.';
-        svcStatus.classList.remove('ok');
-        svcStatus.classList.add('no');
-        return;
-      }
+  if (!isPinValid(p)){
+    svcStatus.textContent = 'Please enter a valid 6-digit pincode.';
+    svcStatus.classList.remove('ok');
+    svcStatus.classList.add('no');
+    return;
+  }
 
-      const ok = isPinAllowed(p);
+  svcStatus.textContent = 'Pincode format is valid. Save location to apply it.';
+  svcStatus.classList.remove('no');
+  svcStatus.classList.add('ok');
+}
 
-      svcStatus.textContent = ok
-        ? 'Great! Delivery is available for this pincode.'
-        : 'Sorry, this pincode is not in our service area yet.';
+async function previewPincodeResolve(pin){
+  if (!svcStatus) return;
 
-      svcStatus.classList.toggle('ok', ok);
-      svcStatus.classList.toggle('no', !ok);
+  const p = safeNormalizePin(pin);
+
+  lastResolvedPinLocation = null;
+
+  if (!/^\d{6}$/.test(p)) {
+    renderStatus(p);
+    return;
+  }
+
+  svcStatus.textContent = 'Resolving pincode...';
+  svcStatus.classList.remove('no');
+  svcStatus.classList.add('ok');
+
+  try {
+    const data = await resolvePincodeByBackend(p);
+
+    lastResolvedPinLocation = data;
+
+    if (addrInput && data.address && !addrInput.value.trim()) {
+      addrInput.value = data.address;
     }
+
+    if (!data.assam) {
+      svcStatus.textContent = 'Location resolved, but this appears outside Assam.';
+      svcStatus.classList.remove('ok');
+      svcStatus.classList.add('no');
+      return;
+    }
+
+    svcStatus.textContent = 'Location resolved. Store-wise delivery will be checked at checkout.';
+    svcStatus.classList.remove('no');
+    svcStatus.classList.add('ok');
+  } catch (e) {
+    svcStatus.textContent = e.message || 'Could not resolve this pincode.';
+    svcStatus.classList.remove('ok');
+    svcStatus.classList.add('no');
+  }
+}
 
     function openModal(){
       if (!modal) return;
@@ -4671,7 +4726,7 @@ if (sessionStorage.getItem(k) === 'pending'){
             sessionStorage.setItem(
               'loc_pending_toast',
               JSON.stringify({
-                message: "Location detected and saved.",
+message: "Location detected and saved. Store-wise delivery will be checked at checkout.",
                 type: "success"
               })
             );
@@ -4709,7 +4764,7 @@ if (sessionStorage.getItem(k) === 'pending'){
         sessionStorage.setItem(
           'loc_pending_toast',
           JSON.stringify({
-            message: "Approximate location saved.",
+           message: "Approximate location saved. Store-wise delivery will be checked at checkout.",
             type: "info"
           })
         );
@@ -4721,45 +4776,101 @@ if (sessionStorage.getItem(k) === 'pending'){
     }
 
     async function saveAndClose(){
-      const pin = safeNormalizePin(pinInput ? pinInput.value : '');
-      const addr = (addrInput ? addrInput.value : '').trim();
+  const pin = safeNormalizePin(pinInput ? pinInput.value : '');
+  let addr = (addrInput ? addrInput.value : '').trim();
 
-      if (!pin && !addr){
-        alert('Please provide at least a pincode or an address.');
+  if (!pin && !addr){
+    alert('Please provide at least a pincode or an address.');
+    return;
+  }
+
+  if (pin && !isPinValid(pin)){
+    renderStatus(pin);
+    return;
+  }
+
+  let lat = null;
+  let lng = null;
+  let city = '';
+  let state = '';
+
+  if (pin) {
+    try {
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+      }
+
+      let resolved = lastResolvedPinLocation;
+
+      if (!resolved || safeNormalizePin(resolved.pincode) !== pin) {
+        resolved = await resolvePincodeByBackend(pin);
+      }
+
+      if (!resolved.assam) {
+        if (svcStatus) {
+          svcStatus.textContent = 'This pincode appears outside Assam.';
+          svcStatus.classList.remove('ok');
+          svcStatus.classList.add('no');
+        }
         return;
       }
 
-      if (pin && !isPinValid(pin)){
-        renderStatus(pin);
-        return;
+      lat = resolved.lat ?? null;
+      lng = resolved.lng ?? null;
+      city = resolved.city || '';
+      state = resolved.state || '';
+
+      if (!addr) {
+        addr = resolved.address || `Pincode ${pin}`;
       }
 
-      const { lat, lng, city, state } = loadFromStorage();
-
-      saveToStorage(pin, addr, lat, lng, city, state);
-      renderAll();
-
-      await pushToBackend(
-        pin,
-        addr,
-        lat,
-        lng,
-        city,
-        state,
-        'navbar-manual'
-      );
-
-      sessionStorage.setItem(
-        'loc_pending_toast',
-        JSON.stringify({
-          message: "Delivery location saved successfully.",
-          type: "success"
-        })
-      );
-
-      closeModal();
-      refreshSiteAfterLocationChange();
+      lastResolvedPinLocation = resolved;
+    } catch (e) {
+      if (svcStatus) {
+        svcStatus.textContent = e.message || 'Could not resolve this pincode.';
+        svcStatus.classList.remove('ok');
+        svcStatus.classList.add('no');
+      }
+      return;
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Location';
+      }
     }
+  } else {
+    const stored = loadFromStorage();
+    lat = stored.lat;
+    lng = stored.lng;
+    city = stored.city || '';
+    state = stored.state || '';
+  }
+
+  saveToStorage(pin, addr, lat, lng, city, state);
+  renderAll();
+
+  await pushToBackend(
+    pin,
+    addr,
+    lat,
+    lng,
+    city,
+    state,
+    'navbar-manual'
+  );
+
+  sessionStorage.setItem(
+    'loc_pending_toast',
+    JSON.stringify({
+      message: "Location saved. Final delivery availability will be checked at checkout.",
+      type: "success"
+    })
+  );
+
+  closeModal();
+  refreshSiteAfterLocationChange();
+}
 
     navChip?.addEventListener('click', openModal);
     stripChip?.addEventListener('click', openModal);
@@ -4834,8 +4945,24 @@ if (sessionStorage.getItem(k) === 'pending'){
     });
 
     pinInput?.addEventListener('input', () => {
-      renderStatus(pinInput.value);
-    });
+  const pin = safeNormalizePin(pinInput.value);
+
+  if (pinInput.value !== pin) {
+    pinInput.value = pin;
+  }
+
+  renderStatus(pin);
+
+  if (pinResolveTimer) {
+    clearTimeout(pinResolveTimer);
+  }
+
+  if (/^\d{6}$/.test(pin)) {
+    pinResolveTimer = setTimeout(() => {
+      previewPincodeResolve(pin);
+    }, 450);
+  }
+});
 
     (async function init(){
       await ensureAllowedPins();

@@ -7,6 +7,78 @@ Only the file location changed.
 from app_core import *
 
 
+def _admin_bool_from_form(name, default=False):
+    value = request.form.get(name)
+
+    if value is None:
+        return bool(default)
+
+    return str(value).strip().lower() in ["1", "true", "yes", "on"]
+
+
+def _admin_float_or_none(value, min_value=None, max_value=None):
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+
+        number = float(value)
+
+        if min_value is not None and number < min_value:
+            return None
+
+        if max_value is not None and number > max_value:
+            return None
+
+        return number
+    except Exception:
+        return None
+
+
+def _admin_money_or_default(value, default=0):
+    try:
+        if value is None or str(value).strip() == "":
+            return float(default)
+
+        number = float(value)
+
+        if number < 0:
+            return float(default)
+
+        return round(number, 2)
+    except Exception:
+        return float(default)
+
+
+def _admin_parse_delivery_zone_polygon(raw):
+    try:
+        if not raw or not str(raw).strip():
+            return []
+
+        data = json.loads(raw)
+
+        if not isinstance(data, list):
+            return []
+
+        cleaned = []
+
+        for point in data:
+            if not isinstance(point, (list, tuple)) or len(point) != 2:
+                continue
+
+            lat = _admin_float_or_none(point[0], -90, 90)
+            lng = _admin_float_or_none(point[1], -180, 180)
+
+            if lat is not None and lng is not None:
+                cleaned.append([lat, lng])
+
+        if len(cleaned) < 3:
+            return []
+
+        return cleaned
+    except Exception:
+        return []
+
+
 @app.route("/admin/dashboard")
 @login_required(role="admin")
 def admin_dashboard():
@@ -224,6 +296,9 @@ def admin_create_store():
         password = request.form.get('password', '')
         store_name = request.form.get('store_name', '').strip()
         address = request.form.get('address', '').strip()
+        city = (request.form.get("city") or "").strip()
+        state = (request.form.get("state") or "Assam").strip()
+        pincode = _clean_pin(request.form.get("pincode") or "")
 
         lat_raw = request.form.get('latitude')
         lng_raw = request.form.get('longitude')
@@ -231,21 +306,27 @@ def admin_create_store():
         latitude = None
         longitude = None
 
-        # =========================
-        # PARSE LATITUDE
-        # =========================
-        try:
-            latitude = float(lat_raw) if lat_raw and str(lat_raw).strip() else None
-        except Exception:
-            latitude = None
+        is_online = _admin_bool_from_form("is_online", True)
+        delivery_enabled = _admin_bool_from_form("delivery_enabled", False)
 
+        delivery_mode = (request.form.get("delivery_mode") or "polygon").strip().lower()
+        if delivery_mode not in ["polygon"]:
+            delivery_mode = "polygon"
+
+        delivery_zone_polygon = _admin_parse_delivery_zone_polygon(
+            request.form.get("delivery_zone_polygon") or ""
+        )
+
+        delivery_base_fee = _admin_money_or_default(
+            request.form.get("delivery_base_fee"),
+            40
+        )
+
+               # =========================
+        # PARSE STORE LOCATION
         # =========================
-        # PARSE LONGITUDE
-        # =========================
-        try:
-            longitude = float(lng_raw) if lng_raw and str(lng_raw).strip() else None
-        except Exception:
-            longitude = None
+        latitude = _admin_float_or_none(lat_raw, -90, 90)
+        longitude = _admin_float_or_none(lng_raw, -180, 180)
 
         # =========================
         # NORMALIZE PHONE
@@ -257,6 +338,18 @@ def admin_create_store():
         # =========================
         if not name or not email or not phone or not password or not store_name:
             flash("Please fill all required fields.", "warning")
+            return redirect(url_for('admin_create_store'))
+        
+        if pincode and not is_serviceable_pincode(pincode):
+            flash("Please enter a valid 6-digit store pincode.", "warning")
+            return redirect(url_for('admin_create_store'))
+
+        if state and not is_assam_state(state):
+            flash("Store state must be Assam for delivery operations.", "warning")
+            return redirect(url_for('admin_create_store'))
+
+        if delivery_enabled and delivery_mode == "polygon" and not delivery_zone_polygon:
+            flash("Delivery zone polygon is required when delivery is enabled.", "warning")
             return redirect(url_for('admin_create_store'))
 
         if len(password) < 6:
@@ -298,14 +391,37 @@ def admin_create_store():
             # =========================
             # INSERT STORE
             # =========================
+            now = datetime.utcnow().isoformat()
+
             mongo.stores.insert_one({
                 "user_id": user_id,
                 "store_name": store_name,
+
                 "address": address,
+                "city": city,
+                "state": state,
+                "pincode": pincode,
+
                 "latitude": latitude,
                 "longitude": longitude,
+
+                # Admin/account status.
                 "is_active": 1,
-                "created_at": datetime.utcnow().isoformat()
+
+                # Store operational status.
+                "is_online": 1 if is_online else 0,
+                "is_open": 1 if is_online else 0,
+
+                # Delivery/serviceability fields.
+                "delivery_available": bool(delivery_enabled),
+                "delivery_enabled": 1 if delivery_enabled else 0,
+                "delivery_mode": delivery_mode,
+                "delivery_zone_polygon": delivery_zone_polygon,
+                "delivery_zone_configured": 1 if delivery_zone_polygon else 0,
+                "delivery_base_fee": delivery_base_fee,
+
+                "created_at": now,
+                "updated_at": now
             })
 
         except DuplicateKeyError:
@@ -515,6 +631,79 @@ def admin_store_toggle(store_id):
     flash("Store status updated successfully.", "success")
     return redirect(url_for("admin_store_list"))
 
+
+@app.route("/admin/stores/<store_id>/online-toggle", methods=["POST"])
+@login_required(role="admin")
+def admin_store_online_toggle(store_id):
+    try:
+        sid = ObjectId(store_id)
+    except Exception:
+        flash("Invalid store.", "danger")
+        return redirect(url_for("admin_store_list"))
+
+    store = mongo.stores.find_one({"_id": sid})
+
+    if not store:
+        flash("Store not found.", "warning")
+        return redirect(url_for("admin_store_list"))
+
+    current_status = int(store.get("is_online", store.get("is_open", 1)) or 0)
+    next_status = 0 if current_status == 1 else 1
+
+    now = datetime.utcnow().isoformat()
+
+    mongo.stores.update_one(
+        {"_id": sid},
+        {
+            "$set": {
+                "is_online": next_status,
+                "is_open": next_status,
+                "online_status_updated_at": now,
+                "updated_at": now
+            }
+        }
+    )
+
+    flash("Store is now online." if next_status else "Store is now offline.", "success")
+    return redirect(url_for("admin_store_list"))
+
+
+@app.route("/admin/stores/<store_id>/delivery-toggle", methods=["POST"])
+@login_required(role="admin")
+def admin_store_delivery_toggle(store_id):
+    try:
+        sid = ObjectId(store_id)
+    except Exception:
+        flash("Invalid store.", "danger")
+        return redirect(url_for("admin_store_list"))
+
+    store = mongo.stores.find_one({"_id": sid})
+
+    if not store:
+        flash("Store not found.", "warning")
+        return redirect(url_for("admin_store_list"))
+
+    current_status = int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0)
+    next_status = 0 if current_status == 1 else 1
+
+    now = datetime.utcnow().isoformat()
+
+    mongo.stores.update_one(
+        {"_id": sid},
+        {
+            "$set": {
+                "delivery_enabled": next_status,
+                "delivery_available": bool(next_status),
+                "delivery_status_updated_at": now,
+                "updated_at": now
+            }
+        }
+    )
+
+    flash("Store delivery is now enabled." if next_status else "Store delivery is now disabled.", "success")
+    return redirect(url_for("admin_store_list"))
+
+
 @app.route("/admin/stores/<store_id>/update", methods=["POST"])
 @login_required(role="admin")
 def admin_store_update(store_id):
@@ -532,6 +721,43 @@ def admin_store_update(store_id):
 
     store_name = request.form.get("store_name", "").strip()
     address = request.form.get("address", "").strip()
+    city = (request.form.get("city") or store.get("city") or "").strip()
+    state = (request.form.get("state") or store.get("state") or "Assam").strip()
+    pincode = _clean_pin(request.form.get("pincode") or store.get("pincode") or "")
+
+    latitude = _admin_float_or_none(
+        request.form.get("latitude"),
+        -90,
+        90
+    )
+    longitude = _admin_float_or_none(
+        request.form.get("longitude"),
+        -180,
+        180
+    )
+
+    is_online = _admin_bool_from_form(
+        "is_online",
+        bool(int(store.get("is_online", store.get("is_open", 1)) or 0))
+    )
+
+    delivery_enabled = _admin_bool_from_form(
+        "delivery_enabled",
+        bool(int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0))
+    )
+
+    delivery_mode = (request.form.get("delivery_mode") or store.get("delivery_mode") or "polygon").strip().lower()
+    if delivery_mode not in ["polygon"]:
+        delivery_mode = "polygon"
+
+    delivery_zone_polygon = _admin_parse_delivery_zone_polygon(
+        request.form.get("delivery_zone_polygon") or json.dumps(store.get("delivery_zone_polygon") or [])
+    )
+
+    delivery_base_fee = _admin_money_or_default(
+        request.form.get("delivery_base_fee"),
+        store.get("delivery_base_fee", 40)
+    )
 
     owner_name = request.form.get("owner_name", "").strip()
     owner_email = request.form.get("owner_email", "").lower().strip()
@@ -540,13 +766,43 @@ def admin_store_update(store_id):
     if not store_name:
         flash("Store name is required.", "warning")
         return redirect(url_for("admin_store_list"))
+    
+    if pincode and not is_serviceable_pincode(pincode):
+        flash("Please enter a valid 6-digit store pincode.", "warning")
+        return redirect(url_for("admin_store_list"))
+
+    if state and not is_assam_state(state):
+        flash("Store state must be Assam for delivery operations.", "warning")
+        return redirect(url_for("admin_store_list"))
+
+    if delivery_enabled and delivery_mode == "polygon" and not delivery_zone_polygon:
+        flash("Delivery zone polygon is required when delivery is enabled.", "warning")
+        return redirect(url_for("admin_store_list"))
 
     mongo.stores.update_one(
         {"_id": sid},
         {
             "$set": {
                 "store_name": store_name,
+
                 "address": address,
+                "city": city,
+                "state": state,
+                "pincode": pincode,
+
+                "latitude": latitude,
+                "longitude": longitude,
+
+                "is_online": 1 if is_online else 0,
+                "is_open": 1 if is_online else 0,
+
+                "delivery_available": bool(delivery_enabled),
+                "delivery_enabled": 1 if delivery_enabled else 0,
+                "delivery_mode": delivery_mode,
+                "delivery_zone_polygon": delivery_zone_polygon,
+                "delivery_zone_configured": 1 if delivery_zone_polygon else 0,
+                "delivery_base_fee": delivery_base_fee,
+
                 "updated_at": datetime.utcnow().isoformat()
             }
         }

@@ -691,6 +691,322 @@ def calculate_delivery_fee_by_distance(km):
 
     return float(BASE_DELIVERY_FEE_INR + surcharge)
 
+
+def _delivery_int(value, default=0):
+    try:
+        if value is None or str(value).strip() == "":
+            return int(default)
+
+        if isinstance(value, bool):
+            return 1 if value else 0
+
+        value_str = str(value).strip().lower()
+
+        if value_str in ["true", "yes", "on"]:
+            return 1
+
+        if value_str in ["false", "no", "off"]:
+            return 0
+
+        return int(value)
+    except Exception:
+        return int(default)
+
+
+def _delivery_float_or_none(value):
+    try:
+        if value is None or str(value).strip() == "":
+            return None
+
+        return float(value)
+    except Exception:
+        return None
+
+
+def _clean_delivery_polygon(polygon):
+    """
+    Expected format:
+    [
+      [lat, lng],
+      [lat, lng],
+      [lat, lng]
+    ]
+
+    Returns a clean list of [lat, lng].
+    """
+    if not isinstance(polygon, list):
+        return []
+
+    cleaned = []
+
+    for point in polygon:
+        if not isinstance(point, (list, tuple)) or len(point) != 2:
+            continue
+
+        lat = _delivery_float_or_none(point[0])
+        lng = _delivery_float_or_none(point[1])
+
+        if lat is None or lng is None:
+            continue
+
+        if lat < -90 or lat > 90:
+            continue
+
+        if lng < -180 or lng > 180:
+            continue
+
+        cleaned.append([lat, lng])
+
+    if len(cleaned) < 3:
+        return []
+
+    return cleaned
+
+
+def point_in_polygon(lat, lng, polygon):
+    """
+    Ray-casting algorithm.
+
+    IMPORTANT:
+    polygon points are stored as [lat, lng].
+    x = lng
+    y = lat
+    """
+    lat = _delivery_float_or_none(lat)
+    lng = _delivery_float_or_none(lng)
+    polygon = _clean_delivery_polygon(polygon)
+
+    if lat is None or lng is None or len(polygon) < 3:
+        return False
+
+    x = lng
+    y = lat
+    inside = False
+
+    j = len(polygon) - 1
+
+    for i in range(len(polygon)):
+        yi = float(polygon[i][0])
+        xi = float(polygon[i][1])
+
+        yj = float(polygon[j][0])
+        xj = float(polygon[j][1])
+
+        intersects = (
+            ((yi > y) != (yj > y))
+            and
+            (x < ((xj - xi) * (y - yi) / ((yj - yi) or 0.0000000001) + xi))
+        )
+
+        if intersects:
+            inside = not inside
+
+        j = i
+
+    return inside
+
+
+def normalize_store_delivery_status(store):
+    """
+    Normalizes old + new store delivery fields.
+    Keeps backward compatibility with:
+    - is_open
+    - delivery_available
+    """
+    store = store or {}
+
+    is_active = _delivery_int(store.get("is_active", 1), 1)
+    is_online = _delivery_int(store.get("is_online", store.get("is_open", 1)), 1)
+
+    delivery_enabled = _delivery_int(
+        store.get(
+            "delivery_enabled",
+            1 if store.get("delivery_available", False) else 0
+        ),
+        0
+    )
+
+    delivery_mode = (store.get("delivery_mode") or "polygon").strip().lower()
+
+    if delivery_mode not in ["polygon"]:
+        delivery_mode = "polygon"
+
+    store_lat = _delivery_float_or_none(store.get("latitude"))
+    store_lng = _delivery_float_or_none(store.get("longitude"))
+
+    polygon = _clean_delivery_polygon(store.get("delivery_zone_polygon") or [])
+
+    zone_configured = 1 if len(polygon) >= 3 else _delivery_int(
+        store.get("delivery_zone_configured"),
+        0
+    )
+
+    return {
+        "is_active": is_active,
+        "is_online": is_online,
+        "delivery_enabled": delivery_enabled,
+        "delivery_mode": delivery_mode,
+        "store_lat": store_lat,
+        "store_lng": store_lng,
+        "delivery_zone_polygon": polygon,
+        "delivery_zone_configured": zone_configured,
+        "delivery_base_fee": float(store.get("delivery_base_fee") or BASE_DELIVERY_FEE_INR)
+    }
+
+
+def calculate_store_delivery_fee(store, distance_km):
+    """
+    Store-specific delivery fee.
+    Currently uses:
+    store.delivery_base_fee + global distance surcharge slab.
+
+    Later we can extend this to store.delivery_fee_slabs.
+    """
+    base_fee = BASE_DELIVERY_FEE_INR
+
+    try:
+        base_fee = float(store.get("delivery_base_fee") or BASE_DELIVERY_FEE_INR)
+    except Exception:
+        base_fee = BASE_DELIVERY_FEE_INR
+
+    if distance_km is None:
+        return float(base_fee)
+
+    try:
+        distance_km = float(distance_km)
+    except Exception:
+        return float(base_fee)
+
+    surcharge = 0
+
+    for low, high, fee in DELIVERY_SURCHARGE_SLABS:
+        if distance_km >= low and distance_km < high:
+            surcharge = fee
+            break
+
+    return float(base_fee + surcharge)
+
+
+def check_store_serviceability(store, customer_lat, customer_lng, customer_pincode=None):
+    """
+    Single source of truth for checkout delivery permission.
+
+    Checks:
+    1. Store active
+    2. Store online
+    3. Delivery enabled
+    4. Store coordinates
+    5. Customer coordinates
+    6. Delivery polygon configured
+    7. Customer point inside polygon
+    8. Distance + delivery fee
+    """
+    store = store or {}
+    status = normalize_store_delivery_status(store)
+
+    if status["is_active"] != 1:
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "STORE_INACTIVE",
+            "message": "This store is currently unavailable.",
+            "distance_km": None,
+            "delivery_fee": 0
+        }
+
+    if status["is_online"] != 1:
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "STORE_OFFLINE",
+            "message": "This store is currently offline and not accepting orders.",
+            "distance_km": None,
+            "delivery_fee": 0
+        }
+
+    if status["delivery_enabled"] != 1:
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "DELIVERY_DISABLED",
+            "message": "Delivery is currently unavailable for this store.",
+            "distance_km": None,
+            "delivery_fee": 0
+        }
+
+    if customer_pincode and not is_serviceable_pincode(customer_pincode):
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "INVALID_PINCODE",
+            "message": "Please enter a valid 6-digit pincode.",
+            "distance_km": None,
+            "delivery_fee": 0
+        }
+
+    store_lat = status["store_lat"]
+    store_lng = status["store_lng"]
+
+    if store_lat is None or store_lng is None:
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "STORE_COORDINATES_MISSING",
+            "message": "Store pickup location is not configured.",
+            "distance_km": None,
+            "delivery_fee": 0
+        }
+
+    customer_lat = _delivery_float_or_none(customer_lat)
+    customer_lng = _delivery_float_or_none(customer_lng)
+
+    if customer_lat is None or customer_lng is None:
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "CUSTOMER_COORDINATES_MISSING",
+            "message": "Please select or detect your delivery location before checkout.",
+            "distance_km": None,
+            "delivery_fee": 0
+        }
+
+    polygon = status["delivery_zone_polygon"]
+
+    if len(polygon) < 3:
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "DELIVERY_ZONE_MISSING",
+            "message": "This store has not configured its delivery zone yet.",
+            "distance_km": None,
+            "delivery_fee": 0
+        }
+
+    inside_zone = point_in_polygon(customer_lat, customer_lng, polygon)
+
+    distance_km = haversine_km(store_lat, store_lng, customer_lat, customer_lng)
+
+    if not inside_zone:
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "OUTSIDE_DELIVERY_ZONE",
+            "message": "This store does not deliver to your selected location.",
+            "distance_km": round(distance_km, 2) if distance_km is not None else None,
+            "delivery_fee": 0
+        }
+
+    delivery_fee = calculate_store_delivery_fee(store, distance_km)
+
+    return {
+        "ok": True,
+        "serviceable": True,
+        "reason": "SERVICEABLE",
+        "message": "Delivery available.",
+        "distance_km": round(distance_km, 2) if distance_km is not None else None,
+        "delivery_fee": round(float(delivery_fee), 2)
+    }
+
 def _ensure_contact_messages_status_column():
     # MongoDB does not need table/column migration.
     return
@@ -1924,8 +2240,32 @@ def _store_rating_summary(store_id):
 def _admin_store_rows():
     """
     Build reusable store rows for overview, list, and reviews pages.
+    Includes operational, delivery and serviceability fields for admin UI.
     """
     rows = []
+
+    def _row_int(value, default=0):
+        try:
+            if value is None or str(value).strip() == "":
+                return int(default)
+            if isinstance(value, bool):
+                return 1 if value else 0
+            value_str = str(value).strip().lower()
+            if value_str in ["true", "yes", "on"]:
+                return 1
+            if value_str in ["false", "no", "off"]:
+                return 0
+            return int(value)
+        except Exception:
+            return int(default)
+
+    def _row_float(value, default=None):
+        try:
+            if value is None or str(value).strip() == "":
+                return default
+            return float(value)
+        except Exception:
+            return default
 
     for store in mongo.stores.find({}).sort("created_at", -1):
         sid = store.get("_id")
@@ -1943,18 +2283,65 @@ def _admin_store_rows():
         rating = _store_rating_summary(sid)
         product_count = _store_product_count(sid)
 
+        is_online = _row_int(
+            store.get("is_online", store.get("is_open", 1)),
+            1
+        )
+
+        delivery_enabled = _row_int(
+            store.get(
+                "delivery_enabled",
+                1 if store.get("delivery_available", False) else 0
+            ),
+            0
+        )
+
+        delivery_zone_polygon = store.get("delivery_zone_polygon") or []
+        delivery_zone_configured = 1 if len(delivery_zone_polygon) >= 3 else _row_int(
+            store.get("delivery_zone_configured"),
+            0
+        )
+
+        latitude = _row_float(store.get("latitude"))
+        longitude = _row_float(store.get("longitude"))
+
         rows.append({
             "id": sid_str,
             "store_id": sid_str,
             "store_name": store.get("store_name") or store.get("name") or "Store",
             "address": store.get("address") or "",
+            "city": store.get("city") or "",
+            "state": store.get("state") or "",
+            "pincode": store.get("pincode") or "",
+
+            "latitude": latitude,
+            "longitude": longitude,
+
             "image_url": store.get("image_url") or store.get("logo") or "",
-            "is_active": int(store.get("is_active", 1) or 0),
+
+            # Admin/account status.
+            "is_active": _row_int(store.get("is_active", 1), 1),
+
+            # Store operational status.
+            "is_online": is_online,
+            "is_open": is_online,
+
+            # Delivery/serviceability status.
+            "delivery_enabled": delivery_enabled,
+            "delivery_available": bool(delivery_enabled),
+            "delivery_mode": store.get("delivery_mode") or "polygon",
+            "delivery_zone_polygon": delivery_zone_polygon,
+            "delivery_zone_configured": delivery_zone_configured,
+            "delivery_base_fee": _row_float(store.get("delivery_base_fee"), 40),
+
             "created_at": store.get("created_at") or "",
+            "updated_at": store.get("updated_at") or "",
+
             "owner_id": str(owner.get("_id")) if owner.get("_id") else "",
             "owner_name": owner.get("name") or "Owner",
             "owner_email": owner.get("email") or "",
             "owner_phone": owner.get("phone") or "",
+
             "orders": len(orders),
             "delivered_orders": len(delivered_orders),
             "products": product_count,

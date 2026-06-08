@@ -14,8 +14,8 @@ import urllib.request
 def api_service_pincodes():
     return jsonify({
         "ok": True,
-        "mode": "ASSAM_STATE_WIDE",
-        "message": "Delivery is available across Assam.",
+        "mode": "STORE_POLYGON_ZONE",
+        "message": "Set your location first. Final delivery availability depends on the selected store delivery zone.",
         "pincodes": []
     })
 
@@ -51,6 +51,42 @@ def _locationiq_reverse_geocode(lat, lng):
     })
 
     url = f"https://us1.locationiq.com/v1/reverse?{query}"
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "NE-Fresh/1.0",
+            "Accept": "application/json",
+        }
+    )
+
+    with urllib.request.urlopen(req, timeout=12) as response:
+        raw = response.read().decode("utf-8", errors="replace")
+        return json.loads(raw)
+    
+def _locationiq_search_pincode(pincode):
+    """
+    Convert Indian pincode into approximate address coordinates using LocationIQ.
+
+    Required .env:
+        LOCATIONIQ_API_KEY=your_key_here
+    """
+    api_key = os.getenv("LOCATIONIQ_API_KEY", "").strip()
+
+    if not api_key:
+        raise RuntimeError("LOCATIONIQ_API_KEY is missing in .env")
+
+    query = urllib.parse.urlencode({
+        "key": api_key,
+        "q": f"{pincode}, Assam, India",
+        "format": "json",
+        "addressdetails": "1",
+        "normalizeaddress": "1",
+        "limit": "1",
+        "countrycodes": "in",
+    })
+
+    url = f"https://us1.locationiq.com/v1/search?{query}"
 
     req = urllib.request.Request(
         url,
@@ -152,6 +188,95 @@ def api_location_reverse():
         "message": "Location detected successfully."
     })
 
+@app.route("/api/location/pincode/resolve", methods=["POST"])
+def api_location_pincode_resolve():
+    """
+    Frontend sends:
+        { "pincode": "781017" }
+
+    Backend returns approximate:
+        address, city, state, lat, lng, pincode
+
+    This route is for:
+        1. Navbar location modal
+        2. Checkout pincode section
+
+    It does NOT guarantee final store delivery.
+    Final delivery is checked by /api/checkout/serviceability.
+    """
+    data = request.get_json(silent=True) or {}
+
+    pincode = _clean_pin(data.get("pincode") or "")
+
+    if not pincode or len(pincode) != 6:
+        return jsonify({
+            "ok": False,
+            "error": "Please enter a valid 6-digit pincode."
+        }), 400
+
+    try:
+        results = _locationiq_search_pincode(pincode)
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "error": "Could not resolve this pincode right now.",
+            "detail": str(exc)
+        }), 502
+
+    if not isinstance(results, list) or not results:
+        return jsonify({
+            "ok": False,
+            "error": "No location found for this pincode."
+        }), 404
+
+    result = results[0] or {}
+    address_data = result.get("address") or {}
+
+    lat = _float_or_none(result.get("lat"))
+    lng = _float_or_none(result.get("lon"))
+
+    city = (
+        address_data.get("city")
+        or address_data.get("town")
+        or address_data.get("village")
+        or address_data.get("municipality")
+        or address_data.get("county")
+        or ""
+    )
+
+    state = address_data.get("state") or ""
+    country = address_data.get("country") or ""
+    display_address = result.get("display_name") or f"Pincode {pincode}"
+
+    detected_pin = _clean_pin(
+        address_data.get("postcode")
+        or address_data.get("postal_code")
+        or pincode
+    )
+
+    if detected_pin and detected_pin != pincode:
+        detected_pin = pincode
+
+    assam = is_assam_state(state)
+
+    return jsonify({
+        "ok": True,
+        "pincode": pincode,
+        "lat": lat,
+        "lng": lng,
+        "address": display_address,
+        "city": city,
+        "state": state,
+        "country": country,
+        "assam": assam,
+        "serviceable": bool(assam and is_serviceable_pincode(pincode)),
+        "message": (
+            "Location resolved. Store-wise delivery availability will be checked at checkout."
+            if assam else
+            "Location resolved, but this appears outside Assam."
+        )
+    })
+
 
 @app.route("/api/location/set", methods=["POST"])
 def api_location_set():
@@ -201,7 +326,8 @@ def api_location_set():
     return jsonify({
         "ok": True,
         "serviceable": serviceable,
-        "service_area": session["service_area"]
+        "service_area": session["service_area"],
+        "message": "Location saved. Store-wise delivery availability will be checked at checkout."
     })
 
 
@@ -263,7 +389,7 @@ def detect_location():
     if not is_serviceable_pincode(clean_pincode):
         flash("Please enter a valid 6-digit pincode.", "warning")
     else:
-        flash(f"Location set to {clean_pincode}. Delivery is available across Assam.", "success")
+        flash(f"Location set to {clean_pincode}. Store-wise delivery availability will be checked at checkout.", "success")
 
     return redirect(request.referrer or url_for("index"))
 

@@ -299,13 +299,22 @@ def checkout():
         else:
             location_source = "missing_coordinates"
 
-        km = haversine_km(store_lat, store_lng, final_lat, final_lng)
+        serviceability = check_store_serviceability(
+            store=store,
+            customer_lat=final_lat,
+            customer_lng=final_lng,
+            customer_pincode=sel_pin
+        )
 
-        # Assam-wide delivery: no distance blocking.
-        # Delivery fee is calculated by distance if coordinates are available.
-        delivery_fee = calculate_delivery_fee_by_distance(km)
+        if not serviceability.get("serviceable"):
+            flash(
+                serviceability.get("message") or "Delivery is not available for your selected location.",
+                "danger"
+            )
+            return redirect(url_for("checkout"))
 
-        tip_amount = request.form.get("tip_amount", "0").strip()
+        km = serviceability.get("distance_km")
+        delivery_fee = serviceability.get("delivery_fee", 0)
 
         try:
             tip_amount = float(tip_amount or 0)
@@ -355,6 +364,15 @@ def checkout():
                 "delivery_partner_id": None,
                 "delivery_fee": float(delivery_fee),
                 "distance_km": float(km) if km is not None else None,
+                "delivery_zone_matched": True,
+                "delivery_serviceability_reason": serviceability.get("reason"),
+                "delivery_serviceability_message": serviceability.get("message"),
+
+                "store_latitude": store.get("latitude"),
+                "store_longitude": store.get("longitude"),
+                "store_online_at_order": int(store.get("is_online", store.get("is_open", 1)) or 0),
+                "delivery_enabled_at_order": int(store.get("delivery_enabled", 1 if store.get("delivery_available", False) else 0) or 0),
+
                 "tip_amount": float(tip_amount),
                 "total_payable": float(total_payable),
 
@@ -459,12 +477,110 @@ def checkout():
         base_fee=BASE_DELIVERY_FEE_INR,
         slabs=DELIVERY_SURCHARGE_SLABS,
         max_km=None,
-        delivery_mode=DELIVERY_MODE,
-        delivery_message="Delivery is available across Assam. Delivery fee is calculated according to distance.",
+        delivery_mode="STORE_POLYGON_ZONE",
+        delivery_message="Delivery availability depends on the selected store delivery zone. Final fee is calculated after serviceability check.",
         store_lat=store_lat,
         store_lng=store_lng,
         cart_store_count=cart_store_count,
     )
+
+@app.route("/api/checkout/serviceability", methods=["POST"])
+@login_required()
+def api_checkout_serviceability():
+    u = current_user()
+    cid = get_or_create_cart(u["id"])
+
+    data = request.get_json(silent=True) or {}
+
+    customer_lat = data.get("lat")
+    customer_lng = data.get("lng")
+    customer_pincode = (data.get("pincode") or "").strip()
+
+    cart_items = list(mongo.cart_items.find({"cart_id": cid}))
+
+    if not cart_items:
+        return jsonify({
+            "ok": False,
+            "serviceable": False,
+            "reason": "EMPTY_CART",
+            "message": "Your cart is empty."
+        }), 400
+
+    store_ids = []
+
+    for ci in cart_items:
+        product = mongo.products.find_one({"_id": ci.get("product_id")})
+
+        if not product:
+            continue
+
+        store_id = product.get("store_id")
+
+        if store_id:
+            store_ids.append(str(store_id))
+
+    unique_store_ids = sorted(set(store_ids))
+
+    if not unique_store_ids:
+        return jsonify({
+            "ok": False,
+            "serviceable": False,
+            "reason": "STORE_MISSING",
+            "message": "Store information is missing from cart items."
+        }), 400
+
+    if len(unique_store_ids) > 1:
+        return jsonify({
+            "ok": False,
+            "serviceable": False,
+            "reason": "MULTI_STORE_CART",
+            "message": "Your cart contains items from multiple stores. Please order from one store at a time."
+        }), 400
+
+    store_id_raw = unique_store_ids[0]
+
+    try:
+        store_id = ObjectId(store_id_raw)
+    except Exception:
+        store_id = store_id_raw
+
+    store = mongo.stores.find_one({
+        "$or": [
+            {"_id": store_id},
+            {"_id": store_id_raw}
+        ]
+    })
+
+    if not store:
+        return jsonify({
+            "ok": False,
+            "serviceable": False,
+            "reason": "STORE_NOT_FOUND",
+            "message": "Store not found."
+        }), 404
+
+    serviceability = check_store_serviceability(
+        store=store,
+        customer_lat=customer_lat,
+        customer_lng=customer_lng,
+        customer_pincode=customer_pincode
+    )
+
+    return jsonify({
+        "ok": True,
+        "serviceable": bool(serviceability.get("serviceable")),
+        "reason": serviceability.get("reason"),
+        "message": serviceability.get("message"),
+        "distance_km": serviceability.get("distance_km"),
+        "delivery_fee": serviceability.get("delivery_fee"),
+        "store": {
+            "id": str(store.get("_id")),
+            "store_name": store.get("store_name", ""),
+            "is_online": int(store.get("is_online", store.get("is_open", 1)) or 0),
+            "delivery_enabled": int(store.get("delivery_enabled", 1 if store.get("delivery_available", False) else 0) or 0),
+            "delivery_zone_configured": 1 if len(store.get("delivery_zone_polygon") or []) >= 3 else int(store.get("delivery_zone_configured", 0) or 0)
+        }
+    })
 
 @app.route("/orders", endpoint="orders")
 @login_required()

@@ -1652,6 +1652,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let gpsCache = null;
 
+    let lastServiceability = null;
+
   function radios(){
     return Array.from(document.querySelectorAll('input[name="address_id"]'));
   }
@@ -1689,8 +1691,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return Math.round(tip * 100) / 100;
   }
 
-  function isPinServiceable(pin){
+    function isPinServiceable(pin){
     const p = cleanPin(pin);
+
+    // Only format validation here.
+    // Final delivery availability is checked by /api/checkout/serviceability.
     return /^\d{6}$/.test(p);
   }
 
@@ -1891,44 +1896,57 @@ document.addEventListener('DOMContentLoaded', () => {
     return j;
   }
 
-  async function geocodePincode(pincode){
-    const p = cleanPin(pincode);
 
-    if (!/^\d{6}$/.test(p)) return null;
+    async function apiCheckoutServiceability({ lat, lng, pincode }){
+    const res = await fetch("/api/checkout/serviceability", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        lat,
+        lng,
+        pincode: cleanPin(pincode || "")
+      })
+    });
 
-    const queries = [
-      `${p}, Assam, India`,
-      `${p}, India`,
-      `Pincode ${p}, India`,
-      `${p}`
-    ];
+    const j = await res.json().catch(() => ({}));
 
-    for (const q of queries){
-      try{
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`;
-        const r = await fetch(url, {
-          headers: {
-            "Accept": "application/json"
-          }
-        });
-
-        if (!r.ok) continue;
-
-        const data = await r.json();
-
-        if (Array.isArray(data) && data.length){
-          const lat = parseFloat(data[0].lat);
-          const lng = parseFloat(data[0].lon);
-
-          if (Number.isFinite(lat) && Number.isFinite(lng)) {
-            return { lat, lng };
-          }
-        }
-      } catch (_) {}
+    if (!res.ok || !j.ok) {
+      throw new Error(j.message || j.error || "Could not check delivery availability.");
     }
 
-    return null;
+    return j;
   }
+
+    async function apiResolvePincode(pincode){
+    const pin = cleanPin(pincode);
+
+    if (!/^\d{6}$/.test(pin)) {
+      throw new Error("Please enter a valid 6-digit pincode.");
+    }
+
+    const res = await fetch("/api/location/pincode/resolve", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        pincode: pin
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || "Could not resolve this pincode.");
+    }
+
+    return data;
+  }
+
 
   function selectedAddressPin(){
     const addr = ensureSelected();
@@ -2000,8 +2018,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  async function recalc(){
+   async function recalc(){
     if (cartStoreCount > 1){
+      lastServiceability = null;
       setWarn("Your cart has items from multiple stores. Please order from one store at a time.");
       setButtonEnabled(false);
       updateUI(BASE_DELIVERY_FEE, clampTip(tipInput ? tipInput.value : 0), "Checkout blocked: Multiple stores");
@@ -2009,15 +2028,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const tip = clampTip(tipInput ? tipInput.value : 0);
-
     let deliveryFee = BASE_DELIVERY_FEE;
-    let metaLine = "";
 
     setWarn("");
 
     const addr = ensureSelected();
 
     if (!addr){
+      lastServiceability = null;
       setWarn("Please add delivery address before checkout.");
       setButtonEnabled(false);
       updateUI(deliveryFee, tip, "");
@@ -2027,65 +2045,86 @@ document.addEventListener('DOMContentLoaded', () => {
     const pinForValidation = sessionLoc.pin || selectedAddressPin();
 
     if (!pinForValidation){
+      lastServiceability = null;
       setWarn("Please use current location or choose an address with a valid pincode.");
       setButtonEnabled(false);
       updateUI(deliveryFee, tip, "");
       return;
     }
 
-    if (!isPinServiceable(pinForValidation)){
-      setWarn(`Pincode ${pinForValidation} is not serviceable. Please use another location.`);
+    if (!/^\d{6}$/.test(cleanPin(pinForValidation))){
+      lastServiceability = null;
+      setWarn("Please enter a valid 6-digit pincode.");
       setButtonEnabled(false);
       updateUI(deliveryFee, tip, "");
-      return;
-    }
-
-    if (storeLat === null || storeLng === null){
-      setWarn("Store location is not set. Please contact store/admin.");
-      setButtonEnabled(false);
-      updateUI(BASE_DELIVERY_FEE, tip, "");
       return;
     }
 
     const resolved = getResolvedLocationForFee();
 
     if (resolved.lat === null || resolved.lng === null){
-      setWarn("Location coordinates missing. Please use current location to calculate delivery fee.");
+      lastServiceability = null;
+      setWarn("Location coordinates missing. Please use current location to check delivery availability.");
       setButtonEnabled(false);
       updateUI(deliveryFee, tip, "");
       return;
     }
 
-    const km = haversineKm(storeLat, storeLng, resolved.lat, resolved.lng);
+    try {
+      if (feeMeta) {
+        feeMeta.textContent = "Checking delivery availability...";
+      }
 
-    if (km === null || !Number.isFinite(km)){
-      setWarn("Unable to calculate distance. Please use current location again.");
+      const result = await apiCheckoutServiceability({
+        lat: resolved.lat,
+        lng: resolved.lng,
+        pincode: resolved.pin || pinForValidation
+      });
+
+      lastServiceability = result;
+
+      deliveryFee = Number(result.delivery_fee || 0);
+
+      if (!result.serviceable) {
+        setButtonEnabled(false);
+        setWarn(result.message || "Delivery is not available for your selected location.");
+        updateUI(
+          deliveryFee,
+          tip,
+          result.reason ? `Blocked: ${result.reason}` : "Delivery unavailable"
+        );
+        return;
+      }
+
+      setButtonEnabled(true);
+      setWarn("");
+
+      const distanceText =
+        result.distance_km !== null && result.distance_km !== undefined
+          ? `Distance: ${Number(result.distance_km).toFixed(2)} km`
+          : "Distance calculated by store zone";
+
+      const sourceLabel =
+        resolved.source === "gps" ? "Current GPS location" :
+        resolved.source === "checkout_address" ? "Saved checkout address" :
+        resolved.source === "saved-address" ? "Saved address coordinates" :
+        resolved.source === "pincode" ? "Pincode location" :
+        "Detected location";
+
+      updateUI(
+        deliveryFee,
+        tip,
+        `${distanceText} | Delivery Fee ₹${format2(deliveryFee)} | ${sourceLabel}${resolved.pin ? ` | Pin: ${resolved.pin}` : ""}`
+      );
+
+      setLocMsg(result.message || "Delivery available for this location.", true);
+
+    } catch (e) {
+      lastServiceability = null;
       setButtonEnabled(false);
+      setWarn(e.message || "Could not check delivery availability.");
       updateUI(deliveryFee, tip, "");
-      return;
     }
-
-    let extra = slabExtraMatchingBackend(km);
-
-    if (extra === null) {
-      extra = 0;
-    }
-
-    deliveryFee = BASE_DELIVERY_FEE + extra;
-
-    setButtonEnabled(true);
-
-    const sourceLabel =
-      resolved.source === "gps" ? "Current GPS location" :
-      resolved.source === "pincode" ? "Pincode location" :
-      resolved.source === "saved-address" ? "Saved address coordinates" :
-      "Detected location";
-
-    updateUI(
-      deliveryFee,
-      tip,
-      `Distance: ${km.toFixed(2)} km | Base ₹${BASE_DELIVERY_FEE} + Extra ₹${extra} | ${sourceLabel}${resolved.pin ? ` | Pin: ${resolved.pin}` : ""}`
-    );
   }
 
     function showAddressModalError(message){
@@ -2421,7 +2460,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  async function usePincode(){
+   async function usePincode(){
     if (cartStoreCount > 1){
       setLocMsg("Checkout blocked: Multiple stores in cart. Please clear cart to one store.", false);
       return;
@@ -2431,80 +2470,78 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!/^\d{6}$/.test(p)){
       setLocMsg("Please enter a valid 6-digit pincode.", false);
-      return;
-    }
-
-    if (!isPinServiceable(p)){
-      setLocMsg(`Pincode ${p} is not serviceable.`, false);
-      return;
-    }
-
-    setLocMsg("Finding coordinates from pincode...", true);
-
-    const loc = await geocodePincode(p);
-
-    if (!loc){
-      try {
-        await apiSetLocation({
-          address: `Pincode ${p}`,
-          pincode: p,
-          lat: null,
-          lng: null,
-          city: "",
-          state: "",
-          source: "pincode"
-        });
-      } catch (_) {}
-
-      sessionLoc = {
-        pin: p,
-        lat: null,
-        lng: null,
-        address: `Pincode ${p}`,
-        city: "",
-        state: "",
-        source: "pincode"
-      };
-
-      if (resolvedLatInput) resolvedLatInput.value = "";
-      if (resolvedLngInput) resolvedLngInput.value = "";
-
-      setLocMsg("Pincode saved, but coordinates were not found. Use current location for accurate delivery fee.", false);
-      await recalc();
+      setButtonEnabled(false);
       return;
     }
 
     try {
+      if (btnPin) {
+        btnPin.disabled = true;
+        btnPin.textContent = "Checking...";
+      }
+
+      setLocMsg("Resolving pincode and checking delivery zone...", true);
+
+      const resolvedPin = await apiResolvePincode(p);
+
+      if (!resolvedPin.assam) {
+        setLocMsg("This pincode appears outside Assam. Please use another location.", false);
+        setButtonEnabled(false);
+        setWarn("This pincode appears outside Assam.");
+        return;
+      }
+
       await apiSetLocation({
-        address: `Pincode ${p}`,
+        address: resolvedPin.address || `Pincode ${p}`,
         pincode: p,
-        lat: loc.lat,
-        lng: loc.lng,
-        city: "",
-        state: "",
-        source: "pincode"
+        lat: resolvedPin.lat,
+        lng: resolvedPin.lng,
+        city: resolvedPin.city || "",
+        state: resolvedPin.state || "",
+        source: "checkout-pincode"
       });
 
       gpsCache = null;
 
       sessionLoc = {
         pin: p,
-        lat: loc.lat,
-        lng: loc.lng,
-        address: `Pincode ${p}`,
-        city: "",
-        state: "",
+        lat: resolvedPin.lat,
+        lng: resolvedPin.lng,
+        address: resolvedPin.address || `Pincode ${p}`,
+        city: resolvedPin.city || "",
+        state: resolvedPin.state || "",
         source: "pincode"
       };
 
-      if (resolvedLatInput) resolvedLatInput.value = String(loc.lat);
-      if (resolvedLngInput) resolvedLngInput.value = String(loc.lng);
+      if (resolvedLatInput) {
+        resolvedLatInput.value = resolvedPin.lat !== null && resolvedPin.lat !== undefined
+          ? String(resolvedPin.lat)
+          : "";
+      }
 
-      setLocMsg(`Pincode ${p} is set. Delivery fee recalculated.`, true);
+      if (resolvedLngInput) {
+        resolvedLngInput.value = resolvedPin.lng !== null && resolvedPin.lng !== undefined
+          ? String(resolvedPin.lng)
+          : "";
+      }
+
+      if (pinInput) {
+        pinInput.value = p;
+      }
+
+      setLocMsg("Pincode resolved. Checking store delivery availability...", true);
 
       await recalc();
+
     } catch (e) {
-      setLocMsg(e.message || "Failed to set pincode.", false);
+      setButtonEnabled(false);
+      setLocMsg(e.message || "Could not check this pincode.", false);
+      setWarn(e.message || "Could not check this pincode.");
+    } finally {
+      if (btnPin) {
+        btnPin.disabled = false;
+        btnPin.textContent = "Apply";
+      }
     }
   }
 
@@ -2540,6 +2577,16 @@ document.addEventListener('DOMContentLoaded', () => {
     btnPin.addEventListener("click", usePincode);
   }
 
+    if (pinInput) {
+    pinInput.addEventListener("input", function(){
+      const cleaned = cleanPin(pinInput.value).slice(0, 6);
+
+      if (pinInput.value !== cleaned) {
+        pinInput.value = cleaned;
+      }
+    });
+  }
+
   if (openAddressModalBtn) {
     openAddressModalBtn.addEventListener("click", () => {
       openCheckoutAddressModal({
@@ -2569,6 +2616,33 @@ document.addEventListener('DOMContentLoaded', () => {
     coAddrModal.addEventListener("click", (e) => {
       if (e.target === coAddrModal) {
         closeCheckoutAddressModal();
+      }
+    });
+  }
+
+    const checkoutForm = document.getElementById("checkout-form");
+
+  if (checkoutForm) {
+    checkoutForm.addEventListener("submit", async function(event){
+      if (cartStoreCount > 1) {
+        event.preventDefault();
+        setWarn("Your cart has items from multiple stores. Please order from one store at a time.");
+        return;
+      }
+
+      if (!lastServiceability || !lastServiceability.serviceable) {
+        event.preventDefault();
+        await recalc();
+
+        if (!lastServiceability || !lastServiceability.serviceable) {
+          setWarn(
+            lastServiceability?.message ||
+            "Please select a serviceable delivery location before placing the order."
+          );
+          return;
+        }
+
+        checkoutForm.submit();
       }
     });
   }

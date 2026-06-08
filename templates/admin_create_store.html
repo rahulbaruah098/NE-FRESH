@@ -16,6 +16,12 @@ Add new grocery stores, owner details and precise location coordinates.
 
 <section class="nf-create-store-page">
 
+
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
@@ -381,6 +387,243 @@ Add new grocery stores, owner details and precise location coordinates.
       font-weight:700;
       color:#15803d;
     }
+
+    .nf-delivery-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:18px;
+  margin-top:18px;
+}
+
+.nf-switch-card{
+  border:1px solid #daf1e4;
+  background:#fff;
+  border-radius:18px;
+  padding:16px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+}
+
+.nf-switch-copy strong{
+  display:block;
+  color:#264653;
+  font-size:14px;
+  font-weight:900;
+  margin-bottom:5px;
+}
+
+.nf-switch-copy span{
+  display:block;
+  color:#7d8b9a;
+  font-size:12px;
+  line-height:1.45;
+  font-weight:700;
+}
+
+.nf-toggle{
+  position:relative;
+  width:56px;
+  height:32px;
+  flex:0 0 auto;
+}
+
+.nf-toggle input{
+  opacity:0;
+  width:0;
+  height:0;
+}
+
+.nf-toggle-slider{
+  position:absolute;
+  cursor:pointer;
+  inset:0;
+  background:#dbe4ee;
+  border-radius:999px;
+  transition:.22s ease;
+}
+
+.nf-toggle-slider::before{
+  content:"";
+  position:absolute;
+  width:24px;
+  height:24px;
+  left:4px;
+  top:4px;
+  background:#fff;
+  border-radius:50%;
+  box-shadow:0 4px 10px rgba(15,23,42,.18);
+  transition:.22s ease;
+}
+
+.nf-toggle input:checked + .nf-toggle-slider{
+  background:linear-gradient(135deg,var(--green),var(--green-2));
+}
+
+.nf-toggle input:checked + .nf-toggle-slider::before{
+  transform:translateX(24px);
+}
+
+.nf-map-card{
+  margin-top:18px;
+  border:1px solid #daf1e4;
+  border-radius:20px;
+  background:#fff;
+  overflow:hidden;
+}
+
+.nf-map-head{
+  padding:16px 18px;
+  border-bottom:1px solid #e1f3e7;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.nf-map-title{
+  font-size:15px;
+  font-weight:900;
+  color:#264653;
+}
+
+.nf-map-sub{
+  margin-top:4px;
+  color:#7d8b9a;
+  font-size:12px;
+  font-weight:700;
+  line-height:1.45;
+}
+
+.nf-map-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.nf-map-btn{
+  border:1px solid #dbece3;
+  background:#fff;
+  color:#2f7d57;
+  min-height:40px;
+  padding:0 14px;
+  border-radius:12px;
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.nf-map-btn.primary{
+  background:linear-gradient(135deg,var(--green),var(--green-2));
+  border-color:transparent;
+  color:#fff;
+}
+
+.nf-map-btn.danger{
+  background:#fff1f1;
+  border-color:#fecaca;
+  color:#b91c1c;
+}
+
+#storeDeliveryMap{
+  width:100%;
+  height:390px;
+  background:#eef7f1;
+}
+
+.nf-zone-status{
+  padding:13px 18px;
+  border-top:1px solid #e1f3e7;
+  color:#667587;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.45;
+}
+
+.nf-zone-status.ok{
+  color:#15803d;
+}
+
+.nf-zone-status.bad{
+  color:#b91c1c;
+}
+
+.nf-zone-tools{
+  padding:14px 18px;
+  border-top:1px solid #e1f3e7;
+  background:#fbfffd;
+  display:grid;
+  gap:10px;
+}
+
+.nf-zone-help{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  color:#667587;
+  font-size:12px;
+  font-weight:750;
+  line-height:1.5;
+}
+
+.nf-zone-help-icon{
+  width:28px;
+  height:28px;
+  border-radius:10px;
+  background:#e8f7ef;
+  color:#1f5d3f;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  font-weight:900;
+}
+
+.nf-zone-counter{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:10px 12px;
+  border-radius:14px;
+  background:#fff;
+  border:1px solid #e1f3e7;
+}
+
+.nf-zone-counter span{
+  color:#264653;
+  font-size:13px;
+  font-weight:900;
+}
+
+.nf-zone-counter small{
+  color:#7d8b9a;
+  font-size:12px;
+  font-weight:750;
+}
+
+.nf-map-btn[disabled]{
+  opacity:.48;
+  cursor:not-allowed;
+  transform:none !important;
+}
+
+@media(max-width:760px){
+  .nf-delivery-grid{
+    grid-template-columns:1fr;
+  }
+
+  #storeDeliveryMap{
+    height:330px;
+  }
+
+  .nf-switch-card{
+    flex-direction:row;
+  }
+}
 
     .nf-submit-wrap{
       margin-top:30px;
@@ -751,88 +994,249 @@ Add new grocery stores, owner details and precise location coordinates.
 
             </div>
 
-            <!-- LOCATION -->
-            <div class="nf-location-card">
+<!-- STORE LOCATION + DELIVERY SETTINGS -->
+<div class="nf-location-card">
 
-              <div class="nf-location-head">
+  <div class="nf-location-head">
 
-                <div class="nf-location-title">
+    <div class="nf-location-title">
 
-                  <div class="nf-location-icon">
-                    📌
-                  </div>
+      <div class="nf-location-icon">
+        📌
+      </div>
 
-                  <div>
-                    <div class="nf-location-name">
-                      Store Coordinates
-                    </div>
+      <div>
+        <div class="nf-location-name">
+          Store Location & Delivery Setup
+        </div>
 
-                    <div class="nf-location-sub">
-                      Capture exact location for delivery mapping.
-                    </div>
-                  </div>
+        <div class="nf-location-sub">
+          Capture pickup coordinates, define online status and draw the store delivery zone.
+        </div>
+      </div>
 
-                </div>
+    </div>
 
-                <button
-                  type="button"
-                  id="btnGetLoc"
-                  class="nf-location-btn"
-                >
-                  📍 Use Current Location
-                </button>
+    <button
+      type="button"
+      id="btnGetLoc"
+      class="nf-location-btn"
+    >
+      📍 Use Current Location
+    </button>
 
-              </div>
+  </div>
 
-              <div class="nf-location-body">
+  <div class="nf-location-body">
 
-                <div class="nf-location-grid">
+    <div class="nf-location-grid">
 
-                  <div class="nf-field">
-                    <label class="nf-label">
-                      Latitude <span>*</span>
-                    </label>
+      <div class="nf-field">
+        <label class="nf-label">
+          City / Area
+        </label>
 
-                    <div class="nf-input-wrap">
-                      <span class="nf-input-icon">🌍</span>
+        <div class="nf-input-wrap">
+          <span class="nf-input-icon">🏙️</span>
 
-                      <input
-                        id="storeLat"
-                        class="nf-input"
-                        name="latitude"
-                        type="text"
-                        placeholder="e.g. 23.7271"
-                        required
-                      >
-                    </div>
-                  </div>
+          <input
+            id="storeCity"
+            class="nf-input"
+            name="city"
+            type="text"
+            placeholder="e.g. Guwahati"
+          >
+        </div>
+      </div>
 
-                  <div class="nf-field">
-                    <label class="nf-label">
-                      Longitude <span>*</span>
-                    </label>
+      <div class="nf-field">
+        <label class="nf-label">
+          State
+        </label>
 
-                    <div class="nf-input-wrap">
-                      <span class="nf-input-icon">🧭</span>
+        <div class="nf-input-wrap">
+          <span class="nf-input-icon">🗺️</span>
 
-                      <input
-                        id="storeLng"
-                        class="nf-input"
-                        name="longitude"
-                        type="text"
-                        placeholder="e.g. 92.7176"
-                        required
-                      >
-                    </div>
-                  </div>
+          <input
+            id="storeState"
+            class="nf-input"
+            name="state"
+            type="text"
+            value="Assam"
+            placeholder="Assam"
+          >
+        </div>
+      </div>
 
-                </div>
+      <div class="nf-field">
+        <label class="nf-label">
+          Pincode
+        </label>
 
-                <small id="locMsg" class="nf-loc-msg"></small>
+        <div class="nf-input-wrap">
+          <span class="nf-input-icon">#</span>
 
-              </div>
+          <input
+            id="storePincode"
+            class="nf-input"
+            name="pincode"
+            type="text"
+            inputmode="numeric"
+            maxlength="6"
+            placeholder="e.g. 781017"
+          >
+        </div>
+      </div>
 
-            </div>
+      <div class="nf-field">
+        <label class="nf-label">
+          Base Delivery Fee
+        </label>
+
+        <div class="nf-input-wrap">
+          <span class="nf-input-icon">₹</span>
+
+          <input
+            id="deliveryBaseFee"
+            class="nf-input"
+            name="delivery_base_fee"
+            type="number"
+            min="0"
+            step="1"
+            value="40"
+            placeholder="40"
+          >
+        </div>
+      </div>
+
+      <div class="nf-field">
+        <label class="nf-label">
+          Latitude <span>*</span>
+        </label>
+
+        <div class="nf-input-wrap">
+          <span class="nf-input-icon">🌍</span>
+
+          <input
+            id="storeLat"
+            class="nf-input"
+            name="latitude"
+            type="text"
+            placeholder="e.g. 26.144500"
+            required
+          >
+        </div>
+      </div>
+
+      <div class="nf-field">
+        <label class="nf-label">
+          Longitude <span>*</span>
+        </label>
+
+        <div class="nf-input-wrap">
+          <span class="nf-input-icon">🧭</span>
+
+          <input
+            id="storeLng"
+            class="nf-input"
+            name="longitude"
+            type="text"
+            placeholder="e.g. 91.736200"
+            required
+          >
+        </div>
+      </div>
+
+    </div>
+
+    <div class="nf-delivery-grid">
+
+      <label class="nf-switch-card">
+        <div class="nf-switch-copy">
+          <strong>Store Online</strong>
+          <span>Online stores can receive customer orders. Offline stores remain visible but checkout will be blocked.</span>
+        </div>
+
+        <span class="nf-toggle">
+          <input type="checkbox" name="is_online" value="1" checked>
+          <span class="nf-toggle-slider"></span>
+        </span>
+      </label>
+
+      <label class="nf-switch-card">
+        <div class="nf-switch-copy">
+          <strong>Delivery Enabled</strong>
+          <span>Enable only after drawing a valid delivery zone. If enabled without zone, backend will reject.</span>
+        </div>
+
+        <span class="nf-toggle">
+          <input type="checkbox" id="deliveryEnabledToggle" name="delivery_enabled" value="1">
+          <span class="nf-toggle-slider"></span>
+        </span>
+      </label>
+
+    </div>
+
+    <input type="hidden" name="delivery_mode" value="polygon">
+    <input type="hidden" id="deliveryZonePolygon" name="delivery_zone_polygon" value="[]">
+
+    <div class="nf-map-card">
+
+      <div class="nf-map-head">
+        <div>
+          <div class="nf-map-title">Delivery Zone Map</div>
+          <div class="nf-map-sub">
+            Click on the map to create delivery boundary points. Minimum 3 points are required.
+          </div>
+        </div>
+
+        <div class="nf-map-actions">
+  <button type="button" class="nf-map-btn primary" id="btnUseCoordsOnMap">
+    Center Store
+  </button>
+
+  <button type="button" class="nf-map-btn" id="btnUndoZonePoint" disabled>
+    Undo Point
+  </button>
+
+  <button type="button" class="nf-map-btn" id="btnFinishZone" disabled>
+    Finish Zone
+  </button>
+
+  <button type="button" class="nf-map-btn danger" id="btnClearZone" disabled>
+    Clear Zone
+  </button>
+</div>
+      </div>
+
+      <div id="storeDeliveryMap"></div>
+
+     <div class="nf-zone-tools">
+  <div class="nf-zone-help">
+    <div class="nf-zone-help-icon">i</div>
+    <div>
+      Click around the store delivery area to create boundary points.
+      Minimum 3 points are required. You can undo the last point or click any point marker to remove it.
+    </div>
+  </div>
+
+  <div class="nf-zone-counter">
+    <span id="zonePointCount">0 points added</span>
+    <small>Recommended: draw a closed boundary around serviceable roads/areas.</small>
+  </div>
+</div>
+
+<div id="zoneStatus" class="nf-zone-status bad">
+  Delivery zone not configured. Click at least 3 points on the map.
+</div>
+
+    </div>
+
+    <small id="locMsg" class="nf-loc-msg"></small>
+
+  </div>
+
+</div>
 
             <div class="nf-submit-wrap">
 
@@ -981,32 +1385,260 @@ Add new grocery stores, owner details and precise location coordinates.
     </div>
 
   </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    (function(){
+  (function(){
 
-      const btn = document.getElementById("btnGetLoc");
-      const latInput = document.getElementById("storeLat");
-      const lngInput = document.getElementById("storeLng");
-      const msg = document.getElementById("locMsg");
+    const form = document.getElementById("createStoreForm");
 
-      if (!btn || !latInput || !lngInput) return;
+    const btn = document.getElementById("btnGetLoc");
+    const latInput = document.getElementById("storeLat");
+    const lngInput = document.getElementById("storeLng");
+    const cityInput = document.getElementById("storeCity");
+    const stateInput = document.getElementById("storeState");
+    const pinInput = document.getElementById("storePincode");
+    const msg = document.getElementById("locMsg");
 
+    const zoneInput = document.getElementById("deliveryZonePolygon");
+    const zoneStatus = document.getElementById("zoneStatus");
+    const deliveryEnabledToggle = document.getElementById("deliveryEnabledToggle");
+
+    const btnUseCoordsOnMap = document.getElementById("btnUseCoordsOnMap");
+   const btnUndoZonePoint = document.getElementById("btnUndoZonePoint");
+const btnFinishZone = document.getElementById("btnFinishZone");
+const btnClearZone = document.getElementById("btnClearZone");
+const zonePointCount = document.getElementById("zonePointCount");
+
+    let map = null;
+    let storeMarker = null;
+    let zonePolygon = null;
+    let zonePoints = [];
+    let zoneMarkers = [];
+
+    function setMsg(text, ok){
+      if (!msg) return;
+      msg.textContent = text || "";
+      msg.style.color = ok ? "#15803d" : "#ef4444";
+    }
+
+    function cleanPin(value){
+      return String(value || "").replace(/\\D+/g, "").slice(0, 6);
+    }
+
+    function safeFloat(value){
+      try{
+        if (value === null || value === undefined || String(value).trim() === "") return null;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : null;
+      }catch(e){
+        return null;
+      }
+    }
+
+    function updateZoneInput(){
+  if (zoneInput) {
+    zoneInput.value = JSON.stringify(zonePoints);
+  }
+
+  const count = zonePoints.length;
+
+  if (zonePointCount) {
+    zonePointCount.textContent = `${count} point${count === 1 ? "" : "s"} added`;
+  }
+
+  if (btnUndoZonePoint) {
+    btnUndoZonePoint.disabled = count === 0;
+  }
+
+  if (btnClearZone) {
+    btnClearZone.disabled = count === 0;
+  }
+
+  if (btnFinishZone) {
+    btnFinishZone.disabled = count < 3;
+  }
+
+  if (deliveryEnabledToggle && count < 3) {
+    deliveryEnabledToggle.checked = false;
+  }
+
+  if (!zoneStatus) return;
+
+  if (count >= 3) {
+    zoneStatus.textContent = `Delivery zone ready with ${count} points. Click Finish Zone to enable delivery.`;
+    zoneStatus.classList.remove("bad");
+    zoneStatus.classList.add("ok");
+  } else if (count > 0) {
+    zoneStatus.textContent = `Add ${3 - count} more point${3 - count === 1 ? "" : "s"} to complete delivery zone.`;
+    zoneStatus.classList.remove("ok");
+    zoneStatus.classList.add("bad");
+  } else {
+    zoneStatus.textContent = "Delivery zone not configured. Click at least 3 points on the map.";
+    zoneStatus.classList.remove("ok");
+    zoneStatus.classList.add("bad");
+  }
+}
+
+    function redrawZone(){
+  if (!map) return;
+
+  if (zonePolygon) {
+    zonePolygon.remove();
+    zonePolygon = null;
+  }
+
+  zoneMarkers.forEach(marker => marker.remove());
+  zoneMarkers = [];
+
+  zonePoints.forEach((point, index) => {
+    const marker = L.circleMarker(point, {
+      radius: 7,
+      color: "#1f5d3f",
+      fillColor: "#ff9f43",
+      fillOpacity: 1,
+      weight: 2
+    }).addTo(map);
+
+    marker.bindTooltip(String(index + 1), {
+      permanent: true,
+      direction: "top",
+      offset: [0, -7]
+    });
+
+    marker.bindPopup(`Point ${index + 1}<br><button type="button" class="remove-zone-point" data-index="${index}">Remove this point</button>`);
+
+    marker.on("popupopen", function(){
+      setTimeout(() => {
+        const btn = document.querySelector(`.remove-zone-point[data-index="${index}"]`);
+        if (btn) {
+          btn.addEventListener("click", function(){
+            zonePoints.splice(index, 1);
+            redrawZone();
+            setMsg("Point removed from delivery zone.", true);
+          });
+        }
+      }, 50);
+    });
+
+    zoneMarkers.push(marker);
+  });
+
+  if (zonePoints.length >= 2) {
+    zonePolygon = L.polygon(zonePoints, {
+      color: "#1f5d3f",
+      fillColor: "#2f7d57",
+      fillOpacity: 0.18,
+      weight: 3
+    }).addTo(map);
+  }
+
+  updateZoneInput();
+}
+
+    function setStoreMarker(lat, lng){
+      if (!map || lat === null || lng === null) return;
+
+      if (storeMarker) {
+        storeMarker.setLatLng([lat, lng]);
+      } else {
+        storeMarker = L.marker([lat, lng]).addTo(map);
+      }
+
+      storeMarker.bindPopup("Store pickup location").openPopup();
+      map.setView([lat, lng], 15);
+    }
+
+    function initMap(){
+      if (!window.L) {
+        setMsg("Map library failed to load. Check internet connection.", false);
+        return;
+      }
+
+      const defaultLat = safeFloat(latInput?.value) ?? 26.1445;
+      const defaultLng = safeFloat(lngInput?.value) ?? 91.7362;
+
+      map = L.map("storeDeliveryMap", {
+        scrollWheelZoom: true
+      }).setView([defaultLat, defaultLng], 13);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap"
+      }).addTo(map);
+
+      setStoreMarker(defaultLat, defaultLng);
+
+     map.on("click", function(e){
+  zonePoints.push([
+    Number(e.latlng.lat.toFixed(6)),
+    Number(e.latlng.lng.toFixed(6))
+  ]);
+
+  redrawZone();
+
+  if (zonePoints.length < 3) {
+    setMsg(`Point ${zonePoints.length} added. Add ${3 - zonePoints.length} more point${3 - zonePoints.length === 1 ? "" : "s"}.`, true);
+  } else {
+    setMsg(`Point ${zonePoints.length} added. Zone is ready to finish.`, true);
+  }
+});
+
+      setTimeout(() => map.invalidateSize(), 300);
+      updateZoneInput();
+    }
+
+    function centerMapFromInputs(){
+      const lat = safeFloat(latInput?.value);
+      const lng = safeFloat(lngInput?.value);
+
+      if (lat === null || lng === null) {
+        setMsg("Enter valid latitude and longitude first.", false);
+        return;
+      }
+
+      setStoreMarker(lat, lng);
+      setMsg("Map centered on store pickup location.", true);
+    }
+
+    async function reverseStoreLocation(lat, lng){
+      try{
+        const res = await fetch("/api/location/reverse", {
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json"
+          },
+          body:JSON.stringify({
+            lat,
+            lng
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.ok) {
+          return null;
+        }
+
+        return data;
+      }catch(e){
+        return null;
+      }
+    }
+
+    if (btn && latInput && lngInput) {
       btn.addEventListener("click", function(){
 
-        msg.textContent = "Getting location...";
+        setMsg("Getting location...", true);
 
         if (!navigator.geolocation){
-
-          msg.textContent = "Geolocation not supported in this browser.";
-          msg.style.color = "#ef4444";
-
+          setMsg("Geolocation not supported in this browser.", false);
           return;
         }
 
         navigator.geolocation.getCurrentPosition(
 
-          (pos) => {
+          async (pos) => {
 
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
@@ -1015,16 +1647,25 @@ Add new grocery stores, owner details and precise location coordinates.
             latInput.value = lat.toFixed(6);
             lngInput.value = lng.toFixed(6);
 
-            msg.style.color = "#15803d";
+            setStoreMarker(lat, lng);
 
-            msg.textContent =
-              `Location captured successfully ✅ Accuracy ~${Math.round(acc)}m`;
+            setMsg(`Location captured successfully. Accuracy approx ${Math.round(acc)}m. Detecting address...`, true);
+
+            const detected = await reverseStoreLocation(lat, lng);
+
+            if (detected) {
+              if (cityInput && detected.city) cityInput.value = detected.city;
+              if (stateInput && detected.state) stateInput.value = detected.state;
+              if (pinInput && detected.pincode) pinInput.value = cleanPin(detected.pincode);
+
+              setMsg("Location and address detected successfully.", true);
+            } else {
+              setMsg(`Location captured. Accuracy approx ${Math.round(acc)}m. Address could not be detected automatically.`, true);
+            }
           },
 
           (err) => {
-
-            msg.style.color = "#ef4444";
-            msg.textContent = "Location error: " + err.message;
+            setMsg("Location error: " + err.message, false);
           },
 
           {
@@ -1035,9 +1676,96 @@ Add new grocery stores, owner details and precise location coordinates.
         );
 
       });
+    }
 
-    })();
-  </script>
+    if (btnUseCoordsOnMap) {
+      btnUseCoordsOnMap.addEventListener("click", centerMapFromInputs);
+    }
+
+    if (btnUndoZonePoint) {
+  btnUndoZonePoint.addEventListener("click", function(){
+    if (!zonePoints.length) {
+      setMsg("No zone point to undo.", false);
+      return;
+    }
+
+    zonePoints.pop();
+    redrawZone();
+
+    setMsg("Last delivery zone point removed.", true);
+  });
+}
+
+    if (btnFinishZone) {
+      btnFinishZone.addEventListener("click", function(){
+        if (zonePoints.length < 3) {
+          setMsg("Please click at least 3 map points to finish delivery zone.", false);
+          return;
+        }
+
+        redrawZone();
+
+        if (deliveryEnabledToggle) {
+          deliveryEnabledToggle.checked = true;
+        }
+
+        setMsg("Delivery zone finished and delivery enabled.", true);
+      });
+    }
+
+    if (btnClearZone) {
+      btnClearZone.addEventListener("click", function(){
+        zonePoints = [];
+        redrawZone();
+
+        if (deliveryEnabledToggle) {
+          deliveryEnabledToggle.checked = false;
+        }
+
+        setMsg("Delivery zone cleared. Delivery has been disabled.", false);
+      });
+    }
+
+    if (latInput) {
+      latInput.addEventListener("change", centerMapFromInputs);
+    }
+
+    if (lngInput) {
+      lngInput.addEventListener("change", centerMapFromInputs);
+    }
+
+    if (pinInput) {
+      pinInput.addEventListener("input", function(){
+        pinInput.value = cleanPin(pinInput.value);
+      });
+    }
+
+    if (form) {
+      form.addEventListener("submit", function(e){
+        const lat = safeFloat(latInput?.value);
+        const lng = safeFloat(lngInput?.value);
+        const deliveryEnabled = deliveryEnabledToggle && deliveryEnabledToggle.checked;
+
+        if (lat === null || lng === null) {
+          e.preventDefault();
+          setMsg("Store latitude and longitude are required.", false);
+          return;
+        }
+
+        if (deliveryEnabled && zonePoints.length < 3) {
+          e.preventDefault();
+          setMsg("Delivery enabled requires at least 3 delivery zone points.", false);
+          return;
+        }
+
+        updateZoneInput();
+      });
+    }
+
+    initMap();
+
+  })();
+</script>
 
 </section>
 
