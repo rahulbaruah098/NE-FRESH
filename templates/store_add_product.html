@@ -440,6 +440,26 @@
 </label>
 
 <input id="stockQuantityHidden" name="stock_quantity" type="hidden" value="">
+
+<div class="form-group nf-unit-aware-field" id="minimumBuyQuantityField">
+  <label for="minimumBuyQuantityInput">
+    <span id="minimumBuyQuantityLabel">Minimum Buy Quantity</span>
+  </label>
+
+  <input
+    id="minimumBuyQuantityInput"
+    name="quantity_min"
+    type="number"
+    min="0"
+    step="0.01"
+    value=""
+    placeholder="Enter minimum buy quantity"
+  >
+
+  <small id="minimumBuyQuantityHelp">
+    Set the lowest quantity a customer can buy for this product.
+  </small>
+</div>
             <div class="sd-discount-panel">
   <div class="sd-discount-head">
     <div>
@@ -585,6 +605,9 @@ const fixedDiscountOption = document.getElementById('fixedDiscountOption');
 const stockQuantityLabel = document.getElementById('stockQuantityLabel');
 const stockQuantityInput = document.getElementById('stockQuantityInput');
 const stockQuantityHidden = document.getElementById('stockQuantityHidden');
+const minimumBuyQuantityInput = document.getElementById('minimumBuyQuantityInput');
+const minimumBuyQuantityLabel = document.getElementById('minimumBuyQuantityLabel');
+const minimumBuyQuantityHelp = document.getElementById('minimumBuyQuantityHelp');
 
 
 function currentUnitLabel(){
@@ -597,6 +620,17 @@ function currentUnitLabel(){
   }
 
   return selected;
+}
+
+function getDefaultMinimumByUnit(unitLabel) {
+  const unit = String(unitLabel || '').toLowerCase();
+
+  if (unit === 'kg') return 0.25;
+  if (unit === 'gram') return 50;
+  if (unit === 'liter') return 0.25;
+  if (unit === 'ml') return 50;
+
+  return 1;
 }
 
 function syncUnitFields(){
@@ -648,14 +682,44 @@ function syncUnitFields(){
   }
 
   if (stockQuantityInput) {
-  stockQuantityInput.min = '0';
+    stockQuantityInput.min = '0';
 
-  if (selectedType === 'COUNT') {
-    stockQuantityInput.step = '1';
-  } else {
-    stockQuantityInput.step = '0.01';
+    if (selectedType === 'COUNT') {
+      stockQuantityInput.step = '1';
+    } else {
+      stockQuantityInput.step = '0.01';
+    }
   }
-}
+
+  if (minimumBuyQuantityInput) {
+    const defaultMin = getDefaultMinimumByUnit(label);
+
+    minimumBuyQuantityInput.min = String(defaultMin);
+    minimumBuyQuantityInput.step = String(defaultMin);
+
+    if (!minimumBuyQuantityInput.value) {
+      minimumBuyQuantityInput.value = String(defaultMin);
+    }
+
+    const currentValue = parseFloat(minimumBuyQuantityInput.value || '0');
+
+    if (!Number.isFinite(currentValue) || currentValue < defaultMin) {
+      minimumBuyQuantityInput.value = String(defaultMin);
+    }
+  }
+
+  if (minimumBuyQuantityLabel) {
+    minimumBuyQuantityLabel.textContent = 'Minimum Buy Quantity (' + label + ')';
+  }
+
+  if (minimumBuyQuantityHelp) {
+    minimumBuyQuantityHelp.textContent =
+      'Customer cannot buy less than this quantity. Minimum allowed for this unit is ' +
+      getDefaultMinimumByUnit(label) +
+      ' ' +
+      label +
+      '.';
+  }
 }
 
 if (unitTypeSelect) unitTypeSelect.addEventListener('change', syncUnitFields);
@@ -748,14 +812,34 @@ calculateDiscountPrice();
 const addProductForm = document.querySelector('form[action="{{ url_for("store_product_new") }}"]');
 
 if (addProductForm) {
-  addProductForm.addEventListener('submit', function(){
+  addProductForm.addEventListener('submit', function(event){
     syncUnitFields();
     calculateDiscountPrice();
 
     if (stockQuantityHidden && stockQuantityInput) {
-  stockQuantityHidden.value = stockQuantityInput.value || '0';
-}
+      stockQuantityHidden.value = stockQuantityInput.value || '0';
+    }
 
+    if (minimumBuyQuantityInput) {
+      const unitLabel = currentUnitLabel();
+      const minAllowed = parseFloat(minimumBuyQuantityInput.min || '0');
+      const enteredMin = parseFloat(minimumBuyQuantityInput.value || '0');
+
+      if (!Number.isFinite(enteredMin) || enteredMin < minAllowed) {
+        event.preventDefault();
+
+        alert(
+          'Minimum buy quantity cannot be less than ' +
+          minAllowed +
+          ' ' +
+          unitLabel +
+          '.'
+        );
+
+        minimumBuyQuantityInput.focus();
+        return;
+      }
+    }
   });
 }
       });

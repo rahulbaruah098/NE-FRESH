@@ -4,8 +4,6 @@ Logic, decorators, endpoint names and route paths are intentionally preserved.
 Only the file location changed.
 """
 
-from itertools import product
-
 from app_core import *
 
 
@@ -50,7 +48,10 @@ def cart_page():
             "unit_type": unit_type,
             "unit_label": unit_label,
             "price_per_unit": price_per_unit,
-            "stock_quantity": stock_quantity,
+                        "stock_quantity": stock_quantity,
+            "quantity_min": float(product.get("quantity_min") or 1),
+            "quantity_step": float(product.get("quantity_step") or 1),
+            "quantity_message": product.get("quantity_message") or f"Minimum {float(product.get('quantity_min') or 1):g} {unit_label}",
             "line_total": line_total,
 
             "product_id": str(product["_id"]),
@@ -127,6 +128,29 @@ def api_cart_add(user_id):
 
     if quantity_error:
         return jsonify({'ok': False, 'msg': quantity_error}), 400
+    
+
+    try:
+        quantity_min = float(product.get("quantity_min") or product.get("min_order_quantity") or 0)
+    except (TypeError, ValueError):
+        quantity_min = 0.0
+
+    if quantity_min <= 0:
+        rules = unit_quantity_rules(unit_type, unit_label)
+        quantity_min = float(rules.get("min") or 1)
+
+    if unit_type == "COUNT":
+        quantity_min = int(round(quantity_min))
+
+        if quantity_min < 1:
+            quantity_min = 1
+
+    if quantity < quantity_min:
+        return jsonify({
+            "ok": False,
+            "code": "MIN_QTY",
+            "msg": f"Minimum order quantity for this product is {quantity_min:g} {unit_label}."
+        }), 400
 
     stock = float(product.get("stock_quantity") or 0)
     price_per_unit = float(product.get("price_per_unit") or 0)
@@ -265,6 +289,9 @@ def api_cart_get(user_id):
             'unit_label': unit_label,
             'price_per_unit': price_per_unit,
             'stock_quantity': stock_quantity,
+            'quantity_min': float(product.get("quantity_min") or 1),
+            'quantity_step': float(product.get("quantity_step") or 1),
+            'quantity_message': product.get("quantity_message") or f"Minimum {float(product.get('quantity_min') or 1):g} {unit_label}",
             'line_total': line_total,
 
             'image_path': product.get('image_path', ''),

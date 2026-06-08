@@ -658,13 +658,13 @@
       white-space:nowrap;
     }
 
-    .nf-price-row{
-      margin-top:auto;
-      display:flex;
-      align-items:flex-end;
-      justify-content:space-between;
-      gap:10px;
-    }
+   .nf-price-row{
+  margin-top:auto;
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  align-items:stretch;
+}
 
     .nf-price{
       display:flex;
@@ -693,16 +693,75 @@
       font-weight:650;
     }
 
-    .nf-cart-form{
-      margin:0;
-      display:grid;
-      grid-template-columns:68px 40px;
-      gap:8px;
-      align-items:center;
-    }
+   .nf-cart-form{
+  width:100%;
+  margin:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 44px;
+  gap:10px;
+  align-items:center;
+}
+
+
+   .nf-cart-added{
+  width:100%;
+  margin:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 44px;
+  gap:10px;
+  align-items:center;
+}
+
+.nf-cart-stepper{
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr) 34px;
+  gap:6px;
+  align-items:center;
+}
+
+.nf-cart-stepper button,
+.nf-cart-remove{
+  height:40px;
+  border-radius:12px;
+  border:1px solid var(--nf-line);
+  background:#fff;
+  color:var(--nf-green-dark);
+  font:inherit;
+  font-size:.86rem;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.nf-cart-stepper button:disabled{
+  opacity:.48;
+  cursor:not-allowed;
+}
+
+.nf-cart-stepper input{
+  width:100%;
+  height:40px;
+  border-radius:12px;
+  border:1px solid var(--nf-line);
+  background:#F8FFFB;
+  color:var(--nf-ink);
+  font:inherit;
+  font-size:.82rem;
+  font-weight:850;
+  text-align:center;
+  outline:none;
+}
+
+.nf-cart-remove{
+  width:40px;
+  display:grid;
+  place-items:center;
+  background:var(--nf-red-soft);
+  color:var(--nf-red);
+  border-color:rgba(239,68,68,.18);
+}
 
     .nf-weight-input{
-      width:68px;
+       width:100%;
       height:40px;
       border-radius:12px;
       border:1px solid var(--nf-line);
@@ -723,8 +782,8 @@
     .nf-add-btn,
     .nf-login-btn,
     .nf-disabled-btn{
-      width:40px;
-      height:40px;
+     width:44px;
+  height:42px;
       border:0;
       border-radius:14px;
       display:grid;
@@ -862,21 +921,22 @@
       font-weight:800;
     }
 
-    .nf-toast{
-      position:fixed;
-      right:16px;
-      bottom:16px;
-      z-index:99999;
-      max-width:min(360px,calc(100vw - 32px));
-      border-radius:18px;
-      background:var(--nf-green);
-      color:#fff;
-      padding:13px 15px;
-      box-shadow:0 18px 42px rgba(17,64,38,.20);
-      font-size:.88rem;
-      font-weight:850;
-      animation:nfToastIn .24s ease both;
-    }
+   .nf-toast{
+  position:fixed;
+  right:16px;
+  bottom:16px;
+  z-index:99999;
+  max-width:min(360px,calc(100vw - 32px));
+  border-radius:18px;
+  background:#FFFFFF;
+  color:var(--nf-ink);
+  border:1px solid var(--nf-line);
+  padding:13px 15px;
+  box-shadow:0 18px 42px rgba(17,64,38,.20);
+  font-size:.88rem;
+  font-weight:850;
+  animation:nfToastIn .24s ease both;
+}
 
     .nf-toast.error{
       background:var(--nf-red);
@@ -1062,7 +1122,7 @@
       }
 
       .nf-price-row{
-        align-items:flex-start;
+          align-items:stretch;
         flex-direction:column;
       }
 
@@ -1349,14 +1409,15 @@
                       </h3>
 
                       <div class="nf-product-meta">
-                        <span class="nf-rating">
-                          ★ {{ '%.1f'|format(p.avg_rating or 0) }}
-                          {% if p.rating_count %}
-                            ({{ p.rating_count }})
-                          {% endif %}
-                        </span>
-                        <span class="nf-cat-pill">{{ p.category or 'Product' }}</span>
-                      </div>
+  <span class="nf-rating">
+    ★ {{ '%.1f'|format(p.avg_rating or 0) }}
+    {% if p.rating_count %}
+      ({{ p.rating_count }})
+    {% endif %}
+  </span>
+  <span class="nf-cat-pill">{{ p.category or 'Product' }}</span>
+  <span class="nf-cat-pill">Min: {{ qty_min }} {{ unit_label }}</span>
+</div>
 
                       <div class="nf-price-row">
                        <div class="nf-price">
@@ -1366,27 +1427,59 @@
   {% endif %}
 </div>
 
-                       {% if user and user.role == 'customer' %}
-  <form class="nf-cart-form" method="post" action="{{ url_for('api_cart_add') }}">
-    <input type="hidden" name="product_id" value="{{ p.id }}">
-    <input type="hidden" name="unit_type" value="{{ unit_type }}">
-    <input type="hidden" name="unit_label" value="{{ unit_label }}">
-  
+                     {% if user and user.role == 'customer' %}
+  {% if p.in_cart %}
+    <div class="nf-cart-added"
+         data-cart-added
+         data-product-id="{{ p.id }}"
+         data-cart-item-id="{{ p.cart_item_id }}"
+         data-unit-label="{{ unit_label }}"
+         data-min-qty="{{ qty_min }}"
+         data-step-qty="{{ qty_step }}"
+         data-stock-qty="{{ '%.2f'|format(p.stock_quantity or 0) }}">
 
-    <input class="nf-weight-input"
-           type="number"
-           name="quantity"
-           data-cart-quantity
-           data-unit-label="{{ unit_label }}"
-           data-unit-type="{{ unit_type }}"
-           min="{{ qty_min }}"
-           step="{{ qty_step }}"
-           value="{{ qty_min }}"
-           aria-label="Quantity in {{ unit_label }}"
-           required>
+      <div class="nf-cart-stepper">
+        <button type="button" data-cart-minus aria-label="Decrease quantity">-</button>
 
-    <button class="nf-add-btn" type="submit" aria-label="Add {{ p.name }} to cart">+</button>
-  </form>
+        <input type="number"
+               data-cart-added-quantity
+               min="{{ qty_min }}"
+               max="{{ '%.2f'|format(p.stock_quantity or 0) }}"
+               step="{{ qty_step }}"
+               value="{{ p.cart_quantity }}"
+               aria-label="Cart quantity in {{ unit_label }}">
+
+        <button type="button" data-cart-plus aria-label="Increase quantity">+</button>
+      </div>
+
+      <button type="button"
+              class="nf-cart-remove"
+              data-cart-remove
+              aria-label="Remove {{ p.name }} from cart">
+        ×
+      </button>
+    </div>
+  {% else %}
+    <form class="nf-cart-form" method="post" action="{{ url_for('api_cart_add') }}">
+      <input type="hidden" name="product_id" value="{{ p.id }}">
+      <input type="hidden" name="unit_type" value="{{ unit_type }}">
+      <input type="hidden" name="unit_label" value="{{ unit_label }}">
+
+      <input class="nf-weight-input"
+             type="number"
+             name="quantity"
+             data-cart-quantity
+             data-unit-label="{{ unit_label }}"
+             data-unit-type="{{ unit_type }}"
+             min="{{ qty_min }}"
+             step="{{ qty_step }}"
+             value="{{ qty_min }}"
+             aria-label="Quantity in {{ unit_label }}"
+             required>
+
+      <button class="nf-add-btn" type="submit" aria-label="Add {{ p.name }} to cart">+</button>
+    </form>
+  {% endif %}
 {% elif not user %}
                           <a href="{{ url_for('login') }}" class="nf-login-btn" aria-label="Login to buy">+</a>
                         {% else %}
@@ -1611,7 +1704,7 @@ root.querySelectorAll('[data-cart-quantity]').forEach(function(input){
 
             const data = await res.json();
 
-           if(data && data.ok){
+       if(data && data.ok){
   const quantityInput = form.querySelector('[data-cart-quantity]');
   const unitLabel = quantityInput ? (quantityInput.dataset.unitLabel || 'unit') : 'unit';
   const quantityValue = quantityInput ? (quantityInput.value || '1') : '1';
@@ -1619,13 +1712,17 @@ root.querySelectorAll('[data-cart-quantity]').forEach(function(input){
   showToast(data.msg || (quantityValue + ' ' + unitLabel + ' added to cart'), 'success');
 
   document.dispatchEvent(
-                new CustomEvent('cart:updated', {
-                  detail:{
-                    count:data.cart_count || 0
-                  }
-                })
-              );
-            }else{
+    new CustomEvent('cart:updated', {
+      detail:{
+        count:data.cart_count || 0
+      }
+    })
+  );
+
+  window.setTimeout(function(){
+    window.location.reload();
+  }, 450);
+}else{
               showToast((data && data.msg) ? data.msg : 'Unable to add item.', 'error');
             }
           }catch(error){
@@ -1640,6 +1737,180 @@ root.querySelectorAll('[data-cart-quantity]').forEach(function(input){
           }
         });
       });
+
+      root.querySelectorAll('[data-cart-added]').forEach(function(box){
+  const productId = box.getAttribute('data-product-id') || '';
+  const cartItemId = box.getAttribute('data-cart-item-id') || '';
+  const unitLabel = box.getAttribute('data-unit-label') || 'unit';
+  const minQty = parseFloat(box.getAttribute('data-min-qty') || '1');
+  const stepQty = parseFloat(box.getAttribute('data-step-qty') || '1');
+  const stockQty = parseFloat(box.getAttribute('data-stock-qty') || '0');
+
+  const minusBtn = box.querySelector('[data-cart-minus]');
+  const plusBtn = box.querySelector('[data-cart-plus]');
+  const removeBtn = box.querySelector('[data-cart-remove]');
+  const qtyInput = box.querySelector('[data-cart-added-quantity]');
+
+  function updateButtons(){
+    if(!qtyInput) return;
+
+    const currentQty = parseFloat(qtyInput.value || '0');
+
+    if(minusBtn){
+      minusBtn.disabled = !Number.isFinite(currentQty) || currentQty <= minQty;
+    }
+
+    if(plusBtn){
+      plusBtn.disabled = stockQty > 0 && Number.isFinite(currentQty) && currentQty >= stockQty;
+    }
+  }
+
+  function normalizeQty(value){
+    const n = parseFloat(value);
+
+    if(!Number.isFinite(n)) return minQty;
+    if(n < minQty) return minQty;
+    if(stockQty > 0 && n > stockQty) return stockQty;
+
+    return n;
+  }
+
+  async function updateCartQuantity(nextQty){
+    if(!productId || !qtyInput) return;
+
+    const safeQty = normalizeQty(nextQty);
+
+    if(stockQty > 0 && safeQty > stockQty){
+      showToast('Only ' + stockQty.toFixed(2) + ' ' + unitLabel + ' stock is available.', 'error');
+      qtyInput.value = String(stockQty);
+      updateButtons();
+      return;
+    }
+
+    if(safeQty < minQty){
+      showToast('Minimum order quantity is ' + minQty + ' ' + unitLabel + '.', 'error');
+      qtyInput.value = String(minQty);
+      updateButtons();
+      return;
+    }
+
+    qtyInput.value = String(safeQty);
+
+    try{
+      const fd = new FormData();
+      fd.set('product_id', productId);
+      fd.set('quantity', String(safeQty));
+
+      const res = await fetch('{{ url_for("api_cart_add") }}', {
+        method:'POST',
+        body:fd,
+        credentials:'same-origin',
+        headers:{
+          'Accept':'application/json'
+        }
+      });
+
+      const data = await res.json();
+
+      if(data && data.ok){
+        showToast(data.msg || 'Cart updated', 'success');
+
+        document.dispatchEvent(
+          new CustomEvent('cart:updated', {
+            detail:{
+              count:data.cart_count || 0
+            }
+          })
+        );
+      }else{
+        showToast((data && data.msg) ? data.msg : 'Unable to update cart.', 'error');
+      }
+    }catch(error){
+      showToast('Network error. Please try again.', 'error');
+    }finally{
+      updateButtons();
+    }
+  }
+
+  async function removeCartItem(){
+    if(!cartItemId) return;
+
+    try{
+      const res = await fetch('{{ url_for("api_cart_remove") }}', {
+        method:'POST',
+        credentials:'same-origin',
+        headers:{
+          'Accept':'application/json',
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({
+          item_id:cartItemId
+        })
+      });
+
+      const data = await res.json();
+
+      if(data && data.ok){
+        showToast('Removed from cart', 'success');
+
+        document.dispatchEvent(
+          new CustomEvent('cart:updated', {
+            detail:{
+              count:data.cart_count || 0
+            }
+          })
+        );
+
+        window.setTimeout(function(){
+          window.location.reload();
+        }, 450);
+      }else{
+        showToast((data && data.msg) ? data.msg : 'Unable to remove item.', 'error');
+      }
+    }catch(error){
+      showToast('Network error. Please try again.', 'error');
+    }
+  }
+
+  if(minusBtn){
+    minusBtn.addEventListener('click', function(){
+      if(!qtyInput) return;
+
+      const currentQty = parseFloat(qtyInput.value || minQty);
+      const nextQty = currentQty - stepQty;
+
+      if(nextQty < minQty){
+        showToast('Minimum order quantity is ' + minQty + ' ' + unitLabel + '.', 'error');
+        qtyInput.value = String(minQty);
+        updateButtons();
+        return;
+      }
+
+      updateCartQuantity(nextQty);
+    });
+  }
+
+  if(plusBtn){
+    plusBtn.addEventListener('click', function(){
+      if(!qtyInput) return;
+
+      const currentQty = parseFloat(qtyInput.value || minQty);
+      updateCartQuantity(currentQty + stepQty);
+    });
+  }
+
+  if(removeBtn){
+    removeBtn.addEventListener('click', removeCartItem);
+  }
+
+  if(qtyInput){
+    qtyInput.addEventListener('change', function(){
+      updateCartQuantity(qtyInput.value);
+    });
+  }
+
+  updateButtons();
+});
 
       filterProducts();
     })();

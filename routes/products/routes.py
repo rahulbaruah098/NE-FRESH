@@ -19,9 +19,42 @@ def products():
         "is_active": 1
         }).sort("created_at", -1))
 
+    u = current_user()
+
+    cart_lookup = {}
+
+    if u and u.get("role") == "customer":
+        cid = get_or_create_cart(u["id"])
+
+        cart_items = list(mongo.cart_items.find({
+            "cart_id": cid
+        }))
+
+        for ci in cart_items:
+            product_id_value = ci.get("product_id")
+
+            if product_id_value:
+                cart_lookup[str(product_id_value)] = {
+                    "cart_item_id": str(ci.get("_id")),
+                    "cart_quantity": cart_item_quantity(ci),
+                    "unit_type": ci.get("unit_type"),
+                    "unit_label": ci.get("unit_label")
+                }
+
     for p in products:
         p["id"] = str(p["_id"])
         hydrate_product_unit_fields(p)
+
+        cart_info = cart_lookup.get(str(p["_id"]))
+
+        if cart_info:
+            p["in_cart"] = True
+            p["cart_item_id"] = cart_info.get("cart_item_id", "")
+            p["cart_quantity"] = cart_info.get("cart_quantity", p.get("quantity_min") or 1)
+        else:
+            p["in_cart"] = False
+            p["cart_item_id"] = ""
+            p["cart_quantity"] = 0
 
         # Prevent Jinja sort/groupby crash when MongoDB has null category fields
         p["category"] = (p.get("category") or "Uncategorized").strip()
@@ -100,7 +133,7 @@ def products():
     return render_template(
         'products.html',
         products=products,
-        user=current_user()
+        user=u
     )
 
 @app.route('/api/ratings/product/<pid>')
@@ -208,6 +241,29 @@ def product_detail(pid):
     if not is_staff and int(p.get("is_active") or 0) != 1:
         abort(404)
 
+        cart_info = None
+
+    if u and u.get("role") == "customer":
+        cid = get_or_create_cart(u["id"])
+
+        cart_info = mongo.cart_items.find_one({
+            "cart_id": cid,
+            "product_id": product_obj_id
+        })
+
+        if cart_info:
+            p["in_cart"] = True
+            p["cart_item_id"] = str(cart_info.get("_id"))
+            p["cart_quantity"] = cart_item_quantity(cart_info)
+        else:
+            p["in_cart"] = False
+            p["cart_item_id"] = ""
+            p["cart_quantity"] = 0
+    else:
+        p["in_cart"] = False
+        p["cart_item_id"] = ""
+        p["cart_quantity"] = 0
+
     ratings = list(mongo.product_ratings.find({
         "product_id": product_obj_id
     }).sort("created_at", -1))
@@ -247,6 +303,7 @@ def product_detail(pid):
 
     selected_quantity_raw = (
         request.args.get("quantity")
+        or p.get("cart_quantity")
         or p.get("quantity_min")
         or 1
     )

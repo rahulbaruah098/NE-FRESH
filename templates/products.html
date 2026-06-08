@@ -939,6 +939,64 @@
       gap:10px;
     }
 
+    .nf-cart-added{
+  display:grid;
+  gap:10px;
+}
+
+.nf-added-title{
+  min-height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+  background:var(--nf-green-soft);
+  color:var(--nf-green-dark);
+  border:1px solid #DDF4E8;
+  font-size:.82rem;
+  font-weight:850;
+}
+
+.nf-cart-stepper{
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) 38px;
+  gap:8px;
+  align-items:center;
+}
+
+.nf-cart-stepper button,
+.nf-cart-remove{
+  min-height:36px;
+  border-radius:9px;
+  border:1px solid #DDF4E8;
+  background:#fff;
+  color:var(--nf-green-dark);
+  font:inherit;
+  font-size:.82rem;
+  font-weight:850;
+  cursor:pointer;
+}
+
+.nf-cart-stepper input{
+  width:100%;
+  min-height:36px;
+  border-radius:9px;
+  border:1px solid #DDF4E8;
+  background:#fff;
+  color:var(--nf-ink);
+  font:inherit;
+  font-size:.82rem;
+  font-weight:800;
+  text-align:center;
+  outline:none;
+}
+
+.nf-cart-remove{
+  background:#FFF1F2;
+  border-color:rgba(185,28,28,.16);
+  color:#B91C1C;
+}
+
     .nf-add-cart,
     .nf-buy-now,
     .nf-login-purchase{
@@ -2321,11 +2379,12 @@ data-offer="{{ (pct_off | round(0, 'floor') | int) }}"
                       </span>
 
                       <div class="nf-product-meta">
-                        <span class="nf-meta-chip"><span class="nf-meta-label">Category:</span>&nbsp;{{ category_name }}</span>
-                        {% if subcat_name %}
-                          <span class="nf-meta-chip"><span class="nf-meta-label">Sub:</span>&nbsp;{{ subcat_name }}</span>
-                        {% endif %}
-                      </div>
+  <span class="nf-meta-chip"><span class="nf-meta-label">Category:</span>&nbsp;{{ category_name }}</span>
+  {% if subcat_name %}
+    <span class="nf-meta-chip"><span class="nf-meta-label">Sub:</span>&nbsp;{{ subcat_name }}</span>
+  {% endif %}
+  <span class="nf-meta-chip"><span class="nf-meta-label">Min:</span>&nbsp;{{ qty_min }} {{ unit_label }}</span>
+</div>
 
                       <div class="nf-price-row">
                         <div class="nf-price-block">
@@ -2341,46 +2400,85 @@ data-offer="{{ (pct_off | round(0, 'floor') | int) }}"
                       </div>
                     </div>
 
-                    <div class="nf-card-actions">
-                      {% if user %}
-                        <form class="nf-cart-add"
-      method="post"
-      action="{{ url_for('api_cart_add') }}"
-      data-available-stock="{{ '%.2f'|format(stock_value) }}"
-      data-unit-label="{{ unit_label }}"
-      novalidate>
-  <input type="hidden" name="product_id" value="{{ p.id }}">
-  <input type="hidden" name="unit_type" value="{{ unit_type }}">
-  <input type="hidden" name="unit_label" value="{{ unit_label }}">
+<div class="nf-card-actions">
+  {% if user and user.role == 'customer' %}
+    {% if p.in_cart %}
+      <div class="nf-cart-added"
+           data-cart-added
+           data-product-id="{{ p.id }}"
+           data-cart-item-id="{{ p.cart_item_id }}"
+           data-unit-label="{{ unit_label }}"
+           data-min-qty="{{ qty_min }}"
+           data-step-qty="{{ qty_step }}"
+           data-stock-qty="{{ '%.2f'|format(stock_value) }}">
 
-  <div class="nf-weight-row">
-    <label>Quantity ({{ unit_label }})</label>
-    <input type="number"
-           name="quantity"
-           data-cart-quantity
-           min="{{ qty_min }}"
-           max="{{ '%.2f'|format(stock_value) }}"
-           step="{{ qty_step }}"
-           value="{{ qty_min }}">
-  </div>
+        <div class="nf-added-title">Added to Cart</div>
 
-<div class="nf-stock-warning" data-stock-warning role="status" aria-live="polite">
-  Requested amount is not available in stock. Please change the amount.
+        <div class="nf-cart-stepper">
+          <button type="button" class="nf-cart-minus" data-cart-minus>-</button>
+
+          <input type="number"
+                 data-cart-added-quantity
+                 min="{{ qty_min }}"
+                 max="{{ '%.2f'|format(stock_value) }}"
+                 step="{{ qty_step }}"
+                 value="{{ p.cart_quantity }}">
+
+          <button type="button" class="nf-cart-plus" data-cart-plus>+</button>
+        </div>
+
+        <button type="button" class="nf-cart-remove" data-cart-remove>
+          Remove
+        </button>
+
+        <div class="nf-stock-warning" data-stock-warning role="status" aria-live="polite">
+          Requested amount is not available in stock. Please change the amount.
+        </div>
+      </div>
+    {% else %}
+      <form class="nf-cart-add"
+            method="post"
+            action="{{ url_for('api_cart_add') }}"
+            data-available-stock="{{ '%.2f'|format(stock_value) }}"
+            data-unit-label="{{ unit_label }}"
+            novalidate>
+        <input type="hidden" name="product_id" value="{{ p.id }}">
+        <input type="hidden" name="unit_type" value="{{ unit_type }}">
+        <input type="hidden" name="unit_label" value="{{ unit_label }}">
+
+        <div class="nf-weight-row">
+          <label>Quantity ({{ unit_label }})</label>
+          <input type="number"
+                 name="quantity"
+                 data-cart-quantity
+                 min="{{ qty_min }}"
+                 max="{{ '%.2f'|format(stock_value) }}"
+                 step="{{ qty_step }}"
+                 value="{{ qty_min }}">
+        </div>
+
+        <div class="nf-stock-warning" data-stock-warning role="status" aria-live="polite">
+          Requested amount is not available in stock. Please change the amount.
+        </div>
+
+        <div class="nf-action-row">
+          <button class="nf-add-cart" type="submit">Add Cart</button>
+          <a class="nf-buy-now"
+             href="{{ url_for('product_detail', pid=p.id) }}"
+             data-buy-now-link>
+            Buy Now
+          </a>
+        </div>
+      </form>
+    {% endif %}
+  {% elif user %}
+    <button class="nf-disabled-btn" type="button" disabled title="Only customer accounts can add products to cart">
+      Customer Only
+    </button>
+  {% else %}
+    <a class="nf-login-purchase" href="{{ url_for('login') }}">Login to Purchase</a>
+  {% endif %}
 </div>
-
-                          <div class="nf-action-row">
-                            <button class="nf-add-cart" type="submit">Add Cart</button>
-<a class="nf-buy-now"
-   href="{{ url_for('product_detail', pid=p.id) }}"
-   data-buy-now-link>
-  Buy Now
-</a>
-                          </div>
-                        </form>
-                      {% else %}
-                        <a class="nf-login-purchase" href="{{ url_for('login') }}">Login to Purchase</a>
-                      {% endif %}
-                    </div>
                   </article>
                 {% endfor %}
               </section>
@@ -3556,17 +3654,21 @@ const minQty = quantityInput ? parseFloat(quantityInput.getAttribute('min') || '
               return;
             }
 
-            if(r.ok && data && data.ok){
-              const msg = data.msg || 'Added to cart';
-              inline(msg, 'success');
-              showToast(msg, 'success');
+           if(r.ok && data && data.ok){
+  const msg = data.msg || 'Added to cart';
+  inline(msg, 'success');
+  showToast(msg, 'success');
 
-              document.dispatchEvent(
-                new CustomEvent('cart:updated', {
-                  detail:{ count:data.cart_count ?? data.count ?? data.cartQty ?? 0 }
-                })
-              );
-            }else{
+  document.dispatchEvent(
+    new CustomEvent('cart:updated', {
+      detail:{ count:data.cart_count ?? data.count ?? data.cartQty ?? 0 }
+    })
+  );
+
+  window.setTimeout(function(){
+    window.location.reload();
+  }, 450);
+}else{
               const msg = (data && data.msg) ? data.msg : 'Unable to add item';
               inline(msg, 'error');
               showToast(msg, 'error');
@@ -3606,6 +3708,209 @@ buyBtn.setAttribute('title', availableStock > 0 ? 'Only ' + availableStock.toFix
           }
         }, true);
       });
+
+      document.querySelectorAll('[data-cart-added]').forEach(function(box){
+  const productId = box.getAttribute('data-product-id') || '';
+  const cartItemId = box.getAttribute('data-cart-item-id') || '';
+  const unitLabel = box.getAttribute('data-unit-label') || 'unit';
+
+  const minQty = parseFloat(box.getAttribute('data-min-qty') || '1');
+  const stepQty = parseFloat(box.getAttribute('data-step-qty') || '1');
+  const stockQty = parseFloat(box.getAttribute('data-stock-qty') || '0');
+
+  const minusBtn = box.querySelector('[data-cart-minus]');
+  const plusBtn = box.querySelector('[data-cart-plus]');
+  const removeBtn = box.querySelector('[data-cart-remove]');
+  const qtyInput = box.querySelector('[data-cart-added-quantity]');
+  const warning = box.querySelector('[data-stock-warning]');
+
+  function showBoxWarning(message){
+    if(!warning) return;
+
+    warning.textContent = message || 'Please check the quantity.';
+    warning.classList.add('show');
+
+    window.setTimeout(function(){
+      warning.classList.remove('show');
+    }, 2200);
+  }
+
+  function normalizeQty(value){
+    const n = parseFloat(value);
+
+    if(!Number.isFinite(n)){
+      return minQty;
+    }
+
+    if(n < minQty){
+      return minQty;
+    }
+
+    if(stockQty > 0 && n > stockQty){
+      return stockQty;
+    }
+
+    return n;
+  }
+
+  function updateButtons(){
+    if(!qtyInput) return;
+
+    const currentQty = parseFloat(qtyInput.value || '0');
+
+    if(minusBtn){
+      minusBtn.disabled = !Number.isFinite(currentQty) || currentQty <= minQty;
+    }
+
+    if(plusBtn){
+      plusBtn.disabled = stockQty > 0 && Number.isFinite(currentQty) && currentQty >= stockQty;
+    }
+  }
+
+  async function updateCartQuantity(nextQty){
+    if(!productId || !qtyInput) return;
+
+    const safeQty = normalizeQty(nextQty);
+
+    if(stockQty > 0 && safeQty > stockQty){
+      showBoxWarning('Only ' + stockQty.toFixed(2) + ' ' + unitLabel + ' stock is available.');
+      qtyInput.value = String(stockQty);
+      updateButtons();
+      return;
+    }
+
+    if(safeQty < minQty){
+      showBoxWarning('Minimum order quantity is ' + minQty + ' ' + unitLabel + '.');
+      qtyInput.value = String(minQty);
+      updateButtons();
+      return;
+    }
+
+    qtyInput.value = String(safeQty);
+    box.classList.add('nf-cart-loading');
+
+    try{
+      const fd = new FormData();
+      fd.set('product_id', productId);
+      fd.set('quantity', String(safeQty));
+
+      const response = await fetch('{{ url_for("api_cart_add") }}', {
+        method:'POST',
+        body:fd,
+        credentials:'same-origin',
+        headers:{'Accept':'application/json'}
+      });
+
+      const data = await response.json();
+
+      if(response.ok && data && data.ok){
+        showToast(data.msg || 'Cart updated', 'success');
+
+        document.dispatchEvent(
+          new CustomEvent('cart:updated', {
+            detail:{ count:data.cart_count ?? data.count ?? data.cartQty ?? 0 }
+          })
+        );
+      }else{
+        const msg = data && data.msg ? data.msg : 'Unable to update cart';
+        showBoxWarning(msg);
+        showToast(msg, 'error');
+      }
+    }catch(error){
+      showBoxWarning('Network error. Please try again.');
+      showToast('Network error. Please try again.', 'error');
+    }finally{
+      box.classList.remove('nf-cart-loading');
+      updateButtons();
+    }
+  }
+
+  async function removeCartItem(){
+    if(!cartItemId) return;
+
+    box.classList.add('nf-cart-loading');
+
+    try{
+      const response = await fetch('{{ url_for("api_cart_remove") }}', {
+        method:'POST',
+        credentials:'same-origin',
+        headers:{
+          'Accept':'application/json',
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({
+          item_id:cartItemId
+        })
+      });
+
+      const data = await response.json();
+
+      if(response.ok && data && data.ok){
+        showToast('Removed from cart', 'success');
+
+        document.dispatchEvent(
+          new CustomEvent('cart:updated', {
+            detail:{ count:data.cart_count ?? data.count ?? data.cartQty ?? 0 }
+          })
+        );
+
+        window.setTimeout(function(){
+          window.location.reload();
+        }, 450);
+      }else{
+        const msg = data && data.msg ? data.msg : 'Unable to remove item';
+        showBoxWarning(msg);
+        showToast(msg, 'error');
+      }
+    }catch(error){
+      showBoxWarning('Network error. Please try again.');
+      showToast('Network error. Please try again.', 'error');
+    }finally{
+      box.classList.remove('nf-cart-loading');
+    }
+  }
+
+  if(minusBtn){
+    minusBtn.addEventListener('click', function(){
+      if(!qtyInput) return;
+
+      const currentQty = parseFloat(qtyInput.value || minQty);
+      const nextQty = currentQty - stepQty;
+
+      if(nextQty < minQty){
+        showBoxWarning('Minimum order quantity is ' + minQty + ' ' + unitLabel + '.');
+        qtyInput.value = String(minQty);
+        updateButtons();
+        return;
+      }
+
+      updateCartQuantity(nextQty);
+    });
+  }
+
+  if(plusBtn){
+    plusBtn.addEventListener('click', function(){
+      if(!qtyInput) return;
+
+      const currentQty = parseFloat(qtyInput.value || minQty);
+      const nextQty = currentQty + stepQty;
+
+      updateCartQuantity(nextQty);
+    });
+  }
+
+  if(removeBtn){
+    removeBtn.addEventListener('click', removeCartItem);
+  }
+
+  if(qtyInput){
+    qtyInput.addEventListener('change', function(){
+      updateCartQuantity(qtyInput.value);
+    });
+  }
+
+  updateButtons();
+});
 
       document.querySelectorAll('form.nf-cart-add [data-buy-now-link]').forEach(function(link){
   link.addEventListener('click', function(event){

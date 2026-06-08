@@ -127,6 +127,8 @@ def checkout():
             "unit_label": unit_label,
             "price_per_unit": price_per_unit,
             "stock_quantity": stock_quantity,
+            "quantity_min": float(product.get("quantity_min") or 1),
+            "quantity_step": float(product.get("quantity_step") or 1),
             "line_total": line_total,
             "store_id": product.get("store_id"),
             "is_active": int(product.get("is_active") or 0),
@@ -142,6 +144,31 @@ def checkout():
     if cart_store_count > 1:
         flash("Your cart contains items from multiple stores. Please clear the cart and order from one store at a time.", "danger")
         return redirect(url_for("cart_page"))
+
+    for it in items:
+        if int(it["is_active"] or 0) != 1:
+            flash("One or more items are sold out.", "danger")
+            return redirect(url_for("cart_page"))
+
+        if float(it["stock_quantity"] or 0) <= 0:
+            flash("One or more items are sold out.", "danger")
+            return redirect(url_for("cart_page"))
+
+        quantity_min = float(it.get("quantity_min") or 1)
+
+        if float(it["quantity"] or 0) < quantity_min:
+            flash(
+                f"{it.get('name', 'One item')} requires minimum order quantity of {quantity_min:g} {it.get('unit_label', 'unit')}. Please update your cart.",
+                "danger"
+            )
+            return redirect(url_for("cart_page"))
+
+        if float(it["quantity"] or 0) > float(it["stock_quantity"] or 0):
+            flash(
+                "Requested amount is not available in stock. Please change the amount.",
+                "danger"
+            )
+            return redirect(url_for("cart_page"))
 
     addresses = list(
         mongo.addresses.find({"user_id": u["id"]}).sort([
@@ -168,6 +195,10 @@ def checkout():
             flash("Your cart contains items from multiple stores. Please order from one store at a time.", "danger")
             return redirect(url_for("cart_page"))
 
+        if not addresses:
+            flash("Please add delivery address before checkout.", "warning")
+            return redirect(url_for("profile"))
+
         for it in items:
             if int(it["is_active"] or 0) != 1:
                 flash("One or more items are sold out.", "danger")
@@ -177,9 +208,18 @@ def checkout():
                 flash("One or more items are sold out.", "danger")
                 return redirect(url_for("cart_page"))
 
+            quantity_min = float(it.get("quantity_min") or 1)
+
+            if float(it["quantity"] or 0) < quantity_min:
+                flash(
+                    f"{it.get('name', 'One item')} requires minimum order quantity of {quantity_min:g} {it.get('unit_label', 'unit')}. Please update your cart.",
+                    "danger"
+                )
+                return redirect(url_for("cart_page"))
+
             if float(it["quantity"] or 0) > float(it["stock_quantity"] or 0):
                 flash(
-                    f"{it.get('name', 'One item')} has only {float(it['stock_quantity']):.2f} {it.get('unit_label', 'unit')} available. Please update your cart.",
+                    "Requested amount is not available in stock. Please change the amount.",
                     "danger"
                 )
                 return redirect(url_for("cart_page"))
@@ -265,6 +305,8 @@ def checkout():
                 "cart_quantity": float(it["quantity"]),
                 "unit_type": it.get("unit_type") or "WEIGHT",
                 "unit_label": it.get("unit_label") or "kg",
+                "quantity_min": float(it.get("quantity_min") or 1),
+                "quantity_step": float(it.get("quantity_step") or 1),
                 "price_per_unit": float(it["price_per_unit"]),
                 "unit_price": float(it["price_per_unit"]),
                 "line_total": line_total,
@@ -362,6 +404,7 @@ def checkout():
         "checkout.html",
         user=u,
         addresses=addresses,
+        items=items,
         total=total,
         base_fee=BASE_DELIVERY_FEE_INR,
         slabs=DELIVERY_SURCHARGE_SLABS,

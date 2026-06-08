@@ -459,6 +459,15 @@
     box-shadow:0 18px 34px rgba(0,168,89,.26);
   }
 
+  .cart-page .btn-primary.is-disabled,
+  .cart-page .btn-primary[aria-disabled="true"]{
+    opacity:.55;
+    cursor:not-allowed;
+    pointer-events:auto;
+    transform:none !important;
+    box-shadow:none !important;
+  }
+
   /* TOAST */
   .cart-page .cart-toast{
     position:fixed;
@@ -737,11 +746,12 @@
 {% set qty_step = 1 if unit_type == 'COUNT' else (50 if unit_label in ['gram', 'ml'] else 0.25) %}
 {% set qty_min = 1 if unit_type == 'COUNT' else (50 if unit_label in ['gram', 'ml'] else 0.25) %}
 {% set store_name = i['store_name'] %}
-            <tr class="cart-row"
+          <tr class="cart-row"
     data-pid="{{ pid }}"
     data-item-id="{{ cart_item_id }}"
     data-price="{{ '%.2f'|format(price) }}"
     data-stock="{{ '%.2f'|format(stock) }}"
+    data-current-qty="{{ '%g'|format(w) }}"
     data-unit-label="{{ unit_label }}"
     data-unit-type="{{ unit_type }}"
     data-step="{{ qty_step }}"
@@ -783,7 +793,12 @@
 
         <div class="cart-summary">
           <p class="total">Total: <strong id="grandTotal">₹ {{ '%.2f'|format(total) }}</strong></p>
-          <a class="btn-primary" href="{{ url_for('checkout') }}">Proceed to Checkout →</a>
+<a class="btn-primary"
+   href="javascript:void(0)"
+   id="proceedCheckoutBtn"
+   data-checkout-url="{{ url_for('checkout') }}">
+  Proceed to Checkout →
+</a>
         </div>
       </div>
       {% endif %}
@@ -800,11 +815,10 @@
 
 <!-- ✅ YOUR ORIGINAL JS (UNCHANGED) -->
 <script>
-
-    // ✅ Toast helper
   const toast = document.getElementById('cartToast');
   const toastText = document.getElementById('cartToastText');
   let toastT;
+
   function showToast(msg){
     if(!toast) return;
     if(toastText) toastText.textContent = msg;
@@ -813,260 +827,453 @@
     toastT = setTimeout(()=>toast.classList.remove('show'), 1700);
   }
 
-(function(){
-  const body=document.getElementById('cartBody');
-  const elGrand=document.getElementById('grandTotal');
+  (function(){
+    const body = document.getElementById('cartBody');
+    const elGrand = document.getElementById('grandTotal');
+    const proceedCheckoutBtn = document.getElementById('proceedCheckoutBtn');
 
-  function round2(x){
-    return Math.round(x * 100) / 100;
-  }
-
-  function fmtINR(x){
-    return '₹ ' + Number(x || 0).toFixed(2);
-  }
-
-  function fmtQty(x){
-    const n = Number(x || 0);
-
-    if(!Number.isFinite(n)){
-      return '0';
+    function round2(x){
+      return Math.round(x * 100) / 100;
     }
 
-    if(Number.isInteger(n)){
-      return String(n);
+    function fmtINR(x){
+      return '₹ ' + Number(x || 0).toFixed(2);
     }
 
-    return String(parseFloat(n.toFixed(2)));
-  }
+    function fmtQty(x){
+      const n = Number(x || 0);
 
-  function getStep(tr){
-    return Number(tr.dataset.step || 0.25);
-  }
+      if(!Number.isFinite(n)){
+        return '0';
+      }
 
-  function getMin(tr){
-    return Number(tr.dataset.min || 0.25);
-  }
+      if(Number.isInteger(n)){
+        return String(n);
+      }
 
-  function getUnitLabel(tr){
-    return tr.dataset.unitLabel || 'kg';
-  }
-
-  function normalizeQty(tr, value){
-    const step = getStep(tr);
-    const min = getMin(tr);
-    const stock = Number(tr.dataset.stock || 0);
-
-    let q = Number(value || 0);
-
-    if(!Number.isFinite(q)){
-      q = min;
+      return String(parseFloat(n.toFixed(2)));
     }
 
-    q = Math.max(min, q);
-
-    if(stock > 0){
-      q = Math.min(q, stock);
+    function getStep(tr){
+      return Number(tr.dataset.step || 0.25);
     }
 
-    if(step > 0){
-      q = Math.round(q / step) * step;
+    function getMin(tr){
+      return Number(tr.dataset.min || 0.25);
     }
 
-    q = round2(q);
-
-    if(q < min){
-      q = min;
+    function getUnitLabel(tr){
+      return tr.dataset.unitLabel || 'kg';
     }
 
-    return q;
-  }
+    function normalizeQty(tr, value){
+      const step = getStep(tr);
+      const min = getMin(tr);
 
-  function recomputeRow(tr){
-    const price = Number(tr.dataset.price || 0);
-    const input = tr.querySelector('.qty-input');
-    const q = Number(input.value || 0);
-    const sub = tr.querySelector('.cell-subtotal');
+      let q = Number(value || 0);
 
-    if(sub){
-      sub.textContent = fmtINR(price * q);
+      if(!Number.isFinite(q)){
+        q = min;
+      }
+
+      q = Math.max(min, q);
+
+      if(step > 0){
+        q = Math.round(q / step) * step;
+      }
+
+      q = round2(q);
+
+      if(q < min){
+        q = min;
+      }
+
+      return q;
     }
-  }
 
-  function recomputeTotal(){
-    let sum = 0;
-
-    document.querySelectorAll('tr.cart-row').forEach(tr => {
+    function recomputeRow(tr){
       const price = Number(tr.dataset.price || 0);
-      const q = Number(tr.querySelector('.qty-input').value || 0);
-      sum += price * q;
-    });
+      const input = tr.querySelector('.qty-input');
+      const q = Number(input ? input.value : 0);
+      const sub = tr.querySelector('.cell-subtotal');
 
-    if(elGrand){
-      elGrand.textContent = fmtINR(sum);
+      if(sub){
+        sub.textContent = fmtINR(price * (Number.isFinite(q) ? q : 0));
+      }
     }
-  }
 
-  async function saveRow(tr){
-    const pid = tr.dataset.pid;
-    const input = tr.querySelector('.qty-input');
-    const unitLabel = getUnitLabel(tr);
+    function recomputeTotal(){
+      let sum = 0;
 
-    let q = normalizeQty(tr, input.value);
-    input.value = fmtQty(q);
-
-    const fd = new FormData();
-    fd.append('product_id', pid);
-        fd.append('quantity', String(q));
-    fd.append('unit_type', tr.dataset.unitType || 'WEIGHT');
-    fd.append('unit_label', unitLabel);
-
-    try{
-      const r = await fetch('{{ url_for("api_cart_add") }}', {
-        method:'POST',
-        body:fd,
-        credentials:'same-origin',
-        headers:{ 'Accept':'application/json' }
+      document.querySelectorAll('tr.cart-row').forEach(tr => {
+        const price = Number(tr.dataset.price || 0);
+        const input = tr.querySelector('.qty-input');
+        const q = Number(input ? input.value : 0);
+        sum += price * (Number.isFinite(q) ? q : 0);
       });
 
-      const j = await r.json();
-
-      if(!r.ok || !j.ok){
-        alert(j.msg || j.error || 'Could not update item.');
-      }else{
-        showToast(fmtQty(q) + ' ' + unitLabel + ' updated');
+      if(elGrand){
+        elGrand.textContent = fmtINR(sum);
       }
-    }catch(e){
-      console.error(e);
-      alert('Network error while updating item.');
+    }
+
+    function rowHasInvalidQuantity(tr){
+      const input = tr.querySelector('.qty-input');
+      const stock = Number(tr.dataset.stock || 0);
+      const min = getMin(tr);
+      const q = Number(input ? input.value : 0);
+
+      if(!Number.isFinite(q) || q <= 0){
+        return true;
+      }
+
+      if(q < min){
+        return true;
+      }
+
+      if(stock > 0 && q > stock){
+        return true;
+      }
+
+      return false;
+    }
+
+    function updateCheckoutButtonState(){
+      if(!proceedCheckoutBtn){
+        return;
+      }
+
+      const rows = Array.from(document.querySelectorAll('tr.cart-row'));
+      const hasInvalid = rows.some(function(tr){
+        const invalid = rowHasInvalidQuantity(tr);
+
+        tr.dataset.cartInvalid = invalid ? '1' : '0';
+
+        return invalid;
+      });
+
+      if(hasInvalid){
+        proceedCheckoutBtn.classList.add('is-disabled');
+        proceedCheckoutBtn.setAttribute('aria-disabled', 'true');
+      }else{
+        proceedCheckoutBtn.classList.remove('is-disabled');
+        proceedCheckoutBtn.removeAttribute('aria-disabled');
+      }
+    }
+
+    async function saveRow(tr, options){
+  const silent = options && options.silent === true;
+
+  const pid = tr.dataset.pid;
+  const input = tr.querySelector('.qty-input');
+  const unitLabel = getUnitLabel(tr);
+  const stock = Number(tr.dataset.stock || 0);
+  const min = getMin(tr);
+  const rawQty = Number(input ? input.value : 0);
+
+  if(!input){
+    return false;
+  }
+
+  if(!Number.isFinite(rawQty) || rawQty <= 0){
+    tr.dataset.cartInvalid = '1';
+    if(!silent) showToast('Please enter a valid quantity.');
+    updateCheckoutButtonState();
+    return false;
+  }
+
+  if(rawQty < min){
+    tr.dataset.cartInvalid = '1';
+    if(!silent) showToast('Minimum order quantity is ' + fmtQty(min) + ' ' + unitLabel + '.');
+    updateCheckoutButtonState();
+    return false;
+  }
+
+  if(stock > 0 && rawQty > stock){
+    tr.dataset.cartInvalid = '1';
+    if(!silent) showToast('Requested amount is not available in stock. Please change the amount.');
+    updateCheckoutButtonState();
+    return false;
+  }
+
+  const q = normalizeQty(tr, rawQty);
+  input.value = fmtQty(q);
+
+  const fd = new FormData();
+  fd.append('product_id', pid);
+  fd.append('quantity', String(q));
+  fd.append('unit_type', tr.dataset.unitType || 'WEIGHT');
+  fd.append('unit_label', unitLabel);
+
+  try{
+    const r = await fetch('{{ url_for("api_cart_add") }}', {
+      method:'POST',
+      body:fd,
+      credentials:'same-origin',
+      headers:{ 'Accept':'application/json' }
+    });
+
+    const j = await r.json();
+
+    if(!r.ok || !j.ok){
+      tr.dataset.cartInvalid = '1';
+      if(!silent) showToast(j.msg || j.error || 'Could not update item.');
+      updateCheckoutButtonState();
+      return false;
+    }
+
+    tr.dataset.currentQty = String(q);
+    tr.dataset.cartInvalid = '0';
+
+    if(!silent){
+      showToast(fmtQty(q) + ' ' + unitLabel + ' updated');
     }
 
     recomputeRow(tr);
     recomputeTotal();
+    updateCheckoutButtonState();
+
+    return true;
+  }catch(e){
+    console.error(e);
+    tr.dataset.cartInvalid = '1';
+
+    if(!silent){
+      showToast('Network error while updating item.');
+    }
+
+    updateCheckoutButtonState();
+    return false;
   }
+}
 
-  body?.addEventListener('click', ev => {
-    const btn = ev.target.closest('.btn-qty');
+    body?.addEventListener('click', ev => {
+      const btn = ev.target.closest('.btn-qty');
 
-    if(!btn) return;
+      if(!btn) return;
 
-    const tr = ev.target.closest('tr.cart-row');
+      const tr = ev.target.closest('tr.cart-row');
 
-    if(!tr) return;
+      if(!tr) return;
 
-    const input = tr.querySelector('.qty-input');
-    const step = getStep(tr);
+      const input = tr.querySelector('.qty-input');
+      const step = getStep(tr);
 
-    let v = Number(input.value || 0);
+      let v = Number(input.value || 0);
 
-    if(!Number.isFinite(v) || v <= 0){
-      v = getMin(tr);
-    }
+      if(!Number.isFinite(v) || v <= 0){
+        v = getMin(tr);
+      }
 
-    if(btn.classList.contains('btn-plus')){
-      v += step;
-    }
+      if(btn.classList.contains('btn-plus')){
+        v += step;
+      }
 
-    if(btn.classList.contains('btn-minus')){
-      v -= step;
-    }
+      if(btn.classList.contains('btn-minus')){
+        v -= step;
+      }
 
-    v = normalizeQty(tr, v);
-    input.value = fmtQty(v);
+      v = normalizeQty(tr, v);
+      input.value = fmtQty(v);
 
-    saveRow(tr);
-  });
+      recomputeRow(tr);
+      recomputeTotal();
 
-  body?.addEventListener('keydown', ev => {
-    if(ev.key !== 'Enter') return;
+      const stock = Number(tr.dataset.stock || 0);
 
-    const input = ev.target.closest('.qty-input');
+      if(stock > 0 && v > stock){
+        tr.dataset.cartInvalid = '1';
+        showToast('Requested amount is not available in stock. Please change the amount.');
+        updateCheckoutButtonState();
+        input.focus();
+        return;
+      }
 
-    if(!input) return;
-
-    ev.preventDefault();
-
-    const tr = ev.target.closest('tr.cart-row');
-
-    if(tr){
       saveRow(tr);
-    }
-  });
+    });
 
-  body?.addEventListener('blur', ev => {
-    const input = ev.target.closest('.qty-input');
+    body?.addEventListener('input', ev => {
+      const input = ev.target.closest('.qty-input');
 
-    if(!input) return;
+      if(!input) return;
 
-    const tr = ev.target.closest('tr.cart-row');
+      const tr = ev.target.closest('tr.cart-row');
 
-    if(tr){
-      saveRow(tr);
-    }
-  }, true);
+      if(!tr) return;
 
-  document.querySelectorAll('form.inline[action="{{ url_for("api_cart_remove") }}"]').forEach(form => {
-    form.addEventListener('submit', async (ev) => {
+      recomputeRow(tr);
+      recomputeTotal();
+      updateCheckoutButtonState();
+    });
+
+    body?.addEventListener('keydown', ev => {
+      if(ev.key !== 'Enter') return;
+
+      const input = ev.target.closest('.qty-input');
+
+      if(!input) return;
+
       ev.preventDefault();
 
-      const tr = form.closest('tr.cart-row');
-      const fd = new FormData(form);
+      const tr = ev.target.closest('tr.cart-row');
 
-      try{
-        const r = await fetch(form.action, {
-          method: 'POST',
-          body: fd,
-          credentials: 'same-origin',
-          headers: { 'Accept': 'application/json' }
-        });
-
-        const ct = (r.headers.get('content-type') || '').toLowerCase();
-
-        if (r.redirected) {
-          alert('Session expired. Please login again.');
-          window.location.href = r.url;
-          return;
-        }
-
-        if (!ct.includes('application/json')) {
-          const text = await r.text();
-          console.error('Remove returned non-JSON:', text.slice(0, 200));
-          alert('Server did not return JSON. Check login / error logs.');
-          return;
-        }
-
-        const j = await r.json();
-
-        if(!r.ok || !j.ok){
-          alert(j.msg || j.error || 'Could not remove item.');
-          return;
-        }
-
-        if(tr){
-          tr.remove();
-        }
-
-        recomputeTotal();
-        showToast('Removed');
-
-        document.dispatchEvent(
-          new CustomEvent("cart:updated", {
-            detail: { count: j.cart_count ?? 0 }
-          })
-        );
-
-        if(document.querySelectorAll('tr.cart-row').length === 0){
-          window.location.reload();
-        }
-
-      }catch(e){
-        console.error(e);
-        alert('Network error while removing item.');
+      if(tr){
+        saveRow(tr);
       }
     });
-  });
-})();
 
+    body?.addEventListener('blur', ev => {
+      const input = ev.target.closest('.qty-input');
 
+      if(!input) return;
+
+      const tr = ev.target.closest('tr.cart-row');
+
+      if(tr){
+        const isInvalid = rowHasInvalidQuantity(tr);
+        tr.dataset.cartInvalid = isInvalid ? '1' : '0';
+        updateCheckoutButtonState();
+
+        if(!isInvalid){
+          saveRow(tr);
+        }
+      }
+    }, true);
+
+   proceedCheckoutBtn?.addEventListener('click', async function(ev){
+  ev.preventDefault();
+
+  const rows = Array.from(document.querySelectorAll('tr.cart-row'));
+
+  for(const tr of rows){
+    const input = tr.querySelector('.qty-input');
+    const stock = Number(tr.dataset.stock || 0);
+    const min = getMin(tr);
+    const unitLabel = getUnitLabel(tr);
+    const currentQty = Number(input ? input.value : 0);
+
+    if(!Number.isFinite(currentQty) || currentQty <= 0){
+      tr.dataset.cartInvalid = '1';
+      updateCheckoutButtonState();
+      showToast('Please enter a valid quantity.');
+      input?.focus();
+      return false;
+    }
+
+    if(currentQty < min){
+      tr.dataset.cartInvalid = '1';
+      updateCheckoutButtonState();
+      showToast('Minimum order quantity is ' + fmtQty(min) + ' ' + unitLabel + '.');
+      input?.focus();
+      return false;
+    }
+
+    if(stock > 0 && currentQty > stock){
+      tr.dataset.cartInvalid = '1';
+      updateCheckoutButtonState();
+      showToast('Requested amount is not available in stock. Please change the amount.');
+      input?.focus();
+      return false;
+    }
+  }
+
+  updateCheckoutButtonState();
+
+  if(proceedCheckoutBtn.getAttribute('aria-disabled') === 'true'){
+    showToast('Please fix cart quantity before checkout.');
+    return false;
+  }
+
+  const originalText = proceedCheckoutBtn.textContent;
+  proceedCheckoutBtn.textContent = 'Saving cart...';
+  proceedCheckoutBtn.setAttribute('aria-disabled', 'true');
+
+  for(const tr of rows){
+    const saved = await saveRow(tr, { silent:true });
+
+    if(!saved){
+      proceedCheckoutBtn.textContent = originalText;
+      updateCheckoutButtonState();
+      showToast('Please fix cart quantity before checkout.');
+      const input = tr.querySelector('.qty-input');
+      input?.focus();
+      return false;
+    }
+  }
+
+  const checkoutUrl = proceedCheckoutBtn.getAttribute('data-checkout-url');
+
+  if(checkoutUrl){
+    window.location.href = checkoutUrl;
+  }
+
+  return true;
+});
+
+    document.querySelectorAll('form.inline[action="{{ url_for("api_cart_remove") }}"]').forEach(form => {
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+
+        const tr = form.closest('tr.cart-row');
+        const fd = new FormData(form);
+
+        try{
+          const r = await fetch(form.action, {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+          });
+
+          const ct = (r.headers.get('content-type') || '').toLowerCase();
+
+          if (r.redirected) {
+            alert('Session expired. Please login again.');
+            window.location.href = r.url;
+            return;
+          }
+
+          if (!ct.includes('application/json')) {
+            const text = await r.text();
+            console.error('Remove returned non-JSON:', text.slice(0, 200));
+            alert('Server did not return JSON. Check login / error logs.');
+            return;
+          }
+
+          const j = await r.json();
+
+          if(!r.ok || !j.ok){
+            alert(j.msg || j.error || 'Could not remove item.');
+            return;
+          }
+
+          if(tr){
+            tr.remove();
+          }
+
+          recomputeTotal();
+          updateCheckoutButtonState();
+          showToast('Removed');
+
+          document.dispatchEvent(
+            new CustomEvent("cart:updated", {
+              detail: { count: j.cart_count ?? 0 }
+            })
+          );
+
+          if(document.querySelectorAll('tr.cart-row').length === 0){
+            window.location.reload();
+          }
+
+        }catch(e){
+          console.error(e);
+          alert('Network error while removing item.');
+        }
+      });
+    });
+
+    updateCheckoutButtonState();
+  })();
 </script>
 
 {% endblock %}

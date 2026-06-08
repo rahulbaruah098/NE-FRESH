@@ -14,6 +14,7 @@
 {% set edit_original_price = product.get('original_price_per_unit', product.price_per_unit or 0) %}
 {% set edit_final_price = product.get('price_per_unit', 0) %}
 {% set edit_stock_quantity = product.get('stock_quantity', 0) %}
+{% set edit_quantity_min = product.get('quantity_min', product.get('min_order_quantity', 1)) %}
 {% set edit_mrp_per_unit = product.get('mrp_per_unit', 0) %}
 {% set edit_discount_enabled = product.get('discount_enabled', false) %}
 {% set edit_discount_type = product.get('discount_type', 'percent') %}
@@ -815,6 +816,32 @@
                 <div class="ep-help">Update the complete available stock here. This replaces the old Add Stock button.</div>
               </div>
 
+              <div class="ep-field">
+  <label for="minimumBuyQuantityInput" id="minimumBuyQuantityLabel">
+    Minimum Buy Quantity ({{ edit_unit_label }})
+  </label>
+
+  <input
+    class="ep-input"
+    id="minimumBuyQuantityInput"
+    name="quantity_min"
+    type="number"
+    step="0.01"
+    min="0"
+    value="{{ edit_quantity_min }}"
+    placeholder="{{ edit_quantity_min }}"
+    required
+  >
+
+  <div class="ep-current">
+    Current minimum buy: <strong>{{ edit_quantity_min }} {{ edit_unit_label }}</strong>
+  </div>
+
+  <div class="ep-help" id="minimumBuyQuantityHelp">
+    Customer cannot buy less than this quantity.
+  </div>
+</div>
+
               <div class="ep-discount-panel">
                 <div class="ep-discount-head">
                   <div>
@@ -938,6 +965,7 @@
                 {% endif %}
               </div>
               <div class="ep-mini-row"><span>Stock</span><strong>{{ '%.2f'|format(edit_stock_quantity or 0) }} {{ edit_unit_label }}</strong></div>
+              <div class="ep-mini-row"><span>Minimum Buy</span><strong>{{ edit_quantity_min }} {{ edit_unit_label }}</strong></div>
               <div class="ep-mini-row">
                 <span>Status</span>
                 {% if product.is_active %}
@@ -1018,6 +1046,9 @@
         const stockQuantityLabel = document.getElementById('stockQuantityLabel');
         const stockQuantityInput = document.getElementById('productStock');
         const stockQuantityHidden = document.getElementById('stockQuantityHidden');
+        const minimumBuyQuantityInput = document.getElementById('minimumBuyQuantityInput');
+const minimumBuyQuantityLabel = document.getElementById('minimumBuyQuantityLabel');
+const minimumBuyQuantityHelp = document.getElementById('minimumBuyQuantityHelp');
        
 
         function currentUnitLabel(){
@@ -1031,6 +1062,17 @@
 
           return selected;
         }
+
+        function getDefaultMinimumByUnit(unitLabel) {
+  const unit = String(unitLabel || '').toLowerCase();
+
+  if (unit === 'kg') return 0.25;
+  if (unit === 'gram') return 50;
+  if (unit === 'liter') return 0.25;
+  if (unit === 'ml') return 50;
+
+  return 1;
+}
 
         function syncUnitFields(){
           if (!unitTypeSelect || !unitLabelSelect) return;
@@ -1070,9 +1112,39 @@
           if (stockQuantityLabel) stockQuantityLabel.textContent = 'Stock / Restock (' + label + ')';
 
           if (stockQuantityInput) {
-            stockQuantityInput.min = '0';
-            stockQuantityInput.step = selectedType === 'COUNT' ? '1' : '0.01';
-          }
+  stockQuantityInput.min = '0';
+  stockQuantityInput.step = selectedType === 'COUNT' ? '1' : '0.01';
+}
+
+if (minimumBuyQuantityInput) {
+  const defaultMin = getDefaultMinimumByUnit(label);
+
+  minimumBuyQuantityInput.min = String(defaultMin);
+  minimumBuyQuantityInput.step = String(defaultMin);
+
+  if (!minimumBuyQuantityInput.value) {
+    minimumBuyQuantityInput.value = String(defaultMin);
+  }
+
+  const currentValue = parseFloat(minimumBuyQuantityInput.value || '0');
+
+  if (!Number.isFinite(currentValue) || currentValue < defaultMin) {
+    minimumBuyQuantityInput.value = String(defaultMin);
+  }
+}
+
+if (minimumBuyQuantityLabel) {
+  minimumBuyQuantityLabel.textContent = 'Minimum Buy Quantity (' + label + ')';
+}
+
+if (minimumBuyQuantityHelp) {
+  minimumBuyQuantityHelp.textContent =
+    'Customer cannot buy less than this quantity. Minimum allowed for this unit is ' +
+    getDefaultMinimumByUnit(label) +
+    ' ' +
+    label +
+    '.';
+}
         }
 
         if (unitTypeSelect) unitTypeSelect.addEventListener('change', syncUnitFields);
@@ -1250,14 +1322,36 @@ if (originalPriceInput) originalPriceInput.value = original.toFixed(2);
         }
 
         if (form) {
-          form.addEventListener('submit', function(event){
-            syncUnitFields();
-            calculateDiscountPrice();
+  form.addEventListener('submit', function(event){
+    syncUnitFields();
+    calculateDiscountPrice();
 
-if (stockQuantityHidden && stockQuantityInput) stockQuantityHidden.value = stockQuantityInput.value || '0';
+    if (stockQuantityHidden && stockQuantityInput) {
+      stockQuantityHidden.value = stockQuantityInput.value || '0';
+    }
 
+    if (minimumBuyQuantityInput) {
+      const unitLabel = currentUnitLabel();
+      const minAllowed = parseFloat(minimumBuyQuantityInput.min || '0');
+      const enteredMin = parseFloat(minimumBuyQuantityInput.value || '0');
 
-            if (allowSubmit) return;
+      if (!Number.isFinite(enteredMin) || enteredMin < minAllowed) {
+        event.preventDefault();
+
+        alert(
+          'Minimum buy quantity cannot be less than ' +
+          minAllowed +
+          ' ' +
+          unitLabel +
+          '.'
+        );
+
+        minimumBuyQuantityInput.focus();
+        return;
+      }
+    }
+
+    if (allowSubmit) return;
 
             event.preventDefault();
             if (!form.checkValidity()) {

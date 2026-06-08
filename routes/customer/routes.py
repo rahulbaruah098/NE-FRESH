@@ -43,7 +43,17 @@ def profile():
     for a in addrs:
         a["id"] = str(a["_id"])
 
-    return render_template("profile.html", user=u, addresses=addrs)
+    return_to = (request.args.get("next") or "").strip()
+
+    if return_to not in {"checkout"}:
+        return_to = ""
+
+    return render_template(
+        "profile.html",
+        user=u,
+        addresses=addrs,
+        return_to=return_to
+    )
 
 @app.route("/profile/address/new", methods=["POST"])
 @login_required()
@@ -57,6 +67,11 @@ def address_new():
     pincode = request.form.get("pincode", "").strip()
     label = request.form.get("label", "").strip() or "Home"
     is_def = 1 if request.form.get("is_default") == "1" else 0
+
+    return_to = (request.form.get("next") or "").strip()
+
+    if return_to not in {"checkout"}:
+        return_to = ""
 
     lat_raw = (request.form.get("latitude") or "").strip()
     lng_raw = (request.form.get("longitude") or "").strip()
@@ -113,6 +128,10 @@ def address_new():
     })
 
     flash("Address saved.", "success")
+
+    if return_to == "checkout":
+        return redirect(url_for("checkout"))
+
     return redirect(url_for("profile"))
 
 @app.route("/profile/address/<aid>/delete", methods=["POST"])

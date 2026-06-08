@@ -489,6 +489,29 @@ def hydrate_product_unit_fields(product):
     mrp_per_unit = product_mrp_per_unit(product)
     stock_quantity = product_stock_quantity(product)
 
+    default_min = float(rules["min"])
+    quantity_step = float(rules["step"])
+
+    try:
+        custom_min = float(
+            product.get("quantity_min")
+            if product.get("quantity_min") is not None
+            else product.get("min_order_quantity")
+            if product.get("min_order_quantity") is not None
+            else default_min
+        )
+    except (TypeError, ValueError):
+        custom_min = default_min
+
+    if custom_min < default_min:
+        custom_min = default_min
+
+    if unit_type == "COUNT":
+        custom_min = int(round(custom_min))
+
+        if custom_min < 1:
+            custom_min = 1
+
     product["unit_type"] = unit_type
     product["unit_type_label"] = UNIT_TYPE_LABELS.get(unit_type, unit_type.title())
     product["unit_label"] = unit_label
@@ -496,9 +519,9 @@ def hydrate_product_unit_fields(product):
     product["original_price_per_unit"] = original_price_per_unit
     product["mrp_per_unit"] = mrp_per_unit
     product["stock_quantity"] = stock_quantity
-    product["quantity_min"] = rules["min"]
-    product["quantity_step"] = rules["step"]
-    product["quantity_message"] = rules["message"]
+    product["quantity_min"] = custom_min
+    product["quantity_step"] = quantity_step
+    product["quantity_message"] = f"Minimum {custom_min:g} {unit_label or 'unit'}"
 
     return product
 
@@ -543,6 +566,28 @@ def build_unit_product_update_from_form(form, fallback_original_price=0):
     except (TypeError, ValueError):
         stock_quantity = 0.0
 
+    rules = unit_quantity_rules(unit_type, unit_label)
+    default_min = float(rules["min"])
+    quantity_step = float(rules["step"])
+
+    try:
+        quantity_min = float(
+            form.get("quantity_min")
+            or form.get("min_order_quantity")
+            or default_min
+        )
+    except (TypeError, ValueError):
+        quantity_min = default_min
+
+    if quantity_min < default_min:
+        quantity_min = default_min
+
+    if unit_type == "COUNT":
+        quantity_min = int(round(quantity_min))
+
+        if quantity_min < 1:
+            quantity_min = 1
+
     return {
         "unit_type": unit_type,
         "unit_label": unit_label,
@@ -550,6 +595,9 @@ def build_unit_product_update_from_form(form, fallback_original_price=0):
         "price_per_unit": round(price_per_unit, 2),
         "mrp_per_unit": round(mrp_per_unit, 2),
         "stock_quantity": round(stock_quantity, 2),
+        "quantity_min": quantity_min,
+        "quantity_step": quantity_step,
+        "quantity_message": f"Minimum {quantity_min:g} {unit_label or 'unit'}",
 
         "discount_enabled": pricing.get("discount_enabled", False),
         "discount_type": pricing.get("discount_type", "percent"),

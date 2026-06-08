@@ -575,6 +575,69 @@
       gap:10px;
     }
 
+.nf-cart-added{
+  display:grid;
+  gap:12px;
+}
+
+.nf-added-title{
+  min-height:40px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+  background:var(--nf-green-soft);
+  color:var(--nf-green-dark);
+  border:1px solid #DDF4E8;
+  font-size:.86rem;
+  font-weight:850;
+}
+
+.nf-cart-stepper{
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) 42px;
+  gap:10px;
+  align-items:center;
+}
+
+.nf-cart-stepper button,
+.nf-cart-remove{
+  min-height:40px;
+  border-radius:10px;
+  border:1px solid #DDF4E8;
+  background:#fff;
+  color:var(--nf-green-dark);
+  font:inherit;
+  font-size:.88rem;
+  font-weight:850;
+  cursor:pointer;
+}
+
+.nf-cart-stepper button:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+
+.nf-cart-stepper input{
+  width:100%;
+  min-height:40px;
+  border-radius:10px;
+  border:1px solid #DDF4E8;
+  background:#fff;
+  color:var(--nf-ink);
+  font:inherit;
+  font-size:.9rem;
+  font-weight:800;
+  text-align:center;
+  outline:none;
+}
+
+.nf-cart-remove{
+  background:#FFF1F2;
+  border-color:rgba(185,28,28,.16);
+  color:#B91C1C;
+}
+
     .nf-action-slot{
       display:grid;
       gap:8px;
@@ -1211,10 +1274,15 @@
   <b>{{ '%.2f'|format(stock_qty) }} {{ unit_label }}</b>
 </div>
 
-              <div class="nf-meta-box">
-                <span>Status</span>
-                <b>{{ 'Available' if is_in_stock else 'Out of stock' }}</b>
-              </div>
+<div class="nf-meta-box">
+  <span>Minimum Order</span>
+  <b>{{ quantity_min }} {{ unit_label }}</b>
+</div>
+
+<div class="nf-meta-box">
+  <span>Status</span>
+  <b>{{ 'Available' if is_in_stock else 'Out of stock' }}</b>
+</div>
             </div>
 
             <div class="nf-feature-strip">
@@ -1257,54 +1325,93 @@
 
           <div class="nf-buy-body">
             {% if user and user.role == 'customer' %}
-              {% if is_in_stock %}
-                <form id="buyForm" class="buy-form" onsubmit="return false;">
-                  <input type="hidden" name="product_id" value="{{ product.id }}"/>
+             {% if is_in_stock %}
+  {% if product.in_cart %}
+    <div class="nf-cart-added"
+         data-cart-added
+         data-product-id="{{ product.id }}"
+         data-cart-item-id="{{ product.cart_item_id }}"
+         data-unit-label="{{ unit_label }}"
+         data-min-qty="{{ quantity_min }}"
+         data-step-qty="{{ quantity_step }}"
+         data-stock-qty="{{ '%.2f'|format(stock_qty) }}">
 
-                 <input type="hidden" name="unit_type" value="{{ unit_type }}">
-<input type="hidden" name="unit_label" value="{{ unit_label }}">
+      <div class="nf-added-title">Added to Cart</div>
 
-<div class="nf-weight-field">
-  <label for="quantity">Quantity ({{ unit_label }})</label>
-  <input id="quantity"
-         name="quantity"
-         type="number"
-         step="{{ quantity_step }}"
-         min="{{ quantity_min }}"
-         max="{{ '%.2f'|format(stock_qty) }}"
-         value="{{ default_quantity }}">
-</div>
+      <div class="nf-cart-stepper">
+        <button type="button" class="nf-cart-minus" data-cart-minus>-</button>
 
-<div class="nf-buy-note">
-  Available stock: <b>{{ '%.2f'|format(stock_qty) }} {{ unit_label }}</b>. Minimum order is {{ quantity_min }} {{ unit_label }}.
-</div>
+        <input type="number"
+               data-cart-added-quantity
+               min="{{ quantity_min }}"
+               max="{{ '%.2f'|format(stock_qty) }}"
+               step="{{ quantity_step }}"
+               value="{{ product.cart_quantity }}">
 
-                  <div class="nf-stock-warning" id="stockWarning" role="status" aria-live="polite">
-  Requested amount is not available in stock. Please change the amount.
-</div>
+        <button type="button" class="nf-cart-plus" data-cart-plus>+</button>
+      </div>
 
-                  <div class="nf-total-box">
-                    <span>Estimated Item Total</span>
-                    <b>₹ <span id="estTotal">0.00</span></b>
-                  </div>
+      <button type="button" class="nf-cart-remove" data-cart-remove>
+        Remove
+      </button>
 
-                  <div class="nf-action-row">
-                    <div class="nf-action-slot">
-                      <button class="nf-add-cart" id="btnAdd" type="button">
-                        Add to Cart
-                      </button>
-                      <div class="nf-action-popup" id="popupAdd" role="status" aria-live="polite"></div>
-                    </div>
+      <a class="nf-buy-now" href="{{ url_for('checkout') }}">
+        Continue to Checkout
+      </a>
 
-                    <div class="nf-action-slot">
-                      <button class="nf-buy-now" id="btnBuy" type="button">
-                        Buy Now
-                      </button>
-                      <div class="nf-action-popup" id="popupBuy" role="status" aria-live="polite"></div>
-                    </div>
-                  </div>
-                </form>
-              {% else %}
+      <div class="nf-stock-warning" data-stock-warning role="status" aria-live="polite">
+        Requested amount is not available in stock. Please change the amount.
+      </div>
+    </div>
+  {% else %}
+    <form id="buyForm" class="buy-form" onsubmit="return false;">
+      <input type="hidden" name="product_id" value="{{ product.id }}"/>
+
+      <input type="hidden" name="unit_type" value="{{ unit_type }}">
+      <input type="hidden" name="unit_label" value="{{ unit_label }}">
+
+      <div class="nf-weight-field">
+        <label for="quantity">Quantity ({{ unit_label }})</label>
+        <input id="quantity"
+               name="quantity"
+               type="number"
+               step="{{ quantity_step }}"
+               min="{{ quantity_min }}"
+               max="{{ '%.2f'|format(stock_qty) }}"
+               value="{{ default_quantity }}">
+      </div>
+
+      <div class="nf-buy-note">
+        Available stock: <b>{{ '%.2f'|format(stock_qty) }} {{ unit_label }}</b>. Minimum order is {{ quantity_min }} {{ unit_label }}.
+      </div>
+
+      <div class="nf-stock-warning" id="stockWarning" role="status" aria-live="polite">
+        Requested amount is not available in stock. Please change the amount.
+      </div>
+
+      <div class="nf-total-box">
+        <span>Estimated Item Total</span>
+        <b>₹ <span id="estTotal">0.00</span></b>
+      </div>
+
+      <div class="nf-action-row">
+        <div class="nf-action-slot">
+          <button class="nf-add-cart" id="btnAdd" type="button">
+            Add to Cart
+          </button>
+          <div class="nf-action-popup" id="popupAdd" role="status" aria-live="polite"></div>
+        </div>
+
+        <div class="nf-action-slot">
+          <button class="nf-buy-now" id="btnBuy" type="button">
+            Buy Now
+          </button>
+          <div class="nf-action-popup" id="popupBuy" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+{% else %}
                 <div class="nf-buy-lock">
                   <p>This product is currently out of stock.</p>
                   <a class="nf-back-products" href="{{ url_for('products') }}">View Other Products</a>
@@ -1459,6 +1566,200 @@
   const popupAdd = document.getElementById('popupAdd');
   const popupBuy = document.getElementById('popupBuy');
   const stockWarning = document.getElementById('stockWarning');
+
+
+  const addedBox = document.querySelector('[data-cart-added]');
+
+  if(addedBox){
+    const productId = addedBox.getAttribute('data-product-id') || '';
+    const cartItemId = addedBox.getAttribute('data-cart-item-id') || '';
+    const addedUnitLabel = addedBox.getAttribute('data-unit-label') || unitLabel;
+    const minQty = parseFloat(addedBox.getAttribute('data-min-qty') || quantityMin || '1');
+    const stepQty = parseFloat(addedBox.getAttribute('data-step-qty') || quantityStep || '1');
+    const stockQty = parseFloat(addedBox.getAttribute('data-stock-qty') || availableStock || '0');
+
+    const minusBtn = addedBox.querySelector('[data-cart-minus]');
+    const plusBtn = addedBox.querySelector('[data-cart-plus]');
+    const removeBtn = addedBox.querySelector('[data-cart-remove]');
+    const qtyInput = addedBox.querySelector('[data-cart-added-quantity]');
+    const warning = addedBox.querySelector('[data-stock-warning]');
+
+    function showAddedWarning(message){
+      if(!warning) return;
+
+      warning.textContent = message || 'Please check the quantity.';
+      warning.classList.add('show');
+
+      window.setTimeout(function(){
+        warning.classList.remove('show');
+      }, 2200);
+    }
+
+    function normalizeAddedQty(value){
+      const n = parseFloat(value);
+
+      if(!Number.isFinite(n)){
+        return minQty;
+      }
+
+      if(n < minQty){
+        return minQty;
+      }
+
+      if(stockQty > 0 && n > stockQty){
+        return stockQty;
+      }
+
+      return n;
+    }
+
+    function updateAddedButtons(){
+      if(!qtyInput) return;
+
+      const currentQty = parseFloat(qtyInput.value || '0');
+
+      if(minusBtn){
+        minusBtn.disabled = !Number.isFinite(currentQty) || currentQty <= minQty;
+      }
+
+      if(plusBtn){
+        plusBtn.disabled = stockQty > 0 && Number.isFinite(currentQty) && currentQty >= stockQty;
+      }
+    }
+
+    async function updateAddedCartQuantity(nextQty){
+      if(!productId || !qtyInput) return;
+
+      const safeQty = normalizeAddedQty(nextQty);
+
+      if(stockQty > 0 && safeQty > stockQty){
+        showAddedWarning('Only ' + stockQty.toFixed(2) + ' ' + addedUnitLabel + ' stock is available.');
+        qtyInput.value = String(stockQty);
+        updateAddedButtons();
+        return;
+      }
+
+      if(safeQty < minQty){
+        showAddedWarning('Minimum order quantity is ' + minQty + ' ' + addedUnitLabel + '.');
+        qtyInput.value = String(minQty);
+        updateAddedButtons();
+        return;
+      }
+
+      qtyInput.value = String(safeQty);
+      addedBox.classList.add('nf-cart-loading');
+
+      try{
+        const fd = new FormData();
+        fd.set('product_id', productId);
+        fd.set('quantity', String(safeQty));
+
+        const response = await fetch('{{ url_for("api_cart_add") }}', {
+          method:'POST',
+          body:fd,
+          credentials:'same-origin',
+          headers:{'Accept':'application/json'}
+        });
+
+        const data = await response.json();
+
+        if(response.ok && data && data.ok){
+          document.dispatchEvent(
+            new CustomEvent('cart:updated', {
+              detail:{ count:data.cart_count ?? data.count ?? data.cartQty ?? 0 }
+            })
+          );
+        }else{
+          showAddedWarning(data && data.msg ? data.msg : 'Unable to update cart.');
+        }
+      }catch(error){
+        showAddedWarning('Network error. Please try again.');
+      }finally{
+        addedBox.classList.remove('nf-cart-loading');
+        updateAddedButtons();
+      }
+    }
+
+    async function removeAddedCartItem(){
+      if(!cartItemId) return;
+
+      addedBox.classList.add('nf-cart-loading');
+
+      try{
+        const response = await fetch('{{ url_for("api_cart_remove") }}', {
+          method:'POST',
+          credentials:'same-origin',
+          headers:{
+            'Accept':'application/json',
+            'Content-Type':'application/json'
+          },
+          body:JSON.stringify({
+            item_id:cartItemId
+          })
+        });
+
+        const data = await response.json();
+
+        if(response.ok && data && data.ok){
+          document.dispatchEvent(
+            new CustomEvent('cart:updated', {
+              detail:{ count:data.cart_count ?? data.count ?? data.cartQty ?? 0 }
+            })
+          );
+
+          window.location.reload();
+        }else{
+          showAddedWarning(data && data.msg ? data.msg : 'Unable to remove item.');
+        }
+      }catch(error){
+        showAddedWarning('Network error. Please try again.');
+      }finally{
+        addedBox.classList.remove('nf-cart-loading');
+      }
+    }
+
+    if(minusBtn){
+      minusBtn.addEventListener('click', function(){
+        if(!qtyInput) return;
+
+        const currentQty = parseFloat(qtyInput.value || minQty);
+        const nextQty = currentQty - stepQty;
+
+        if(nextQty < minQty){
+          showAddedWarning('Minimum order quantity is ' + minQty + ' ' + addedUnitLabel + '.');
+          qtyInput.value = String(minQty);
+          updateAddedButtons();
+          return;
+        }
+
+        updateAddedCartQuantity(nextQty);
+      });
+    }
+
+    if(plusBtn){
+      plusBtn.addEventListener('click', function(){
+        if(!qtyInput) return;
+
+        const currentQty = parseFloat(qtyInput.value || minQty);
+        const nextQty = currentQty + stepQty;
+
+        updateAddedCartQuantity(nextQty);
+      });
+    }
+
+    if(removeBtn){
+      removeBtn.addEventListener('click', removeAddedCartItem);
+    }
+
+    if(qtyInput){
+      qtyInput.addEventListener('change', function(){
+        updateAddedCartQuantity(qtyInput.value);
+      });
+    }
+
+    updateAddedButtons();
+    return;
+  }
 
   if(!quantityEl || !btnAdd || !btnBuy){
     return;
@@ -1622,14 +1923,24 @@
 
       const data = await response.json();
 
-      if(data && data.ok){
-        if(redirectAfter){
-          showPopup(activePopup, '✓ Added! Redirecting…');
-          window.location.href = '{{ url_for("checkout") }}';
-        }else{
-          showPopup(activePopup, '✓ ' + formatQty(qty) + ' ' + unitLabel + ' added to cart!');
-        }
-      }else{
+    if(data && data.ok){
+  document.dispatchEvent(
+    new CustomEvent('cart:updated', {
+      detail:{ count:data.cart_count ?? data.count ?? data.cartQty ?? 0 }
+    })
+  );
+
+  if(redirectAfter){
+    showPopup(activePopup, '✓ Added! Redirecting…');
+    window.location.href = '{{ url_for("checkout") }}';
+  }else{
+    showPopup(activePopup, '✓ ' + formatQty(qty) + ' ' + unitLabel + ' added to cart!');
+
+    window.setTimeout(function(){
+      window.location.reload();
+    }, 450);
+  }
+}else{
         const errorMessage = data && (data.msg || data.error)
           ? (data.msg || data.error)
           : 'Failed to add to cart. Please try again.';

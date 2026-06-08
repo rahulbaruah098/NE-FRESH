@@ -155,10 +155,30 @@ def store_catalog(sid):
                     },
                     {
                         "stock_quantity": {"$gt": 0}
-                }
+                    }
                 ]
             }).sort("created_at", -1)
         )
+
+        cart_lookup = {}
+
+        if user and user.get("role") == "customer":
+            cid = get_or_create_cart(user["id"])
+
+            cart_items = list(mongo.cart_items.find({
+                "cart_id": cid
+            }))
+
+            for ci in cart_items:
+                product_id_value = ci.get("product_id")
+
+                if product_id_value:
+                    cart_lookup[str(product_id_value)] = {
+                        "cart_item_id": str(ci.get("_id")),
+                        "cart_quantity": cart_item_quantity(ci),
+                        "unit_type": ci.get("unit_type"),
+                        "unit_label": ci.get("unit_label")
+                    }
 
         for p in products:
             p["id"] = str(p["_id"])
@@ -169,6 +189,17 @@ def store_catalog(sid):
             hydrate_product_unit_fields(p)
             p["store_id"] = str(sid_obj)
             p["store_name"] = store.get("store_name", "")
+
+            cart_info = cart_lookup.get(str(p["_id"]))
+
+            if cart_info:
+                p["in_cart"] = True
+                p["cart_item_id"] = cart_info.get("cart_item_id", "")
+                p["cart_quantity"] = cart_info.get("cart_quantity", p.get("quantity_min") or 1)
+            else:
+                p["in_cart"] = False
+                p["cart_item_id"] = ""
+                p["cart_quantity"] = 0
 
             product_ratings = list(mongo.product_ratings.find({
                 "product_id": p["_id"]
@@ -1672,6 +1703,9 @@ def store_product_new():
         "discount_percent": pricing["discount_percent"],
 
         "stock_quantity": stock_quantity,
+        "quantity_min": pricing["quantity_min"],
+        "quantity_step": pricing["quantity_step"],
+        "quantity_message": pricing["quantity_message"],
 
         "category_id": category_id,
         "category": category,
@@ -1972,6 +2006,9 @@ def store_product_update(pid):
         "discount_percent": pricing["discount_percent"],
 
         "stock_quantity": stock,
+        "quantity_min": pricing["quantity_min"],
+        "quantity_step": pricing["quantity_step"],
+        "quantity_message": pricing["quantity_message"],
 
         "category_id": category_id,
         "category": category,
