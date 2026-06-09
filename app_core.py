@@ -168,8 +168,17 @@ def haversine_km(lat1, lon1, lat2, lon2):
 # ----------------------
 # DELIVERY PARTNER LIVE MODE
 # ----------------------
-DELIVERY_ACTIONABLE_STATUSES = ["PLACED", "CONFIRMED", "PREPARING"]
-DELIVERY_ASSIGNED_ACTIVE_STATUSES = ["ASSIGNED_TO_DELIVERY", "OUT_FOR_DELIVERY"]
+# Delivery boys should see only store-ready, unassigned orders.
+# Store must first mark the order READY_FOR_PICKUP.
+DELIVERY_ACTIONABLE_STATUSES = ["READY_FOR_PICKUP"]
+
+# Active orders already assigned to a delivery boy.
+DELIVERY_ASSIGNED_ACTIVE_STATUSES = [
+    "ASSIGNED_TO_DELIVERY",
+    "REACHED_STORE",
+    "PICKED_UP",
+    "OUT_FOR_DELIVERY"
+]
 
 # Only drivers within this radius from the store pickup point can accept.
 # If store coordinates are missing, distance check is skipped.
@@ -1013,8 +1022,6 @@ def check_store_serviceability(store, customer_lat, customer_lng, customer_pinco
 # =========================================================
 
 DELIVERY_STORE_ASSIGNABLE_STATUSES = {
-    "CONFIRMED",
-    "PREPARING",
     "READY_FOR_PICKUP",
     "ASSIGNED_TO_DELIVERY"
 }
@@ -1215,12 +1222,18 @@ def get_online_delivery_people_near_store(store, max_km=None):
 
 def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, source="store_manual", allow_reassign=False):
     """
-    Assigns a delivery boy to an order.
+    Conflict-safe delivery assignment.
 
     Used by:
     - Store manual assignment
-    - Store reassignment
-    - Delivery-boy self accept, if kept
+    - Store reassignment when allow_reassign=True
+    - Delivery-boy self accept
+
+    Core rule:
+    - New assignment is allowed only after store marks order READY_FOR_PICKUP.
+    - If two delivery boys click at the same time, first update wins.
+    - If store and delivery boy click at the same time, first update wins.
+    - Existing assignment is not overwritten unless allow_reassign=True.
     """
     try:
         oid_obj = order_id if isinstance(order_id, ObjectId) else ObjectId(str(order_id))
@@ -1228,6 +1241,20 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
         return {
             "ok": False,
             "error": "Invalid order id."
+        }
+
+    partner = get_delivery_partner_snapshot(delivery_user_id)
+
+    if not partner:
+        return {
+            "ok": False,
+            "error": "Delivery boy not found."
+        }
+
+    if int(partner.get("is_active") or 0) != 1:
+        return {
+            "ok": False,
+            "error": "This delivery-boy account is disabled."
         }
 
     order = mongo.orders.find_one({"_id": oid_obj})
@@ -1249,29 +1276,23 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
     if status not in DELIVERY_STORE_ASSIGNABLE_STATUSES:
         return {
             "ok": False,
-            "error": "This order is not ready for delivery assignment."
+            "error": "Store must mark this order ready for pickup before delivery assignment."
         }
 
     existing_partner = order.get("delivery_partner_id")
 
     if existing_partner and not allow_reassign:
+        if str(existing_partner) == str(partner["id"]):
+            return {
+                "ok": True,
+                "message": "This order is already assigned to this delivery boy.",
+                "order_id": str(oid_obj),
+                "delivery_partner": partner
+            }
+
         return {
             "ok": False,
             "error": "This order already has an assigned delivery boy."
-        }
-
-    partner = get_delivery_partner_snapshot(delivery_user_id)
-
-    if not partner:
-        return {
-            "ok": False,
-            "error": "Delivery boy not found."
-        }
-
-    if int(partner.get("is_active") or 0) != 1:
-        return {
-            "ok": False,
-            "error": "This delivery-boy account is disabled."
         }
 
     now = datetime.utcnow().isoformat()
@@ -1286,21 +1307,66 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
         "delivery_assigned_by_name": actor_data.get("actor_name"),
         "delivery_assignment_source": source,
         "assigned_at": now,
-        "updated_at": now
+        "updated_at": now,
+        "status": "ASSIGNED_TO_DELIVERY"
     }
 
-    if status != "ASSIGNED_TO_DELIVERY":
-        update_data["status"] = "ASSIGNED_TO_DELIVERY"
+    unassigned_filter = {
+        "_id": oid_obj,
+        "status": "READY_FOR_PICKUP",
+        "$or": [
+            {"delivery_partner_id": {"$exists": False}},
+            {"delivery_partner_id": None},
+            {"delivery_partner_id": ""}
+        ]
+    }
+
+    reassign_filter = {
+        "_id": oid_obj,
+        "status": {
+            "$in": [
+                "READY_FOR_PICKUP",
+                "ASSIGNED_TO_DELIVERY",
+                "REACHED_STORE"
+            ]
+        },
+        "$and": [
+            {"delivery_partner_id": {"$exists": True}},
+            {"delivery_partner_id": {"$ne": None}},
+            {"delivery_partner_id": {"$ne": ""}}
+        ]
+    }
+
+    if allow_reassign:
+        update_filter = reassign_filter
+    else:
+        update_filter = unassigned_filter
 
     result = mongo.orders.update_one(
-        {"_id": oid_obj},
+        update_filter,
         {"$set": update_data}
     )
 
     if result.modified_count < 1:
+        latest = mongo.orders.find_one({"_id": oid_obj}) or {}
+        latest_partner = latest.get("delivery_partner_id")
+        latest_status = (latest.get("status") or "").strip().upper()
+
+        if latest_partner and not allow_reassign:
+            return {
+                "ok": False,
+                "error": "This order has just been assigned to another delivery boy."
+            }
+
+        if latest_status != "READY_FOR_PICKUP" and not allow_reassign:
+            return {
+                "ok": False,
+                "error": "This order is no longer available for delivery assignment."
+            }
+
         return {
             "ok": False,
-            "error": "Delivery assignment could not be updated."
+            "error": "Delivery assignment could not be updated. Please refresh and try again."
         }
 
     mongo.delivery_availability.update_one(

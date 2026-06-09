@@ -14,45 +14,64 @@ def delivery_dashboard():
 
     availability = _get_delivery_availability(u["id"])
     delivery_active = bool(availability.get("active"))
-    active_since = availability.get("active_since")
 
     orders = []
 
     # Driver OFF = show no order data.
-    if delivery_active and active_since:
+    # Driver ON = always show all existing READY_FOR_PICKUP + unassigned orders,
+    # even if they were marked ready while the delivery boy was offline.
+    if delivery_active:
         raw_orders = list(
             mongo.orders.find({
                 "$or": [
                     {
-                        "delivery_partner_id": u["id"],
-                        "status": {"$in": DELIVERY_ASSIGNED_ACTIVE_STATUSES}
+                        "$and": [
+                            {
+                                "$or": [
+                                    {"delivery_partner_id": u["id"]},
+                                    {"delivery_partner_id": str(u["id"])}
+                                ]
+                            },
+                            {
+                                "status": {"$in": DELIVERY_ASSIGNED_ACTIVE_STATUSES}
+                            }
+                        ]
                     },
                     {
                         "$and": [
                             {
                                 "$or": [
                                     {"delivery_partner_id": None},
+                                    {"delivery_partner_id": ""},
                                     {"delivery_partner_id": {"$exists": False}}
                                 ]
                             },
-                            {"created_at": {"$gte": active_since}},
-                            {"status": {"$in": DELIVERY_ACTIONABLE_STATUSES}}
+                            {
+                                "status": {"$in": DELIVERY_ACTIONABLE_STATUSES}
+                            }
                         ]
                     }
                 ]
-            }).sort("created_at", -1)
+            }).sort("updated_at", -1)
         )
 
         for o in raw_orders:
             o = _hydrate_delivery_order(o)
             distance_km = _driver_distance_to_store_km(o, availability)
             o["driver_store_distance_km"] = distance_km
+
+            # Keep available ready orders visible even if distance cannot be calculated.
+            # If distance exists and is outside radius, hide only unassigned available orders.
+            if not o.get("delivery_partner_id"):
+                if distance_km is not None and distance_km > DELIVERY_ACCEPT_RADIUS_KM:
+                    continue
+
             orders.append(o)
 
-        # Nearby first, unknown distance last.
+        # Own active orders first, then nearest available ready orders.
         orders.sort(
             key=lambda x: (
-                0 if x.get("delivery_partner_id") == u["id"] else 1,
+                0 if str(x.get("delivery_partner_id") or "") == str(u["id"]) else 1,
                 999999 if x.get("driver_store_distance_km") is None else x.get("driver_store_distance_km")
             )
         )
@@ -147,19 +166,6 @@ def delivery_assign(oid):
         flash("Order not found.", "danger")
         return redirect(url_for("delivery_dashboard"))
 
-    if order.get("status") not in DELIVERY_ACTIONABLE_STATUSES:
-        flash("This order is no longer available for delivery.", "warning")
-        return redirect(url_for("delivery_dashboard"))
-
-    existing_partner = order.get("delivery_partner_id")
-
-    if existing_partner:
-        if str(existing_partner) == str(u["id"]):
-            flash("This order is already assigned to you.", "info")
-        else:
-            flash("This order is already assigned to another delivery partner.", "warning")
-        return redirect(url_for("delivery_dashboard"))
-
     distance_km = _driver_distance_to_store_km(order, availability)
 
     if distance_km is not None and distance_km > DELIVERY_ACCEPT_RADIUS_KM:
@@ -184,7 +190,10 @@ def delivery_assign(oid):
     now = _delivery_now()
 
     mongo.orders.update_one(
-        {"_id": oid_obj},
+        {
+            "_id": oid_obj,
+            "delivery_partner_id": u["id"]
+        },
         {
             "$set": {
                 "assignment_distance_km": distance_km,

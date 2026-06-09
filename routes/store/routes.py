@@ -966,7 +966,7 @@ def store_delivery_page():
             delivery_metrics["ready_for_pickup"] += 1
             ready_orders.append(order)
 
-        if status in {"CONFIRMED", "PREPARING", "PACKAGING", "READY_FOR_PICKUP"} and not has_rider:
+        if status == "READY_FOR_PICKUP" and not has_rider:
             delivery_metrics["needs_rider"] += 1
             needs_rider_orders.append(order)
             attention_orders.append(order)
@@ -1032,14 +1032,36 @@ def store_order_ready_for_pickup(oid):
 
     status = (order.get("status") or "").strip().upper()
 
-    if status in {"CANCELLED", "DELIVERED", "PICKED_UP", "OUT_FOR_DELIVERY"}:
-        flash("This order cannot be marked ready for pickup now.", "warning")
+    if order.get("delivery_partner_id"):
+        flash("This order already has a delivery boy assigned.", "warning")
+        return redirect(url_for("store_orders"))
+
+    allowed_ready_statuses = {
+        "CONFIRMED",
+        "PREPARING",
+        "PACKAGING"
+    }
+
+    if status == "READY_FOR_PICKUP":
+        flash("This order is already ready for pickup.", "info")
+        return redirect(url_for("store_orders"))
+
+    if status not in allowed_ready_statuses:
+        flash("Only confirmed/preparing/packaging orders can be marked ready for pickup.", "warning")
         return redirect(url_for("store_orders"))
 
     now = datetime.utcnow().isoformat()
 
-    mongo.orders.update_one(
-        {"_id": oid_obj},
+    result = mongo.orders.update_one(
+        {
+            "_id": oid_obj,
+            "status": {"$in": list(allowed_ready_statuses)},
+            "$or": [
+                {"delivery_partner_id": {"$exists": False}},
+                {"delivery_partner_id": None},
+                {"delivery_partner_id": ""}
+            ]
+        },
         {
             "$set": {
                 "status": "READY_FOR_PICKUP",
@@ -1048,6 +1070,10 @@ def store_order_ready_for_pickup(oid):
             }
         }
     )
+
+    if result.modified_count < 1:
+        flash("This order status changed recently. Please refresh and try again.", "warning")
+        return redirect(url_for("store_orders"))
 
     add_order_event(
         oid_obj,
@@ -1088,6 +1114,12 @@ def store_order_assign_delivery(oid):
 
     if not delivery_user_id:
         flash("Please select a delivery boy.", "warning")
+        return redirect(url_for("store_orders"))
+    
+    status = (order.get("status") or "").strip().upper()
+
+    if status != "READY_FOR_PICKUP":
+        flash("Please mark this order ready for pickup before assigning a delivery boy.", "warning")
         return redirect(url_for("store_orders"))
 
     result = assign_delivery_partner_to_order(

@@ -454,17 +454,16 @@
   <option value="PLACED" {{ 'selected' if (o.status or '')|upper == 'PLACED' }}>PLACED</option>
   <option value="CONFIRMED" {{ 'selected' if (o.status or '')|upper == 'CONFIRMED' }}>CONFIRMED</option>
   <option value="PREPARING" {{ 'selected' if (o.status or '')|upper == 'PREPARING' }}>PREPARING</option>
-  <option value="READY_FOR_PICKUP" {{ 'selected' if (o.status or '')|upper == 'READY_FOR_PICKUP' }}>READY_FOR_PICKUP</option>
   <option value="CANCELLED" {{ 'selected' if (o.status or '')|upper == 'CANCELLED' }}>CANCELLED</option>
 </select>
                       <button type="submit">Update</button>
                     </form>
                     {% set order_status = (o.status or '')|upper %}
 {% set has_rider = o.delivery_partner_id %}
-{% set can_mark_ready = order_status in ['PLACED', 'CONFIRMED', 'PREPARING'] %}
-{% set can_assign_delivery = order_status in ['CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'] and not has_rider %}
-{% set can_reassign_delivery = has_rider and order_status not in ['PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'] %}
-{% set can_clear_delivery = has_rider and order_status not in ['PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'] %}
+{% set can_mark_ready = order_status in ['CONFIRMED', 'PREPARING', 'PACKAGING'] and not has_rider %}
+{% set can_assign_delivery = order_status == 'READY_FOR_PICKUP' and not has_rider %}
+{% set can_reassign_delivery = has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
+{% set can_clear_delivery = has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
 
 <div class="sd-delivery-control">
   <div class="sd-delivery-title">
@@ -492,9 +491,9 @@
       {% endif %}
     </div>
   {% else %}
-    <div class="sd-delivery-note">
-      Assign a delivery boy after the order is confirmed/preparing/ready for pickup.
-    </div>
+   <div class="sd-delivery-note">
+  First confirm/prepare the order, then mark it ready for pickup. Rider assignment opens only after that.
+</div>
   {% endif %}
 
   {% if can_mark_ready %}
@@ -519,7 +518,7 @@
           {% endfor %}
         </select>
         <div class="sd-delivery-buttons">
-          <button type="submit" class="primary">Assign Delivery</button>
+          <button type="submit" class="primary">Assign Delivery Boy</button>
         </div>
       </form>
     {% else %}
@@ -714,19 +713,24 @@ function showStatusPopover(button, message, type) {
             redirect: 'follow'
           })
           .then(function(response){
-            if (!response.ok) {
-              throw new Error('Status update failed');
-            }
+  if (!response.ok) {
+    throw new Error('Status update failed');
+  }
 
-            const statusCellTag = row.querySelector('td:nth-child(5) .sd-tag');
-            const paymentCell = row.querySelector('td:nth-child(6)');
+  const statusCellTag = row.querySelector('td:nth-child(5) .sd-tag');
 
-            if (statusCellTag) {
-              statusCellTag.textContent = selectedStatus;
-            }
+  if (statusCellTag) {
+    statusCellTag.textContent = selectedStatus;
+  }
 
-            showStatusPopover(button, 'Order status updated to ' + selectedStatus + '.', 'success');
-          })
+  showStatusPopover(button, 'Order status updated to ' + selectedStatus + '.', 'success');
+
+  if (['CONFIRMED', 'PREPARING', 'PACKAGING', 'READY_FOR_PICKUP'].includes(selectedStatus)) {
+    setTimeout(function(){
+      window.location.reload();
+    }, 700);
+  }
+})
           .catch(function(){
             showStatusPopover(button, 'Could not update order status. Please try again.', 'error');
           })

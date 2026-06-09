@@ -116,7 +116,6 @@ def api_alerts_delivery():
             "next_last_id": ""
         })
 
-    active_since = availability.get("active_since") or _delivery_now()
     last_id = (request.args.get("last_id") or "").strip()
 
     base_filter = {
@@ -124,11 +123,13 @@ def api_alerts_delivery():
             {
                 "$or": [
                     {"delivery_partner_id": None},
+                    {"delivery_partner_id": ""},
                     {"delivery_partner_id": {"$exists": False}}
                 ]
             },
-            {"status": {"$in": DELIVERY_ACTIONABLE_STATUSES}},
-            {"created_at": {"$gte": active_since}}
+            {
+            "status": {"$in": DELIVERY_ACTIONABLE_STATUSES}
+            }
         ]
     }
 
