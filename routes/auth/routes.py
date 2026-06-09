@@ -545,7 +545,7 @@ def verify_email_post(user_id):
         'success'
     )
 
-    return redirect(url_for('index'))
+    return redirect(url_for('login'))
 
 
 
