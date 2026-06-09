@@ -6,7 +6,7 @@
 {% block title %}Delivery List | NE FRESH Admin{% endblock %}
 
 {% block page_title %}Deliveryman{% endblock %}
-{% block page_subtitle %}Manage delivery partners, assigned orders, availability and safe account actions.{% endblock %}
+{% block page_subtitle %}Create, review, enable, disable and delete delivery-boy accounts.{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -831,12 +831,11 @@
       <div class="dl-title-icon">🛵</div>
       <div>
         <h2>Deliveryman</h2>
-        <p>Review deliveryman list, order count, availability and account status.</p>
+        <p>Review delivery-boy accounts, contact details and account status.</p>
       </div>
     </div>
 
     <div class="dl-head-actions">
-      <a href="{{ url_for('admin_delivery_overview') }}" class="dl-btn dl-btn-blue">📊 Overview</a>
       <a href="{{ url_for('admin_create_delivery') }}" class="dl-btn dl-btn-primary">➕ Add New</a>
       <a href="{{ url_for('admin_delivery_export_csv', search=search, status=status, availability=availability) }}" class="dl-btn dl-btn-soft">⬇ Export</a>
     </div>
@@ -875,21 +874,6 @@
       </div>
     </div>
 
-    <div class="dl-kpi orange">
-      <div class="dl-kpi-icon">📦</div>
-      <div>
-        <strong>{{ metrics.assigned_orders|default(0) }}</strong>
-        <span>Assigned Orders</span>
-      </div>
-    </div>
-
-    <div class="dl-kpi">
-      <div class="dl-kpi-icon">🏁</div>
-      <div>
-        <strong>{{ metrics.completed_orders|default(0) }}</strong>
-        <span>Completed Orders</span>
-      </div>
-    </div>
   </div>
 
   <section class="dl-list-card">
@@ -935,8 +919,8 @@
             <th>Name</th>
             <th>Contact Info</th>
             
-            <th>Total Completed Orders</th>
-            <th>Availability Status</th>
+           <th>Account Summary</th>
+<th>Login Status</th>
             <th>Status</th>
             <th>Action</th>
           </tr>
@@ -967,21 +951,20 @@
              
 
               <td>
-                <span class="dl-chip green">{{ d.total_completed_orders|default(0) }}</span>
-              </td>
+  <span class="dl-chip green">Account</span>
+</td>
 
               <td>
                 <div class="dl-availability">
-                  <div>Currently assigned orders : <strong>{{ d.currently_assigned_orders|default(0) }}</strong></div>
-                  <div>
-                    Active status :
-                    {% if d.is_online %}
-                      <strong style="color:var(--dl-blue);">Online</strong>
-                    {% else %}
-                      <strong style="color:var(--dl-muted);">Offline</strong>
-                    {% endif %}
-                  </div>
-                </div>
+  <div>
+    Login status :
+    {% if d.is_online %}
+      <strong style="color:var(--dl-blue);">Online</strong>
+    {% else %}
+      <strong style="color:var(--dl-muted);">Offline</strong>
+    {% endif %}
+  </div>
+</div>
               </td>
 
               <td>
@@ -1003,12 +986,7 @@
                     data-email="{{ d.email|e }}"
                     data-phone="{{ d.phone|e }}"
                     
-                    data-completed="{{ d.total_completed_orders|default(0) }}"
-                    data-total="{{ d.total_orders|default(0) }}"
-                    data-assigned="{{ d.currently_assigned_orders|default(0) }}"
-                    data-rating="{{ d.rating|default(0) }}"
-                    data-reviews="{{ d.rating_count|default(0) }}"
-                    data-availability="{{ d.availability_status|e }}"
+                   data-availability="{{ d.availability_status|e }}"
                     data-status="{{ 'Active' if d.is_active else 'Disabled' }}"
                     data-created="{{ d.created_at_full|e }}"
                   >👁</button>
@@ -1068,17 +1046,9 @@
           <div class="dl-mobile-grid">
             
             <div class="dl-mobile-stat">
-              <span>Completed</span>
-              <strong>{{ d.total_completed_orders|default(0) }}</strong>
-            </div>
-            <div class="dl-mobile-stat">
-              <span>Assigned</span>
-              <strong>{{ d.currently_assigned_orders|default(0) }}</strong>
-            </div>
-            <div class="dl-mobile-stat">
-              <span>Reviews</span>
-              <strong>{{ d.rating_count|default(0) }}</strong>
-            </div>
+  <span>Account</span>
+  <strong>{{ 'Active' if d.is_active else 'Disabled' }}</strong>
+</div>
           </div>
 
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1146,10 +1116,7 @@
           <strong id="modalPhone">-</strong>
         </div>
         
-        <div class="dl-detail-row">
-          <span>Orders</span>
-          <strong id="modalOrders">-</strong>
-        </div>
+        
         <div class="dl-detail-row">
           <span>Availability</span>
           <strong id="modalAvailability">-</strong>
@@ -1158,10 +1125,7 @@
           <span>Status</span>
           <strong id="modalStatus">-</strong>
         </div>
-        <div class="dl-detail-row">
-          <span>Rating</span>
-          <strong id="modalRating">-</strong>
-        </div>
+
         <div class="dl-detail-row">
           <span>Created</span>
           <strong id="modalCreated">-</strong>
@@ -1203,11 +1167,9 @@
     email: document.getElementById('modalEmail'),
     phone: document.getElementById('modalPhone'),
     
-    orders: document.getElementById('modalOrders'),
     availability: document.getElementById('modalAvailability'),
-    status: document.getElementById('modalStatus'),
-    rating: document.getElementById('modalRating'),
-    created: document.getElementById('modalCreated')
+status: document.getElementById('modalStatus'),
+created: document.getElementById('modalCreated')
   };
 
   function openModal(btn) {
@@ -1217,13 +1179,9 @@
     fields.email.textContent = btn.dataset.email || '-';
     fields.phone.textContent = btn.dataset.phone || '-';
     
-    fields.orders.textContent =
-      `${btn.dataset.completed || 0} completed / ${btn.dataset.total || 0} total / ${btn.dataset.assigned || 0} assigned`;
     fields.availability.textContent = btn.dataset.availability || '-';
-    fields.status.textContent = btn.dataset.status || '-';
-    fields.rating.textContent =
-      `⭐ ${btn.dataset.rating || 0} from ${btn.dataset.reviews || 0} reviews`;
-    fields.created.textContent = btn.dataset.created || '-';
+fields.status.textContent = btn.dataset.status || '-';
+fields.created.textContent = btn.dataset.created || '-';
 
     modal.classList.add('open');
     modal.setAttribute('aria-hidden', 'false');

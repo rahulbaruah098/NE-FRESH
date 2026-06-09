@@ -677,17 +677,38 @@
               </button>
 
               <!-- COD confirmation + status -->
-              <form method="post" action="{{ url_for('delivery_status', oid=o.id) }}" class="inline">
-                <select name="status" class="select">
-                  <option value="OUT_FOR_DELIVERY" {% if o.status=='OUT_FOR_DELIVERY' %}selected{% endif %}>OUT_FOR_DELIVERY</option>
-                  <option value="DELIVERED" {% if o.status=='DELIVERED' %}selected{% endif %}>DELIVERED</option>
-                </select>
-                <label class="chk">
-                  <input type="checkbox" name="cod_received" value="1">
-                  Payment received
-                </label>
-                <button class="btn-ghost" type="submit">Update</button>
-              </form>
+              {% if o.delivery_partner_id == user.id %}
+  {% set st = (o.status or '')|upper %}
+  <form method="post" action="{{ url_for('delivery_status', oid=o.id) }}" class="inline">
+    <select name="status" class="select">
+      {% if st == 'ASSIGNED_TO_DELIVERY' %}
+        <option value="REACHED_STORE">REACHED_STORE</option>
+        <option value="PICKED_UP">PICKED_UP</option>
+        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+      {% elif st == 'REACHED_STORE' %}
+        <option value="PICKED_UP">PICKED_UP</option>
+        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+      {% elif st == 'PICKED_UP' %}
+        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+      {% elif st == 'OUT_FOR_DELIVERY' %}
+        <option value="DELIVERED">DELIVERED</option>
+      {% else %}
+        <option value="">No next action</option>
+      {% endif %}
+    </select>
+
+    {% if st == 'OUT_FOR_DELIVERY' %}
+      <label class="chk">
+        <input type="checkbox" name="cod_received" value="1">
+        Payment received
+      </label>
+    {% endif %}
+
+    {% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
+      <button class="btn-ghost" type="submit">Update</button>
+    {% endif %}
+  </form>
+{% endif %}
             </td>
 
             <td data-label="Quick Nav">
@@ -762,16 +783,37 @@
             {% endif %}
           </div>
 
-          <form method="post" action="{{ url_for('delivery_status', oid=o.id) }}" class="status-form">
-            <select name="status" class="select small">
-              <option value="OUT_FOR_DELIVERY" {% if o.status=='OUT_FOR_DELIVERY' %}selected{% endif %}>OUT_FOR_DELIVERY</option>
-              <option value="DELIVERED" {% if o.status=='DELIVERED' %}selected{% endif %}>DELIVERED</option>
-            </select>
-            <label class="chk small">
-              <input type="checkbox" name="cod_received" value="1"> Payment received
-            </label>
-            <button class="btn-ghost small" type="submit">Update</button>
-          </form>
+          {% if o.delivery_partner_id == user.id %}
+  {% set st = (o.status or '')|upper %}
+  <form method="post" action="{{ url_for('delivery_status', oid=o.id) }}" class="status-form">
+    <select name="status" class="select small">
+      {% if st == 'ASSIGNED_TO_DELIVERY' %}
+        <option value="REACHED_STORE">REACHED_STORE</option>
+        <option value="PICKED_UP">PICKED_UP</option>
+        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+      {% elif st == 'REACHED_STORE' %}
+        <option value="PICKED_UP">PICKED_UP</option>
+        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+      {% elif st == 'PICKED_UP' %}
+        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+      {% elif st == 'OUT_FOR_DELIVERY' %}
+        <option value="DELIVERED">DELIVERED</option>
+      {% else %}
+        <option value="">No next action</option>
+      {% endif %}
+    </select>
+
+    {% if st == 'OUT_FOR_DELIVERY' %}
+      <label class="chk small">
+        <input type="checkbox" name="cod_received" value="1"> Payment received
+      </label>
+    {% endif %}
+
+    {% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
+      <button class="btn-ghost small" type="submit">Update</button>
+    {% endif %}
+  </form>
+{% endif %}
         </div>
         {% endfor %}
       </div>

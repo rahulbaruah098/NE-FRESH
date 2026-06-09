@@ -234,6 +234,67 @@ def index():
         store_rating_map=store_rating_map
     )
 
+
+def _public_notification_priority(value):
+    priority = (value or "medium").strip().lower()
+
+    if priority not in ["high", "medium", "low"]:
+        priority = "medium"
+
+    return priority
+
+
+def _public_notification_priority_rank(priority):
+    priority = _public_notification_priority(priority)
+
+    if priority == "high":
+        return 1
+
+    if priority == "medium":
+        return 2
+
+    return 3
+
+
+@app.route("/api/homepage/notifications", methods=["GET"], endpoint="api_homepage_notifications")
+def api_homepage_notifications():
+    notifications = list(
+        mongo.homepage_notifications.find({
+            "is_active": 1,
+            "show_ticker": 1,
+            "$or": [
+                {"display_location": "homepage"},
+                {"display_location": "all"},
+                {"display_location": {"$exists": False}}
+            ]
+        }).sort([
+            ("priority_rank", 1),
+            ("created_at", -1)
+        ]).limit(20)
+    )
+
+    items = []
+
+    for n in notifications:
+        priority = _public_notification_priority(n.get("priority"))
+
+        items.append({
+            "id": str(n.get("_id")),
+            "title": n.get("title", ""),
+            "message": n.get("message", ""),
+            "priority": priority,
+            "priority_rank": _public_notification_priority_rank(priority),
+            "link_url": n.get("link_url", ""),
+            "show_popup": int(n.get("show_popup", 0) or 0),
+            "created_at": n.get("created_at", "")
+        })
+
+    return jsonify({
+        "ok": True,
+        "count": len(items),
+        "notifications": items
+    })
+
 @app.route('/legal/privacy')
 def legal_privacy():
     return render_template('legal/privacy.html', user=current_user())

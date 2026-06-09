@@ -21,6 +21,10 @@ import routes.delivery.routes  # noqa: F401
 import routes.api.routes  # noqa: F401
 
 
+print("\n=== ROUTES LOADED FROM app.py ===")
+print(app.url_map)
+print("=================================\n")
+
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",

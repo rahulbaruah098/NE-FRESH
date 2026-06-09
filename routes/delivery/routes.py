@@ -154,7 +154,7 @@ def delivery_assign(oid):
     existing_partner = order.get("delivery_partner_id")
 
     if existing_partner:
-        if existing_partner == u["id"]:
+        if str(existing_partner) == str(u["id"]):
             flash("This order is already assigned to you.", "info")
         else:
             flash("This order is already assigned to another delivery partner.", "warning")
@@ -169,40 +169,29 @@ def delivery_assign(oid):
         )
         return redirect(url_for("delivery_dashboard"))
 
+    result = assign_delivery_partner_to_order(
+        order_id=oid_obj,
+        delivery_user_id=u["id"],
+        actor=u,
+        source="rider_self",
+        allow_reassign=False
+    )
+
+    if not result.get("ok"):
+        flash(result.get("error") or "Could not accept this order.", "warning")
+        return redirect(url_for("delivery_dashboard"))
+
     now = _delivery_now()
 
-    # Atomic acceptance:
-    # Only one delivery partner can win this update.
-    result = mongo.orders.update_one(
-        {
-            "_id": oid_obj,
-            "$or": [
-                {"delivery_partner_id": None},
-                {"delivery_partner_id": {"$exists": False}}
-            ],
-            "status": {"$in": DELIVERY_ACTIONABLE_STATUSES}
-        },
+    mongo.orders.update_one(
+        {"_id": oid_obj},
         {
             "$set": {
-                "delivery_partner_id": u["id"],
-                "status": "ASSIGNED_TO_DELIVERY",
-                "assigned_at": now,
                 "assignment_distance_km": distance_km,
                 "updated_at": now
             }
         }
     )
-
-    if result.modified_count != 1:
-        flash("This order was just accepted by another delivery partner or is no longer available.", "warning")
-        return redirect(url_for("delivery_dashboard"))
-
-    mongo.order_events.insert_one({
-        "order_id": oid_obj,
-        "status": "ASSIGNED_TO_DELIVERY",
-        "note": "Assigned to delivery partner",
-        "created_at": now
-    })
 
     flash("Order assigned to you.", "success")
     return redirect(url_for("delivery_dashboard"))
@@ -227,64 +216,127 @@ def delivery_status(oid):
         flash("Order not found or not assigned to you.", "danger")
         return redirect(url_for("delivery_dashboard"))
 
-    new_status = request.form.get('status', 'OUT_FOR_DELIVERY').upper()
+    new_status = (request.form.get('status') or '').strip().upper()
     now = datetime.utcnow().isoformat()
 
-    if new_status == 'DELIVERED':
+    allowed_statuses = {
+        "REACHED_STORE",
+        "PICKED_UP",
+        "OUT_FOR_DELIVERY",
+        "DELIVERED"
+    }
+
+    if new_status not in allowed_statuses:
+        flash("Invalid delivery status selected.", "warning")
+        return redirect(url_for("delivery_dashboard"))
+
+    current_status = (order.get("status") or "").strip().upper()
+
+    allowed_transitions = {
+        "ASSIGNED_TO_DELIVERY": {"REACHED_STORE", "PICKED_UP", "OUT_FOR_DELIVERY"},
+        "REACHED_STORE": {"PICKED_UP", "OUT_FOR_DELIVERY"},
+        "PICKED_UP": {"OUT_FOR_DELIVERY"},
+        "OUT_FOR_DELIVERY": {"DELIVERED"},
+    }
+
+    if current_status == "DELIVERED":
+        flash("This order is already delivered.", "info")
+        return redirect(url_for("delivery_dashboard"))
+
+    if new_status not in allowed_transitions.get(current_status, allowed_statuses):
+        flash(f"Cannot change order from {current_status} to {new_status}.", "warning")
+        return redirect(url_for("delivery_dashboard"))
+
+    update_data = {
+        "status": new_status,
+        "updated_at": now
+    }
+
+    event_note = "Updated by delivery boy"
+
+    if new_status == "REACHED_STORE":
+        update_data["reached_store_at"] = now
+        event_note = "Delivery boy reached store."
+
+    elif new_status == "PICKED_UP":
+        update_data["picked_up_at"] = now
+        event_note = "Order picked up from store."
+
+    elif new_status == "OUT_FOR_DELIVERY":
+        update_data["out_for_delivery_at"] = now
+        event_note = "Order is out for delivery."
+
+    elif new_status == "DELIVERED":
         cod_received = request.form.get('cod_received')
 
         if cod_received != '1':
             flash('Please confirm that payment (COD) has been received before marking Delivered.', 'warning')
             return redirect(url_for('delivery_dashboard'))
 
-        mongo.orders.update_one(
-            {"_id": oid_obj},
-            {
-                "$set": {
-                    "status": "DELIVERED",
-                    "payment_status": "PAID",
-                    "updated_at": now,
-                    "delivered_at": now
-                }
-            }
+        update_data["payment_status"] = "PAID"
+        update_data["delivered_at"] = now
+        event_note = "COD received. Order delivered."
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": update_data
+        }
+    )
+
+    if new_status == "DELIVERED":
+        payable_amount = (
+            float(order.get("total_amount") or 0)
+            + float(order.get("delivery_fee") or 0)
+            + float(order.get("tip_amount") or 0)
         )
 
-        mongo.transactions.update_many(
-            {"order_id": oid_obj},
+        existing_txn = mongo.transactions.find_one({
+            "order_id": oid_obj
+        })
+
+        if existing_txn:
+            mongo.transactions.update_many(
+                {"order_id": oid_obj},
+                {
+                    "$set": {
+                        "status": "PAID",
+                        "amount": payable_amount,
+                        "updated_at": now
+                    }
+                }
+            )
+        else:
+            mongo.transactions.insert_one({
+                "order_id": oid_obj,
+                "store_id": order.get("store_id"),
+                "user_id": order.get("user_id"),
+                "amount": payable_amount,
+                "status": "PAID",
+                "method": order.get("payment_method") or "COD",
+                "created_at": now,
+                "updated_at": now
+            })
+
+        mongo.delivery_availability.update_one(
+            {
+                "user_id": u["id"],
+                "current_order_id": str(oid_obj)
+            },
             {
                 "$set": {
-                    "status": "PAID",
+                    "current_order_id": None,
                     "updated_at": now
                 }
             }
         )
 
-        mongo.order_events.insert_one({
-            "order_id": oid_obj,
-            "status": "DELIVERED",
-            "note": "COD received",
-            "created_at": now
-        })
-
-        flash('Delivery completed and payment confirmed.', 'success')
-        return redirect(url_for('delivery_dashboard'))
-
-    mongo.orders.update_one(
-        {"_id": oid_obj},
-        {
-            "$set": {
-                "status": new_status,
-                "updated_at": now
-            }
-        }
+    add_order_event(
+        oid_obj,
+        new_status,
+        event_note,
+        u
     )
-
-    mongo.order_events.insert_one({
-        "order_id": oid_obj,
-        "status": new_status,
-        "note": "",
-        "created_at": now
-    })
 
     flash('Delivery status updated.', 'success')
     return redirect(url_for('delivery_dashboard'))
@@ -341,6 +393,8 @@ def delivery_update_location():
                     "error": "order not found or not assigned to you"
                 }), 404
 
+        now = datetime.utcnow().isoformat()
+
     mongo.delivery_locations.insert_one({
         "delivery_partner_id": u["id"],
         "order_id": oid_obj,
@@ -348,8 +402,26 @@ def delivery_update_location():
         "longitude": lng,
         "heading": heading,
         "speed": speed,
-        "recorded_at": datetime.utcnow().isoformat()
+        "recorded_at": now
     })
+
+    mongo.delivery_availability.update_one(
+        {"user_id": u["id"]},
+        {
+            "$set": {
+                "user_id": u["id"],
+                "active": True,
+                "latitude": lat,
+                "longitude": lng,
+                "current_order_id": str(oid_obj) if oid_obj else None,
+                "updated_at": now
+            },
+            "$setOnInsert": {
+                "active_since": now
+            }
+        },
+        upsert=True
+    )
 
     return jsonify({
         "ok": True,

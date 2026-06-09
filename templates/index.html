@@ -2347,6 +2347,168 @@ padding-right:clamp(42px,6vw,118px) !important;
       padding-right:16px !important;
     }
   }
+
+  /* ===================== LIVE HOMEPAGE NOTIFICATION TICKER - FULL WIDTH SMOOTH FINAL ===================== */
+.nf-live-notice-wrap{
+  width:100%;
+  background:#ffffff;
+  border-top:1px solid rgba(227,241,233,.75);
+  border-bottom:1px solid rgba(227,241,233,.95);
+  box-shadow:0 8px 22px rgba(17,64,38,.045);
+  position:relative;
+  z-index:15;
+}
+
+.nf-live-notice{
+  width:100%;
+  min-height:58px;
+  margin:0;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:22px;
+  overflow:hidden;
+  padding:8px clamp(18px,3vw,54px);
+}
+
+.nf-live-notice-btn{
+  min-height:38px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:0 15px;
+  border:1px solid rgba(0,168,89,.20);
+  border-radius:999px;
+  background:#E9FFF3;
+  color:#008A48;
+  font-size:.86rem;
+  font-weight:900;
+  white-space:nowrap;
+  box-shadow:0 8px 18px rgba(17,64,38,.055);
+}
+
+.nf-live-notice-btn{
+  position:relative;
+  z-index:4;
+}
+
+.nf-live-notice-count{
+  min-width:22px;
+  height:22px;
+  padding:0 6px;
+  display:inline-grid;
+  place-items:center;
+  border-radius:999px;
+  background:#00A859;
+  color:#fff;
+  font-size:.72rem;
+  font-weight:950;
+}
+
+.nf-live-ticker{
+  min-width:0;
+  width:100%;
+  overflow:hidden;
+  white-space:nowrap;
+  position:relative;
+  padding:4px 0;
+  margin-left:-22px;
+  padding-left:22px;
+}
+
+.nf-live-ticker-track{
+  display:inline-flex;
+  align-items:center;
+  gap:56px;
+  white-space:nowrap;
+  will-change:transform;
+  transform:translate3d(0,0,0);
+  animation:nfLiveTickerMove 11s linear infinite;
+}
+
+.nf-live-ticker:hover .nf-live-ticker-track{
+  animation-play-state:running;
+}
+
+.nf-live-item{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  color:#40534A;
+  font-size:.94rem;
+  font-weight:850;
+  line-height:1.4;
+}
+
+.nf-live-item::before{
+  content:"•";
+  color:#00A859;
+  font-size:1.45rem;
+  line-height:1;
+  font-weight:900;
+}
+
+.nf-live-item strong{
+  color:#23332A;
+  font-weight:950;
+}
+
+.nf-live-item a{
+  color:#008A48;
+  font-weight:950;
+  text-decoration:none;
+}
+
+.nf-live-empty{
+  color:#8A9890;
+  font-size:.86rem;
+  font-weight:750;
+}
+
+.nf-live-refresh,
+.nf-live-priority{
+  display:none !important;
+}
+
+.nf-live-notice-wrap.is-hidden{
+  display:none;
+}
+
+@keyframes nfLiveTickerMove{
+  0%{
+    transform:translate3d(0,0,0);
+  }
+  100%{
+    transform:translate3d(-50%,0,0);
+  }
+}
+
+@media(max-width:720px){
+  .nf-live-notice{
+    min-height:54px;
+    grid-template-columns:1fr;
+    gap:8px;
+    padding:8px 14px;
+  }
+
+  .nf-live-notice-btn{
+    width:max-content;
+    max-width:100%;
+    min-height:34px;
+    padding:0 12px;
+    font-size:.78rem;
+  }
+
+  .nf-live-item{
+    font-size:.82rem;
+  }
+
+  .nf-live-ticker-track{
+    gap:42px;
+    animation-duration:10s;
+  }
+}
   /* ABOUT US FLOATING CTA - HAND POINTER */
   .nf-about-floater{
     position:fixed;
@@ -2517,6 +2679,21 @@ padding-right:clamp(42px,6vw,118px) !important;
 </style>
 
 <main class="nf-grocery-page">
+  <!-- Live Homepage Notifications -->
+<div class="nf-live-notice-wrap is-hidden" id="nfLiveNoticeWrap">
+  <div class="nf-live-notice">
+    <button type="button" class="nf-live-notice-btn" id="nfLiveNoticeBtn">
+      🔔 Live Updates
+      <span class="nf-live-notice-count" id="nfLiveNoticeCount">0</span>
+    </button>
+
+    <div class="nf-live-ticker" aria-live="polite">
+      <div class="nf-live-ticker-track" id="nfLiveTickerTrack">
+        <span class="nf-live-empty">Loading latest updates...</span>
+      </div>
+    </div>
+  </div>
+</div>
   <!-- BODY START: HERO + RECOMMENDED STORES -->
   <section class="nf-body-start">
     <div class="nf-wrap">
@@ -3046,6 +3223,129 @@ padding-right:clamp(42px,6vw,118px) !important;
   </a>
 
 </main>
+
+<script>
+(function(){
+  const wrap = document.getElementById('nfLiveNoticeWrap');
+  const track = document.getElementById('nfLiveTickerTrack');
+  const countEl = document.getElementById('nfLiveNoticeCount');
+  const noticeBtn = document.getElementById('nfLiveNoticeBtn');
+
+  if (!wrap || !track || !countEl) return;
+
+  const API_URL = "{{ url_for('api_homepage_notifications') }}";
+
+  function escapeHtml(value){
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function priorityLabel(priority){
+    priority = String(priority || 'medium').toLowerCase();
+
+    if (!['high', 'medium', 'low'].includes(priority)) {
+      priority = 'medium';
+    }
+
+    return priority;
+  }
+
+  function itemHtml(item){
+  const title = escapeHtml(item.title);
+  const message = escapeHtml(item.message);
+  const link = String(item.link_url || '').trim();
+
+  const content = `
+    <span><strong>${title}</strong> — ${message}</span>
+  `;
+
+  if (link) {
+    return `<span class="nf-live-item">${content} <a href="${escapeHtml(link)}">View</a></span>`;
+  }
+
+  return `<span class="nf-live-item">${content}</span>`;
+}
+
+  function renderNotifications(items){
+  if (!Array.isArray(items) || !items.length) {
+    wrap.classList.add('is-hidden');
+    countEl.textContent = '0';
+    track.innerHTML = '<span class="nf-live-empty">No active notifications.</span>';
+    return;
+  }
+
+  wrap.classList.remove('is-hidden');
+  countEl.textContent = String(items.length);
+
+  const baseHtml = items.map(itemHtml).join('');
+
+  /*
+    Repeat the same notification group many times.
+    This prevents blank gaps and makes the ticker loop continuous.
+  */
+  const repeatedGroup = Array(8).fill(baseHtml).join('');
+
+  /*
+    Duplicate the repeated group once more.
+    CSS moves exactly -50%, so the second half matches the first half.
+    This removes pause, blank space and jerk.
+  */
+  track.innerHTML = repeatedGroup + repeatedGroup;
+}
+
+let nfLastNotificationSignature = '';
+
+  async function loadNotifications(){
+    try {
+      const res = await fetch(API_URL, {
+        headers: {
+          'Accept': 'application/json'
+        },
+        cache: 'no-store'
+      });
+
+      const data = await res.json();
+
+      if (!data || !data.ok) {
+        renderNotifications([]);
+        return;
+      }
+
+const items = data.notifications || [];
+const signature = JSON.stringify(items.map(function(item){
+  return [item.id, item.title, item.message, item.link_url].join('|');
+}));
+
+if (signature === nfLastNotificationSignature) {
+  return;
+}
+
+nfLastNotificationSignature = signature;
+renderNotifications(items);
+    } catch (err) {
+      renderNotifications([]);
+    }
+  }
+
+  if (noticeBtn) {
+    noticeBtn.addEventListener('click', function(){
+      if (track) {
+        track.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }
+    });
+  }
+
+  loadNotifications();
+  window.setInterval(loadNotifications, 30000);
+})();
+</script>
 
 <script>
   (function(){

@@ -29,9 +29,13 @@
   preparing=0,
   ready=0,
   assigned=0,
+  reached_store=0,
+  picked_up=0,
   out_for_delivery=0,
   delivered=0,
   cancelled=0,
+  unassigned_delivery=0,
+  active_delivery_orders=0,
   active_products=0,
   inactive_products=0,
   low_stock=0,
@@ -50,9 +54,19 @@
     {% if st == 'CONFIRMED' %}{% set ns.confirmed = ns.confirmed + 1 %}{% endif %}
     {% if st == 'PREPARING' or st == 'PACKAGING' %}{% set ns.preparing = ns.preparing + 1 %}{% endif %}
     {% if st == 'READY_FOR_PICKUP' %}{% set ns.ready = ns.ready + 1 %}{% endif %}
-    {% if st == 'ASSIGNED_TO_DELIVERY' or st == 'ACCEPTED_BY_DELIVERY_MAN' %}{% set ns.assigned = ns.assigned + 1 %}{% endif %}
-    {% if st == 'OUT_FOR_DELIVERY' %}{% set ns.out_for_delivery = ns.out_for_delivery + 1 %}{% endif %}
-    {% if st == 'DELIVERED' %}{% set ns.delivered = ns.delivered + 1 %}{% endif %}
+{% if st == 'ASSIGNED_TO_DELIVERY' or st == 'ACCEPTED_BY_DELIVERY_MAN' %}{% set ns.assigned = ns.assigned + 1 %}{% endif %}
+{% if st == 'REACHED_STORE' %}{% set ns.reached_store = ns.reached_store + 1 %}{% endif %}
+{% if st == 'PICKED_UP' %}{% set ns.picked_up = ns.picked_up + 1 %}{% endif %}
+{% if st == 'OUT_FOR_DELIVERY' %}{% set ns.out_for_delivery = ns.out_for_delivery + 1 %}{% endif %}
+{% if st == 'DELIVERED' %}{% set ns.delivered = ns.delivered + 1 %}{% endif %}
+
+{% if st in ['CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'] and not o.delivery_partner_id %}
+  {% set ns.unassigned_delivery = ns.unassigned_delivery + 1 %}
+{% endif %}
+
+{% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
+  {% set ns.active_delivery_orders = ns.active_delivery_orders + 1 %}
+{% endif %}
     {% if st == 'CANCELLED' %}{% set ns.cancelled = ns.cancelled + 1 %}{% endif %}
     {% if pay == 'PAID' or st == 'DELIVERED' %}{% set ns.paid_orders = ns.paid_orders + 1 %}{% endif %}
     {% if pay in ['PENDING','COD_PENDING','UNPAID',''] and st != 'DELIVERED' %}{% set ns.pending_payment = ns.pending_payment + 1 %}{% endif %}
@@ -69,7 +83,10 @@
 {% endif %}
 
 {% set pending_ops_total = ns.placed + ns.confirmed + ns.preparing + ns.ready %}
-{% set active_orders_total = ns.placed + ns.confirmed + ns.preparing + ns.ready + ns.assigned + ns.out_for_delivery %}
+{% set active_orders_total = ns.placed + ns.confirmed + ns.preparing + ns.ready + ns.assigned + ns.reached_store + ns.picked_up + ns.out_for_delivery %}
+{% set delivery_action_total = ns.ready + ns.unassigned_delivery %}
+{% set delivery_in_progress_total = ns.assigned + ns.reached_store + ns.picked_up + ns.out_for_delivery %}
+{% set rider_available_total = metrics.online_delivery_people|default(metrics.active_delivery_people|default(0)) %}
 {% set low_stock_total = ns.low_stock + ns.out_stock %}
 {% set fulfilment_base = orders_total if orders_total else 1 %}
 {% set delivered_percent = ((delivered_orders_total or 0) / fulfilment_base * 100) %}
@@ -767,12 +784,12 @@
             delivery movement and revenue tracking. All figures are scoped only to this store.
           </p>
 
-          <div class="sd-hero-actions">
-            <a class="sd-btn sd-btn-primary" href="{{ url_for('store_orders') }}">Open Orders</a>
-            
-            <a class="sd-btn" href="{{ url_for('store_products') }}">Manage Products</a>
-            <a class="sd-btn" href="{{ url_for('store_inventory') }}">Inventory</a>
-          </div>
+         <div class="sd-hero-actions">
+  <a class="sd-btn sd-btn-primary" href="{{ url_for('store_orders') }}">Open Orders</a>
+  <a class="sd-btn" href="{{ url_for('store_orders') }}#delivery-control">Delivery Control</a>
+  <a class="sd-btn" href="{{ url_for('store_products') }}">Manage Products</a>
+  <a class="sd-btn" href="{{ url_for('store_inventory') }}">Inventory</a>
+</div>
         </div>
 
         
@@ -989,11 +1006,90 @@
         </div>
       </section>
 
+
+<section class="sd-card" id="delivery-control">
+  <div class="sd-section-head">
+    <div>
+      <h2 class="sd-section-title">Delivery Operations</h2>
+      <p class="sd-section-sub">Store-controlled delivery assignment, pickup readiness and rider movement overview.</p>
+    </div>
+    <a class="sd-view-link" href="{{ url_for('store_orders') }}">Open delivery orders</a>
+  </div>
+
+  <div class="sd-status-wrap">
+    <div class="sd-status-grid">
+      <div class="sd-status-card">
+        <div class="sd-status-left">
+          <span class="sd-status-icon">📍</span>
+          <span class="sd-status-label">Ready for Pickup</span>
+        </div>
+        <strong class="sd-status-value is-green">{{ ns.ready }}</strong>
+      </div>
+
+      <div class="sd-status-card">
+        <div class="sd-status-left">
+          <span class="sd-status-icon">⚠️</span>
+          <span class="sd-status-label">Needs Rider</span>
+        </div>
+        <strong class="sd-status-value is-orange">{{ ns.unassigned_delivery }}</strong>
+      </div>
+
+      <div class="sd-status-card">
+        <div class="sd-status-left">
+          <span class="sd-status-icon">🛵</span>
+          <span class="sd-status-label">Assigned</span>
+        </div>
+        <strong class="sd-status-value is-blue">{{ ns.assigned }}</strong>
+      </div>
+
+      <div class="sd-status-card">
+        <div class="sd-status-left">
+          <span class="sd-status-icon">🏪</span>
+          <span class="sd-status-label">Reached Store</span>
+        </div>
+        <strong class="sd-status-value is-blue">{{ ns.reached_store }}</strong>
+      </div>
+
+      <div class="sd-status-card">
+        <div class="sd-status-left">
+          <span class="sd-status-icon">📦</span>
+          <span class="sd-status-label">Picked Up</span>
+        </div>
+        <strong class="sd-status-value is-blue">{{ ns.picked_up }}</strong>
+      </div>
+
+      <div class="sd-status-card">
+        <div class="sd-status-left">
+          <span class="sd-status-icon">🚚</span>
+          <span class="sd-status-label">Out for Delivery</span>
+        </div>
+        <strong class="sd-status-value is-blue">{{ ns.out_for_delivery }}</strong>
+      </div>
+
+      <div class="sd-status-card">
+        <div class="sd-status-left">
+          <span class="sd-status-icon">📡</span>
+          <span class="sd-status-label">Online Riders</span>
+        </div>
+        <strong class="sd-status-value is-green">{{ rider_available_total }}</strong>
+      </div>
+
+      <div class="sd-status-card">
+        <div class="sd-status-left">
+          <span class="sd-status-icon">✅</span>
+          <span class="sd-status-label">Delivered</span>
+        </div>
+        <strong class="sd-status-value is-green">{{ ns.delivered }}</strong>
+      </div>
+    </div>
+  </div>
+</section>
+
       <section class="sd-card">
         <div class="sd-section-head">
           <div>
             <h2 class="sd-section-title">Order Pipeline</h2>
-            <p class="sd-section-sub">All 8 order statuses connected to real store order data.</p>
+           <p class="sd-section-sub">Complete store and delivery pipeline connected to real order data.</p>
           </div>
           <a class="sd-view-link" href="{{ url_for('store_orders') }}">Manage orders</a>
         </div>
@@ -1005,7 +1101,9 @@
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🍳</span><span class="sd-status-label">Preparing</span></div><strong class="sd-status-value is-orange">{{ ns.preparing }}</strong></div>
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">📍</span><span class="sd-status-label">Ready Pickup</span></div><strong class="sd-status-value is-green">{{ ns.ready }}</strong></div>
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🛵</span><span class="sd-status-label">Assigned</span></div><strong class="sd-status-value is-blue">{{ ns.assigned }}</strong></div>
-            <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🚚</span><span class="sd-status-label">Out Delivery</span></div><strong class="sd-status-value is-blue">{{ ns.out_for_delivery }}</strong></div>
+<div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🏪</span><span class="sd-status-label">Reached Store</span></div><strong class="sd-status-value is-blue">{{ ns.reached_store }}</strong></div>
+<div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">📦</span><span class="sd-status-label">Picked Up</span></div><strong class="sd-status-value is-blue">{{ ns.picked_up }}</strong></div>
+<div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🚚</span><span class="sd-status-label">Out Delivery</span></div><strong class="sd-status-value is-blue">{{ ns.out_for_delivery }}</strong></div>
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🏁</span><span class="sd-status-label">Delivered</span></div><strong class="sd-status-value is-green">{{ ns.delivered }}</strong></div>
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">✖️</span><span class="sd-status-label">Cancelled</span></div><strong class="sd-status-value is-red">{{ ns.cancelled }}</strong></div>
           </div>
@@ -1059,14 +1157,14 @@
               </div>
             </div>
 
-            <div class="sd-kpi-card">
-              <div class="sd-kpi-icon">🚚</div>
-              <div>
-                <div class="sd-kpi-label">Delivery Accepted</div>
-                <div class="sd-kpi-value">{{ accepted_delivery_total }}</div>
-                <div class="sd-kpi-sub">{{ active_delivery_people_total }} active delivery people</div>
-              </div>
-            </div>
+          <div class="sd-kpi-card">
+  <div class="sd-kpi-icon">🚚</div>
+  <div>
+    <div class="sd-kpi-label">Delivery In Progress</div>
+    <div class="sd-kpi-value">{{ delivery_in_progress_total }}</div>
+    <div class="sd-kpi-sub">{{ rider_available_total }} online/active delivery boys</div>
+  </div>
+</div>
 
             <div class="sd-kpi-card">
               <div class="sd-kpi-icon">₹</div>

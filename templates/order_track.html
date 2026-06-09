@@ -291,6 +291,115 @@
       text-align: right;
     }
 
+    .track-order-page .delivery-partner-card{
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 2px solid var(--black);
+  background: #fff;
+  display: grid;
+  gap: .75rem;
+}
+
+.track-order-page .delivery-partner-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  border-bottom: 1px dashed rgba(0,0,0,.35);
+  padding-bottom: .65rem;
+}
+
+.track-order-page .delivery-partner-title{
+  font-family: 'Italiana', serif;
+  font-size: .75rem;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--crimson);
+  font-weight: 900;
+}
+
+.track-order-page .delivery-stage-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  padding: .35rem .6rem;
+  border: 2px solid var(--black);
+  background: var(--light-crimson);
+  font-family: 'Italiana', serif;
+  font-size: .65rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.track-order-page .delivery-partner-body{
+  display:grid;
+  gap:.55rem;
+}
+
+.track-order-page .delivery-partner-row{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  border-bottom:1px dashed rgba(0,0,0,.25);
+  padding-bottom:.45rem;
+}
+
+.track-order-page .delivery-partner-row:last-child{
+  border-bottom:0;
+  padding-bottom:0;
+}
+
+.track-order-page .delivery-partner-row span{
+  font-family:'Italiana', serif;
+  font-size:.7rem;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--crimson);
+  font-weight:900;
+}
+
+.track-order-page .delivery-partner-row strong,
+.track-order-page .delivery-partner-row a{
+  color:var(--black);
+  font-weight:900;
+  text-align:right;
+  text-decoration:none;
+}
+
+.track-order-page .rider-live-box{
+  margin-top: 1rem;
+  padding: .85rem 1rem;
+  border: 2px dashed var(--black);
+  background: var(--light-crimson);
+  font-weight: 800;
+}
+
+.track-order-page .rider-live-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:.75rem;
+}
+
+.track-order-page .rider-live-actions a{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border: var(--border-standard) solid var(--black);
+  background: var(--crimson);
+  color:#fff;
+  padding:.7rem .9rem;
+  font-family:'Italiana', serif;
+  font-size:.7rem;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  text-decoration:none;
+  box-shadow:4px 4px 0 var(--black);
+}
+
     /* Payment coloring (keep classes) */
     .track-order-page .payment-paid{ color: #065f46; }
     .track-order-page .payment-pending{ color: #a16207; }
@@ -1055,9 +1164,43 @@
               </div>
 
               <div id="dpLine" class="row" style="display: {% if order.delivery_partner_name %}flex{% else %}none{% endif %};">
-                <span class="label">Delivery Partner:</span>
-                <span id="dpName" class="value">{{ order.delivery_partner_name or '' }}</span>
-              </div>
+  <span class="label">Delivery Partner:</span>
+  <span id="dpName" class="value">{{ order.delivery_partner_name or '' }}</span>
+</div>
+
+<div id="deliveryPartnerCard"
+     class="delivery-partner-card"
+     style="display: {% if order.delivery_partner_name %}grid{% else %}none{% endif %};">
+  <div class="delivery-partner-head">
+    <div class="delivery-partner-title">Delivery Boy</div>
+    <div id="deliveryStagePill" class="delivery-stage-pill">
+      {{ order.status.replace('_',' ') }}
+    </div>
+  </div>
+
+  <div class="delivery-partner-body">
+    <div class="delivery-partner-row">
+      <span>Name</span>
+      <strong id="deliveryPartnerName">{{ order.delivery_partner_name or 'Not assigned yet' }}</strong>
+    </div>
+
+    <div class="delivery-partner-row">
+      <span>Phone</span>
+      {% if order.delivery_partner_phone %}
+        <a id="deliveryPartnerPhone" href="tel:{{ order.delivery_partner_phone }}">{{ order.delivery_partner_phone }}</a>
+      {% else %}
+        <strong id="deliveryPartnerPhone">Not available</strong>
+      {% endif %}
+    </div>
+
+    {% if order.assigned_at %}
+    <div class="delivery-partner-row">
+      <span>Assigned</span>
+      <strong>{{ order.assigned_at }}</strong>
+    </div>
+    {% endif %}
+  </div>
+</div>
             </div>
           </div>
         </div>
@@ -1102,7 +1245,7 @@
         <div class="card-head">
           <h3>Progress</h3>
         </div>
-        {% set steps = ['PLACED','CONFIRMED','OUT_FOR_DELIVERY','DELIVERED'] %}
+{% set steps = ['PLACED','CONFIRMED','PREPARING','READY_FOR_PICKUP','ASSIGNED_TO_DELIVERY','REACHED_STORE','PICKED_UP','OUT_FOR_DELIVERY','DELIVERED'] %}
         {% set idx = steps.index(order.status) if order.status in steps else 0 %}
         <div id="tracker" class="progress-tracker"
              data-steps="{{ steps|length }}"
@@ -1274,12 +1417,21 @@
           <h3>Live Map</h3>
         </div>
         <div class="card-body">
-          <div id="liveMap" class="live-map"></div>
-          <div class="map-legend">
-            <div class="legend"><span class="badge dest"></span> Delivery Address</div>
-            <div class="legend"><span class="badge rider"></span> Delivery Partner</div>
-          </div>
-        </div>
+  <div id="liveMap" class="live-map"></div>
+  <div class="map-legend">
+    <div class="legend"><span class="badge dest"></span> Delivery Address</div>
+    <div class="legend"><span class="badge rider"></span> Delivery Partner</div>
+  </div>
+
+  <div class="rider-live-box">
+    <div id="riderLiveText">
+      Waiting for delivery-boy live location...
+    </div>
+    <div id="riderLiveActions" class="rider-live-actions" style="display:none;">
+      <a id="riderMapLink" href="#" target="_blank">Open Rider Location</a>
+    </div>
+  </div>
+</div>
       </section>
       {% endif %}
 
@@ -1374,13 +1526,27 @@
     <script>
     /* Live order polling (fixed selector for progress dots) */
     (function(){
-      const steps = ["PLACED","CONFIRMED","OUT_FOR_DELIVERY","DELIVERED"];
+      const steps = [
+  "PLACED",
+  "CONFIRMED",
+  "PREPARING",
+  "READY_FOR_PICKUP",
+  "ASSIGNED_TO_DELIVERY",
+  "REACHED_STORE",
+  "PICKED_UP",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED"
+];
 
       const elStatusText = document.getElementById("statusText");
       const elCancelTag  = document.getElementById("cancelTag");
       const elPayment    = document.getElementById("paymentStatus");
       const elDpLine     = document.getElementById("dpLine");
       const elDpName     = document.getElementById("dpName");
+      const elDeliveryPartnerCard = document.getElementById("deliveryPartnerCard");
+const elDeliveryPartnerName = document.getElementById("deliveryPartnerName");
+const elDeliveryPartnerPhone = document.getElementById("deliveryPartnerPhone");
+const elDeliveryStagePill = document.getElementById("deliveryStagePill");
       const fillEl       = document.getElementById("track-fill");
       const dotsWrap     = document.getElementById("track-dots");
       const eventsList   = document.getElementById("eventsList");
@@ -1389,6 +1555,7 @@
       let lastStatus = {{ order.status|tojson }};
       let lastPay    = {{ order.payment_status|tojson }};
       let lastDP     = {{ (order.delivery_partner_name or '')|tojson }};
+      let lastDPPhone = {{ (order.delivery_partner_phone or '')|tojson }};
       let lastEventsSig = "{{ events|length }}::{{ events[-1].created_at if events|length>0 else 'none' }}";
 
       function setProgress(status){
@@ -1487,12 +1654,38 @@
             if (elPayment) elPayment.textContent = j.payment_status;
           }
 
-          const dpName = j.delivery_partner_name || "";
-          if (dpName !== lastDP){
-            lastDP = dpName;
-            if (elDpName) elDpName.textContent = dpName;
-            if (elDpLine) elDpLine.style.display = dpName ? "flex" : "none";
-          }
+         const dpName = j.delivery_partner_name || "";
+const dpPhone = j.delivery_partner_phone || "";
+
+if (dpName !== lastDP || dpPhone !== lastDPPhone){
+  lastDP = dpName;
+  lastDPPhone = dpPhone;
+
+  if (elDpName) elDpName.textContent = dpName;
+  if (elDpLine) elDpLine.style.display = dpName ? "flex" : "none";
+
+  if (elDeliveryPartnerCard) {
+    elDeliveryPartnerCard.style.display = dpName ? "grid" : "none";
+  }
+
+  if (elDeliveryPartnerName) {
+    elDeliveryPartnerName.textContent = dpName || "Not assigned yet";
+  }
+
+  if (elDeliveryPartnerPhone) {
+    if (dpPhone) {
+      elDeliveryPartnerPhone.textContent = dpPhone;
+      elDeliveryPartnerPhone.setAttribute("href", "tel:" + dpPhone);
+    } else {
+      elDeliveryPartnerPhone.textContent = "Not available";
+      elDeliveryPartnerPhone.removeAttribute("href");
+    }
+  }
+}
+
+if (elDeliveryStagePill) {
+  elDeliveryStagePill.textContent = (j.status || "").replace(/_/g, " ");
+}
 
           const sig = (j.events && j.events.length)
             ? (String(j.events.length) + "::" + j.events[j.events.length-1].created_at)
@@ -1517,6 +1710,10 @@
     (function(){
       let map, riderMarker, destMarker;
       const dest = [{{ address.latitude }}, {{ address.longitude }}];
+
+      const riderLiveText = document.getElementById("riderLiveText");
+const riderLiveActions = document.getElementById("riderLiveActions");
+const riderMapLink = document.getElementById("riderMapLink");
 
       function loadLeaflet(cb){
         if (window.L) { cb(); return; }
@@ -1549,28 +1746,44 @@
         }catch(e){ return null; }
       }
 
-      function setRider(lat, lng){
-        const pos = [lat, lng];
-        if(!riderMarker){
-          const bikeIcon = L.divIcon({
-            className: 'bike-icon',
-            html: '<div class="bike-dot">🏍️</div>',
-            iconSize: [24,24],
-            iconAnchor: [12,12]
-          });
-          riderMarker = L.marker(pos, { icon: bikeIcon, title: 'Rider' }).addTo(map);
-          const group = L.featureGroup([riderMarker, destMarker]);
-          map.fitBounds(group.getBounds().pad(0.35));
-        }else{
-          riderMarker.setLatLng(pos);
-        }
-      }
+      function setRider(lat, lng, updatedAt){
+  const pos = [lat, lng];
+
+  if(!riderMarker){
+    const bikeIcon = L.divIcon({
+      className: 'bike-icon',
+      html: '<div class="bike-dot">🏍️</div>',
+      iconSize: [24,24],
+      iconAnchor: [12,12]
+    });
+    riderMarker = L.marker(pos, { icon: bikeIcon, title: 'Rider' }).addTo(map);
+    const group = L.featureGroup([riderMarker, destMarker]);
+    map.fitBounds(group.getBounds().pad(0.35));
+  }else{
+    riderMarker.setLatLng(pos);
+  }
+
+  if (riderLiveText) {
+    riderLiveText.textContent =
+      "Delivery-boy live location updated"
+      + (updatedAt ? " at " + updatedAt : "")
+      + ".";
+  }
+
+  if (riderMapLink) {
+    riderMapLink.href = "https://www.google.com/maps/search/?api=1&query=" + lat + "," + lng;
+  }
+
+  if (riderLiveActions) {
+    riderLiveActions.style.display = "flex";
+  }
+}
 
       async function pollRider(){
         const d = await fetchRider();
         if(d && typeof d.latitude === 'number' && typeof d.longitude === 'number'){
-          setRider(d.latitude, d.longitude);
-        }
+  setRider(d.latitude, d.longitude, d.updated_at || "");
+}
       }
 
       loadLeaflet(() => {

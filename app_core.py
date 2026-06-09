@@ -1007,6 +1007,401 @@ def check_store_serviceability(store, customer_lat, customer_lng, customer_pinco
         "delivery_fee": round(float(delivery_fee), 2)
     }
 
+
+    # =========================================================
+# STORE-CONTROLLED DELIVERY ASSIGNMENT HELPERS
+# =========================================================
+
+DELIVERY_STORE_ASSIGNABLE_STATUSES = {
+    "CONFIRMED",
+    "PREPARING",
+    "READY_FOR_PICKUP",
+    "ASSIGNED_TO_DELIVERY"
+}
+
+DELIVERY_REASSIGN_BLOCKED_STATUSES = {
+    "PICKED_UP",
+    "OUT_FOR_DELIVERY",
+    "DELIVERED",
+    "CANCELLED"
+}
+
+DELIVERY_PROGRESS_STATUSES = {
+    "ASSIGNED_TO_DELIVERY",
+    "REACHED_STORE",
+    "PICKED_UP",
+    "OUT_FOR_DELIVERY",
+    "DELIVERED"
+}
+
+
+def _delivery_user_id(value):
+    if value is None:
+        return ""
+
+    try:
+        if isinstance(value, ObjectId):
+            return str(value)
+    except Exception:
+        pass
+
+    return str(value).strip()
+
+
+def _delivery_actor_snapshot(actor=None):
+    actor = actor or {}
+
+    return {
+        "actor_id": _delivery_user_id(actor.get("_id") or actor.get("id")),
+        "actor_role": actor.get("role") or "",
+        "actor_name": actor.get("name") or actor.get("full_name") or ""
+    }
+
+
+def add_order_event(order_id, status, note="", actor=None):
+    """
+    Consistent order timeline insert.
+    Works for store, delivery boy, customer and admin events.
+    """
+    try:
+        oid_obj = order_id if isinstance(order_id, ObjectId) else ObjectId(str(order_id))
+    except Exception:
+        oid_obj = order_id
+
+    now = datetime.utcnow().isoformat()
+    actor_data = _delivery_actor_snapshot(actor)
+
+    doc = {
+        "order_id": oid_obj,
+        "status": (status or "").strip().upper(),
+        "note": note or "",
+        "created_at": now,
+        "actor_id": actor_data.get("actor_id"),
+        "actor_role": actor_data.get("actor_role"),
+        "actor_name": actor_data.get("actor_name")
+    }
+
+    mongo.order_events.insert_one(doc)
+    return doc
+
+
+def get_delivery_partner_snapshot(delivery_user_id):
+    """
+    Returns safe delivery-boy details for saving inside orders.
+    """
+    uid = _delivery_user_id(delivery_user_id)
+
+    if not uid:
+        return None
+
+    user = None
+
+    try:
+        user = mongo.users.find_one({"_id": ObjectId(uid)})
+    except Exception:
+        user = mongo.users.find_one({"_id": uid})
+
+    if not user:
+        return None
+
+    if (user.get("role") or "").strip().lower() != "delivery":
+        return None
+
+    return {
+        "id": str(user.get("_id")),
+        "name": user.get("name") or user.get("full_name") or "Delivery Partner",
+        "phone": user.get("phone") or "",
+        "email": user.get("email") or "",
+        "is_active": int(user.get("is_active", 1) or 0)
+    }
+
+
+def get_online_delivery_people_near_store(store, max_km=None):
+    """
+    Store-side helper.
+
+    Returns active delivery boys with latest online GPS from delivery_availability.
+    If store coordinates are present, distance from store is calculated.
+    """
+    store = store or {}
+
+    store_lat = _delivery_float_or_none(store.get("latitude"))
+    store_lng = _delivery_float_or_none(store.get("longitude"))
+
+    max_km_value = None
+    if max_km is not None:
+        try:
+            max_km_value = float(max_km)
+        except Exception:
+            max_km_value = None
+
+    users = list(
+        mongo.users.find({
+            "role": "delivery",
+            "$or": [
+                {"is_active": 1},
+                {"is_active": True},
+                {"is_active": {"$exists": False}}
+            ]
+        }).sort("name", 1)
+    )
+
+    output = []
+
+    for user in users:
+        uid = str(user.get("_id"))
+
+        availability = mongo.delivery_availability.find_one({
+            "user_id": uid,
+            "active": True
+        })
+
+        if not availability:
+            continue
+
+        rider_lat = _delivery_float_or_none(availability.get("latitude"))
+        rider_lng = _delivery_float_or_none(availability.get("longitude"))
+
+        distance_km = None
+
+        if (
+            store_lat is not None and
+            store_lng is not None and
+            rider_lat is not None and
+            rider_lng is not None
+        ):
+            distance_km = haversine_km(store_lat, store_lng, rider_lat, rider_lng)
+
+        if max_km_value is not None and distance_km is not None and distance_km > max_km_value:
+            continue
+
+        assigned_count = mongo.orders.count_documents({
+            "delivery_partner_id": uid,
+            "status": {
+                "$in": [
+                    "ASSIGNED_TO_DELIVERY",
+                    "REACHED_STORE",
+                    "PICKED_UP",
+                    "OUT_FOR_DELIVERY"
+                ]
+            }
+        })
+
+        output.append({
+            "id": uid,
+            "name": user.get("name") or "Delivery Partner",
+            "phone": user.get("phone") or "",
+            "email": user.get("email") or "",
+            "is_online": True,
+            "latitude": rider_lat,
+            "longitude": rider_lng,
+            "distance_km": round(distance_km, 2) if distance_km is not None else None,
+            "current_order_id": availability.get("current_order_id"),
+            "currently_assigned_orders": assigned_count,
+            "updated_at": availability.get("updated_at"),
+            "active_since": availability.get("active_since")
+        })
+
+    output.sort(
+        key=lambda row: (
+            999999 if row.get("distance_km") is None else row.get("distance_km"),
+            row.get("currently_assigned_orders", 0),
+            row.get("name", "")
+        )
+    )
+
+    return output
+
+
+def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, source="store_manual", allow_reassign=False):
+    """
+    Assigns a delivery boy to an order.
+
+    Used by:
+    - Store manual assignment
+    - Store reassignment
+    - Delivery-boy self accept, if kept
+    """
+    try:
+        oid_obj = order_id if isinstance(order_id, ObjectId) else ObjectId(str(order_id))
+    except Exception:
+        return {
+            "ok": False,
+            "error": "Invalid order id."
+        }
+
+    order = mongo.orders.find_one({"_id": oid_obj})
+
+    if not order:
+        return {
+            "ok": False,
+            "error": "Order not found."
+        }
+
+    status = (order.get("status") or "").strip().upper()
+
+    if status in DELIVERY_REASSIGN_BLOCKED_STATUSES:
+        return {
+            "ok": False,
+            "error": "Delivery assignment cannot be changed for this order status."
+        }
+
+    if status not in DELIVERY_STORE_ASSIGNABLE_STATUSES:
+        return {
+            "ok": False,
+            "error": "This order is not ready for delivery assignment."
+        }
+
+    existing_partner = order.get("delivery_partner_id")
+
+    if existing_partner and not allow_reassign:
+        return {
+            "ok": False,
+            "error": "This order already has an assigned delivery boy."
+        }
+
+    partner = get_delivery_partner_snapshot(delivery_user_id)
+
+    if not partner:
+        return {
+            "ok": False,
+            "error": "Delivery boy not found."
+        }
+
+    if int(partner.get("is_active") or 0) != 1:
+        return {
+            "ok": False,
+            "error": "This delivery-boy account is disabled."
+        }
+
+    now = datetime.utcnow().isoformat()
+    actor_data = _delivery_actor_snapshot(actor)
+
+    update_data = {
+        "delivery_partner_id": partner["id"],
+        "delivery_partner_name": partner["name"],
+        "delivery_partner_phone": partner["phone"],
+        "delivery_assigned_by": actor_data.get("actor_id"),
+        "delivery_assigned_by_role": actor_data.get("actor_role"),
+        "delivery_assigned_by_name": actor_data.get("actor_name"),
+        "delivery_assignment_source": source,
+        "assigned_at": now,
+        "updated_at": now
+    }
+
+    if status != "ASSIGNED_TO_DELIVERY":
+        update_data["status"] = "ASSIGNED_TO_DELIVERY"
+
+    result = mongo.orders.update_one(
+        {"_id": oid_obj},
+        {"$set": update_data}
+    )
+
+    if result.modified_count < 1:
+        return {
+            "ok": False,
+            "error": "Delivery assignment could not be updated."
+        }
+
+    mongo.delivery_availability.update_one(
+        {"user_id": partner["id"]},
+        {
+            "$set": {
+                "current_order_id": str(oid_obj),
+                "updated_at": now
+            }
+        },
+        upsert=True
+    )
+
+    add_order_event(
+        oid_obj,
+        "ASSIGNED_TO_DELIVERY",
+        f"Assigned to {partner['name']}",
+        actor
+    )
+
+    return {
+        "ok": True,
+        "message": "Delivery boy assigned successfully.",
+        "order_id": str(oid_obj),
+        "delivery_partner": partner
+    }
+
+
+def clear_delivery_assignment(order_id, actor=None, reason="Delivery assignment cleared."):
+    """
+    Clears delivery assignment before pickup/out-for-delivery.
+    Store can use this for correction/reassignment.
+    """
+    try:
+        oid_obj = order_id if isinstance(order_id, ObjectId) else ObjectId(str(order_id))
+    except Exception:
+        return {
+            "ok": False,
+            "error": "Invalid order id."
+        }
+
+    order = mongo.orders.find_one({"_id": oid_obj})
+
+    if not order:
+        return {
+            "ok": False,
+            "error": "Order not found."
+        }
+
+    status = (order.get("status") or "").strip().upper()
+
+    if status in DELIVERY_REASSIGN_BLOCKED_STATUSES:
+        return {
+            "ok": False,
+            "error": "Delivery assignment cannot be cleared after pickup/out-for-delivery/delivery."
+        }
+
+    old_partner_id = order.get("delivery_partner_id")
+    now = datetime.utcnow().isoformat()
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": {
+                "status": "READY_FOR_PICKUP",
+                "delivery_partner_id": None,
+                "delivery_partner_name": "",
+                "delivery_partner_phone": "",
+                "delivery_assignment_source": "",
+                "delivery_status_note": reason,
+                "updated_at": now
+            }
+        }
+    )
+
+    if old_partner_id:
+        mongo.delivery_availability.update_one(
+            {
+                "user_id": str(old_partner_id),
+                "current_order_id": str(oid_obj)
+            },
+            {
+                "$set": {
+                    "current_order_id": None,
+                    "updated_at": now
+                }
+            }
+        )
+
+    add_order_event(
+        oid_obj,
+        "READY_FOR_PICKUP",
+        reason,
+        actor
+    )
+
+    return {
+        "ok": True,
+        "message": "Delivery assignment cleared."
+    }
+
 def _ensure_contact_messages_status_column():
     # MongoDB does not need table/column migration.
     return

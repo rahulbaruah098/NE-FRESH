@@ -290,6 +290,123 @@
   border-top:1px solid inherit;
   transform:rotate(45deg);
 }
+
+.sd-delivery-control{
+  margin-top:12px;
+  padding:12px;
+  border:1px solid var(--line2);
+  border-radius:16px;
+  background:var(--soft2);
+  display:grid;
+  gap:10px;
+}
+
+.sd-delivery-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  color:var(--ink);
+  font-size:12px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+
+.sd-delivery-note{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:750;
+  line-height:1.35;
+}
+
+.sd-rider-card{
+  display:grid;
+  gap:5px;
+  padding:10px;
+  border:1px solid rgba(0,168,89,.16);
+  border-radius:14px;
+  background:#fff;
+}
+
+.sd-rider-card strong{
+  color:var(--ink);
+  font-size:13px;
+  font-weight:900;
+}
+
+.sd-rider-card span,
+.sd-rider-card a{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+  text-decoration:none;
+}
+
+.sd-delivery-form{
+  display:grid;
+  gap:8px;
+}
+
+.sd-delivery-form select{
+  width:100%;
+  height:42px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+  color:var(--ink);
+  padding:0 12px;
+  font-weight:800;
+}
+
+.sd-delivery-buttons{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.sd-delivery-buttons button,
+.sd-delivery-buttons a{
+  min-height:38px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+  color:var(--text);
+  padding:8px 11px;
+  font-size:12px;
+  font-weight:900;
+  cursor:pointer;
+  text-decoration:none;
+}
+
+.sd-delivery-buttons .primary{
+  background:var(--green);
+  border-color:var(--green);
+  color:#fff;
+}
+
+.sd-delivery-buttons .danger{
+  background:var(--red-soft);
+  border-color:#FECACA;
+  color:#B91C1C;
+}
+
+.sd-delivery-buttons .blue{
+  background:var(--blue-soft);
+  border-color:rgba(2,132,199,.18);
+  color:#0369A1;
+}
+
+.sd-delivery-empty{
+  padding:10px;
+  border:1px dashed var(--line);
+  border-radius:14px;
+  background:#fff;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+  line-height:1.35;
+}
   </style>
 
   <div class="sd-shell">
@@ -298,7 +415,7 @@
         <div class="sd-section-head">
           <div>
             <h2 class="sd-section-title">Order Management</h2>
-            <p class="sd-section-sub">Review customer details, payment status, delivery address and update order status.</p>
+<p class="sd-section-sub">Review customer details, prepare orders, mark pickup readiness and assign delivery boys.</p>
           </div>
           <a class="sd-view-link" href="{{ url_for('store_delivered_orders') }}">Delivered orders</a>
         </div>
@@ -333,18 +450,126 @@
                       {% if o.tip_amount and o.tip_amount > 0 %}<span class="sd-tag">includes tip ₹{{ '%.2f'|format(o.tip_amount) }}</span>{% endif %}
                     </div>
                     <form method="post" action="{{ url_for('store_order_status', oid=o.id) }}" class="sd-row-actions">
-                     <select name="status">
+              <select name="status">
   <option value="PLACED" {{ 'selected' if (o.status or '')|upper == 'PLACED' }}>PLACED</option>
   <option value="CONFIRMED" {{ 'selected' if (o.status or '')|upper == 'CONFIRMED' }}>CONFIRMED</option>
   <option value="PREPARING" {{ 'selected' if (o.status or '')|upper == 'PREPARING' }}>PREPARING</option>
   <option value="READY_FOR_PICKUP" {{ 'selected' if (o.status or '')|upper == 'READY_FOR_PICKUP' }}>READY_FOR_PICKUP</option>
-  <option value="ASSIGNED_TO_DELIVERY" {{ 'selected' if (o.status or '')|upper == 'ASSIGNED_TO_DELIVERY' }}>ASSIGNED_TO_DELIVERY</option>
-  <option value="OUT_FOR_DELIVERY" {{ 'selected' if (o.status or '')|upper == 'OUT_FOR_DELIVERY' }}>OUT_FOR_DELIVERY</option>
-  <option value="DELIVERED" {{ 'selected' if (o.status or '')|upper == 'DELIVERED' }}>DELIVERED</option>
   <option value="CANCELLED" {{ 'selected' if (o.status or '')|upper == 'CANCELLED' }}>CANCELLED</option>
 </select>
                       <button type="submit">Update</button>
                     </form>
+                    {% set order_status = (o.status or '')|upper %}
+{% set has_rider = o.delivery_partner_id %}
+{% set can_mark_ready = order_status in ['PLACED', 'CONFIRMED', 'PREPARING'] %}
+{% set can_assign_delivery = order_status in ['CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'] and not has_rider %}
+{% set can_reassign_delivery = has_rider and order_status not in ['PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'] %}
+{% set can_clear_delivery = has_rider and order_status not in ['PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'] %}
+
+<div class="sd-delivery-control">
+  <div class="sd-delivery-title">
+    <span>Delivery Assignment</span>
+    {% if has_rider %}
+      <span class="sd-tag">Assigned</span>
+    {% elif order_status == 'READY_FOR_PICKUP' %}
+      <span class="sd-tag">Ready</span>
+    {% else %}
+      <span class="sd-tag">Pending</span>
+    {% endif %}
+  </div>
+
+  {% if has_rider %}
+    <div class="sd-rider-card">
+      <strong>{{ o.delivery_partner_name or 'Delivery Partner' }}</strong>
+      {% if o.delivery_partner_phone %}
+        <a href="tel:{{ o.delivery_partner_phone }}">📞 {{ o.delivery_partner_phone }}</a>
+      {% else %}
+        <span>Phone not available</span>
+      {% endif %}
+      <span>Status: {{ order_status }}</span>
+      {% if o.assigned_at %}
+        <span>Assigned at: {{ o.assigned_at }}</span>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="sd-delivery-note">
+      Assign a delivery boy after the order is confirmed/preparing/ready for pickup.
+    </div>
+  {% endif %}
+
+  {% if can_mark_ready %}
+    <form method="post" action="{{ url_for('store_order_ready_for_pickup', oid=o.id) }}" class="sd-delivery-form">
+      <div class="sd-delivery-buttons">
+        <button type="submit" class="primary">Mark Ready for Pickup</button>
+      </div>
+    </form>
+  {% endif %}
+
+  {% if can_assign_delivery %}
+    {% if available_delivery_people_list and available_delivery_people_list|length %}
+      <form method="post" action="{{ url_for('store_order_assign_delivery', oid=o.id) }}" class="sd-delivery-form">
+        <select name="delivery_user_id" required>
+          <option value="">Select active delivery boy</option>
+          {% for d in available_delivery_people_list %}
+            <option value="{{ d.id }}">
+              {{ d.name }}
+              {% if d.distance_km is not none %} · {{ '%.2f'|format(d.distance_km) }} km{% endif %}
+              {% if d.currently_assigned_orders is defined %} · {{ d.currently_assigned_orders }} active{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+        <div class="sd-delivery-buttons">
+          <button type="submit" class="primary">Assign Delivery</button>
+        </div>
+      </form>
+    {% else %}
+      <div class="sd-delivery-empty">
+        No active delivery boy nearby. Ask delivery boys to go active, then refresh this page.
+      </div>
+    {% endif %}
+  {% endif %}
+
+  {% if can_reassign_delivery %}
+    {% if available_delivery_people_list and available_delivery_people_list|length %}
+      <form method="post" action="{{ url_for('store_order_reassign_delivery', oid=o.id) }}" class="sd-delivery-form">
+        <select name="delivery_user_id" required>
+          <option value="">Reassign to another active delivery boy</option>
+          {% for d in available_delivery_people_list %}
+            {% if d.id != o.delivery_partner_id %}
+              <option value="{{ d.id }}">
+                {{ d.name }}
+                {% if d.distance_km is not none %} · {{ '%.2f'|format(d.distance_km) }} km{% endif %}
+                {% if d.currently_assigned_orders is defined %} · {{ d.currently_assigned_orders }} active{% endif %}
+              </option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <div class="sd-delivery-buttons">
+          <button type="submit" class="blue">Reassign</button>
+        </div>
+      </form>
+    {% endif %}
+  {% endif %}
+
+  {% if can_clear_delivery %}
+    <form method="post" action="{{ url_for('store_order_clear_delivery', oid=o.id) }}" class="sd-delivery-form" onsubmit="return confirm('Clear delivery assignment for this order?')">
+      <div class="sd-delivery-buttons">
+        <button type="submit" class="danger">Clear Assignment</button>
+      </div>
+    </form>
+  {% endif %}
+
+  {% if has_rider %}
+    <div class="sd-delivery-buttons">
+      <a class="blue" href="{{ url_for('order_track', oid=o.id) }}">Track Order</a>
+      {% if o.addr_lat is not none and o.addr_lng is not none %}
+        <a class="blue" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ o.addr_lat }},{{ o.addr_lng }}">
+          Customer Map
+        </a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>  
                   </td>
                 </tr>
               {% endfor %}
@@ -498,10 +723,6 @@ function showStatusPopover(button, message, type) {
 
             if (statusCellTag) {
               statusCellTag.textContent = selectedStatus;
-            }
-
-            if (paymentCell && selectedStatus === 'DELIVERED') {
-              paymentCell.textContent = 'PAID';
             }
 
             showStatusPopover(button, 'Order status updated to ' + selectedStatus + '.', 'success');

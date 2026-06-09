@@ -1,0 +1,1167 @@
+{% extends "store_base.html" %}
+{% set active_page = "settings" %}
+
+{% block title %}Store Settings | NE FRESH Store{% endblock %}
+{% block page_title %}Store Settings{% endblock %}
+{% block page_subtitle %}Manage store preferences, order rules, delivery settings, inventory alerts and notification options.{% endblock %}
+
+{% block content %}
+
+{% set prefs = store.notification_preferences if store.notification_preferences is defined and store.notification_preferences else {} %}
+{% set ns_data = notification_settings.preferences if notification_settings is defined and notification_settings.preferences is defined else {} %}
+
+{% set store_online = store.is_online|default(store.is_open|default(1))|int %}
+{% set accepting_orders = store.accepting_orders|default(1)|int %}
+{% set delivery_on = store.delivery_enabled|default(1 if store.delivery_available else 0)|int %}
+{% set allow_cod = store.allow_cod|default(1)|int %}
+{% set allow_online_payment = store.allow_online_payment|default(1)|int %}
+{% set auto_accept_orders = store.auto_accept_orders|default(0)|int %}
+{% set hide_out_of_stock = store.hide_out_of_stock|default(0)|int %}
+{% set allow_preorder = store.allow_preorder|default(0)|int %}
+
+{% set new_order_alert = prefs.new_order_alert|default(ns_data.new_order_alert|default(true)) %}
+{% set order_cancel_alert = prefs.order_cancel_alert|default(ns_data.order_cancel_alert|default(true)) %}
+{% set low_stock_alert = prefs.low_stock_alert|default(ns_data.low_stock_alert|default(true)) %}
+{% set new_review_alert = prefs.new_review_alert|default(ns_data.new_review_alert|default(true)) %}
+{% set delivery_alert = prefs.delivery_alert|default(ns_data.delivery_alert|default(true)) %}
+{% set email_alert = prefs.email_alert|default(ns_data.email_alert|default(false)) %}
+{% set dashboard_alert = prefs.dashboard_alert|default(ns_data.dashboard_alert|default(true)) %}
+
+<section class="nf-store-settings-page">
+  <style>
+    .nf-store-settings-page{
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --soft:#F3FFF8;
+      --soft2:#FBFFFD;
+      --line:#DDECE4;
+      --line2:#EAF4EF;
+      --ink:#1F332A;
+      --text:#40534A;
+      --muted:#66756D;
+      --muted2:#8A9890;
+      --green:#00A859;
+      --green-dark:#008A48;
+      --orange:#FF8A1F;
+      --orange-soft:#FFF4EA;
+      --blue:#0284C7;
+      --blue-soft:#E0F2FE;
+      --red:#EF4444;
+      --red-soft:#FFF1F2;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      --shadow2:0 24px 70px rgba(17,64,38,.13);
+      --radius:24px;
+      --ease:cubic-bezier(.2,.75,.25,1);
+      width:100%;
+      min-height:100%;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(0,168,89,.09), transparent 34%),
+        radial-gradient(circle at 92% 8%, rgba(255,138,31,.08), transparent 30%),
+        var(--bg);
+      color:var(--ink);
+      font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      overflow-x:hidden;
+    }
+
+    .nf-store-settings-page,
+    .nf-store-settings-page *{
+      box-sizing:border-box;
+    }
+
+    .ss-shell{
+      width:100%;
+      max-width:1680px;
+      margin:0 auto;
+      padding:24px;
+    }
+
+    .ss-stack{
+      display:grid;
+      gap:20px;
+    }
+
+    .ss-card{
+      background:rgba(255,255,255,.98);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .ss-hero{
+      display:grid;
+      grid-template-columns:minmax(0,1.1fr) minmax(340px,.9fr);
+      gap:20px;
+      padding:24px;
+      border-radius:30px;
+      border:1px solid var(--line);
+      background:
+        linear-gradient(135deg,rgba(255,255,255,.98),rgba(243,255,248,.92)),
+        #fff;
+      box-shadow:var(--shadow2);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .ss-hero::after{
+      content:"";
+      position:absolute;
+      right:-120px;
+      top:-140px;
+      width:340px;
+      height:340px;
+      border-radius:999px;
+      background:rgba(0,168,89,.10);
+      pointer-events:none;
+    }
+
+    .ss-hero-main,
+    .ss-hero-side{
+      position:relative;
+      z-index:1;
+    }
+
+    .ss-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:30px;
+      padding:0 12px;
+      border-radius:999px;
+      background:#E9FFF3;
+      border:1px solid rgba(0,168,89,.18);
+      color:var(--green-dark);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .ss-title{
+      margin:14px 0 8px;
+      font-size:clamp(30px,4vw,54px);
+      line-height:1;
+      font-weight:900;
+      letter-spacing:-.06em;
+      color:var(--ink);
+    }
+
+    .ss-copy{
+      max-width:880px;
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      font-weight:650;
+      line-height:1.65;
+    }
+
+    .ss-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+
+    .ss-btn{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      text-decoration:none;
+      font-size:13px;
+      font-weight:900;
+      transition:.2s var(--ease);
+      cursor:pointer;
+      white-space:nowrap;
+    }
+
+    .ss-btn:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.30);
+      color:var(--green-dark);
+      box-shadow:0 12px 24px rgba(17,64,38,.09);
+    }
+
+    .ss-btn-primary{
+      background:var(--green)!important;
+      border-color:var(--green)!important;
+      color:#fff!important;
+      box-shadow:0 12px 24px rgba(0,168,89,.18);
+    }
+
+    .ss-hero-side{
+      padding:18px;
+      border-radius:24px;
+      border:1px solid rgba(0,168,89,.16);
+      background:rgba(255,255,255,.78);
+      backdrop-filter:blur(12px);
+      display:grid;
+      gap:12px;
+    }
+
+    .ss-store-card{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      padding:14px;
+      border-radius:20px;
+      border:1px solid var(--line2);
+      background:#fff;
+    }
+
+    .ss-logo{
+      width:64px;
+      height:64px;
+      min-width:64px;
+      border-radius:20px;
+      border:1px solid var(--line);
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      background:#fff;
+      color:var(--green-dark);
+      font-size:28px;
+      font-weight:900;
+    }
+
+    .ss-logo img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      padding:7px;
+    }
+
+    .ss-store-name{
+      font-size:17px;
+      font-weight:900;
+      line-height:1.2;
+      color:var(--ink);
+    }
+
+    .ss-store-meta{
+      margin-top:5px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:750;
+      line-height:1.4;
+    }
+
+    .ss-status-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .ss-status{
+      padding:12px;
+      border-radius:18px;
+      border:1px solid var(--line2);
+      background:#fff;
+    }
+
+    .ss-status span{
+      display:block;
+      color:var(--muted);
+      font-size:10px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .ss-status strong{
+      display:block;
+      margin-top:7px;
+      font-size:14px;
+      font-weight:900;
+      color:var(--ink);
+    }
+
+    .ss-status.on strong{
+      color:var(--green-dark);
+    }
+
+    .ss-status.off strong{
+      color:#B45309;
+    }
+
+    .ss-layout{
+      display:grid;
+      grid-template-columns:280px minmax(0,1fr);
+      gap:20px;
+      align-items:start;
+    }
+
+    .ss-nav{
+      position:sticky;
+      top:96px;
+      padding:14px;
+      display:grid;
+      gap:8px;
+    }
+
+    .ss-nav a{
+      min-height:42px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:0 12px;
+      border-radius:14px;
+      border:1px solid transparent;
+      color:var(--text);
+      font-size:13px;
+      font-weight:900;
+      text-decoration:none;
+      transition:.18s var(--ease);
+    }
+
+    .ss-nav a:hover,
+    .ss-nav a.active{
+      background:#E9FFF3;
+      color:var(--green-dark);
+      border-color:rgba(0,168,89,.18);
+    }
+
+    .ss-nav-icon{
+      width:28px;
+      height:28px;
+      min-width:28px;
+      display:grid;
+      place-items:center;
+      border-radius:10px;
+      background:#F4F9F6;
+      border:1px solid #E2F1E9;
+    }
+
+    .ss-form{
+      display:grid;
+      gap:20px;
+    }
+
+    .ss-section{
+      scroll-margin-top:96px;
+    }
+
+    .ss-section-head{
+      padding:20px 22px;
+      border-bottom:1px solid var(--line2);
+      background:#FBFFFD;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+    }
+
+    .ss-section-title{
+      margin:0;
+      color:var(--ink);
+      font-size:18px;
+      font-weight:900;
+      letter-spacing:-.03em;
+    }
+
+    .ss-section-sub{
+      margin:5px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:650;
+      line-height:1.45;
+    }
+
+    .ss-section-body{
+      padding:22px;
+      display:grid;
+      gap:18px;
+    }
+
+    .ss-grid-2{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:16px;
+    }
+
+    .ss-grid-3{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:16px;
+    }
+
+    .ss-field{
+      display:grid;
+      gap:8px;
+    }
+
+    .ss-field.full{
+      grid-column:1/-1;
+    }
+
+    .ss-label{
+      color:var(--text);
+      font-size:12px;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.07em;
+    }
+
+    .ss-input,
+    .ss-select,
+    .ss-textarea{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--ink);
+      outline:none;
+      font-weight:800;
+      font-family:inherit;
+      box-shadow:none;
+    }
+
+    .ss-input,
+    .ss-select{
+      min-height:46px;
+      padding:0 13px;
+    }
+
+    .ss-textarea{
+      min-height:104px;
+      padding:13px;
+      resize:vertical;
+      line-height:1.5;
+    }
+
+    .ss-input:focus,
+    .ss-select:focus,
+    .ss-textarea:focus{
+      border-color:rgba(0,168,89,.42);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .ss-help{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:700;
+      line-height:1.4;
+    }
+
+    .ss-switch-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .ss-switch{
+      min-height:78px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding:14px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
+      transition:.18s var(--ease);
+    }
+
+    .ss-switch:hover{
+      border-color:rgba(0,168,89,.28);
+      background:#FBFFFD;
+      box-shadow:0 10px 24px rgba(17,64,38,.06);
+    }
+
+    .ss-switch-text strong{
+      display:block;
+      color:var(--ink);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.25;
+    }
+
+    .ss-switch-text span{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:650;
+      line-height:1.4;
+    }
+
+    .ss-toggle{
+      position:relative;
+      width:52px;
+      height:30px;
+      min-width:52px;
+      display:inline-flex;
+      align-items:center;
+    }
+
+    .ss-toggle input{
+      position:absolute;
+      opacity:0;
+      inset:0;
+      cursor:pointer;
+    }
+
+    .ss-slider{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      background:#E5E7EB;
+      border:1px solid rgba(15,23,42,.08);
+      transition:.18s var(--ease);
+    }
+
+    .ss-slider::after{
+      content:"";
+      position:absolute;
+      width:24px;
+      height:24px;
+      top:2px;
+      left:2px;
+      border-radius:999px;
+      background:#fff;
+      box-shadow:0 5px 14px rgba(15,23,42,.18);
+      transition:.18s var(--ease);
+    }
+
+    .ss-toggle input:checked + .ss-slider{
+      background:var(--green);
+      border-color:var(--green);
+    }
+
+    .ss-toggle input:checked + .ss-slider::after{
+      transform:translateX(22px);
+    }
+
+    .ss-shortcuts{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .ss-shortcut{
+      min-height:118px;
+      padding:16px;
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:#fff;
+      text-decoration:none;
+      color:var(--text);
+      box-shadow:0 10px 24px rgba(17,64,38,.05);
+      transition:.18s var(--ease);
+      display:grid;
+      gap:10px;
+    }
+
+    .ss-shortcut:hover{
+      transform:translateY(-2px);
+      border-color:rgba(0,168,89,.28);
+      box-shadow:0 16px 34px rgba(17,64,38,.09);
+      color:var(--green-dark);
+    }
+
+    .ss-shortcut-icon{
+      width:38px;
+      height:38px;
+      display:grid;
+      place-items:center;
+      border-radius:14px;
+      background:#E9FFF3;
+      color:var(--green-dark);
+      font-weight:900;
+    }
+
+    .ss-shortcut strong{
+      display:block;
+      color:var(--ink);
+      font-size:14px;
+      font-weight:900;
+    }
+
+    .ss-shortcut small{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:650;
+      line-height:1.4;
+    }
+
+    .ss-savebar{
+      position:sticky;
+      bottom:18px;
+      z-index:5;
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      padding:14px;
+      border-radius:22px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.92);
+      backdrop-filter:blur(14px);
+      box-shadow:0 18px 50px rgba(17,64,38,.12);
+    }
+
+    @media(max-width:1180px){
+      .ss-hero,
+      .ss-layout{
+        grid-template-columns:1fr;
+      }
+
+      .ss-nav{
+        position:relative;
+        top:auto;
+        display:flex;
+        overflow-x:auto;
+        padding:12px;
+      }
+
+      .ss-nav a{
+        min-width:max-content;
+      }
+
+      .ss-shortcuts{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media(max-width:760px){
+      .ss-shell{
+        padding:12px;
+      }
+
+      .ss-hero{
+        padding:18px;
+        border-radius:24px;
+      }
+
+      .ss-hero-side{
+        padding:14px;
+      }
+
+      .ss-grid-2,
+      .ss-grid-3,
+      .ss-switch-grid,
+      .ss-status-grid,
+      .ss-shortcuts{
+        grid-template-columns:1fr;
+      }
+
+      .ss-section-head{
+        padding:18px;
+      }
+
+      .ss-section-body{
+        padding:18px;
+      }
+
+      .ss-savebar{
+        position:relative;
+        bottom:auto;
+        display:grid;
+      }
+
+      .ss-savebar .ss-btn{
+        width:100%;
+      }
+    }
+  </style>
+
+  <div class="ss-shell">
+    <div class="ss-stack">
+      <div class="ss-hero">
+        <div class="ss-hero-main">
+          <span class="ss-kicker">Store Control Center</span>
+          <h1 class="ss-title">Store Settings</h1>
+          <p class="ss-copy">
+            Manage only the rules and preferences that control how your store behaves. Product, order, delivery and review management stay in their dedicated pages.
+          </p>
+
+          <div class="ss-actions">
+            <a href="{{ url_for('store_profile') }}" class="ss-btn ss-btn-primary">Edit Store Profile</a>
+            <a href="{{ url_for('store_orders') }}" class="ss-btn">Open Orders</a>
+            <a href="{{ url_for('store_delivery') }}" class="ss-btn">Delivery Control</a>
+            <a href="{{ url_for('store_products') }}" class="ss-btn">Products</a>
+          </div>
+        </div>
+
+        <div class="ss-hero-side">
+          <div class="ss-store-card">
+            <div class="ss-logo">
+              {% if store.logo_path %}
+                <img src="{{ url_for('static', filename=store.logo_path) }}" alt="{{ store.store_name|default('Store') }}">
+              {% else %}
+                {{ (store.store_name|default('S'))[:1]|upper }}
+              {% endif %}
+            </div>
+            <div>
+              <div class="ss-store-name">{{ store.store_name|default('Your Store') }}</div>
+              <div class="ss-store-meta">
+                {{ store.address|default('Address not updated') }}
+              </div>
+            </div>
+          </div>
+
+          <div class="ss-status-grid">
+            <div class="ss-status {% if store_online %}on{% else %}off{% endif %}">
+              <span>Store Status</span>
+              <strong>{% if store_online %}Online{% else %}Offline{% endif %}</strong>
+            </div>
+            <div class="ss-status {% if accepting_orders %}on{% else %}off{% endif %}">
+              <span>Orders</span>
+              <strong>{% if accepting_orders %}Accepting{% else %}Paused{% endif %}</strong>
+            </div>
+            <div class="ss-status {% if delivery_on %}on{% else %}off{% endif %}">
+              <span>Delivery</span>
+              <strong>{% if delivery_on %}Enabled{% else %}Disabled{% endif %}</strong>
+            </div>
+            <div class="ss-status">
+              <span>Prep Time</span>
+              <strong>{{ store.preparation_time|default(30) }} min</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ss-layout">
+        <aside class="ss-card ss-nav">
+          <a href="#operation" class="active"><span class="ss-nav-icon">⚙</span> Operation</a>
+          <a href="#orders"><span class="ss-nav-icon">🧾</span> Orders</a>
+          <a href="#delivery"><span class="ss-nav-icon">🚚</span> Delivery</a>
+          <a href="#inventory"><span class="ss-nav-icon">📦</span> Inventory</a>
+          <a href="#notifications"><span class="ss-nav-icon">🔔</span> Notifications</a>
+          <a href="#shortcuts"><span class="ss-nav-icon">↗</span> Shortcuts</a>
+        </aside>
+
+        <form method="POST" action="{{ url_for('store_settings') }}" class="ss-form" id="storeSettingsForm">
+          <section class="ss-card ss-section" id="operation">
+            <div class="ss-section-head">
+              <div>
+                <h2 class="ss-section-title">Operation Preferences</h2>
+                <p class="ss-section-sub">Control whether your store is visible, accepting orders and following working hours.</p>
+              </div>
+            </div>
+
+            <div class="ss-section-body">
+              <div class="ss-switch-grid">
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Store Online</strong>
+                    <span>Customers can see this store as active.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="is_online" {% if store_online %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Accepting Orders</strong>
+                    <span>Allow customers to place new orders.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="accepting_orders" {% if accepting_orders %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+              </div>
+
+              <div class="ss-grid-3">
+                <div class="ss-field">
+                  <label class="ss-label">Opening Time</label>
+                  <input type="time" name="opening_time" value="{{ store.opening_time|default('') }}" class="ss-input">
+                </div>
+
+                <div class="ss-field">
+                  <label class="ss-label">Closing Time</label>
+                  <input type="time" name="closing_time" value="{{ store.closing_time|default('') }}" class="ss-input">
+                </div>
+
+                <div class="ss-field">
+                  <label class="ss-label">Weekly Off Day</label>
+                  <select name="weekly_off_day" class="ss-select">
+                    {% set off_day = store.weekly_off_day|default('') %}
+                    <option value="">No fixed weekly off</option>
+                    {% for day in ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] %}
+                      <option value="{{ day }}" {% if off_day == day %}selected{% endif %}>{{ day }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
+                <div class="ss-field full">
+                  <label class="ss-label">Temporary Close Message</label>
+                  <textarea name="temporary_close_message" class="ss-textarea" placeholder="Example: Store is closed today due to maintenance.">{{ store.temporary_close_message|default('') }}</textarea>
+                  <div class="ss-help">Shown internally for store reference and can be connected to customer-side notices later.</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="ss-card ss-section" id="orders">
+            <div class="ss-section-head">
+              <div>
+                <h2 class="ss-section-title">Order Preferences</h2>
+                <p class="ss-section-sub">Set default rules for order value, payment mode and preparation behavior.</p>
+              </div>
+            </div>
+
+            <div class="ss-section-body">
+              <div class="ss-grid-2">
+                <div class="ss-field">
+                  <label class="ss-label">Minimum Order Amount</label>
+                  <input type="number" name="min_order_amount" min="0" step="0.01" value="{{ store.min_order_amount|default(0) }}" class="ss-input">
+                </div>
+
+                <div class="ss-field">
+                  <label class="ss-label">Preparation Time / Minutes</label>
+                  <input type="number" name="preparation_time" min="0" max="300" step="1" value="{{ store.preparation_time|default(30) }}" class="ss-input">
+                </div>
+              </div>
+
+              <div class="ss-switch-grid">
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Allow COD</strong>
+                    <span>Customers can choose cash on delivery.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="allow_cod" {% if allow_cod %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Allow Online Payment</strong>
+                    <span>Customers can pay online when payment gateway is active.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="allow_online_payment" {% if allow_online_payment %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Auto Accept Orders</strong>
+                    <span>Future-ready setting. Keep off for manual order control.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="auto_accept_orders" {% if auto_accept_orders %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="ss-card ss-section" id="delivery">
+            <div class="ss-section-head">
+              <div>
+                <h2 class="ss-section-title">Delivery Preferences</h2>
+                <p class="ss-section-sub">Configure delivery cost, minimum order and rider instructions. Delivery orders remain in Delivery Control.</p>
+              </div>
+            </div>
+
+            <div class="ss-section-body">
+              <div class="ss-switch-grid">
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Delivery Enabled</strong>
+                    <span>Allow store delivery for eligible customer locations.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="delivery_enabled" {% if delivery_on %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+              </div>
+
+              <div class="ss-grid-2">
+                <div class="ss-field">
+                  <label class="ss-label">Base Delivery Fee</label>
+                  <input type="number" name="delivery_base_fee" min="0" step="0.01" value="{{ store.delivery_base_fee|default(40) }}" class="ss-input">
+                </div>
+
+                <div class="ss-field">
+                  <label class="ss-label">Free Delivery Above</label>
+                  <input type="number" name="free_delivery_above" min="0" step="0.01" value="{{ store.free_delivery_above|default(0) }}" class="ss-input">
+                </div>
+
+                <div class="ss-field">
+                  <label class="ss-label">Delivery Minimum Order</label>
+                  <input type="number" name="delivery_min_order_amount" min="0" step="0.01" value="{{ store.delivery_min_order_amount|default(0) }}" class="ss-input">
+                </div>
+
+                <div class="ss-field">
+                  <label class="ss-label">Estimated Delivery Time / Minutes</label>
+                  <input type="number" name="estimated_delivery_time" min="0" max="300" step="1" value="{{ store.estimated_delivery_time|default(45) }}" class="ss-input">
+                </div>
+
+                <div class="ss-field full">
+                  <label class="ss-label">Rider Instructions</label>
+                  <textarea name="rider_instructions" class="ss-textarea" placeholder="Example: Pickup from back gate, call store before pickup.">{{ store.rider_instructions|default('') }}</textarea>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="ss-card ss-section" id="inventory">
+            <div class="ss-section-head">
+              <div>
+                <h2 class="ss-section-title">Inventory Preferences</h2>
+                <p class="ss-section-sub">Set default stock alert and out-of-stock behavior. Product management remains in Products and Inventory.</p>
+              </div>
+            </div>
+
+            <div class="ss-section-body">
+              <div class="ss-grid-2">
+                <div class="ss-field">
+                  <label class="ss-label">Low Stock Alert Quantity</label>
+                  <input type="number" name="low_stock_alert_quantity" min="0" step="1" value="{{ store.low_stock_alert_quantity|default(5) }}" class="ss-input">
+                </div>
+              </div>
+
+              <div class="ss-switch-grid">
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Hide Out-of-stock Products</strong>
+                    <span>Future-ready setting for customer catalog display behavior.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="hide_out_of_stock" {% if hide_out_of_stock %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Allow Preorder</strong>
+                    <span>Future-ready setting for products that can be ordered before restock.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="allow_preorder" {% if allow_preorder %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="ss-card ss-section" id="notifications">
+            <div class="ss-section-head">
+              <div>
+                <h2 class="ss-section-title">Notification Preferences</h2>
+                <p class="ss-section-sub">Choose which alerts should matter for your store dashboard and workflow.</p>
+              </div>
+            </div>
+
+            <div class="ss-section-body">
+              <div class="ss-switch-grid">
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>New Order Alert</strong>
+                    <span>Notify when a customer places an order.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="new_order_alert" {% if new_order_alert %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Order Cancel Alert</strong>
+                    <span>Notify when an order is cancelled.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="order_cancel_alert" {% if order_cancel_alert %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Low Stock Alert</strong>
+                    <span>Notify when stock reaches alert level.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="low_stock_alert" {% if low_stock_alert %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>New Review Alert</strong>
+                    <span>Notify when customers review store/products.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="new_review_alert" {% if new_review_alert %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Delivery Alert</strong>
+                    <span>Notify for delivery assignment and completion updates.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="delivery_alert" {% if delivery_alert %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Dashboard Alert</strong>
+                    <span>Show important alerts inside the store panel.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="dashboard_alert" {% if dashboard_alert %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+
+                <label class="ss-switch">
+                  <span class="ss-switch-text">
+                    <strong>Email Alert</strong>
+                    <span>Future-ready preference for email notification.</span>
+                  </span>
+                  <span class="ss-toggle">
+                    <input type="checkbox" name="email_alert" {% if email_alert %}checked{% endif %}>
+                    <span class="ss-slider"></span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="ss-card ss-section" id="shortcuts">
+            <div class="ss-section-head">
+              <div>
+                <h2 class="ss-section-title">Quick Shortcuts</h2>
+                <p class="ss-section-sub">Open the dedicated pages for detailed management.</p>
+              </div>
+            </div>
+
+            <div class="ss-section-body">
+              <div class="ss-shortcuts">
+                <a href="{{ url_for('store_profile') }}" class="ss-shortcut">
+                  <span class="ss-shortcut-icon">🏪</span>
+                  <strong>Store Profile</strong>
+                  <small>Edit identity, owner details, location, banner and profile information.</small>
+                </a>
+
+                <a href="{{ url_for('store_orders') }}" class="ss-shortcut">
+                  <span class="ss-shortcut-icon">🧾</span>
+                  <strong>Orders</strong>
+                  <small>Manage current orders, status and customer order details.</small>
+                </a>
+
+                <a href="{{ url_for('store_delivery') }}" class="ss-shortcut">
+                  <span class="ss-shortcut-icon">🚚</span>
+                  <strong>Delivery Control</strong>
+                  <small>Assign riders, manage delivery progress and active deliveries.</small>
+                </a>
+
+                <a href="{{ url_for('store_products') }}" class="ss-shortcut">
+                  <span class="ss-shortcut-icon">🛒</span>
+                  <strong>Products</strong>
+                  <small>Add, edit and manage products listed under your store.</small>
+                </a>
+
+                <a href="{{ url_for('store_inventory') }}" class="ss-shortcut">
+                  <span class="ss-shortcut-icon">📦</span>
+                  <strong>Inventory</strong>
+                  <small>Check stock movement, low stock products and inventory status.</small>
+                </a>
+
+                <a href="{{ url_for('store_categories') }}" class="ss-shortcut">
+                  <span class="ss-shortcut-icon">🏷</span>
+                  <strong>Categories</strong>
+                  <small>Organize product categories and catalog groups.</small>
+                </a>
+
+                <a href="{{ url_for('store_reviews') }}" class="ss-shortcut">
+                  <span class="ss-shortcut-icon">⭐</span>
+                  <strong>Store Reviews</strong>
+                  <small>View customer ratings and store-level review feedback.</small>
+                </a>
+
+                <a href="{{ url_for('store_product_reviews') }}" class="ss-shortcut">
+                  <span class="ss-shortcut-icon">💬</span>
+                  <strong>Product Reviews</strong>
+                  <small>Review product-specific customer feedback and ratings.</small>
+                </a>
+              </div>
+            </div>
+          </section>
+
+          <div class="ss-savebar">
+            <a href="{{ url_for('store_dashboard') }}" class="ss-btn">Cancel</a>
+            <button type="submit" class="ss-btn ss-btn-primary">Save Store Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const navLinks = document.querySelectorAll('.ss-nav a[href^="#"]');
+      const sections = Array.from(document.querySelectorAll('.ss-section[id]'));
+
+      navLinks.forEach(function(link){
+        link.addEventListener('click', function(e){
+          const targetId = link.getAttribute('href');
+          const target = document.querySelector(targetId);
+
+          if (!target) return;
+
+          e.preventDefault();
+
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+
+          history.replaceState(null, '', targetId);
+
+          navLinks.forEach(function(item){
+            item.classList.remove('active');
+          });
+
+          link.classList.add('active');
+        });
+      });
+
+      function syncActiveSection(){
+        let current = sections[0] ? sections[0].id : '';
+
+        sections.forEach(function(section){
+          const rect = section.getBoundingClientRect();
+
+          if (rect.top <= 140) {
+            current = section.id;
+          }
+        });
+
+        navLinks.forEach(function(link){
+          const href = link.getAttribute('href') || '';
+          link.classList.toggle('active', href === '#' + current);
+        });
+      }
+
+      window.addEventListener('scroll', syncActiveSection, { passive: true });
+      syncActiveSection();
+    })();
+  </script>
+</section>
+
+{% endblock %}

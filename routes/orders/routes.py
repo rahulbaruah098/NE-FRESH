@@ -316,9 +316,16 @@ def checkout():
         km = serviceability.get("distance_km")
         delivery_fee = serviceability.get("delivery_fee", 0)
 
+        tip_amount_raw = (
+            request.form.get("tip_amount")
+            or request.form.get("tip")
+            or request.form.get("delivery_tip")
+            or "0"
+        )
+
         try:
-            tip_amount = float(tip_amount or 0)
-        except ValueError:
+            tip_amount = float(tip_amount_raw or 0)
+        except (TypeError, ValueError):
             tip_amount = 0.0
 
         if tip_amount < 0:
@@ -770,7 +777,18 @@ def api_order_status(oid):
         "id": o.get("id"),
         "status": o.get("status"),
         "payment_status": o.get("payment_status"),
-        "delivery_partner_name": o.get("delivery_partner_name"),
+
+        "delivery_partner_id": str(o.get("delivery_partner_id")) if o.get("delivery_partner_id") else "",
+        "delivery_partner_name": o.get("delivery_partner_name") or "",
+        "delivery_partner_phone": o.get("delivery_partner_phone") or "",
+
+        "assigned_at": o.get("assigned_at"),
+        "ready_for_pickup_at": o.get("ready_for_pickup_at"),
+        "reached_store_at": o.get("reached_store_at"),
+        "picked_up_at": o.get("picked_up_at"),
+        "out_for_delivery_at": o.get("out_for_delivery_at"),
+        "delivered_at": o.get("delivered_at"),
+
         "events": events
     })
 
@@ -883,6 +901,15 @@ def api_order_detail(user_id, oid):
             "created_at": o.get("created_at", ""),
             "delivery_partner_id": str(o.get("delivery_partner_id")) if o.get("delivery_partner_id") else "",
             "delivery_partner_name": o.get("delivery_partner_name", ""),
+            "delivery_partner_phone": o.get("delivery_partner_phone", ""),
+
+            "assigned_at": o.get("assigned_at"),
+            "ready_for_pickup_at": o.get("ready_for_pickup_at"),
+            "reached_store_at": o.get("reached_store_at"),
+            "picked_up_at": o.get("picked_up_at"),
+            "out_for_delivery_at": o.get("out_for_delivery_at"),
+            "delivered_at": o.get("delivered_at"),
+
             "items": items,
             "address": address,
             "events": events

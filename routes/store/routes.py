@@ -537,6 +537,211 @@ def store_delivery_toggle():
     })
 
 
+@app.route('/store/settings', methods=['GET', 'POST'], endpoint='store_settings')
+@login_required(role='store')
+def store_settings_page():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    if request.method == "POST":
+        now = datetime.utcnow().isoformat()
+
+        def _settings_int_or_default(value, default=0, min_value=None, max_value=None):
+            try:
+                if value is None or str(value).strip() == "":
+                    number = int(default)
+                else:
+                    number = int(float(value))
+
+                if min_value is not None and number < min_value:
+                    return int(default)
+
+                if max_value is not None and number > max_value:
+                    return int(default)
+
+                return number
+            except Exception:
+                return int(default)
+
+        def _settings_text(name, limit=500):
+            value = (request.form.get(name) or "").strip()
+            if len(value) > limit:
+                value = value[:limit]
+            return value
+
+        existing_is_online = bool(int(store.get("is_online", store.get("is_open", 1)) or 0))
+        existing_delivery_enabled = bool(
+            int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0)
+        )
+
+        is_online = _store_bool_from_form("is_online", existing_is_online)
+        accepting_orders = _store_bool_from_form(
+            "accepting_orders",
+            bool(int(store.get("accepting_orders", 1) or 0))
+        )
+
+        delivery_enabled = _store_bool_from_form("delivery_enabled", existing_delivery_enabled)
+
+        allow_cod = _store_bool_from_form(
+            "allow_cod",
+            bool(int(store.get("allow_cod", 1) or 0))
+        )
+
+        allow_online_payment = _store_bool_from_form(
+            "allow_online_payment",
+            bool(int(store.get("allow_online_payment", 1) or 0))
+        )
+
+        auto_accept_orders = _store_bool_from_form(
+            "auto_accept_orders",
+            bool(int(store.get("auto_accept_orders", 0) or 0))
+        )
+
+        hide_out_of_stock = _store_bool_from_form(
+            "hide_out_of_stock",
+            bool(int(store.get("hide_out_of_stock", 0) or 0))
+        )
+
+        allow_preorder = _store_bool_from_form(
+            "allow_preorder",
+            bool(int(store.get("allow_preorder", 0) or 0))
+        )
+
+        opening_time = _settings_text("opening_time", 20)
+        closing_time = _settings_text("closing_time", 20)
+        weekly_off_day = _settings_text("weekly_off_day", 40)
+        temporary_close_message = _settings_text("temporary_close_message", 250)
+
+        min_order_amount = _store_money_or_default(
+            request.form.get("min_order_amount"),
+            store.get("min_order_amount", 0)
+        )
+
+        preparation_time = _settings_int_or_default(
+            request.form.get("preparation_time"),
+            store.get("preparation_time", 30) or 30,
+            0,
+            300
+        )
+
+        delivery_base_fee = _store_money_or_default(
+            request.form.get("delivery_base_fee"),
+            store.get("delivery_base_fee", 40)
+        )
+
+        free_delivery_above = _store_money_or_default(
+            request.form.get("free_delivery_above"),
+            store.get("free_delivery_above", 0)
+        )
+
+        delivery_min_order_amount = _store_money_or_default(
+            request.form.get("delivery_min_order_amount"),
+            store.get("delivery_min_order_amount", 0)
+        )
+
+        estimated_delivery_time = _settings_int_or_default(
+            request.form.get("estimated_delivery_time"),
+            store.get("estimated_delivery_time", 45) or 45,
+            0,
+            300
+        )
+
+        low_stock_alert_quantity = _settings_int_or_default(
+            request.form.get("low_stock_alert_quantity"),
+            store.get("low_stock_alert_quantity", 5) or 5,
+            0,
+            100000
+        )
+
+        rider_instructions = _settings_text("rider_instructions", 500)
+
+        notification_preferences = {
+            "new_order_alert": _store_bool_from_form("new_order_alert", True),
+            "order_cancel_alert": _store_bool_from_form("order_cancel_alert", True),
+            "low_stock_alert": _store_bool_from_form("low_stock_alert", True),
+            "new_review_alert": _store_bool_from_form("new_review_alert", True),
+            "delivery_alert": _store_bool_from_form("delivery_alert", True),
+            "email_alert": _store_bool_from_form("email_alert", False),
+            "dashboard_alert": _store_bool_from_form("dashboard_alert", True),
+        }
+
+        update_data = {
+            "is_online": 1 if is_online else 0,
+            "is_open": 1 if is_online else 0,
+            "accepting_orders": 1 if accepting_orders else 0,
+            "temporary_close_message": temporary_close_message,
+
+            "opening_time": opening_time,
+            "closing_time": closing_time,
+            "weekly_off_day": weekly_off_day,
+
+            "min_order_amount": min_order_amount,
+            "preparation_time": preparation_time,
+            "allow_cod": 1 if allow_cod else 0,
+            "allow_online_payment": 1 if allow_online_payment else 0,
+            "auto_accept_orders": 1 if auto_accept_orders else 0,
+
+            "delivery_enabled": 1 if delivery_enabled else 0,
+            "delivery_available": bool(delivery_enabled),
+            "delivery_base_fee": delivery_base_fee,
+            "free_delivery_above": free_delivery_above,
+            "delivery_min_order_amount": delivery_min_order_amount,
+            "estimated_delivery_time": estimated_delivery_time,
+            "rider_instructions": rider_instructions,
+
+            "low_stock_alert_quantity": low_stock_alert_quantity,
+            "hide_out_of_stock": 1 if hide_out_of_stock else 0,
+            "allow_preorder": 1 if allow_preorder else 0,
+
+            "notification_preferences": notification_preferences,
+            "settings_updated_at": now,
+            "updated_at": now,
+        }
+
+        mongo.stores.update_one(
+            {"_id": store["_id"]},
+            {"$set": update_data}
+        )
+
+        mongo.store_notification_settings.update_one(
+            {"store_id": store["_id"]},
+            {
+                "$set": {
+                    "store_id": store["_id"],
+                    "enabled": bool(notification_preferences.get("dashboard_alert")),
+                    "preferences": notification_preferences,
+                    "updated_at": now
+                },
+                "$setOnInsert": {
+                    "created_at": now
+                }
+            },
+            upsert=True
+        )
+
+        flash("Store settings updated successfully.", "success")
+        return redirect(url_for("store_settings"))
+
+    store["id"] = str(store["_id"])
+
+    notification_settings = mongo.store_notification_settings.find_one({
+        "store_id": store["_id"]
+    }) or {}
+
+    page_context = _build_store_split_page_context(store)
+
+    return render_template(
+        "store_settings.html",
+        user=u,
+        store=store,
+        notification_settings=notification_settings,
+        **page_context
+    )
+
+
 @app.route('/store/delivered-orders')
 @login_required(role='store')
 def store_delivered_orders():
@@ -639,6 +844,46 @@ def store_products_page():
         **page_context
     )
 
+def _store_order_id_or_redirect(oid):
+    try:
+        return ObjectId(str(oid))
+    except Exception:
+        return None
+
+
+def _get_store_owned_order(store, oid):
+    oid_obj = _store_order_id_or_redirect(oid)
+
+    if not oid_obj:
+        return None, None
+
+    store_id = store.get("_id")
+    store_id_str = str(store_id)
+
+    order = mongo.orders.find_one({
+        "_id": oid_obj,
+        "$or": [
+            {"store_id": store_id},
+            {"store_id": store_id_str}
+        ]
+    })
+
+    return oid_obj, order
+
+
+def _hydrate_store_delivery_people_for_template(store):
+    """
+    Online delivery boys available for this store.
+    Uses app_core.py helper added in Step 1.
+    """
+    try:
+        return get_online_delivery_people_near_store(
+            store,
+            max_km=DELIVERY_ACCEPT_RADIUS_KM
+        )
+    except Exception:
+        return []
+
 @app.route('/store/orders', methods=['GET'], endpoint='store_orders')
 @login_required(role='store')
 def store_orders_page():
@@ -647,7 +892,12 @@ def store_orders_page():
     if not store:
         return redirect(url_for("store_dashboard"))
 
-    page_context = _build_store_split_page_context(store)
+    page_context = _build_store_split_page_context(store) or {}
+
+    available_delivery_people = _hydrate_store_delivery_people_for_template(store)
+
+    page_context["available_delivery_people"] = available_delivery_people
+    page_context["delivery_accept_radius_km"] = DELIVERY_ACCEPT_RADIUS_KM
 
     return render_template(
         "store_orders.html",
@@ -655,6 +905,332 @@ def store_orders_page():
         store=store,
         **page_context
     )
+
+
+@app.route('/store/delivery', methods=['GET'], endpoint='store_delivery')
+@login_required(role='store')
+def store_delivery_page():
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    page_context = _build_store_split_page_context(store) or {}
+
+    orders = page_context.get("orders") or []
+    available_delivery_people = _hydrate_store_delivery_people_for_template(store)
+
+    def _delivery_status(order):
+        return (order.get("status") or "").strip().upper()
+
+    def _has_delivery_partner(order):
+        return bool(order.get("delivery_partner_id"))
+
+    def _is_today(value):
+        if not value:
+            return False
+
+        try:
+            raw = str(value).replace("Z", "")
+            dt = datetime.fromisoformat(raw)
+            return dt.date() == datetime.utcnow().date()
+        except Exception:
+            return False
+
+    delivery_metrics = {
+        "total_orders": len(orders),
+        "ready_for_pickup": 0,
+        "needs_rider": 0,
+        "assigned": 0,
+        "reached_store": 0,
+        "picked_up": 0,
+        "out_for_delivery": 0,
+        "active_delivery_orders": 0,
+        "delivered_today": 0,
+        "cancelled": 0,
+        "online_riders": len(available_delivery_people),
+    }
+
+    ready_orders = []
+    needs_rider_orders = []
+    active_delivery_orders = []
+    recent_delivered_orders = []
+    attention_orders = []
+
+    for order in orders:
+        status = _delivery_status(order)
+        has_rider = _has_delivery_partner(order)
+
+        if status == "READY_FOR_PICKUP":
+            delivery_metrics["ready_for_pickup"] += 1
+            ready_orders.append(order)
+
+        if status in {"CONFIRMED", "PREPARING", "PACKAGING", "READY_FOR_PICKUP"} and not has_rider:
+            delivery_metrics["needs_rider"] += 1
+            needs_rider_orders.append(order)
+            attention_orders.append(order)
+
+        if status in {"ASSIGNED_TO_DELIVERY", "ACCEPTED_BY_DELIVERY_MAN"}:
+            delivery_metrics["assigned"] += 1
+
+        if status == "REACHED_STORE":
+            delivery_metrics["reached_store"] += 1
+
+        if status == "PICKED_UP":
+            delivery_metrics["picked_up"] += 1
+
+        if status == "OUT_FOR_DELIVERY":
+            delivery_metrics["out_for_delivery"] += 1
+
+        if status in {"ASSIGNED_TO_DELIVERY", "ACCEPTED_BY_DELIVERY_MAN", "REACHED_STORE", "PICKED_UP", "OUT_FOR_DELIVERY"}:
+            delivery_metrics["active_delivery_orders"] += 1
+            active_delivery_orders.append(order)
+
+        if status == "DELIVERED":
+            recent_delivered_orders.append(order)
+
+            if _is_today(order.get("delivered_at") or order.get("updated_at") or order.get("created_at")):
+                delivery_metrics["delivered_today"] += 1
+
+        if status == "CANCELLED":
+            delivery_metrics["cancelled"] += 1
+
+    recent_delivered_orders = recent_delivered_orders[:10]
+    attention_orders = attention_orders[:10]
+
+    page_context["available_delivery_people"] = available_delivery_people
+    page_context["delivery_accept_radius_km"] = DELIVERY_ACCEPT_RADIUS_KM
+    page_context["delivery_metrics"] = delivery_metrics
+    page_context["ready_orders"] = ready_orders
+    page_context["needs_rider_orders"] = needs_rider_orders
+    page_context["active_delivery_orders"] = active_delivery_orders
+    page_context["recent_delivered_orders"] = recent_delivered_orders
+    page_context["attention_orders"] = attention_orders
+
+    return render_template(
+        "store_delivery.html",
+        user=u,
+        store=store,
+        **page_context
+    )
+
+@app.route('/store/orders/<oid>/ready-for-pickup', methods=['POST'], endpoint='store_order_ready_for_pickup')
+@login_required(role='store')
+def store_order_ready_for_pickup(oid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    oid_obj, order = _get_store_owned_order(store, oid)
+
+    if not oid_obj or not order:
+        flash("Order not found for your store.", "danger")
+        return redirect(url_for("store_orders"))
+
+    status = (order.get("status") or "").strip().upper()
+
+    if status in {"CANCELLED", "DELIVERED", "PICKED_UP", "OUT_FOR_DELIVERY"}:
+        flash("This order cannot be marked ready for pickup now.", "warning")
+        return redirect(url_for("store_orders"))
+
+    now = datetime.utcnow().isoformat()
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": {
+                "status": "READY_FOR_PICKUP",
+                "ready_for_pickup_at": now,
+                "updated_at": now
+            }
+        }
+    )
+
+    add_order_event(
+        oid_obj,
+        "READY_FOR_PICKUP",
+        "Marked ready for pickup by store.",
+        u
+    )
+
+    _create_store_notification(
+        store,
+        title="Order ready for pickup",
+        message=f"Order #{str(oid_obj)[-6:]} is ready for delivery pickup.",
+        notif_type="delivery",
+        order=order,
+        event_key=f"ready-pickup-{str(oid_obj)}-{now}"
+    )
+
+    flash("Order marked ready for pickup.", "success")
+    return redirect(url_for("store_orders"))
+
+
+@app.route('/store/orders/<oid>/assign-delivery', methods=['POST'], endpoint='store_order_assign_delivery')
+@login_required(role='store')
+def store_order_assign_delivery(oid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    oid_obj, order = _get_store_owned_order(store, oid)
+
+    if not oid_obj or not order:
+        flash("Order not found for your store.", "danger")
+        return redirect(url_for("store_orders"))
+
+    delivery_user_id = (request.form.get("delivery_user_id") or "").strip()
+
+    if not delivery_user_id:
+        flash("Please select a delivery boy.", "warning")
+        return redirect(url_for("store_orders"))
+
+    result = assign_delivery_partner_to_order(
+        order_id=oid_obj,
+        delivery_user_id=delivery_user_id,
+        actor=u,
+        source="store_manual",
+        allow_reassign=False
+    )
+
+    if not result.get("ok"):
+        flash(result.get("error") or "Could not assign delivery boy.", "danger")
+        return redirect(url_for("store_orders"))
+
+    _create_store_notification(
+        store,
+        title="Delivery boy assigned",
+        message=f"Order #{str(oid_obj)[-6:]} assigned to {result.get('delivery_partner', {}).get('name', 'delivery boy')}.",
+        notif_type="delivery",
+        order=order,
+        event_key=f"delivery-assign-{str(oid_obj)}-{delivery_user_id}-{datetime.utcnow().isoformat()}"
+    )
+
+    flash("Delivery boy assigned successfully.", "success")
+    return redirect(url_for("store_orders"))
+
+
+@app.route('/store/orders/<oid>/reassign-delivery', methods=['POST'], endpoint='store_order_reassign_delivery')
+@login_required(role='store')
+def store_order_reassign_delivery(oid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    oid_obj, order = _get_store_owned_order(store, oid)
+
+    if not oid_obj or not order:
+        flash("Order not found for your store.", "danger")
+        return redirect(url_for("store_orders"))
+
+    status = (order.get("status") or "").strip().upper()
+
+    if status in {"PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"}:
+        flash("Delivery boy cannot be changed after pickup/out for delivery.", "warning")
+        return redirect(url_for("store_orders"))
+
+    delivery_user_id = (request.form.get("delivery_user_id") or "").strip()
+
+    if not delivery_user_id:
+        flash("Please select a delivery boy.", "warning")
+        return redirect(url_for("store_orders"))
+
+    result = assign_delivery_partner_to_order(
+        order_id=oid_obj,
+        delivery_user_id=delivery_user_id,
+        actor=u,
+        source="store_reassign",
+        allow_reassign=True
+    )
+
+    if not result.get("ok"):
+        flash(result.get("error") or "Could not reassign delivery boy.", "danger")
+        return redirect(url_for("store_orders"))
+
+    _create_store_notification(
+        store,
+        title="Delivery boy reassigned",
+        message=f"Order #{str(oid_obj)[-6:]} reassigned to {result.get('delivery_partner', {}).get('name', 'delivery boy')}.",
+        notif_type="delivery",
+        order=order,
+        event_key=f"delivery-reassign-{str(oid_obj)}-{delivery_user_id}-{datetime.utcnow().isoformat()}"
+    )
+
+    flash("Delivery boy reassigned successfully.", "success")
+    return redirect(url_for("store_orders"))
+
+
+@app.route('/store/orders/<oid>/clear-delivery', methods=['POST'], endpoint='store_order_clear_delivery')
+@login_required(role='store')
+def store_order_clear_delivery(oid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    oid_obj, order = _get_store_owned_order(store, oid)
+
+    if not oid_obj or not order:
+        flash("Order not found for your store.", "danger")
+        return redirect(url_for("store_orders"))
+
+    result = clear_delivery_assignment(
+        order_id=oid_obj,
+        actor=u,
+        reason="Delivery assignment cleared by store."
+    )
+
+    if not result.get("ok"):
+        flash(result.get("error") or "Could not clear delivery assignment.", "danger")
+        return redirect(url_for("store_orders"))
+
+    _create_store_notification(
+        store,
+        title="Delivery assignment cleared",
+        message=f"Delivery assignment cleared for order #{str(oid_obj)[-6:]}.",
+        notif_type="delivery",
+        order=order,
+        event_key=f"delivery-clear-{str(oid_obj)}-{datetime.utcnow().isoformat()}"
+    )
+
+    flash("Delivery assignment cleared.", "success")
+    return redirect(url_for("store_orders"))
+
+
+@app.route('/store/orders/<oid>/delivery-options', methods=['GET'], endpoint='store_order_delivery_options')
+@login_required(role='store')
+def store_order_delivery_options(oid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return jsonify({
+            "ok": False,
+            "error": "Store not found."
+        }), 404
+
+    oid_obj, order = _get_store_owned_order(store, oid)
+
+    if not oid_obj or not order:
+        return jsonify({
+            "ok": False,
+            "error": "Order not found for your store."
+        }), 404
+
+    people = _hydrate_store_delivery_people_for_template(store)
+
+    return jsonify({
+        "ok": True,
+        "order_id": str(oid_obj),
+        "delivery_people": people
+    })
 
 @app.route('/store/inventory', methods=['GET'], endpoint='store_inventory')
 @login_required(role='store')
@@ -1253,7 +1829,7 @@ def store_profile_update():
     if delivery_mode not in ["polygon"]:
         delivery_mode = "polygon"
 
-        existing_delivery_zone_polygon = store.get("delivery_zone_polygon") or []
+    existing_delivery_zone_polygon = store.get("delivery_zone_polygon") or []
 
     if "delivery_zone_polygon" in request.form:
         delivery_zone_raw = (request.form.get("delivery_zone_polygon") or "").strip()
@@ -2384,10 +2960,6 @@ def store_order_status(oid):
         "CONFIRMED",
         "PREPARING",
         "READY_FOR_PICKUP",
-        "ASSIGNED_TO_DELIVERY",
-        "ACCEPTED_BY_DELIVERY_MAN",
-        "OUT_FOR_DELIVERY",
-        "DELIVERED",
         "CANCELLED",
     }
 
@@ -2418,12 +2990,6 @@ def store_order_status(oid):
     if new_status == "READY_FOR_PICKUP":
         update_data["ready_for_pickup_at"] = now
 
-    if new_status == "OUT_FOR_DELIVERY":
-        update_data["out_for_delivery_at"] = now
-
-    if new_status == "DELIVERED":
-        update_data["delivered_at"] = now
-        update_data["payment_status"] = "PAID"
 
     if new_status == "CANCELLED":
         update_data["cancelled_at"] = now
@@ -2449,40 +3015,6 @@ def store_order_status(oid):
         event_key=f"status-{str(order['_id'])}-{new_status}-{now}"
     )
 
-    # Only touch transactions when the order is delivered.
-    if new_status == "DELIVERED":
-        payable_amount = (
-            float(order.get("total_amount") or 0)
-            + float(order.get("delivery_fee") or 0)
-            + float(order.get("tip_amount") or 0)
-        )
-
-        existing_txn = mongo.transactions.find_one({
-            "order_id": oid_obj
-        })
-
-        if existing_txn:
-            mongo.transactions.update_many(
-                {"order_id": oid_obj},
-                {
-                    "$set": {
-                        "status": "PAID",
-                        "amount": payable_amount,
-                        "updated_at": now
-                    }
-                }
-            )
-        else:
-            mongo.transactions.insert_one({
-                "order_id": oid_obj,
-                "store_id": store["_id"],
-                "user_id": order.get("user_id"),
-                "amount": payable_amount,
-                "status": "PAID",
-                "method": order.get("payment_method") or "COD",
-                "created_at": now,
-                "updated_at": now
-            })
 
     flash("Order status updated.", "success")
     return redirect(url_for("store_orders"))
