@@ -85,6 +85,427 @@ def delivery_dashboard():
         delivery_accept_radius_km=DELIVERY_ACCEPT_RADIUS_KM
     )
 
+@app.route('/delivery/available-orders')
+@login_required(role='delivery')
+def delivery_available_orders():
+    u = current_user()
+
+    availability = _get_delivery_availability(u["id"])
+    delivery_active = bool(availability.get("active"))
+
+    orders = []
+
+    if delivery_active:
+        raw_orders = list(
+            mongo.orders.find({
+                "$and": [
+                    {
+                        "$or": [
+                            {"delivery_partner_id": None},
+                            {"delivery_partner_id": ""},
+                            {"delivery_partner_id": {"$exists": False}}
+                        ]
+                    },
+                    {
+                        "status": {"$in": DELIVERY_ACTIONABLE_STATUSES}
+                    }
+                ]
+            }).sort("updated_at", -1)
+        )
+
+        for o in raw_orders:
+            o = _hydrate_delivery_order(o)
+            distance_km = _driver_distance_to_store_km(o, availability)
+            o["driver_store_distance_km"] = distance_km
+
+            if distance_km is not None and distance_km > DELIVERY_ACCEPT_RADIUS_KM:
+                continue
+
+            orders.append(o)
+
+        orders.sort(
+            key=lambda x: (
+                999999 if x.get("driver_store_distance_km") is None else x.get("driver_store_distance_km")
+            )
+        )
+
+    return render_template(
+        "delivery_available_orders.html",
+        user=u,
+        orders=orders,
+        delivery_active=delivery_active,
+        delivery_availability=availability,
+        delivery_accept_radius_km=DELIVERY_ACCEPT_RADIUS_KM
+    )
+
+@app.route('/delivery/active-orders')
+@login_required(role='delivery')
+def delivery_active_orders():
+    u = current_user()
+
+    availability = _get_delivery_availability(u["id"])
+    delivery_active = bool(availability.get("active"))
+
+    raw_orders = list(
+        mongo.orders.find({
+            "$and": [
+                {
+                    "$or": [
+                        {"delivery_partner_id": u["id"]},
+                        {"delivery_partner_id": str(u["id"])}
+                    ]
+                },
+                {
+                    "status": {"$in": DELIVERY_ASSIGNED_ACTIVE_STATUSES}
+                }
+            ]
+        }).sort("updated_at", -1)
+    )
+
+    orders = []
+
+    for o in raw_orders:
+        o = _hydrate_delivery_order(o)
+        distance_km = _driver_distance_to_store_km(o, availability)
+        o["driver_store_distance_km"] = distance_km
+        orders.append(o)
+
+    return render_template(
+        "delivery_active_orders.html",
+        user=u,
+        orders=orders,
+        delivery_active=delivery_active,
+        delivery_availability=availability,
+        delivery_accept_radius_km=DELIVERY_ACCEPT_RADIUS_KM
+    )
+
+@app.route('/delivery/history')
+@login_required(role='delivery')
+def delivery_history():
+    u = current_user()
+
+    availability = _get_delivery_availability(u["id"])
+    delivery_active = bool(availability.get("active"))
+
+    q = (request.args.get("q") or "").strip()
+    status_filter = (request.args.get("status") or "").strip().upper()
+
+    history_statuses = ["DELIVERED", "CANCELLED"]
+
+    query_filter = {
+        "$and": [
+            {
+                "$or": [
+                    {"delivery_partner_id": u["id"]},
+                    {"delivery_partner_id": str(u["id"])}
+                ]
+            },
+            {
+                "status": {"$in": history_statuses}
+            }
+        ]
+    }
+
+    if status_filter in history_statuses:
+        query_filter["$and"].append({
+            "status": status_filter
+        })
+
+    raw_orders = list(
+        mongo.orders.find(query_filter).sort("updated_at", -1)
+    )
+
+    orders = []
+
+    for o in raw_orders:
+        o = _hydrate_delivery_order(o)
+
+        if q:
+            haystack = " ".join([
+                str(o.get("id") or ""),
+                str(o.get("store_name") or ""),
+                str(o.get("customer_name") or ""),
+                str(o.get("customer_phone") or ""),
+                str(o.get("status") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+        orders.append(o)
+
+    total_cod_collected = 0
+    total_delivery_fee = 0
+    total_tip = 0
+
+    for o in orders:
+        if (o.get("payment_method") or "COD").upper() == "COD":
+            total_cod_collected += float(o.get("total_payable") or 0)
+
+        total_delivery_fee += float(o.get("delivery_fee") or 0)
+        total_tip += float(o.get("tip_amount") or 0)
+
+    return render_template(
+        "delivery_history.html",
+        user=u,
+        orders=orders,
+        delivery_active=delivery_active,
+        delivery_availability=availability,
+        q=q,
+        status_filter=status_filter,
+        total_cod_collected=total_cod_collected,
+        total_delivery_fee=total_delivery_fee,
+        total_tip=total_tip
+    )
+
+@app.route('/delivery/current')
+@login_required(role='delivery')
+def delivery_current():
+    u = current_user()
+
+    active_statuses = DELIVERY_ASSIGNED_ACTIVE_STATUSES
+
+    raw_orders = list(
+        mongo.orders.find({
+            "$and": [
+                {
+                    "$or": [
+                        {"delivery_partner_id": u["id"]},
+                        {"delivery_partner_id": str(u["id"])}
+                    ]
+                },
+                {
+                    "status": {"$in": active_statuses}
+                }
+            ]
+        }).sort("updated_at", -1)
+    )
+
+    if not raw_orders:
+        flash("No current active delivery found. Accept a ready order first.", "warning")
+        return redirect(url_for("delivery_active_orders"))
+
+    status_priority = {
+        "OUT_FOR_DELIVERY": 1,
+        "PICKED_UP": 2,
+        "REACHED_STORE": 3,
+        "ASSIGNED_TO_DELIVERY": 4
+    }
+
+    raw_orders.sort(
+        key=lambda o: (
+            status_priority.get((o.get("status") or "").upper(), 99),
+            str(o.get("updated_at") or "")
+        )
+    )
+
+    current_order = raw_orders[0]
+
+    return redirect(url_for("delivery_order_detail", oid=str(current_order["_id"])))
+
+@app.route('/delivery/order/<oid>')
+@login_required(role='delivery')
+def delivery_order_detail(oid):
+    u = current_user()
+
+    availability = _get_delivery_availability(u["id"])
+    delivery_active = bool(availability.get("active"))
+
+    try:
+        oid_obj = ObjectId(oid)
+    except Exception:
+        flash("Invalid order.", "danger")
+        return redirect(url_for("delivery_active_orders"))
+
+    order = mongo.orders.find_one({
+        "_id": oid_obj,
+        "$or": [
+            {"delivery_partner_id": u["id"]},
+            {"delivery_partner_id": str(u["id"])}
+        ]
+    })
+
+    if not order:
+        flash("Order not found or not assigned to you.", "danger")
+        return redirect(url_for("delivery_active_orders"))
+
+    order = _hydrate_delivery_order(order)
+
+    store = None
+    if order.get("store_id"):
+        store = mongo.stores.find_one({"_id": order.get("store_id")})
+
+    if store:
+        store["id"] = str(store["_id"])
+
+    order_items = list(
+        mongo.order_items.find({"order_id": oid_obj})
+    )
+
+    for item in order_items:
+        item["id"] = str(item.get("_id"))
+        try:
+            item["quantity"] = float(item.get("quantity") or item.get("cart_quantity") or 0)
+        except Exception:
+            item["quantity"] = 0
+
+        try:
+            item["line_total"] = float(item.get("line_total") or 0)
+        except Exception:
+            item["line_total"] = 0
+
+    events = list(
+        mongo.order_events.find({"order_id": oid_obj}).sort("created_at", 1)
+    )
+
+    for e in events:
+        e["id"] = str(e.get("_id"))
+
+    active_order_rows = list(
+        mongo.orders.find({
+            "$and": [
+                {
+                    "$or": [
+                        {"delivery_partner_id": u["id"]},
+                        {"delivery_partner_id": str(u["id"])}
+                    ]
+                },
+                {
+                    "status": {"$in": DELIVERY_ASSIGNED_ACTIVE_STATUSES}
+                }
+            ]
+        }).sort("updated_at", -1)
+    )
+
+    active_orders = []
+
+    status_priority = {
+        "OUT_FOR_DELIVERY": 1,
+        "PICKED_UP": 2,
+        "REACHED_STORE": 3,
+        "ASSIGNED_TO_DELIVERY": 4
+    }
+
+    for ao in active_order_rows:
+        ao = _hydrate_delivery_order(ao)
+        ao["status_priority"] = status_priority.get((ao.get("status") or "").upper(), 99)
+        active_orders.append(ao)
+
+    active_orders.sort(
+        key=lambda x: (
+            x.get("status_priority", 99),
+            str(x.get("updated_at") or "")
+        )
+    )
+
+    return render_template(
+        "delivery_order_detail.html",
+        user=u,
+        order=order,
+        store=store,
+        order_items=order_items,
+        events=events,
+        active_orders=active_orders,
+        current_order_id=str(oid_obj),
+        delivery_active=delivery_active,
+        delivery_availability=availability
+    )
+
+@app.route('/delivery/earnings')
+@login_required(role='delivery')
+def delivery_earnings():
+    u = current_user()
+
+    availability = _get_delivery_availability(u["id"])
+    delivery_active = bool(availability.get("active"))
+
+    q = (request.args.get("q") or "").strip()
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+
+    query_filter = {
+        "$and": [
+            {
+                "$or": [
+                    {"delivery_partner_id": u["id"]},
+                    {"delivery_partner_id": str(u["id"])}
+                ]
+            },
+            {
+                "status": "DELIVERED"
+            }
+        ]
+    }
+
+    raw_orders = list(
+        mongo.orders.find(query_filter).sort("delivered_at", -1)
+    )
+
+    orders = []
+
+    for o in raw_orders:
+        o = _hydrate_delivery_order(o)
+
+        delivered_at = str(o.get("delivered_at") or o.get("updated_at") or "")
+
+        if date_from and delivered_at and delivered_at[:10] < date_from:
+            continue
+
+        if date_to and delivered_at and delivered_at[:10] > date_to:
+            continue
+
+        if q:
+            haystack = " ".join([
+                str(o.get("id") or ""),
+                str(o.get("store_name") or ""),
+                str(o.get("customer_name") or ""),
+                str(o.get("customer_phone") or ""),
+                str(o.get("payment_method") or ""),
+                str(o.get("payment_status") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+        orders.append(o)
+
+    total_cod_collected = 0
+    total_delivery_fee = 0
+    total_tip = 0
+    total_payable = 0
+
+    for o in orders:
+        payable = float(
+            o.get("total_payable")
+            or (
+                float(o.get("total_amount") or 0)
+                + float(o.get("delivery_fee") or 0)
+                + float(o.get("tip_amount") or 0)
+            )
+        )
+
+        total_payable += payable
+        total_delivery_fee += float(o.get("delivery_fee") or 0)
+        total_tip += float(o.get("tip_amount") or 0)
+
+        if (o.get("payment_method") or "COD").upper() == "COD":
+            total_cod_collected += payable
+
+    return render_template(
+        "delivery_earnings.html",
+        user=u,
+        orders=orders,
+        delivery_active=delivery_active,
+        delivery_availability=availability,
+        q=q,
+        date_from=date_from,
+        date_to=date_to,
+        total_cod_collected=total_cod_collected,
+        total_delivery_fee=total_delivery_fee,
+        total_tip=total_tip,
+        total_payable=total_payable
+    )
+
 @app.route('/api/delivery/availability', methods=['POST'])
 @login_required(role='delivery')
 def api_delivery_availability():
@@ -203,7 +624,7 @@ def delivery_assign(oid):
     )
 
     flash("Order assigned to you.", "success")
-    return redirect(url_for("delivery_dashboard"))
+    return redirect(url_for("delivery_active_orders"))
 
 @app.route('/delivery/order/<oid>/status', methods=['POST'])
 @login_required(role='delivery')
@@ -214,16 +635,19 @@ def delivery_status(oid):
         oid_obj = ObjectId(oid)
     except Exception:
         flash("Invalid order.", "danger")
-        return redirect(url_for("delivery_dashboard"))
+        return redirect(request.referrer or url_for("delivery_active_orders"))
 
     order = mongo.orders.find_one({
         "_id": oid_obj,
-        "delivery_partner_id": u["id"]
+        "$or": [
+            {"delivery_partner_id": u["id"]},
+            {"delivery_partner_id": str(u["id"])}
+        ]
     })
 
     if not order:
         flash("Order not found or not assigned to you.", "danger")
-        return redirect(url_for("delivery_dashboard"))
+        return redirect(request.referrer or url_for("delivery_active_orders"))
 
     new_status = (request.form.get('status') or '').strip().upper()
     now = datetime.utcnow().isoformat()
@@ -237,7 +661,7 @@ def delivery_status(oid):
 
     if new_status not in allowed_statuses:
         flash("Invalid delivery status selected.", "warning")
-        return redirect(url_for("delivery_dashboard"))
+        return redirect(request.referrer or url_for("delivery_active_orders"))
 
     current_status = (order.get("status") or "").strip().upper()
 
@@ -250,11 +674,11 @@ def delivery_status(oid):
 
     if current_status == "DELIVERED":
         flash("This order is already delivered.", "info")
-        return redirect(url_for("delivery_dashboard"))
+        return redirect(request.referrer or url_for("delivery_active_orders"))
 
     if new_status not in allowed_transitions.get(current_status, allowed_statuses):
         flash(f"Cannot change order from {current_status} to {new_status}.", "warning")
-        return redirect(url_for("delivery_dashboard"))
+        return redirect(request.referrer or url_for("delivery_active_orders"))
 
     update_data = {
         "status": new_status,
@@ -280,7 +704,7 @@ def delivery_status(oid):
 
         if cod_received != '1':
             flash('Please confirm that payment (COD) has been received before marking Delivered.', 'warning')
-            return redirect(url_for('delivery_dashboard'))
+            return redirect(request.referrer or url_for('delivery_active_orders'))
 
         update_data["payment_status"] = "PAID"
         update_data["delivered_at"] = now
@@ -348,7 +772,7 @@ def delivery_status(oid):
     )
 
     flash('Delivery status updated.', 'success')
-    return redirect(url_for('delivery_dashboard'))
+    return redirect(request.referrer or url_for('delivery_active_orders'))
 
 @app.route('/delivery/api/location', methods=['POST'])
 @login_required(role='delivery')
@@ -376,6 +800,8 @@ def delivery_update_location():
             "received": data
         }), 400
 
+    now = datetime.utcnow().isoformat()
+
     oid = data.get("order_id")
     heading = data.get("heading")
     speed = data.get("speed")
@@ -393,7 +819,10 @@ def delivery_update_location():
         if oid_obj:
             order = mongo.orders.find_one({
                 "_id": oid_obj,
-                "delivery_partner_id": u["id"]
+                "$or": [
+                    {"delivery_partner_id": u["id"]},
+                    {"delivery_partner_id": str(u["id"])}
+                ]
             })
 
             if not order:
@@ -402,7 +831,7 @@ def delivery_update_location():
                     "error": "order not found or not assigned to you"
                 }), 404
 
-        now = datetime.utcnow().isoformat()
+       
 
     mongo.delivery_locations.insert_one({
         "delivery_partner_id": u["id"],

@@ -1,6 +1,7 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "delivery_base.html" %}
+{% set active_page = "dashboard" %}
 
+<<<<<<< Updated upstream
 <section class="cc-delivery-page"
   data-page="delivery-dashboard"
   data-delivery-active="{{ '1' if delivery_active else '0' }}"
@@ -461,8 +462,370 @@
     .cc-delivery-page .orders-table td:nth-last-child(1){
       min-width:165px;
       white-space:nowrap;
+=======
+{% block delivery_kicker %}Delivery Overview{% endblock %}
+{% block delivery_title %}Delivery Dashboard{% endblock %}
+{% block delivery_subtitle %}
+Go active to view store-ready pickup orders, manage assigned deliveries, and keep your live location updated during trips.
+{% endblock %}
+
+{% block delivery_actions %}
+  <button id="btnDeliveryNotify" class="df-action-btn primary" type="button" aria-pressed="{{ 'true' if delivery_active else 'false' }}">
+    {% if delivery_active %}
+      🔕 Go Off Duty
+    {% else %}
+      🔔 Go Active for Orders
+    {% endif %}
+  </button>
+{% endblock %}
+
+{% block delivery_content %}
+{% set available_orders = [] %}
+{% set active_orders = [] %}
+
+{% for o in orders %}
+  {% set st = (o.status or '')|upper %}
+  {% set assigned_id = (o.delivery_partner_id|string) if o.delivery_partner_id else '' %}
+  {% set current_delivery_id = user.id|string %}
+
+  {% if not o.delivery_partner_id and st == 'READY_FOR_PICKUP' %}
+    {% set _ = available_orders.append(o) %}
+  {% elif assigned_id == current_delivery_id and st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
+    {% set _ = active_orders.append(o) %}
+  {% endif %}
+{% endfor %}
+
+<style>
+  .dd-grid{
+    display:grid;
+    gap:18px;
+  }
+
+  .dd-kpi-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:14px;
+  }
+
+  .dd-card{
+    background:#fff;
+    border:1px solid var(--df-line);
+    border-radius:24px;
+    box-shadow:var(--df-shadow);
+    overflow:hidden;
+  }
+
+  .dd-kpi{
+    min-height:138px;
+    padding:18px;
+    display:flex;
+    justify-content:space-between;
+    gap:14px;
+    position:relative;
+  }
+
+  .dd-kpi::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+    width:5px;
+    background:var(--df-green);
+  }
+
+  .dd-kpi.orange::before{
+    background:var(--df-orange);
+  }
+
+  .dd-kpi.blue::before{
+    background:var(--df-blue);
+  }
+
+  .dd-kpi.red::before{
+    background:var(--df-red);
+  }
+
+  .dd-kpi-label{
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+  }
+
+  .dd-kpi-value{
+    margin-top:10px;
+    color:var(--df-ink);
+    font-size:38px;
+    line-height:1;
+    font-weight:900;
+    letter-spacing:-.045em;
+  }
+
+  .dd-kpi-meta{
+    margin-top:8px;
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:750;
+    line-height:1.35;
+  }
+
+  .dd-kpi-icon{
+    width:48px;
+    height:48px;
+    border-radius:17px;
+    display:grid;
+    place-items:center;
+    background:var(--df-mint);
+    font-size:24px;
+    flex:0 0 auto;
+  }
+
+  .dd-section-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:14px;
+    padding:18px 20px;
+    border-bottom:1px solid var(--df-line);
+    background:#FBFFFD;
+  }
+
+  .dd-section-title{
+    margin:0;
+    color:var(--df-ink);
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:-.03em;
+  }
+
+  .dd-section-sub{
+    margin:5px 0 0;
+    color:var(--df-muted);
+    font-size:13px;
+    font-weight:700;
+    line-height:1.45;
+  }
+
+  .dd-link{
+    min-height:38px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:13px;
+    border:1px solid var(--df-line);
+    background:#fff;
+    color:var(--df-green-dark);
+    padding:8px 12px;
+    text-decoration:none;
+    font-size:13px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+
+  .dd-main-grid{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(360px,.55fr);
+    gap:18px;
+    align-items:start;
+  }
+
+  .dd-list{
+    display:grid;
+    gap:12px;
+    padding:18px;
+  }
+
+  .dd-order{
+    border:1px solid var(--df-line);
+    border-radius:18px;
+    background:#fff;
+    padding:14px;
+    display:grid;
+    gap:10px;
+  }
+
+  .dd-order-top{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:flex-start;
+  }
+
+  .dd-order-id{
+    color:var(--df-ink);
+    font-size:14px;
+    font-weight:900;
+  }
+
+  .dd-order-meta{
+    margin-top:4px;
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:750;
+    line-height:1.45;
+  }
+
+  .dd-pill{
+    min-height:28px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:6px 10px;
+    border-radius:999px;
+    background:var(--df-mint);
+    color:var(--df-green-dark);
+    border:1px solid rgba(0,168,89,.18);
+    font-size:11px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+
+  .dd-pill.blue{
+    background:var(--df-blue-soft);
+    color:#0369A1;
+    border-color:rgba(2,132,199,.22);
+  }
+
+  .dd-pill.orange{
+    background:var(--df-orange-soft);
+    color:#C2410C;
+    border-color:#FED7AA;
+  }
+
+  .dd-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  .dd-btn{
+    min-height:38px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:13px;
+    border:1px solid var(--df-line);
+    background:#fff;
+    color:var(--df-text);
+    padding:8px 11px;
+    text-decoration:none;
+    font-size:12px;
+    font-weight:900;
+    cursor:pointer;
+  }
+
+  .dd-btn.primary{
+    background:var(--df-green);
+    border-color:var(--df-green);
+    color:#fff;
+  }
+
+  .dd-empty{
+    padding:18px;
+    border:1px dashed var(--df-line);
+    border-radius:18px;
+    background:var(--df-soft);
+    color:var(--df-muted);
+    text-align:center;
+    font-size:13px;
+    font-weight:800;
+    line-height:1.45;
+  }
+
+  .dd-duty-card{
+    padding:18px;
+    display:grid;
+    gap:14px;
+  }
+
+  .dd-duty-status{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:center;
+    padding:14px;
+    border-radius:18px;
+    border:1px solid var(--df-line);
+    background:var(--df-soft);
+  }
+
+  .dd-duty-status strong{
+    color:var(--df-ink);
+    font-size:15px;
+    font-weight:900;
+  }
+
+  .dd-duty-status span{
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:750;
+  }
+
+  .dd-info-list{
+    display:grid;
+    gap:10px;
+  }
+
+  .dd-info-row{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px 0;
+    border-bottom:1px solid var(--df-line);
+  }
+
+  .dd-info-row:last-child{
+    border-bottom:0;
+  }
+
+  .dd-info-row span{
+    color:var(--df-muted);
+    font-size:13px;
+    font-weight:800;
+  }
+
+  .dd-info-row strong{
+    color:var(--df-ink);
+    font-size:13px;
+    font-weight:900;
+    text-align:right;
+  }
+
+  @media(max-width:1200px){
+    .dd-kpi-grid{
+      grid-template-columns:repeat(2,minmax(0,1fr));
     }
 
+    .dd-main-grid{
+      grid-template-columns:1fr;
+    }
+  }
+
+  @media(max-width:560px){
+    .dd-kpi-grid{
+      grid-template-columns:1fr;
+    }
+
+    .dd-section-head{
+      flex-direction:column;
+      align-items:flex-start;
+    }
+
+    .dd-actions .dd-btn,
+    .dd-actions form{
+      width:100%;
+    }
+
+    .dd-btn{
+      width:100%;
+>>>>>>> Stashed changes
+    }
+  }
+</style>
+
+<<<<<<< Updated upstream
     .cc-delivery-page .cards{
       display:none;
       gap:14px;
@@ -687,248 +1050,178 @@
   </div>
       <div class="muted small">
         Keep this page open while on a trip so your location keeps updating live.
+=======
+<div class="dd-grid">
+
+  <section class="dd-kpi-grid">
+    <div class="dd-card dd-kpi">
+      <div>
+        <div class="dd-kpi-label">Duty Status</div>
+        <div class="dd-kpi-value">{{ 'ON' if delivery_active else 'OFF' }}</div>
+        <div class="dd-kpi-meta">
+          {{ 'You can receive ready pickup orders.' if delivery_active else 'Go active to receive delivery orders.' }}
+        </div>
+>>>>>>> Stashed changes
       </div>
+      <div class="dd-kpi-icon">📡</div>
     </div>
 
-{% if not delivery_active %}
-  <div class="card" id="deliveryOffNotice" style="padding:1rem 1.25rem;margin-bottom:1rem;background:#fff;">
-    <strong style="font-family:'Playfair Display',serif;text-transform:uppercase;">
-      You are currently off duty.
-    </strong>
-   <div class="muted">
-  Click <b>Go Active for Orders</b> to see store-ready delivery orders. Orders will appear only after the store marks them ready for pickup.
-</div>
-  </div>
-{% endif %}
+    <div class="dd-card dd-kpi orange">
+      <div>
+        <div class="dd-kpi-label">Available Ready</div>
+        <div class="dd-kpi-value">{{ available_orders|length }}</div>
+        <div class="dd-kpi-meta">Unassigned orders marked ready by stores.</div>
+      </div>
+      <div class="dd-kpi-icon">📦</div>
+    </div>
 
-<!-- Desktop table / Mobile cards -->
-<div class="orders-wrap" id="deliveryOrdersWrap" {% if not delivery_active %}style="display:none;"{% endif %}>
-      <table class="table orders-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Store</th>
-            <th>Customer</th>
-            <th>Phone</th> <!-- ✅ Added customer phone -->
-            <th>Total (₹)</th>
-            <th>Status</th>
-            <th>Address</th>
-            <th>Action</th>
-            <th>Quick Nav</th>
-          </tr>
-        </thead>
+    <div class="dd-card dd-kpi blue">
+      <div>
+        <div class="dd-kpi-label">Active Orders</div>
+        <div class="dd-kpi-value">{{ active_orders|length }}</div>
+        <div class="dd-kpi-meta">Orders currently assigned to you.</div>
+      </div>
+      <div class="dd-kpi-icon">🛵</div>
+    </div>
 
-        <!-- 🔁 Give tbody an ID so alerts.js can prepend new orders -->
-        <tbody id="orders-list">
-        {% for o in orders %}
-          <!-- 🔁 Add data-order-id for dedupe/insert logic -->
-          <tr class="order-row" data-order-id="{{ o.id }}">
-            <td data-label="#"> {{ o.id }} </td>
-            <td data-label="Store"> {{ o.store_name }} </td>
-            <td data-label="Customer"> {{ o.customer_name }} </td>
-            <td data-label="Phone">
-              {% if o.customer_phone %}
-                <a href="tel:{{ o.customer_phone }}" class="pill tel-pill">📞 {{ o.customer_phone }}</a>
-              {% else %}
-                —
-              {% endif %}
-            </td>
-            <td data-label="Total"> {{ '%.2f'|format(o.total_amount) }} </td>
-            <td data-label="Status"> {{ o.status }} </td>
+    <div class="dd-card dd-kpi">
+      <div>
+        <div class="dd-kpi-label">Accept Radius</div>
+        <div class="dd-kpi-value">{{ delivery_accept_radius_km|round|int }}</div>
+        <div class="dd-kpi-meta">KM pickup radius from store location.</div>
+      </div>
+      <div class="dd-kpi-icon">📍</div>
+    </div>
+  </section>
 
-            <td data-label="Address" class="muted">
-              Deliver to:
-              {% if o.addr_line1 %}
-                {{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %},
-                {{ o.addr_city }}, {{ o.addr_state }} {{ o.addr_pincode }}
-                {% if o.addr_lat and o.addr_lng %} <br><small>({{ o.addr_lat }}, {{ o.addr_lng }})</small>{% endif %}
-              {% else %}
-                —
-              {% endif %}
-            </td>
+  {% if not delivery_active %}
+    <section class="dd-card">
+      <div class="dd-duty-card">
+        <div class="dd-duty-status">
+          <div>
+            <strong>You are currently off duty.</strong><br>
+            <span>Click Go Active for Orders to see store-ready pickup orders.</span>
+          </div>
+          <span class="dd-pill orange">Off Duty</span>
+        </div>
+      </div>
+    </section>
+  {% endif %}
 
-            <!-- ✅ Action column -->
-            <td data-label="Action" class="actions">
-              {% if not o.delivery_partner_id %}
-                <form method="post" action="{{ url_for('delivery_assign', oid=o.id) }}" class="inline">
-<button class="btn bounce-in">Accept Ready Order</button>
-                </form>
-              {% endif %}
+  <section class="dd-main-grid">
+    <div class="dd-card">
+      <div class="dd-section-head">
+        <div>
+          <h2 class="dd-section-title">Nearby Available Ready Orders</h2>
+          <p class="dd-section-sub">Orders shown here are already marked ready for pickup by stores.</p>
+        </div>
+        <a class="dd-link" href="/delivery/available-orders">View All</a>
+      </div>
 
-              <!-- Total payable -->
-              <div class="muted payable">
-                Total Payable:
-                <strong>₹ {{
-                  '%.2f'|format((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))
-                }}</strong>
-                {% if o.tip_amount and o.tip_amount > 0 %}
-                  <span class="tag">includes tip ₹{{ '%.2f'|format(o.tip_amount) }}</span>
-                {% endif %}
+      <div class="dd-list">
+        {% if delivery_active and available_orders|length %}
+          {% for o in available_orders[:5] %}
+            <div class="dd-order">
+              <div class="dd-order-top">
+                <div>
+                  <div class="dd-order-id">#{{ o.id }}</div>
+                  <div class="dd-order-meta">
+                    {{ o.store_name or 'Store' }} · {{ o.customer_name or 'Customer' }}<br>
+                    ₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}
+                    {% if o.driver_store_distance_km is not none %}
+                      · {{ '%.2f'|format(o.driver_store_distance_km) }} km away
+                    {% endif %}
+                  </div>
+                </div>
+                <span class="dd-pill">Ready</span>
               </div>
 
-              <!-- Share live location -->
-              <button class="btn-ghost share-btn" data-order-id="{{ o.id }}">
-                Share Live Location
-              </button>
-
-              <!-- COD confirmation + status -->
-              {% if o.delivery_partner_id == user.id %}
-  {% set st = (o.status or '')|upper %}
-  <form method="post" action="{{ url_for('delivery_status', oid=o.id) }}" class="inline">
-    <select name="status" class="select">
-      {% if st == 'ASSIGNED_TO_DELIVERY' %}
-        <option value="REACHED_STORE">REACHED_STORE</option>
-        <option value="PICKED_UP">PICKED_UP</option>
-        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
-      {% elif st == 'REACHED_STORE' %}
-        <option value="PICKED_UP">PICKED_UP</option>
-        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
-      {% elif st == 'PICKED_UP' %}
-        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
-      {% elif st == 'OUT_FOR_DELIVERY' %}
-        <option value="DELIVERED">DELIVERED</option>
-      {% else %}
-        <option value="">No next action</option>
-      {% endif %}
-    </select>
-
-    {% if st == 'OUT_FOR_DELIVERY' %}
-      <label class="chk">
-        <input type="checkbox" name="cod_received" value="1">
-        Payment received
-      </label>
-    {% endif %}
-
-    {% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
-      <button class="btn-ghost" type="submit">Update</button>
-    {% endif %}
-  </form>
-{% endif %}
-            </td>
-
-            <td data-label="Quick Nav">
-              {% if o.addr_lat and o.addr_lng %}
-                <a class="btn-ghost" target="_blank"
-                   href="https://www.google.com/maps/dir/?api=1&destination={{ o.addr_lat }},{{ o.addr_lng }}">
-                   Open in Maps
-                </a>
-              {% else %}
-                <span class="muted">No coords</span>
-              {% endif %}
-            </td>
-          </tr>
-        {% else %}
-  <tr>
-    <td colspan="9" style="text-align:center;padding:1.5rem;">
-      <div class="muted">
-        No store-ready delivery orders are available right now. Please stay active and check again.
-      </div>
-    </td>
-  </tr>
-{% endfor %}
-</tbody>
-      </table>
-
-      <!-- Mobile cards (visible on small screens) -->
-      <div class="cards" id="orders-cards">
-        {% for o in orders %}
-        <div class="card order-card" data-order-id="{{ o.id }}">
-          <div class="card-head">
-            <div class="id">#{{ o.id }}</div>
-            <div class="status">{{ o.status }}</div>
-          </div>
-
-          <div class="row"><span>Store</span><strong>{{ o.store_name }}</strong></div>
-          <div class="row"><span>Customer</span><strong>{{ o.customer_name }}</strong></div>
-          <div class="row">
-            <span>Phone</span>
-            <strong>
-              {% if o.customer_phone %}
-                <a href="tel:{{ o.customer_phone }}" class="pill tel-pill">📞 {{ o.customer_phone }}</a>
-              {% else %} — {% endif %}
-            </strong>
-          </div>
-
-          <div class="row">
-            <span>Total</span>
-            <strong>₹ {{
-              '%.2f'|format((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))
-            }}</strong>
-          </div>
-
-          <div class="addr">
-            <div class="lbl">Deliver to</div>
-            <div class="txt muted">
-              {% if o.addr_line1 %}
-                {{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %},
-                {{ o.addr_city }}, {{ o.addr_state }} {{ o.addr_pincode }}
-                {% if o.addr_lat and o.addr_lng %} <br><small>({{ o.addr_lat }}, {{ o.addr_lng }})</small>{% endif %}
-              {% else %}
-                —
-              {% endif %}
+              <div class="dd-actions">
+                <form method="post" action="{{ url_for('delivery_assign', oid=o.id) }}">
+                  <button class="dd-btn primary" type="submit">Accept Ready Order</button>
+                </form>
+                {% if o.addr_lat and o.addr_lng %}
+                  <a class="dd-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ o.addr_lat }},{{ o.addr_lng }}">
+                    Customer Map
+                  </a>
+                {% endif %}
+              </div>
             </div>
+          {% endfor %}
+        {% elif delivery_active %}
+          <div class="dd-empty">
+            No store-ready delivery orders are available right now. Stay active and check again.
           </div>
-
-          <div class="btns">
-            {% if not o.delivery_partner_id %}
-              <form method="post" action="{{ url_for('delivery_assign', oid=o.id) }}" class="inline">
-<button class="btn small bounce-in">Accept Ready Order</button>
-              </form>
-            {% endif %}
-
-            <button class="btn-ghost small share-btn" data-order-id="{{ o.id }}">Share Location</button>
-
-            {% if o.addr_lat and o.addr_lng %}
-              <a class="btn-ghost small" target="_blank"
-                 href="https://www.google.com/maps/dir/?api=1&destination={{ o.addr_lat }},{{ o.addr_lng }}">
-                 Open in Maps
-              </a>
-            {% endif %}
+        {% else %}
+          <div class="dd-empty">
+            You are off duty. Go active to view ready pickup orders.
           </div>
-
-          {% if o.delivery_partner_id == user.id %}
-  {% set st = (o.status or '')|upper %}
-  <form method="post" action="{{ url_for('delivery_status', oid=o.id) }}" class="status-form">
-    <select name="status" class="select small">
-      {% if st == 'ASSIGNED_TO_DELIVERY' %}
-        <option value="REACHED_STORE">REACHED_STORE</option>
-        <option value="PICKED_UP">PICKED_UP</option>
-        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
-      {% elif st == 'REACHED_STORE' %}
-        <option value="PICKED_UP">PICKED_UP</option>
-        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
-      {% elif st == 'PICKED_UP' %}
-        <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
-      {% elif st == 'OUT_FOR_DELIVERY' %}
-        <option value="DELIVERED">DELIVERED</option>
-      {% else %}
-        <option value="">No next action</option>
-      {% endif %}
-    </select>
-
-    {% if st == 'OUT_FOR_DELIVERY' %}
-      <label class="chk small">
-        <input type="checkbox" name="cod_received" value="1"> Payment received
-      </label>
-    {% endif %}
-
-    {% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
-      <button class="btn-ghost small" type="submit">Update</button>
-    {% endif %}
-  </form>
-{% endif %}
-        </div>
-       {% else %}
-  <div class="card order-card">
-    <div class="muted" style="text-align:center;padding:1rem;">
-      No store-ready delivery orders are available right now. Please stay active and check again.
+        {% endif %}
+      </div>
     </div>
-  </div>
-{% endfor %}
+
+    <div class="dd-card">
+      <div class="dd-section-head">
+        <div>
+          <h2 class="dd-section-title">Your Active Deliveries</h2>
+          <p class="dd-section-sub">Orders assigned to you and waiting for delivery updates.</p>
+        </div>
+        <a class="dd-link" href="/delivery/active-orders">Open</a>
+      </div>
+
+      <div class="dd-list">
+        {% if active_orders|length %}
+          {% for o in active_orders[:4] %}
+            {% set st = (o.status or '')|upper %}
+            <div class="dd-order">
+              <div class="dd-order-top">
+                <div>
+                  <div class="dd-order-id">#{{ o.id }}</div>
+                  <div class="dd-order-meta">
+                    {{ o.store_name or 'Store' }} · {{ o.customer_name or 'Customer' }}<br>
+                    {{ o.customer_phone or 'No phone' }}
+                  </div>
+                </div>
+                <span class="dd-pill blue">{{ st.replace('_', ' ') }}</span>
+              </div>
+
+              <div class="dd-actions">
+                <a class="dd-btn primary" href="/delivery/order/{{ o.id }}">Open Delivery</a>
+                {% if o.customer_phone %}
+                  <a class="dd-btn" href="tel:{{ o.customer_phone }}">Call Customer</a>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="dd-empty">
+            No active delivery assigned to you right now.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="dd-card">
+    <div class="dd-section-head">
+      <div>
+        <h2 class="dd-section-title">Quick Actions</h2>
+        <p class="dd-section-sub">Use these shortcuts for delivery operations.</p>
+      </div>
+    </div>
+
+    <div class="dd-list">
+      <div class="dd-actions">
+  <a class="dd-btn primary" href="/delivery/available-orders">Available Ready Orders</a>
+  <a class="dd-btn" href="/delivery/active-orders">Active Orders</a>
+  <a class="dd-btn" href="/delivery/history">Past History</a>
+  <a class="dd-btn" href="/delivery/earnings">Earnings / COD</a>
+  <a class="dd-btn" href="/contact">Support</a>
 </div>
     </div>
+  </section>
+</div>
 
-<!-- 🔔 Delivery notification sound -->
 <audio id="deliveryDing" preload="auto">
   <source src="{{ url_for('static', filename='sounds/ding.mp3') }}" type="audio/mpeg">
   <source src="{{ url_for('static', filename='ding.mp3') }}" type="audio/mpeg">
@@ -936,14 +1229,11 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const page = document.querySelector('.cc-delivery-page');
+    const page = document.querySelector('.df-panel');
     const btnNotify = document.getElementById('btnDeliveryNotify');
-    const notifyBadge = document.getElementById('deliveryNotifyBadge');
     const ding = document.getElementById('deliveryDing');
 
-    let serverActive = page?.getAttribute("data-delivery-active") === "1";
-    let deliveryPollTimer = null;
-    let deliveryLastId = localStorage.getItem("deliveryLastAlertId") || "";
+    let serverActive = {{ 'true' if delivery_active else 'false' }};
 
     function showDeliveryToast(message, type = "on") {
       let wrap = document.getElementById("deliveryToastWrap");
@@ -962,6 +1252,7 @@
       }
 
       const toast = document.createElement("div");
+<<<<<<< Updated upstream
       const accent = type === "on" ? "#00A859" : "#008A48";
       const icon = type === "on" ? "🚚" : "🔕";
 
@@ -973,6 +1264,20 @@
       toast.style.maxWidth = "380px";
       toast.style.fontFamily = "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
       toast.style.fontWeight = "900";
+=======
+      const accent = type === "on" ? "#00A859" : "#EF4444";
+      const icon = type === "on" ? "🛵" : "🔕";
+
+      toast.style.background = "#fff";
+      toast.style.border = "1px solid #E6EEF0";
+      toast.style.boxShadow = "0 18px 40px rgba(17,64,38,.14)";
+      toast.style.borderRadius = "18px";
+      toast.style.padding = "14px 16px";
+      toast.style.minWidth = "280px";
+      toast.style.maxWidth = "380px";
+      toast.style.fontFamily = "Inter, system-ui, sans-serif";
+      toast.style.fontWeight = "800";
+>>>>>>> Stashed changes
       toast.style.color = "#23332A";
       toast.style.display = "flex";
       toast.style.alignItems = "center";
@@ -984,10 +1289,15 @@
       toast.innerHTML = `
         <div style="width:42px;height:42px;background:${accent};color:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:18px;">${icon}</div>
         <div>
+<<<<<<< Updated upstream
           <div style="font-family:Inter, system-ui, sans-serif;letter-spacing:.06em;text-transform:uppercase;font-size:11px;font-weight:900;color:#008A48;">
             ${type === "on" ? "Delivery Boy Active" : "Delivery Boy Off"}
+=======
+          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#66756D;">
+            ${type === "on" ? "Delivery Active" : "Delivery Off"}
+>>>>>>> Stashed changes
           </div>
-          <div style="font-size:16px;line-height:1.25;margin-top:2px;">${message}</div>
+          <div style="font-size:15px;line-height:1.3;margin-top:2px;">${message}</div>
         </div>
       `;
 
@@ -1010,32 +1320,8 @@
         if (ding) {
           ding.currentTime = 0;
           await ding.play();
-          return;
         }
       } catch (_) {}
-
-      try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = "sine";
-        osc.frequency.value = 880;
-        gain.gain.value = 0.09;
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start();
-
-        setTimeout(() => {
-          osc.stop();
-          ctx.close();
-        }, 160);
-      } catch (e) {}
     }
 
     function getGPSOnce() {
@@ -1066,6 +1352,7 @@
       });
     }
 
+<<<<<<< Updated upstream
     async function askBrowserNotificationPermission() {
       try {
         if ("Notification" in window && Notification.permission === "default") {
@@ -1090,16 +1377,16 @@
       btnNotify.style.color = "#fff";
     }
 
+=======
+>>>>>>> Stashed changes
     async function setDeliveryAvailability(active) {
       if (active) {
-        await askBrowserNotificationPermission();
-
         showDeliveryToast("Getting your GPS location…", "on");
 
         const gps = await getGPSOnce();
 
         if (!gps) {
-          showDeliveryToast("GPS is required to go active for delivery orders.", "off");
+          showDeliveryToast("GPS is required to go active.", "off");
           return;
         }
 
@@ -1121,9 +1408,8 @@
           return;
         }
 
-        localStorage.removeItem("deliveryLastAlertId");
         await playDeliverySound();
-        showDeliveryToast("You are active now. Only live orders from this time will be shown.", "on");
+        showDeliveryToast("You are active now. Ready pickup orders will be shown.", "on");
 
         setTimeout(() => window.location.reload(), 700);
         return;
@@ -1138,82 +1424,10 @@
 
       await res.json().catch(() => ({}));
 
-      localStorage.removeItem("deliveryLastAlertId");
       await playDeliverySound();
-      showDeliveryToast("You are off duty. Delivery order data is hidden.", "off");
+      showDeliveryToast("You are off duty now.", "off");
 
       setTimeout(() => window.location.reload(), 700);
-    }
-
-    async function pollDeliveryOrders() {
-      if (!serverActive) return;
-
-      const url = `/api/alerts/delivery?last_id=${encodeURIComponent(deliveryLastId || "")}`;
-
-      try {
-        const res = await fetch(url, {
-          method: "GET",
-          cache: "no-store",
-          credentials: "same-origin"
-        });
-
-        const data = await res.json();
-
-        if (!data || !data.ok) return;
-
-        if (!data.active) {
-          serverActive = false;
-          localStorage.removeItem("deliveryLastAlertId");
-          syncDeliveryNotifyUI(false);
-          return;
-        }
-
-        if (data.next_last_id) {
-          deliveryLastId = data.next_last_id;
-          localStorage.setItem("deliveryLastAlertId", deliveryLastId);
-        }
-
-        const newOrders = Array.isArray(data.new) ? data.new : [];
-
-        if (newOrders.length > 0) {
-          await playDeliverySound();
-
-          const countText = newOrders.length === 1
-            ? "1 new live delivery order is available."
-            : `${newOrders.length} new live delivery orders are available.`;
-
-          showDeliveryToast(countText, "on");
-
-          try {
-            if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("New live delivery order", {
-                body: countText
-              });
-            }
-          } catch (e) {}
-
-          setTimeout(() => window.location.reload(), 1000);
-        }
-      } catch (e) {
-        console.warn("Delivery alert poll failed", e);
-      }
-    }
-
-    function startDeliveryPolling() {
-      if (!serverActive) return;
-
-      if (deliveryPollTimer) {
-        clearInterval(deliveryPollTimer);
-      }
-
-      pollDeliveryOrders();
-      deliveryPollTimer = setInterval(pollDeliveryOrders, 7000);
-    }
-
-    syncDeliveryNotifyUI(serverActive);
-
-    if (serverActive) {
-      startDeliveryPolling();
     }
 
     if (btnNotify) {
@@ -1223,6 +1437,7 @@
     }
   });
 </script>
+<<<<<<< Updated upstream
 
     <!-- 🚚 Live location script -->
 <script>
@@ -1361,4 +1576,6 @@
   </div>
 </section>
 
+=======
+>>>>>>> Stashed changes
 {% endblock %}

@@ -1,0 +1,845 @@
+{% extends "delivery_base.html" %}
+{% set active_page = "current" %}
+
+{% block delivery_kicker %}Delivery Control{% endblock %}
+{% block delivery_title %}Order #{{ order.id[-6:] if order.id else '' }}{% endblock %}
+{% block delivery_subtitle %}
+Pickup, delivery, navigation, customer call, live location and status update for this assigned order.
+{% endblock %}
+
+{% block delivery_actions %}
+  <a class="df-action-btn" href="/delivery/active-orders">Active Orders</a>
+  <a class="df-action-btn primary" href="{{ url_for('delivery_dashboard') }}">Dashboard</a>
+{% endblock %}
+
+{% block delivery_content %}
+{% set st = (order.status or '')|upper %}
+
+<style>
+  .dod-grid{
+    display:grid;
+    grid-template-columns:minmax(0,1.1fr) minmax(360px,.55fr);
+    gap:18px;
+    align-items:start;
+  }
+
+  .dod-card{
+    background:#fff;
+    border:1px solid var(--df-line);
+    border-radius:24px;
+    box-shadow:var(--df-shadow);
+    overflow:hidden;
+  }
+
+  .dod-head{
+    display:flex;
+    justify-content:space-between;
+    gap:14px;
+    align-items:flex-start;
+    padding:18px 20px;
+    border-bottom:1px solid var(--df-line);
+    background:#FBFFFD;
+  }
+
+  .dod-title{
+    margin:0;
+    color:var(--df-ink);
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:-.03em;
+  }
+
+  .dod-sub{
+    margin:5px 0 0;
+    color:var(--df-muted);
+    font-size:13px;
+    font-weight:700;
+    line-height:1.45;
+  }
+
+  .dod-pill{
+    min-height:30px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:7px 11px;
+    border-radius:999px;
+    background:var(--df-blue-soft);
+    color:#0369A1;
+    border:1px solid rgba(2,132,199,.18);
+    font-size:11px;
+    font-weight:900;
+    white-space:nowrap;
+    text-transform:uppercase;
+  }
+
+  .dod-body{
+    padding:18px;
+    display:grid;
+    gap:16px;
+  }
+
+  .dod-info-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+  }
+
+  .dod-info{
+    padding:14px;
+    border-radius:18px;
+    border:1px solid var(--df-line);
+    background:var(--df-soft);
+    display:grid;
+    gap:6px;
+  }
+
+  .dod-info span{
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+
+  .dod-info strong{
+    color:var(--df-ink);
+    font-size:15px;
+    font-weight:900;
+    line-height:1.35;
+    word-break:break-word;
+  }
+
+  .dod-box{
+    padding:14px;
+    border-radius:18px;
+    border:1px solid var(--df-line);
+    background:#fff;
+    display:grid;
+    gap:8px;
+  }
+
+  .dod-box-title{
+    color:var(--df-ink);
+    font-size:14px;
+    font-weight:900;
+  }
+
+  .dod-box-text{
+    color:var(--df-text);
+    font-size:13px;
+    font-weight:750;
+    line-height:1.55;
+  }
+
+  .dod-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  .dod-btn{
+    min-height:40px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    border:1px solid var(--df-line);
+    background:#fff;
+    color:var(--df-text);
+    padding:9px 12px;
+    text-decoration:none;
+    font-size:13px;
+    font-weight:900;
+    cursor:pointer;
+  }
+
+  .dod-btn.primary{
+    background:var(--df-green);
+    border-color:var(--df-green);
+    color:#fff;
+    box-shadow:0 12px 24px rgba(0,168,89,.16);
+  }
+
+  .dod-btn.blue{
+    background:var(--df-blue-soft);
+    border-color:rgba(2,132,199,.18);
+    color:#0369A1;
+  }
+
+  .dod-btn.red{
+    background:var(--df-red-soft);
+    border-color:#FECACA;
+    color:#B91C1C;
+  }
+
+  .dod-status-form{
+    display:grid;
+    gap:12px;
+    padding:14px;
+    border-radius:18px;
+    background:var(--df-soft);
+    border:1px solid var(--df-line);
+  }
+
+  .dod-status-form select{
+    width:100%;
+    min-height:44px;
+    border:1px solid var(--df-line);
+    border-radius:14px;
+    background:#fff;
+    color:var(--df-ink);
+    padding:0 12px;
+    font-size:13px;
+    font-weight:900;
+    outline:none;
+  }
+
+  .dod-check{
+    min-height:42px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 12px;
+    border-radius:14px;
+    background:#fff;
+    border:1px solid var(--df-line);
+    color:var(--df-text);
+    font-size:13px;
+    font-weight:900;
+  }
+
+  .dod-check input{
+    width:17px;
+    height:17px;
+    accent-color:var(--df-green);
+  }
+
+  .dod-items{
+    display:grid;
+    gap:10px;
+  }
+
+  .dod-item{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px;
+    border-radius:16px;
+    background:var(--df-soft);
+    border:1px solid var(--df-line);
+  }
+
+  .dod-item strong{
+    color:var(--df-ink);
+    font-size:13px;
+    font-weight:900;
+  }
+
+  .dod-item span{
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:800;
+  }
+
+  .dod-timeline{
+    display:grid;
+    gap:12px;
+  }
+
+  .dod-event{
+    position:relative;
+    padding-left:22px;
+    color:var(--df-text);
+    font-size:13px;
+    font-weight:750;
+    line-height:1.45;
+  }
+
+  .dod-event::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:4px;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:var(--df-green);
+  }
+
+  .dod-event strong{
+    display:block;
+    color:var(--df-ink);
+    font-weight:900;
+  }
+
+  .dod-live{
+    padding:12px;
+    border-radius:16px;
+    background:var(--df-mint);
+    border:1px solid rgba(0,168,89,.18);
+    color:var(--df-green-dark);
+    font-size:13px;
+    font-weight:900;
+    line-height:1.45;
+  }
+
+  .dod-switcher{
+  margin-bottom:18px;
+  background:#fff;
+  border:1px solid var(--df-line);
+  border-radius:24px;
+  box-shadow:var(--df-shadow);
+  overflow:hidden;
+}
+
+.dod-switcher-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+  padding:16px 18px;
+  border-bottom:1px solid var(--df-line);
+  background:#FBFFFD;
+}
+
+.dod-switcher-title{
+  margin:0;
+  color:var(--df-ink);
+  font-size:17px;
+  font-weight:900;
+  letter-spacing:-.03em;
+}
+
+.dod-switcher-sub{
+  margin:5px 0 0;
+  color:var(--df-muted);
+  font-size:13px;
+  font-weight:700;
+  line-height:1.45;
+}
+
+.dod-switcher-count{
+  min-height:32px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:7px 11px;
+  border-radius:999px;
+  background:var(--df-mint);
+  color:var(--df-green-dark);
+  border:1px solid rgba(0,168,89,.18);
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+.dod-order-strip{
+  display:flex;
+  gap:12px;
+  padding:16px 18px;
+  overflow-x:auto;
+  scroll-snap-type:x mandatory;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(0,168,89,.30) transparent;
+}
+
+.dod-order-strip::-webkit-scrollbar{
+  height:7px;
+}
+
+.dod-order-strip::-webkit-scrollbar-thumb{
+  background:rgba(0,168,89,.30);
+  border-radius:999px;
+}
+
+.dod-switch-card{
+  width:280px;
+  min-width:280px;
+  scroll-snap-align:start;
+  display:grid;
+  gap:10px;
+  padding:14px;
+  border-radius:18px;
+  border:1px solid var(--df-line);
+  background:#fff;
+  box-shadow:0 10px 24px rgba(17,64,38,.05);
+  transition:.2s ease;
+}
+
+.dod-switch-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 16px 34px rgba(17,64,38,.10);
+}
+
+.dod-switch-card.active{
+  border-color:rgba(0,168,89,.34);
+  background:linear-gradient(135deg,#F3FFF8,#FFFFFF);
+  box-shadow:0 16px 34px rgba(0,168,89,.12);
+}
+
+.dod-switch-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+}
+
+.dod-switch-id{
+  color:var(--df-ink);
+  font-size:14px;
+  font-weight:900;
+}
+
+.dod-switch-meta{
+  margin-top:4px;
+  color:var(--df-muted);
+  font-size:12px;
+  font-weight:750;
+  line-height:1.45;
+}
+
+.dod-switch-status{
+  min-height:26px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px 9px;
+  border-radius:999px;
+  background:var(--df-blue-soft);
+  color:#0369A1;
+  border:1px solid rgba(2,132,199,.18);
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+
+.dod-switch-line{
+  display:grid;
+  gap:4px;
+  color:var(--df-text);
+  font-size:12px;
+  font-weight:750;
+  line-height:1.4;
+}
+
+.dod-switch-line strong{
+  color:var(--df-ink);
+  font-weight:900;
+}
+
+.dod-switch-actions{
+  display:flex;
+  gap:8px;
+}
+
+.dod-switch-btn{
+  width:100%;
+  min-height:36px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:13px;
+  border:1px solid var(--df-line);
+  background:#fff;
+  color:var(--df-text);
+  padding:8px 10px;
+  text-decoration:none;
+  font-size:12px;
+  font-weight:900;
+}
+
+.dod-switch-card.active .dod-switch-btn{
+  background:var(--df-green);
+  border-color:var(--df-green);
+  color:#fff;
+}
+
+@media(max-width:560px){
+  .dod-switcher-head{
+    flex-direction:column;
+  }
+
+  .dod-switch-card{
+    width:84vw;
+    min-width:84vw;
+  }
+}
+
+  @media(max-width:1100px){
+    .dod-grid{
+      grid-template-columns:1fr;
+    }
+  }
+
+  @media(max-width:560px){
+    .dod-info-grid{
+      grid-template-columns:1fr;
+    }
+
+    .dod-actions,
+    .dod-actions a,
+    .dod-btn{
+      width:100%;
+    }
+
+    .dod-head{
+      flex-direction:column;
+    }
+  }
+</style>
+
+{% if active_orders and active_orders|length > 1 %}
+  <section class="dod-switcher">
+    <div class="dod-switcher-head">
+      <div>
+        <h2 class="dod-switcher-title">Current Active Deliveries</h2>
+<p class="dod-switcher-sub">
+  Swipe to view other assigned active orders and open the one you want to work on.
+</p>
+      </div>
+      <span class="dod-switcher-count">{{ active_orders|length }} Active</span>
+    </div>
+
+    <div class="dod-order-strip">
+      {% for ao in active_orders %}
+        {% set ao_status = (ao.status or '')|upper %}
+        {% set is_current = (ao.id|string) == (order.id|string) %}
+
+        <article class="dod-switch-card {{ 'active' if is_current else '' }}">
+          <div class="dod-switch-top">
+            <div>
+              <div class="dod-switch-id">
+                #{{ ao.id[-6:] if ao.id else 'ORDER' }}
+              </div>
+              <div class="dod-switch-meta">
+                {{ ao.store_name or 'Store' }}
+                <br>
+                {{ ao.customer_name or 'Customer' }}
+              </div>
+            </div>
+
+            <span class="dod-switch-status">
+              {{ ao_status.replace('_', ' ') }}
+            </span>
+          </div>
+
+          <div class="dod-switch-line">
+            <div>
+              <strong>Payable:</strong>
+              ₹ {{ '%.2f'|format(ao.total_payable or ((ao.total_amount or 0) + (ao.delivery_fee or 0) + (ao.tip_amount or 0))) }}
+            </div>
+
+            {% if ao.customer_phone %}
+              <div>
+                <strong>Phone:</strong> {{ ao.customer_phone }}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="dod-switch-actions">
+           {% if is_current %}
+  <span class="dod-switch-btn">Viewing Now</span>
+{% else %}
+  <a class="dod-switch-btn" href="/delivery/order/{{ ao.id }}">Open This Order</a>
+{% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+<div class="dod-grid">
+  <section class="dod-card">
+    <div class="dod-head">
+      <div>
+        <h2 class="dod-title">Delivery Order Detail</h2>
+        <p class="dod-sub">Use this page during pickup and delivery.</p>
+      </div>
+      <span class="dod-pill">{{ st.replace('_', ' ') }}</span>
+    </div>
+
+    <div class="dod-body">
+      <div class="dod-info-grid">
+        <div class="dod-info">
+          <span>Total Payable</span>
+          <strong>₹ {{ '%.2f'|format(order.total_payable or ((order.total_amount or 0) + (order.delivery_fee or 0) + (order.tip_amount or 0))) }}</strong>
+        </div>
+
+        <div class="dod-info">
+          <span>Payment</span>
+          <strong>{{ order.payment_method or 'COD' }} · {{ order.payment_status or 'PENDING' }}</strong>
+        </div>
+
+        <div class="dod-info">
+          <span>Delivery Fee</span>
+          <strong>₹ {{ '%.2f'|format(order.delivery_fee or 0) }}</strong>
+        </div>
+
+        <div class="dod-info">
+          <span>Tip</span>
+          <strong>₹ {{ '%.2f'|format(order.tip_amount or 0) }}</strong>
+        </div>
+      </div>
+
+      <div class="dod-box">
+        <div class="dod-box-title">Pickup From Store</div>
+        <div class="dod-box-text">
+          <strong>{{ store.store_name if store else (order.store_name or 'Store') }}</strong><br>
+          {% if store %}
+            {{ store.address or 'Store address not available' }}
+            {% if store.phone %}
+              <br>📞 {{ store.phone }}
+            {% endif %}
+          {% else %}
+            Store details not available.
+          {% endif %}
+        </div>
+
+        <div class="dod-actions">
+          {% if store and store.phone %}
+            <a class="dod-btn" href="tel:{{ store.phone }}">Call Store</a>
+          {% endif %}
+
+          {% if store and store.latitude is not none and store.longitude is not none %}
+            <a class="dod-btn blue" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ store.latitude }},{{ store.longitude }}">
+              Store Map
+            </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="dod-box">
+        <div class="dod-box-title">Deliver To Customer</div>
+        <div class="dod-box-text">
+          <strong>{{ order.customer_name or 'Customer' }}</strong>
+          {% if order.customer_phone %}
+            <br>📞 {{ order.customer_phone }}
+          {% endif %}
+          <br><br>
+          {% if order.addr_line1 %}
+            {{ order.addr_line1 }}{% if order.addr_line2 %}, {{ order.addr_line2 }}{% endif %},
+            {{ order.addr_city }}, {{ order.addr_state }} {{ order.addr_pincode }}
+          {% else %}
+            Customer address not available.
+          {% endif %}
+        </div>
+
+        <div class="dod-actions">
+          {% if order.customer_phone %}
+            <a class="dod-btn" href="tel:{{ order.customer_phone }}">Call Customer</a>
+          {% endif %}
+
+          {% if order.addr_lat and order.addr_lng %}
+            <a class="dod-btn blue" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ order.addr_lat }},{{ order.addr_lng }}">
+              Customer Map
+            </a>
+          {% endif %}
+
+          <button class="dod-btn primary share-btn" type="button" data-order-id="{{ order.id }}">
+            Share Live Location
+          </button>
+        </div>
+
+        <div class="dod-live" id="gpsInfo" style="display:none;"></div>
+      </div>
+
+      {% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
+        <form method="post" action="{{ url_for('delivery_status', oid=order.id) }}" class="dod-status-form">
+          <select name="status" required>
+            {% if st == 'ASSIGNED_TO_DELIVERY' %}
+              <option value="REACHED_STORE">Reached Store</option>
+              <option value="PICKED_UP">Picked Up</option>
+              <option value="OUT_FOR_DELIVERY">Out For Delivery</option>
+            {% elif st == 'REACHED_STORE' %}
+              <option value="PICKED_UP">Picked Up</option>
+              <option value="OUT_FOR_DELIVERY">Out For Delivery</option>
+            {% elif st == 'PICKED_UP' %}
+              <option value="OUT_FOR_DELIVERY">Out For Delivery</option>
+            {% elif st == 'OUT_FOR_DELIVERY' %}
+              <option value="DELIVERED">Delivered</option>
+            {% endif %}
+          </select>
+
+          {% if st == 'OUT_FOR_DELIVERY' %}
+            <label class="dod-check">
+              <input type="checkbox" name="cod_received" value="1">
+              Payment received from customer
+            </label>
+          {% endif %}
+
+          <button class="dod-btn primary" type="submit">Update Delivery Status</button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+
+  <aside class="dod-card">
+    <div class="dod-head">
+      <div>
+        <h2 class="dod-title">Order Items</h2>
+        <p class="dod-sub">Items to verify at pickup.</p>
+      </div>
+    </div>
+
+    <div class="dod-body">
+      {% if order_items and order_items|length %}
+        <div class="dod-items">
+          {% for item in order_items %}
+            <div class="dod-item">
+              <div>
+                <strong>{{ item.product_name or 'Item' }}</strong><br>
+                <span>
+                  Qty: {{ item.quantity }}
+                  {% if item.unit_label %} {{ item.unit_label }}{% endif %}
+                </span>
+              </div>
+              <strong>₹ {{ '%.2f'|format(item.line_total or 0) }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="dod-box-text">No item details found.</div>
+      {% endif %}
+    </div>
+  </aside>
+
+  <aside class="dod-card">
+    <div class="dod-head">
+      <div>
+        <h2 class="dod-title">Timeline</h2>
+        <p class="dod-sub">Order movement history.</p>
+      </div>
+    </div>
+
+    <div class="dod-body">
+      {% if events and events|length %}
+        <div class="dod-timeline">
+          {% for e in events %}
+            <div class="dod-event">
+              <strong>{{ e.status or 'Update' }}</strong>
+              {{ e.note or '' }}<br>
+              <small>{{ e.created_at or '' }}</small>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="dod-box-text">No timeline found.</div>
+      {% endif %}
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  const gpsInfo = document.getElementById('gpsInfo');
+  const shareBtn = document.querySelector('.share-btn');
+
+  let watchId = null;
+  let activeOrderId = null;
+
+  async function postPing(orderId, coords) {
+    const body = {
+      order_id: orderId,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      heading: (typeof coords.heading === 'number') ? coords.heading : null,
+      speed: (typeof coords.speed === 'number') ? coords.speed : null
+    };
+
+    try {
+      await fetch('{{ url_for("delivery_update_location") }}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+    } catch (e) {
+      console.warn('Failed to send location', e);
+    }
+  }
+
+  function stopSharing() {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+
+    activeOrderId = null;
+
+    if (shareBtn) {
+      shareBtn.textContent = "Share Live Location";
+      shareBtn.classList.add("primary");
+      shareBtn.classList.remove("red");
+    }
+
+    if (gpsInfo) {
+      gpsInfo.style.display = "none";
+      gpsInfo.textContent = "";
+    }
+  }
+
+  function startSharing(orderId) {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    if (watchId !== null) {
+      stopSharing();
+    }
+
+    activeOrderId = String(orderId);
+
+    if (shareBtn) {
+      shareBtn.textContent = "Stop Live Location";
+      shareBtn.classList.remove("primary");
+      shareBtn.classList.add("red");
+    }
+
+    if (gpsInfo) {
+      gpsInfo.style.display = "block";
+      gpsInfo.textContent = "Starting live location sharing…";
+    }
+
+    watchId = navigator.geolocation.watchPosition(
+      pos => {
+        const c = pos.coords;
+
+        if (gpsInfo) {
+          gpsInfo.textContent =
+            `Live location active: lat ${c.latitude.toFixed(5)}, lng ${c.longitude.toFixed(5)}` +
+            (typeof c.speed === 'number' ? ` | speed ${(c.speed || 0).toFixed(1)} m/s` : '');
+        }
+
+        postPing(activeOrderId, c);
+      },
+      err => {
+        console.warn('GPS error', err);
+        if (gpsInfo) gpsInfo.textContent = 'Location error. Please allow GPS permission.';
+      },
+      { enableHighAccuracy: true, maximumAge: 4000, timeout: 10000 }
+    );
+  }
+
+  if (shareBtn) {
+    shareBtn.addEventListener('click', () => {
+      const oid = String(shareBtn.dataset.orderId || "");
+
+      if (!oid) return;
+
+      if (activeOrderId === oid && watchId !== null) {
+        stopSharing();
+      } else {
+        startSharing(oid);
+      }
+    });
+  }
+
+  window.addEventListener('beforeunload', stopSharing);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,286 @@
+{% extends "delivery_base.html" %}
+{% set active_page = "available" %}
+
+{% block delivery_kicker %}Ready Pickup Orders{% endblock %}
+{% block delivery_title %}Available Ready Orders{% endblock %}
+{% block delivery_subtitle %}
+Accept only store-ready orders. These orders are unassigned and already marked ready for pickup by the store.
+{% endblock %}
+
+{% block delivery_actions %}
+  <a class="df-action-btn" href="{{ url_for('delivery_dashboard') }}">Dashboard</a>
+{% endblock %}
+
+{% block delivery_content %}
+<style>
+  .dao-card{
+    background:#fff;
+    border:1px solid var(--df-line);
+    border-radius:24px;
+    box-shadow:var(--df-shadow);
+    overflow:hidden;
+  }
+
+  .dao-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:14px;
+    padding:18px 20px;
+    border-bottom:1px solid var(--df-line);
+    background:#FBFFFD;
+  }
+
+  .dao-title{
+    margin:0;
+    color:var(--df-ink);
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:-.03em;
+  }
+
+  .dao-sub{
+    margin:5px 0 0;
+    color:var(--df-muted);
+    font-size:13px;
+    font-weight:700;
+    line-height:1.45;
+  }
+
+  .dao-count{
+    min-height:34px;
+    padding:8px 12px;
+    border-radius:999px;
+    background:var(--df-mint);
+    color:var(--df-green-dark);
+    border:1px solid rgba(0,168,89,.18);
+    font-size:12px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+
+  .dao-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:16px;
+    padding:18px;
+  }
+
+  .dao-order{
+    border:1px solid var(--df-line);
+    border-radius:20px;
+    background:#fff;
+    padding:16px;
+    display:grid;
+    gap:14px;
+    box-shadow:0 10px 24px rgba(17,64,38,.05);
+  }
+
+  .dao-top{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:flex-start;
+  }
+
+  .dao-id{
+    color:var(--df-ink);
+    font-size:15px;
+    font-weight:900;
+  }
+
+  .dao-meta{
+    margin-top:5px;
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:750;
+    line-height:1.5;
+  }
+
+  .dao-pill{
+    min-height:28px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:6px 10px;
+    border-radius:999px;
+    background:var(--df-mint);
+    color:var(--df-green-dark);
+    border:1px solid rgba(0,168,89,.18);
+    font-size:11px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+
+  .dao-info{
+    display:grid;
+    gap:8px;
+    padding:12px;
+    border-radius:16px;
+    background:var(--df-soft);
+    border:1px solid var(--df-line);
+  }
+
+  .dao-row{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    color:var(--df-muted);
+    font-size:13px;
+    font-weight:800;
+  }
+
+  .dao-row strong{
+    color:var(--df-ink);
+    font-weight:900;
+    text-align:right;
+  }
+
+  .dao-address{
+    color:var(--df-text);
+    font-size:13px;
+    font-weight:750;
+    line-height:1.55;
+  }
+
+  .dao-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  .dao-btn{
+    min-height:40px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    border:1px solid var(--df-line);
+    background:#fff;
+    color:var(--df-text);
+    padding:9px 12px;
+    text-decoration:none;
+    font-size:13px;
+    font-weight:900;
+    cursor:pointer;
+  }
+
+  .dao-btn.primary{
+    background:var(--df-green);
+    border-color:var(--df-green);
+    color:#fff;
+    box-shadow:0 12px 24px rgba(0,168,89,.16);
+  }
+
+  .dao-empty{
+    margin:18px;
+    padding:26px;
+    border-radius:22px;
+    background:var(--df-soft);
+    border:1px dashed var(--df-line);
+    color:var(--df-muted);
+    text-align:center;
+    font-size:14px;
+    font-weight:800;
+    line-height:1.55;
+  }
+
+  @media(max-width:980px){
+    .dao-grid{
+      grid-template-columns:1fr;
+    }
+  }
+
+  @media(max-width:560px){
+    .dao-head{
+      flex-direction:column;
+    }
+
+    .dao-actions,
+    .dao-actions form,
+    .dao-btn{
+      width:100%;
+    }
+  }
+</style>
+
+<section class="dao-card">
+  <div class="dao-head">
+    <div>
+      <h2 class="dao-title">Available Ready Orders</h2>
+      <p class="dao-sub">Only unassigned orders marked ready for pickup are shown here.</p>
+    </div>
+    <span class="dao-count">{{ orders|length }} Available</span>
+  </div>
+
+  {% if not delivery_active %}
+    <div class="dao-empty">
+      You are currently off duty. Go to the dashboard and click <b>Go Active for Orders</b> to view available ready orders.
+    </div>
+  {% elif orders and orders|length %}
+    <div class="dao-grid">
+      {% for o in orders %}
+        <article class="dao-order">
+          <div class="dao-top">
+            <div>
+              <div class="dao-id">#{{ o.id }}</div>
+              <div class="dao-meta">
+                {{ o.store_name or 'Store' }} · {{ o.customer_name or 'Customer' }}
+                {% if o.driver_store_distance_km is not none %}
+                  <br>{{ '%.2f'|format(o.driver_store_distance_km) }} km from your location to store
+                {% endif %}
+              </div>
+            </div>
+            <span class="dao-pill">Ready</span>
+          </div>
+
+          <div class="dao-info">
+            <div class="dao-row">
+              <span>Total Payable</span>
+              <strong>₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}</strong>
+            </div>
+            <div class="dao-row">
+              <span>Delivery Fee</span>
+              <strong>₹ {{ '%.2f'|format(o.delivery_fee or 0) }}</strong>
+            </div>
+            <div class="dao-row">
+              <span>Tip</span>
+              <strong>₹ {{ '%.2f'|format(o.tip_amount or 0) }}</strong>
+            </div>
+          </div>
+
+          <div class="dao-address">
+            <strong>Deliver To:</strong><br>
+            {% if o.addr_line1 %}
+              {{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %},
+              {{ o.addr_city }}, {{ o.addr_state }} {{ o.addr_pincode }}
+            {% else %}
+              Address not available
+            {% endif %}
+          </div>
+
+          <div class="dao-actions">
+            <form method="post" action="{{ url_for('delivery_assign', oid=o.id) }}">
+              <button class="dao-btn primary" type="submit">Accept Ready Order</button>
+            </form>
+
+            {% if o.addr_lat and o.addr_lng %}
+              <a class="dao-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ o.addr_lat }},{{ o.addr_lng }}">
+                Customer Map
+              </a>
+            {% endif %}
+
+            {% if o.customer_phone %}
+              <a class="dao-btn" href="tel:{{ o.customer_phone }}">Call Customer</a>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="dao-empty">
+      No store-ready delivery orders are available right now. Stay active and check again.
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

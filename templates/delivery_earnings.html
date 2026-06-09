@@ -1,0 +1,388 @@
+{% extends "delivery_base.html" %}
+{% set active_page = "earnings" %}
+
+{% block delivery_kicker %}Earnings & COD{% endblock %}
+{% block delivery_title %}Delivery Earnings{% endblock %}
+{% block delivery_subtitle %}
+Track completed delivery earnings, COD collection, delivery fees, tips and delivered order records.
+{% endblock %}
+
+{% block delivery_actions %}
+  <a class="df-action-btn" href="{{ url_for('delivery_dashboard') }}">Dashboard</a>
+  <a class="df-action-btn primary" href="/delivery/history">History</a>
+{% endblock %}
+
+{% block delivery_content %}
+<style>
+  .de-grid{
+    display:grid;
+    gap:18px;
+  }
+
+  .de-kpi-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:14px;
+  }
+
+  .de-card{
+    background:#fff;
+    border:1px solid var(--df-line);
+    border-radius:24px;
+    box-shadow:var(--df-shadow);
+    overflow:hidden;
+  }
+
+  .de-kpi{
+    min-height:128px;
+    padding:18px;
+    display:flex;
+    justify-content:space-between;
+    gap:14px;
+    position:relative;
+  }
+
+  .de-kpi::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:0;
+    bottom:0;
+    width:5px;
+    background:var(--df-green);
+  }
+
+  .de-kpi.blue::before{
+    background:var(--df-blue);
+  }
+
+  .de-kpi.orange::before{
+    background:var(--df-orange);
+  }
+
+  .de-kpi.red::before{
+    background:var(--df-red);
+  }
+
+  .de-kpi-label{
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+  }
+
+  .de-kpi-value{
+    margin-top:10px;
+    color:var(--df-ink);
+    font-size:32px;
+    line-height:1;
+    font-weight:900;
+    letter-spacing:-.045em;
+  }
+
+  .de-kpi-meta{
+    margin-top:8px;
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:750;
+    line-height:1.35;
+  }
+
+  .de-kpi-icon{
+    width:48px;
+    height:48px;
+    border-radius:17px;
+    display:grid;
+    place-items:center;
+    background:var(--df-mint);
+    font-size:24px;
+    flex:0 0 auto;
+  }
+
+  .de-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:14px;
+    padding:18px 20px;
+    border-bottom:1px solid var(--df-line);
+    background:#FBFFFD;
+  }
+
+  .de-title{
+    margin:0;
+    color:var(--df-ink);
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:-.03em;
+  }
+
+  .de-sub{
+    margin:5px 0 0;
+    color:var(--df-muted);
+    font-size:13px;
+    font-weight:700;
+    line-height:1.45;
+  }
+
+  .de-count{
+    min-height:34px;
+    padding:8px 12px;
+    border-radius:999px;
+    background:var(--df-mint);
+    color:var(--df-green-dark);
+    border:1px solid rgba(0,168,89,.18);
+    font-size:12px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+
+  .de-filter{
+    padding:16px 20px;
+    border-bottom:1px solid var(--df-line);
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    background:#fff;
+  }
+
+  .de-filter input{
+    min-height:42px;
+    border:1px solid var(--df-line);
+    border-radius:14px;
+    background:#fff;
+    color:var(--df-ink);
+    padding:0 12px;
+    font-size:13px;
+    font-weight:850;
+    outline:none;
+  }
+
+  .de-filter input[type="search"]{
+    min-width:min(320px,100%);
+    flex:1;
+  }
+
+  .de-btn{
+    min-height:42px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:14px;
+    border:1px solid var(--df-line);
+    background:#fff;
+    color:var(--df-text);
+    padding:9px 13px;
+    text-decoration:none;
+    font-size:13px;
+    font-weight:900;
+    cursor:pointer;
+  }
+
+  .de-btn.primary{
+    background:var(--df-green);
+    border-color:var(--df-green);
+    color:#fff;
+  }
+
+  .de-table-wrap{
+    overflow:auto;
+    padding:0 20px 20px;
+  }
+
+  .de-table{
+    width:100%;
+    min-width:980px;
+    border-collapse:separate;
+    border-spacing:0;
+    border:1px solid var(--df-line);
+    border-radius:18px;
+    overflow:hidden;
+    background:#fff;
+  }
+
+  .de-table thead{
+    background:var(--df-green-dark);
+    color:#fff;
+  }
+
+  .de-table th{
+    padding:14px;
+    text-align:left;
+    font-size:12px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+    white-space:nowrap;
+  }
+
+  .de-table td{
+    padding:14px;
+    border-bottom:1px solid var(--df-line);
+    color:var(--df-text);
+    font-size:13px;
+    font-weight:750;
+    vertical-align:top;
+  }
+
+  .de-table tbody tr:last-child td{
+    border-bottom:0;
+  }
+
+  .de-pill{
+    min-height:28px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:6px 10px;
+    border-radius:999px;
+    background:var(--df-mint);
+    color:var(--df-green-dark);
+    border:1px solid rgba(0,168,89,.18);
+    font-size:11px;
+    font-weight:900;
+    white-space:nowrap;
+  }
+
+  .de-empty{
+    margin:18px;
+    padding:26px;
+    border-radius:22px;
+    background:var(--df-soft);
+    border:1px dashed var(--df-line);
+    color:var(--df-muted);
+    text-align:center;
+    font-size:14px;
+    font-weight:800;
+    line-height:1.55;
+  }
+
+  @media(max-width:980px){
+    .de-kpi-grid{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+  }
+
+  @media(max-width:560px){
+    .de-kpi-grid{
+      grid-template-columns:1fr;
+    }
+
+    .de-head{
+      flex-direction:column;
+    }
+
+    .de-filter input,
+    .de-filter button,
+    .de-filter a{
+      width:100%;
+    }
+  }
+</style>
+
+<div class="de-grid">
+  <section class="de-kpi-grid">
+    <div class="de-card de-kpi">
+      <div>
+        <div class="de-kpi-label">Delivered Orders</div>
+        <div class="de-kpi-value">{{ orders|length }}</div>
+        <div class="de-kpi-meta">Completed deliveries in this filter.</div>
+      </div>
+      <div class="de-kpi-icon">✅</div>
+    </div>
+
+    <div class="de-card de-kpi red">
+      <div>
+        <div class="de-kpi-label">COD Collected</div>
+        <div class="de-kpi-value">₹{{ '%.0f'|format(total_cod_collected or 0) }}</div>
+        <div class="de-kpi-meta">Cash collected from COD orders.</div>
+      </div>
+      <div class="de-kpi-icon">💵</div>
+    </div>
+
+    <div class="de-card de-kpi blue">
+      <div>
+        <div class="de-kpi-label">Delivery Fee</div>
+        <div class="de-kpi-value">₹{{ '%.0f'|format(total_delivery_fee or 0) }}</div>
+        <div class="de-kpi-meta">Total delivery fee value.</div>
+      </div>
+      <div class="de-kpi-icon">🛵</div>
+    </div>
+
+    <div class="de-card de-kpi orange">
+      <div>
+        <div class="de-kpi-label">Tips</div>
+        <div class="de-kpi-value">₹{{ '%.0f'|format(total_tip or 0) }}</div>
+        <div class="de-kpi-meta">Tips received from delivered orders.</div>
+      </div>
+      <div class="de-kpi-icon">🎁</div>
+    </div>
+  </section>
+
+  <section class="de-card">
+    <div class="de-head">
+      <div>
+        <h2 class="de-title">Earnings / COD Summary</h2>
+        <p class="de-sub">Search by order, customer, store, payment method or phone.</p>
+      </div>
+      <span class="de-count">₹{{ '%.2f'|format(total_payable or 0) }} Total Value</span>
+    </div>
+
+    <form method="get" action="{{ url_for('delivery_earnings') }}" class="de-filter">
+      <input type="search" name="q" value="{{ q or '' }}" placeholder="Search order, store, customer, phone...">
+      <input type="date" name="from" value="{{ date_from or '' }}">
+      <input type="date" name="to" value="{{ date_to or '' }}">
+      <button class="de-btn primary" type="submit">Apply Filter</button>
+      <a class="de-btn" href="{{ url_for('delivery_earnings') }}">Clear</a>
+    </form>
+
+    {% if orders and orders|length %}
+      <div class="de-table-wrap">
+        <table class="de-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Delivered At</th>
+              <th>Store</th>
+              <th>Customer</th>
+              <th>Payment</th>
+              <th>Order Total</th>
+              <th>Delivery Fee</th>
+              <th>Tip</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in orders %}
+              <tr>
+                <td>#{{ o.id }}</td>
+                <td>{{ o.delivered_at or o.updated_at or '—' }}</td>
+                <td>{{ o.store_name or 'Store' }}</td>
+                <td>
+                  {{ o.customer_name or 'Customer' }}
+                  {% if o.customer_phone %}
+                    <br><small>{{ o.customer_phone }}</small>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="de-pill">{{ o.payment_method or 'COD' }}</span>
+                  <br><small>{{ o.payment_status or 'PAID' }}</small>
+                </td>
+                <td>
+                  ₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}
+                </td>
+                <td>₹ {{ '%.2f'|format(o.delivery_fee or 0) }}</td>
+                <td>₹ {{ '%.2f'|format(o.tip_amount or 0) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="de-empty">
+        No delivered earnings record found for this filter.
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
