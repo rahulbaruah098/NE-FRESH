@@ -205,6 +205,8 @@ def api_cart_add(user_id):
                 "$set": cart_update_data
             }
         )
+
+        cart_item_id = str(existing_cart_item["_id"])
     else:
         cart_update_data.update({
             "cart_id": cid,
@@ -212,14 +214,19 @@ def api_cart_add(user_id):
             "created_at": now
         })
 
-        mongo.cart_items.insert_one(cart_update_data)
+        inserted = mongo.cart_items.insert_one(cart_update_data)
+        cart_item_id = str(inserted.inserted_id)
 
     cart_count = mongo.cart_items.count_documents({"cart_id": cid})
 
     return jsonify({
         'ok': True,
         'msg': f'Added {quantity:g} {unit_label} to cart',
-        'cart_count': cart_count
+        'cart_count': cart_count,
+        'cart_item_id': cart_item_id,
+        'product_id': str(product_obj_id),
+        'cart_quantity': quantity,
+        'unit_label': unit_label
     })
 
 @app.route('/api/cart/remove', methods=['POST'])

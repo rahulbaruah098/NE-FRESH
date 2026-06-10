@@ -25,6 +25,7 @@ def index():
     categories = []
     product_rating_map = {}
     store_rating_map = {}
+    cart_lookup = {}
 
     if session.get("service_area") and not allow:
         flash("Please enter a valid 6-digit pincode.", "warning")
@@ -33,8 +34,36 @@ def index():
             "is_active": 1
         }).sort("created_at", -1).limit(80))
 
+        # Homepage cart lookup for customer users
+        # This lets homepage product cards show:
+        # Added to Cart / Plus / Minus / Remove
+        if user and user.get("role") == "customer":
+            cid = get_or_create_cart(user["id"])
+
+            cart_items = list(mongo.cart_items.find({
+                "cart_id": cid
+            }))
+
+            for ci in cart_items:
+                product_id = ci.get("product_id")
+
+                if product_id:
+                    cart_lookup[str(product_id)] = {
+                        "cart_item_id": str(ci["_id"]),
+                        "cart_quantity": cart_item_quantity(ci)
+                    }
+
         for p in products:
+            hydrate_product_unit_fields(p)
             _hydrate_home_product(p)
+
+            product_id = str(p.get("_id"))
+
+            cart_row = cart_lookup.get(product_id)
+
+            p["in_cart"] = bool(cart_row)
+            p["cart_item_id"] = cart_row.get("cart_item_id") if cart_row else ""
+            p["cart_quantity"] = cart_row.get("cart_quantity") if cart_row else 0
 
             product_rating_map[p["id"]] = {
                 "avg": p.get("avg_rating", 0),
