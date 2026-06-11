@@ -182,6 +182,49 @@ Pickup, delivery, navigation, customer call, live location and status update for
     border:1px solid var(--df-line);
   }
 
+    .dod-cancel-box{
+    display:grid;
+    gap:10px;
+    padding:14px;
+    border-radius:18px;
+    background:#FFF7ED;
+    border:1px solid rgba(234,88,12,.18);
+  }
+
+  .dod-cancel-title{
+    color:#9A3412;
+    font-size:14px;
+    font-weight:900;
+    letter-spacing:-.01em;
+  }
+
+  .dod-cancel-text{
+    color:#7C2D12;
+    font-size:12px;
+    font-weight:750;
+    line-height:1.45;
+  }
+
+  .dod-cancel-box textarea{
+    width:100%;
+    min-height:78px;
+    resize:vertical;
+    border:1px solid rgba(234,88,12,.22);
+    border-radius:14px;
+    background:#fff;
+    color:var(--df-ink);
+    padding:11px 12px;
+    font:inherit;
+    font-size:13px;
+    font-weight:800;
+    outline:none;
+  }
+
+  .dod-cancel-box textarea:focus{
+    border-color:#EA580C;
+    box-shadow:0 0 0 4px rgba(234,88,12,.10);
+  }
+
   .dod-status-form select{
     width:100%;
     min-height:44px;
@@ -673,6 +716,35 @@ Pickup, delivery, navigation, customer call, live location and status update for
           <button class="dod-btn primary" type="submit">Update Delivery Status</button>
         </form>
       {% endif %}
+
+            {% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
+        <form
+          method="post"
+          action="{{ url_for('delivery_cancel_assignment', oid=order.id) }}"
+          class="dod-cancel-box"
+          onsubmit="return confirm('Cancel this delivery assignment? The order will go back to the store for reassignment.');"
+        >
+          <div>
+            <div class="dod-cancel-title">Cancel this delivery?</div>
+            <div class="dod-cancel-text">
+              Use this only if you cannot complete this delivery. The order will not be cancelled;
+              it will be sent back to the store for assigning another delivery partner.
+            </div>
+          </div>
+
+          <textarea
+            name="cancel_reason"
+            required
+            maxlength="300"
+            placeholder="Write reason, e.g. vehicle issue, emergency, wrong assignment..."
+          ></textarea>
+
+          <button class="dod-btn red" type="submit">
+            Cancel Delivery Assignment
+          </button>
+        </form>
+      {% endif %}
+      
     </div>
   </section>
 

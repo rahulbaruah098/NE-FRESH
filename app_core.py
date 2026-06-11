@@ -1028,7 +1028,8 @@ def check_store_serviceability(store, customer_lat, customer_lng, customer_pinco
 
 DELIVERY_STORE_ASSIGNABLE_STATUSES = {
     "READY_FOR_PICKUP",
-    "ASSIGNED_TO_DELIVERY"
+    "ASSIGNED_TO_DELIVERY",
+    "REACHED_STORE"
 }
 
 DELIVERY_REASSIGN_BLOCKED_STATUSES = {
@@ -1234,12 +1235,12 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
     - Store reassignment when allow_reassign=True
     - Delivery-boy self accept
 
-    Core rule:
-    - New assignment is allowed only after store marks order READY_FOR_PICKUP.
-    - If two delivery boys click at the same time, first update wins.
-    - If store and delivery boy click at the same time, first update wins.
-    - Existing assignment is not overwritten unless allow_reassign=True.
+    Handles:
+    - Normal first assignment
+    - Store reassignment before pickup
+    - Reassignment after delivery boy cancelled delivery
     """
+
     try:
         oid_obj = order_id if isinstance(order_id, ObjectId) else ObjectId(str(order_id))
     except Exception:
@@ -1260,6 +1261,17 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
         return {
             "ok": False,
             "error": "This delivery-boy account is disabled."
+        }
+
+    availability = mongo.delivery_availability.find_one({
+        "user_id": partner["id"],
+        "active": True
+    })
+
+    if not availability:
+        return {
+            "ok": False,
+            "error": "This delivery boy is currently offline."
         }
 
     order = mongo.orders.find_one({"_id": oid_obj})
@@ -1285,9 +1297,17 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
         }
 
     existing_partner = order.get("delivery_partner_id")
+    existing_partner_id = _delivery_user_id(existing_partner)
+    new_partner_id = _delivery_user_id(partner["id"])
+
+    was_delivery_cancelled = bool(
+        order.get("needs_reassignment")
+        or order.get("delivery_cancelled_by_partner")
+        or order.get("delivery_cancel_reason")
+    )
 
     if existing_partner and not allow_reassign:
-        if str(existing_partner) == str(partner["id"]):
+        if existing_partner_id == new_partner_id:
             return {
                 "ok": True,
                 "message": "This order is already assigned to this delivery boy.",
@@ -1303,18 +1323,65 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
     now = datetime.utcnow().isoformat()
     actor_data = _delivery_actor_snapshot(actor)
 
+    old_partner_id = _delivery_user_id(
+        order.get("delivery_partner_id")
+        or order.get("previous_delivery_partner_id")
+    )
+
+    old_partner_name = (
+        order.get("delivery_partner_name")
+        or order.get("previous_delivery_partner_name")
+        or ""
+    )
+
+    old_partner_phone = (
+        order.get("delivery_partner_phone")
+        or order.get("previous_delivery_partner_phone")
+        or ""
+    )
+
+    previous_cancel_reason = (
+        order.get("delivery_cancel_reason")
+        or order.get("delivery_status_note")
+        or ""
+    )
+
+    is_normal_reassign = bool(
+        allow_reassign
+        and existing_partner_id
+        and existing_partner_id != new_partner_id
+    )
+
     update_data = {
         "delivery_partner_id": partner["id"],
         "delivery_partner_name": partner["name"],
         "delivery_partner_phone": partner["phone"],
+
         "delivery_assigned_by": actor_data.get("actor_id"),
         "delivery_assigned_by_role": actor_data.get("actor_role"),
         "delivery_assigned_by_name": actor_data.get("actor_name"),
         "delivery_assignment_source": source,
+
         "assigned_at": now,
         "updated_at": now,
-        "status": "ASSIGNED_TO_DELIVERY"
+        "status": "ASSIGNED_TO_DELIVERY",
+
+        # Clear rider-cancelled state after successful new assignment
+        "needs_reassignment": False,
+        "delivery_cancelled_by_partner": False,
+        "delivery_cancel_reason": "",
+        "delivery_cancelled_status_from": "",
+
+        # Reassignment audit fields
+        "delivery_reassigned_at": now if (was_delivery_cancelled or is_normal_reassign) else order.get("delivery_reassigned_at"),
+        "delivery_reassigned_by": actor_data.get("actor_id") if (was_delivery_cancelled or is_normal_reassign) else order.get("delivery_reassigned_by"),
+        "delivery_reassigned_by_name": actor_data.get("actor_name") if (was_delivery_cancelled or is_normal_reassign) else order.get("delivery_reassigned_by_name")
     }
+
+    if old_partner_id and old_partner_id != new_partner_id:
+        update_data["previous_delivery_partner_id"] = old_partner_id
+        update_data["previous_delivery_partner_name"] = old_partner_name
+        update_data["previous_delivery_partner_phone"] = old_partner_phone
 
     unassigned_filter = {
         "_id": oid_obj,
@@ -1335,10 +1402,16 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
                 "REACHED_STORE"
             ]
         },
-        "$and": [
-            {"delivery_partner_id": {"$exists": True}},
-            {"delivery_partner_id": {"$ne": None}},
-            {"delivery_partner_id": {"$ne": ""}}
+        "$or": [
+            {
+                "$and": [
+                    {"delivery_partner_id": {"$exists": True}},
+                    {"delivery_partner_id": {"$ne": None}},
+                    {"delivery_partner_id": {"$ne": ""}}
+                ]
+            },
+            {"needs_reassignment": True},
+            {"delivery_cancelled_by_partner": True}
         ]
     }
 
@@ -1347,9 +1420,33 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
     else:
         update_filter = unassigned_filter
 
+    update_payload = {
+        "$set": update_data
+    }
+
+    if was_delivery_cancelled or is_normal_reassign:
+        history_entry = {
+            "action": "reassigned_after_delivery_cancel" if was_delivery_cancelled else "reassigned_by_store",
+            "previous_delivery_partner_id": old_partner_id,
+            "previous_delivery_partner_name": old_partner_name,
+            "previous_delivery_partner_phone": old_partner_phone,
+            "previous_cancel_reason": previous_cancel_reason,
+            "new_delivery_partner_id": partner["id"],
+            "new_delivery_partner_name": partner["name"],
+            "new_delivery_partner_phone": partner["phone"],
+            "at": now,
+            "by": actor_data.get("actor_role") or "store",
+            "actor_id": actor_data.get("actor_id"),
+            "actor_name": actor_data.get("actor_name")
+        }
+
+        update_payload["$push"] = {
+            "delivery_history": history_entry
+        }
+
     result = mongo.orders.update_one(
         update_filter,
-        {"$set": update_data}
+        update_payload
     )
 
     if result.modified_count < 1:
@@ -1363,6 +1460,12 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
                 "error": "This order has just been assigned to another delivery boy."
             }
 
+        if latest_status in DELIVERY_REASSIGN_BLOCKED_STATUSES:
+            return {
+                "ok": False,
+                "error": "This order has moved forward and delivery partner cannot be changed now."
+            }
+
         if latest_status != "READY_FOR_PICKUP" and not allow_reassign:
             return {
                 "ok": False,
@@ -1374,6 +1477,7 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
             "error": "Delivery assignment could not be updated. Please refresh and try again."
         }
 
+    # Set new delivery boy current order
     mongo.delivery_availability.update_one(
         {"user_id": partner["id"]},
         {
@@ -1385,18 +1489,49 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
         upsert=True
     )
 
-    add_order_event(
-        oid_obj,
-        "ASSIGNED_TO_DELIVERY",
-        f"Assigned to {partner['name']}",
-        actor
-    )
+    # Clear old delivery boy current order during reassignment
+    if old_partner_id and old_partner_id != new_partner_id:
+        mongo.delivery_availability.update_one(
+            {
+                "user_id": old_partner_id,
+                "current_order_id": str(oid_obj)
+            },
+            {
+                "$set": {
+                    "current_order_id": None,
+                    "updated_at": now
+                }
+            }
+        )
+
+    if was_delivery_cancelled:
+        add_order_event(
+            oid_obj,
+            "DELIVERY_REASSIGNED",
+            f"Delivery reassigned to {partner['name']} after previous rider cancellation.",
+            actor
+        )
+    elif is_normal_reassign:
+        add_order_event(
+            oid_obj,
+            "DELIVERY_REASSIGNED",
+            f"Delivery reassigned to {partner['name']}.",
+            actor
+        )
+    else:
+        add_order_event(
+            oid_obj,
+            "ASSIGNED_TO_DELIVERY",
+            f"Assigned to {partner['name']}",
+            actor
+        )
 
     return {
         "ok": True,
-        "message": "Delivery boy assigned successfully.",
+        "message": "Delivery boy reassigned successfully." if (was_delivery_cancelled or is_normal_reassign) else "Delivery boy assigned successfully.",
         "order_id": str(oid_obj),
-        "delivery_partner": partner
+        "delivery_partner": partner,
+        "was_reassignment": bool(was_delivery_cancelled or is_normal_reassign)
     }
 
 

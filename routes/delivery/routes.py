@@ -506,6 +506,43 @@ def delivery_earnings():
         total_payable=total_payable
     )
 
+
+def _delivery_active_orders_for_offline_check(delivery_user_id):
+    """
+    Returns active orders currently assigned to this delivery boy.
+    Used to block going offline while delivery work is still active.
+    """
+
+    active_statuses = set()
+
+    try:
+        active_statuses.update(DELIVERY_ASSIGNED_ACTIVE_STATUSES)
+    except Exception:
+        pass
+
+    active_statuses.update([
+        "ASSIGNED_TO_DELIVERY",
+        "REACHED_STORE",
+        "PICKED_UP",
+        "OUT_FOR_DELIVERY"
+    ])
+
+    return list(
+        mongo.orders.find({
+            "$and": [
+                {
+                    "$or": [
+                        {"delivery_partner_id": delivery_user_id},
+                        {"delivery_partner_id": str(delivery_user_id)}
+                    ]
+                },
+                {
+                    "status": {"$in": list(active_statuses)}
+                }
+            ]
+        }).sort("updated_at", -1)
+    )
+
 @app.route('/api/delivery/availability', methods=['POST'])
 @login_required(role='delivery')
 def api_delivery_availability():
@@ -515,6 +552,9 @@ def api_delivery_availability():
     active = bool(data.get("active"))
     now = _delivery_now()
 
+    # ==============================
+    # Going ONLINE
+    # ==============================
     if active:
         lat = _get_float_or_none(data.get("latitude"))
         lng = _get_float_or_none(data.get("longitude"))
@@ -543,8 +583,33 @@ def api_delivery_availability():
         return jsonify({
             "ok": True,
             "active": True,
-            "active_since": now
+            "active_since": now,
+            "message": "You are now online."
         })
+
+    # ==============================
+    # Going OFFLINE
+    # Block if active assigned orders exist
+    # ==============================
+    active_orders = _delivery_active_orders_for_offline_check(u["id"])
+
+    if active_orders:
+        order_refs = []
+
+        for order in active_orders[:3]:
+            order_refs.append("#" + str(order.get("_id"))[-6:])
+
+        return jsonify({
+            "ok": False,
+            "active": True,
+            "blocked": True,
+            "active_orders_count": len(active_orders),
+            "active_orders": order_refs,
+            "error": (
+                "You cannot go offline while you have active delivery orders. "
+                "Please deliver the order or cancel the delivery first."
+            )
+        }), 409
 
     mongo.delivery_availability.update_one(
         {"user_id": u["id"]},
@@ -553,6 +618,7 @@ def api_delivery_availability():
                 "user_id": u["id"],
                 "active": False,
                 "offline_at": now,
+                "current_order_id": None,
                 "updated_at": now
             }
         },
@@ -561,7 +627,8 @@ def api_delivery_availability():
 
     return jsonify({
         "ok": True,
-        "active": False
+        "active": False,
+        "message": "You are now offline."
     })
 
 @app.route('/delivery/order/<oid>/assign', methods=['POST'])
@@ -773,6 +840,142 @@ def delivery_status(oid):
 
     flash('Delivery status updated.', 'success')
     return redirect(request.referrer or url_for('delivery_active_orders'))
+
+
+@app.route('/delivery/order/<oid>/cancel-delivery', methods=['POST'])
+@login_required(role='delivery')
+def delivery_cancel_assignment(oid):
+    """
+    Delivery boy cancels only the delivery assignment.
+    The customer order is NOT cancelled.
+
+    Flow:
+    - Remove current delivery boy from order
+    - Mark order back as READY_FOR_PICKUP
+    - Set needs_reassignment = True
+    - Add timeline/history event
+    - Clear rider current_order_id
+    """
+
+    u = current_user()
+
+    try:
+        oid_obj = ObjectId(oid)
+    except Exception:
+        flash("Invalid order.", "danger")
+        return redirect(request.referrer or url_for("delivery_active_orders"))
+
+    order = mongo.orders.find_one({
+        "_id": oid_obj,
+        "$or": [
+            {"delivery_partner_id": u["id"]},
+            {"delivery_partner_id": str(u["id"])}
+        ]
+    })
+
+    if not order:
+        flash("Order not found or not assigned to you.", "danger")
+        return redirect(request.referrer or url_for("delivery_active_orders"))
+
+    current_status = (order.get("status") or "").strip().upper()
+
+    # Safe cancellation rule:
+    # Rider can cancel before pickup.
+    # After pickup/out-for-delivery, the item is already physically with rider,
+    # so cancellation needs store/admin/manual return flow.
+    cancellable_statuses = {
+        "ASSIGNED_TO_DELIVERY",
+        "REACHED_STORE"
+    }
+
+    if current_status not in cancellable_statuses:
+        flash(
+            "This delivery cannot be cancelled from your side after pickup. Please contact the store/admin.",
+            "warning"
+        )
+        return redirect(request.referrer or url_for("delivery_active_orders"))
+
+    reason = (request.form.get("cancel_reason") or "").strip()
+
+    if not reason:
+        reason = "Cancelled by delivery partner."
+
+    if len(reason) > 300:
+        reason = reason[:300]
+
+    now = datetime.utcnow().isoformat()
+
+    old_partner_id = str(order.get("delivery_partner_id") or u["id"])
+    old_partner_name = order.get("delivery_partner_name") or u.get("name") or "Delivery Partner"
+    old_partner_phone = order.get("delivery_partner_phone") or u.get("phone") or ""
+
+    history_entry = {
+        "action": "cancelled_by_delivery_partner",
+        "delivery_partner_id": old_partner_id,
+        "delivery_partner_name": old_partner_name,
+        "delivery_partner_phone": old_partner_phone,
+        "reason": reason,
+        "status_before_cancel": current_status,
+        "at": now,
+        "by": "delivery",
+        "actor_id": str(u.get("_id") or u.get("id") or ""),
+        "actor_name": u.get("name") or old_partner_name
+    }
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": {
+                # Main order is still valid and ready for store reassignment
+                "status": "READY_FOR_PICKUP",
+
+                # Remove current rider assignment
+                "delivery_partner_id": None,
+                "delivery_partner_name": "",
+                "delivery_partner_phone": "",
+
+                # Reassignment markers
+                "needs_reassignment": True,
+                "delivery_cancelled_by_partner": True,
+                "delivery_cancelled_at": now,
+                "delivery_cancel_reason": reason,
+                "delivery_cancelled_status_from": current_status,
+
+                # Keep old rider info for store visibility
+                "previous_delivery_partner_id": old_partner_id,
+                "previous_delivery_partner_name": old_partner_name,
+                "previous_delivery_partner_phone": old_partner_phone,
+
+                "updated_at": now
+            },
+            "$push": {
+                "delivery_history": history_entry
+            }
+        }
+    )
+
+    mongo.delivery_availability.update_one(
+        {
+            "user_id": u["id"],
+            "current_order_id": str(oid_obj)
+        },
+        {
+            "$set": {
+                "current_order_id": None,
+                "updated_at": now
+            }
+        }
+    )
+
+    add_order_event(
+        oid_obj,
+        "DELIVERY_CANCELLED_BY_RIDER",
+        f"Delivery cancelled by {old_partner_name}. Reason: {reason}",
+        u
+    )
+
+    flash("Delivery cancelled. The order has been sent back to the store for reassignment.", "success")
+    return redirect(url_for("delivery_active_orders"))
 
 @app.route('/delivery/api/location', methods=['POST'])
 @login_required(role='delivery')

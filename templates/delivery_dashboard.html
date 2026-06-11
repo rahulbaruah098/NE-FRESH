@@ -643,39 +643,26 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
       });
     }
 
-    async function setDeliveryAvailability(active) {
-      if (active) {
-        showDeliveryToast("Getting your GPS location…", "on");
+   async function setDeliveryAvailability(active) {
+  if (btnNotify) {
+    btnNotify.disabled = true;
+    btnNotify.style.opacity = ".7";
+  }
 
-        const gps = await getGPSOnce();
+  let handledError = false;
 
-        if (!gps) {
-          showDeliveryToast("GPS is required to go active.", "off");
-          return;
-        }
+  try {
+    if (active) {
+      await askBrowserNotificationPermission();
 
-        const res = await fetch("/api/delivery/availability", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({
-            active: true,
-            latitude: gps.lat,
-            longitude: gps.lng
-          })
-        });
+      showDeliveryToast("Getting your GPS location…", "on");
 
-        const data = await res.json().catch(() => ({}));
+      const gps = await getGPSOnce();
 
-        if (!res.ok || !data.ok) {
-          showDeliveryToast(data.error || "Could not go active.", "off");
-          return;
-        }
-
-        await playDeliverySound();
-        showDeliveryToast("You are active now. Ready pickup orders will be shown.", "on");
-
-        setTimeout(() => window.location.reload(), 700);
+      if (!gps) {
+        handledError = true;
+        showDeliveryToast("GPS location is required to go online.", "off");
+        syncDeliveryNotifyUI(false);
         return;
       }
 
@@ -683,16 +670,73 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
         method: "POST",
         credentials: "same-origin",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({ active: false })
+        body: JSON.stringify({
+          active: true,
+          latitude: gps.lat,
+          longitude: gps.lng
+        })
       });
 
-      await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({}));
 
+      if (!res.ok || !data.ok) {
+        handledError = true;
+        showDeliveryToast(data.error || "Could not go online.", "off");
+        syncDeliveryNotifyUI(false);
+        return;
+      }
+
+      localStorage.removeItem("deliveryLastAlertId");
       await playDeliverySound();
-      showDeliveryToast("You are off duty now.", "off");
 
-      setTimeout(() => window.location.reload(), 700);
+      showDeliveryToast(data.message || "You are online now.", "on");
+      syncDeliveryNotifyUI(true);
+
+      setTimeout(() => window.location.reload(), 900);
+      return;
     }
+
+    const res = await fetch("/api/delivery/availability", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ active: false })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      handledError = true;
+
+      showDeliveryToast(
+        data.error || "Active delivery found. Complete or cancel it before going offline.",
+        "off"
+      );
+
+      syncDeliveryNotifyUI(true);
+      return;
+    }
+
+    localStorage.removeItem("deliveryLastAlertId");
+    await playDeliverySound();
+
+    showDeliveryToast(data.message || "You are offline now.", "off");
+    syncDeliveryNotifyUI(false);
+
+    setTimeout(() => window.location.reload(), 900);
+  } catch (error) {
+    console.warn("Delivery availability update failed", error);
+
+    if (!handledError) {
+      showDeliveryToast("Network issue. Please try again.", "off");
+    }
+  } finally {
+    if (btnNotify) {
+      btnNotify.disabled = false;
+      btnNotify.style.opacity = "1";
+    }
+  }
+}
 
     if (btnNotify) {
       btnNotify.addEventListener("click", async () => {

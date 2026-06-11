@@ -218,6 +218,51 @@
       color:#B91C1C!important;
     }
 
+        .sdp-pill.danger{
+      background:#FFF1F2;
+      color:#B91C1C;
+      border-color:#FECACA;
+    }
+
+    .sdp-rider-cancel-note{
+      margin-top:8px;
+      display:grid;
+      gap:5px;
+      padding:9px 10px;
+      border-radius:12px;
+      background:#FFF7ED;
+      border:1px solid rgba(234,88,12,.22);
+      color:#7C2D12;
+      font-size:12px;
+      font-weight:800;
+      line-height:1.4;
+      max-width:320px;
+    }
+
+    .sdp-rider-cancel-note strong{
+      color:#9A3412;
+      font-size:12px;
+      font-weight:950;
+    }
+
+    .sdp-next-step{
+      margin-top:7px;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 9px;
+      border-radius:999px;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      border:1px solid rgba(0,168,89,.18);
+      font-size:11px;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      width:max-content;
+      max-width:100%;
+    }
+
     .sdp-hero-side{
       min-width:260px;
       border-radius:24px;
@@ -892,10 +937,38 @@
                       </div>
                     </td>
 
-                    <td>
-                      <span class="sdp-pill {% if st == 'READY_FOR_PICKUP' %}blue{% else %}orange{% endif %}">
-                        {{ st.replace('_', ' ') if st else 'PLACED' }}
-                      </span>
+                                        <td>
+                      {% set rider_cancelled = o.delivery_cancelled_by_partner or o.needs_reassignment %}
+
+                      {% if rider_cancelled %}
+                        <span class="sdp-pill danger">
+                          DELIVERY CANCELLED BY RIDER
+                        </span>
+
+                        <div class="sdp-rider-cancel-note">
+                          <strong>Previous rider cancelled this delivery.</strong>
+
+                          {% if o.previous_delivery_partner_name %}
+                            <span>Rider: {{ o.previous_delivery_partner_name }}</span>
+                          {% endif %}
+
+                          {% if o.delivery_cancel_reason %}
+                            <span>Reason: {{ o.delivery_cancel_reason }}</span>
+                          {% endif %}
+
+                          {% if o.delivery_cancelled_at %}
+                            <span>Cancelled: {{ o.delivery_cancelled_at }}</span>
+                          {% endif %}
+                        </div>
+
+                        <div class="sdp-next-step">
+                          Next Step: Reassign Rider
+                        </div>
+                      {% else %}
+                        <span class="sdp-pill {% if st == 'READY_FOR_PICKUP' %}blue{% else %}orange{% endif %}">
+                          {{ st.replace('_', ' ') if st else 'PLACED' }}
+                        </span>
+                      {% endif %}
                     </td>
 
                     <td>
@@ -913,7 +986,7 @@
                       {% endif %}
 
                       {% if available_delivery_people_list and available_delivery_people_list|length %}
-                        <form method="post" action="{{ url_for('store_order_assign_delivery', oid=o.id) }}" class="sdp-form">
+                        <form method="post" action="{% if o.delivery_cancelled_by_partner or o.needs_reassignment %}{{ url_for('store_order_reassign_delivery', oid=o.id) }}{% else %}{{ url_for('store_order_assign_delivery', oid=o.id) }}{% endif %}" class="sdp-form">
                           <select name="delivery_user_id" required>
                             <option value="">Select active delivery boy</option>
                             {% for d in available_delivery_people_list %}
@@ -924,7 +997,13 @@
                               </option>
                             {% endfor %}
                           </select>
-                          <button type="submit" class="primary">Assign Delivery</button>
+                                                    <button type="submit" class="{% if o.delivery_cancelled_by_partner or o.needs_reassignment %}blue{% else %}primary{% endif %}">
+                            {% if o.delivery_cancelled_by_partner or o.needs_reassignment %}
+                              Reassign Delivery Boy
+                            {% else %}
+                              Assign Delivery
+                            {% endif %}
+                          </button>
                         </form>
                       {% else %}
                         <div class="sdp-empty">No online rider available right now.</div>
@@ -1103,14 +1182,42 @@
 
           <div class="sdp-attention-list">
             {% for o in attention_list %}
-              <div class="sdp-attention-card">
+                           <div class="sdp-attention-card">
                 <div>
-                  <div class="sdp-attention-title">Order needs delivery boy</div>
-                  <div class="sdp-attention-meta">
-                    #{{ o.id }} · {{ o.customer_name or 'Customer' }} · {{ (o.status or 'PLACED').replace('_', ' ') }}
-                  </div>
+                  {% if o.delivery_cancelled_by_partner or o.needs_reassignment %}
+                    <div class="sdp-attention-title">Delivery cancelled by rider</div>
+                    <div class="sdp-attention-meta">
+                      #{{ o.id }} · {{ o.customer_name or 'Customer' }} · Needs reassignment
+                    </div>
+
+                    <div class="sdp-rider-cancel-note">
+                      <strong>Previous rider cancelled this delivery.</strong>
+
+                      {% if o.previous_delivery_partner_name %}
+                        <span>Rider: {{ o.previous_delivery_partner_name }}</span>
+                      {% endif %}
+
+                      {% if o.delivery_cancel_reason %}
+                        <span>Reason: {{ o.delivery_cancel_reason }}</span>
+                      {% endif %}
+                    </div>
+
+                    <div class="sdp-next-step">Next Step: Reassign Rider</div>
+                  {% else %}
+                    <div class="sdp-attention-title">Order needs delivery boy</div>
+                    <div class="sdp-attention-meta">
+                      #{{ o.id }} · {{ o.customer_name or 'Customer' }} · {{ (o.status or 'PLACED').replace('_', ' ') }}
+                    </div>
+                  {% endif %}
                 </div>
-                <a class="sdp-small-btn" href="#needs-rider">Assign</a>
+
+                <a class="sdp-small-btn" href="#needs-rider">
+                  {% if o.delivery_cancelled_by_partner or o.needs_reassignment %}
+                    Reassign
+                  {% else %}
+                    Assign
+                  {% endif %}
+                </a>
               </div>
             {% else %}
               <div class="sdp-empty">No urgent delivery attention required.</div>

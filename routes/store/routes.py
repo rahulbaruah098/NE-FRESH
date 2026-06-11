@@ -942,6 +942,7 @@ def store_delivery_page():
         "total_orders": len(orders),
         "ready_for_pickup": 0,
         "needs_rider": 0,
+        "reassignment_needed": 0,
         "assigned": 0,
         "reached_store": 0,
         "picked_up": 0,
@@ -961,13 +962,21 @@ def store_delivery_page():
     for order in orders:
         status = _delivery_status(order)
         has_rider = _has_delivery_partner(order)
+        needs_reassignment = bool(
+            order.get("needs_reassignment")
+            or order.get("delivery_cancelled_by_partner")
+        )
 
         if status == "READY_FOR_PICKUP":
             delivery_metrics["ready_for_pickup"] += 1
             ready_orders.append(order)
 
-        if status == "READY_FOR_PICKUP" and not has_rider:
+        if status == "READY_FOR_PICKUP" and (not has_rider or needs_reassignment):
             delivery_metrics["needs_rider"] += 1
+
+            if needs_reassignment:
+                delivery_metrics["reassignment_needed"] += 1
+
             needs_rider_orders.append(order)
             attention_orders.append(order)
 
@@ -1102,25 +1111,25 @@ def store_order_assign_delivery(oid):
 
     if not store:
         flash("Store not found.", "danger")
-        return redirect(url_for("store_dashboard"))
+        return redirect(request.referrer or url_for("store_delivery"))
 
     oid_obj, order = _get_store_owned_order(store, oid)
 
     if not oid_obj or not order:
         flash("Order not found for your store.", "danger")
-        return redirect(url_for("store_orders"))
+        return redirect(request.referrer or url_for("store_delivery"))
 
     delivery_user_id = (request.form.get("delivery_user_id") or "").strip()
 
     if not delivery_user_id:
         flash("Please select a delivery boy.", "warning")
-        return redirect(url_for("store_orders"))
+        return redirect(request.referrer or url_for("store_delivery"))
     
     status = (order.get("status") or "").strip().upper()
 
     if status != "READY_FOR_PICKUP":
         flash("Please mark this order ready for pickup before assigning a delivery boy.", "warning")
-        return redirect(url_for("store_orders"))
+        return redirect(request.referrer or url_for("store_delivery"))
 
     result = assign_delivery_partner_to_order(
         order_id=oid_obj,
@@ -1132,7 +1141,7 @@ def store_order_assign_delivery(oid):
 
     if not result.get("ok"):
         flash(result.get("error") or "Could not assign delivery boy.", "danger")
-        return redirect(url_for("store_orders"))
+        return redirect(request.referrer or url_for("store_delivery"))
 
     _create_store_notification(
         store,
@@ -1144,7 +1153,7 @@ def store_order_assign_delivery(oid):
     )
 
     flash("Delivery boy assigned successfully.", "success")
-    return redirect(url_for("store_orders"))
+    return redirect(request.referrer or url_for("store_delivery"))
 
 
 @app.route('/store/orders/<oid>/reassign-delivery', methods=['POST'], endpoint='store_order_reassign_delivery')
@@ -1160,19 +1169,19 @@ def store_order_reassign_delivery(oid):
 
     if not oid_obj or not order:
         flash("Order not found for your store.", "danger")
-        return redirect(url_for("store_orders"))
+        return redirect(request.referrer or url_for("store_delivery"))
 
     status = (order.get("status") or "").strip().upper()
 
     if status in {"PICKED_UP", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"}:
         flash("Delivery boy cannot be changed after pickup/out for delivery.", "warning")
-        return redirect(url_for("store_orders"))
+        return redirect(request.referrer or url_for("store_delivery"))
 
     delivery_user_id = (request.form.get("delivery_user_id") or "").strip()
 
     if not delivery_user_id:
         flash("Please select a delivery boy.", "warning")
-        return redirect(url_for("store_orders"))
+        return redirect(request.referrer or url_for("store_delivery"))
 
     result = assign_delivery_partner_to_order(
         order_id=oid_obj,
@@ -1184,7 +1193,7 @@ def store_order_reassign_delivery(oid):
 
     if not result.get("ok"):
         flash(result.get("error") or "Could not reassign delivery boy.", "danger")
-        return redirect(url_for("store_orders"))
+        return redirect(request.referrer or url_for("store_delivery"))
 
     _create_store_notification(
         store,
@@ -1196,7 +1205,7 @@ def store_order_reassign_delivery(oid):
     )
 
     flash("Delivery boy reassigned successfully.", "success")
-    return redirect(url_for("store_orders"))
+    return redirect(request.referrer or url_for("store_delivery"))
 
 
 @app.route('/store/orders/<oid>/clear-delivery', methods=['POST'], endpoint='store_order_clear_delivery')

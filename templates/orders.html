@@ -388,6 +388,35 @@
       border-color:rgba(239,68,68,.22);
     }
 
+        .my-orders-page .status-reassigning{
+      background:#FFF8E8;
+      color:#A96800;
+      border-color:rgba(255,184,77,.34);
+    }
+
+    .my-orders-page .order-reassign-note{
+      margin-top:7px;
+      display:grid;
+      gap:3px;
+      max-width:260px;
+      padding:8px 10px;
+      border-radius:12px;
+      background:#FFF8E8;
+      border:1px solid rgba(255,184,77,.30);
+      color:#7C4A03;
+      font-size:.75rem;
+      font-weight:800;
+      line-height:1.35;
+    }
+
+    .my-orders-page .order-reassign-note strong{
+      color:#A96800;
+      font-size:.7rem;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
     .my-orders-page .payment-paid{
       background:var(--nf-green-soft);
       color:var(--nf-green-dark);
@@ -906,10 +935,23 @@
               <td class="store-name">{{ o.store_name }}</td>
               <td class="order-total">₹{{ '%.2f'|format(o.total_amount) }}</td>
 
-              <td class="order-status">
-                <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
-                  {{ o.status.replace('_',' ') }}
-                </span>
+                           <td class="order-status">
+                {% set is_reassigning = o.needs_reassignment or o.delivery_cancelled_by_partner %}
+
+                {% if is_reassigning %}
+                  <span class="status-badge status-reassigning">
+                    Delivery partner being reassigned
+                  </span>
+
+                  <div class="order-reassign-note">
+                    <strong>Order is safe</strong>
+                    <span>The store is assigning another delivery partner.</span>
+                  </div>
+                {% else %}
+                  <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
+                    {{ o.status.replace('_',' ') }}
+                  </span>
+                {% endif %}
               </td>
 
               <td class="payment-status">
@@ -955,10 +997,18 @@
               <div class="store">{{ o.store_name }}</div>
             </div>
 
-            <div class="right">
-              <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
-                {{ o.status.replace('_',' ') }}
-              </span>
+                        <div class="right">
+              {% set is_reassigning = o.needs_reassignment or o.delivery_cancelled_by_partner %}
+
+              {% if is_reassigning %}
+                <span class="status-badge status-reassigning">
+                  Reassigning Rider
+                </span>
+              {% else %}
+                <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
+                  {{ o.status.replace('_',' ') }}
+                </span>
+              {% endif %}
             </div>
           </div>
 
@@ -981,6 +1031,12 @@
               <span class="label">Placed</span>
               <span class="value muted">{{ o.created_at }}</span>
             </div>
+                        {% if o.needs_reassignment or o.delivery_cancelled_by_partner %}
+            <div class="order-reassign-note">
+              <strong>Order is safe</strong>
+              <span>The store is assigning another delivery partner.</span>
+            </div>
+            {% endif %}
           </div>
 
           <div class="card-actions">

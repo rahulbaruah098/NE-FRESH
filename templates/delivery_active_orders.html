@@ -187,6 +187,48 @@ Manage your currently assigned orders, update delivery progress, call customers,
     color:#0369A1;
   }
 
+    .dao-btn.red{
+    background:var(--df-red-soft);
+    border-color:#FECACA;
+    color:#B91C1C;
+  }
+
+  .dao-cancel-form{
+    width:100%;
+    display:none;
+    gap:8px;
+    padding:12px;
+    border-radius:18px;
+    background:#FFF7ED;
+    border:1px solid rgba(234,88,12,.18);
+  }
+
+  .dao-cancel-form.show{
+    display:grid;
+  }
+
+  .dao-cancel-form textarea{
+    width:100%;
+    min-height:70px;
+    resize:vertical;
+    border:1px solid rgba(234,88,12,.22);
+    border-radius:14px;
+    background:#fff;
+    color:var(--df-ink);
+    padding:10px 12px;
+    font:inherit;
+    font-size:13px;
+    font-weight:800;
+    outline:none;
+  }
+
+  .dao-cancel-help{
+    color:#7C2D12;
+    font-size:12px;
+    font-weight:800;
+    line-height:1.4;
+  }
+
   .dao-status-form{
     display:flex;
     align-items:center;
@@ -368,8 +410,44 @@ Manage your currently assigned orders, update delivery progress, call customers,
               </a>
             {% endif %}
 
-            <a class="dao-btn" href="/delivery/order/{{ o.id }}">Open Delivery Detail</a>
+                        <a class="dao-btn" href="/delivery/order/{{ o.id }}">Open Delivery Detail</a>
+
+            {% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
+              <button
+                type="button"
+                class="dao-btn red dao-cancel-toggle"
+                data-cancel-target="daoCancel{{ o.id }}"
+              >
+                Cancel Delivery
+              </button>
+            {% endif %}
           </div>
+          
+ {% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
+            <form
+              method="post"
+              action="{{ url_for('delivery_cancel_assignment', oid=o.id) }}"
+              class="dao-cancel-form"
+              id="daoCancel{{ o.id }}"
+              onsubmit="return confirm('Cancel this delivery assignment? The order will go back to the store for reassignment.');"
+            >
+              <div class="dao-cancel-help">
+                Cancelling here will not cancel the customer order. It will send the order back to the store for reassignment.
+              </div>
+
+              <textarea
+                name="cancel_reason"
+                required
+                maxlength="300"
+                placeholder="Write reason, e.g. vehicle issue, emergency, wrong assignment..."
+              ></textarea>
+
+              <button class="dao-btn red" type="submit">
+                Confirm Cancel Delivery
+              </button>
+            </form>
+          {% endif %}
+          
         </article>
       {% endfor %}
     </div>
@@ -381,4 +459,26 @@ Manage your currently assigned orders, update delivery progress, call customers,
     </div>
   {% endif %}
 </section>
+
+
+
+<script>
+  document.addEventListener("click", function(event){
+    const btn = event.target.closest(".dao-cancel-toggle");
+
+    if (!btn) return;
+
+    const targetId = btn.getAttribute("data-cancel-target");
+    const form = document.getElementById(targetId);
+
+    if (!form) return;
+
+    form.classList.toggle("show");
+
+    if (form.classList.contains("show")) {
+      const textarea = form.querySelector("textarea");
+      if (textarea) textarea.focus();
+    }
+  });
+</script>
 {% endblock %}

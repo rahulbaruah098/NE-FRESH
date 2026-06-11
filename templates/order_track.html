@@ -464,6 +464,27 @@
       font-weight:760;
     }
 
+        .track-order-page .delivery-reassign-notice{
+      margin-top:14px;
+      display:grid;
+      gap:6px;
+      border:1px solid rgba(255,184,77,.34);
+      border-radius:14px !important;
+      background:#FFF8E8;
+      color:#7C4A03;
+      padding:13px 14px;
+      font-size:.86rem;
+      font-weight:760;
+    }
+
+    .track-order-page .delivery-reassign-notice strong{
+      color:#A66A00;
+      font-size:.78rem;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+
     .track-order-page .rider-live-actions{
       display:flex;
       flex-wrap:wrap;
@@ -1468,6 +1489,13 @@
   <span id="dpName" class="value">{{ order.delivery_partner_name or '' }}</span>
 </div>
 
+<div id="deliveryReassignNotice"
+     class="delivery-reassign-notice"
+     style="display: {% if order.needs_reassignment or order.delivery_cancelled_by_partner %}grid{% else %}none{% endif %};">
+  <strong>Delivery partner is being reassigned</strong>
+  <span>Your order is safe. The store is assigning another delivery partner shortly.</span>
+</div>
+
 <div id="deliveryPartnerCard"
      class="delivery-partner-card"
      style="display: {% if order.delivery_partner_name %}grid{% else %}none{% endif %};">
@@ -1938,6 +1966,12 @@ const elDeliveryStagePill = document.getElementById("deliveryStagePill");
 
           const j = await r.json();
           if(!r.ok || !j.ok) return;
+          const reassignNotice = document.getElementById("deliveryReassignNotice");
+
+if (reassignNotice) {
+  const isReassigning = Boolean(j.needs_reassignment || j.delivery_cancelled_by_partner);
+  reassignNotice.style.display = isReassigning ? "grid" : "none";
+}
 
           if (j.status !== lastStatus){
             lastStatus = j.status;

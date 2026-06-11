@@ -605,6 +605,11 @@ def my_orders():
         o["delivery_fee"] = float(o.get("delivery_fee") or 0)
         o["tip_amount"] = float(o.get("tip_amount") or 0)
 
+        # Customer-friendly reassignment state for My Orders page
+        o["needs_reassignment"] = bool(o.get("needs_reassignment"))
+        o["delivery_cancelled_by_partner"] = bool(o.get("delivery_cancelled_by_partner"))
+        o["delivery_reassigned_at"] = o.get("delivery_reassigned_at")
+
     return render_template("orders.html", orders=orders, user=u)
 
 @app.route("/orders/<oid>")
@@ -781,6 +786,9 @@ def api_order_status(oid):
         "delivery_partner_id": str(o.get("delivery_partner_id")) if o.get("delivery_partner_id") else "",
         "delivery_partner_name": o.get("delivery_partner_name") or "",
         "delivery_partner_phone": o.get("delivery_partner_phone") or "",
+        "needs_reassignment": bool(o.get("needs_reassignment")),
+        "delivery_cancelled_by_partner": bool(o.get("delivery_cancelled_by_partner")),
+        "delivery_reassigned_at": o.get("delivery_reassigned_at"),
 
         "assigned_at": o.get("assigned_at"),
         "ready_for_pickup_at": o.get("ready_for_pickup_at"),
@@ -818,7 +826,11 @@ def api_orders_list(user_id):
             ),
             "status": o.get("status", ""),
             "payment_status": o.get("payment_status", ""),
-            "created_at": o.get("created_at", "")
+            "created_at": o.get("created_at", ""),
+
+            "needs_reassignment": bool(o.get("needs_reassignment")),
+            "delivery_cancelled_by_partner": bool(o.get("delivery_cancelled_by_partner")),
+            "delivery_reassigned_at": o.get("delivery_reassigned_at")
         })
 
     return jsonify({
