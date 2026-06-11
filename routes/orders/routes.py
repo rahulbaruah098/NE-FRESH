@@ -838,6 +838,89 @@ def api_orders_list(user_id):
         "orders": result
     })
 
+
+
+@app.route("/api/customer/order-alerts", methods=["GET"], endpoint="api_customer_order_alerts")
+@login_required()
+def api_customer_order_alerts():
+    u = current_user()
+
+    if not u or u.get("role") != "customer":
+        return jsonify({
+            "ok": True,
+            "alerts": [],
+            "count": 0
+        })
+
+    active_statuses = [
+        "PLACED",
+        "CONFIRMED",
+        "PREPARING",
+        "READY_FOR_PICKUP",
+        "ASSIGNED_TO_DELIVERY",
+        "REACHED_STORE",
+        "PICKED_UP",
+        "OUT_FOR_DELIVERY"
+    ]
+
+    orders = list(
+        mongo.orders.find({
+            "user_id": u["id"],
+            "status": {"$in": active_statuses}
+        }).sort("updated_at", -1).limit(8)
+    )
+
+    alerts = []
+
+    for o in orders:
+        oid = str(o["_id"])
+        status = (o.get("status") or "").strip().upper()
+
+        needs_reassignment = bool(
+            o.get("needs_reassignment")
+            or o.get("delivery_cancelled_by_partner")
+        )
+
+        if needs_reassignment:
+            title = "Delivery partner is being reassigned"
+            message = f"Order #{oid[-6:]} is safe. The store is assigning another delivery partner."
+            alert_type = "reassigning"
+
+        elif status == "ASSIGNED_TO_DELIVERY":
+            title = "Delivery partner assigned"
+            message = f"Order #{oid[-6:]} has been assigned to {o.get('delivery_partner_name') or 'a delivery partner'}."
+            alert_type = "assigned"
+
+        elif status == "OUT_FOR_DELIVERY":
+            title = "Order is out for delivery"
+            message = f"Order #{oid[-6:]} is on the way."
+            alert_type = "out_for_delivery"
+
+        elif status == "READY_FOR_PICKUP":
+            title = "Order ready for pickup"
+            message = f"Order #{oid[-6:]} is ready and waiting for delivery assignment."
+            alert_type = "ready"
+
+        else:
+            continue
+
+        alerts.append({
+            "id": oid,
+            "title": title,
+            "message": message,
+            "type": alert_type,
+            "status": status,
+            "track_url": url_for("order_track", oid=oid),
+            "created_at": o.get("updated_at") or o.get("created_at") or ""
+        })
+
+    return jsonify({
+        "ok": True,
+        "alerts": alerts,
+        "count": len(alerts)
+    })
+
+
 @app.route('/api/orders/<oid>', methods=['GET'])
 @api_login_required
 def api_order_detail(user_id, oid):

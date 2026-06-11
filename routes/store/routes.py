@@ -2155,9 +2155,22 @@ def store_notifications_poll():
         }).sort("created_at", -1).limit(20)
     )
 
+    hydrated_notifications = []
+
+    for n in notifications:
+        row = _hydrate_store_notification(n)
+
+        # IMPORTANT:
+        # _hydrate_store_notification() adds string-safe fields,
+        # but the original Mongo "_id": ObjectId(...) still remains in the dict.
+        # Flask jsonify cannot serialize ObjectId, so remove the raw Mongo field.
+        row.pop("_id", None)
+
+        hydrated_notifications.append(row)
+
     return jsonify({
         "ok": True,
-        "notifications": [_hydrate_store_notification(n) for n in notifications],
+        "notifications": hydrated_notifications,
         "stats": _store_notification_stats(store["_id"])
     })
 

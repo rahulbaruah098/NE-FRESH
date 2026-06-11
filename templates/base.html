@@ -381,6 +381,98 @@
       line-height:1;
     }
 
+
+    .customer-alert-wrap{
+  position:relative;
+  display:inline-grid;
+}
+
+.customer-alert-badge{
+  position:absolute;
+  top:-6px;
+  right:-6px;
+  width:20px;
+  height:20px;
+  border-radius:999px;
+  display:none;
+  place-items:center;
+  background:#990707;
+  color:#fff;
+  border:2px solid #fff;
+  font-size:.7rem;
+  font-weight:900;
+  line-height:1;
+}
+
+.customer-alert-panel{
+  position:absolute;
+  top:48px;
+  right:0;
+  width:min(360px,calc(100vw - 24px));
+  display:none;
+  z-index:2000;
+  border:1px solid #E5E7EB;
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 22px 55px rgba(2,6,23,.16);
+  overflow:hidden;
+}
+
+.customer-alert-panel.show{
+  display:block;
+}
+
+.customer-alert-head{
+  padding:13px 14px;
+  border-bottom:1px solid #EEF2F7;
+  font-size:.82rem;
+  font-weight:950;
+  color:#0f172a;
+}
+
+.customer-alert-list{
+  max-height:330px;
+  overflow:auto;
+}
+
+.customer-alert-item{
+  display:grid;
+  gap:4px;
+  padding:12px 14px;
+  border-bottom:1px solid #F1F5F9;
+  text-decoration:none;
+}
+
+.customer-alert-item:last-child{
+  border-bottom:0;
+}
+
+.customer-alert-item:hover{
+  background:#F8FFFB;
+}
+
+.customer-alert-title{
+  color:#0f172a;
+  font-size:.84rem;
+  font-weight:950;
+  line-height:1.25;
+}
+
+.customer-alert-message{
+  color:#64748B;
+  font-size:.78rem;
+  font-weight:700;
+  line-height:1.4;
+}
+
+.customer-alert-empty{
+  padding:18px 14px;
+  color:#64748B;
+  font-size:.82rem;
+  font-weight:750;
+  text-align:center;
+}
+
    /* ===================== HAMBURGER (MOBILE ONLY) — 3 LINES → 1 LINE ===================== */
 .hamburger{
   display:none;
@@ -3576,6 +3668,29 @@ footer.footer .newsletter-pop{
               <svg class="icon" viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"/></svg>
             </a>
 
+            {% if user.role == 'customer' %}
+  <div class="customer-alert-wrap">
+    <button
+      type="button"
+      class="icon-btn"
+      id="customerAlertBtn"
+      aria-label="Order alerts"
+    >
+      <svg class="icon" viewBox="0 0 24 24">
+        <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6v-5a7 7 0 0 0-14 0v5l-2 2v1h18v-1z"/>
+      </svg>
+      <span id="customerAlertBadge" class="customer-alert-badge">0</span>
+    </button>
+
+    <div id="customerAlertPanel" class="customer-alert-panel">
+      <div class="customer-alert-head">Order Updates</div>
+      <div id="customerAlertList" class="customer-alert-list">
+        <div class="customer-alert-empty">No active order alerts.</div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
             <!-- cart -->
            {% if user.role not in ['store', 'admin'] %}
   <!-- cart -->
@@ -5209,6 +5324,90 @@ message: "Location detected and saved. Store-wise delivery will be checked at ch
     /* no-op fallback */
   };
 </script>
+
+{% if user and user.role == 'customer' %}
+<script>
+(function(){
+  const btn = document.getElementById("customerAlertBtn");
+  const badge = document.getElementById("customerAlertBadge");
+  const panel = document.getElementById("customerAlertPanel");
+  const list = document.getElementById("customerAlertList");
+
+  if (!btn || !badge || !panel || !list) return;
+
+  function escapeHtml(value){
+    return String(value || "").replace(/[&<>"']/g, function(ch){
+      return {
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#39;"
+      }[ch];
+    });
+  }
+
+  function renderAlerts(alerts){
+    const count = alerts.length;
+
+    if (count > 0) {
+      badge.textContent = count > 9 ? "9+" : String(count);
+      badge.style.display = "grid";
+    } else {
+      badge.textContent = "0";
+      badge.style.display = "none";
+    }
+
+    if (!count) {
+      list.innerHTML = '<div class="customer-alert-empty">No active order alerts.</div>';
+      return;
+    }
+
+    list.innerHTML = alerts.map(function(a){
+      return `
+        <a class="customer-alert-item" href="${escapeHtml(a.track_url)}">
+          <div class="customer-alert-title">${escapeHtml(a.title)}</div>
+          <div class="customer-alert-message">${escapeHtml(a.message)}</div>
+        </a>
+      `;
+    }).join("");
+  }
+
+  async function fetchCustomerAlerts(){
+    try{
+      const res = await fetch("{{ url_for('api_customer_order_alerts') }}", {
+        cache: "no-store",
+        credentials: "same-origin"
+      });
+
+      const ct = res.headers.get("content-type") || "";
+
+      if (!ct.includes("application/json")) return;
+
+      const data = await res.json();
+
+      if (!data.ok) return;
+
+      renderAlerts(data.alerts || []);
+    }catch(e){}
+  }
+
+  btn.addEventListener("click", function(event){
+    event.stopPropagation();
+    panel.classList.toggle("show");
+  });
+
+  document.addEventListener("click", function(event){
+    if (!panel.contains(event.target) && !btn.contains(event.target)) {
+      panel.classList.remove("show");
+    }
+  });
+
+  fetchCustomerAlerts();
+  setInterval(fetchCustomerAlerts, 10000);
+})();
+</script>
+{% endif %}
 </body>
 </html>
 

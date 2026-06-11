@@ -974,6 +974,67 @@ def delivery_cancel_assignment(oid):
         u
     )
 
+    # Notify store immediately so they can reassign another delivery boy
+    try:
+        store = None
+        store_id = order.get("store_id")
+
+        if store_id:
+            store_id_values = [store_id]
+
+            try:
+                store_id_str = str(store_id)
+                if ObjectId.is_valid(store_id_str):
+                    store_id_values.append(ObjectId(store_id_str))
+            except Exception:
+                pass
+
+            store = mongo.stores.find_one({
+                "_id": {"$in": store_id_values}
+            })
+
+        if store:
+            title = "Delivery cancelled by rider"
+            message = (
+                f"Order #{str(oid_obj)[-6:]} needs reassignment. "
+                f"{old_partner_name} cancelled this delivery. Reason: {reason}"
+            )
+
+            event_key = f"delivery-cancelled-by-rider-{str(oid_obj)}-{now}"
+
+            existing_notification = mongo.store_notifications.find_one({
+                "store_id": {"$in": [store["_id"], str(store["_id"])]},
+                "event_key": event_key
+            })
+
+            if not existing_notification:
+                mongo.store_notifications.insert_one({
+                    "store_id": store["_id"],
+                    "store_name": store.get("store_name", ""),
+                    "title": title,
+                    "message": message,
+                    "type": "delivery_reassignment",
+                    "order_id": oid_obj,
+                    "order_ref": str(oid_obj),
+                    "order_status": "READY_FOR_PICKUP",
+                    "payment_status": order.get("payment_status", ""),
+                    "customer_name": order.get("customer_name", ""),
+                    "customer_phone": order.get("customer_phone", ""),
+                    "total_payable": (
+                        float(order.get("total_amount") or 0)
+                        + float(order.get("delivery_fee") or 0)
+                        + float(order.get("tip_amount") or 0)
+                    ),
+                    "event_key": event_key,
+                    "is_read": False,
+                    "is_active": True,
+                    "created_at": now,
+                    "updated_at": now
+                })
+
+    except Exception as notify_error:
+        print("[STORE NOTIFICATION ERROR]", notify_error)
+
     flash("Delivery cancelled. The order has been sent back to the store for reassignment.", "success")
     return redirect(url_for("delivery_active_orders"))
 

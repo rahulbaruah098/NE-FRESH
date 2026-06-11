@@ -404,6 +404,120 @@
       border: 2px solid var(--nf-surface);
     }
 
+    .nf-store-alert-wrap{
+  position:relative;
+  display:inline-grid;
+}
+
+.nf-store-alert-panel{
+  position:absolute;
+  top:52px;
+  right:0;
+  width:min(390px,calc(100vw - 24px));
+  display:none;
+  z-index:120;
+  border:1px solid var(--nf-line);
+  border-radius:18px;
+  background:var(--nf-surface);
+  box-shadow:var(--nf-shadow-heavy);
+  overflow:hidden;
+}
+
+.nf-store-alert-panel.show{
+  display:block;
+}
+
+.nf-store-alert-head{
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  border-bottom:1px solid var(--nf-line);
+  background:var(--nf-surface-2);
+}
+
+.nf-store-alert-head strong{
+  color:var(--nf-text);
+  font-size:.86rem;
+  font-weight:900;
+}
+
+.nf-store-alert-head a{
+  color:var(--nf-green-dark);
+  font-size:.76rem;
+  font-weight:900;
+}
+
+.nf-store-alert-list{
+  max-height:360px;
+  overflow:auto;
+}
+
+.nf-store-alert-item{
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr);
+  gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid var(--nf-line-2);
+  color:var(--nf-text);
+  text-decoration:none;
+}
+
+.nf-store-alert-item:last-child{
+  border-bottom:0;
+}
+
+.nf-store-alert-item:hover{
+  background:var(--nf-green-soft-2);
+}
+
+.nf-store-alert-icon{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:var(--nf-green-soft);
+  color:var(--nf-green-dark);
+}
+
+.nf-store-alert-item.reassignment .nf-store-alert-icon{
+  background:#FFF7E8;
+  color:#A84700;
+}
+
+.nf-store-alert-title{
+  color:var(--nf-text);
+  font-size:.84rem;
+  line-height:1.25;
+  font-weight:900;
+}
+
+.nf-store-alert-msg{
+  margin-top:4px;
+  color:var(--nf-muted);
+  font-size:.76rem;
+  line-height:1.4;
+  font-weight:650;
+}
+
+.nf-store-alert-time{
+  margin-top:5px;
+  color:var(--nf-muted-2);
+  font-size:.68rem;
+  font-weight:800;
+}
+
+.nf-store-alert-empty{
+  padding:18px 14px;
+  color:var(--nf-muted);
+  font-size:.82rem;
+  font-weight:750;
+  text-align:center;
+}
+
     .nf-profile { position: relative; }
     .nf-profile-btn {
       min-height: 46px;
@@ -831,9 +945,17 @@
       }
 
 .nf-top-search,
-.nf-icon-btn,
+#nfThemeToggle,
 .nf-profile {
   display: none !important;
+}
+
+#nfStoreAlertBtn{
+  display:grid !important;
+}
+
+.nf-store-alert-wrap{
+  display:inline-grid !important;
 }
 
       body.sidebar-open .nf-mobile-backdrop { display: block; }
@@ -4297,10 +4419,23 @@ html[data-theme="dark"] .footer {
           <span id="nfThemeIcon">🌙</span>
         </button>
 
-        <button type="button" class="nf-icon-btn" title="Notifications">
-          🔔
-          <span class="nf-badge">3</span>
-        </button>
+        <div class="nf-store-alert-wrap">
+  <button type="button" class="nf-icon-btn" id="nfStoreAlertBtn" title="Notifications">
+    🔔
+    <span class="nf-badge" id="nfStoreAlertBadge" style="display:none;">0</span>
+  </button>
+
+  <div class="nf-store-alert-panel" id="nfStoreAlertPanel">
+    <div class="nf-store-alert-head">
+      <strong>Store Notifications</strong>
+      <a href="{{ url_for('store_notifications') }}">View all</a>
+    </div>
+
+    <div class="nf-store-alert-list" id="nfStoreAlertList">
+      <div class="nf-store-alert-empty">No new notifications.</div>
+    </div>
+  </div>
+</div>
 
         <div class="nf-profile">
           <button type="button" class="nf-profile-btn" id="nfProfileBtn">
@@ -4816,6 +4951,125 @@ restoreSidebarMenuScroll();
       window.addEventListener('resize', updateSidebarBottomOffset);
       window.addEventListener('load', updateSidebarBottomOffset);
       updateSidebarBottomOffset();
+
+      const storeAlertBtn = document.getElementById('nfStoreAlertBtn');
+      const storeAlertBadge = document.getElementById('nfStoreAlertBadge');
+      const storeAlertPanel = document.getElementById('nfStoreAlertPanel');
+      const storeAlertList = document.getElementById('nfStoreAlertList');
+
+      function nfEscapeHtml(value){
+        return String(value || '').replace(/[&<>"']/g, function(ch){
+          return {
+            '&':'&amp;',
+            '<':'&lt;',
+            '>':'&gt;',
+            '"':'&quot;',
+            "'":'&#39;'
+          }[ch];
+        });
+      }
+
+      function nfStoreNotificationIcon(type){
+        type = String(type || '').toLowerCase();
+
+        if (type === 'delivery_reassignment') return '⚠️';
+        if (type === 'new_order') return '🧾';
+        if (type === 'status') return '🔁';
+        if (type === 'system') return '⚙️';
+
+        return '🔔';
+      }
+
+      function nfStoreNotificationUrl(n){
+        const type = String(n.type || '').toLowerCase();
+
+        if (type === 'delivery_reassignment') {
+          return "{{ url_for('store_delivery') }}";
+        }
+
+        if (n.order_id) {
+          return "{{ url_for('store_orders') }}";
+        }
+
+        return "{{ url_for('store_notifications') }}";
+      }
+
+      function nfRenderStoreAlerts(notifications, stats){
+        if (!storeAlertBadge || !storeAlertList) return;
+
+        const unread = stats && typeof stats.unread !== 'undefined'
+          ? Number(stats.unread || 0)
+          : notifications.filter(function(n){ return !n.is_read; }).length;
+
+        if (unread > 0) {
+          storeAlertBadge.textContent = unread > 9 ? '9+' : String(unread);
+          storeAlertBadge.style.display = 'grid';
+        } else {
+          storeAlertBadge.textContent = '0';
+          storeAlertBadge.style.display = 'none';
+        }
+
+        const rows = notifications.slice(0, 6);
+
+        if (!rows.length) {
+          storeAlertList.innerHTML = '<div class="nf-store-alert-empty">No new notifications.</div>';
+          return;
+        }
+
+        storeAlertList.innerHTML = rows.map(function(n){
+          const type = String(n.type || '').toLowerCase();
+          const isReassign = type === 'delivery_reassignment';
+          const href = nfStoreNotificationUrl(n);
+
+          return `
+            <a class="nf-store-alert-item ${isReassign ? 'reassignment' : ''}" href="${href}">
+              <div class="nf-store-alert-icon">${nfStoreNotificationIcon(type)}</div>
+              <div>
+                <div class="nf-store-alert-title">${nfEscapeHtml(n.title || 'Notification')}</div>
+                <div class="nf-store-alert-msg">${nfEscapeHtml(n.message || '')}</div>
+                <div class="nf-store-alert-time">${nfEscapeHtml(n.created_at || '')}</div>
+              </div>
+            </a>
+          `;
+        }).join('');
+      }
+
+      async function nfFetchStoreAlerts(){
+        if (!storeAlertBtn || !storeAlertList) return;
+
+        try{
+          const res = await fetch("{{ url_for('store_notifications_poll') }}", {
+            cache:'no-store',
+            credentials:'same-origin'
+          });
+
+          const ct = res.headers.get('content-type') || '';
+          if (!ct.includes('application/json')) return;
+
+          const data = await res.json();
+
+          if (!data.ok) return;
+
+          nfRenderStoreAlerts(data.notifications || [], data.stats || {});
+        }catch(err){}
+      }
+
+      if (storeAlertBtn && storeAlertPanel) {
+        storeAlertBtn.addEventListener('click', function(event){
+          event.stopPropagation();
+          storeAlertPanel.classList.toggle('show');
+        });
+
+        document.addEventListener('click', function(event){
+          if (!storeAlertPanel.contains(event.target) && !storeAlertBtn.contains(event.target)) {
+            storeAlertPanel.classList.remove('show');
+          }
+        });
+
+        nfFetchStoreAlerts();
+        setInterval(nfFetchStoreAlerts, 10000);
+      }
+
     })();
   </script>
 
