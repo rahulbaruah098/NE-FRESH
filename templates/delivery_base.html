@@ -509,6 +509,152 @@
       justify-content:flex-end;
     }
 
+    .df-alert-wrap{
+  position:relative;
+  display:inline-grid;
+}
+
+.df-alert-btn{
+  width:42px;
+  height:42px;
+  border:1px solid var(--nf-line);
+  border-radius:14px;
+  background:var(--nf-surface);
+  color:var(--nf-text);
+  cursor:pointer;
+  display:grid;
+  place-items:center;
+  position:relative;
+  transition:.22s var(--nf-ease);
+  font-size:18px;
+}
+
+.df-alert-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:var(--nf-shadow);
+  border-color:rgba(0,168,89,.28);
+}
+
+.df-alert-badge{
+  position:absolute;
+  top:-5px;
+  right:-5px;
+  min-width:18px;
+  height:18px;
+  border-radius:999px;
+  background:var(--nf-orange);
+  color:#fff;
+  display:none;
+  place-items:center;
+  font-size:.68rem;
+  font-weight:900;
+  border:2px solid var(--nf-surface);
+  line-height:1;
+}
+
+.df-alert-panel{
+  position:absolute;
+  top:52px;
+  right:0;
+  width:min(390px,calc(100vw - 24px));
+  display:none;
+  z-index:120;
+  border:1px solid var(--nf-line);
+  border-radius:18px;
+  background:var(--nf-surface);
+  box-shadow:var(--nf-shadow-heavy);
+  overflow:hidden;
+}
+
+.df-alert-panel.show{
+  display:block;
+}
+
+.df-alert-head{
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  border-bottom:1px solid var(--nf-line);
+  background:var(--nf-surface-2);
+}
+
+.df-alert-head strong{
+  color:var(--nf-text);
+  font-size:.86rem;
+  font-weight:900;
+}
+
+.df-alert-head a{
+  color:var(--nf-green-dark);
+  font-size:.76rem;
+  font-weight:900;
+}
+
+.df-alert-list{
+  max-height:360px;
+  overflow:auto;
+}
+
+.df-alert-item{
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr);
+  gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid var(--nf-line-2);
+  color:var(--nf-text);
+  text-decoration:none;
+}
+
+.df-alert-item:last-child{
+  border-bottom:0;
+}
+
+.df-alert-item:hover{
+  background:var(--nf-green-soft-2);
+}
+
+.df-alert-icon{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:var(--nf-green-soft);
+  color:var(--nf-green-dark);
+}
+
+.df-alert-title{
+  color:var(--nf-text);
+  font-size:.84rem;
+  line-height:1.25;
+  font-weight:900;
+}
+
+.df-alert-msg{
+  margin-top:4px;
+  color:var(--nf-muted);
+  font-size:.76rem;
+  line-height:1.4;
+  font-weight:650;
+}
+
+.df-alert-time{
+  margin-top:5px;
+  color:var(--nf-muted-2);
+  font-size:.68rem;
+  font-weight:800;
+}
+
+.df-alert-empty{
+  padding:18px 14px;
+  color:var(--nf-muted);
+  font-size:.82rem;
+  font-weight:750;
+  text-align:center;
+}
     .nf-profile{
       position:relative;
     }
@@ -954,10 +1100,20 @@
   <span class="nf-menu-label">Current Delivery</span>
 </a>
 
-        <a class="nf-menu-link {{ 'active' if delivery_active_page == 'history' else '' }}" href="/delivery/history" data-menu-item>
-          <span class="nf-menu-icon">🧾</span>
-          <span class="nf-menu-label">Past History</span>
-        </a>
+        <a class="nf-menu-link {{ 'active' if delivery_active_page == 'cancelled_orders' else '' }}" href="{{ url_for('delivery_cancelled_orders') }}" data-menu-item>
+  <span class="nf-menu-icon">🚫</span>
+  <span class="nf-menu-label">Cancelled Orders</span>
+</a>
+
+<a class="nf-menu-link {{ 'active' if delivery_active_page == 'successful_deliveries' else '' }}" href="{{ url_for('delivery_successful_deliveries') }}" data-menu-item>
+  <span class="nf-menu-icon">✅</span>
+  <span class="nf-menu-label">Successful Deliveries</span>
+</a>
+
+<a class="nf-menu-link {{ 'active' if delivery_active_page == 'all_orders' else '' }}" href="{{ url_for('delivery_all_orders') }}" data-menu-item>
+  <span class="nf-menu-icon">📚</span>
+  <span class="nf-menu-label">All Orders</span>
+</a>
 
         <a class="nf-menu-link {{ 'active' if delivery_active_page == 'earnings' else '' }}" href="/delivery/earnings" data-menu-item>
           <span class="nf-menu-icon">💵</span>
@@ -1001,11 +1157,29 @@
         <div class="nf-topbar-spacer"></div>
 
         <div class="nf-topbar-actions">
-          <span class="df-page-kicker">{% block delivery_kicker %}Delivery Panel{% endblock %}</span>
-          {% block delivery_actions %}{% endblock %}
-        </div>
+  <span class="df-page-kicker">{% block delivery_kicker %}Delivery Panel{% endblock %}</span>
+  {% block delivery_actions %}{% endblock %}
 
-        <div class="nf-profile">
+  <div class="df-alert-wrap">
+    <button type="button" class="df-alert-btn" id="dfAlertBtn" title="Delivery notifications">
+      🔔
+      <span class="df-alert-badge" id="dfAlertBadge">0</span>
+    </button>
+
+    <div class="df-alert-panel" id="dfAlertPanel">
+      <div class="df-alert-head">
+        <strong>Delivery Alerts</strong>
+        <a href="{{ url_for('delivery_available_orders') }}">View orders</a>
+      </div>
+
+      <div class="df-alert-list" id="dfAlertList">
+        <div class="df-alert-empty">No new delivery alerts.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="nf-profile">
           <button class="nf-profile-btn" type="button" data-delivery-profile-toggle>
             <span class="nf-avatar">{{ delivery_name[:1]|upper }}</span>
             <span class="nf-profile-meta">
@@ -1118,6 +1292,135 @@
             item.style.display = !q || txt.includes(q) ? "flex" : "none";
           });
         });
+      }
+
+            const dfAlertBtn = document.getElementById("dfAlertBtn");
+      const dfAlertBadge = document.getElementById("dfAlertBadge");
+      const dfAlertPanel = document.getElementById("dfAlertPanel");
+      const dfAlertList = document.getElementById("dfAlertList");
+
+      let dfKnownAlertIds = new Set();
+
+      function dfEscapeHtml(value){
+        return String(value || "").replace(/[&<>"']/g, function(ch){
+          return {
+            "&":"&amp;",
+            "<":"&lt;",
+            ">":"&gt;",
+            '"':"&quot;",
+            "'":"&#39;"
+          }[ch];
+        });
+      }
+
+      function dfRenderAlerts(notifications, stats){
+        if (!dfAlertBadge || !dfAlertList) return;
+
+        const unread = stats && typeof stats.unread !== "undefined"
+          ? Number(stats.unread || 0)
+          : notifications.filter(function(n){ return !n.is_read; }).length;
+
+        if (unread > 0) {
+          dfAlertBadge.textContent = unread > 9 ? "9+" : String(unread);
+          dfAlertBadge.style.display = "grid";
+        } else {
+          dfAlertBadge.textContent = "0";
+          dfAlertBadge.style.display = "none";
+        }
+
+        const rows = notifications.slice(0, 6);
+
+        if (!rows.length) {
+          dfAlertList.innerHTML = '<div class="df-alert-empty">No new delivery alerts.</div>';
+          return;
+        }
+
+        dfAlertList.innerHTML = rows.map(function(n){
+          const href = n.target_url || "{{ url_for('delivery_available_orders') }}";
+
+          return `
+            <a class="df-alert-item" href="${dfEscapeHtml(href)}">
+              <div class="df-alert-icon">📦</div>
+              <div>
+                <div class="df-alert-title">${dfEscapeHtml(n.title || "Delivery Alert")}</div>
+                <div class="df-alert-msg">${dfEscapeHtml(n.message || "")}</div>
+                <div class="df-alert-time">${dfEscapeHtml(n.created_at || "")}</div>
+              </div>
+            </a>
+          `;
+        }).join("");
+      }
+
+      function dfBrowserNotify(notification){
+        if (!("Notification" in window)) return;
+        if (Notification.permission !== "granted") return;
+
+        try{
+          const browserAlert = new Notification(notification.title || "Delivery Alert", {
+            body: notification.message || "New delivery update available.",
+            icon: "/static/logo.png",
+            tag: notification.id || notification.order_id || "delivery-alert"
+          });
+
+          browserAlert.onclick = function(){
+            window.focus();
+            window.location.href = notification.target_url || "{{ url_for('delivery_available_orders') }}";
+          };
+        }catch(err){}
+      }
+
+      async function dfFetchAlerts(){
+        if (!dfAlertBtn || !dfAlertList) return;
+
+        try{
+          const res = await fetch("{{ url_for('delivery_notifications_poll') }}", {
+            cache:"no-store",
+            credentials:"same-origin"
+          });
+
+          const ct = res.headers.get("content-type") || "";
+          if (!ct.includes("application/json")) return;
+
+          const data = await res.json();
+          if (!data.ok) return;
+
+          const notifications = data.notifications || [];
+
+          notifications.forEach(function(n){
+            if (!n || !n.id) return;
+
+            if (!dfKnownAlertIds.has(n.id)) {
+              dfKnownAlertIds.add(n.id);
+
+              if (n.type === "new_available_order") {
+                dfBrowserNotify(n);
+              }
+            }
+          });
+
+          dfRenderAlerts(notifications, data.stats || {});
+        }catch(err){}
+      }
+
+      if (dfAlertBtn && dfAlertPanel) {
+        dfAlertBtn.addEventListener("click", function(event){
+          event.stopPropagation();
+
+          dfAlertPanel.classList.toggle("show");
+
+          if ("Notification" in window && Notification.permission === "default") {
+            Notification.requestPermission();
+          }
+        });
+
+        document.addEventListener("click", function(event){
+          if (!dfAlertPanel.contains(event.target) && !dfAlertBtn.contains(event.target)) {
+            dfAlertPanel.classList.remove("show");
+          }
+        });
+
+        dfFetchAlerts();
+        setInterval(dfFetchAlerts, 10000);
       }
     });
   </script>

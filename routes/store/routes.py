@@ -917,9 +917,88 @@ def store_delivery_page():
         return redirect(url_for("store_dashboard"))
 
     page_context = _build_store_split_page_context(store) or {}
-
-    orders = page_context.get("orders") or []
     available_delivery_people = _hydrate_store_delivery_people_for_template(store)
+
+    store_id = store.get("_id")
+    store_id_str = str(store_id)
+    store_name = (store.get("store_name") or store.get("name") or "").strip().lower()
+
+    def _safe_float(value, default=0):
+        try:
+            return float(value or default)
+        except Exception:
+            return float(default)
+
+    def _order_belongs_to_store(order):
+        order_store_id = order.get("store_id")
+        order_store_name = (order.get("store_name") or "").strip().lower()
+
+        if order_store_id and str(order_store_id) == store_id_str:
+            return True
+
+        if store_name and order_store_name and order_store_name == store_name:
+            return True
+
+        return False
+
+    def _hydrate_store_delivery_order(order):
+        row = dict(order)
+
+        oid_value = row.get("_id") or row.get("id")
+        row["id"] = str(oid_value)
+
+        customer = None
+        if row.get("user_id"):
+            try:
+                customer = mongo.users.find_one({"_id": ObjectId(str(row.get("user_id")))})
+            except Exception:
+                customer = None
+
+        addr = None
+        try:
+            addr = mongo.order_addresses.find_one({
+                "$or": [
+                    {"order_id": row.get("_id")},
+                    {"order_id": str(row.get("_id") or row.get("id") or "")}
+                ]
+            })
+        except Exception:
+            addr = None
+
+        row["customer_name"] = (
+            row.get("customer_name")
+            or (customer.get("name") if customer else "")
+            or "Customer"
+        )
+
+        row["customer_phone"] = (
+            row.get("customer_phone")
+            or (customer.get("phone") if customer else "")
+            or ""
+        )
+
+        row["addr_line1"] = row.get("addr_line1") or (addr.get("line1") if addr else "")
+        row["addr_line2"] = row.get("addr_line2") or (addr.get("line2") if addr else "")
+        row["addr_city"] = row.get("addr_city") or (addr.get("city") if addr else "")
+        row["addr_state"] = row.get("addr_state") or (addr.get("state") if addr else "")
+        row["addr_pincode"] = row.get("addr_pincode") or (addr.get("pincode") if addr else "")
+        row["addr_lat"] = row.get("addr_lat") or (addr.get("latitude") if addr else None)
+        row["addr_lng"] = row.get("addr_lng") or (addr.get("longitude") if addr else None)
+
+        row["total_amount"] = _safe_float(row.get("total_amount"))
+        row["delivery_fee"] = _safe_float(row.get("delivery_fee"))
+        row["tip_amount"] = _safe_float(row.get("tip_amount"))
+
+        if row.get("total_payable") is None:
+            row["total_payable"] = (
+                row["total_amount"]
+                + row["delivery_fee"]
+                + row["tip_amount"]
+            )
+        else:
+            row["total_payable"] = _safe_float(row.get("total_payable"))
+
+        return row
 
     def _delivery_status(order):
         return (order.get("status") or "").strip().upper()
@@ -938,11 +1017,60 @@ def store_delivery_page():
         except Exception:
             return False
 
+    raw_orders_by_id = {}
+
+    # 1. Add orders already prepared by app_core/store order page context.
+    for order in page_context.get("orders") or []:
+        oid = str(order.get("_id") or order.get("id") or "")
+        if oid:
+            raw_orders_by_id[oid] = order
+
+    # 2. Add all orders that match this store by ObjectId/string/name.
+    direct_store_orders = list(
+        mongo.orders.find({
+            "$or": [
+                {"store_id": store_id},
+                {"store_id": store_id_str},
+                {"store_name": store.get("store_name")},
+                {"store_name": store.get("name")}
+            ]
+        }).sort("updated_at", -1)
+    )
+
+    for order in direct_store_orders:
+        oid = str(order.get("_id") or order.get("id") or "")
+        if oid:
+            raw_orders_by_id[oid] = order
+
+    # 3. Hard safety: scan all DELIVERY_FAILED orders and filter ownership in Python.
+    # This is the important part that fixes your current issue.
+    failed_candidates = list(
+        mongo.orders.find({
+            "status": "DELIVERY_FAILED"
+        }).sort("updated_at", -1)
+    )
+
+    for order in failed_candidates:
+        if not _order_belongs_to_store(order):
+            continue
+
+        oid = str(order.get("_id") or order.get("id") or "")
+        if oid:
+            raw_orders_by_id[oid] = order
+
+    orders = [
+        _hydrate_store_delivery_order(order)
+        for order in raw_orders_by_id.values()
+        if _order_belongs_to_store(order)
+    ]
+
     delivery_metrics = {
         "total_orders": len(orders),
         "ready_for_pickup": 0,
         "needs_rider": 0,
         "reassignment_needed": 0,
+        "failed_delivery": 0,
+        "failed_action_required": 0,
         "assigned": 0,
         "reached_store": 0,
         "picked_up": 0,
@@ -955,6 +1083,7 @@ def store_delivery_page():
 
     ready_orders = []
     needs_rider_orders = []
+    failed_delivery_orders = []
     active_delivery_orders = []
     recent_delivered_orders = []
     attention_orders = []
@@ -962,6 +1091,7 @@ def store_delivery_page():
     for order in orders:
         status = _delivery_status(order)
         has_rider = _has_delivery_partner(order)
+
         needs_reassignment = bool(
             order.get("needs_reassignment")
             or order.get("delivery_cancelled_by_partner")
@@ -992,7 +1122,22 @@ def store_delivery_page():
         if status == "OUT_FOR_DELIVERY":
             delivery_metrics["out_for_delivery"] += 1
 
-        if status in {"ASSIGNED_TO_DELIVERY", "ACCEPTED_BY_DELIVERY_MAN", "REACHED_STORE", "PICKED_UP", "OUT_FOR_DELIVERY"}:
+        if status == "DELIVERY_FAILED":
+            delivery_metrics["failed_delivery"] += 1
+
+            if order.get("delivery_failed_requires_store_action", True):
+                delivery_metrics["failed_action_required"] += 1
+
+            failed_delivery_orders.append(order)
+            attention_orders.append(order)
+
+        if status in {
+            "ASSIGNED_TO_DELIVERY",
+            "ACCEPTED_BY_DELIVERY_MAN",
+            "REACHED_STORE",
+            "PICKED_UP",
+            "OUT_FOR_DELIVERY"
+        }:
             delivery_metrics["active_delivery_orders"] += 1
             active_delivery_orders.append(order)
 
@@ -1008,11 +1153,21 @@ def store_delivery_page():
     recent_delivered_orders = recent_delivered_orders[:10]
     attention_orders = attention_orders[:10]
 
+    print(
+        "[STORE DELIVERY PAGE DEBUG]",
+        "store_id=", store_id_str,
+        "store_name=", store_name,
+        "all_orders=", len(orders),
+        "failed_candidates=", len(failed_candidates),
+        "failed_for_store=", len(failed_delivery_orders)
+    )
+
     page_context["available_delivery_people"] = available_delivery_people
     page_context["delivery_accept_radius_km"] = DELIVERY_ACCEPT_RADIUS_KM
     page_context["delivery_metrics"] = delivery_metrics
     page_context["ready_orders"] = ready_orders
     page_context["needs_rider_orders"] = needs_rider_orders
+    page_context["failed_delivery_orders"] = failed_delivery_orders
     page_context["active_delivery_orders"] = active_delivery_orders
     page_context["recent_delivered_orders"] = recent_delivered_orders
     page_context["attention_orders"] = attention_orders
@@ -1207,6 +1362,234 @@ def store_order_reassign_delivery(oid):
     flash("Delivery boy reassigned successfully.", "success")
     return redirect(request.referrer or url_for("store_delivery"))
 
+
+@app.route('/store/orders/<oid>/reschedule-failed-delivery', methods=['POST'], endpoint='store_order_reschedule_failed_delivery')
+@login_required(role='store')
+def store_order_reschedule_failed_delivery(oid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    oid_obj, order = _get_store_owned_order(store, oid)
+
+    if not oid_obj or not order:
+        flash("Order not found for your store.", "danger")
+        return redirect(request.referrer or url_for("store_delivery"))
+
+    status = (order.get("status") or "").strip().upper()
+
+    if status != "DELIVERY_FAILED":
+        flash("Only failed delivery orders can be rescheduled from here.", "warning")
+        return redirect(request.referrer or url_for("store_delivery"))
+
+    now = datetime.utcnow().isoformat()
+
+    rescheduled_for = (request.form.get("rescheduled_for") or "").strip()
+    reschedule_note = (request.form.get("reschedule_note") or "").strip()
+
+    if len(rescheduled_for) > 80:
+        rescheduled_for = rescheduled_for[:80]
+
+    if len(reschedule_note) > 500:
+        reschedule_note = reschedule_note[:500]
+
+    old_partner_id = order.get("delivery_partner_id")
+    old_partner_name = order.get("delivery_partner_name") or ""
+    old_partner_phone = order.get("delivery_partner_phone") or ""
+
+    history_entry = {
+        "action": "delivery_failed_rescheduled_by_store",
+        "previous_delivery_partner_id": str(old_partner_id) if old_partner_id else "",
+        "previous_delivery_partner_name": old_partner_name,
+        "previous_delivery_partner_phone": old_partner_phone,
+        "failed_reason": order.get("delivery_failed_reason") or "",
+        "rescheduled_for": rescheduled_for,
+        "reschedule_note": reschedule_note,
+        "at": now,
+        "by": "store",
+        "actor_id": str(u.get("_id") or u.get("id")),
+        "actor_name": u.get("name") or "Store User"
+    }
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": {
+                "status": "READY_FOR_PICKUP",
+
+                "delivery_partner_id": None,
+                "delivery_partner_name": "",
+                "delivery_partner_phone": "",
+                "delivery_assignment_source": "",
+
+                "needs_reassignment": True,
+                "delivery_cancelled_by_partner": False,
+
+                "delivery_failed_requires_store_action": False,
+                "delivery_failed_store_decision": "RESCHEDULED",
+                "delivery_failed_resolved_at": now,
+
+                "delivery_rescheduled": True,
+                "delivery_rescheduled_at": now,
+                "delivery_rescheduled_for": rescheduled_for,
+                "delivery_rescheduled_note": reschedule_note,
+
+                "ready_for_pickup_at": now,
+                "updated_at": now
+            },
+            "$push": {
+                "delivery_history": history_entry
+            }
+        }
+    )
+
+    if old_partner_id:
+        mongo.delivery_availability.update_one(
+            {
+                "user_id": str(old_partner_id),
+                "current_order_id": str(oid_obj)
+            },
+            {
+                "$set": {
+                    "current_order_id": None,
+                    "updated_at": now
+                }
+            }
+        )
+
+    add_order_event(
+        oid_obj,
+        "READY_FOR_PICKUP",
+        "Failed delivery rescheduled by store. Order sent back for delivery assignment.",
+        u
+    )
+
+    _create_store_notification(
+        store,
+        title="Failed delivery rescheduled",
+        message=f"Order #{str(oid_obj)[-6:]} was rescheduled and is ready for rider assignment.",
+        notif_type="delivery",
+        order=order,
+        event_key=f"failed-delivery-rescheduled-{str(oid_obj)}-{now}"
+    )
+
+    flash("Failed delivery has been rescheduled and sent back for rider assignment.", "success")
+    return redirect(request.referrer or url_for("store_delivery"))
+
+
+@app.route('/store/orders/<oid>/cancel-failed-delivery', methods=['POST'], endpoint='store_order_cancel_failed_delivery')
+@login_required(role='store')
+def store_order_cancel_failed_delivery(oid):
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    oid_obj, order = _get_store_owned_order(store, oid)
+
+    if not oid_obj or not order:
+        flash("Order not found for your store.", "danger")
+        return redirect(request.referrer or url_for("store_delivery"))
+
+    status = (order.get("status") or "").strip().upper()
+
+    if status != "DELIVERY_FAILED":
+        flash("Only failed delivery orders can be cancelled from here.", "warning")
+        return redirect(request.referrer or url_for("store_delivery"))
+
+    cancel_reason = (request.form.get("cancel_reason") or "").strip()
+    cancel_note = (request.form.get("cancel_note") or "").strip()
+
+    if not cancel_reason:
+        flash("Please select/write a cancellation reason.", "warning")
+        return redirect(request.referrer or url_for("store_delivery"))
+
+    if len(cancel_reason) > 120:
+        cancel_reason = cancel_reason[:120]
+
+    if len(cancel_note) > 500:
+        cancel_note = cancel_note[:500]
+
+    now = datetime.utcnow().isoformat()
+
+    old_partner_id = order.get("delivery_partner_id")
+    old_partner_name = order.get("delivery_partner_name") or ""
+    old_partner_phone = order.get("delivery_partner_phone") or ""
+
+    history_entry = {
+        "action": "delivery_failed_cancelled_by_store",
+        "previous_delivery_partner_id": str(old_partner_id) if old_partner_id else "",
+        "previous_delivery_partner_name": old_partner_name,
+        "previous_delivery_partner_phone": old_partner_phone,
+        "failed_reason": order.get("delivery_failed_reason") or "",
+        "cancel_reason": cancel_reason,
+        "cancel_note": cancel_note,
+        "at": now,
+        "by": "store",
+        "actor_id": str(u.get("_id") or u.get("id")),
+        "actor_name": u.get("name") or "Store User"
+    }
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": {
+                "status": "CANCELLED",
+
+                "cancelled_by": "store",
+                "cancelled_by_id": str(u.get("_id") or u.get("id")),
+                "cancelled_by_name": u.get("name") or "Store User",
+                "cancel_reason": cancel_reason,
+                "cancel_note": cancel_note,
+                "cancelled_at": now,
+
+                "delivery_failed_requires_store_action": False,
+                "delivery_failed_store_decision": "CANCELLED",
+                "delivery_failed_resolved_at": now,
+
+                "updated_at": now
+            },
+            "$push": {
+                "delivery_history": history_entry
+            }
+        }
+    )
+
+    if old_partner_id:
+        mongo.delivery_availability.update_one(
+            {
+                "user_id": str(old_partner_id),
+                "current_order_id": str(oid_obj)
+            },
+            {
+                "$set": {
+                    "current_order_id": None,
+                    "updated_at": now
+                }
+            }
+        )
+
+    add_order_event(
+        oid_obj,
+        "CANCELLED",
+        f"Order cancelled by store after failed delivery. Reason: {cancel_reason}",
+        u
+    )
+
+    _create_store_notification(
+        store,
+        title="Order cancelled after failed delivery",
+        message=f"Order #{str(oid_obj)[-6:]} was cancelled after failed delivery. Reason: {cancel_reason}",
+        notif_type="delivery",
+        order=order,
+        event_key=f"failed-delivery-cancelled-{str(oid_obj)}-{now}"
+    )
+
+    flash("Order cancelled after failed delivery.", "success")
+    return redirect(request.referrer or url_for("store_delivery"))
 
 @app.route('/store/orders/<oid>/clear-delivery', methods=['POST'], endpoint='store_order_clear_delivery')
 @login_required(role='store')
@@ -3009,28 +3392,47 @@ def store_order_status(oid):
         flash("Invalid order.", "danger")
         return redirect(url_for("store_orders"))
 
-    allowed_statuses = {
-        "PLACED",
-        "CONFIRMED",
-        "PREPARING",
-        "READY_FOR_PICKUP",
-        "CANCELLED",
-    }
-
-    new_status = (request.form.get("status") or "PLACED").strip().upper()
-    now = datetime.utcnow().isoformat()
-
-    if new_status not in allowed_statuses:
-        flash("Invalid order status selected.", "warning")
-        return redirect(url_for("store_orders"))
-
     order = mongo.orders.find_one({
         "_id": oid_obj,
-        "store_id": store["_id"]
+        "$or": [
+            {"store_id": store["_id"]},
+            {"store_id": str(store["_id"])}
+        ]
     })
 
     if not order:
         flash("Order not found.", "danger")
+        return redirect(url_for("store_orders"))
+
+    current_status = (order.get("status") or "").strip().upper()
+    new_status = (request.form.get("status") or "").strip().upper()
+    now = datetime.utcnow().isoformat()
+
+    # Delivery workflow statuses must not be controlled by the normal order dropdown.
+    delivery_locked_statuses = {
+        "READY_FOR_PICKUP",
+        "ASSIGNED_TO_DELIVERY",
+        "ACCEPTED_BY_DELIVERY_MAN",
+        "REACHED_STORE",
+        "PICKED_UP",
+        "OUT_FOR_DELIVERY",
+        "DELIVERY_FAILED",
+        "DELIVERED"
+    }
+
+    if current_status in delivery_locked_statuses:
+        flash("This order is controlled by the delivery workflow. Use Delivery Control actions.", "warning")
+        return redirect(url_for("store_orders"))
+
+    allowed_statuses = {
+        "PLACED",
+        "CONFIRMED",
+        "PREPARING",
+        "CANCELLED",
+    }
+
+    if new_status not in allowed_statuses:
+        flash("Invalid order status selected.", "warning")
         return redirect(url_for("store_orders"))
 
     update_data = {
@@ -3041,34 +3443,38 @@ def store_order_status(oid):
     if new_status == "PREPARING":
         update_data["preparing_at"] = now
 
-    if new_status == "READY_FOR_PICKUP":
-        update_data["ready_for_pickup_at"] = now
-
-
     if new_status == "CANCELLED":
         update_data["cancelled_at"] = now
+        update_data["cancelled_by"] = "store"
+        update_data["cancelled_by_id"] = str(u.get("_id") or u.get("id"))
+        update_data["cancelled_by_name"] = u.get("name") or "Store User"
 
     mongo.orders.update_one(
-        {"_id": oid_obj, "store_id": store["_id"]},
+        {
+            "_id": oid_obj,
+            "$or": [
+                {"store_id": store["_id"]},
+                {"store_id": str(store["_id"])}
+            ]
+        },
         {"$set": update_data}
     )
 
-    mongo.order_events.insert_one({
-        "order_id": oid_obj,
-        "status": new_status,
-        "note": "Updated by store",
-        "created_at": now
-    })
+    add_order_event(
+        oid_obj,
+        new_status,
+        "Updated by store",
+        u
+    )
 
     _create_store_notification(
         store,
         title="Order status updated",
         message=f"Order #{str(order['_id'])[-6:]} status changed to {new_status}.",
-        notif_type="status",
+        notif_type="order",
         order=order,
-        event_key=f"status-{str(order['_id'])}-{new_status}-{now}"
+        event_key=f"store-status-{str(order['_id'])}-{new_status}-{now}"
     )
 
-
-    flash("Order status updated.", "success")
+    flash("Order status updated successfully.", "success")
     return redirect(url_for("store_orders"))

@@ -32,6 +32,7 @@
   reached_store=0,
   picked_up=0,
   out_for_delivery=0,
+  failed_delivery=0,
   delivered=0,
   cancelled=0,
   unassigned_delivery=0,
@@ -58,6 +59,7 @@
 {% if st == 'REACHED_STORE' %}{% set ns.reached_store = ns.reached_store + 1 %}{% endif %}
 {% if st == 'PICKED_UP' %}{% set ns.picked_up = ns.picked_up + 1 %}{% endif %}
 {% if st == 'OUT_FOR_DELIVERY' %}{% set ns.out_for_delivery = ns.out_for_delivery + 1 %}{% endif %}
+{% if st == 'DELIVERY_FAILED' %}{% set ns.failed_delivery = ns.failed_delivery + 1 %}{% endif %}
 {% if st == 'DELIVERED' %}{% set ns.delivered = ns.delivered + 1 %}{% endif %}
 
 {% if st in ['CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'] and not o.delivery_partner_id %}
@@ -84,8 +86,9 @@
 
 {% set pending_ops_total = ns.placed + ns.confirmed + ns.preparing + ns.ready %}
 {% set active_orders_total = ns.placed + ns.confirmed + ns.preparing + ns.ready + ns.assigned + ns.reached_store + ns.picked_up + ns.out_for_delivery %}
-{% set delivery_action_total = ns.ready + ns.unassigned_delivery %}
+{% set delivery_action_total = ns.ready + ns.unassigned_delivery + ns.failed_delivery %}
 {% set delivery_in_progress_total = ns.assigned + ns.reached_store + ns.picked_up + ns.out_for_delivery %}
+{% set failed_delivery_total = ns.failed_delivery %}
 {% set rider_available_total = metrics.online_delivery_people|default(metrics.active_delivery_people|default(0)) %}
 {% set low_stock_total = ns.low_stock + ns.out_stock %}
 {% set fulfilment_base = orders_total if orders_total else 1 %}
@@ -963,6 +966,16 @@
       </section>
 
       <section class="sd-priority-grid" aria-label="Priority summary">
+        {% if failed_delivery_total > 0 %}
+  <a class="sd-priority-card is-danger" href="{{ url_for('store_delivery') }}#failed-deliveries" style="text-decoration:none;color:inherit;">
+    <div>
+      <div class="sd-priority-label">Failed Delivery</div>
+      <div class="sd-priority-value is-red">{{ failed_delivery_total }}</div>
+      <div class="sd-priority-meta">Needs store decision: reschedule or cancel</div>
+    </div>
+    <div class="sd-priority-icon">🚨</div>
+  </a>
+{% endif %}
         <div class="sd-priority-card is-info">
           <div>
             <div class="sd-priority-label">Pending Orders</div>
@@ -1007,7 +1020,7 @@
       <h2 class="sd-section-title">Delivery Operations</h2>
       <p class="sd-section-sub">Store-controlled delivery assignment, pickup readiness and rider movement overview.</p>
     </div>
-    <a class="sd-view-link" href="{{ url_for('store_orders') }}">Open delivery orders</a>
+   <a class="sd-view-link" href="{{ url_for('store_delivery') }}">Open Delivery Control</a>
   </div>
 
   <div class="sd-status-wrap">
@@ -1059,6 +1072,14 @@
         </div>
         <strong class="sd-status-value is-blue">{{ ns.out_for_delivery }}</strong>
       </div>
+
+      <a class="sd-status-card" href="{{ url_for('store_delivery') }}#failed-deliveries" style="text-decoration:none;color:inherit;">
+  <div class="sd-status-left">
+    <span class="sd-status-icon">🚨</span>
+    <span class="sd-status-label">Failed Delivery</span>
+  </div>
+  <strong class="sd-status-value is-red">{{ failed_delivery_total }}</strong>
+</a>
 
       <div class="sd-status-card">
         <div class="sd-status-left">

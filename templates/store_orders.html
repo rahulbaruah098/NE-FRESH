@@ -449,15 +449,23 @@
                       Total Payable: <strong>₹ {{ '%.2f'|format(total_payable) }}</strong>
                       {% if o.tip_amount and o.tip_amount > 0 %}<span class="sd-tag">includes tip ₹{{ '%.2f'|format(o.tip_amount) }}</span>{% endif %}
                     </div>
-                    <form method="post" action="{{ url_for('store_order_status', oid=o.id) }}" class="sd-row-actions">
-              <select name="status">
-  <option value="PLACED" {{ 'selected' if (o.status or '')|upper == 'PLACED' }}>PLACED</option>
-  <option value="CONFIRMED" {{ 'selected' if (o.status or '')|upper == 'CONFIRMED' }}>CONFIRMED</option>
-  <option value="PREPARING" {{ 'selected' if (o.status or '')|upper == 'PREPARING' }}>PREPARING</option>
-  <option value="CANCELLED" {{ 'selected' if (o.status or '')|upper == 'CANCELLED' }}>CANCELLED</option>
-</select>
-                      <button type="submit">Update</button>
-                    </form>
+                   {% set order_status = (o.status or '')|upper %}
+
+{% if order_status in ['PLACED', 'CONFIRMED', 'PREPARING'] %}
+  <form method="post" action="{{ url_for('store_order_status', oid=o.id) }}" class="sd-row-actions">
+    <select name="status">
+      <option value="PLACED" {{ 'selected' if order_status == 'PLACED' else '' }}>PLACED</option>
+      <option value="CONFIRMED" {{ 'selected' if order_status == 'CONFIRMED' else '' }}>CONFIRMED</option>
+      <option value="PREPARING" {{ 'selected' if order_status == 'PREPARING' else '' }}>PREPARING</option>
+      <option value="CANCELLED" {{ 'selected' if order_status == 'CANCELLED' else '' }}>CANCELLED</option>
+    </select>
+    <button type="submit">Update</button>
+  </form>
+{% else %}
+  <div class="sd-muted" style="margin:10px 0;font-weight:900;">
+    Status controlled by delivery workflow: {{ order_status.replace('_',' ') }}
+  </div>
+{% endif %}
                     {% set order_status = (o.status or '')|upper %}
 {% set has_rider = o.delivery_partner_id %}
 {% set can_mark_ready = order_status in ['CONFIRMED', 'PREPARING', 'PACKAGING'] and not has_rider %}
@@ -477,7 +485,61 @@
     {% endif %}
   </div>
 
-  {% if has_rider %}
+  {% if order_status == 'DELIVERY_FAILED' %}
+  <div class="sd-delivery-note" style="background:#FFF7ED;border-color:#FED7AA;color:#9A3412;">
+    <strong>Failed Delivery Action Required</strong><br>
+    Delivery boy marked this order as failed.
+    {% if o.delivery_failed_reason %}
+      <br>Reason: {{ o.delivery_failed_reason }}
+    {% endif %}
+    {% if o.delivery_failed_note %}
+      <br>Note: {{ o.delivery_failed_note }}
+    {% endif %}
+  </div>
+
+ <form method="post" action="/store/orders/{{ o.id }}/reschedule-failed-delivery" class="sd-delivery-form">
+    <input
+      type="datetime-local"
+      name="rescheduled_for"
+      title="Optional reschedule date/time"
+      style="min-height:42px;border:1px solid var(--line);border-radius:14px;padding:0 12px;font-weight:800;"
+    >
+
+    <textarea
+      name="reschedule_note"
+      maxlength="500"
+      placeholder="Optional reschedule note..."
+      style="min-height:76px;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-weight:800;resize:vertical;"
+    ></textarea>
+
+    <div class="sd-delivery-buttons">
+      <button type="submit" class="primary">Reschedule / Retry Delivery</button>
+    </div>
+  </form>
+
+<form method="post" action="/store/orders/{{ o.id }}/cancel-failed-delivery" class="sd-delivery-form" style="margin-top:10px;">
+    <select name="cancel_reason" required>
+      <option value="">Select cancel reason</option>
+      <option value="Customer unavailable after delivery attempt">Customer unavailable after delivery attempt</option>
+      <option value="Customer refused delivery">Customer refused delivery</option>
+      <option value="Customer unreachable">Customer unreachable</option>
+      <option value="Address issue">Address issue</option>
+      <option value="Payment issue">Payment issue</option>
+      <option value="Other">Other</option>
+    </select>
+
+    <textarea
+      name="cancel_note"
+      maxlength="500"
+      placeholder="Optional cancellation note..."
+      style="min-height:76px;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-weight:800;resize:vertical;"
+    ></textarea>
+
+    <div class="sd-delivery-buttons">
+      <button type="submit" class="danger">Cancel Order</button>
+    </div>
+  </form>
+{% elif has_rider %}
     <div class="sd-rider-card">
       <strong>{{ o.delivery_partner_name or 'Delivery Partner' }}</strong>
       {% if o.delivery_partner_phone %}

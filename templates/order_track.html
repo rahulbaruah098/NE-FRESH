@@ -342,6 +342,48 @@
       border-color:rgba(185,28,28,.16);
     }
 
+        .track-order-page .status-delivery-failed{
+      background:#FFF7ED;
+      color:#C2410C;
+      border-color:#FED7AA;
+      animation:none;
+    }
+
+    .track-order-page .delivery-failed-notice{
+      margin-top:14px;
+      display:grid;
+      gap:8px;
+      border:1px solid #FED7AA;
+      border-radius:14px !important;
+      background:#FFF7ED;
+      color:#7C2D12;
+      padding:14px;
+      font-size:.86rem;
+      font-weight:760;
+      line-height:1.5;
+    }
+
+    .track-order-page .delivery-failed-notice strong{
+      color:#9A3412;
+      font-size:.9rem;
+      font-weight:950;
+    }
+
+    .track-order-page .delivery-failed-notice .failed-reason{
+      display:inline-flex;
+      width:max-content;
+      max-width:100%;
+      min-height:28px;
+      align-items:center;
+      border-radius:999px;
+      background:#FFEDD5;
+      border:1px solid #FED7AA;
+      color:#C2410C;
+      padding:0 10px;
+      font-size:.76rem;
+      font-weight:950;
+    }
+
     @keyframes nfStatusPulse{
       0%,100%{ box-shadow:0 0 0 0 rgba(0,168,89,.18); }
       50%{ box-shadow:0 0 0 8px rgba(0,168,89,.06); }
@@ -1451,9 +1493,16 @@
             <h3>Current Status</h3>
           </div>
           <div class="card-body">
-            <div class="status-badge-large status-{{ order.status|lower|replace('_', '-') }}" id="statusText">
-              {{ order.status.replace('_',' ') }}
-            </div>
+           <div
+  class="status-badge-large status-{{ order.status|lower|replace('_', '-') }}"
+  id="statusText"
+>
+  {% if order.status == 'DELIVERY_FAILED' %}
+    Delivery Attempt Failed
+  {% else %}
+    {{ order.status.replace('_',' ') }}
+  {% endif %}
+</div>
 
             <!-- ====== CANCEL BUTTON (ADDED) ====== -->
             {% if order.status in ['PLACED', 'CONFIRMED'] %}
@@ -1494,6 +1543,51 @@
      style="display: {% if order.needs_reassignment or order.delivery_cancelled_by_partner %}grid{% else %}none{% endif %};">
   <strong>Delivery partner is being reassigned</strong>
   <span>Your order is safe. The store is assigning another delivery partner shortly.</span>
+</div>
+
+<div id="deliveryFailedNotice"
+     class="delivery-failed-notice"
+     style="display: {% if order.status == 'DELIVERY_FAILED' %}grid{% else %}none{% endif %};">
+  <strong>Delivery attempt failed</strong>
+
+  <span>
+    The delivery boy could not complete this delivery. The store will reschedule the delivery or contact you shortly.
+  </span>
+
+  {% if order.delivery_failed_reason %}
+    <span class="failed-reason">
+      Reason: {{ order.delivery_failed_reason }}
+    </span>
+  {% endif %}
+
+  {% if order.delivery_failed_note %}
+    <span>
+      Note: {{ order.delivery_failed_note }}
+    </span>
+  {% endif %}
+</div>
+<div id="deliveryRescheduledNotice"
+     class="delivery-reassign-notice"
+     style="display: {% if order.delivery_rescheduled and order.status == 'READY_FOR_PICKUP' %}grid{% else %}none{% endif %};">
+  <strong>Delivery rescheduled</strong>
+
+  <span>
+    Your previous delivery attempt failed{% if order.delivery_failed_reason %} because: {{ order.delivery_failed_reason }}{% endif %}.
+  </span>
+
+  {% if order.delivery_failed_note %}
+    <span>Delivery note: {{ order.delivery_failed_note }}</span>
+  {% endif %}
+
+  <span>Your order has been rescheduled and will be assigned to a delivery partner again shortly.</span>
+
+  {% if order.delivery_rescheduled_for %}
+    <span>Rescheduled for: {{ order.delivery_rescheduled_for }}</span>
+  {% endif %}
+
+  {% if order.delivery_rescheduled_note %}
+    <span>Store note: {{ order.delivery_rescheduled_note }}</span>
+  {% endif %}
 </div>
 
 <div id="deliveryPartnerCard"
@@ -1574,7 +1668,8 @@
           <h3>Progress</h3>
         </div>
 {% set steps = ['PLACED','CONFIRMED','PREPARING','READY_FOR_PICKUP','ASSIGNED_TO_DELIVERY','REACHED_STORE','PICKED_UP','OUT_FOR_DELIVERY','DELIVERED'] %}
-        {% set idx = steps.index(order.status) if order.status in steps else 0 %}
+{% set progress_status = 'OUT_FOR_DELIVERY' if order.status == 'DELIVERY_FAILED' else order.status %}
+{% set idx = steps.index(progress_status) if progress_status in steps else 0 %}
         <div id="tracker" class="progress-tracker"
              data-steps="{{ steps|length }}"
              data-current="{{ idx }}"
@@ -1886,18 +1981,23 @@ const elDeliveryStagePill = document.getElementById("deliveryStagePill");
       let lastDPPhone = {{ (order.delivery_partner_phone or '')|tojson }};
       let lastEventsSig = "{{ events|length }}::{{ events[-1].created_at if events|length>0 else 'none' }}";
 
-      function setProgress(status){
-        const idx = steps.includes(status) ? steps.indexOf(status) : 0;
-        const pct = (idx / (steps.length - 1)) * 100;
-        if (fillEl) fillEl.style.width = pct + "%";
-        if (dotsWrap) {
-          [...dotsWrap.querySelectorAll(".progress-dot")].forEach((d, i) => {
-            d.classList.toggle("completed", i <= idx);
-            d.classList.toggle("current", i === idx);
-            d.setAttribute("aria-current", i === idx ? "step" : "false");
-          });
-        }
-      }
+     function setProgress(status){
+  const progressStatus = status === "DELIVERY_FAILED" ? "OUT_FOR_DELIVERY" : status;
+  const idx = steps.includes(progressStatus) ? steps.indexOf(progressStatus) : 0;
+  const pct = (idx / (steps.length - 1)) * 100;
+
+  if (fillEl) {
+    fillEl.style.width = pct + "%";
+  }
+
+  if (dotsWrap) {
+    [...dotsWrap.querySelectorAll(".progress-dot")].forEach((d, i) => {
+      d.classList.toggle("completed", i <= idx);
+      d.classList.toggle("current", i === idx);
+      d.setAttribute("aria-current", i === idx ? "step" : "false");
+    });
+  }
+}
 
       function escapeHtml(s){
         return (s || "").replace(/[&<>"']/g, m => ({
@@ -1967,18 +2067,60 @@ const elDeliveryStagePill = document.getElementById("deliveryStagePill");
           const j = await r.json();
           if(!r.ok || !j.ok) return;
           const reassignNotice = document.getElementById("deliveryReassignNotice");
+          const failedNotice = document.getElementById("deliveryFailedNotice");
+          const rescheduledNotice = document.getElementById("deliveryRescheduledNotice");
 
-if (reassignNotice) {
-  const isReassigning = Boolean(j.needs_reassignment || j.delivery_cancelled_by_partner);
-  reassignNotice.style.display = isReassigning ? "grid" : "none";
+          if (reassignNotice) {
+              const isReassigning = Boolean(j.needs_reassignment || j.delivery_cancelled_by_partner);
+              reassignNotice.style.display = isReassigning ? "grid" : "none";
+            }
+
+            if (failedNotice) {
+              failedNotice.style.display = (j.status === "DELIVERY_FAILED") ? "grid" : "none";
+            }
+
+         if (rescheduledNotice) {
+  const isRescheduled = Boolean(j.delivery_rescheduled && j.status === "READY_FOR_PICKUP");
+  rescheduledNotice.style.display = isRescheduled ? "grid" : "none";
+
+  if (isRescheduled) {
+    const failedReason = (j.delivery_failed_reason || "").trim();
+    const failedNote = (j.delivery_failed_note || "").trim();
+    const rescheduledFor = (j.delivery_rescheduled_for || "").trim();
+    const rescheduledNote = (j.delivery_rescheduled_note || "").trim();
+
+    rescheduledNotice.innerHTML = `
+      <strong>Delivery rescheduled</strong>
+      <span>
+        Your previous delivery attempt failed${failedReason ? " because: " + failedReason : ""}.
+      </span>
+      ${failedNote ? `<span>Delivery note: ${failedNote}</span>` : ""}
+      <span>Your order has been rescheduled and will be assigned to a delivery partner again shortly.</span>
+      ${rescheduledFor ? `<span>Rescheduled for: ${rescheduledFor}</span>` : ""}
+      ${rescheduledNote ? `<span>Store note: ${rescheduledNote}</span>` : ""}
+    `;
+  }
 }
 
           if (j.status !== lastStatus){
-            lastStatus = j.status;
-            if (elStatusText) elStatusText.textContent = j.status.replace(/_/g,' ');
-            if (elCancelTag) elCancelTag.style.display = (j.status === "CANCELLED") ? "flex" : "none";
-            setProgress(j.status);
-          }
+  lastStatus = j.status;
+
+  if (elStatusText) {
+    elStatusText.textContent = j.status === "DELIVERY_FAILED"
+      ? "Delivery Attempt Failed"
+      : j.status.replace(/_/g,' ');
+
+    elStatusText.className =
+      "status-badge-large status-" +
+      String(j.status || "").toLowerCase().replaceAll("_", "-");
+  }
+
+  if (elCancelTag) {
+    elCancelTag.style.display = (j.status === "CANCELLED") ? "flex" : "none";
+  }
+
+  setProgress(j.status);
+}
 
           // keep cancel button visibility in sync even if status didn't change
           syncCancelVisibility(j.status); // ADDED
@@ -2018,7 +2160,9 @@ if (dpName !== lastDP || dpPhone !== lastDPPhone){
 }
 
 if (elDeliveryStagePill) {
-  elDeliveryStagePill.textContent = (j.status || "").replace(/_/g, " ");
+  elDeliveryStagePill.textContent = j.status === "DELIVERY_FAILED"
+    ? "Delivery Attempt Failed"
+    : (j.status || "").replace(/_/g, " ");
 }
 
           const sig = (j.events && j.events.length)

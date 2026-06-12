@@ -388,6 +388,70 @@
       border-color:rgba(239,68,68,.22);
     }
 
+    .my-orders-page .status-delivery-failed{
+  background:#FFF1F2;
+  color:#B91C1C;
+  border-color:#FECACA;
+}
+
+.my-orders-page .status-delivery-rescheduled{
+  background:#EAF3FF;
+  color:#2563EB;
+  border-color:rgba(37,99,235,.18);
+}
+
+.my-orders-page .status-cancelled-after-failed{
+  background:#FFF1F2;
+  color:#B91C1C;
+  border-color:#FECACA;
+}
+
+.my-orders-page .order-failed-note{
+  margin-top:7px;
+  display:grid;
+  gap:3px;
+  max-width:280px;
+  padding:8px 10px;
+  border-radius:12px;
+  background:#FFF7ED;
+  border:1px solid #FED7AA;
+  color:#7C2D12;
+  font-size:.75rem;
+  font-weight:800;
+  line-height:1.35;
+}
+
+.my-orders-page .order-failed-note strong{
+  color:#9A3412;
+  font-size:.7rem;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.my-orders-page .order-rescheduled-note{
+  margin-top:7px;
+  display:grid;
+  gap:3px;
+  max-width:280px;
+  padding:8px 10px;
+  border-radius:12px;
+  background:#EAF3FF;
+  border:1px solid rgba(37,99,235,.18);
+  color:#1D4ED8;
+  font-size:.75rem;
+  font-weight:800;
+  line-height:1.35;
+}
+
+.my-orders-page .order-rescheduled-note strong{
+  color:#1D4ED8;
+  font-size:.7rem;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
         .my-orders-page .status-reassigning{
       background:#FFF8E8;
       color:#A96800;
@@ -935,24 +999,79 @@
               <td class="store-name">{{ o.store_name }}</td>
               <td class="order-total">₹{{ '%.2f'|format(o.total_amount) }}</td>
 
-                           <td class="order-status">
-                {% set is_reassigning = o.needs_reassignment or o.delivery_cancelled_by_partner %}
+                          <td class="order-status">
+  {% set order_status_upper = (o.status or '')|upper %}
+  {% set is_failed_delivery = order_status_upper == 'DELIVERY_FAILED' %}
+  {% set is_rescheduled_delivery = o.delivery_rescheduled and order_status_upper == 'READY_FOR_PICKUP' %}
+  {% set is_cancelled_after_failed = order_status_upper == 'CANCELLED' and o.delivery_failed_store_decision == 'CANCELLED' %}
+  {% set is_reassigning = o.needs_reassignment or o.delivery_cancelled_by_partner %}
 
-                {% if is_reassigning %}
-                  <span class="status-badge status-reassigning">
-                    Delivery partner being reassigned
-                  </span>
+  {% if is_failed_delivery %}
+    <span class="status-badge status-delivery-failed">
+      Delivery Attempt Failed
+    </span>
 
-                  <div class="order-reassign-note">
-                    <strong>Order is safe</strong>
-                    <span>The store is assigning another delivery partner.</span>
-                  </div>
-                {% else %}
-                  <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
-                    {{ o.status.replace('_',' ') }}
-                  </span>
-                {% endif %}
-              </td>
+    <div class="order-failed-note">
+      <strong>Store action required</strong>
+      <span>The delivery attempt failed. The store will reschedule delivery or contact you shortly.</span>
+
+      {% if o.delivery_failed_reason %}
+        <span>Reason: {{ o.delivery_failed_reason }}</span>
+      {% endif %}
+    </div>
+
+  {% elif is_rescheduled_delivery %}
+    <span class="status-badge status-delivery-rescheduled">
+      Delivery Rescheduled
+    </span>
+
+    <div class="order-rescheduled-note">
+      <strong>Delivery will restart</strong>
+     <span>
+  Previous delivery failed{% if o.delivery_failed_reason %} because: {{ o.delivery_failed_reason }}{% endif %}.
+</span>
+
+{% if o.delivery_failed_note %}
+  <span>Delivery note: {{ o.delivery_failed_note }}</span>
+{% endif %}
+
+<span>Your order has been rescheduled and will be assigned again shortly.</span>
+
+{% if o.delivery_rescheduled_for %}
+  <span>For: {{ o.delivery_rescheduled_for }}</span>
+{% endif %}
+
+{% if o.delivery_rescheduled_note %}
+  <span>Store note: {{ o.delivery_rescheduled_note }}</span>
+{% endif %}
+    </div>
+
+  {% elif is_cancelled_after_failed %}
+    <span class="status-badge status-cancelled-after-failed">
+      Cancelled After Failed Delivery
+    </span>
+
+    <div class="order-failed-note">
+      <strong>Order cancelled</strong>
+      <span>This order was cancelled after a failed delivery attempt.</span>
+    </div>
+
+  {% elif is_reassigning %}
+    <span class="status-badge status-reassigning">
+      Delivery partner being reassigned
+    </span>
+
+    <div class="order-reassign-note">
+      <strong>Order is safe</strong>
+      <span>The store is assigning another delivery partner.</span>
+    </div>
+
+  {% else %}
+    <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
+      {{ o.status.replace('_',' ') }}
+    </span>
+  {% endif %}
+</td>
 
               <td class="payment-status">
                 <span class="payment-badge payment-{{ o.payment_status|lower|replace(' ', '-')|replace('_','-') }}">
@@ -997,19 +1116,35 @@
               <div class="store">{{ o.store_name }}</div>
             </div>
 
-                        <div class="right">
-              {% set is_reassigning = o.needs_reassignment or o.delivery_cancelled_by_partner %}
+<div class="right">
+  {% set order_status_upper = (o.status or '')|upper %}
+  {% set is_failed_delivery = order_status_upper == 'DELIVERY_FAILED' %}
+  {% set is_rescheduled_delivery = o.delivery_rescheduled and order_status_upper == 'READY_FOR_PICKUP' %}
+  {% set is_cancelled_after_failed = order_status_upper == 'CANCELLED' and o.delivery_failed_store_decision == 'CANCELLED' %}
+  {% set is_reassigning = o.needs_reassignment or o.delivery_cancelled_by_partner %}
 
-              {% if is_reassigning %}
-                <span class="status-badge status-reassigning">
-                  Reassigning Rider
-                </span>
-              {% else %}
-                <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
-                  {{ o.status.replace('_',' ') }}
-                </span>
-              {% endif %}
-            </div>
+  {% if is_failed_delivery %}
+    <span class="status-badge status-delivery-failed">
+      Delivery Failed
+    </span>
+  {% elif is_rescheduled_delivery %}
+    <span class="status-badge status-delivery-rescheduled">
+      Rescheduled
+    </span>
+  {% elif is_cancelled_after_failed %}
+    <span class="status-badge status-cancelled-after-failed">
+      Cancelled After Failed Delivery
+    </span>
+  {% elif is_reassigning %}
+    <span class="status-badge status-reassigning">
+      Reassigning Rider
+    </span>
+  {% else %}
+    <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
+      {{ o.status.replace('_',' ') }}
+    </span>
+  {% endif %}
+</div>
           </div>
 
           <div class="card-body">
@@ -1031,12 +1166,40 @@
               <span class="label">Placed</span>
               <span class="value muted">{{ o.created_at }}</span>
             </div>
-                        {% if o.needs_reassignment or o.delivery_cancelled_by_partner %}
-            <div class="order-reassign-note">
-              <strong>Order is safe</strong>
-              <span>The store is assigning another delivery partner.</span>
-            </div>
-            {% endif %}
+                      {% set order_status_upper = (o.status or '')|upper %}
+{% set is_failed_delivery = order_status_upper == 'DELIVERY_FAILED' %}
+{% set is_rescheduled_delivery = o.delivery_rescheduled and order_status_upper == 'READY_FOR_PICKUP' %}
+{% set is_cancelled_after_failed = order_status_upper == 'CANCELLED' and o.delivery_failed_store_decision == 'CANCELLED' %}
+
+{% if is_failed_delivery %}
+  <div class="order-failed-note">
+    <strong>Store action required</strong>
+    <span>The delivery attempt failed. The store will reschedule delivery or contact you shortly.</span>
+
+    {% if o.delivery_failed_reason %}
+      <span>Reason: {{ o.delivery_failed_reason }}</span>
+    {% endif %}
+  </div>
+{% elif is_rescheduled_delivery %}
+  <div class="order-rescheduled-note">
+    <strong>Delivery will restart</strong>
+    <span>Your order has been rescheduled and will be assigned again shortly.</span>
+
+    {% if o.delivery_rescheduled_for %}
+      <span>For: {{ o.delivery_rescheduled_for }}</span>
+    {% endif %}
+  </div>
+{% elif is_cancelled_after_failed %}
+  <div class="order-failed-note">
+    <strong>Order cancelled</strong>
+    <span>This order was cancelled after a failed delivery attempt.</span>
+  </div>
+{% elif o.needs_reassignment or o.delivery_cancelled_by_partner %}
+  <div class="order-reassign-note">
+    <strong>Order is safe</strong>
+    <span>The store is assigning another delivery partner.</span>
+  </div>
+{% endif %}
           </div>
 
           <div class="card-actions">

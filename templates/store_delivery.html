@@ -9,6 +9,7 @@
 {% set dm = delivery_metrics if delivery_metrics is defined else {} %}
 {% set available_delivery_people_list = available_delivery_people if available_delivery_people is defined else [] %}
 {% set needs_rider_list = needs_rider_orders if needs_rider_orders is defined else [] %}
+{% set failed_delivery_list = failed_delivery_orders if failed_delivery_orders is defined else [] %}
 {% set active_delivery_list = active_delivery_orders if active_delivery_orders is defined else [] %}
 {% set delivered_list = recent_delivered_orders if recent_delivered_orders is defined else [] %}
 {% set attention_list = attention_orders if attention_orders is defined else [] %}
@@ -195,6 +196,22 @@
       color:var(--green-dark);
       box-shadow:0 12px 24px rgba(17,64,38,.09);
     }
+
+    .sdp-form button.danger,
+.sdp-btn.danger,
+.sdp-small-btn.danger{
+  background:var(--red);
+  border-color:var(--red);
+  color:#fff;
+}
+
+.sdp-form button.danger:hover,
+.sdp-btn.danger:hover,
+.sdp-small-btn.danger:hover{
+  background:#DC2626;
+  border-color:#DC2626;
+  color:#fff;
+}
 
     .sdp-btn-primary,
     .sdp-form button.primary{
@@ -662,6 +679,161 @@
       font-weight:750;
     }
 
+body.sdp-modal-open{
+  overflow:hidden !important;
+}
+
+.sdp-modal-backdrop{
+  position:fixed;
+  top:0;
+  right:0;
+  bottom:0;
+  left:0;
+  width:100vw;
+  height:100vh;
+  height:100dvh;
+  z-index:999999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  margin:0;
+  background:rgba(15,35,25,.52);
+  backdrop-filter:blur(8px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+.sdp-modal-backdrop.is-open{
+  display:flex;
+}
+
+.sdp-modal{
+  position:relative;
+  width:min(560px,100%);
+  max-height:calc(100dvh - 36px);
+  overflow:auto;
+  margin:auto;
+  border-radius:26px;
+  background:#fff;
+  border:1px solid var(--line);
+  box-shadow:0 30px 90px rgba(0,0,0,.22);
+}
+
+.sdp-modal-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  padding:20px 22px;
+  border-bottom:1px solid var(--line2);
+  background:var(--card2);
+}
+
+.sdp-modal-title{
+  margin:0;
+  color:var(--ink);
+  font-size:20px;
+  font-weight:950;
+  letter-spacing:-.04em;
+}
+
+.sdp-modal-sub{
+  margin:6px 0 0;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:750;
+  line-height:1.45;
+}
+
+.sdp-modal-close{
+  width:38px;
+  height:38px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--ink);
+  font-size:20px;
+  font-weight:950;
+  cursor:pointer;
+}
+
+.sdp-modal-body{
+  padding:20px 22px 22px;
+  display:grid;
+  gap:12px;
+}
+
+.sdp-modal-info{
+  padding:12px 14px;
+  border-radius:16px;
+  background:#FFF7ED;
+  border:1px solid #FED7AA;
+  color:#9A3412;
+  font-size:13px;
+  font-weight:800;
+  line-height:1.55;
+}
+
+.sdp-modal-form{
+  display:grid;
+  gap:12px;
+}
+
+.sdp-modal-form input,
+.sdp-modal-form select,
+.sdp-modal-form textarea{
+  width:100%;
+  min-height:44px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:#fff;
+  color:var(--ink);
+  padding:10px 12px;
+  font-size:13px;
+  font-weight:800;
+  outline:none;
+}
+
+.sdp-modal-form textarea{
+  min-height:96px;
+  resize:vertical;
+}
+
+.sdp-modal-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.sdp-modal-actions button{
+  min-height:42px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  padding:10px 15px;
+  font-size:13px;
+  font-weight:950;
+  cursor:pointer;
+}
+
+.sdp-modal-actions .secondary{
+  background:#fff;
+  color:var(--text);
+}
+
+.sdp-modal-actions .primary{
+  background:var(--green);
+  border-color:var(--green);
+  color:#fff;
+}
+
+.sdp-modal-actions .danger{
+  background:var(--red);
+  border-color:var(--red);
+  color:#fff;
+}
+
     @media(max-width:1450px){
       .sdp-kpi-grid,
       .sdp-setup-grid{
@@ -716,6 +888,8 @@
 
   <div class="sdp-shell">
     <div class="sdp-stack">
+
+      
 
       <section class="sdp-hero">
         <div class="sdp-hero-main">
@@ -813,6 +987,15 @@
           <div class="sdp-kpi-icon">🚚</div>
         </div>
 
+        <div class="sdp-kpi danger">
+  <div>
+    <div class="sdp-kpi-label">Failed Delivery</div>
+    <div class="sdp-kpi-value">{{ dm.failed_delivery|default(0) }}</div>
+    <div class="sdp-kpi-meta">Needs reschedule or cancellation</div>
+  </div>
+  <div class="sdp-kpi-icon">⚠️</div>
+</div>
+
         <div class="sdp-kpi">
           <div>
             <div class="sdp-kpi-label">Online Riders</div>
@@ -822,6 +1005,187 @@
           <div class="sdp-kpi-icon">📡</div>
         </div>
       </section>
+
+      {% if failed_delivery_list and failed_delivery_list|length %}
+<section class="sdp-card" id="failed-deliveries">
+    <div class="sdp-card-head">
+      <div>
+        <h2 class="sdp-card-title">Failed Delivery Action Required</h2>
+        <p class="sdp-card-sub">
+          These orders could not be delivered. Please reschedule delivery or cancel the order.
+        </p>
+      </div>
+      <span class="sdp-pill red">{{ failed_delivery_list|length }} Failed</span>
+    </div>
+
+    <div class="sdp-table-wrap">
+      <table class="sdp-table">
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Failed Reason</th>
+            <th>Amount</th>
+            <th>Store Decision</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for o in failed_delivery_list %}
+            <tr>
+              <td>
+                <strong>#{{ o.id }}</strong>
+                <div class="sdp-muted">
+                  Failed at: {{ o.delivery_failed_at or o.updated_at or '—' }}
+                </div>
+                {% if o.delivery_failed_by_name %}
+                  <div class="sdp-muted">
+                    Rider: {{ o.delivery_failed_by_name }}
+                  </div>
+                {% endif %}
+              </td>
+
+              <td>
+                {{ o.customer_name or 'Customer' }}
+                {% if o.customer_phone %}
+                  <div class="sdp-muted">{{ o.customer_phone }}</div>
+                {% endif %}
+              </td>
+
+              <td>
+                <span class="sdp-pill orange">
+                  {{ o.delivery_failed_reason or 'Delivery failed' }}
+                </span>
+                {% if o.delivery_failed_note %}
+                  <div class="sdp-muted">{{ o.delivery_failed_note }}</div>
+                {% endif %}
+              </td>
+
+              <td>
+                ₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}
+                <div class="sdp-muted">
+                  Fee ₹{{ '%.2f'|format(o.delivery_fee or 0) }} · Tip ₹{{ '%.2f'|format(o.tip_amount or 0) }}
+                </div>
+              </td>
+
+             <td>
+  <div class="sdp-form-row">
+    <button
+      type="button"
+      class="primary"
+      data-sdp-modal-open="reschedule-{{ o.id }}"
+    >
+      Reschedule / Retry
+    </button>
+
+    <button
+      type="button"
+      class="danger"
+      data-sdp-modal-open="cancel-{{ o.id }}"
+    >
+      Cancel Order
+    </button>
+  </div>
+
+  <div class="sdp-muted" style="margin-top:8px;">
+    Choose an action to resolve this failed delivery.
+  </div>
+
+  <div class="sdp-modal-backdrop" id="reschedule-{{ o.id }}">
+    <div class="sdp-modal">
+      <div class="sdp-modal-head">
+        <div>
+          <h3 class="sdp-modal-title">Reschedule Failed Delivery</h3>
+          <p class="sdp-modal-sub">
+            Order #{{ o.id }} will go back to Ready For Pickup and can be assigned again.
+          </p>
+        </div>
+        <button type="button" class="sdp-modal-close" data-sdp-modal-close>&times;</button>
+      </div>
+
+      <div class="sdp-modal-body">
+        <div class="sdp-modal-info">
+          <strong>Failed reason:</strong> {{ o.delivery_failed_reason or 'Delivery failed' }}
+          {% if o.delivery_failed_note %}
+            <br><strong>Note:</strong> {{ o.delivery_failed_note }}
+          {% endif %}
+        </div>
+
+        <form method="post" action="/store/orders/{{ o.id }}/reschedule-failed-delivery" class="sdp-modal-form">
+          <input
+            type="datetime-local"
+            name="rescheduled_for"
+            title="Optional reschedule date/time"
+          >
+
+          <textarea
+            name="reschedule_note"
+            maxlength="500"
+            placeholder="Optional reschedule note..."
+          ></textarea>
+
+          <div class="sdp-modal-actions">
+            <button type="button" class="secondary" data-sdp-modal-close>Close</button>
+            <button type="submit" class="primary">Confirm Reschedule</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="sdp-modal-backdrop" id="cancel-{{ o.id }}">
+    <div class="sdp-modal">
+      <div class="sdp-modal-head">
+        <div>
+          <h3 class="sdp-modal-title">Cancel Failed Delivery Order</h3>
+          <p class="sdp-modal-sub">
+            This will cancel Order #{{ o.id }} after failed delivery attempt.
+          </p>
+        </div>
+        <button type="button" class="sdp-modal-close" data-sdp-modal-close>&times;</button>
+      </div>
+
+      <div class="sdp-modal-body">
+        <div class="sdp-modal-info">
+          <strong>Failed reason:</strong> {{ o.delivery_failed_reason or 'Delivery failed' }}
+          {% if o.delivery_failed_note %}
+            <br><strong>Note:</strong> {{ o.delivery_failed_note }}
+          {% endif %}
+        </div>
+
+        <form method="post" action="/store/orders/{{ o.id }}/cancel-failed-delivery" class="sdp-modal-form">
+          <select name="cancel_reason" required>
+            <option value="">Select cancel reason</option>
+            <option value="Customer unavailable after delivery attempt">Customer unavailable after delivery attempt</option>
+            <option value="Customer refused delivery">Customer refused delivery</option>
+            <option value="Customer unreachable">Customer unreachable</option>
+            <option value="Address issue">Address issue</option>
+            <option value="Payment issue">Payment issue</option>
+            <option value="Other">Other</option>
+          </select>
+
+          <textarea
+            name="cancel_note"
+            maxlength="500"
+            placeholder="Optional cancellation note..."
+          ></textarea>
+
+          <div class="sdp-modal-actions">
+            <button type="button" class="secondary" data-sdp-modal-close>Close</button>
+            <button type="submit" class="danger">Confirm Cancel Order</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endif %}
 
       <section class="sdp-card">
         <div class="sdp-section-head">
@@ -1181,48 +1545,70 @@
           </div>
 
           <div class="sdp-attention-list">
-            {% for o in attention_list %}
-                           <div class="sdp-attention-card">
-                <div>
-                  {% if o.delivery_cancelled_by_partner or o.needs_reassignment %}
-                    <div class="sdp-attention-title">Delivery cancelled by rider</div>
-                    <div class="sdp-attention-meta">
-                      #{{ o.id }} · {{ o.customer_name or 'Customer' }} · Needs reassignment
-                    </div>
+  {% for o in attention_list %}
+    {% set att_status = (o.status or '')|upper %}
 
-                    <div class="sdp-rider-cancel-note">
-                      <strong>Previous rider cancelled this delivery.</strong>
-
-                      {% if o.previous_delivery_partner_name %}
-                        <span>Rider: {{ o.previous_delivery_partner_name }}</span>
-                      {% endif %}
-
-                      {% if o.delivery_cancel_reason %}
-                        <span>Reason: {{ o.delivery_cancel_reason }}</span>
-                      {% endif %}
-                    </div>
-
-                    <div class="sdp-next-step">Next Step: Reassign Rider</div>
-                  {% else %}
-                    <div class="sdp-attention-title">Order needs delivery boy</div>
-                    <div class="sdp-attention-meta">
-                      #{{ o.id }} · {{ o.customer_name or 'Customer' }} · {{ (o.status or 'PLACED').replace('_', ' ') }}
-                    </div>
-                  {% endif %}
-                </div>
-
-                <a class="sdp-small-btn" href="#needs-rider">
-                  {% if o.delivery_cancelled_by_partner or o.needs_reassignment %}
-                    Reassign
-                  {% else %}
-                    Assign
-                  {% endif %}
-                </a>
-              </div>
-            {% else %}
-              <div class="sdp-empty">No urgent delivery attention required.</div>
-            {% endfor %}
+    <div class="sdp-attention-card">
+      <div>
+        {% if att_status == 'DELIVERY_FAILED' %}
+          <div class="sdp-attention-title">Failed delivery needs store decision</div>
+          <div class="sdp-attention-meta">
+            #{{ o.id }} · {{ o.customer_name or 'Customer' }} · {{ o.delivery_failed_reason or 'Delivery failed' }}
           </div>
+
+          {% if o.delivery_failed_note %}
+            <div class="sdp-rider-cancel-note">
+              <strong>Delivery failed note</strong>
+              <span>{{ o.delivery_failed_note }}</span>
+            </div>
+          {% endif %}
+
+          <div class="sdp-next-step">Next Step: Reschedule or Cancel</div>
+
+        {% elif o.delivery_cancelled_by_partner or o.needs_reassignment %}
+          <div class="sdp-attention-title">Delivery cancelled by rider</div>
+          <div class="sdp-attention-meta">
+            #{{ o.id }} · {{ o.customer_name or 'Customer' }} · Needs reassignment
+          </div>
+
+          <div class="sdp-rider-cancel-note">
+            <strong>Previous rider cancelled this delivery.</strong>
+
+            {% if o.previous_delivery_partner_name %}
+              <span>Rider: {{ o.previous_delivery_partner_name }}</span>
+            {% endif %}
+
+            {% if o.delivery_cancel_reason %}
+              <span>Reason: {{ o.delivery_cancel_reason }}</span>
+            {% endif %}
+          </div>
+
+          <div class="sdp-next-step">Next Step: Reassign Rider</div>
+
+        {% else %}
+          <div class="sdp-attention-title">Order needs delivery boy</div>
+          <div class="sdp-attention-meta">
+            #{{ o.id }} · {{ o.customer_name or 'Customer' }} · {{ (o.status or 'PLACED').replace('_', ' ') }}
+          </div>
+        {% endif %}
+      </div>
+
+      {% if att_status == 'DELIVERY_FAILED' %}
+       <a class="sdp-small-btn" href="#failed-deliveries">Review Failed Delivery</a>
+      {% else %}
+        <a class="sdp-small-btn" href="#needs-rider">
+          {% if o.delivery_cancelled_by_partner or o.needs_reassignment %}
+            Reassign
+          {% else %}
+            Assign
+          {% endif %}
+        </a>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="sdp-empty">No urgent delivery attention required.</div>
+  {% endfor %}
+</div>
         </div>
 
         <div class="sdp-card">
@@ -1262,4 +1648,78 @@
     </div>
   </div>
 </section>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const openButtons = document.querySelectorAll("[data-sdp-modal-open]");
+
+    function openModal(id) {
+      const modal = document.getElementById(id);
+
+      if (!modal) {
+        return;
+      }
+
+      /*
+        Important:
+        The modal HTML is inside a table cell.
+        Moving it to <body> makes position:fixed work relative to the visible browser window.
+      */
+      if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+      }
+
+      modal.classList.add("is-open");
+      modal.setAttribute("aria-hidden", "false");
+      document.body.classList.add("sdp-modal-open");
+    }
+
+    function closeModal(modal) {
+      if (!modal) {
+        return;
+      }
+
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden", "true");
+
+      const anyOpen = document.querySelector(".sdp-modal-backdrop.is-open");
+
+      if (!anyOpen) {
+        document.body.classList.remove("sdp-modal-open");
+      }
+    }
+
+    openButtons.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const modalId = btn.getAttribute("data-sdp-modal-open");
+        openModal(modalId);
+      });
+    });
+
+    document.addEventListener("click", function (event) {
+      const closeBtn = event.target.closest("[data-sdp-modal-close]");
+
+      if (closeBtn) {
+        closeModal(closeBtn.closest(".sdp-modal-backdrop"));
+        return;
+      }
+
+      const backdrop = event.target.classList.contains("sdp-modal-backdrop")
+        ? event.target
+        : null;
+
+      if (backdrop) {
+        closeModal(backdrop);
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") {
+        document.querySelectorAll(".sdp-modal-backdrop.is-open").forEach(function (modal) {
+          closeModal(modal);
+        });
+      }
+    });
+  });
+</script>
 {% endblock %}

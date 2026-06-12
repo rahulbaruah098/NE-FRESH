@@ -381,18 +381,36 @@ Manage your currently assigned orders, update delivery progress, call customers,
               {% elif st == 'PICKED_UP' %}
                 <option value="OUT_FOR_DELIVERY">Out For Delivery</option>
               {% elif st == 'OUT_FOR_DELIVERY' %}
-                <option value="DELIVERED">Delivered</option>
-              {% else %}
+  <option value="DELIVERED">Delivered</option>
+  <option value="DELIVERY_FAILED">Delivery Failed / Customer Unavailable</option>
+{% else %}
                 <option value="">No next action</option>
               {% endif %}
             </select>
 
             {% if st == 'OUT_FOR_DELIVERY' %}
-              <label class="dao-check">
-                <input type="checkbox" name="cod_received" value="1">
-                Payment received
-              </label>
-            {% endif %}
+  <label class="dao-check">
+    <input type="checkbox" name="cod_received" value="1">
+    Payment received
+  </label>
+
+  <select name="delivery_failed_reason" style="min-height:42px;border:1px solid var(--df-line);border-radius:14px;padding:0 12px;font-weight:850;">
+    <option value="">Failed delivery reason, only if failed</option>
+    <option value="Customer not available">Customer not available</option>
+    <option value="Customer phone unreachable">Customer phone unreachable</option>
+    <option value="Customer refused delivery">Customer refused delivery</option>
+    <option value="Address issue">Address issue</option>
+    <option value="Payment issue">Payment issue</option>
+    <option value="Other">Other</option>
+  </select>
+
+  <textarea
+    name="delivery_failed_note"
+    maxlength="500"
+    placeholder="Optional note for failed delivery..."
+    style="min-height:78px;border:1px solid var(--df-line);border-radius:14px;padding:10px 12px;font-weight:750;resize:vertical;"
+  ></textarea>
+{% endif %}
 
             {% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
               <button class="dao-btn primary" type="submit">Update Status</button>

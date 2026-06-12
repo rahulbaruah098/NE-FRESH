@@ -1,0 +1,178 @@
+{% extends "delivery_base.html" %}
+{% set active_page = "all_orders" %}
+
+{% block delivery_kicker %}Delivery Records{% endblock %}
+{% block delivery_title %}All Orders{% endblock %}
+{% block delivery_subtitle %}
+View all active, successful and cancelled-by-you delivery records in one place.
+{% endblock %}
+
+{% block delivery_actions %}
+  <a class="df-action-btn" href="{{ url_for('delivery_dashboard') }}">Dashboard</a>
+  <a class="df-action-btn primary" href="{{ url_for('delivery_available_orders') }}">Available Orders</a>
+{% endblock %}
+
+{% block delivery_content %}
+<style>
+  .da-grid{display:grid;gap:18px;}
+  .da-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+  .da-card{background:#fff;border:1px solid var(--df-line);border-radius:24px;box-shadow:var(--df-shadow);overflow:hidden;}
+  .da-kpi{min-height:126px;padding:18px;display:flex;justify-content:space-between;gap:14px;position:relative;}
+  .da-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--df-green);}
+  .da-kpi.blue::before{background:var(--df-blue);}
+  .da-kpi.orange::before{background:var(--df-orange);}
+  .da-kpi.red::before{background:var(--df-red);}
+  .da-kpi-label{color:var(--df-muted);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;}
+  .da-kpi-value{margin-top:10px;color:var(--df-ink);font-size:32px;line-height:1;font-weight:900;letter-spacing:-.045em;}
+  .da-kpi-meta{margin-top:8px;color:var(--df-muted);font-size:12px;font-weight:750;line-height:1.35;}
+  .da-kpi-icon{width:48px;height:48px;border-radius:17px;display:grid;place-items:center;background:var(--df-mint);font-size:24px;flex:0 0 auto;}
+  .da-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px 20px;border-bottom:1px solid var(--df-line);background:#FBFFFD;}
+  .da-title{margin:0;color:var(--df-ink);font-size:18px;font-weight:900;letter-spacing:-.03em;}
+  .da-sub{margin:5px 0 0;color:var(--df-muted);font-size:13px;font-weight:700;line-height:1.45;}
+  .da-filter{padding:16px 20px;border-bottom:1px solid var(--df-line);display:flex;gap:10px;flex-wrap:wrap;background:#fff;}
+  .da-filter input,.da-filter select{min-height:42px;border:1px solid var(--df-line);border-radius:14px;background:#fff;color:var(--df-ink);padding:0 12px;font-size:13px;font-weight:850;outline:none;}
+  .da-filter input{min-width:min(340px,100%);flex:1;}
+  .da-btn{min-height:42px;display:inline-flex;align-items:center;justify-content:center;border-radius:14px;border:1px solid var(--df-line);background:#fff;color:var(--df-text);padding:9px 13px;text-decoration:none;font-size:13px;font-weight:900;cursor:pointer;}
+  .da-btn.primary{background:var(--df-green);border-color:var(--df-green);color:#fff;}
+  .da-table-wrap{overflow:auto;padding:0 20px 20px;}
+  .da-table{width:100%;min-width:1100px;border-collapse:separate;border-spacing:0;border:1px solid var(--df-line);border-radius:18px;overflow:hidden;background:#fff;}
+  .da-table thead{background:var(--df-green-dark);color:#fff;}
+  .da-table th{padding:14px;text-align:left;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;}
+  .da-table td{padding:14px;border-bottom:1px solid var(--df-line);color:var(--df-text);font-size:13px;font-weight:750;vertical-align:top;}
+  .da-table tbody tr:last-child td{border-bottom:0;}
+  .da-pill{min-height:28px;display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;background:var(--df-mint);color:var(--df-green-dark);border:1px solid rgba(0,168,89,.18);font-size:11px;font-weight:900;white-space:nowrap;text-transform:uppercase;}
+  .da-pill.blue{background:var(--df-blue-soft);color:#0369A1;border-color:rgba(2,132,199,.18);}
+  .da-pill.orange{background:var(--df-orange-soft);color:#9A3412;border-color:rgba(234,88,12,.18);}
+  .da-pill.red{background:var(--df-red-soft);color:#B91C1C;border-color:#FECACA;}
+  .da-muted{margin-top:4px;color:var(--df-muted);font-size:12px;font-weight:750;line-height:1.4;}
+  .da-empty{margin:18px;padding:26px;border-radius:22px;background:var(--df-soft);border:1px dashed var(--df-line);color:var(--df-muted);text-align:center;font-size:14px;font-weight:800;line-height:1.55;}
+  @media(max-width:980px){.da-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @media(max-width:560px){.da-kpi-grid{grid-template-columns:1fr;}.da-head{flex-direction:column;}.da-filter input,.da-filter select,.da-filter button,.da-filter a{width:100%;}}
+</style>
+
+<div class="da-grid">
+  <section class="da-kpi-grid">
+    <div class="da-card da-kpi">
+      <div>
+        <div class="da-kpi-label">Total Records</div>
+        <div class="da-kpi-value">{{ stats.total or 0 }}</div>
+        <div class="da-kpi-meta">All listed delivery records.</div>
+      </div>
+      <div class="da-kpi-icon">📚</div>
+    </div>
+
+    <div class="da-card da-kpi blue">
+      <div>
+        <div class="da-kpi-label">Active</div>
+        <div class="da-kpi-value">{{ stats.active or 0 }}</div>
+        <div class="da-kpi-meta">Currently assigned orders.</div>
+      </div>
+      <div class="da-kpi-icon">🛵</div>
+    </div>
+
+    <div class="da-card da-kpi">
+      <div>
+        <div class="da-kpi-label">Successful</div>
+        <div class="da-kpi-value">{{ stats.successful or 0 }}</div>
+        <div class="da-kpi-meta">Delivered orders.</div>
+      </div>
+      <div class="da-kpi-icon">✅</div>
+    </div>
+
+    <div class="da-card da-kpi red">
+      <div>
+        <div class="da-kpi-label">Cancelled By Me</div>
+        <div class="da-kpi-value">{{ stats.cancelled_by_me or 0 }}</div>
+        <div class="da-kpi-meta">Assignments cancelled before pickup.</div>
+      </div>
+      <div class="da-kpi-icon">🚫</div>
+    </div>
+  </section>
+
+  <section class="da-card">
+    <div class="da-head">
+      <div>
+        <h2 class="da-title">All Delivery Records</h2>
+        <p class="da-sub">Search and filter all active, successful and cancelled-by-you delivery records.</p>
+      </div>
+    </div>
+
+    <form method="get" action="{{ url_for('delivery_all_orders') }}" class="da-filter">
+      <input type="search" name="q" value="{{ q or '' }}" placeholder="Search order, store, customer, phone...">
+      <select name="status">
+        <option value="">All Records</option>
+        <option value="ACTIVE" {{ 'selected' if status_filter == 'ACTIVE' else '' }}>Active</option>
+        <option value="SUCCESSFUL" {{ 'selected' if status_filter == 'SUCCESSFUL' else '' }}>Successful</option>
+<option value="FAILED" {{ 'selected' if status_filter == 'FAILED' else '' }}>Failed Delivery</option>
+<option value="CANCELLED_BY_ME" {{ 'selected' if status_filter == 'CANCELLED_BY_ME' else '' }}>Cancelled By Me</option>
+      </select>
+      <button class="da-btn primary" type="submit">Search</button>
+      <a class="da-btn" href="{{ url_for('delivery_all_orders') }}">Clear</a>
+    </form>
+
+    {% if orders and orders|length %}
+      <div class="da-table-wrap">
+        <table class="da-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Record Type</th>
+              <th>Store</th>
+              <th>Customer</th>
+              <th>Current Status</th>
+              <th>Amount</th>
+              <th>Record Time</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in orders %}
+              <tr>
+                <td>#{{ o.id }}</td>
+                <td>
+                  {% if o.record_type == 'active' %}
+                    <span class="da-pill blue">{{ o.record_label }}</span>
+                  {% elif o.record_type == 'successful' %}
+                    <span class="da-pill">{{ o.record_label }}</span>
+                 {% elif o.record_type == 'failed' %}
+  <span class="da-pill orange">{{ o.record_label }}</span>
+{% elif o.record_type == 'cancelled_by_me' %}
+  <span class="da-pill red">{{ o.record_label }}</span>
+{% else %}
+                    <span class="da-pill orange">{{ o.record_label or 'Record' }}</span>
+                  {% endif %}
+                </td>
+                <td>{{ o.store_name or 'Store' }}</td>
+                <td>
+                  {{ o.customer_name or 'Customer' }}
+                  {% if o.customer_phone %}
+                    <div class="da-muted">{{ o.customer_phone }}</div>
+                  {% endif %}
+                </td>
+                <td>{{ (o.status or '').replace('_',' ') }}</td>
+                <td>₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}</td>
+                <td>{{ o.record_at or o.updated_at or o.created_at or '—' }}</td>
+                <td>
+                 {% if o.record_type == 'cancelled_by_me' %}
+  {{ o.cancel_reason or 'Cancelled by delivery partner.' }}
+  <div class="da-muted">Before: {{ (o.cancelled_status_from or '').replace('_',' ') }}</div>
+{% elif o.record_type == 'failed' %}
+  {{ o.failed_reason or 'Delivery failed.' }}
+  {% if o.failed_note %}
+    <div class="da-muted">{{ o.failed_note }}</div>
+  {% endif %}
+{% else %}
+  —
+{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="da-empty">No delivery records found.</div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

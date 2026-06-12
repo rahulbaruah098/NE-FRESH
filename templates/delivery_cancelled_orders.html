@@ -1,31 +1,31 @@
 {% extends "delivery_base.html" %}
-{% set active_page = "history" %}
+{% set active_page = "cancelled_orders" %}
 
-{% block delivery_kicker %}Delivery Records{% endblock %}
-{% block delivery_title %}Past Delivery History{% endblock %}
+{% block delivery_kicker %}Cancelled Assignments{% endblock %}
+{% block delivery_title %}Cancelled By Me{% endblock %}
 {% block delivery_subtitle %}
-Review completed deliveries, COD amounts, delivery fees, tips, and customer/order details.
+Review delivery assignments you cancelled before pickup. These did not cancel the customer order; they were sent back to the store for reassignment.
 {% endblock %}
 
 {% block delivery_actions %}
   <a class="df-action-btn" href="{{ url_for('delivery_dashboard') }}">Dashboard</a>
-  <a class="df-action-btn primary" href="/delivery/active-orders">Active Orders</a>
+  <a class="df-action-btn primary" href="{{ url_for('delivery_all_orders') }}">All Orders</a>
 {% endblock %}
 
 {% block delivery_content %}
 <style>
-  .dh-grid{
+  .dc-grid{
     display:grid;
     gap:18px;
   }
 
-  .dh-kpi-grid{
+  .dc-kpi-grid{
     display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-columns:repeat(3,minmax(0,1fr));
     gap:14px;
   }
 
-  .dh-card{
+  .dc-card{
     background:#fff;
     border:1px solid var(--df-line);
     border-radius:24px;
@@ -33,7 +33,7 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     overflow:hidden;
   }
 
-  .dh-kpi{
+  .dc-kpi{
     min-height:126px;
     padding:18px;
     display:flex;
@@ -42,20 +42,25 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     position:relative;
   }
 
-  .dh-kpi::before{
+  .dc-kpi::before{
     content:"";
     position:absolute;
     left:0;
     top:0;
     bottom:0;
     width:5px;
-    background:var(--df-green);
+    background:var(--df-red);
   }
 
-  .dh-kpi.blue::before{ background:var(--df-blue); }
-  .dh-kpi.orange::before{ background:var(--df-orange); }
+  .dc-kpi.orange::before{
+    background:var(--df-orange);
+  }
 
-  .dh-kpi-label{
+  .dc-kpi.blue::before{
+    background:var(--df-blue);
+  }
+
+  .dc-kpi-label{
     color:var(--df-muted);
     font-size:12px;
     font-weight:900;
@@ -63,34 +68,35 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     letter-spacing:.08em;
   }
 
-  .dh-kpi-value{
+  .dc-kpi-value{
     margin-top:10px;
     color:var(--df-ink);
-    font-size:32px;
+    font-size:34px;
     line-height:1;
     font-weight:900;
     letter-spacing:-.045em;
   }
 
-  .dh-kpi-meta{
+  .dc-kpi-meta{
     margin-top:8px;
     color:var(--df-muted);
     font-size:12px;
     font-weight:750;
+    line-height:1.35;
   }
 
-  .dh-kpi-icon{
+  .dc-kpi-icon{
     width:48px;
     height:48px;
     border-radius:17px;
     display:grid;
     place-items:center;
-    background:var(--df-mint);
+    background:var(--df-red-soft);
     font-size:24px;
     flex:0 0 auto;
   }
 
-  .dh-head{
+  .dc-head{
     display:flex;
     align-items:flex-start;
     justify-content:space-between;
@@ -100,7 +106,7 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     background:#FBFFFD;
   }
 
-  .dh-title{
+  .dc-title{
     margin:0;
     color:var(--df-ink);
     font-size:18px;
@@ -108,7 +114,7 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     letter-spacing:-.03em;
   }
 
-  .dh-sub{
+  .dc-sub{
     margin:5px 0 0;
     color:var(--df-muted);
     font-size:13px;
@@ -116,7 +122,7 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     line-height:1.45;
   }
 
-  .dh-filter{
+  .dc-filter{
     padding:16px 20px;
     border-bottom:1px solid var(--df-line);
     display:flex;
@@ -125,8 +131,7 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     background:#fff;
   }
 
-  .dh-filter input,
-  .dh-filter select{
+  .dc-filter input{
     min-height:42px;
     border:1px solid var(--df-line);
     border-radius:14px;
@@ -136,14 +141,11 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     font-size:13px;
     font-weight:850;
     outline:none;
-  }
-
-  .dh-filter input{
-    min-width:min(340px,100%);
+    min-width:min(360px,100%);
     flex:1;
   }
 
-  .dh-btn{
+  .dc-btn{
     min-height:42px;
     display:inline-flex;
     align-items:center;
@@ -159,20 +161,20 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     cursor:pointer;
   }
 
-  .dh-btn.primary{
+  .dc-btn.primary{
     background:var(--df-green);
     border-color:var(--df-green);
     color:#fff;
   }
 
-  .dh-table-wrap{
+  .dc-table-wrap{
     overflow:auto;
     padding:0 20px 20px;
   }
 
-  .dh-table{
+  .dc-table{
     width:100%;
-    min-width:980px;
+    min-width:1050px;
     border-collapse:separate;
     border-spacing:0;
     border:1px solid var(--df-line);
@@ -181,12 +183,12 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     background:#fff;
   }
 
-  .dh-table thead{
-    background:var(--df-green-dark);
+  .dc-table thead{
+    background:#7F1D1D;
     color:#fff;
   }
 
-  .dh-table th{
+  .dc-table th{
     padding:14px;
     text-align:left;
     font-size:12px;
@@ -196,7 +198,7 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     white-space:nowrap;
   }
 
-  .dh-table td{
+  .dc-table td{
     padding:14px;
     border-bottom:1px solid var(--df-line);
     color:var(--df-text);
@@ -205,26 +207,34 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
     vertical-align:top;
   }
 
-  .dh-table tbody tr:last-child td{
+  .dc-table tbody tr:last-child td{
     border-bottom:0;
   }
 
-  .dh-pill{
+  .dc-pill{
     min-height:28px;
     display:inline-flex;
     align-items:center;
     justify-content:center;
     padding:6px 10px;
     border-radius:999px;
-    background:var(--df-mint);
-    color:var(--df-green-dark);
-    border:1px solid rgba(0,168,89,.18);
+    background:var(--df-red-soft);
+    color:#B91C1C;
+    border:1px solid #FECACA;
     font-size:11px;
     font-weight:900;
     white-space:nowrap;
   }
 
-  .dh-empty{
+  .dc-muted{
+    margin-top:4px;
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:750;
+    line-height:1.4;
+  }
+
+  .dc-empty{
     margin:18px;
     padding:26px;
     border-radius:22px;
@@ -238,117 +248,103 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
   }
 
   @media(max-width:980px){
-    .dh-kpi-grid{
-      grid-template-columns:repeat(2,minmax(0,1fr));
+    .dc-kpi-grid{
+      grid-template-columns:1fr;
     }
   }
 
   @media(max-width:560px){
-    .dh-kpi-grid{
-      grid-template-columns:1fr;
-    }
-
-    .dh-head{
+    .dc-head{
       flex-direction:column;
     }
 
-    .dh-filter input,
-    .dh-filter select,
-    .dh-filter button,
-    .dh-filter a{
+    .dc-filter input,
+    .dc-filter button,
+    .dc-filter a{
       width:100%;
     }
   }
 </style>
 
-<div class="dh-grid">
-  <section class="dh-kpi-grid">
-    <div class="dh-card dh-kpi">
+<div class="dc-grid">
+  <section class="dc-kpi-grid">
+    <div class="dc-card dc-kpi">
       <div>
-        <div class="dh-kpi-label">Completed Orders</div>
-        <div class="dh-kpi-value">{{ orders|length }}</div>
-        <div class="dh-kpi-meta">Past assigned deliveries.</div>
+        <div class="dc-kpi-label">Cancelled By Me</div>
+        <div class="dc-kpi-value">{{ total_cancelled or 0 }}</div>
+        <div class="dc-kpi-meta">Assignments you cancelled before pickup.</div>
       </div>
-      <div class="dh-kpi-icon">✅</div>
+      <div class="dc-kpi-icon">🚫</div>
     </div>
 
-    <div class="dh-card dh-kpi blue">
+    <div class="dc-card dc-kpi orange">
       <div>
-        <div class="dh-kpi-label">COD Collected</div>
-        <div class="dh-kpi-value">₹{{ '%.0f'|format(total_cod_collected or 0) }}</div>
-        <div class="dh-kpi-meta">Estimated COD handled.</div>
+        <div class="dc-kpi-label">Order Safe</div>
+        <div class="dc-kpi-value">Yes</div>
+        <div class="dc-kpi-meta">Customer order was sent back to store for reassignment.</div>
       </div>
-      <div class="dh-kpi-icon">💵</div>
+      <div class="dc-kpi-icon">🔁</div>
     </div>
 
-    <div class="dh-card dh-kpi orange">
+    <div class="dc-card dc-kpi blue">
       <div>
-        <div class="dh-kpi-label">Delivery Fee</div>
-        <div class="dh-kpi-value">₹{{ '%.0f'|format(total_delivery_fee or 0) }}</div>
-        <div class="dh-kpi-meta">Total delivery fee from listed orders.</div>
+        <div class="dc-kpi-label">Current Duty</div>
+        <div class="dc-kpi-value">{{ 'ON' if delivery_active else 'OFF' }}</div>
+        <div class="dc-kpi-meta">Your current online/offline status.</div>
       </div>
-      <div class="dh-kpi-icon">🛵</div>
-    </div>
-
-    <div class="dh-card dh-kpi">
-      <div>
-        <div class="dh-kpi-label">Tips</div>
-        <div class="dh-kpi-value">₹{{ '%.0f'|format(total_tip or 0) }}</div>
-        <div class="dh-kpi-meta">Total tips from listed orders.</div>
-      </div>
-      <div class="dh-kpi-icon">🎁</div>
+      <div class="dc-kpi-icon">📡</div>
     </div>
   </section>
 
-  <section class="dh-card">
-    <div class="dh-head">
+  <section class="dc-card">
+    <div class="dc-head">
       <div>
-        <h2 class="dh-title">Delivery History</h2>
-        <p class="dh-sub">Search your completed delivery records.</p>
+        <h2 class="dc-title">Cancelled Delivery Assignments</h2>
+        <p class="dc-sub">These are delivery assignments cancelled by you before pickup. They are not customer order cancellations.</p>
       </div>
     </div>
 
-    <form method="get" action="{{ url_for('delivery_history') }}" class="dh-filter">
-      <input type="search" name="q" value="{{ q or '' }}" placeholder="Search order, store, customer, phone...">
-      <select name="status">
-        <option value="">All Status</option>
-        <option value="DELIVERED" {{ 'selected' if status_filter == 'DELIVERED' else '' }}>Delivered</option>
-        <option value="CANCELLED" {{ 'selected' if status_filter == 'CANCELLED' else '' }}>Cancelled</option>
-      </select>
-      <button class="dh-btn primary" type="submit">Search</button>
-      <a class="dh-btn" href="{{ url_for('delivery_history') }}">Clear</a>
+    <form method="get" action="{{ url_for('delivery_cancelled_orders') }}" class="dc-filter">
+      <input type="search" name="q" value="{{ q or '' }}" placeholder="Search order, store, customer, reason...">
+      <button class="dc-btn primary" type="submit">Search</button>
+      <a class="dc-btn" href="{{ url_for('delivery_cancelled_orders') }}">Clear</a>
     </form>
 
     {% if orders and orders|length %}
-      <div class="dh-table-wrap">
-        <table class="dh-table">
+      <div class="dc-table-wrap">
+        <table class="dc-table">
           <thead>
             <tr>
               <th>Order</th>
               <th>Store</th>
               <th>Customer</th>
-              <th>Total</th>
-              <th>Status</th>
-              <th>Delivered At</th>
+              <th>Status Before Cancel</th>
+              <th>Reason</th>
+              <th>Cancelled At</th>
               <th>Address</th>
             </tr>
           </thead>
           <tbody>
             {% for o in orders %}
               <tr>
-                <td>#{{ o.id }}</td>
+                <td>
+                  #{{ o.id }}
+                  <div class="dc-muted">Current: {{ (o.status or '').replace('_',' ') }}</div>
+                </td>
                 <td>{{ o.store_name or 'Store' }}</td>
                 <td>
                   {{ o.customer_name or 'Customer' }}
                   {% if o.customer_phone %}
-                    <br><small>{{ o.customer_phone }}</small>
+                    <div class="dc-muted">{{ o.customer_phone }}</div>
                   {% endif %}
                 </td>
                 <td>
-                  ₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}
+                  <span class="dc-pill">
+                    {{ (o.cancelled_status_from or 'ASSIGNED').replace('_',' ') }}
+                  </span>
                 </td>
-                <td><span class="dh-pill">{{ (o.status or '').replace('_', ' ') }}</span></td>
-                <td>{{ o.delivered_at or o.updated_at or '—' }}</td>
+                <td>{{ o.cancel_reason or 'Cancelled by delivery partner.' }}</td>
+                <td>{{ o.cancelled_at or '—' }}</td>
                 <td>
                   {% if o.addr_line1 %}
                     {{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %},
@@ -363,8 +359,8 @@ Review completed deliveries, COD amounts, delivery fees, tips, and customer/orde
         </table>
       </div>
     {% else %}
-      <div class="dh-empty">
-        No past delivery history found.
+      <div class="dc-empty">
+        No cancelled delivery assignments found.
       </div>
     {% endif %}
   </section>

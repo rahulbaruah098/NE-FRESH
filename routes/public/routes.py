@@ -6,7 +6,6 @@ Only the file location changed.
 
 from app_core import *
 
-
 @app.route('/')
 def index():
     user = current_user()
@@ -113,7 +112,7 @@ def index():
             discount_products,
             key=lambda x: (
                 float(x.get("discount_percent") or 0),
-               float(x.get("discount_amount_per_unit") or 0)
+                float(x.get("discount_amount_per_unit") or 0)
             ),
             reverse=True
         )[:10]
@@ -131,26 +130,46 @@ def index():
 
         featured_products = popular_products[:10] if popular_products else latest_products[:10]
 
-                # Real-time categories from store_categories collection
+        # Real-time homepage categories from store_categories collection
+        # Disabled categories must NOT appear again through products.
         category_map = {}
+        active_category_names = set()
+        active_category_store_keys = set()
+        active_global_category_names = set()
+        disabled_category_names = set()
+        disabled_category_store_keys = set()
 
-        store_categories = list(
-            mongo.store_categories.find({
-                "$or": [
-                    {"is_active": 1},
-                    {"is_active": True},
-                    {"is_active": {"$exists": False}}
-                ]
-            }).sort("name", 1)
+        all_store_categories = list(
+            mongo.store_categories.find({}).sort("name", 1)
         )
 
-        for cat in store_categories:
+        for cat in all_store_categories:
             cat_name = (cat.get("name") or "").strip()
 
             if not cat_name:
                 continue
 
             cat_key = cat_name.lower()
+            store_id_str = str(cat.get("store_id")) if cat.get("store_id") else ""
+
+            raw_active = cat.get("is_active", None)
+
+            is_active_category = raw_active in [1, True, "1", "true", "True"]
+
+            if not is_active_category:
+                disabled_category_names.add(cat_key)
+
+                if store_id_str:
+                    disabled_category_store_keys.add((store_id_str, cat_key))
+
+                continue
+
+            active_category_names.add(cat_key)
+
+            if store_id_str:
+                active_category_store_keys.add((store_id_str, cat_key))
+            else:
+                active_global_category_names.add(cat_key)
 
             category_image_path = (
                 cat.get("category_image_path")
@@ -167,35 +186,52 @@ def index():
                     "emoji": cat.get("emoji") or cat.get("icon") or "🛒",
                     "image_path": category_image_path,
                     "category_image_path": category_image_path,
-                    "store_id": str(cat.get("store_id")) if cat.get("store_id") else "",
-                    "sub_categories": cat.get("sub_categories") or []
+                    "store_id": store_id_str,
+                    "sub_categories": cat.get("sub_categories") or [],
+                    "is_active": 1
                 }
             else:
                 if category_image_path and not category_map[cat_key].get("category_image_path"):
                     category_map[cat_key]["image_path"] = category_image_path
                     category_map[cat_key]["category_image_path"] = category_image_path
 
-        # Count active products under each real-time category
+        # Count only products whose category is still active.
+        # Important: Do NOT recreate disabled categories from products.
         for p in products:
-            cat_name = (p.get("category") or "Uncategorized").strip() or "Uncategorized"
+            cat_name = (p.get("category") or "").strip()
+
+            if not cat_name:
+                continue
+
             cat_key = cat_name.lower()
+            product_store_id = str(p.get("store_id")) if p.get("store_id") else ""
 
-            if cat_key not in category_map:
-                category_map[cat_key] = {
-                    "id": "",
-                    "name": cat_name,
-                    "count": 0,
-                    "emoji": "🛒",
-                    "image_path": "",
-                    "category_image_path": "",
-                    "store_id": "",
-                    "sub_categories": []
-                }
+            if cat_key in disabled_category_names:
+                continue
 
-            category_map[cat_key]["count"] += 1
+            if product_store_id and (product_store_id, cat_key) in disabled_category_store_keys:
+                continue
+
+            category_is_active_for_product = False
+
+            if product_store_id and (product_store_id, cat_key) in active_category_store_keys:
+                category_is_active_for_product = True
+            elif cat_key in active_global_category_names:
+                category_is_active_for_product = True
+            elif not product_store_id and cat_key in active_category_names:
+                category_is_active_for_product = True
+
+            if not category_is_active_for_product:
+                continue
+
+            if cat_key in category_map:
+                category_map[cat_key]["count"] += 1
 
         categories = sorted(
-            list(category_map.values()),
+            [
+                c for c in category_map.values()
+                if int(c.get("count") or 0) > 0
+            ],
             key=lambda x: x["name"].lower()
         )
 
@@ -262,7 +298,6 @@ def index():
         product_rating_map=product_rating_map,
         store_rating_map=store_rating_map
     )
-
 
 def _public_notification_priority(value):
     priority = (value or "medium").strip().lower()

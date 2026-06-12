@@ -605,10 +605,19 @@ def my_orders():
         o["delivery_fee"] = float(o.get("delivery_fee") or 0)
         o["tip_amount"] = float(o.get("tip_amount") or 0)
 
-        # Customer-friendly reassignment state for My Orders page
+        # Customer-friendly delivery workflow state for My Orders page
         o["needs_reassignment"] = bool(o.get("needs_reassignment"))
         o["delivery_cancelled_by_partner"] = bool(o.get("delivery_cancelled_by_partner"))
         o["delivery_reassigned_at"] = o.get("delivery_reassigned_at")
+
+        o["delivery_failed_reason"] = o.get("delivery_failed_reason") or ""
+        o["delivery_failed_note"] = o.get("delivery_failed_note") or ""
+        o["delivery_failed_at"] = o.get("delivery_failed_at") or ""
+        o["delivery_failed_requires_store_action"] = bool(o.get("delivery_failed_requires_store_action", False))
+        o["delivery_failed_store_decision"] = o.get("delivery_failed_store_decision") or ""
+        o["delivery_rescheduled"] = bool(o.get("delivery_rescheduled", False))
+        o["delivery_rescheduled_for"] = o.get("delivery_rescheduled_for") or ""
+        o["delivery_rescheduled_note"] = o.get("delivery_rescheduled_note") or ""
 
     return render_template("orders.html", orders=orders, user=u)
 
@@ -790,6 +799,16 @@ def api_order_status(oid):
         "delivery_cancelled_by_partner": bool(o.get("delivery_cancelled_by_partner")),
         "delivery_reassigned_at": o.get("delivery_reassigned_at"),
 
+        "delivery_failed_reason": o.get("delivery_failed_reason") or "",
+        "delivery_failed_note": o.get("delivery_failed_note") or "",
+        "delivery_failed_at": o.get("delivery_failed_at") or "",
+        "delivery_failed_requires_store_action": bool(o.get("delivery_failed_requires_store_action", False)),
+        "delivery_failed_store_decision": o.get("delivery_failed_store_decision") or "",
+
+        "delivery_rescheduled": bool(o.get("delivery_rescheduled", False)),
+        "delivery_rescheduled_for": o.get("delivery_rescheduled_for") or "",
+        "delivery_rescheduled_note": o.get("delivery_rescheduled_note") or "",
+
         "assigned_at": o.get("assigned_at"),
         "ready_for_pickup_at": o.get("ready_for_pickup_at"),
         "reached_store_at": o.get("reached_store_at"),
@@ -860,7 +879,8 @@ def api_customer_order_alerts():
         "ASSIGNED_TO_DELIVERY",
         "REACHED_STORE",
         "PICKED_UP",
-        "OUT_FOR_DELIVERY"
+        "OUT_FOR_DELIVERY",
+        "DELIVERY_FAILED"
     ]
 
     orders = list(
@@ -881,7 +901,12 @@ def api_customer_order_alerts():
             or o.get("delivery_cancelled_by_partner")
         )
 
-        if needs_reassignment:
+        if status == "DELIVERY_FAILED":
+            title = "Delivery attempt failed"
+            message = f"Order #{oid[-6:]} could not be delivered. The store will reschedule or contact you shortly."
+            alert_type = "delivery_failed"
+
+        elif needs_reassignment:
             title = "Delivery partner is being reassigned"
             message = f"Order #{oid[-6:]} is safe. The store is assigning another delivery partner."
             alert_type = "reassigning"
