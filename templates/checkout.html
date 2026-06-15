@@ -1438,17 +1438,34 @@
               <div id="fee-warn" role="alert" aria-live="polite"></div>
             </div>
 
-            <div class="right-total-card" aria-label="Payment breakdown">
-              <div class="pay-line">
-                <span>Subtotal</span>
-                <strong id="pay-items-total">₹{{ '%.2f'|format(total) }}</strong>
-              </div>
-              <div class="pay-line total-line">
-                <span>Total</span>
-                <strong id="total-payable">₹0.00</strong>
-              </div>
-              <span id="total-breakdown" class="muted"></span>
-            </div>
+           <div class="right-total-card" aria-label="Payment breakdown">
+  <div class="pay-line">
+    <span>Subtotal</span>
+    <strong id="pay-items-total">₹{{ '%.2f'|format(total) }}</strong>
+  </div>
+
+  <div class="pay-line">
+    <span>Delivery charge</span>
+    <strong id="pay-checkout-delivery-fee">₹{{ '%.2f'|format(base_fee|default(40)) }}</strong>
+  </div>
+
+  <div class="pay-line">
+    <span id="pay-platform-fee-label">Platform Fee</span>
+    <strong id="pay-platform-fee">₹0.00</strong>
+  </div>
+
+  <div class="pay-line">
+    <span>Rider tip</span>
+    <strong id="pay-tip-amount">₹0.00</strong>
+  </div>
+
+  <div class="pay-line total-line">
+    <span>Total</span>
+    <strong id="total-payable">₹0.00</strong>
+  </div>
+
+  <span id="total-breakdown" class="muted"></span>
+</div>
 
             <p id="total-preview">
               <strong>
@@ -1569,10 +1586,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const totalPayableEl = document.getElementById('total-payable');
   const totalBreakdown = document.getElementById('total-breakdown');
 
-  const payItemsTotal = document.getElementById('pay-items-total');
-  const payDeliveryFee = document.getElementById('pay-delivery-fee');
-  const payTipAmount = document.getElementById('pay-tip-amount');
-  const payGrandTotal = document.getElementById('pay-grand-total');
+const payItemsTotal = document.getElementById('pay-items-total');
+const payDeliveryFee = document.getElementById('pay-delivery-fee');
+const payCheckoutDeliveryFee = document.getElementById('pay-checkout-delivery-fee');
+const payPlatformFee = document.getElementById('pay-platform-fee');
+const payPlatformFeeLabel = document.getElementById('pay-platform-fee-label');
+const payTipAmount = document.getElementById('pay-tip-amount');
+const payGrandTotal = document.getElementById('pay-grand-total');
 
   const btn = document.getElementById('place-order-btn');
 
@@ -1777,38 +1797,69 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
-  function updateUI(deliveryFee, tip, metaLine){
-    const payable = ITEMS_TOTAL + deliveryFee + tip;
+  function updateUI(deliveryFee, tip, metaLine, platformFee = 0, platformFeeLabel = "Platform Fee"){
+  deliveryFee = Number(deliveryFee || 0);
+  tip = Number(tip || 0);
+  platformFee = Number(platformFee || 0);
 
-    if (feeAmountEl) {
-      if ("value" in feeAmountEl) {
-        feeAmountEl.value = `₹${format2(deliveryFee)}`;
-      } else {
-        feeAmountEl.textContent = `₹${format2(deliveryFee)}`;
-      }
+  const payable = ITEMS_TOTAL + deliveryFee + platformFee + tip;
+
+  if (feeAmountEl) {
+    if ("value" in feeAmountEl) {
+      feeAmountEl.value = `₹${format2(deliveryFee)}`;
+    } else {
+      feeAmountEl.textContent = `₹${format2(deliveryFee)}`;
     }
-
-    if (totalPayableEl) totalPayableEl.textContent = `₹${format2(payable)}`;
-    if (payItemsTotal) payItemsTotal.textContent = `₹${format2(ITEMS_TOTAL)}`;
-    if (payDeliveryFee) payDeliveryFee.textContent = `₹${format2(deliveryFee)}`;
-    if (payTipAmount) payTipAmount.textContent = `₹${format2(tip)}`;
-    if (payGrandTotal) payGrandTotal.textContent = `₹${format2(payable)}`;
-
-    if (btn && !btn.disabled) {
-      btn.textContent = `Place Order ₹${format2(payable)}`;
-    } else if (btn) {
-      btn.textContent = `Place Order ₹${format2(payable)}`;
-    }
-
-    if (totalBreakdown){
-      totalBreakdown.innerHTML =
-        `<div class="pay-line"><span>Product subtotal</span><strong>₹${format2(ITEMS_TOTAL)}</strong></div>` +
-        `<div class="pay-line"><span>Delivery charge</span><strong>₹${format2(deliveryFee)}</strong></div>` +
-        `<div class="pay-line"><span>Rider tip</span><strong>₹${format2(tip)}</strong></div>`;
-    }
-
-    if (feeMeta) feeMeta.textContent = metaLine || "";
   }
+
+  if (totalPayableEl) {
+    totalPayableEl.textContent = `₹${format2(payable)}`;
+  }
+
+  if (payItemsTotal) {
+    payItemsTotal.textContent = `₹${format2(ITEMS_TOTAL)}`;
+  }
+
+  if (payDeliveryFee) {
+    payDeliveryFee.textContent = `₹${format2(deliveryFee)}`;
+  }
+
+  if (payCheckoutDeliveryFee) {
+    payCheckoutDeliveryFee.textContent = `₹${format2(deliveryFee)}`;
+  }
+
+  if (payPlatformFee) {
+    payPlatformFee.textContent = `₹${format2(platformFee)}`;
+  }
+
+  if (payPlatformFeeLabel) {
+    payPlatformFeeLabel.textContent = platformFeeLabel || "Platform Fee";
+  }
+
+  if (payTipAmount) {
+    payTipAmount.textContent = `₹${format2(tip)}`;
+  }
+
+  if (payGrandTotal) {
+    payGrandTotal.textContent = `₹${format2(payable)}`;
+  }
+
+  if (btn) {
+    btn.textContent = `Place Order ₹${format2(payable)}`;
+  }
+
+  if (totalBreakdown){
+    totalBreakdown.innerHTML =
+      `<div class="pay-line"><span>Product subtotal</span><strong>₹${format2(ITEMS_TOTAL)}</strong></div>` +
+      `<div class="pay-line"><span>Delivery charge</span><strong>₹${format2(deliveryFee)}</strong></div>` +
+      `<div class="pay-line"><span>${platformFeeLabel || "Platform Fee"}</span><strong>₹${format2(platformFee)}</strong></div>` +
+      `<div class="pay-line"><span>Rider tip</span><strong>₹${format2(tip)}</strong></div>`;
+  }
+
+  if (feeMeta) {
+    feeMeta.textContent = metaLine || "";
+  }
+}
 
   function getGPSOnce(){
     return new Promise((resolve) => {
@@ -2084,17 +2135,25 @@ document.addEventListener('DOMContentLoaded', () => {
       lastServiceability = result;
 
       deliveryFee = Number(result.delivery_fee || 0);
+      const platformFee = Number(result.platform_fee || 0);
+const platformFeeLabel = result.platform_fee_label || "Platform Fee";
 
       if (!result.serviceable) {
-        setButtonEnabled(false);
-        setWarn(result.message || "Delivery is not available for your selected location.");
-        updateUI(
-          deliveryFee,
-          tip,
-          result.reason ? `Blocked: ${result.reason}` : "Delivery unavailable"
-        );
-        return;
-      }
+  setButtonEnabled(false);
+  setWarn(result.message || "Delivery is not available for your selected location.");
+
+  updateUI(
+    deliveryFee,
+    tip,
+    result.reason
+      ? `Distance: ${Number(result.distance_km || 0).toFixed(2)} km | ${result.reason}`
+      : "Delivery unavailable",
+    platformFee,
+    platformFeeLabel
+  );
+
+  return;
+}
 
       setButtonEnabled(true);
       setWarn("");
@@ -2112,10 +2171,12 @@ document.addEventListener('DOMContentLoaded', () => {
         "Detected location";
 
       updateUI(
-        deliveryFee,
-        tip,
-        `${distanceText} | Delivery Fee ₹${format2(deliveryFee)} | ${sourceLabel}${resolved.pin ? ` | Pin: ${resolved.pin}` : ""}`
-      );
+  deliveryFee,
+  tip,
+  `${distanceText} | Delivery Fee ₹${format2(deliveryFee)} | ${platformFeeLabel} ₹${format2(platformFee)} | ${sourceLabel}${resolved.pin ? ` | Pin: ${resolved.pin}` : ""}`,
+  platformFee,
+  platformFeeLabel
+);
 
       setLocMsg(result.message || "Delivery available for this location.", true);
 

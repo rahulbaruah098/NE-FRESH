@@ -8,12 +8,18 @@ from app_core import *
 
 
 def _store_bool_from_form(name, default=False):
-    value = request.form.get(name)
+    values = request.form.getlist(name)
 
-    if value is None:
+    if not values:
         return bool(default)
 
-    return str(value).strip().lower() in ["1", "true", "yes", "on"]
+    clean_values = [
+        str(v).strip().lower()
+        for v in values
+        if v is not None
+    ]
+
+    return any(v in ["1", "true", "yes", "on"] for v in clean_values)
 
 
 def _store_float_or_none(value, min_value=None, max_value=None):
@@ -47,6 +53,87 @@ def _store_money_or_default(value, default=0):
         return round(number, 2)
     except Exception:
         return float(default)
+
+
+def _parse_store_delivery_fee_slabs_from_form(existing_slabs=None):
+    """
+    Parses store delivery fee slab rows from store profile form.
+
+    Expected input names from template:
+        slab_min_km[]
+        slab_max_km[]
+        slab_fee[]
+
+    max_km can be blank for the final open-ended slab.
+
+    If the new fields are not present in the form yet, this keeps existing slabs.
+    This prevents older profile forms from accidentally clearing delivery slabs.
+    """
+
+    if (
+        "slab_min_km[]" not in request.form
+        and "slab_max_km[]" not in request.form
+        and "slab_fee[]" not in request.form
+    ):
+        return existing_slabs or []
+
+    min_values = request.form.getlist("slab_min_km[]")
+    max_values = request.form.getlist("slab_max_km[]")
+    fee_values = request.form.getlist("slab_fee[]")
+
+    max_len = max(len(min_values), len(max_values), len(fee_values), 0)
+
+    cleaned = []
+
+    for index in range(max_len):
+        min_raw = min_values[index] if index < len(min_values) else ""
+        max_raw = max_values[index] if index < len(max_values) else ""
+        fee_raw = fee_values[index] if index < len(fee_values) else ""
+
+        min_km = _store_float_or_none(min_raw, 0, 999999)
+        max_km = _store_float_or_none(max_raw, 0, 999999)
+        fee = _store_money_or_default(fee_raw, -1)
+
+        # Skip completely blank row.
+        if str(min_raw).strip() == "" and str(max_raw).strip() == "" and str(fee_raw).strip() == "":
+            continue
+
+        if min_km is None:
+            min_km = 0.0
+
+        if fee is None or fee < 0:
+            continue
+
+        if max_km is not None and max_km <= min_km:
+            continue
+
+        cleaned.append({
+            "min_km": round(float(min_km), 3),
+            "max_km": round(float(max_km), 3) if max_km is not None else None,
+            "fee": round(float(fee), 2)
+        })
+
+    cleaned.sort(key=lambda row: float(row.get("min_km") or 0))
+
+    # Remove overlapping invalid rows.
+    final_rows = []
+    previous_max = None
+
+    for row in cleaned:
+        min_km = float(row.get("min_km") or 0)
+        max_km = row.get("max_km")
+
+        if previous_max is not None and min_km < previous_max:
+            continue
+
+        final_rows.append(row)
+
+        if max_km is None:
+            previous_max = None
+        else:
+            previous_max = float(max_km)
+
+    return final_rows
 
 
 def _parse_delivery_zone_polygon(raw):
@@ -631,6 +718,12 @@ def store_settings_page():
             request.form.get("delivery_base_fee"),
             store.get("delivery_base_fee", 40)
         )
+
+        lat_raw = (request.form.get("latitude") or "").strip()
+        lng_raw = (request.form.get("longitude") or "").strip()
+
+        latitude = _store_float_or_none(lat_raw, -90, 90)
+        longitude = _store_float_or_none(lng_raw, -180, 180)
 
         free_delivery_above = _store_money_or_default(
             request.form.get("free_delivery_above"),
@@ -2266,14 +2359,40 @@ def store_profile_update():
         store.get("delivery_base_fee", 40)
     )
 
+    # Store-specific delivery fee slabs.
+    # These fields will be submitted after we add the UI in store_profile.html.
+    existing_delivery_fee_slabs_enabled = bool(
+        store.get("delivery_fee_slabs_enabled", False)
+    )
+
+    delivery_fee_slabs_enabled = _store_bool_from_form(
+        "delivery_fee_slabs_enabled",
+        existing_delivery_fee_slabs_enabled
+    )
+
+    delivery_fee_slabs = _parse_store_delivery_fee_slabs_from_form(
+        store.get("delivery_fee_slabs") or []
+    )
+
+    free_delivery_above = _store_money_or_default(
+        request.form.get("free_delivery_above"),
+        store.get("free_delivery_above", 0)
+    )
+
+    if "max_delivery_distance_km" in request.form:
+        max_delivery_distance_km = _store_float_or_none(
+            request.form.get("max_delivery_distance_km"),
+            0,
+            999999
+        )
+    else:
+        max_delivery_distance_km = store.get("max_delivery_distance_km")
+
     lat_raw = (request.form.get("latitude") or "").strip()
     lng_raw = (request.form.get("longitude") or "").strip()
 
     latitude = _store_float_or_none(lat_raw, -90, 90)
     longitude = _store_float_or_none(lng_raw, -180, 180)
-
-    preparation_time = None
-    min_order_amount = None
 
     try:
         preparation_time = int(float(preparation_time_raw)) if preparation_time_raw else None
@@ -2312,6 +2431,23 @@ def store_profile_update():
     if delivery_enabled and delivery_mode == "polygon" and not delivery_zone_polygon:
         flash("Delivery zone polygon is required when delivery is enabled.", "warning")
         return redirect(url_for("store_profile"))
+    
+
+    if delivery_fee_slabs_enabled and not delivery_fee_slabs:
+        flash("Please add at least one valid delivery fee slab, or disable custom delivery fee slabs.", "warning")
+        return redirect(url_for("store_profile"))
+
+    if free_delivery_above < 0:
+        free_delivery_above = 0
+
+    if max_delivery_distance_km is not None:
+        try:
+            max_delivery_distance_km = float(max_delivery_distance_km)
+
+            if max_delivery_distance_km < 0:
+                max_delivery_distance_km = None
+        except Exception:
+             max_delivery_distance_km = None
 
     update_data = {
         "store_name": store_name,
@@ -2346,6 +2482,11 @@ def store_profile_update():
         "delivery_zone_polygon": delivery_zone_polygon,
         "delivery_zone_configured": 1 if delivery_zone_polygon else 0,
         "delivery_base_fee": delivery_base_fee,
+        "delivery_fee_slabs_enabled": bool(delivery_fee_slabs_enabled),
+        "delivery_fee_slabs": delivery_fee_slabs,
+        "free_delivery_above": round(float(str(free_delivery_above or 0).strip() or 0), 2),
+        "max_delivery_distance_km": max_delivery_distance_km,
+        "delivery_fee_updated_at": now,
 
         "profile_updated_at": now,
         "updated_at": now

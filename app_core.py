@@ -705,6 +705,231 @@ def calculate_delivery_fee_by_distance(km):
 
     return float(BASE_DELIVERY_FEE_INR + surcharge)
 
+    # =========================================================
+# PLATFORM FEE HELPERS
+# Admin/platform owner earning from every order.
+# Default is disabled, so existing checkout will not change
+# until admin enables it from platform fee settings.
+# =========================================================
+
+PLATFORM_FEE_SETTINGS_KEY = "platform_fee"
+
+DEFAULT_PLATFORM_FEE_SETTINGS = {
+    "key": PLATFORM_FEE_SETTINGS_KEY,
+    "enabled": False,
+
+    # fixed / percent / fixed_plus_percent
+    "fee_type": "fixed",
+
+    # Fixed fee amount in INR.
+    "fixed_amount": 0.0,
+
+    # Percentage on product subtotal.
+    "percent": 0.0,
+
+    # Optional bounds.
+    "min_fee": 0.0,
+    "max_fee": 0.0,
+
+    "display_name": "Platform Fee",
+    "description": "Platform fee supports secure ordering, customer support, and platform operations.",
+}
+
+
+def _platform_fee_safe_float(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return float(default)
+
+        number = float(value)
+
+        if number < 0:
+            return float(default)
+
+        return float(number)
+    except Exception:
+        return float(default)
+
+
+def get_platform_fee_settings():
+    """
+    Reads platform fee configuration from MongoDB.
+
+    Collection:
+        platform_settings
+
+    Document:
+        {
+            "key": "platform_fee",
+            "enabled": true/false,
+            "fee_type": "fixed" / "percent" / "fixed_plus_percent",
+            "fixed_amount": 10,
+            "percent": 2,
+            "min_fee": 5,
+            "max_fee": 30,
+            "display_name": "Platform Fee"
+        }
+
+    If no setting exists, returns safe disabled defaults.
+    """
+    settings = dict(DEFAULT_PLATFORM_FEE_SETTINGS)
+
+    try:
+        row = mongo.platform_settings.find_one({
+            "key": PLATFORM_FEE_SETTINGS_KEY
+        }) or {}
+
+        if row:
+            settings.update(row)
+    except Exception:
+        pass
+
+    settings["enabled"] = bool(settings.get("enabled"))
+
+    fee_type = (settings.get("fee_type") or "fixed").strip().lower()
+
+    if fee_type not in ["fixed", "percent", "fixed_plus_percent"]:
+        fee_type = "fixed"
+
+    settings["fee_type"] = fee_type
+    settings["fixed_amount"] = round(_platform_fee_safe_float(settings.get("fixed_amount"), 0), 2)
+    settings["percent"] = round(_platform_fee_safe_float(settings.get("percent"), 0), 2)
+    settings["min_fee"] = round(_platform_fee_safe_float(settings.get("min_fee"), 0), 2)
+    settings["max_fee"] = round(_platform_fee_safe_float(settings.get("max_fee"), 0), 2)
+    settings["display_name"] = (settings.get("display_name") or "Platform Fee").strip() or "Platform Fee"
+    settings["description"] = (
+        settings.get("description")
+        or "Platform fee supports secure ordering, customer support, and platform operations."
+    ).strip()
+
+    return settings
+
+
+def calculate_platform_fee(items_total):
+    """
+    Calculates admin/platform fee from item subtotal.
+
+    Returns:
+        {
+            "platform_fee": 10.0,
+            "admin_platform_earning": 10.0,
+            "platform_fee_source": "admin_global_setting",
+            "platform_fee_settings": {...}
+        }
+
+    If disabled:
+        platform_fee = 0
+        platform_fee_source = "disabled"
+    """
+    try:
+        items_total = float(items_total or 0)
+    except Exception:
+        items_total = 0.0
+
+    if items_total < 0:
+        items_total = 0.0
+
+    settings = get_platform_fee_settings()
+
+    if not settings.get("enabled"):
+        return {
+            "platform_fee": 0.0,
+            "admin_platform_earning": 0.0,
+            "platform_fee_source": "disabled",
+            "platform_fee_settings": settings
+        }
+
+    fee_type = settings.get("fee_type") or "fixed"
+    fixed_amount = _platform_fee_safe_float(settings.get("fixed_amount"), 0)
+    percent = _platform_fee_safe_float(settings.get("percent"), 0)
+    min_fee = _platform_fee_safe_float(settings.get("min_fee"), 0)
+    max_fee = _platform_fee_safe_float(settings.get("max_fee"), 0)
+
+    platform_fee = 0.0
+
+    if fee_type == "fixed":
+        platform_fee = fixed_amount
+
+    elif fee_type == "percent":
+        platform_fee = items_total * (percent / 100)
+
+    elif fee_type == "fixed_plus_percent":
+        platform_fee = fixed_amount + (items_total * (percent / 100))
+
+    if min_fee > 0 and platform_fee < min_fee:
+        platform_fee = min_fee
+
+    if max_fee > 0 and platform_fee > max_fee:
+        platform_fee = max_fee
+
+    platform_fee = round(platform_fee, 2)
+
+    return {
+        "platform_fee": platform_fee,
+        "admin_platform_earning": platform_fee,
+        "platform_fee_source": "admin_global_setting",
+        "platform_fee_settings": settings
+    }
+
+
+def build_order_money_breakdown(items_total, delivery_fee=0, tip_amount=0, payment_method="COD"):
+    """
+    Central money breakdown for orders.
+
+    Customer pays:
+        items_total + delivery_fee + platform_fee + tip_amount
+
+    Ownership:
+        items_total => store earning
+        platform_fee => admin earning
+        delivery_fee/tip => delivery/delivery-settlement logic
+
+    For COD:
+        admin_platform_fee_status = DUE
+
+    For online payment:
+        admin_platform_fee_status = COLLECTED
+    """
+    items_total = round(_platform_fee_safe_float(items_total), 2)
+    delivery_fee = round(_platform_fee_safe_float(delivery_fee), 2)
+    tip_amount = round(_platform_fee_safe_float(tip_amount), 2)
+
+    platform_result = calculate_platform_fee(items_total)
+    platform_fee = round(_platform_fee_safe_float(platform_result.get("platform_fee")), 2)
+
+    total_payable = round(items_total + delivery_fee + platform_fee + tip_amount, 2)
+
+    payment_method_normalized = (payment_method or "COD").strip().upper()
+
+    if payment_method_normalized in ["COD", "CASH", "CASH_ON_DELIVERY"]:
+        admin_platform_fee_status = "DUE"
+    else:
+        admin_platform_fee_status = "COLLECTED"
+
+    return {
+        "items_subtotal": items_total,
+        "total_amount": items_total,
+
+        "delivery_fee": delivery_fee,
+        "delivery_fee_amount": delivery_fee,
+
+        "platform_fee": platform_fee,
+        "admin_platform_earning": platform_fee,
+        "platform_fee_source": platform_result.get("platform_fee_source"),
+        "platform_fee_settings_snapshot": platform_result.get("platform_fee_settings"),
+
+        "tip_amount": tip_amount,
+        "delivery_tip_amount": tip_amount,
+
+        "store_earning": items_total,
+        "total_payable": total_payable,
+
+        "settlement_status": "PENDING",
+        "store_settlement_status": "PENDING",
+        "admin_platform_fee_status": admin_platform_fee_status,
+        "delivery_settlement_status": "PENDING",
+    }
+
 
 def _delivery_int(value, default=0):
     try:
@@ -855,6 +1080,13 @@ def normalize_store_delivery_status(store):
         0
     )
 
+    delivery_base_fee = BASE_DELIVERY_FEE_INR
+
+    try:
+        delivery_base_fee = float(store.get("delivery_base_fee") or BASE_DELIVERY_FEE_INR)
+    except Exception:
+        delivery_base_fee = BASE_DELIVERY_FEE_INR
+
     return {
         "is_active": is_active,
         "is_online": is_online,
@@ -864,18 +1096,85 @@ def normalize_store_delivery_status(store):
         "store_lng": store_lng,
         "delivery_zone_polygon": polygon,
         "delivery_zone_configured": zone_configured,
-        "delivery_base_fee": float(store.get("delivery_base_fee") or BASE_DELIVERY_FEE_INR)
+        "delivery_base_fee": delivery_base_fee,
+
+        # Store-specific delivery fee slab settings.
+        "delivery_fee_slabs_enabled": bool(store.get("delivery_fee_slabs_enabled", False)),
+        "delivery_fee_slabs": store.get("delivery_fee_slabs") or [],
+        "free_delivery_above": float(store.get("free_delivery_above") or 0),
+        "max_delivery_distance_km": _delivery_float_or_none(store.get("max_delivery_distance_km")),
     }
 
 
-def calculate_store_delivery_fee(store, distance_km):
+def _clean_delivery_fee_slabs(raw_slabs):
     """
-    Store-specific delivery fee.
-    Currently uses:
-    store.delivery_base_fee + global distance surcharge slab.
+    Cleans store delivery fee slabs.
 
-    Later we can extend this to store.delivery_fee_slabs.
+    Expected format:
+    [
+        {"min_km": 0, "max_km": 2, "fee": 40},
+        {"min_km": 2, "max_km": 5, "fee": 60},
+        {"min_km": 5, "max_km": "", "fee": 100}
+    ]
+
+    max_km can be blank/None for open-ended final slab.
     """
+    cleaned = []
+
+    if not raw_slabs:
+        return cleaned
+
+    if isinstance(raw_slabs, str):
+        try:
+            raw_slabs = json.loads(raw_slabs)
+        except Exception:
+            return cleaned
+
+    if not isinstance(raw_slabs, list):
+        return cleaned
+
+    for row in raw_slabs:
+        if not isinstance(row, dict):
+            continue
+
+        min_km = _delivery_float_or_none(row.get("min_km"))
+        max_km = _delivery_float_or_none(row.get("max_km"))
+        fee = _delivery_float_or_none(row.get("fee"))
+
+        if min_km is None:
+            min_km = 0.0
+
+        if min_km < 0:
+            continue
+
+        if fee is None or fee < 0:
+            continue
+
+        if max_km is not None and max_km <= min_km:
+            continue
+
+        cleaned.append({
+            "min_km": round(float(min_km), 3),
+            "max_km": round(float(max_km), 3) if max_km is not None else None,
+            "fee": round(float(fee), 2)
+        })
+
+    cleaned.sort(key=lambda x: float(x.get("min_km") or 0))
+
+    return cleaned
+
+
+def calculate_store_delivery_fee_details(store, distance_km, items_total=None):
+    """
+    Calculates delivery fee with full metadata.
+
+    Priority:
+    1. Free delivery above store order value, if configured.
+    2. Store-specific delivery fee slabs if enabled.
+    3. Store base fee + global surcharge slab fallback.
+    """
+    store = store or {}
+
     base_fee = BASE_DELIVERY_FEE_INR
 
     try:
@@ -883,13 +1182,89 @@ def calculate_store_delivery_fee(store, distance_km):
     except Exception:
         base_fee = BASE_DELIVERY_FEE_INR
 
-    if distance_km is None:
-        return float(base_fee)
+    try:
+        distance_km = float(distance_km) if distance_km is not None else None
+    except Exception:
+        distance_km = None
 
     try:
-        distance_km = float(distance_km)
+        items_total = float(items_total or 0)
     except Exception:
-        return float(base_fee)
+        items_total = 0.0
+
+    if items_total < 0:
+        items_total = 0.0
+
+    free_delivery_above = _delivery_float_or_none(store.get("free_delivery_above"))
+
+    def _apply_free_delivery_if_eligible(source, slab, calculated_fee):
+        calculated_fee = round(float(calculated_fee or 0), 2)
+
+        if (
+            free_delivery_above is not None
+            and free_delivery_above > 0
+            and items_total >= free_delivery_above
+        ):
+            return {
+                "delivery_fee": 0.0,
+                "delivery_fee_source": "store_free_delivery_above",
+                "delivery_fee_slab": slab,
+                "delivery_base_fee": round(float(base_fee), 2),
+                "free_delivery_above": round(float(free_delivery_above), 2),
+                "original_delivery_fee": calculated_fee,
+                "delivery_fee_before_discount": calculated_fee,
+                "free_delivery_savings": calculated_fee,
+                "items_total_for_free_delivery": round(float(items_total), 2),
+                "original_delivery_fee_source": source
+            }
+
+        return {
+            "delivery_fee": calculated_fee,
+            "delivery_fee_source": source,
+            "delivery_fee_slab": slab,
+            "delivery_base_fee": round(float(base_fee), 2),
+            "free_delivery_above": round(float(free_delivery_above or 0), 2),
+            "original_delivery_fee": calculated_fee,
+            "delivery_fee_before_discount": calculated_fee,
+            "free_delivery_savings": 0.0,
+            "items_total_for_free_delivery": round(float(items_total), 2),
+            "original_delivery_fee_source": source
+        }
+
+    if distance_km is None:
+        return _apply_free_delivery_if_eligible(
+            "store_base_fee_no_distance",
+            None,
+            round(float(base_fee), 2)
+        )
+
+    slabs_enabled = bool(store.get("delivery_fee_slabs_enabled", False))
+    slabs = _clean_delivery_fee_slabs(store.get("delivery_fee_slabs") or [])
+
+    if slabs_enabled and slabs:
+        for slab in slabs:
+            min_km = float(slab.get("min_km") or 0)
+            max_km = slab.get("max_km")
+
+            if max_km is None:
+                if distance_km >= min_km:
+                    matched_fee = round(float(slab.get("fee") or 0), 2)
+                    return _apply_free_delivery_if_eligible(
+                        "store_custom_slab",
+                        slab,
+                        matched_fee
+                    )
+
+            else:
+                max_km = float(max_km)
+
+                if distance_km >= min_km and distance_km < max_km:
+                    matched_fee = round(float(slab.get("fee") or 0), 2)
+                    return _apply_free_delivery_if_eligible(
+                        "store_custom_slab",
+                        slab,
+                        matched_fee
+                    )
 
     surcharge = 0
 
@@ -898,10 +1273,35 @@ def calculate_store_delivery_fee(store, distance_km):
             surcharge = fee
             break
 
-    return float(base_fee + surcharge)
+    fallback_slab = {
+        "base_fee": round(float(base_fee), 2),
+        "surcharge": round(float(surcharge), 2),
+        "distance_km": round(float(distance_km), 3)
+    }
+
+    final_fee = round(float(base_fee + surcharge), 2)
+
+    return _apply_free_delivery_if_eligible(
+        "global_surcharge_fallback",
+        fallback_slab,
+        final_fee
+    )
+
+def calculate_store_delivery_fee(store, distance_km):
+    """
+    Backward-compatible delivery fee helper.
+
+    Existing code expects this function to return only a number.
+    So this wrapper returns only delivery_fee.
+
+    For full metadata, use calculate_store_delivery_fee_details().
+    """
+    details = calculate_store_delivery_fee_details(store, distance_km)
+
+    return float(details.get("delivery_fee") or 0)
 
 
-def check_store_serviceability(store, customer_lat, customer_lng, customer_pincode=None):
+def check_store_serviceability(store, customer_lat, customer_lng, customer_pincode=None, items_total=None):
     """
     Single source of truth for checkout delivery permission.
 
@@ -1010,15 +1410,26 @@ def check_store_serviceability(store, customer_lat, customer_lng, customer_pinco
             "delivery_fee": 0
         }
 
-    delivery_fee = calculate_store_delivery_fee(store, distance_km)
+    delivery_fee_details = calculate_store_delivery_fee_details(
+        store,
+        distance_km,
+        items_total=items_total
+    )
+    delivery_fee = float(delivery_fee_details.get("delivery_fee") or 0)
 
     return {
         "ok": True,
         "serviceable": True,
         "reason": "SERVICEABLE",
-        "message": "Delivery available.",
-        "distance_km": round(distance_km, 2) if distance_km is not None else None,
-        "delivery_fee": round(float(delivery_fee), 2)
+        "message": "Delivery is available.",
+        "distance_km": round(float(distance_km or 0), 2),
+        "delivery_fee": round(float(delivery_fee), 2),
+
+        # Delivery fee metadata for checkout/order snapshot.
+        "delivery_fee_source": delivery_fee_details.get("delivery_fee_source") or "unknown",
+        "delivery_fee_slab": delivery_fee_details.get("delivery_fee_slab"),
+        "delivery_base_fee": float(delivery_fee_details.get("delivery_base_fee") or 0),
+        "delivery_fee_details": delivery_fee_details
     }
 
 

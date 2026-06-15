@@ -997,7 +997,18 @@
             <tr class="order-row">
               <td class="order-id">#{{ o.id }}</td>
               <td class="store-name">{{ o.store_name }}</td>
-              <td class="order-total">₹{{ '%.2f'|format(o.total_amount) }}</td>
+              <td class="order-total">
+  ₹{{ '%.2f'|format(o.total_payable if o.total_payable is defined and o.total_payable is not none else (o.total_amount + o.delivery_fee + o.platform_fee + o.tip_amount)) }}
+
+  <div class="muted" style="margin-top:4px;font-size:.74rem;font-weight:800;line-height:1.35;">
+    Items ₹{{ '%.2f'|format(o.total_amount or 0) }}
+    + Delivery ₹{{ '%.2f'|format(o.delivery_fee or 0) }}
+    + Platform ₹{{ '%.2f'|format(o.platform_fee or 0) }}
+    {% if o.tip_amount and o.tip_amount > 0 %}
+      + Tip ₹{{ '%.2f'|format(o.tip_amount or 0) }}
+    {% endif %}
+  </div>
+</td>
 
                           <td class="order-status">
   {% set order_status_upper = (o.status or '')|upper %}
@@ -1148,10 +1159,24 @@
           </div>
 
           <div class="card-body">
-            <div class="row">
-              <span class="label">Total</span>
-              <span class="value strong">₹{{ '%.2f'|format(o.total_amount) }}</span>
-            </div>
+          <div class="row">
+  <span class="label">Total Payable</span>
+  <span class="value strong">
+    ₹{{ '%.2f'|format(o.total_payable if o.total_payable is defined and o.total_payable is not none else (o.total_amount + o.delivery_fee + o.platform_fee + o.tip_amount)) }}
+  </span>
+</div>
+
+<div class="row">
+  <span class="label">Breakdown</span>
+  <span class="value">
+    Items ₹{{ '%.2f'|format(o.total_amount or 0) }}
+    + Delivery ₹{{ '%.2f'|format(o.delivery_fee or 0) }}
+    + Platform ₹{{ '%.2f'|format(o.platform_fee or 0) }}
+    {% if o.tip_amount and o.tip_amount > 0 %}
+      + Tip ₹{{ '%.2f'|format(o.tip_amount or 0) }}
+    {% endif %}
+  </span>
+</div>
 
             <div class="row">
               <span class="label">Payment</span>

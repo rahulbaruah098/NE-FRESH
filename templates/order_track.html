@@ -1633,31 +1633,47 @@
             <h3>Order Summary</h3>
           </div>
           <div class="card-body">
-            <div class="sum-row">
-              <span>Items Subtotal</span>
-              <span>₹{{ '%.2f'|format(order.total_amount or 0) }}</span>
-            </div>
-            <div class="sum-row">
-              <span>Delivery Fee</span>
-              <span>₹{{ '%.2f'|format(order.delivery_fee or 0) }}</span>
-            </div>
-            {% if order.tip_amount and order.tip_amount > 0 %}
-            <div class="sum-row">
-              <span>Tip</span>
-              <span>₹{{ '%.2f'|format(order.tip_amount) }}</span>
-            </div>
-            {% endif %}
-            {% if order.distance_km %}
-            <div class="sum-row muted">
-              <span>Distance</span>
-              <span>{{ '%.2f'|format(order.distance_km) }} km</span>
-            </div>
-            {% endif %}
-            <div class="sum-divider"></div>
-            <div class="sum-row total">
-              <span>Grand Total Payable</span>
-              <span>₹{{ '%.2f'|format((order.total_amount or 0) + (order.delivery_fee or 0) + (order.tip_amount or 0)) }}</span>
-            </div>
+            {% set items_subtotal = order.items_subtotal if order.items_subtotal is defined and order.items_subtotal is not none else order.total_amount %}
+{% set delivery_fee = order.delivery_fee or 0 %}
+{% set platform_fee = order.platform_fee or 0 %}
+{% set tip_amount = order.tip_amount or 0 %}
+{% set final_total = order.total_payable if order.total_payable is defined and order.total_payable is not none else ((items_subtotal or 0) + delivery_fee + platform_fee + tip_amount) %}
+
+<div class="sum-row">
+  <span>Items Subtotal</span>
+  <span>₹{{ '%.2f'|format(items_subtotal or 0) }}</span>
+</div>
+
+<div class="sum-row">
+  <span>Delivery Fee</span>
+  <span>₹{{ '%.2f'|format(delivery_fee) }}</span>
+</div>
+
+<div class="sum-row">
+  <span>Platform Fee</span>
+  <span>₹{{ '%.2f'|format(platform_fee) }}</span>
+</div>
+
+{% if tip_amount and tip_amount > 0 %}
+<div class="sum-row">
+  <span>Tip</span>
+  <span>₹{{ '%.2f'|format(tip_amount) }}</span>
+</div>
+{% endif %}
+
+{% if order.distance_km %}
+<div class="sum-row muted">
+  <span>Distance</span>
+  <span>{{ '%.2f'|format(order.distance_km) }} km</span>
+</div>
+{% endif %}
+
+<div class="sum-divider"></div>
+
+<div class="sum-row total">
+  <span>Grand Total Payable</span>
+  <span>₹{{ '%.2f'|format(final_total or 0) }}</span>
+</div>
           </div>
         </div>
       </section>

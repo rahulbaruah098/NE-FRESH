@@ -79,6 +79,167 @@ def _admin_parse_delivery_zone_polygon(raw):
         return []
 
 
+# =========================================================
+# ADMIN - PLATFORM FEE SETTINGS
+# =========================================================
+
+@app.route("/admin/platform-fee-settings", methods=["GET", "POST"], endpoint="admin_platform_fee_settings")
+@login_required(role="admin")
+def admin_platform_fee_settings():
+    """
+    Admin controls platform fee charged on every order.
+
+    Platform fee belongs to website/admin owner.
+
+    Supported fee types:
+    - fixed
+    - percent
+    - fixed_plus_percent
+    """
+
+    if request.method == "POST":
+        enabled = _admin_bool_from_form("enabled", False)
+
+        fee_type = (request.form.get("fee_type") or "fixed").strip().lower()
+
+        if fee_type not in ["fixed", "percent", "fixed_plus_percent"]:
+            fee_type = "fixed"
+
+        fixed_amount = _admin_money_or_default(
+            request.form.get("fixed_amount"),
+            0
+        )
+
+        percent = _admin_float_or_none(
+            request.form.get("percent"),
+            0,
+            100
+        )
+
+        if percent is None:
+            percent = 0.0
+
+        min_fee = _admin_money_or_default(
+            request.form.get("min_fee"),
+            0
+        )
+
+        max_fee = _admin_money_or_default(
+            request.form.get("max_fee"),
+            0
+        )
+
+        display_name = (request.form.get("display_name") or "Platform Fee").strip()
+
+        if not display_name:
+            display_name = "Platform Fee"
+
+        description = (
+            request.form.get("description")
+            or "Platform fee supports secure ordering, customer support, and platform operations."
+        ).strip()
+
+        if max_fee > 0 and min_fee > max_fee:
+            flash("Maximum platform fee must be greater than minimum platform fee.", "warning")
+            return redirect(url_for("admin_platform_fee_settings"))
+
+        if enabled:
+            if fee_type == "fixed" and fixed_amount <= 0:
+                flash("Please enter a fixed platform fee greater than 0, or disable platform fee.", "warning")
+                return redirect(url_for("admin_platform_fee_settings"))
+
+            if fee_type == "percent" and percent <= 0:
+                flash("Please enter a platform fee percentage greater than 0, or disable platform fee.", "warning")
+                return redirect(url_for("admin_platform_fee_settings"))
+
+            if fee_type == "fixed_plus_percent" and fixed_amount <= 0 and percent <= 0:
+                flash("Please enter fixed amount or percentage for platform fee.", "warning")
+                return redirect(url_for("admin_platform_fee_settings"))
+
+        now = datetime.utcnow().isoformat()
+        admin_user = current_user() or {}
+
+        settings_doc = {
+            "key": PLATFORM_FEE_SETTINGS_KEY,
+            "enabled": bool(enabled),
+            "fee_type": fee_type,
+            "fixed_amount": round(float(fixed_amount or 0), 2),
+            "percent": round(float(percent or 0), 2),
+            "min_fee": round(float(min_fee or 0), 2),
+            "max_fee": round(float(max_fee or 0), 2),
+            "display_name": display_name,
+            "description": description,
+            "updated_at": now,
+            "updated_by": str(admin_user.get("_id") or admin_user.get("id") or "")
+        }
+
+        old_settings = mongo.platform_settings.find_one({
+            "key": PLATFORM_FEE_SETTINGS_KEY
+        }) or {}
+
+        mongo.platform_settings.update_one(
+            {
+                "key": PLATFORM_FEE_SETTINGS_KEY
+            },
+            {
+                "$set": settings_doc,
+                "$setOnInsert": {
+                    "created_at": now
+                }
+            },
+            upsert=True
+        )
+
+        # Audit log for future reference.
+        mongo.admin_audit_logs.insert_one({
+            "action": "PLATFORM_FEE_SETTINGS_UPDATED",
+            "module": "platform_fee",
+            "old_value": {
+                "enabled": old_settings.get("enabled"),
+                "fee_type": old_settings.get("fee_type"),
+                "fixed_amount": old_settings.get("fixed_amount"),
+                "percent": old_settings.get("percent"),
+                "min_fee": old_settings.get("min_fee"),
+                "max_fee": old_settings.get("max_fee"),
+            },
+            "new_value": {
+                "enabled": settings_doc.get("enabled"),
+                "fee_type": settings_doc.get("fee_type"),
+                "fixed_amount": settings_doc.get("fixed_amount"),
+                "percent": settings_doc.get("percent"),
+                "min_fee": settings_doc.get("min_fee"),
+                "max_fee": settings_doc.get("max_fee"),
+            },
+            "created_at": now,
+            "created_by": str(admin_user.get("_id") or admin_user.get("id") or ""),
+            "created_by_name": admin_user.get("name") or admin_user.get("email") or "Admin"
+        })
+
+        flash("Platform fee settings updated successfully.", "success")
+        return redirect(url_for("admin_platform_fee_settings"))
+
+    settings = get_platform_fee_settings()
+
+    preview_rows = []
+
+    for amount in [100, 500, 1000]:
+        result = calculate_platform_fee(amount)
+
+        preview_rows.append({
+            "items_total": amount,
+            "platform_fee": result.get("platform_fee", 0),
+            "total_with_platform_fee": amount + float(result.get("platform_fee", 0) or 0)
+        })
+
+    return render_template(
+        "admin_platform_fee_settings.html",
+        user=current_user(),
+        settings=settings,
+        preview_rows=preview_rows,
+        active_group="system",
+        active_page="platform_fee_settings"
+    )
+
 @app.route("/admin/dashboard")
 @login_required(role="admin")
 def admin_dashboard():

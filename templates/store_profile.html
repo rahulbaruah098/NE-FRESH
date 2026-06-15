@@ -271,6 +271,229 @@
       transform:none;
     }
 
+    /* ===== Store Delivery Fee Slabs ===== */
+
+.sp-delivery-fee-panel{
+  grid-column:1/-1;
+  border:1px solid var(--line2);
+  border-radius:24px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(0,168,89,.10), transparent 32%),
+    linear-gradient(135deg,#fff,#F8FFFB);
+  overflow:hidden;
+}
+
+.sp-delivery-fee-head{
+  padding:18px;
+  border-bottom:1px solid var(--line2);
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  flex-wrap:wrap;
+}
+
+.sp-delivery-fee-title{
+  margin:0;
+  color:var(--ink);
+  font-size:17px;
+  font-weight:900;
+  letter-spacing:-.03em;
+}
+
+.sp-delivery-fee-sub{
+  margin:5px 0 0;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:700;
+  line-height:1.45;
+}
+
+.sp-fee-toggle-card{
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:#fff;
+  padding:15px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+}
+
+.sp-fee-toggle-card strong{
+  display:block;
+  color:var(--ink);
+  font-size:14px;
+  font-weight:900;
+  margin-bottom:5px;
+}
+
+.sp-fee-toggle-card span{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+  line-height:1.45;
+}
+
+.sp-delivery-fee-body{
+  padding:18px;
+  display:grid;
+  gap:16px;
+}
+
+.sp-delivery-fee-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+
+.sp-slab-table-wrap{
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:#fff;
+  overflow:hidden;
+}
+
+.sp-slab-table-head{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr 48px;
+  gap:10px;
+  padding:12px 14px;
+  background:#F8FFFB;
+  border-bottom:1px solid var(--line2);
+  color:var(--green-dark);
+  font-size:11px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+
+.sp-slab-rows{
+  display:grid;
+}
+
+.sp-slab-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr 48px;
+  gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid var(--line2);
+  align-items:center;
+}
+
+.sp-slab-row:last-child{
+  border-bottom:0;
+}
+
+.sp-slab-input{
+  width:100%;
+  min-height:42px;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:#fff;
+  color:var(--ink);
+  outline:none;
+  padding:0 12px;
+  font-size:13px;
+  font-weight:850;
+}
+
+.sp-slab-input:focus{
+  border-color:rgba(0,168,89,.42);
+  box-shadow:0 0 0 4px rgba(0,168,89,.08);
+}
+
+.sp-slab-remove{
+  width:42px;
+  height:42px;
+  border:1px solid #FECACA;
+  border-radius:13px;
+  background:#FFF1F1;
+  color:#B91C1C;
+  cursor:pointer;
+  font-size:18px;
+  font-weight:950;
+}
+
+.sp-slab-remove:hover{
+  background:#B91C1C;
+  color:#fff;
+}
+
+.sp-slab-actions{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.sp-slab-add-btn{
+  min-height:42px;
+  border-radius:14px;
+  border:1px solid var(--green);
+  background:var(--green);
+  color:#fff;
+  padding:9px 14px;
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+  box-shadow:0 12px 24px rgba(0,168,89,.16);
+}
+
+.sp-slab-add-btn:hover{
+  background:var(--green-dark);
+  border-color:var(--green-dark);
+}
+
+.sp-slab-preview{
+  border:1px solid rgba(0,168,89,.16);
+  border-radius:18px;
+  background:#E9FFF3;
+  color:var(--green-dark);
+  padding:12px 14px;
+  font-size:12px;
+  font-weight:850;
+  line-height:1.55;
+}
+
+@media(max-width:760px){
+  .sp-delivery-fee-grid{
+    grid-template-columns:1fr;
+  }
+
+  .sp-slab-table-head{
+    display:none;
+  }
+
+  .sp-slab-row{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+
+  .sp-slab-row::before{
+    content:"Delivery slab";
+    color:var(--green-dark);
+    font-size:11px;
+    font-weight:950;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+
+  .sp-slab-remove{
+    width:100%;
+  }
+
+  .sp-slab-actions{
+    display:grid;
+  }
+
+  .sp-slab-add-btn{
+    width:100%;
+  }
+}
+
     /* ===== Store Delivery Settings / Map ===== */
 
 .sp-delivery-box{
@@ -642,6 +865,151 @@
   <div class="sp-current">Current: <strong>₹ {{ store.delivery_base_fee|default(40) }}</strong></div>
 </div>
 
+{% set fee_slabs_enabled = store.delivery_fee_slabs_enabled|default(false) %}
+{% set fee_slabs = store.delivery_fee_slabs if store.delivery_fee_slabs else [] %}
+
+<div class="sp-delivery-fee-panel">
+  <div class="sp-delivery-fee-head">
+    <div>
+      <h3 class="sp-delivery-fee-title">Delivery Fee Slabs</h3>
+      <p class="sp-delivery-fee-sub">
+        Set delivery charges based on customer distance from your store. Leave Max KM blank for the final open-ended slab.
+      </p>
+    </div>
+  </div>
+
+  <div class="sp-delivery-fee-body">
+    <label class="sp-fee-toggle-card">
+      <div>
+        <strong>Enable Custom Distance-Based Fees</strong>
+        <span>
+          If enabled, checkout will use these slabs instead of only base delivery fee + global fallback.
+        </span>
+      </div>
+
+      <span class="sp-toggle">
+        <input
+          type="checkbox"
+          id="deliveryFeeSlabsEnabled"
+          name="delivery_fee_slabs_enabled"
+          value="1"
+          {{ 'checked' if fee_slabs_enabled else '' }}
+        >
+        <span class="sp-toggle-slider"></span>
+      </span>
+    </label>
+
+    <input type="hidden" name="delivery_fee_slabs_enabled" value="0">
+
+    <div class="sp-delivery-fee-grid">
+      <div class="sp-field">
+        <label>Free Delivery Above</label>
+        <input
+          class="sp-input"
+          type="number"
+          min="0"
+          step="0.01"
+          name="free_delivery_above"
+          value="{{ store.free_delivery_above|default(0) }}"
+          placeholder="Example: 999"
+        >
+        <div class="sp-help">Optional. Keep 0 if you do not want free delivery by order value.</div>
+      </div>
+
+      <div class="sp-field">
+        <label>Max Delivery Distance KM</label>
+        <input
+          class="sp-input"
+          type="number"
+          min="0"
+          step="0.1"
+          name="max_delivery_distance_km"
+          value="{{ store.max_delivery_distance_km if store.max_delivery_distance_km is not none else '' }}"
+          placeholder="Example: 10"
+        >
+        <div class="sp-help">Optional. Leave blank if your drawn delivery zone should decide serviceability.</div>
+      </div>
+    </div>
+
+    <div class="sp-slab-table-wrap">
+      <div class="sp-slab-table-head">
+        <div>Min KM</div>
+        <div>Max KM</div>
+        <div>Fee ₹</div>
+        <div></div>
+      </div>
+
+      <div class="sp-slab-rows" id="deliveryFeeSlabRows">
+        {% if fee_slabs %}
+          {% for slab in fee_slabs %}
+            <div class="sp-slab-row">
+              <input
+                class="sp-slab-input"
+                type="number"
+                min="0"
+                step="0.1"
+                name="slab_min_km[]"
+                value="{{ slab.min_km }}"
+                placeholder="0"
+              >
+              <input
+                class="sp-slab-input"
+                type="number"
+                min="0"
+                step="0.1"
+                name="slab_max_km[]"
+                value="{{ slab.max_km if slab.max_km is not none else '' }}"
+                placeholder="Blank for no limit"
+              >
+              <input
+                class="sp-slab-input"
+                type="number"
+                min="0"
+                step="0.01"
+                name="slab_fee[]"
+                value="{{ slab.fee }}"
+                placeholder="40"
+              >
+              <button type="button" class="sp-slab-remove" data-remove-slab title="Remove slab">×</button>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="sp-slab-row">
+            <input class="sp-slab-input" type="number" min="0" step="0.1" name="slab_min_km[]" value="0" placeholder="0">
+            <input class="sp-slab-input" type="number" min="0" step="0.1" name="slab_max_km[]" value="2" placeholder="Blank for no limit">
+            <input class="sp-slab-input" type="number" min="0" step="0.01" name="slab_fee[]" value="{{ store.delivery_base_fee|default(40) }}" placeholder="40">
+            <button type="button" class="sp-slab-remove" data-remove-slab title="Remove slab">×</button>
+          </div>
+
+          <div class="sp-slab-row">
+            <input class="sp-slab-input" type="number" min="0" step="0.1" name="slab_min_km[]" value="2" placeholder="2">
+            <input class="sp-slab-input" type="number" min="0" step="0.1" name="slab_max_km[]" value="5" placeholder="Blank for no limit">
+            <input class="sp-slab-input" type="number" min="0" step="0.01" name="slab_fee[]" value="60" placeholder="60">
+            <button type="button" class="sp-slab-remove" data-remove-slab title="Remove slab">×</button>
+          </div>
+
+          <div class="sp-slab-row">
+            <input class="sp-slab-input" type="number" min="0" step="0.1" name="slab_min_km[]" value="5" placeholder="5">
+            <input class="sp-slab-input" type="number" min="0" step="0.1" name="slab_max_km[]" value="" placeholder="Blank for no limit">
+            <input class="sp-slab-input" type="number" min="0" step="0.01" name="slab_fee[]" value="100" placeholder="100">
+            <button type="button" class="sp-slab-remove" data-remove-slab title="Remove slab">×</button>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="sp-slab-actions">
+      <button type="button" class="sp-slab-add-btn" id="addDeliveryFeeSlab">
+        + Add Slab
+      </button>
+
+      <div class="sp-slab-preview" id="deliveryFeeSlabPreview">
+        Example: 0–2 km ₹40, 2–5 km ₹60, 5+ km ₹100
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="sp-field">
   <label>Latitude</label>
   <input class="sp-input" id="storeLatitude" name="latitude" value="{{ store.latitude if store.latitude is not none else '' }}">
@@ -799,6 +1167,10 @@ const btnCenterStore = document.getElementById('btnCenterStore');
 const btnUndoZonePoint = document.getElementById('btnUndoZonePoint');
 const btnFinishZone = document.getElementById('btnFinishZone');
 const btnClearZone = document.getElementById('btnClearZone');
+const deliveryFeeSlabsEnabled = document.getElementById('deliveryFeeSlabsEnabled');
+const deliveryFeeSlabRows = document.getElementById('deliveryFeeSlabRows');
+const addDeliveryFeeSlab = document.getElementById('addDeliveryFeeSlab');
+const deliveryFeeSlabPreview = document.getElementById('deliveryFeeSlabPreview');
 
 let map = null;
 let storeMarker = null;
@@ -854,6 +1226,184 @@ function loadInitialZone(){
   }catch(e){
     return [];
   }
+}
+
+function getSlabRows(){
+  if (!deliveryFeeSlabRows) return [];
+  return Array.from(deliveryFeeSlabRows.querySelectorAll('.sp-slab-row'));
+}
+
+function buildSlabRow(minKm, maxKm, fee){
+  const row = document.createElement('div');
+  row.className = 'sp-slab-row';
+
+  row.innerHTML = `
+    <input class="sp-slab-input" type="number" min="0" step="0.1" name="slab_min_km[]" value="${minKm ?? ''}" placeholder="0">
+    <input class="sp-slab-input" type="number" min="0" step="0.1" name="slab_max_km[]" value="${maxKm ?? ''}" placeholder="Blank for no limit">
+    <input class="sp-slab-input" type="number" min="0" step="0.01" name="slab_fee[]" value="${fee ?? ''}" placeholder="40">
+    <button type="button" class="sp-slab-remove" data-remove-slab title="Remove slab">×</button>
+  `;
+
+  return row;
+}
+
+function updateDeliveryFeeSlabPreview(){
+  if (!deliveryFeeSlabPreview) return;
+
+  const rows = getSlabRows();
+  const parts = [];
+
+  rows.forEach(function(row){
+    const minInput = row.querySelector('input[name="slab_min_km[]"]');
+    const maxInput = row.querySelector('input[name="slab_max_km[]"]');
+    const feeInput = row.querySelector('input[name="slab_fee[]"]');
+
+    const minValue = minInput ? String(minInput.value || '').trim() : '';
+    const maxValue = maxInput ? String(maxInput.value || '').trim() : '';
+    const feeValue = feeInput ? String(feeInput.value || '').trim() : '';
+
+    if (!feeValue) return;
+
+    const label = maxValue
+      ? `${minValue || 0}–${maxValue} km ₹${feeValue}`
+      : `${minValue || 0}+ km ₹${feeValue}`;
+
+    parts.push(label);
+  });
+
+  deliveryFeeSlabPreview.textContent = parts.length
+    ? parts.join(', ')
+    : 'No valid delivery fee slab added yet.';
+}
+
+function bindDeliveryFeeSlabEvents(){
+  if (!deliveryFeeSlabRows) return;
+
+  deliveryFeeSlabRows.querySelectorAll('[data-remove-slab]').forEach(function(button){
+    if (button.dataset.bound === '1') return;
+
+    button.dataset.bound = '1';
+
+    button.addEventListener('click', function(){
+      const rows = getSlabRows();
+
+      if (rows.length <= 1) {
+        const row = button.closest('.sp-slab-row');
+
+        if (row) {
+          row.querySelectorAll('input').forEach(function(input){
+            input.value = '';
+          });
+        }
+
+        updateDeliveryFeeSlabPreview();
+        setLocationMessage('At least one slab row must remain. Clear values or disable custom slabs.', true);
+        return;
+      }
+
+      const row = button.closest('.sp-slab-row');
+
+      if (row) {
+        row.remove();
+      }
+
+      updateDeliveryFeeSlabPreview();
+      setLocationMessage('Delivery fee slab removed.', false);
+    });
+  });
+
+  deliveryFeeSlabRows.querySelectorAll('.sp-slab-input').forEach(function(input){
+    if (input.dataset.bound === '1') return;
+
+    input.dataset.bound = '1';
+
+    input.addEventListener('input', updateDeliveryFeeSlabPreview);
+    input.addEventListener('change', updateDeliveryFeeSlabPreview);
+  });
+}
+
+function addNewDeliveryFeeSlabRow(){
+  if (!deliveryFeeSlabRows) return;
+
+  const rows = getSlabRows();
+  let nextMin = '';
+
+  if (rows.length) {
+    const lastRow = rows[rows.length - 1];
+    const lastMax = lastRow.querySelector('input[name="slab_max_km[]"]');
+
+    if (lastMax && String(lastMax.value || '').trim() !== '') {
+      nextMin = lastMax.value;
+    }
+  }
+
+  const row = buildSlabRow(nextMin, '', '');
+  deliveryFeeSlabRows.appendChild(row);
+
+  bindDeliveryFeeSlabEvents();
+  updateDeliveryFeeSlabPreview();
+
+  const firstInput = row.querySelector('input');
+
+  if (firstInput) {
+    firstInput.focus();
+  }
+}
+
+function validateDeliveryFeeSlabsBeforeSubmit(){
+  if (!deliveryFeeSlabsEnabled || !deliveryFeeSlabsEnabled.checked) {
+    return true;
+  }
+
+  const rows = getSlabRows();
+  let validCount = 0;
+
+  for (const row of rows) {
+    const minInput = row.querySelector('input[name="slab_min_km[]"]');
+    const maxInput = row.querySelector('input[name="slab_max_km[]"]');
+    const feeInput = row.querySelector('input[name="slab_fee[]"]');
+
+    const minValue = minInput ? Number(minInput.value || 0) : 0;
+    const maxRaw = maxInput ? String(maxInput.value || '').trim() : '';
+    const maxValue = maxRaw === '' ? null : Number(maxRaw);
+    const feeValue = feeInput ? Number(feeInput.value || 0) : 0;
+
+    const rowHasAnyValue =
+      (minInput && String(minInput.value || '').trim() !== '') ||
+      (maxInput && String(maxInput.value || '').trim() !== '') ||
+      (feeInput && String(feeInput.value || '').trim() !== '');
+
+    if (!rowHasAnyValue) {
+      continue;
+    }
+
+    if (!Number.isFinite(minValue) || minValue < 0) {
+      setLocationMessage('Delivery slab Min KM must be valid.', true);
+      if (minInput) minInput.focus();
+      return false;
+    }
+
+    if (maxValue !== null && (!Number.isFinite(maxValue) || maxValue <= minValue)) {
+      setLocationMessage('Delivery slab Max KM must be greater than Min KM, or leave it blank for final slab.', true);
+      if (maxInput) maxInput.focus();
+      return false;
+    }
+
+    if (!Number.isFinite(feeValue) || feeValue < 0) {
+      setLocationMessage('Delivery slab fee must be valid.', true);
+      if (feeInput) feeInput.focus();
+      return false;
+    }
+
+    validCount += 1;
+  }
+
+  if (validCount < 1) {
+    setLocationMessage('Please add at least one valid delivery fee slab or disable custom slabs.', true);
+    return false;
+  }
+
+  return true;
 }
 
 function updateZoneState(){
@@ -1111,6 +1661,23 @@ async function reverseStoreLocation(lat, lng){
           });
         });
 
+        bindDeliveryFeeSlabEvents();
+updateDeliveryFeeSlabPreview();
+
+if (addDeliveryFeeSlab) {
+  addDeliveryFeeSlab.addEventListener('click', addNewDeliveryFeeSlabRow);
+}
+
+if (deliveryFeeSlabsEnabled) {
+  deliveryFeeSlabsEnabled.addEventListener('change', function(){
+    if (deliveryFeeSlabsEnabled.checked) {
+      setLocationMessage('Custom delivery fee slabs enabled. Please check slab values before saving.', false);
+    } else {
+      setLocationMessage('Custom delivery fee slabs disabled. Checkout will use fallback delivery fee logic.', false);
+    }
+  });
+}
+
         if (btnCenterStore) {
           btnCenterStore.addEventListener('click', centerMapFromInputs);
         }
@@ -1268,6 +1835,8 @@ if (deliveryEnabled && zonePoints.length < 3) {
   setLocationMessage('Delivery enabled requires at least 3 delivery zone points.', true);
   return;
 }
+
+  setLocationMessage('Delivery enabled requires at least 3 delivery zone points.', true);
 
 if (zoneInput) {
   zoneInput.value = JSON.stringify(zonePoints);

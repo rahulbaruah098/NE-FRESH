@@ -1,0 +1,640 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "system" %}
+{% set active_page = "platform_fee_settings" %}
+
+{% block title %}Platform Fee Settings | NE FRESH Admin{% endblock %}
+
+{% block page_title %}Platform Fee Settings{% endblock %}
+{% block page_subtitle %}Configure admin platform fee charged on customer orders and preview its impact.{% endblock %}
+
+{% block content %}
+
+<section class="nf-platform-fee-page">
+  <style>
+    .nf-platform-fee-page{
+      --pf-green:var(--nf-green,#00A859);
+      --pf-green-dark:var(--nf-green-dark,#008A48);
+      --pf-green-soft:var(--nf-green-soft,#E9FFF3);
+      --pf-orange:var(--nf-orange,#FFB84D);
+      --pf-orange-soft:var(--nf-orange-soft,#FFF7E8);
+      --pf-red:var(--nf-red,#EF4444);
+      --pf-blue:var(--nf-blue,#0284C7);
+      --pf-card:var(--nf-surface,#FFFFFF);
+      --pf-card-2:var(--nf-surface-2,#F2FBF6);
+      --pf-text:var(--nf-text,#1F332A);
+      --pf-muted:var(--nf-muted,#66756D);
+      --pf-muted-2:var(--nf-muted-2,#8A9890);
+      --pf-line:var(--nf-line,#DDECE4);
+      --pf-shadow:var(--nf-shadow,0 14px 36px rgba(17,64,38,.08));
+      --pf-shadow-soft:var(--nf-shadow-soft,0 10px 26px rgba(17,64,38,.06));
+
+      display:grid;
+      gap:20px;
+      animation:pfFadeIn .35s ease both;
+    }
+
+    .nf-platform-fee-page,
+    .nf-platform-fee-page *{
+      box-sizing:border-box;
+    }
+
+    @keyframes pfFadeIn{
+      from{opacity:0;transform:translateY(8px);}
+      to{opacity:1;transform:none;}
+    }
+
+    .pf-hero{
+      position:relative;
+      overflow:hidden;
+      border:1px solid var(--pf-line);
+      border-radius:26px;
+      background:
+        radial-gradient(circle at 88% 18%,rgba(255,184,77,.18),transparent 32%),
+        radial-gradient(circle at 8% 0%,rgba(0,168,89,.18),transparent 34%),
+        linear-gradient(135deg,var(--pf-card),var(--pf-card-2));
+      box-shadow:var(--pf-shadow);
+      padding:clamp(18px,3vw,30px);
+    }
+
+    .pf-hero-inner{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:18px;
+      align-items:center;
+    }
+
+    .pf-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      width:fit-content;
+      min-height:32px;
+      padding:0 12px;
+      border-radius:999px;
+      background:var(--pf-green-soft);
+      color:var(--pf-green-dark);
+      border:1px solid rgba(0,168,89,.18);
+      font-size:.78rem;
+      font-weight:900;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+
+    .pf-title{
+      margin:12px 0 0;
+      color:var(--pf-text);
+      font-size:clamp(1.45rem,2.4vw,2.25rem);
+      line-height:1.08;
+      font-weight:950;
+      letter-spacing:-.04em;
+    }
+
+    .pf-subtitle{
+      max-width:780px;
+      margin:9px 0 0;
+      color:var(--pf-muted);
+      font-size:.95rem;
+      line-height:1.6;
+      font-weight:700;
+    }
+
+    .pf-hero-icon{
+      width:76px;
+      height:76px;
+      display:grid;
+      place-items:center;
+      border-radius:24px;
+      background:#fff;
+      color:var(--pf-green-dark);
+      border:1px solid var(--pf-line);
+      box-shadow:var(--pf-shadow-soft);
+      font-size:2.15rem;
+    }
+
+    .pf-grid{
+      display:grid;
+      grid-template-columns:minmax(0,1.1fr) minmax(330px,.9fr);
+      gap:20px;
+      align-items:start;
+    }
+
+    .pf-card{
+      border:1px solid var(--pf-line);
+      border-radius:22px;
+      background:var(--pf-card);
+      box-shadow:var(--pf-shadow-soft);
+      overflow:hidden;
+    }
+
+    .pf-card-head{
+      padding:18px 20px;
+      border-bottom:1px solid var(--pf-line);
+      background:linear-gradient(180deg,#fff,var(--pf-card-2));
+    }
+
+    .pf-card-title{
+      margin:0;
+      color:var(--pf-text);
+      font-size:1.02rem;
+      line-height:1.2;
+      font-weight:950;
+      letter-spacing:-.02em;
+    }
+
+    .pf-card-sub{
+      margin:6px 0 0;
+      color:var(--pf-muted);
+      font-size:.84rem;
+      line-height:1.45;
+      font-weight:700;
+    }
+
+    .pf-card-body{
+      padding:20px;
+    }
+
+    .pf-form{
+      display:grid;
+      gap:16px;
+    }
+
+    .pf-switch-card{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:15px;
+      border:1px solid var(--pf-line);
+      border-radius:18px;
+      background:var(--pf-green-soft);
+    }
+
+    .pf-switch-copy strong{
+      display:block;
+      color:var(--pf-green-dark);
+      font-size:.94rem;
+      font-weight:950;
+    }
+
+    .pf-switch-copy span{
+      display:block;
+      margin-top:4px;
+      color:var(--pf-muted);
+      font-size:.8rem;
+      line-height:1.4;
+      font-weight:700;
+    }
+
+    .pf-switch{
+      position:relative;
+      width:58px;
+      height:32px;
+      flex:0 0 58px;
+    }
+
+    .pf-switch input{
+      position:absolute;
+      inset:0;
+      opacity:0;
+      cursor:pointer;
+      z-index:2;
+    }
+
+    .pf-slider{
+      position:absolute;
+      inset:0;
+      border-radius:999px;
+      background:#DCECE4;
+      border:1px solid var(--pf-line);
+      transition:.2s ease;
+    }
+
+    .pf-slider::after{
+      content:"";
+      position:absolute;
+      width:24px;
+      height:24px;
+      left:4px;
+      top:3px;
+      border-radius:50%;
+      background:#fff;
+      box-shadow:0 6px 14px rgba(17,64,38,.16);
+      transition:.2s ease;
+    }
+
+    .pf-switch input:checked + .pf-slider{
+      background:var(--pf-green);
+      border-color:var(--pf-green);
+    }
+
+    .pf-switch input:checked + .pf-slider::after{
+      transform:translateX(25px);
+    }
+
+    .pf-field-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .pf-field{
+      display:grid;
+      gap:7px;
+    }
+
+    .pf-field.full{
+      grid-column:1/-1;
+    }
+
+    .pf-label{
+      color:var(--pf-text);
+      font-size:.78rem;
+      font-weight:900;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+    }
+
+    .pf-input,
+    .pf-select,
+    .pf-textarea{
+      width:100%;
+      min-height:44px;
+      border:1px solid var(--pf-line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--pf-text);
+      padding:0 13px;
+      outline:none;
+      font-size:.9rem;
+      font-weight:750;
+      transition:.18s ease;
+    }
+
+    .pf-textarea{
+      min-height:94px;
+      resize:vertical;
+      padding:12px 13px;
+      line-height:1.5;
+    }
+
+    .pf-input:focus,
+    .pf-select:focus,
+    .pf-textarea:focus{
+      border-color:var(--pf-green);
+      box-shadow:0 0 0 4px rgba(0,168,89,.10);
+    }
+
+    .pf-help{
+      color:var(--pf-muted);
+      font-size:.76rem;
+      line-height:1.35;
+      font-weight:700;
+    }
+
+    .pf-actions{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+      padding-top:4px;
+    }
+
+    .pf-btn{
+      min-height:44px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      border:1px solid var(--pf-line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--pf-text);
+      padding:0 16px;
+      font-size:.86rem;
+      font-weight:950;
+      cursor:pointer;
+      text-decoration:none;
+      transition:.18s ease;
+    }
+
+    .pf-btn:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.26);
+      color:var(--pf-green-dark);
+    }
+
+    .pf-btn.primary{
+      background:var(--pf-green);
+      color:#fff;
+      border-color:var(--pf-green);
+      box-shadow:0 12px 24px rgba(0,168,89,.18);
+    }
+
+    .pf-btn.primary:hover{
+      background:var(--pf-green-dark);
+      border-color:var(--pf-green-dark);
+      color:#fff;
+    }
+
+    .pf-preview-list{
+      display:grid;
+      gap:12px;
+    }
+
+    .pf-preview-row{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:12px;
+      align-items:center;
+      padding:14px;
+      border:1px solid var(--pf-line);
+      border-radius:16px;
+      background:var(--pf-card-2);
+    }
+
+    .pf-preview-row strong{
+      color:var(--pf-text);
+      font-size:.92rem;
+      font-weight:950;
+    }
+
+    .pf-preview-row span{
+      display:block;
+      margin-top:4px;
+      color:var(--pf-muted);
+      font-size:.78rem;
+      font-weight:750;
+    }
+
+    .pf-preview-amount{
+      text-align:right;
+      color:var(--pf-green);
+      font-size:1.05rem;
+      font-weight:950;
+      white-space:nowrap;
+    }
+
+    .pf-info-box{
+      margin-top:16px;
+      display:grid;
+      gap:10px;
+      padding:14px;
+      border-radius:18px;
+      border:1px solid rgba(2,132,199,.18);
+      background:#EAF3FF;
+      color:#1D4ED8;
+    }
+
+    .pf-info-box strong{
+      font-size:.86rem;
+      font-weight:950;
+    }
+
+    .pf-info-box span{
+      font-size:.8rem;
+      line-height:1.45;
+      font-weight:700;
+    }
+
+    .pf-current-box{
+      display:grid;
+      gap:10px;
+    }
+
+    .pf-status-pill{
+      display:inline-flex;
+      width:fit-content;
+      align-items:center;
+      min-height:30px;
+      padding:0 11px;
+      border-radius:999px;
+      font-size:.74rem;
+      font-weight:950;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+
+    .pf-status-pill.on{
+      background:var(--pf-green-soft);
+      color:var(--pf-green-dark);
+      border:1px solid rgba(0,168,89,.18);
+    }
+
+    .pf-status-pill.off{
+      background:#FFF1F2;
+      color:var(--pf-red);
+      border:1px solid rgba(239,68,68,.22);
+    }
+
+    .pf-current-list{
+      display:grid;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .pf-current-item{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 0;
+      border-bottom:1px solid var(--pf-line);
+      color:var(--pf-muted);
+      font-size:.84rem;
+      font-weight:750;
+    }
+
+    .pf-current-item:last-child{
+      border-bottom:0;
+    }
+
+    .pf-current-item strong{
+      color:var(--pf-text);
+      text-align:right;
+      font-weight:950;
+    }
+
+    @media(max-width:980px){
+      .pf-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media(max-width:640px){
+      .pf-hero-inner{
+        grid-template-columns:1fr;
+      }
+
+      .pf-hero-icon{
+        display:none;
+      }
+
+      .pf-field-grid{
+        grid-template-columns:1fr;
+      }
+
+      .pf-actions{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+
+      .pf-btn{
+        width:100%;
+      }
+    }
+  </style>
+
+  <div class="pf-hero">
+    <div class="pf-hero-inner">
+      <div>
+        <div class="pf-kicker">Admin Revenue Control</div>
+        <h1 class="pf-title">Platform Fee Settings</h1>
+        <p class="pf-subtitle">
+          Configure the platform fee charged on each order. This amount belongs to the admin / website owner and will be tracked separately from store earnings, delivery fee and rider tips.
+        </p>
+      </div>
+      <div class="pf-hero-icon" aria-hidden="true">₹</div>
+    </div>
+  </div>
+
+  <div class="pf-grid">
+    <div class="pf-card">
+      <div class="pf-card-head">
+        <h2 class="pf-card-title">Fee Configuration</h2>
+        <p class="pf-card-sub">Enable platform fee and choose how it should be calculated.</p>
+      </div>
+
+      <div class="pf-card-body">
+        <form method="post" action="{{ url_for('admin_platform_fee_settings') }}" class="pf-form">
+          <div class="pf-switch-card">
+            <div class="pf-switch-copy">
+              <strong>Enable Platform Fee</strong>
+              <span>When enabled, this fee will be added to customer checkout total and recorded as admin earning.</span>
+            </div>
+
+            <label class="pf-switch">
+              <input type="checkbox" name="enabled" value="1" {% if settings.enabled %}checked{% endif %}>
+              <span class="pf-slider"></span>
+            </label>
+          </div>
+
+          <div class="pf-field-grid">
+            <div class="pf-field">
+              <label class="pf-label" for="fee_type">Fee Type</label>
+              <select id="fee_type" name="fee_type" class="pf-select">
+                <option value="fixed" {% if settings.fee_type == 'fixed' %}selected{% endif %}>Fixed Amount</option>
+                <option value="percent" {% if settings.fee_type == 'percent' %}selected{% endif %}>Percentage</option>
+                <option value="fixed_plus_percent" {% if settings.fee_type == 'fixed_plus_percent' %}selected{% endif %}>Fixed + Percentage</option>
+              </select>
+              <div class="pf-help">Fixed is simplest. Percentage is calculated on product subtotal.</div>
+            </div>
+
+            <div class="pf-field">
+              <label class="pf-label" for="display_name">Display Name</label>
+              <input id="display_name" name="display_name" class="pf-input" value="{{ settings.display_name or 'Platform Fee' }}" placeholder="Platform Fee">
+              <div class="pf-help">This label will be shown to customers at checkout.</div>
+            </div>
+
+            <div class="pf-field">
+              <label class="pf-label" for="fixed_amount">Fixed Amount ₹</label>
+              <input id="fixed_amount" name="fixed_amount" class="pf-input" type="number" step="0.01" min="0" value="{{ '%.2f'|format(settings.fixed_amount or 0) }}">
+              <div class="pf-help">Example: ₹10 per order.</div>
+            </div>
+
+            <div class="pf-field">
+              <label class="pf-label" for="percent">Percentage %</label>
+              <input id="percent" name="percent" class="pf-input" type="number" step="0.01" min="0" max="100" value="{{ '%.2f'|format(settings.percent or 0) }}">
+              <div class="pf-help">Example: 2% of product subtotal.</div>
+            </div>
+
+            <div class="pf-field">
+              <label class="pf-label" for="min_fee">Minimum Fee ₹</label>
+              <input id="min_fee" name="min_fee" class="pf-input" type="number" step="0.01" min="0" value="{{ '%.2f'|format(settings.min_fee or 0) }}">
+              <div class="pf-help">Optional. Keep 0 to disable minimum limit.</div>
+            </div>
+
+            <div class="pf-field">
+              <label class="pf-label" for="max_fee">Maximum Fee ₹</label>
+              <input id="max_fee" name="max_fee" class="pf-input" type="number" step="0.01" min="0" value="{{ '%.2f'|format(settings.max_fee or 0) }}">
+              <div class="pf-help">Optional. Keep 0 to disable maximum cap.</div>
+            </div>
+
+            <div class="pf-field full">
+              <label class="pf-label" for="description">Customer Description</label>
+              <textarea id="description" name="description" class="pf-textarea" placeholder="Explain why this fee is charged.">{{ settings.description or 'Platform fee supports secure ordering, customer support, and platform operations.' }}</textarea>
+              <div class="pf-help">This can be used later on checkout tooltip or fee information note.</div>
+            </div>
+          </div>
+
+          <div class="pf-actions">
+            <a href="{{ url_for('admin_dashboard') }}" class="pf-btn">Back to Dashboard</a>
+            <button type="submit" class="pf-btn primary">Save Platform Fee Settings</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="pf-card">
+      <div class="pf-card-head">
+        <h2 class="pf-card-title">Current Settings & Preview</h2>
+        <p class="pf-card-sub">Quick preview of platform fee on common order values.</p>
+      </div>
+
+      <div class="pf-card-body">
+        <div class="pf-current-box">
+          {% if settings.enabled %}
+            <span class="pf-status-pill on">Enabled</span>
+          {% else %}
+            <span class="pf-status-pill off">Disabled</span>
+          {% endif %}
+
+          <div class="pf-current-list">
+            <div class="pf-current-item">
+              <span>Fee Type</span>
+              <strong>{{ (settings.fee_type or 'fixed').replace('_', ' ')|title }}</strong>
+            </div>
+
+            <div class="pf-current-item">
+              <span>Fixed Amount</span>
+              <strong>₹{{ '%.2f'|format(settings.fixed_amount or 0) }}</strong>
+            </div>
+
+            <div class="pf-current-item">
+              <span>Percentage</span>
+              <strong>{{ '%.2f'|format(settings.percent or 0) }}%</strong>
+            </div>
+
+            <div class="pf-current-item">
+              <span>Min / Max</span>
+              <strong>₹{{ '%.2f'|format(settings.min_fee or 0) }} / ₹{{ '%.2f'|format(settings.max_fee or 0) }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="pf-preview-list" style="margin-top:16px;">
+          {% for row in preview_rows %}
+            <div class="pf-preview-row">
+              <div>
+                <strong>Items Subtotal ₹{{ '%.2f'|format(row.items_total or 0) }}</strong>
+                <span>Total with platform fee: ₹{{ '%.2f'|format(row.total_with_platform_fee or 0) }}</span>
+              </div>
+              <div class="pf-preview-amount">
+                ₹{{ '%.2f'|format(row.platform_fee or 0) }}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <div class="pf-info-box">
+          <strong>Money Flow Note</strong>
+          <span>
+            For COD orders, platform fee will be marked as due from store settlement. For online orders, it will be treated as collected by admin/platform.
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% endblock %}

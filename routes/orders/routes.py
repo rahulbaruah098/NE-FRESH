@@ -303,7 +303,8 @@ def checkout():
             store=store,
             customer_lat=final_lat,
             customer_lng=final_lng,
-            customer_pincode=sel_pin
+            customer_pincode=sel_pin,
+            items_total=items_total
         )
 
         if not serviceability.get("serviceable"):
@@ -315,6 +316,26 @@ def checkout():
 
         km = serviceability.get("distance_km")
         delivery_fee = serviceability.get("delivery_fee", 0)
+        delivery_fee_source = serviceability.get("delivery_fee_source") or "unknown"
+        delivery_fee_slab = serviceability.get("delivery_fee_slab")
+        delivery_base_fee = float(serviceability.get("delivery_base_fee") or 0)
+        delivery_fee_details = serviceability.get("delivery_fee_details") or {}
+
+        free_delivery_above_applied = delivery_fee_source == "store_free_delivery_above"
+        free_delivery_above = float(
+            delivery_fee_details.get("free_delivery_above")
+            or store.get("free_delivery_above")
+            or 0
+        )
+        original_delivery_fee = float(
+            delivery_fee_details.get("original_delivery_fee")
+            or delivery_fee
+            or 0
+        )
+        free_delivery_savings = float(
+            delivery_fee_details.get("free_delivery_savings")
+            or 0
+        )
 
         tip_amount_raw = (
             request.form.get("tip_amount")
@@ -337,7 +358,17 @@ def checkout():
         tip_amount = round(tip_amount, 2)
 
         now = datetime.utcnow().isoformat()
-        total_payable = items_total + float(delivery_fee) + float(tip_amount)
+
+        payment_method = "COD"
+
+        money_breakdown = build_order_money_breakdown(
+            items_total=items_total,
+            delivery_fee=delivery_fee,
+            tip_amount=tip_amount,
+            payment_method=payment_method
+        )
+
+        total_payable = float(money_breakdown.get("total_payable") or 0)
 
         order_items_docs = []
 
@@ -359,43 +390,79 @@ def checkout():
                 "image_path": it.get("image_path", "")
             })
 
-            order_result = mongo.orders.insert_one({
-                "user_id": u["id"],
-                "customer_name": u.get("name"),
-                "customer_phone": u.get("phone"),
-                "store_id": store_id,
-                "store_name": store.get("store_name", ""),
-                "total_amount": float(items_total),
-                "status": "PLACED",
-                "payment_status": "PENDING",
-                "delivery_partner_id": None,
-                "delivery_fee": float(delivery_fee),
-                "distance_km": float(km) if km is not None else None,
-                "delivery_zone_matched": True,
-                "delivery_serviceability_reason": serviceability.get("reason"),
-                "delivery_serviceability_message": serviceability.get("message"),
+        order_result = mongo.orders.insert_one({
+            "user_id": u["id"],
+            "customer_name": u.get("name"),
+            "customer_phone": u.get("phone"),
+            "store_id": store_id,
+            "store_name": store.get("store_name", ""),
 
-                "store_latitude": store.get("latitude"),
-                "store_longitude": store.get("longitude"),
-                "store_online_at_order": int(store.get("is_online", store.get("is_open", 1)) or 0),
-                "delivery_enabled_at_order": int(store.get("delivery_enabled", 1 if store.get("delivery_available", False) else 0) or 0),
+            "items_subtotal": float(money_breakdown.get("items_subtotal") or items_total),
+            "total_amount": float(money_breakdown.get("total_amount") or items_total),
 
-                "tip_amount": float(tip_amount),
-                "total_payable": float(total_payable),
+            "status": "PLACED",
+            "payment_status": "PENDING",
+            "payment_method": payment_method,
 
-            # Final checkout delivery location used for fee calculation.
-                "delivery_latitude": final_lat,
-                "delivery_longitude": final_lng,
-                "delivery_location_source": location_source,
+            "delivery_partner_id": None,
 
-            # Session/global detected location info, if available.
-                "delivery_location_address": session.get("location_address"),
-                "delivery_location_pincode": session.get("location_pincode"),
-                "delivery_location_city": session.get("location_city"),
-                "delivery_location_state": session.get("location_state"),
+            "delivery_fee": float(money_breakdown.get("delivery_fee") or delivery_fee),
+            "delivery_fee_amount": float(money_breakdown.get("delivery_fee_amount") or delivery_fee),
+            "delivery_fee_source": delivery_fee_source,
+            "delivery_fee_slab": delivery_fee_slab,
+            "delivery_base_fee": delivery_base_fee,
+            "delivery_fee_details": delivery_fee_details,
+            "free_delivery_above_applied": bool(free_delivery_above_applied),
+            "free_delivery_above": float(free_delivery_above or 0),
+            "original_delivery_fee": float(original_delivery_fee or 0),
+            "free_delivery_savings": float(free_delivery_savings or 0),
+            "delivery_fee_settings_snapshot": {
+                "store_delivery_base_fee": delivery_base_fee,
+                "store_delivery_fee_slabs_enabled": bool(store.get("delivery_fee_slabs_enabled", False)),
+                "store_delivery_fee_slabs": store.get("delivery_fee_slabs") or [],
+                "store_free_delivery_above": float(store.get("free_delivery_above") or 0),
+                "store_max_delivery_distance_km": store.get("max_delivery_distance_km"),
+            },
 
-                "created_at": now
-            })
+            "platform_fee": float(money_breakdown.get("platform_fee") or 0),
+            "admin_platform_earning": float(money_breakdown.get("admin_platform_earning") or 0),
+            "platform_fee_source": money_breakdown.get("platform_fee_source") or "disabled",
+            "platform_fee_settings_snapshot": money_breakdown.get("platform_fee_settings_snapshot") or {},
+
+            "store_earning": float(money_breakdown.get("store_earning") or items_total),
+            "delivery_tip_amount": float(money_breakdown.get("delivery_tip_amount") or tip_amount),
+
+            "settlement_status": money_breakdown.get("settlement_status") or "PENDING",
+            "store_settlement_status": money_breakdown.get("store_settlement_status") or "PENDING",
+            "admin_platform_fee_status": money_breakdown.get("admin_platform_fee_status") or "DUE",
+            "delivery_settlement_status": money_breakdown.get("delivery_settlement_status") or "PENDING",
+
+            "distance_km": float(km) if km is not None else None,
+            "delivery_zone_matched": True,
+            "delivery_serviceability_reason": serviceability.get("reason"),
+            "delivery_serviceability_message": serviceability.get("message"),
+
+            "store_latitude": store.get("latitude"),
+            "store_longitude": store.get("longitude"),
+            "store_online_at_order": int(store.get("is_online", store.get("is_open", 1)) or 0),
+            "delivery_enabled_at_order": int(store.get("delivery_enabled", 1 if store.get("delivery_available", False) else 0) or 0),
+
+            "tip_amount": float(money_breakdown.get("tip_amount") or tip_amount),
+            "total_payable": float(total_payable),
+
+    # Final checkout delivery location used for fee calculation.
+            "delivery_latitude": final_lat,
+            "delivery_longitude": final_lng,
+            "delivery_location_source": location_source,
+
+    # Session/global detected location info, if available.
+            "delivery_location_address": session.get("location_address"),
+            "delivery_location_pincode": session.get("location_pincode"),
+            "delivery_location_city": session.get("location_city"),
+            "delivery_location_state": session.get("location_state"),
+
+            "created_at": now
+        })
 
         oid = order_result.inserted_id
 
@@ -433,8 +500,17 @@ def checkout():
         mongo.transactions.insert_one({
             "order_id": oid,
             "amount": float(total_payable),
-            "payment_method": "COD",
+            "items_subtotal": float(money_breakdown.get("items_subtotal") or items_total),
+            "delivery_fee": float(money_breakdown.get("delivery_fee") or delivery_fee),
+            "delivery_fee_source": delivery_fee_source,
+            "delivery_fee_slab": delivery_fee_slab,
+            "delivery_base_fee": delivery_base_fee,
+            "platform_fee": float(money_breakdown.get("platform_fee") or 0),
+            "tip_amount": float(money_breakdown.get("tip_amount") or tip_amount),
+            "payment_method": payment_method,
             "status": "PENDING",
+            "settlement_status": "PENDING",
+            "admin_platform_fee_status": money_breakdown.get("admin_platform_fee_status") or "DUE",
             "created_at": now
         })
 
@@ -461,7 +537,14 @@ def checkout():
         mongo.order_events.insert_one({
             "order_id": oid,
             "status": "PLACED",
-            "note": "",
+            "note": (
+                f"Order placed. "
+                f"Items: ₹{float(money_breakdown.get('items_subtotal') or items_total):.2f}, "
+                f"Delivery: ₹{float(money_breakdown.get('delivery_fee') or delivery_fee):.2f}, "
+                f"Platform fee: ₹{float(money_breakdown.get('platform_fee') or 0):.2f}, "
+                f"Tip: ₹{float(money_breakdown.get('tip_amount') or tip_amount):.2f}, "
+                f"Total: ₹{float(total_payable):.2f}."
+            ),
             "created_at": now
         })
 
@@ -514,6 +597,7 @@ def api_checkout_serviceability():
         }), 400
 
     store_ids = []
+    items_total = 0.0
 
     for ci in cart_items:
         product = mongo.products.find_one({"_id": ci.get("product_id")})
@@ -521,10 +605,22 @@ def api_checkout_serviceability():
         if not product:
             continue
 
+        hydrate_product_unit_fields(product)
+
         store_id = product.get("store_id")
 
         if store_id:
             store_ids.append(str(store_id))
+
+        quantity = cart_item_quantity(ci)
+
+        price_per_unit = float(
+            ci.get("price_per_unit_snapshot")
+            if ci.get("price_per_unit_snapshot") is not None
+            else product.get("price_per_unit") or 0
+        )
+
+        items_total += float(quantity or 0) * float(price_per_unit or 0)
 
     unique_store_ids = sorted(set(store_ids))
 
@@ -570,7 +666,20 @@ def api_checkout_serviceability():
         store=store,
         customer_lat=customer_lat,
         customer_lng=customer_lng,
-        customer_pincode=customer_pincode
+        customer_pincode=customer_pincode,
+        items_total=items_total
+    )
+
+    delivery_fee = float(serviceability.get("delivery_fee") or 0)
+    platform_result = calculate_platform_fee(items_total)
+    platform_settings = platform_result.get("platform_fee_settings") or {}
+    platform_fee = float(platform_result.get("platform_fee") or 0)
+
+    total_payable = round(
+        float(items_total or 0)
+        + float(delivery_fee or 0)
+        + float(platform_fee or 0),
+        2
     )
 
     return jsonify({
@@ -579,7 +688,25 @@ def api_checkout_serviceability():
         "reason": serviceability.get("reason"),
         "message": serviceability.get("message"),
         "distance_km": serviceability.get("distance_km"),
-        "delivery_fee": serviceability.get("delivery_fee"),
+
+        "items_total": round(float(items_total or 0), 2),
+        "delivery_fee": round(float(delivery_fee or 0), 2),
+
+        "delivery_fee_source": serviceability.get("delivery_fee_source") or "unknown",
+        "delivery_fee_slab": serviceability.get("delivery_fee_slab"),
+        "delivery_base_fee": float(serviceability.get("delivery_base_fee") or 0),
+        "delivery_fee_details": serviceability.get("delivery_fee_details") or {},
+        "free_delivery_above_applied": serviceability.get("delivery_fee_source") == "store_free_delivery_above",
+        "free_delivery_above": float((serviceability.get("delivery_fee_details") or {}).get("free_delivery_above") or 0),
+        "original_delivery_fee": float((serviceability.get("delivery_fee_details") or {}).get("original_delivery_fee") or serviceability.get("delivery_fee") or 0),
+        "free_delivery_savings": float((serviceability.get("delivery_fee_details") or {}).get("free_delivery_savings") or 0),
+
+        "platform_fee": round(float(platform_fee or 0), 2),
+        "platform_fee_label": platform_settings.get("display_name") or "Platform Fee",
+        "platform_fee_description": platform_settings.get("description") or "",
+        "platform_fee_source": platform_result.get("platform_fee_source") or "disabled",
+        "total_payable": total_payable,
+
         "store": {
             "id": str(store.get("_id")),
             "store_name": store.get("store_name", ""),
@@ -602,8 +729,32 @@ def my_orders():
         o["id"] = str(o["_id"])
         o["store_name"] = o.get("store_name", "")
         o["total_amount"] = float(o.get("total_amount") or 0)
+        o["items_subtotal"] = float(o.get("items_subtotal") or o.get("total_amount") or 0)
+
         o["delivery_fee"] = float(o.get("delivery_fee") or 0)
+        o["delivery_fee_amount"] = float(o.get("delivery_fee_amount") or o.get("delivery_fee") or 0)
+
+        o["platform_fee"] = float(o.get("platform_fee") or 0)
+        o["admin_platform_earning"] = float(o.get("admin_platform_earning") or o.get("platform_fee") or 0)
+        o["platform_fee_source"] = o.get("platform_fee_source") or "disabled"
+
         o["tip_amount"] = float(o.get("tip_amount") or 0)
+        o["delivery_tip_amount"] = float(o.get("delivery_tip_amount") or o.get("tip_amount") or 0)
+
+        o["store_earning"] = float(o.get("store_earning") or o.get("total_amount") or 0)
+
+        o["total_payable"] = float(
+            o.get("total_payable")
+            or (
+                float(o.get("total_amount") or 0)
+                + float(o.get("delivery_fee") or 0)
+                + float(o.get("platform_fee") or 0)
+                + float(o.get("tip_amount") or 0)
+            )
+        )
+
+        o["admin_platform_fee_status"] = o.get("admin_platform_fee_status") or ""
+        o["settlement_status"] = o.get("settlement_status") or ""
 
         # Customer-friendly delivery workflow state for My Orders page
         o["needs_reassignment"] = bool(o.get("needs_reassignment"))
@@ -792,6 +943,23 @@ def api_order_status(oid):
         "status": o.get("status"),
         "payment_status": o.get("payment_status"),
 
+        "total_amount": float(o.get("total_amount") or 0),
+        "items_subtotal": float(o.get("items_subtotal") or o.get("total_amount") or 0),
+        "delivery_fee": float(o.get("delivery_fee") or 0),
+        "platform_fee": float(o.get("platform_fee") or 0),
+        "tip_amount": float(o.get("tip_amount") or 0),
+        "total_payable": float(
+            o.get("total_payable")
+            or (
+                float(o.get("total_amount") or 0)
+                + float(o.get("delivery_fee") or 0)
+                + float(o.get("platform_fee") or 0)
+                + float(o.get("tip_amount") or 0)
+            )
+        ),
+        "admin_platform_fee_status": o.get("admin_platform_fee_status") or "",
+        "platform_fee_source": o.get("platform_fee_source") or "disabled",
+
         "delivery_partner_id": str(o.get("delivery_partner_id")) if o.get("delivery_partner_id") else "",
         "delivery_partner_name": o.get("delivery_partner_name") or "",
         "delivery_partner_phone": o.get("delivery_partner_phone") or "",
@@ -833,23 +1001,49 @@ def api_orders_list(user_id):
             "id": str(o["_id"]),
             "store_name": o.get("store_name", ""),
             "total_amount": float(o.get("total_amount") or 0),
+            "items_subtotal": float(o.get("items_subtotal") or o.get("total_amount") or 0),
+
             "delivery_fee": float(o.get("delivery_fee") or 0),
+            "delivery_fee_amount": float(o.get("delivery_fee_amount") or o.get("delivery_fee") or 0),
+
+            "platform_fee": float(o.get("platform_fee") or 0),
+            "admin_platform_earning": float(o.get("admin_platform_earning") or o.get("platform_fee") or 0),
+            "platform_fee_source": o.get("platform_fee_source") or "disabled",
+
             "tip_amount": float(o.get("tip_amount") or 0),
+            "delivery_tip_amount": float(o.get("delivery_tip_amount") or o.get("tip_amount") or 0),
+
+            "store_earning": float(o.get("store_earning") or o.get("total_amount") or 0),
+
             "total_payable": float(
                 o.get("total_payable")
                 or (
                     float(o.get("total_amount") or 0)
                     + float(o.get("delivery_fee") or 0)
+                    + float(o.get("platform_fee") or 0)
                     + float(o.get("tip_amount") or 0)
                 )
             ),
+
+            "admin_platform_fee_status": o.get("admin_platform_fee_status") or "",
+            "settlement_status": o.get("settlement_status") or "",
             "status": o.get("status", ""),
             "payment_status": o.get("payment_status", ""),
             "created_at": o.get("created_at", ""),
 
             "needs_reassignment": bool(o.get("needs_reassignment")),
             "delivery_cancelled_by_partner": bool(o.get("delivery_cancelled_by_partner")),
-            "delivery_reassigned_at": o.get("delivery_reassigned_at")
+            "delivery_reassigned_at": o.get("delivery_reassigned_at"),
+
+            "delivery_failed_reason": o.get("delivery_failed_reason") or "",
+            "delivery_failed_note": o.get("delivery_failed_note") or "",
+            "delivery_failed_at": o.get("delivery_failed_at") or "",
+            "delivery_failed_requires_store_action": bool(o.get("delivery_failed_requires_store_action", False)),
+            "delivery_failed_store_decision": o.get("delivery_failed_store_decision") or "",
+
+            "delivery_rescheduled": bool(o.get("delivery_rescheduled", False)),
+            "delivery_rescheduled_for": o.get("delivery_rescheduled_for") or "",
+            "delivery_rescheduled_note": o.get("delivery_rescheduled_note") or ""
         })
 
     return jsonify({
@@ -1006,16 +1200,32 @@ def api_order_detail(user_id, oid):
             "id": o.get("id") or str(o.get("_id")),
             "store_name": o.get("store_name", ""),
             "total_amount": float(o.get("total_amount") or 0),
+            "items_subtotal": float(o.get("items_subtotal") or o.get("total_amount") or 0),
+
             "delivery_fee": float(o.get("delivery_fee") or 0),
+            "delivery_fee_amount": float(o.get("delivery_fee_amount") or o.get("delivery_fee") or 0),
+
+            "platform_fee": float(o.get("platform_fee") or 0),
+            "admin_platform_earning": float(o.get("admin_platform_earning") or o.get("platform_fee") or 0),
+            "platform_fee_source": o.get("platform_fee_source") or "disabled",
+
             "tip_amount": float(o.get("tip_amount") or 0),
+            "delivery_tip_amount": float(o.get("delivery_tip_amount") or o.get("tip_amount") or 0),
+
+            "store_earning": float(o.get("store_earning") or o.get("total_amount") or 0),
+
             "total_payable": float(
                 o.get("total_payable")
                 or (
                     float(o.get("total_amount") or 0)
                     + float(o.get("delivery_fee") or 0)
+                    + float(o.get("platform_fee") or 0)
                     + float(o.get("tip_amount") or 0)
                 )
             ),
+
+            "admin_platform_fee_status": o.get("admin_platform_fee_status") or "",
+            "settlement_status": o.get("settlement_status") or "",
             "status": o.get("status", ""),
             "payment_status": o.get("payment_status", ""),
             "created_at": o.get("created_at", ""),
