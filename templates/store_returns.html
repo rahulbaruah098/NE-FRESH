@@ -1,0 +1,550 @@
+{% extends "store_base.html" %}
+{% set active_page = "returns" %}
+
+{% block title %}Returns & Refund Requests | NE FRESH Store{% endblock %}
+{% block page_title %}Returns & Refund Requests{% endblock %}
+{% block page_subtitle %}Review customer return requests for your store. Refund processing remains with Admin.{% endblock %}
+
+{% block content %}
+{% set rows = returns if returns is defined else [] %}
+{% set m = metrics if metrics is defined else {} %}
+
+<section class="nf-store-returns">
+  <style>
+    .nf-store-returns {
+      display: grid;
+      gap: 18px;
+    }
+
+    .sr-hero,
+    .sr-card,
+    .sr-kpi {
+      background: var(--nf-surface);
+      border: 1px solid var(--nf-line);
+      border-radius: 22px;
+      box-shadow: var(--nf-shadow);
+    }
+
+    .sr-hero {
+      padding: 22px;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(0,168,89,.12), transparent 32%),
+        radial-gradient(circle at 92% 4%, rgba(255,184,77,.14), transparent 28%),
+        linear-gradient(135deg, #fff, var(--nf-surface-2));
+    }
+
+    .sr-hero h2 {
+      margin: 0 0 8px;
+      color: var(--nf-text);
+      font-size: clamp(1.45rem, 3vw, 2.1rem);
+      line-height: 1.1;
+      letter-spacing: -.04em;
+      font-weight: 950;
+    }
+
+    .sr-hero p {
+      margin: 0;
+      max-width: 920px;
+      color: var(--nf-muted);
+      font-size: .94rem;
+      font-weight: 650;
+      line-height: 1.6;
+    }
+
+    .sr-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .sr-kpi {
+      padding: 16px;
+      min-height: 106px;
+      display: grid;
+      align-content: space-between;
+      gap: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .sr-kpi::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: var(--nf-green);
+    }
+
+    .sr-kpi.orange::before {
+      background: var(--nf-orange);
+    }
+
+    .sr-kpi.red::before {
+      background: var(--nf-red);
+    }
+
+    .sr-kpi.blue::before {
+      background: var(--nf-blue);
+    }
+
+    .sr-kpi span {
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .sr-kpi strong {
+      color: var(--nf-text);
+      font-size: 1.25rem;
+      line-height: 1;
+      font-weight: 950;
+      letter-spacing: -.04em;
+    }
+
+    .sr-card {
+      overflow: hidden;
+    }
+
+    .sr-card-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+    }
+
+    .sr-card-head h3 {
+      margin: 0;
+      color: var(--nf-text);
+      font-size: 1.08rem;
+      font-weight: 950;
+      letter-spacing: -.03em;
+    }
+
+    .sr-card-head p {
+      margin: 5px 0 0;
+      color: var(--nf-muted);
+      font-size: .84rem;
+      font-weight: 650;
+    }
+
+    .sr-filter {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--nf-line);
+      display: grid;
+      grid-template-columns: 1.3fr 190px 210px 150px 150px auto auto;
+      gap: 10px;
+      align-items: end;
+      background: #fff;
+    }
+
+    .sr-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .sr-field label {
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .sr-field input,
+    .sr-field select,
+    .sr-field textarea {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--nf-line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 11px;
+      outline: none;
+      font-size: .82rem;
+      font-weight: 800;
+    }
+
+    .sr-field textarea {
+      min-height: 72px;
+      padding: 10px 11px;
+      resize: vertical;
+    }
+
+    .sr-btn {
+      min-height: 40px;
+      border: 1px solid var(--nf-line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .8rem;
+      font-weight: 950;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .sr-btn.primary {
+      background: var(--nf-green);
+      border-color: var(--nf-green);
+      color: #fff;
+    }
+
+    .sr-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 18px;
+    }
+
+    .sr-table {
+      width: 100%;
+      min-width: 1360px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .sr-table th {
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 12px;
+      border-top: 1px solid var(--nf-line);
+      border-bottom: 1px solid var(--nf-line);
+      white-space: nowrap;
+    }
+
+    .sr-table th:first-child {
+      border-left: 1px solid var(--nf-line);
+      border-top-left-radius: 14px;
+    }
+
+    .sr-table th:last-child {
+      border-right: 1px solid var(--nf-line);
+      border-top-right-radius: 14px;
+    }
+
+    .sr-table td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--nf-line);
+      background: #fff;
+      color: var(--nf-text);
+      vertical-align: top;
+      font-size: .84rem;
+      font-weight: 750;
+    }
+
+    .sr-main {
+      display: block;
+      color: var(--nf-text);
+      font-weight: 950;
+    }
+
+    .sr-sub {
+      display: block;
+      margin-top: 3px;
+      color: var(--nf-muted);
+      font-size: .74rem;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .sr-money {
+      color: var(--nf-text);
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .sr-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 950;
+      border: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      white-space: nowrap;
+    }
+
+        .sr-pill.approve,
+    .sr-pill.approved,
+    .sr-pill.store_approved,
+    .sr-pill.ready_for_refund,
+    .sr-pill.completed {
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border-color: rgba(0,168,89,.22);
+    }
+
+       .sr-pill.pending,
+    .sr-pill.return_requested,
+    .sr-pill.store_reviewed,
+    .sr-pill.need_admin_review,
+    .sr-pill.pending_assignment,
+    .sr-pill.pending_admin_review {
+      background: var(--nf-orange-soft);
+      color: #A84700;
+      border-color: rgba(255,184,77,.28);
+    }
+
+       .sr-pill.reject,
+    .sr-pill.rejected,
+    .sr-pill.store_rejected {
+      background: #FFF1F2;
+      color: #B91C1C;
+      border-color: rgba(239,68,68,.20);
+    }
+
+    .sr-review-form {
+      min-width: 220px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .sr-review-form select,
+    .sr-review-form textarea {
+      width: 100%;
+      border: 1px solid var(--nf-line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 9px 10px;
+      outline: none;
+      font-size: .78rem;
+      font-weight: 800;
+    }
+
+    .sr-review-form textarea {
+      min-height: 66px;
+      resize: vertical;
+    }
+
+    .sr-empty {
+      padding: 28px 18px;
+      text-align: center;
+      color: var(--nf-muted);
+      font-weight: 800;
+    }
+
+    @media (max-width: 1280px) {
+      .sr-kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .sr-filter {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .sr-kpi-grid,
+      .sr-filter {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+   <div class="sr-hero">
+    <h2>Returns & Refund Requests</h2>
+    <p>
+      Review customer return requests for your own store orders. Store approves or rejects the product return.
+      NE FRESH/Admin handles only refund payment, platform fee, delivery fee and settlement adjustment.
+    </p>
+  </div>
+
+  <div class="sr-kpi-grid">
+    <div class="sr-kpi">
+      <span>Total Requests</span>
+      <strong>{{ m.total|default(0) }}</strong>
+    </div>
+
+    <div class="sr-kpi orange">
+      <span>Pending Review</span>
+      <strong>{{ m.pending_review|default(0) }}</strong>
+    </div>
+
+    <div class="sr-kpi">
+      <span>Approved</span>
+      <strong>{{ m.approved|default(0) }}</strong>
+    </div>
+
+    <div class="sr-kpi red">
+      <span>Rejected</span>
+      <strong>{{ m.rejected|default(0) }}</strong>
+    </div>
+
+    <div class="sr-kpi blue">
+      <span>Admin Review</span>
+      <strong>{{ m.need_admin_review|default(0) }}</strong>
+    </div>
+
+    <div class="sr-kpi">
+      <span>Refund Requested</span>
+      <strong>₹{{ "%.2f"|format(m.refund_amount|default(0)|float) }}</strong>
+    </div>
+  </div>
+
+  <div class="sr-card">
+       <div class="sr-card-head">
+      <h3>Store Return Decision</h3>
+      <p>Approve or reject customer return requests. Refund money processing remains with NE FRESH/Admin.</p>
+    </div>
+
+    <form class="sr-filter" method="get" action="{{ url_for('store_returns') }}">
+      <div class="sr-field">
+        <label>Search</label>
+        <input type="search" name="q" value="{{ q or '' }}" placeholder="Order, customer, reason, status...">
+      </div>
+
+      <div class="sr-field">
+        <label>Return Status</label>
+               <select name="return_status">
+          <option value="">All</option>
+          <option value="RETURN_REQUESTED" {% if return_filter == 'RETURN_REQUESTED' %}selected{% endif %}>Requested</option>
+          <option value="STORE_APPROVED" {% if return_filter == 'STORE_APPROVED' %}selected{% endif %}>Store Approved</option>
+          <option value="STORE_REJECTED" {% if return_filter == 'STORE_REJECTED' %}selected{% endif %}>Store Rejected</option>
+          <option value="NEED_ADMIN_REVIEW" {% if return_filter == 'NEED_ADMIN_REVIEW' %}selected{% endif %}>Need Admin Review</option>
+          <option value="COMPLETED" {% if return_filter == 'COMPLETED' %}selected{% endif %}>Completed</option>
+        </select>
+      </div>
+
+      <div class="sr-field">
+        <label>Store Review</label>
+                <select name="review_status">
+          <option value="">All</option>
+          <option value="PENDING" {% if review_filter == 'PENDING' %}selected{% endif %}>Pending</option>
+          <option value="APPROVED" {% if review_filter == 'APPROVED' %}selected{% endif %}>Approved</option>
+          <option value="REJECTED" {% if review_filter == 'REJECTED' %}selected{% endif %}>Rejected</option>
+          <option value="NEED_ADMIN_REVIEW" {% if review_filter == 'NEED_ADMIN_REVIEW' %}selected{% endif %}>Need Admin Review</option>
+        </select>
+      </div>
+
+      <div class="sr-field">
+        <label>From</label>
+        <input type="date" name="from" value="{{ date_from or '' }}">
+      </div>
+
+      <div class="sr-field">
+        <label>To</label>
+        <input type="date" name="to" value="{{ date_to or '' }}">
+      </div>
+
+      <button class="sr-btn primary" type="submit">Apply</button>
+      <a class="sr-btn" href="{{ url_for('store_returns') }}">Reset</a>
+    </form>
+
+    {% if rows %}
+      <div class="sr-table-wrap">
+        <table class="sr-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Customer</th>
+              <th>Return Reason</th>
+              <th>Refund Requested</th>
+              <th>Statuses</th>
+              <th>Store Remark</th>
+                            <th>Store Decision</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for o in rows %}
+              {% set review_class = (o.store_return_review_status or 'pending')|lower %}
+              {% set return_class = (o.return_status or 'return_requested')|lower %}
+              <tr>
+                <td>
+                  <span class="sr-main">#{{ o.id[-6:] if o.id else "-" }}</span>
+                  <span class="sr-sub">{{ o.return_requested_at or o.updated_at or o.created_at or "-" }}</span>
+                  <span class="sr-sub">Payment: {{ o.payment_method or "-" }} / {{ o.payment_status or "-" }}</span>
+                </td>
+
+                <td>
+                  <span class="sr-main">{{ o.customer_name or "-" }}</span>
+                  {% if o.customer_phone %}
+                    <span class="sr-sub">{{ o.customer_phone }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="sr-main">{{ o.return_reason or "-" }}</span>
+                  {% if o.return_note %}
+                    <span class="sr-sub">Note: {{ o.return_note }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="sr-money">₹{{ "%.2f"|format(o.refund_amount|default(0)|float) }}</span>
+                  <span class="sr-sub">Items: ₹{{ "%.2f"|format(o.refund_items_amount|default(0)|float) }}</span>
+                  <span class="sr-sub">Delivery: ₹{{ "%.2f"|format(o.refund_delivery_fee|default(0)|float) }}</span>
+                  <span class="sr-sub">Platform: ₹{{ "%.2f"|format(o.refund_platform_fee|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="sr-pill {{ return_class }}">{{ o.return_status or "-" }}</span>
+                  <span class="sr-sub"></span>
+                  <span class="sr-pill {{ review_class }}">{{ o.store_return_review_status or "PENDING" }}</span>
+                  <span class="sr-sub">Refund: {{ o.refund_status or "-" }}</span>
+                  <span class="sr-sub">Admin: {{ o.admin_return_review_status or "PENDING" }}</span>
+                </td>
+
+                <td>
+                  {% if o.store_return_review_remark %}
+                    <span class="sr-main">{{ o.store_return_review_remark }}</span>
+                    {% if o.store_reviewed_at %}
+                      <span class="sr-sub">Reviewed: {{ o.store_reviewed_at }}</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="sr-sub">No store remark yet.</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  {% if o.return_status in ['RETURN_REQUESTED', 'REQUESTED', 'STORE_REVIEWED', 'NEED_ADMIN_REVIEW'] %}
+                    <form class="sr-review-form"
+                          method="post"
+                          action="{{ url_for('store_return_review', oid=o.id) }}"
+                          onsubmit="return confirm('Submit store decision for this return request?');">
+                      <select name="store_review_decision" required>
+                        <option value="">Select decision</option>
+                        <option value="APPROVED" {% if o.store_return_review_status in ['APPROVED', 'APPROVE'] %}selected{% endif %}>Approve Return</option>
+                        <option value="REJECTED" {% if o.store_return_review_status in ['REJECTED', 'REJECT'] %}selected{% endif %}>Reject Return</option>
+                        <option value="NEED_ADMIN_REVIEW" {% if o.store_return_review_status == 'NEED_ADMIN_REVIEW' %}selected{% endif %}>Send to Admin Review</option>
+                      </select>
+
+                      <textarea name="store_review_remark" maxlength="700" placeholder="Write store decision remark...">{{ o.store_return_review_remark or '' }}</textarea>
+
+                      <button class="sr-btn primary" type="submit">Submit Decision</button>
+                    </form>
+                  {% else %}
+                    <span class="sr-sub">Store decision completed.</span>
+                    {% if o.refund_status == 'READY_FOR_REFUND' %}
+                      <span class="sr-sub">Waiting for NE FRESH/Admin refund processing.</span>
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="sr-empty">No return/refund requests found for this filter.</div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

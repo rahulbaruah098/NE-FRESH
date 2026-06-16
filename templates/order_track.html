@@ -315,9 +315,11 @@
     }
 
     .track-order-page .status-placed{ background:#F6FFF9; color:var(--nf-green-dark); }
-    .track-order-page .status-confirmed,
+        .track-order-page .status-confirmed,
     .track-order-page .status-preparing,
+    .track-order-page .status-packaging,
     .track-order-page .status-ready-for-pickup,
+    .track-order-page .status-shipment-ready,
     .track-order-page .status-assigned-to-delivery,
     .track-order-page .status-reached-store,
     .track-order-page .status-picked-up{
@@ -547,6 +549,97 @@
       color:var(--nf-danger);
       transform:translateY(-2px);
       box-shadow:0 12px 24px rgba(185,28,28,.08);
+    }
+
+        .track-order-page .return-request-card{
+      margin-top:14px;
+      border:1px solid rgba(255,184,77,.34);
+      border-radius:14px !important;
+      background:#FFF8E8;
+      color:#7C4A03;
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .track-order-page .return-request-card h4{
+      margin:0;
+      color:#A96800;
+      font-size:.95rem;
+      font-weight:950;
+      letter-spacing:-.01em;
+    }
+
+    .track-order-page .return-request-card p{
+      margin:0;
+      color:#7C4A03;
+      font-size:.82rem;
+      font-weight:750;
+      line-height:1.5;
+    }
+
+    .track-order-page .return-request-form{
+      display:grid;
+      gap:10px;
+    }
+
+    .track-order-page .return-request-form select,
+    .track-order-page .return-request-form textarea{
+      width:100%;
+      border:1px solid rgba(255,184,77,.42);
+      border-radius:12px;
+      background:#fff;
+      color:var(--nf-ink);
+      padding:10px 12px;
+      outline:none;
+      font-size:.86rem;
+      font-weight:800;
+    }
+
+    .track-order-page .return-request-form textarea{
+      min-height:92px;
+      resize:vertical;
+    }
+
+    .track-order-page .btn-return-request{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      border:1px solid #FFB84D;
+      border-radius:999px !important;
+      background:#FFB84D;
+      color:#fff;
+      padding:0 16px;
+      font-size:.84rem;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow:0 12px 26px rgba(255,184,77,.20);
+      transition:.2s var(--nf-ease);
+    }
+
+    .track-order-page .btn-return-request:hover{
+      background:#E39A22;
+      border-color:#E39A22;
+      transform:translateY(-2px);
+    }
+
+    .track-order-page .return-status-card{
+      margin-top:14px;
+      border:1px solid #DDF4E8;
+      border-radius:14px !important;
+      background:var(--nf-green-soft);
+      color:var(--nf-green-dark);
+      padding:14px;
+      display:grid;
+      gap:6px;
+      font-size:.84rem;
+      font-weight:800;
+    }
+
+    .track-order-page .return-status-card strong{
+      font-weight:950;
     }
 
     .track-order-page .payment-paid{ color:var(--nf-green-dark); }
@@ -1517,19 +1610,19 @@
             <h3>Current Status</h3>
           </div>
           <div class="card-body">
-           <div
+<div
   class="status-badge-large status-{{ order.status|lower|replace('_', '-') }}"
   id="statusText"
 >
   {% if order.status == 'DELIVERY_FAILED' %}
     Delivery Attempt Failed
   {% else %}
-    {{ order.status.replace('_',' ') }}
+    {{ order_status_label(order.status) }}
   {% endif %}
 </div>
 
             <!-- ====== CANCEL BUTTON (ADDED) ====== -->
-            {% if order.status in ['PLACED', 'CONFIRMED'] %}
+           {% if order.status in ['PLACED', 'CONFIRMED', 'PACKAGING', 'PREPARING'] %}
             <form id="cancelForm" class="cancel-form" method="post" action="{{ url_for('order_cancel', oid=order.id) }}">
               <button type="submit" class="btn-cancel-order"
                       data-cancel="1"
@@ -1592,7 +1685,7 @@
 </div>
 <div id="deliveryRescheduledNotice"
      class="delivery-reassign-notice"
-     style="display: {% if order.delivery_rescheduled and order.status == 'READY_FOR_PICKUP' %}grid{% else %}none{% endif %};">
+style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] %}grid{% else %}none{% endif %};">
   <strong>Delivery rescheduled</strong>
 
   <span>
@@ -1619,9 +1712,9 @@
      style="display: {% if order.delivery_partner_name %}grid{% else %}none{% endif %};">
   <div class="delivery-partner-head">
     <div class="delivery-partner-title">Delivery Boy</div>
-    <div id="deliveryStagePill" class="delivery-stage-pill">
-      {{ order.status.replace('_',' ') }}
-    </div>
+   <div id="deliveryStagePill" class="delivery-stage-pill">
+  {{ order_status_label(order.status) }}
+</div>
   </div>
 
   <div class="delivery-partner-body">
@@ -1725,9 +1818,20 @@
         <div class="card-head">
           <h3>Progress</h3>
         </div>
-{% set steps = ['PLACED','CONFIRMED','PREPARING','READY_FOR_PICKUP','ASSIGNED_TO_DELIVERY','REACHED_STORE','PICKED_UP','OUT_FOR_DELIVERY','DELIVERED'] %}
-{% set progress_status = 'OUT_FOR_DELIVERY' if order.status == 'DELIVERY_FAILED' else order.status %}
+{% set steps = ['PLACED','CONFIRMED','PACKAGING','SHIPMENT_READY','ASSIGNED_TO_DELIVERY','REACHED_STORE','PICKED_UP','OUT_FOR_DELIVERY','DELIVERED'] %}
+
+{% set raw_progress_status = 'OUT_FOR_DELIVERY' if order.status == 'DELIVERY_FAILED' else order.status %}
+
+{% if raw_progress_status == 'PREPARING' %}
+  {% set progress_status = 'PACKAGING' %}
+{% elif raw_progress_status == 'READY_FOR_PICKUP' %}
+  {% set progress_status = 'SHIPMENT_READY' %}
+{% else %}
+  {% set progress_status = raw_progress_status %}
+{% endif %}
+
 {% set idx = steps.index(progress_status) if progress_status in steps else 0 %}
+
         <div id="tracker" class="progress-tracker"
              data-steps="{{ steps|length }}"
              data-current="{{ idx }}"
@@ -1739,16 +1843,16 @@
           <div id="track-dots" class="progress-dots" style="--steps-count: {{ steps|length }}">
             {% for s in steps %}
               {% set k = loop.index0 %}
-              <div class="progress-dot {{ 'completed' if k <= idx else '' }} {{ 'current' if k == idx else '' }}"
+                           <div class="progress-dot {{ 'completed' if k <= idx else '' }} {{ 'current' if k == idx else '' }}"
                    data-step="{{ s }}"
                    aria-current="{{ 'step' if k == idx else 'false' }}"
-                   aria-label="{{ s.replace('_',' ') }}">
+                   aria-label="{{ order_status_label(s) }}">
                 <div class="dot-indicator">
                   <svg class="check" viewBox="0 0 24 24" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
                   </svg>
                 </div>
-                <span class="dot-label">{{ s.replace('_',' ') }}</span>
+<span class="dot-label">{{ order_status_label(s) }}</span>
               </div>
             {% endfor %}
           </div>
@@ -1912,7 +2016,7 @@
             <li class="timeline-item">
               <div class="tl-dot"></div>
               <div class="tl-content">
-                <div class="tl-title">{{ e.status }}</div>
+                <div class="tl-title">{{ order_status_label(e.status) }}</div>
                 {% if e.note %}<div class="tl-note">{{ e.note }}</div>{% endif %}
                 <div class="tl-time muted">{{ e.created_at }}</div>
               </div>
@@ -2011,6 +2115,86 @@
       </section>
       {% endif %}
 
+            {% set track_return_status = (order.return_status or '')|upper %}
+      {% set track_refund_status = (order.refund_status or '')|upper %}
+
+            {% if return_allowed %}
+        <section class="card fade-in" id="return-request">
+          <div class="card-head">
+            <h3>Request Return / Refund</h3>
+          </div>
+
+          <div class="card-body">
+            <div class="return-request-card">
+              <h4>Return this delivered order</h4>
+              <p>
+                Submit your return reason. NE FRESH/Admin will review it before refund or pickup is processed.
+              </p>
+
+              <form class="return-request-form"
+                    method="post"
+                    action="{{ url_for('order_return_request', oid=order.id) }}"
+                    onsubmit="return confirm('Submit return request for this order?');">
+                <select name="return_reason" required>
+                  <option value="">Select return reason</option>
+                  <option value="Damaged product">Damaged product</option>
+                  <option value="Wrong item">Wrong item</option>
+                  <option value="Missing item">Missing item</option>
+                  <option value="Quality issue">Quality issue</option>
+                  <option value="Expired product">Expired product</option>
+                  <option value="Other">Other</option>
+                </select>
+
+                <textarea name="return_note" maxlength="700" placeholder="Write details about the return request..."></textarea>
+
+                <button class="btn-return-request" type="submit">
+                  Submit Return Request
+                </button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+              {% elif (order.status or '')|upper == 'DELIVERED' and not track_return_status and return_policy_enabled %}
+        <section class="card fade-in" id="return-request">
+          <div class="card-head">
+            <h3>Return / Refund</h3>
+          </div>
+
+          <div class="card-body">
+            <div class="return-status-card">
+              <strong>Return not available</strong>
+              <span>{{ return_not_allowed_reason or "Return request is not available for this order." }}</span>
+              {% if return_window_hours %}
+                <span>Return window: {{ return_window_hours }} hours after delivery.</span>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+
+      {% elif track_return_status %}
+        <section class="card fade-in" id="return-request">
+          <div class="card-head">
+            <h3>Return / Refund Status</h3>
+          </div>
+
+          <div class="card-body">
+            <div class="return-status-card">
+<strong>Status: {{ order_status_label(track_return_status) }}</strong>
+              {% if order.refund_status %}
+                <span>Refund: {{ order_status_label(order.refund_status) }}</span>
+              {% endif %}
+              {% if order.return_reason %}
+                <span>Reason: {{ order.return_reason }}</span>
+              {% endif %}
+              {% if order.return_requested_at %}
+                <span>Requested at: {{ order.return_requested_at }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </section>
+      {% endif %}
+
       <div class="action-section fade-in">
         <a class="back-button" href="{{ url_for('orders') }}">Back to My Orders</a>
       </div>
@@ -2040,11 +2224,11 @@
     <script>
     /* Live order polling (fixed selector for progress dots) */
     (function(){
-      const steps = [
+   const steps = [
   "PLACED",
   "CONFIRMED",
-  "PREPARING",
-  "READY_FOR_PICKUP",
+  "PACKAGING",
+  "SHIPMENT_READY",
   "ASSIGNED_TO_DELIVERY",
   "REACHED_STORE",
   "PICKED_UP",
@@ -2073,7 +2257,15 @@ const elDeliveryStagePill = document.getElementById("deliveryStagePill");
       let lastEventsSig = "{{ events|length }}::{{ events[-1].created_at if events|length>0 else 'none' }}";
 
      function setProgress(status){
-  const progressStatus = status === "DELIVERY_FAILED" ? "OUT_FOR_DELIVERY" : status;
+  let progressStatus = status === "DELIVERY_FAILED" ? "OUT_FOR_DELIVERY" : status;
+
+if (progressStatus === "PREPARING") {
+  progressStatus = "PACKAGING";
+}
+
+if (progressStatus === "READY_FOR_PICKUP") {
+  progressStatus = "SHIPMENT_READY";
+}
   const idx = steps.includes(progressStatus) ? steps.indexOf(progressStatus) : 0;
   const pct = (idx / (steps.length - 1)) * 100;
 
@@ -2095,6 +2287,27 @@ const elDeliveryStagePill = document.getElementById("deliveryStagePill");
           "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
         }[m]));
       }
+
+      function statusLabel(status){
+  const labels = {
+    "PLACED": "Placed",
+    "CONFIRMED": "Confirmed",
+    "PREPARING": "Packaging",
+    "PACKAGING": "Packaging",
+    "READY_FOR_PICKUP": "Shipment Ready",
+    "SHIPMENT_READY": "Shipment Ready",
+    "ASSIGNED_TO_DELIVERY": "Assigned To Delivery",
+    "ACCEPTED_BY_DELIVERY_MAN": "Accepted By Delivery Boy",
+    "REACHED_STORE": "Reached Store",
+    "PICKED_UP": "Picked Up",
+    "OUT_FOR_DELIVERY": "Out For Delivery",
+    "DELIVERED": "Delivered",
+    "DELIVERY_FAILED": "Delivery Attempt Failed",
+    "CANCELLED": "Cancelled"
+  };
+
+  return labels[status] || (status || "").replaceAll("_", " ");
+}
 
       function renderEvents(list){
         if (!eventsList) return;

@@ -96,6 +96,193 @@ def normalize_order_money_fields(order_doc):
 
     return order_doc
 
+RETURN_REFUND_POLICY_SETTINGS_KEY = "return_refund_policy_settings"
+
+
+def get_return_refund_policy_settings():
+    """
+    Admin-controlled return/refund policy.
+
+    enabled = False means:
+    - no return option visible
+    - backend blocks return request
+    """
+    settings = mongo.platform_settings.find_one({
+        "key": RETURN_REFUND_POLICY_SETTINGS_KEY
+    }) or {}
+
+    enabled = bool(settings.get("enabled", False))
+
+    try:
+        return_window_hours = int(settings.get("return_window_hours") or 24)
+    except Exception:
+        return_window_hours = 24
+
+    if return_window_hours < 1:
+        return_window_hours = 1
+
+    if return_window_hours > 720:
+        return_window_hours = 720
+
+    return {
+        "enabled": enabled,
+        "return_window_hours": return_window_hours,
+        "default_refund_items": bool(settings.get("default_refund_items", True)),
+        "default_refund_delivery_fee": bool(settings.get("default_refund_delivery_fee", False)),
+        "default_refund_platform_fee": bool(settings.get("default_refund_platform_fee", False)),
+        "default_refund_tip": bool(settings.get("default_refund_tip", False)),
+        "policy_note": settings.get("policy_note") or "",
+    }
+
+
+def _parse_order_datetime(value):
+    """
+    Safely parse ISO datetime strings saved in existing order docs.
+    """
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value
+
+    try:
+        raw = str(value).strip()
+
+        if not raw:
+            return None
+
+        if raw.endswith("Z"):
+            raw = raw[:-1]
+
+        # Remove timezone offset if present because current project stores mostly naive UTC isoformat.
+        if "+" in raw:
+            raw = raw.split("+")[0]
+
+        return datetime.fromisoformat(raw)
+    except Exception:
+        return None
+
+
+def get_order_return_eligibility(order_doc, settings=None):
+    """
+    UI + backend return eligibility.
+
+    Return allowed only when:
+    - admin enabled return/refund policy
+    - order is delivered
+    - return window is not expired
+    - no open/completed return/refund already exists
+    """
+    settings = settings or get_return_refund_policy_settings()
+
+    if not settings.get("enabled"):
+        return {
+            "allowed": False,
+            "reason": "Return/refund is currently disabled by NE FRESH.",
+            "policy_enabled": False,
+            "return_window_hours": settings.get("return_window_hours", 24),
+            "deadline": "",
+        }
+
+    if not order_doc:
+        return {
+            "allowed": False,
+            "reason": "Order not found.",
+            "policy_enabled": True,
+            "return_window_hours": settings.get("return_window_hours", 24),
+            "deadline": "",
+        }
+
+    order_status = (order_doc.get("status") or "").strip().upper()
+    payment_status = (order_doc.get("payment_status") or "").strip().upper()
+    return_status = (order_doc.get("return_status") or "").strip().upper()
+    refund_status = (order_doc.get("refund_status") or "").strip().upper()
+
+    if order_status != "DELIVERED":
+        return {
+            "allowed": False,
+            "reason": "Return is allowed only after delivery.",
+            "policy_enabled": True,
+            "return_window_hours": settings.get("return_window_hours", 24),
+            "deadline": "",
+        }
+
+    if payment_status == "REFUNDED" or refund_status in ["PROCESSED", "ADJUSTED", "REJECTED"]:
+        return {
+            "allowed": False,
+            "reason": "This order already has refund status.",
+            "policy_enabled": True,
+            "return_window_hours": settings.get("return_window_hours", 24),
+            "deadline": "",
+        }
+
+    blocked_return_statuses = [
+        "RETURN_REQUESTED",
+        "REQUESTED",
+        "STORE_REVIEWED",
+        "STORE_APPROVED",
+        "STORE_REJECTED",
+        "APPROVED",
+        "REJECTED",
+        "NEED_ADMIN_REVIEW",
+        "PENDING_ASSIGNMENT",
+        "ASSIGNED",
+        "PICKUP_STARTED",
+        "PICKED_UP_FROM_CUSTOMER",
+        "RETURNED_TO_STORE",
+        "VERIFIED_BY_STORE",
+        "RETURN_COMPLETED",
+        "COMPLETED"
+    ]
+
+    if return_status in blocked_return_statuses:
+        return {
+            "allowed": False,
+            "reason": "Return request already exists for this order.",
+            "policy_enabled": True,
+            "return_window_hours": settings.get("return_window_hours", 24),
+            "deadline": "",
+        }
+
+    delivered_at = (
+        order_doc.get("delivered_at")
+        or order_doc.get("delivery_completed_at")
+        or order_doc.get("updated_at")
+        or order_doc.get("created_at")
+    )
+
+    delivered_dt = _parse_order_datetime(delivered_at)
+
+    if not delivered_dt:
+        return {
+            "allowed": False,
+            "reason": "Delivery time is not available for return window validation.",
+            "policy_enabled": True,
+            "return_window_hours": settings.get("return_window_hours", 24),
+            "deadline": "",
+        }
+
+    return_window_hours = int(settings.get("return_window_hours") or 24)
+    deadline_dt = delivered_dt + timedelta(hours=return_window_hours)
+    now_dt = datetime.utcnow()
+
+    if now_dt > deadline_dt:
+        return {
+            "allowed": False,
+            "reason": f"Return window expired. Return is allowed within {return_window_hours} hours after delivery.",
+            "policy_enabled": True,
+            "return_window_hours": return_window_hours,
+            "deadline": deadline_dt.isoformat(),
+        }
+
+    return {
+        "allowed": True,
+        "reason": "",
+        "policy_enabled": True,
+        "return_window_hours": return_window_hours,
+        "deadline": deadline_dt.isoformat(),
+    }
+
 
 @app.route('/orders/<oid>/cancel', methods=['POST'])
 @login_required()
@@ -117,9 +304,13 @@ def order_cancel(oid):
         flash("Order not found.", "danger")
         return redirect(url_for("orders"))
 
-    if order_doc.get("status") not in CANCELLABLE_STATUSES:
+    current_status = (order_doc.get("status") or "").strip().upper()
+
+    if current_status not in CANCELLABLE_STATUSES:
         flash("This order can no longer be cancelled.", "warning")
         return redirect(url_for("order_track", oid=oid))
+
+    order_doc = normalize_order_money_fields(order_doc)
 
     order_items = list(mongo.order_items.find({"order_id": oid_obj}))
 
@@ -134,23 +325,152 @@ def order_cancel(oid):
                     "$inc": {
                         "stock_quantity": restore_qty
                     },
-                    "$set": {"is_active": 1}
+                    "$set": {
+                        "is_active": 1
+                    }
                 }
             )
 
     now = datetime.utcnow().isoformat()
 
-    payment_status = order_doc.get("payment_status")
-    new_payment_status = "REFUNDED" if payment_status == "PAID" else payment_status
+    payment_method = (order_doc.get("payment_method") or "COD").strip().upper()
+    payment_status = (order_doc.get("payment_status") or "PENDING").strip().upper()
+
+    items_subtotal = _money_float(order_doc.get("items_subtotal"), 0.0)
+    delivery_fee = _money_float(order_doc.get("delivery_fee"), 0.0)
+    platform_fee = _money_float(order_doc.get("platform_fee"), 0.0)
+    tip_amount = _money_float(order_doc.get("tip_amount"), order_doc.get("delivery_tip_amount") or 0.0)
+    total_payable = _money_float(
+        order_doc.get("total_payable"),
+        items_subtotal + delivery_fee + platform_fee + tip_amount
+    )
+
+    is_online_paid = (
+        payment_method not in ["COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"]
+        and payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]
+    )
+
+    is_cod_order = payment_method in ["COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"]
+
+    if is_online_paid:
+        # Online paid order cancelled before delivery.
+        # Do not mark REFUNDED immediately.
+        # Admin will process gateway/manual refund from refund processing queue.
+        refund_items_amount = items_subtotal
+        refund_delivery_fee = delivery_fee
+        refund_platform_fee = platform_fee
+        refund_tip_amount = tip_amount
+        refund_amount = round(total_payable, 2)
+
+        new_payment_status = payment_status
+        refund_status = "READY_FOR_REFUND"
+        refund_reason = "CUSTOMER_CANCELLED_BEFORE_DELIVERY"
+        order_settlement_status = "REFUND_PENDING"
+        payment_collection_status = "PAID_REFUND_PENDING"
+        transaction_status = "REFUND_PENDING"
+
+        flash_message = "Order cancelled successfully. Refund is pending NE FRESH/Admin processing."
+
+    elif is_cod_order:
+        # COD order cancelled before delivery.
+        # Customer has not paid yet, so refund is not required.
+        refund_items_amount = 0.0
+        refund_delivery_fee = 0.0
+        refund_platform_fee = 0.0
+        refund_tip_amount = 0.0
+        refund_amount = 0.0
+
+        new_payment_status = "VOID"
+        refund_status = "NOT_REQUIRED"
+        refund_reason = "COD_CANCELLED_BEFORE_PAYMENT"
+        order_settlement_status = "CANCELLED_VOID"
+        payment_collection_status = "VOID"
+        transaction_status = "VOID"
+
+        flash_message = "Order cancelled successfully."
+
+    else:
+        # Any unpaid/non-COD pending payment order.
+        refund_items_amount = 0.0
+        refund_delivery_fee = 0.0
+        refund_platform_fee = 0.0
+        refund_tip_amount = 0.0
+        refund_amount = 0.0
+
+        new_payment_status = "VOID"
+        refund_status = "NOT_REQUIRED"
+        refund_reason = "UNPAID_ORDER_CANCELLED"
+        order_settlement_status = "CANCELLED_VOID"
+        payment_collection_status = "VOID"
+        transaction_status = "VOID"
+
+        flash_message = "Order cancelled successfully."
+
+    cancel_event = {
+        "action": "ORDER_CANCELLED_BY_CUSTOMER",
+        "order_id": str(oid_obj),
+        "old_status": current_status,
+        "new_status": "CANCELLED",
+        "payment_method": payment_method,
+        "old_payment_status": payment_status,
+        "new_payment_status": new_payment_status,
+        "refund_status": refund_status,
+        "refund_reason": refund_reason,
+        "refund_amount": refund_amount,
+        "refund_items_amount": refund_items_amount,
+        "refund_delivery_fee": refund_delivery_fee,
+        "refund_platform_fee": refund_platform_fee,
+        "refund_tip_amount": refund_tip_amount,
+        "created_by": str(u.get("_id") or u.get("id") or ""),
+        "created_by_name": u.get("name") or "Customer",
+        "created_by_role": "customer",
+        "created_at": now
+    }
+
+    update_data = {
+        "status": "CANCELLED",
+        "cancelled_at": now,
+        "cancelled_by": "customer",
+        "cancelled_by_id": str(u.get("_id") or u.get("id") or ""),
+        "cancelled_by_name": u.get("name") or "Customer",
+
+        "payment_status": new_payment_status,
+        "payment_collection_status": payment_collection_status,
+
+        "refund_status": refund_status,
+        "refund_reason": refund_reason,
+        "refund_amount": refund_amount,
+        "refund_items_amount": refund_items_amount,
+        "refund_delivery_fee": refund_delivery_fee,
+        "refund_platform_fee": refund_platform_fee,
+        "refund_tip_amount": refund_tip_amount,
+
+        "refund_method": "",
+        "refund_reference": "",
+        "refund_processed_at": None,
+
+        "delivery_partner_id": None,
+        "delivery_partner_name": "",
+        "delivery_partner_phone": "",
+
+        "store_payout_status": "NOT_REQUIRED",
+        "rider_cash_settlement_status": "NOT_REQUIRED",
+        "platform_fee_status": "REFUND_PENDING" if is_online_paid and platform_fee > 0 else "NOT_REQUIRED",
+        "order_settlement_status": order_settlement_status,
+        "settlement_status": order_settlement_status,
+
+        "return_status": "CANCELLED",
+        "last_refund_event": cancel_event,
+        "updated_at": now
+    }
 
     mongo.orders.update_one(
         {"_id": oid_obj},
         {
-            "$set": {
-                "status": "CANCELLED",
-                "payment_status": new_payment_status,
-                "delivery_partner_id": None,
-                "cancelled_at": now
+            "$set": update_data,
+            "$push": {
+                "refund_audit_logs": cancel_event,
+                "settlement_audit_logs": cancel_event
             }
         }
     )
@@ -159,7 +479,17 @@ def order_cancel(oid):
         {"order_id": oid_obj},
         {
             "$set": {
-                "status": "REFUNDED" if payment_status == "PAID" else "VOID",
+                "status": transaction_status,
+                "payment_status": new_payment_status,
+                "refund_status": refund_status,
+                "refund_reason": refund_reason,
+                "refund_amount": refund_amount,
+                "refund_items_amount": refund_items_amount,
+                "refund_delivery_fee": refund_delivery_fee,
+                "refund_platform_fee": refund_platform_fee,
+                "refund_tip_amount": refund_tip_amount,
+                "order_settlement_status": order_settlement_status,
+                "settlement_status": order_settlement_status,
                 "updated_at": now
             }
         }
@@ -168,12 +498,217 @@ def order_cancel(oid):
     mongo.order_events.insert_one({
         "order_id": oid_obj,
         "status": "CANCELLED",
-        "note": "Cancelled by customer",
+        "note": (
+            "Cancelled by customer. "
+            + (
+                f"Refund amount ₹{refund_amount:.2f} is ready for Admin processing."
+                if is_online_paid
+                else "Refund not required."
+            )
+        ),
         "created_at": now
     })
 
-    flash("Order cancelled successfully.", "success")
+    flash(flash_message, "success")
     return redirect(url_for("orders"))
+
+@app.route('/orders/<oid>/return-request', methods=['POST'], endpoint='order_return_request')
+@login_required()
+def order_return_request(oid):
+    """
+    Customer return request.
+
+    Rules:
+    - Only delivered orders can be returned.
+    - Customer can request only their own order.
+    - No duplicate open return request.
+    - This does not process refund directly.
+    - Admin/store review will happen in next steps.
+    """
+    u = current_user()
+
+    try:
+        oid_obj = ObjectId(oid)
+    except Exception:
+        flash("Invalid order.", "danger")
+        return redirect(url_for("orders"))
+
+    order_doc = mongo.orders.find_one({
+        "_id": oid_obj,
+        "user_id": u["id"]
+    })
+
+    if not order_doc:
+        flash("Order not found.", "danger")
+        return redirect(url_for("orders"))
+
+    order_status = (order_doc.get("status") or "").strip().upper()
+    payment_status = (order_doc.get("payment_status") or "").strip().upper()
+    return_status = (order_doc.get("return_status") or "").strip().upper()
+    refund_status = (order_doc.get("refund_status") or "").strip().upper()
+
+    return_policy_settings = get_return_refund_policy_settings()
+    return_eligibility = get_order_return_eligibility(order_doc, return_policy_settings)
+
+    if not return_eligibility.get("policy_enabled"):
+        flash("Return/refund is currently disabled by NE FRESH.", "warning")
+        return redirect(url_for("order_track", oid=oid))
+
+    if not return_eligibility.get("allowed"):
+        flash(return_eligibility.get("reason") or "Return request is not allowed for this order.", "warning")
+        return redirect(url_for("order_track", oid=oid))
+
+    if order_status != "DELIVERED":
+        flash("Return request is allowed only after delivery.", "warning")
+        return redirect(url_for("order_track", oid=oid))
+
+    if payment_status == "REFUNDED" or refund_status in ["PROCESSED", "ADJUSTED"]:
+        flash("This order is already refunded.", "info")
+        return redirect(url_for("order_track", oid=oid))
+
+    if return_status in [
+        "RETURN_REQUESTED",
+        "REQUESTED",
+        "STORE_REVIEWED",
+        "APPROVED",
+        "PENDING_ASSIGNMENT",
+        "ASSIGNED",
+        "PICKUP_STARTED",
+        "PICKED_UP_FROM_CUSTOMER",
+        "RETURNED_TO_STORE",
+        "VERIFIED_BY_STORE",
+        "COMPLETED"
+    ]:
+        flash("Return request is already submitted for this order.", "info")
+        return redirect(url_for("order_track", oid=oid))
+
+    reason = (request.form.get("return_reason") or "").strip()
+    note = (request.form.get("return_note") or "").strip()
+
+    allowed_reasons = {
+        "Damaged product",
+        "Wrong item",
+        "Missing item",
+        "Quality issue",
+        "Expired product",
+        "Other"
+    }
+
+    if reason not in allowed_reasons:
+        flash("Please select a valid return reason.", "warning")
+        return redirect(url_for("order_track", oid=oid))
+
+    if len(note) > 700:
+        note = note[:700]
+
+    now = datetime.utcnow().isoformat()
+
+    normalized_order = normalize_order_money_fields(dict(order_doc))
+
+    items_subtotal = round(float(normalized_order.get("items_subtotal") or 0), 2)
+    delivery_fee = round(float(normalized_order.get("delivery_fee") or 0), 2)
+    platform_fee = round(float(normalized_order.get("platform_fee") or 0), 2)
+    tip_amount = round(float(normalized_order.get("tip_amount") or normalized_order.get("delivery_tip_amount") or 0), 2)
+    total_payable = round(float(normalized_order.get("total_payable") or normalized_order.get("total_amount") or 0), 2)
+
+        # Customer request stage:
+    # Admin controls default refund breakup from Return/Refund Policy settings.
+    # Final refund can still be changed later by Admin during refund processing.
+    refund_items_amount = items_subtotal if return_policy_settings.get("default_refund_items") else 0.0
+    refund_delivery_fee = delivery_fee if return_policy_settings.get("default_refund_delivery_fee") else 0.0
+    refund_platform_fee = platform_fee if return_policy_settings.get("default_refund_platform_fee") else 0.0
+    refund_tip_amount = tip_amount if return_policy_settings.get("default_refund_tip") else 0.0
+    refund_amount = round(
+        refund_items_amount
+        + refund_delivery_fee
+        + refund_platform_fee
+        + refund_tip_amount,
+        2
+    )
+
+    return_event = {
+        "action": "RETURN_REQUESTED_BY_CUSTOMER",
+        "order_id": str(oid_obj),
+        "reason": reason,
+        "note": note,
+        "refund_amount": refund_amount,
+        "refund_items_amount": refund_items_amount,
+        "refund_delivery_fee": refund_delivery_fee,
+        "refund_platform_fee": refund_platform_fee,
+        "refund_tip_amount": refund_tip_amount,
+        "created_by": str(u.get("_id") or u.get("id") or ""),
+        "created_by_name": u.get("name") or "Customer",
+        "created_by_role": "customer",
+        "created_at": now
+    }
+
+    update_data = {
+        "return_status": "RETURN_REQUESTED",
+        "return_requested_at": now,
+        "return_requested_by": str(u.get("_id") or u.get("id") or ""),
+        "return_requested_by_name": u.get("name") or "Customer",
+        "return_reason": reason,
+        "return_note": note,
+
+        "refund_status": "PENDING",
+        "refund_amount": refund_amount,
+        "refund_items_amount": refund_items_amount,
+        "refund_delivery_fee": refund_delivery_fee,
+        "refund_platform_fee": refund_platform_fee,
+        "refund_tip_amount": refund_tip_amount,
+
+        "refund_method": "",
+        "refund_reference": "",
+        "refund_processed_at": None,
+
+        "return_pickup_required": True,
+        "return_pickup_status": "PENDING_ASSIGNMENT",
+
+        "store_return_review_status": "PENDING",
+        "store_return_review_remark": "",
+        "admin_return_review_status": "PENDING",
+        "admin_return_review_remark": "",
+
+        "store_refund_deduction": refund_items_amount,
+        "refund_deduction": refund_items_amount,
+
+        "updated_at": now,
+        "last_return_event": return_event
+    }
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": update_data,
+            "$push": {
+                "return_audit_logs": return_event
+            }
+        }
+    )
+
+    mongo.transactions.update_many(
+        {"order_id": oid_obj},
+        {
+            "$set": {
+                "return_status": "RETURN_REQUESTED",
+                "refund_status": "PENDING",
+                "refund_amount": refund_amount,
+                "refund_items_amount": refund_items_amount,
+                "updated_at": now
+            }
+        }
+    )
+
+    mongo.order_events.insert_one({
+        "order_id": oid_obj,
+        "status": "RETURN_REQUESTED",
+        "note": f"Return requested by customer. Reason: {reason}",
+        "created_at": now
+    })
+
+    flash("Return request submitted successfully. NE FRESH/Admin will review it.", "success")
+    return redirect(url_for("order_track", oid=oid))
+
 
 @app.route('/checkout', methods=['GET', 'POST'])
 @login_required()
@@ -972,7 +1507,24 @@ def my_orders():
         o["delivery_rescheduled_for"] = o.get("delivery_rescheduled_for") or ""
         o["delivery_rescheduled_note"] = o.get("delivery_rescheduled_note") or ""
 
-    return render_template("orders.html", orders=orders, user=u)
+    return_policy_settings = get_return_refund_policy_settings()
+
+    for o in orders:
+        return_eligibility = get_order_return_eligibility(o, return_policy_settings)
+        o["return_allowed"] = bool(return_eligibility.get("allowed"))
+        o["return_not_allowed_reason"] = return_eligibility.get("reason") or ""
+        o["return_policy_enabled"] = bool(return_eligibility.get("policy_enabled"))
+        o["return_window_hours"] = return_eligibility.get("return_window_hours")
+        o["return_deadline"] = return_eligibility.get("deadline") or ""
+
+    return render_template(
+        "orders.html",
+        orders=orders,
+        user=u,
+        return_policy_settings=return_policy_settings,
+        return_policy_enabled=bool(return_policy_settings.get("enabled")),
+        return_window_hours=return_policy_settings.get("return_window_hours")
+    )
 
 @app.route("/orders/<oid>")
 @login_required()
@@ -988,7 +1540,22 @@ def order_track(oid):
         flash("Order not found.", "danger")
         return redirect(url_for("orders"))
 
-    return render_template("order_track.html", user=u, **data)
+    return_policy_settings = get_return_refund_policy_settings()
+    order_doc = data.get("order") or {}
+
+    return_eligibility = get_order_return_eligibility(order_doc, return_policy_settings)
+
+    return render_template(
+        "order_track.html",
+        user=u,
+        return_policy_settings=return_policy_settings,
+        return_policy_enabled=bool(return_policy_settings.get("enabled")),
+        return_window_hours=return_policy_settings.get("return_window_hours"),
+        return_allowed=bool(return_eligibility.get("allowed")),
+        return_not_allowed_reason=return_eligibility.get("reason") or "",
+        return_deadline=return_eligibility.get("deadline") or "",
+        **data
+    )
 
 @app.route("/orders/<oid>/feedback", methods=["POST"])
 @login_required()

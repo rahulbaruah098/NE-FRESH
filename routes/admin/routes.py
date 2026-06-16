@@ -155,6 +155,847 @@ def _admin_csv_response(rows, filename):
     )
 
 
+RETURN_REFUND_POLICY_SETTINGS_KEY = "return_refund_policy_settings"
+
+
+def _admin_get_return_refund_policy_settings():
+    settings = mongo.platform_settings.find_one({
+        "key": RETURN_REFUND_POLICY_SETTINGS_KEY
+    }) or {}
+
+    try:
+        return_window_hours = int(settings.get("return_window_hours") or 24)
+    except Exception:
+        return_window_hours = 24
+
+    if return_window_hours < 1:
+        return_window_hours = 1
+
+    if return_window_hours > 720:
+        return_window_hours = 720
+
+    return {
+        "enabled": bool(settings.get("enabled", False)),
+        "return_window_hours": return_window_hours,
+        "default_refund_items": bool(settings.get("default_refund_items", True)),
+        "default_refund_delivery_fee": bool(settings.get("default_refund_delivery_fee", False)),
+        "default_refund_platform_fee": bool(settings.get("default_refund_platform_fee", False)),
+        "default_refund_tip": bool(settings.get("default_refund_tip", False)),
+        "policy_note": settings.get("policy_note") or "",
+        "updated_at": settings.get("updated_at") or "",
+        "updated_by_name": settings.get("updated_by_name") or "",
+    }
+
+
+@app.route("/admin/return-refund-policy", methods=["GET", "POST"], endpoint="admin_return_refund_policy")
+@login_required(role="admin")
+def admin_return_refund_policy():
+    """
+    Admin controls whether customer return/refund is enabled.
+
+    If disabled:
+    - Customer return button is hidden
+    - Backend return request route is blocked
+
+    If enabled:
+    - Return allowed only within configured hours after delivery
+    """
+    admin_user = current_user() or {}
+
+    if request.method == "POST":
+        enabled = _admin_bool_from_form("enabled", False)
+
+        try:
+            return_window_hours = int(float(request.form.get("return_window_hours") or 24))
+        except Exception:
+            return_window_hours = 24
+
+        if return_window_hours < 1:
+            return_window_hours = 1
+
+        if return_window_hours > 720:
+            return_window_hours = 720
+
+        default_refund_items = _admin_bool_from_form("default_refund_items", True)
+        default_refund_delivery_fee = _admin_bool_from_form("default_refund_delivery_fee", False)
+        default_refund_platform_fee = _admin_bool_from_form("default_refund_platform_fee", False)
+        default_refund_tip = _admin_bool_from_form("default_refund_tip", False)
+
+        policy_note = (request.form.get("policy_note") or "").strip()
+
+        if len(policy_note) > 1000:
+            policy_note = policy_note[:1000]
+
+        now = datetime.utcnow().isoformat()
+
+        old_settings = mongo.platform_settings.find_one({
+            "key": RETURN_REFUND_POLICY_SETTINGS_KEY
+        }) or {}
+
+        update_data = {
+            "key": RETURN_REFUND_POLICY_SETTINGS_KEY,
+            "enabled": bool(enabled),
+            "return_window_hours": return_window_hours,
+
+            # Default refund breakup when customer creates request.
+            # Admin can still edit final refund on refund-processing page.
+            "default_refund_items": bool(default_refund_items),
+            "default_refund_delivery_fee": bool(default_refund_delivery_fee),
+            "default_refund_platform_fee": bool(default_refund_platform_fee),
+            "default_refund_tip": bool(default_refund_tip),
+
+            "policy_note": policy_note,
+            "updated_at": now,
+            "updated_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+            "updated_by_name": admin_user.get("name") or admin_user.get("email") or "Admin"
+        }
+
+        mongo.platform_settings.update_one(
+            {"key": RETURN_REFUND_POLICY_SETTINGS_KEY},
+            {
+                "$set": update_data,
+                "$setOnInsert": {
+                    "created_at": now
+                }
+            },
+            upsert=True
+        )
+
+        mongo.admin_audit_logs.insert_one({
+            "action": "RETURN_REFUND_POLICY_UPDATED",
+            "module": "return_refund_policy",
+            "old_value": {
+                "enabled": old_settings.get("enabled"),
+                "return_window_hours": old_settings.get("return_window_hours"),
+                "default_refund_items": old_settings.get("default_refund_items"),
+                "default_refund_delivery_fee": old_settings.get("default_refund_delivery_fee"),
+                "default_refund_platform_fee": old_settings.get("default_refund_platform_fee"),
+                "default_refund_tip": old_settings.get("default_refund_tip"),
+            },
+            "new_value": {
+                "enabled": update_data.get("enabled"),
+                "return_window_hours": update_data.get("return_window_hours"),
+                "default_refund_items": update_data.get("default_refund_items"),
+                "default_refund_delivery_fee": update_data.get("default_refund_delivery_fee"),
+                "default_refund_platform_fee": update_data.get("default_refund_platform_fee"),
+                "default_refund_tip": update_data.get("default_refund_tip"),
+            },
+            "created_at": now,
+            "created_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+            "created_by_name": admin_user.get("name") or admin_user.get("email") or "Admin"
+        })
+
+        flash("Return/refund policy updated successfully.", "success")
+        return redirect(url_for("admin_return_refund_policy"))
+
+    settings = _admin_get_return_refund_policy_settings()
+
+    return render_template(
+        "admin_return_refund_policy.html",
+        user=current_user(),
+        settings=settings,
+        active_group="settlements",
+        active_page="return_refund_policy"
+    )
+
+
+def _admin_hydrate_return_settlement_order(order):
+    """
+    Admin read-only helper for return/refund settlement report.
+
+    This does not update database.
+    It safely prepares old/new order fields for display.
+    """
+    row = _admin_hydrate_settlement_order(dict(order or {}))
+
+    status = (row.get("status") or "").strip().upper()
+    payment_status = (row.get("payment_status") or "").strip().upper()
+    return_status = (row.get("return_status") or row.get("order_return_status") or "").strip().upper()
+    refund_status = (row.get("refund_status") or "").strip().upper()
+
+    items_subtotal = _admin_settlement_money(row.get("items_subtotal"), 0)
+    delivery_fee = _admin_settlement_money(row.get("delivery_fee"), 0)
+    platform_fee = _admin_settlement_money(row.get("platform_fee"), 0)
+    tip_amount = _admin_settlement_money(row.get("tip_amount"), row.get("delivery_tip_amount") or 0)
+    total_payable = _admin_settlement_money(row.get("total_payable"), items_subtotal + delivery_fee + platform_fee + tip_amount)
+
+    refund_items_amount = _admin_settlement_money(
+        row.get("refund_items_amount")
+        if row.get("refund_items_amount") is not None
+        else row.get("refund_item_amount"),
+        0
+    )
+
+    refund_delivery_fee = _admin_settlement_money(row.get("refund_delivery_fee"), 0)
+    refund_platform_fee = _admin_settlement_money(
+        row.get("refund_platform_fee")
+        if row.get("refund_platform_fee") is not None
+        else row.get("platform_fee_adjustment"),
+        0
+    )
+    refund_tip_amount = _admin_settlement_money(row.get("refund_tip_amount"), 0)
+
+    refund_amount = _admin_settlement_money(row.get("refund_amount"), 0)
+
+    # Backward support for old cancelled paid orders.
+    if refund_amount <= 0 and payment_status == "REFUNDED":
+        refund_amount = total_payable
+
+        if refund_items_amount <= 0:
+            refund_items_amount = items_subtotal
+
+    if not return_status:
+        if status in ["RETURNED", "RETURN_REQUESTED", "RETURN_PICKED_UP", "RETURN_COMPLETED"]:
+            return_status = status
+        elif status == "CANCELLED":
+            return_status = "CANCELLED"
+        else:
+            return_status = "NOT_REQUESTED"
+
+    if not refund_status:
+        if payment_status == "REFUNDED":
+            refund_status = "PROCESSED"
+        elif status == "CANCELLED":
+            refund_status = "VOID" if payment_status != "REFUNDED" else "PROCESSED"
+        else:
+            refund_status = "NOT_STARTED"
+
+    store_payout_amount = _admin_settlement_money(row.get("store_payout_amount"), row.get("store_earning") or items_subtotal)
+    store_payout_status = (row.get("store_payout_status") or "").strip().upper()
+
+    # Refund impact on store payout:
+    # - before payout paid: reduce pending store payout
+    # - after payout paid: store owes adjustment in future payout
+    store_refund_deduction = _admin_settlement_money(
+        row.get("store_refund_deduction")
+        if row.get("store_refund_deduction") is not None
+        else row.get("refund_deduction"),
+        refund_items_amount
+    )
+
+    if store_payout_status == "PAID":
+        store_adjustment_due = _admin_settlement_money(
+            row.get("store_adjustment_due"),
+            store_refund_deduction
+        )
+        adjusted_store_payout = store_payout_amount
+        settlement_impact = "ADJUST_FROM_NEXT_PAYOUT" if store_adjustment_due > 0 else "NO_ADJUSTMENT"
+    else:
+        store_adjustment_due = _admin_settlement_money(row.get("store_adjustment_due"), 0)
+        adjusted_store_payout = round(max(store_payout_amount - store_refund_deduction, 0), 2)
+        settlement_impact = "DEDUCT_FROM_PENDING_PAYOUT" if store_refund_deduction > 0 else "NO_DEDUCTION"
+
+    gross_platform_fee = platform_fee
+    platform_fee_adjustment = refund_platform_fee
+    net_platform_fee = round(max(gross_platform_fee - platform_fee_adjustment, 0), 2)
+
+    row["status"] = status
+    row["payment_status"] = payment_status
+    row["return_status"] = return_status
+    row["refund_status"] = refund_status
+
+    row["items_subtotal"] = items_subtotal
+    row["delivery_fee"] = delivery_fee
+    row["platform_fee"] = platform_fee
+    row["tip_amount"] = tip_amount
+    row["total_payable"] = total_payable
+
+    row["refund_amount"] = refund_amount
+    row["refund_items_amount"] = refund_items_amount
+    row["refund_delivery_fee"] = refund_delivery_fee
+    row["refund_platform_fee"] = refund_platform_fee
+    row["refund_tip_amount"] = refund_tip_amount
+
+    row["store_payout_amount"] = store_payout_amount
+    row["store_refund_deduction"] = store_refund_deduction
+    row["adjusted_store_payout"] = adjusted_store_payout
+    row["store_adjustment_due"] = store_adjustment_due
+    row["settlement_impact"] = settlement_impact
+
+    row["gross_platform_fee"] = gross_platform_fee
+    row["platform_fee_adjustment"] = platform_fee_adjustment
+    row["net_platform_fee"] = net_platform_fee
+
+    row["refund_method"] = row.get("refund_method") or ""
+    row["refund_reference"] = row.get("refund_reference") or ""
+    row["refund_note"] = row.get("refund_note") or ""
+
+    row["refund_processed_at"] = row.get("refund_processed_at") or ""
+    row["refund_processed_by_name"] = row.get("refund_processed_by_name") or ""
+
+    row["cancelled_at"] = row.get("cancelled_at") or ""
+    row["created_at"] = row.get("created_at") or ""
+    row["updated_at"] = row.get("updated_at") or ""
+
+    row["order_settlement_status"] = (
+        row.get("order_settlement_status")
+        or row.get("settlement_status")
+        or ""
+    ).strip().upper()
+
+    row["settlement_status"] = (
+        row.get("settlement_status")
+        or row.get("order_settlement_status")
+        or ""
+    ).strip().upper()
+
+    if status == "CANCELLED":
+        row["refund_type"] = "CANCEL_REFUND"
+        row["refund_type_label"] = "Cancelled Order Refund"
+    elif return_status in ["RETURN_COMPLETED", "STORE_APPROVED", "NEED_ADMIN_REVIEW", "ADMIN_REJECTED"]:
+        row["refund_type"] = "RETURN_REFUND"
+        row["refund_type_label"] = "Return Refund"
+    else:
+        row["refund_type"] = "REFUND"
+        row["refund_type_label"] = "Refund"
+
+    return row
+
+
+
+def _admin_hydrate_refund_processing_order(order):
+    """
+    Admin action helper for refund processing queue.
+
+    Shows:
+    - Online paid cancelled orders waiting for refund
+    - Store-approved returns waiting for refund
+    - Admin-review return cases
+    """
+    row = _admin_hydrate_return_settlement_order(dict(order or {}))
+
+    status = (row.get("status") or "").strip().upper()
+    return_status = (row.get("return_status") or "").strip().upper()
+    refund_status = (row.get("refund_status") or "").strip().upper()
+    payment_method = (row.get("payment_method") or "").strip().upper()
+    payment_status = (row.get("payment_status") or "").strip().upper()
+    admin_review_status = (row.get("admin_return_review_status") or "").strip().upper()
+    store_review_status = (row.get("store_return_review_status") or row.get("store_review_status") or "").strip().upper()
+
+    items_subtotal = _admin_settlement_money(row.get("items_subtotal"), 0)
+    delivery_fee = _admin_settlement_money(row.get("delivery_fee"), 0)
+    platform_fee = _admin_settlement_money(row.get("platform_fee"), 0)
+    tip_amount = _admin_settlement_money(row.get("tip_amount"), 0)
+    total_payable = _admin_settlement_money(row.get("total_payable"), items_subtotal + delivery_fee + platform_fee + tip_amount)
+
+    refund_items_amount = _admin_settlement_money(row.get("refund_items_amount"), 0)
+    refund_delivery_fee = _admin_settlement_money(row.get("refund_delivery_fee"), 0)
+    refund_platform_fee = _admin_settlement_money(row.get("refund_platform_fee"), 0)
+    refund_tip_amount = _admin_settlement_money(row.get("refund_tip_amount"), 0)
+
+    refund_amount = _admin_settlement_money(
+        row.get("refund_amount"),
+        refund_items_amount + refund_delivery_fee + refund_platform_fee + refund_tip_amount
+    )
+
+    # If online cancellation was created before full breakup existed, use full payable as refund.
+    if status == "CANCELLED" and refund_status == "READY_FOR_REFUND" and refund_amount <= 0:
+        refund_items_amount = items_subtotal
+        refund_delivery_fee = delivery_fee
+        refund_platform_fee = platform_fee
+        refund_tip_amount = tip_amount
+        refund_amount = total_payable
+
+    # Queue type for display/action.
+    if status == "CANCELLED" and refund_status == "READY_FOR_REFUND":
+        queue_type = "CANCEL_REFUND"
+        queue_label = "Cancelled Order Refund"
+    elif return_status == "NEED_ADMIN_REVIEW" and admin_review_status == "PENDING":
+        queue_type = "ADMIN_REVIEW"
+        queue_label = "Needs Admin Review"
+    elif return_status == "STORE_APPROVED" or refund_status == "READY_FOR_REFUND":
+        queue_type = "RETURN_REFUND"
+        queue_label = "Store Approved Return Refund"
+    else:
+        queue_type = "REFUND"
+        queue_label = "Refund"
+
+    row["status"] = status
+    row["return_status"] = return_status
+    row["refund_status"] = refund_status
+    row["payment_method"] = payment_method
+    row["payment_status"] = payment_status
+    row["admin_return_review_status"] = admin_review_status or "NOT_REQUIRED"
+    row["store_return_review_status"] = store_review_status or ""
+
+    row["items_subtotal"] = items_subtotal
+    row["delivery_fee"] = delivery_fee
+    row["platform_fee"] = platform_fee
+    row["tip_amount"] = tip_amount
+    row["total_payable"] = total_payable
+
+    row["refund_items_amount"] = refund_items_amount
+    row["refund_delivery_fee"] = refund_delivery_fee
+    row["refund_platform_fee"] = refund_platform_fee
+    row["refund_tip_amount"] = refund_tip_amount
+    row["refund_amount"] = refund_amount
+
+    row["queue_type"] = queue_type
+    row["queue_label"] = queue_label
+
+    row["return_reason"] = row.get("return_reason") or row.get("refund_reason") or ""
+    row["return_note"] = row.get("return_note") or ""
+    row["store_return_review_remark"] = row.get("store_return_review_remark") or row.get("store_review_note") or ""
+    row["admin_return_review_remark"] = row.get("admin_return_review_remark") or ""
+
+    return row
+
+
+@app.route("/admin/refund-processing", methods=["GET"], endpoint="admin_refund_processing")
+@login_required(role="admin")
+def admin_refund_processing():
+    """
+    Admin refund processing queue.
+
+    This is the action page.
+    It is separate from the read-only Returns & Refund Settlements report.
+    """
+    q = (request.args.get("q") or "").strip()
+    queue_filter = (request.args.get("queue") or "").strip().upper()
+    refund_filter = (request.args.get("refund_status") or "").strip().upper()
+    payment_filter = (request.args.get("payment") or "").strip().upper()
+
+    raw_orders = list(
+        mongo.orders.find({
+            "$or": [
+                # Online paid cancelled orders waiting for Admin refund processing.
+                {
+                    "status": "CANCELLED",
+                    "refund_status": "READY_FOR_REFUND"
+                },
+
+                # Store approved return. Admin only processes money/refund.
+                {
+                    "return_status": "STORE_APPROVED",
+                    "refund_status": "READY_FOR_REFUND"
+                },
+
+                # Store explicitly sent return to Admin review.
+                {
+                    "return_status": "NEED_ADMIN_REVIEW",
+                    "admin_return_review_status": "PENDING"
+                }
+            ],
+            "refund_status": {
+                "$nin": [
+                    "PROCESSED",
+                    "ADJUSTED",
+                    "REJECTED",
+                    "NOT_REQUIRED",
+                    "VOID"
+                ]
+            }
+        }).sort("updated_at", -1)
+    )
+
+    rows = []
+
+    for order in raw_orders:
+        row = _admin_hydrate_refund_processing_order(order)
+
+        refund_status = (row.get("refund_status") or "").upper()
+        return_status = (row.get("return_status") or "").upper()
+        queue_type = (row.get("queue_type") or "").upper()
+        payment_method = (row.get("payment_method") or "").upper()
+
+        if queue_filter and queue_filter != queue_type:
+            continue
+
+        if refund_filter and refund_filter != refund_status:
+            continue
+
+        if payment_filter:
+            if payment_filter == "ONLINE":
+                if payment_method in ["COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"]:
+                    continue
+            elif payment_filter == "COD":
+                if payment_method not in ["COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"]:
+                    continue
+
+        if q:
+            haystack = " ".join([
+                str(row.get("id") or ""),
+                str(row.get("store_name") or ""),
+                str(row.get("customer_name") or ""),
+                str(row.get("customer_phone") or ""),
+                str(row.get("payment_method") or ""),
+                str(row.get("payment_status") or ""),
+                str(row.get("return_status") or ""),
+                str(row.get("refund_status") or ""),
+                str(row.get("queue_label") or ""),
+                str(row.get("return_reason") or ""),
+                str(row.get("refund_reason") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+        rows.append(row)
+
+    metrics = {
+        "total": len(rows),
+        "admin_review": sum(1 for r in rows if r.get("queue_type") == "ADMIN_REVIEW"),
+        "ready_for_refund": sum(1 for r in rows if r.get("refund_status") == "READY_FOR_REFUND"),
+        "cancel_refunds": sum(1 for r in rows if r.get("queue_type") == "CANCEL_REFUND"),
+        "return_refunds": sum(1 for r in rows if r.get("queue_type") == "RETURN_REFUND"),
+        "refund_amount": round(sum(float(r.get("refund_amount") or 0) for r in rows), 2),
+    }
+
+    return render_template(
+        "admin_refund_processing.html",
+        user=current_user(),
+        refunds=rows,
+        metrics=metrics,
+        q=q,
+        queue_filter=queue_filter,
+        refund_filter=refund_filter,
+        payment_filter=payment_filter,
+        active_group="settlements",
+        active_page="refund_processing"
+    )
+
+
+@app.route("/admin/refund-processing/<oid>/admin-review", methods=["POST"], endpoint="admin_refund_admin_review")
+@login_required(role="admin")
+def admin_refund_admin_review(oid):
+    """
+    Admin decision only for NEED_ADMIN_REVIEW return cases.
+
+    Approve:
+    - moves refund to READY_FOR_REFUND
+
+    Reject:
+    - closes refund as REJECTED
+    """
+    admin_user = current_user() or {}
+    oid_obj = _admin_order_id_or_none(oid)
+
+    if not oid_obj:
+        flash("Invalid order.", "danger")
+        return redirect(url_for("admin_refund_processing"))
+
+    order = mongo.orders.find_one({"_id": oid_obj})
+
+    if not order:
+        flash("Order not found.", "danger")
+        return redirect(url_for("admin_refund_processing"))
+
+    return_status = (order.get("return_status") or "").strip().upper()
+    admin_review_status = (order.get("admin_return_review_status") or "").strip().upper()
+
+    if return_status != "NEED_ADMIN_REVIEW" and admin_review_status != "PENDING":
+        flash("This order does not require Admin return review.", "warning")
+        return redirect(url_for("admin_refund_processing"))
+
+    decision = (request.form.get("admin_review_decision") or "").strip().upper()
+    remark = (request.form.get("admin_review_remark") or "").strip()
+
+    if decision not in ["APPROVE", "REJECT"]:
+        flash("Please select a valid Admin review decision.", "warning")
+        return redirect(url_for("admin_refund_processing"))
+
+    if len(remark) > 700:
+        remark = remark[:700]
+
+    now = datetime.utcnow().isoformat()
+
+    if decision == "APPROVE":
+        next_return_status = "STORE_APPROVED"
+        next_refund_status = "READY_FOR_REFUND"
+        next_admin_review_status = "APPROVED"
+        event_note = "Admin approved return review. Refund is ready for processing."
+        flash_message = "Admin review approved. Refund is now ready for processing."
+    else:
+        next_return_status = "ADMIN_REJECTED"
+        next_refund_status = "REJECTED"
+        next_admin_review_status = "REJECTED"
+        event_note = "Admin rejected return review."
+        flash_message = "Admin review rejected."
+
+    review_event = {
+        "action": "ADMIN_RETURN_REVIEW_DECISION",
+        "order_id": str(oid_obj),
+        "old_return_status": return_status,
+        "new_return_status": next_return_status,
+        "old_refund_status": order.get("refund_status"),
+        "new_refund_status": next_refund_status,
+        "decision": decision,
+        "note": remark,
+        "created_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+        "created_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+        "created_by_role": "admin",
+        "created_at": now
+    }
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": {
+                "return_status": next_return_status,
+                "refund_status": next_refund_status,
+                "admin_return_review_status": next_admin_review_status,
+                "admin_return_review_remark": remark,
+                "admin_return_reviewed_at": now,
+                "admin_return_reviewed_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+                "last_refund_event": review_event,
+                "updated_at": now
+            },
+            "$push": {
+                "return_audit_logs": review_event,
+                "refund_audit_logs": review_event
+            }
+        }
+    )
+
+    mongo.transactions.update_many(
+        {"order_id": oid_obj},
+        {
+            "$set": {
+                "return_status": next_return_status,
+                "refund_status": next_refund_status,
+                "admin_return_review_status": next_admin_review_status,
+                "updated_at": now
+            }
+        }
+    )
+
+    mongo.order_events.insert_one({
+        "order_id": oid_obj,
+        "status": next_return_status,
+        "note": event_note,
+        "created_at": now
+    })
+
+    flash(flash_message, "success")
+    return redirect(url_for("admin_refund_processing"))
+
+
+@app.route("/admin/refund-processing/<oid>/process", methods=["POST"], endpoint="admin_refund_process")
+@login_required(role="admin")
+def admin_refund_process(oid):
+    """
+    Admin marks refund processed after actual refund is completed.
+
+    First version:
+    - manual Razorpay/dashboard/manual UPI/cash reference
+    - no direct gateway API call yet
+    """
+    admin_user = current_user() or {}
+    oid_obj = _admin_order_id_or_none(oid)
+
+    if not oid_obj:
+        flash("Invalid order.", "danger")
+        return redirect(url_for("admin_refund_processing"))
+
+    order = mongo.orders.find_one({"_id": oid_obj})
+
+    if not order:
+        flash("Order not found.", "danger")
+        return redirect(url_for("admin_refund_processing"))
+
+    row = _admin_hydrate_refund_processing_order(order)
+
+    refund_status = (row.get("refund_status") or "").upper()
+    return_status = (row.get("return_status") or "").upper()
+
+    if refund_status in ["PROCESSED", "ADJUSTED", "REJECTED", "NOT_REQUIRED", "VOID"]:
+        flash("This refund is already closed.", "warning")
+        return redirect(url_for("admin_refund_processing"))
+
+    if return_status == "NEED_ADMIN_REVIEW":
+        flash("Please approve or reject Admin review before processing refund.", "warning")
+        return redirect(url_for("admin_refund_processing"))
+
+    refund_items_amount = _admin_settlement_money(
+        request.form.get("refund_items_amount"),
+        row.get("refund_items_amount") or 0
+    )
+    refund_delivery_fee = _admin_settlement_money(
+        request.form.get("refund_delivery_fee"),
+        row.get("refund_delivery_fee") or 0
+    )
+    refund_platform_fee = _admin_settlement_money(
+        request.form.get("refund_platform_fee"),
+        row.get("refund_platform_fee") or 0
+    )
+    refund_tip_amount = _admin_settlement_money(
+        request.form.get("refund_tip_amount"),
+        row.get("refund_tip_amount") or 0
+    )
+
+    refund_amount = round(
+        refund_items_amount
+        + refund_delivery_fee
+        + refund_platform_fee
+        + refund_tip_amount,
+        2
+    )
+
+    total_payable = _admin_settlement_money(row.get("total_payable"), 0)
+
+    if refund_amount <= 0:
+        flash("Refund amount must be greater than zero.", "warning")
+        return redirect(url_for("admin_refund_processing"))
+
+    if total_payable > 0 and refund_amount > total_payable:
+        flash("Refund amount cannot be greater than original payable amount.", "warning")
+        return redirect(url_for("admin_refund_processing"))
+
+    refund_method = (request.form.get("refund_method") or "MANUAL").strip().upper()
+    refund_reference = (request.form.get("refund_reference") or "").strip()
+    refund_note = (request.form.get("refund_note") or "").strip()
+
+    if refund_method not in [
+        "MANUAL",
+        "RAZORPAY_MANUAL",
+        "UPI",
+        "BANK_TRANSFER",
+        "CASH",
+        "WALLET",
+        "OTHER"
+    ]:
+        refund_method = "MANUAL"
+
+    if len(refund_reference) > 120:
+        refund_reference = refund_reference[:120]
+
+    if len(refund_note) > 700:
+        refund_note = refund_note[:700]
+
+    status = (row.get("status") or "").upper()
+    store_payout_status = (row.get("store_payout_status") or "").upper()
+    store_payout_amount = _admin_settlement_money(row.get("store_payout_amount"), 0)
+
+    is_cancel_refund = status == "CANCELLED"
+    store_refund_deduction = 0.0 if is_cancel_refund else refund_items_amount
+
+    if is_cancel_refund:
+        adjusted_store_payout = 0.0
+        store_adjustment_due = 0.0
+        settlement_impact = "CANCEL_REFUND_NO_STORE_PAYOUT"
+        next_store_payout_status = "NOT_REQUIRED"
+    elif store_payout_status == "PAID":
+        adjusted_store_payout = store_payout_amount
+        store_adjustment_due = store_refund_deduction
+        settlement_impact = "ADJUST_FROM_NEXT_PAYOUT" if store_adjustment_due > 0 else "NO_ADJUSTMENT"
+        next_store_payout_status = "PAID"
+    else:
+        adjusted_store_payout = round(max(store_payout_amount - store_refund_deduction, 0), 2)
+        store_adjustment_due = 0.0
+        settlement_impact = "DEDUCT_FROM_PENDING_PAYOUT" if store_refund_deduction > 0 else "NO_DEDUCTION"
+        next_store_payout_status = "PENDING_AFTER_DELIVERY" if adjusted_store_payout > 0 else "ADJUSTED"
+
+    payment_status_after_refund = "REFUNDED" if refund_amount >= total_payable else "PARTIALLY_REFUNDED"
+
+    now = datetime.utcnow().isoformat()
+
+    refund_event = {
+        "action": "REFUND_PROCESSED_BY_ADMIN",
+        "order_id": str(oid_obj),
+        "refund_amount": refund_amount,
+        "refund_items_amount": refund_items_amount,
+        "refund_delivery_fee": refund_delivery_fee,
+        "refund_platform_fee": refund_platform_fee,
+        "refund_tip_amount": refund_tip_amount,
+        "refund_method": refund_method,
+        "refund_reference": refund_reference,
+        "store_refund_deduction": store_refund_deduction,
+        "adjusted_store_payout": adjusted_store_payout,
+        "store_adjustment_due": store_adjustment_due,
+        "settlement_impact": settlement_impact,
+        "created_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+        "created_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+        "created_by_role": "admin",
+        "note": refund_note,
+        "created_at": now
+    }
+
+    update_data = {
+        "refund_status": "PROCESSED",
+        "refund_processed_at": now,
+        "refund_processed_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+        "refund_processed_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+        "refund_method": refund_method,
+        "refund_reference": refund_reference,
+        "refund_note": refund_note,
+
+        "refund_amount": refund_amount,
+        "refund_items_amount": refund_items_amount,
+        "refund_delivery_fee": refund_delivery_fee,
+        "refund_platform_fee": refund_platform_fee,
+        "refund_tip_amount": refund_tip_amount,
+
+        "payment_status": payment_status_after_refund,
+
+        "store_refund_deduction": store_refund_deduction,
+        "refund_deduction": store_refund_deduction,
+        "store_payout_amount": adjusted_store_payout if not is_cancel_refund and store_payout_status != "PAID" else store_payout_amount,
+        "adjusted_store_payout": adjusted_store_payout,
+        "store_adjustment_due": store_adjustment_due,
+        "store_payout_status": next_store_payout_status,
+        "settlement_impact": settlement_impact,
+
+        "platform_fee_adjustment": refund_platform_fee,
+        "platform_fee_status": "REFUNDED" if refund_platform_fee > 0 else row.get("platform_fee_status"),
+
+        "order_settlement_status": "REFUND_PROCESSED",
+        "settlement_status": "REFUND_PROCESSED",
+
+        "return_status": "RETURN_COMPLETED" if not is_cancel_refund else "CANCELLED",
+        "last_refund_event": refund_event,
+        "updated_at": now
+    }
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": update_data,
+            "$push": {
+                "refund_audit_logs": refund_event,
+                "settlement_audit_logs": refund_event
+            }
+        }
+    )
+
+    mongo.transactions.update_many(
+        {"order_id": oid_obj},
+        {
+            "$set": {
+                "status": payment_status_after_refund,
+                "payment_status": payment_status_after_refund,
+                "refund_status": "PROCESSED",
+                "refund_processed_at": now,
+                "refund_method": refund_method,
+                "refund_reference": refund_reference,
+                "refund_amount": refund_amount,
+                "refund_items_amount": refund_items_amount,
+                "refund_delivery_fee": refund_delivery_fee,
+                "refund_platform_fee": refund_platform_fee,
+                "refund_tip_amount": refund_tip_amount,
+                "store_refund_deduction": store_refund_deduction,
+                "refund_deduction": store_refund_deduction,
+                "store_payout_amount": adjusted_store_payout if not is_cancel_refund and store_payout_status != "PAID" else store_payout_amount,
+                "adjusted_store_payout": adjusted_store_payout,
+                "store_adjustment_due": store_adjustment_due,
+                "platform_fee_adjustment": refund_platform_fee,
+                "order_settlement_status": "REFUND_PROCESSED",
+                "settlement_status": "REFUND_PROCESSED",
+                "updated_at": now
+            }
+        }
+    )
+
+    mongo.order_events.insert_one({
+        "order_id": oid_obj,
+        "status": "REFUND_PROCESSED",
+        "note": f"Refund ₹{refund_amount:.2f} processed by Admin. Reference: {refund_reference or '-'}",
+        "created_at": now
+    })
+
+    flash("Refund processed successfully.", "success")
+    return redirect(url_for("admin_refund_processing"))
+
+
 def _admin_parse_delivery_zone_polygon(raw):
     try:
         if not raw or not str(raw).strip():
@@ -1387,6 +2228,156 @@ def admin_settlement_audit_logs_export_csv():
     return _admin_csv_response(rows, "nefresh_settlement_audit_logs.csv")
 
 
+@app.route("/admin/returns-settlements", methods=["GET"], endpoint="admin_returns_settlements")
+@login_required(role="admin")
+def admin_returns_settlements():
+    """
+    Admin read-only returns/refund settlement report.
+
+    Shows:
+    - cancelled/refunded/returned orders
+    - refund amount breakup
+    - store payout adjustment
+    - platform fee adjustment
+    """
+    q = (request.args.get("q") or "").strip()
+    refund_filter = (request.args.get("refund_status") or "").strip().upper()
+    return_filter = (request.args.get("return_status") or "").strip().upper()
+    payment_filter = (request.args.get("payment") or "").strip().upper()
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+
+    raw_orders = list(
+        mongo.orders.find({
+            "$or": [
+                {"status": {"$in": ["CANCELLED", "RETURNED", "RETURN_REQUESTED", "RETURN_PICKED_UP", "RETURN_COMPLETED"]}},
+                {"payment_status": {"$in": ["REFUNDED", "VOID"]}},
+                {"refund_status": {"$exists": True}},
+                {"return_status": {"$exists": True}},
+                {"refund_amount": {"$gt": 0}},
+                {"store_adjustment_due": {"$gt": 0}},
+                {"refund_deduction": {"$gt": 0}},
+                {"platform_fee_adjustment": {"$gt": 0}}
+            ]
+        }).sort("updated_at", -1)
+    )
+
+    rows = []
+
+    for order in raw_orders:
+        row = _admin_hydrate_return_settlement_order(order)
+
+        report_date = str(
+            row.get("refund_processed_at")
+            or row.get("cancelled_at")
+            or row.get("updated_at")
+            or row.get("created_at")
+            or ""
+        )
+
+        row["report_date"] = report_date
+        row["report_date_label"] = (
+            "Refund Processed"
+            if row.get("refund_processed_at")
+            else "Cancelled/Updated"
+        )
+
+        if date_from and report_date and report_date[:10] < date_from:
+            continue
+
+        if date_to and report_date and report_date[:10] > date_to:
+            continue
+
+        if refund_filter and refund_filter != row.get("refund_status"):
+            continue
+
+        if return_filter and return_filter != row.get("return_status"):
+            continue
+
+        if payment_filter:
+            if payment_filter == "ONLINE":
+                if row.get("payment_method") == "COD":
+                    continue
+            elif payment_filter == "COD":
+                if row.get("payment_method") != "COD":
+                    continue
+            elif payment_filter != row.get("payment_method"):
+                continue
+
+        if q:
+            haystack = " ".join([
+                str(row.get("id") or ""),
+                str(row.get("store_name") or ""),
+                str(row.get("customer_name") or ""),
+                str(row.get("customer_phone") or ""),
+                str(row.get("payment_method") or ""),
+                str(row.get("payment_status") or ""),
+                str(row.get("return_status") or ""),
+                str(row.get("refund_status") or ""),
+                str(row.get("refund_reference") or ""),
+                str(row.get("settlement_impact") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+            rows.append(row)
+
+        processed_rows = [
+        r for r in rows
+        if (r.get("refund_status") or "").upper() == "PROCESSED"
+    ]
+
+    pending_rows = [
+        r for r in rows
+        if (r.get("refund_status") or "").upper() in ["PENDING", "READY_FOR_REFUND", "NOT_STARTED"]
+    ]
+
+    cancel_refund_rows = [
+        r for r in rows
+        if (r.get("refund_type") or "").upper() == "CANCEL_REFUND"
+    ]
+
+    return_refund_rows = [
+        r for r in rows
+        if (r.get("refund_type") or "").upper() == "RETURN_REFUND"
+    ]
+
+    metrics = {
+        "total_records": len(rows),
+        "processed_records": len(processed_rows),
+        "pending_records": len(pending_rows),
+        "cancel_refund_records": len(cancel_refund_rows),
+        "return_refund_records": len(return_refund_rows),
+
+        "total_refund_amount": round(sum(float(r.get("refund_amount") or 0) for r in rows), 2),
+        "processed_refund_amount": round(sum(float(r.get("refund_amount") or 0) for r in processed_rows), 2),
+        "pending_refund_amount": round(sum(float(r.get("refund_amount") or 0) for r in pending_rows), 2),
+
+        "items_refund_amount": round(sum(float(r.get("refund_items_amount") or 0) for r in rows), 2),
+        "delivery_refund_amount": round(sum(float(r.get("refund_delivery_fee") or 0) for r in rows), 2),
+        "platform_refund_amount": round(sum(float(r.get("refund_platform_fee") or 0) for r in rows), 2),
+        "tip_refund_amount": round(sum(float(r.get("refund_tip_amount") or 0) for r in rows), 2),
+
+        "store_deduction_amount": round(sum(float(r.get("store_refund_deduction") or 0) for r in rows), 2),
+        "store_adjustment_due": round(sum(float(r.get("store_adjustment_due") or 0) for r in rows), 2),
+        "net_platform_fee_after_refund": round(sum(float(r.get("net_platform_fee") or 0) for r in rows), 2),
+    }
+
+    return render_template(
+        "admin_returns_settlements.html",
+        user=current_user(),
+        returns=rows,
+        metrics=metrics,
+        q=q,
+        refund_filter=refund_filter,
+        return_filter=return_filter,
+        payment_filter=payment_filter,
+        date_from=date_from,
+        date_to=date_to,
+        active_group="settlements",
+        active_page="returns_settlements"
+    )
 
 @app.route("/admin/dashboard")
 @login_required(role="admin")

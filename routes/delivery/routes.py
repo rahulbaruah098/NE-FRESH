@@ -1894,7 +1894,7 @@ def delivery_cancel_assignment(oid):
 
     Flow:
     - Remove current delivery boy from order
-    - Mark order back as READY_FOR_PICKUP
+    - Mark order back as SHIPMENT_READY
     - Set needs_reassignment = True
     - Add timeline/history event
     - Clear rider current_order_id
@@ -1970,7 +1970,7 @@ def delivery_cancel_assignment(oid):
         {
             "$set": {
                 # Main order is still valid and ready for store reassignment
-                "status": "READY_FOR_PICKUP",
+                "status": "SHIPMENT_READY",
 
                 # Remove current rider assignment
                 "delivery_partner_id": None,
@@ -2059,7 +2059,7 @@ def delivery_cancel_assignment(oid):
                     "type": "delivery_reassignment",
                     "order_id": oid_obj,
                     "order_ref": str(oid_obj),
-                    "order_status": "READY_FOR_PICKUP",
+                    "order_status": "SHIPMENT_READY",
                     "payment_status": order.get("payment_status", ""),
                     "customer_name": order.get("customer_name", ""),
                     "customer_phone": order.get("customer_phone", ""),

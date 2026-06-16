@@ -1,0 +1,685 @@
+{% extends "admin_base.html" %}
+{% set active_page = "refund_processing" %}
+{% set active_group = "settlements" %}
+
+{% block title %}Refund Processing | NE FRESH Admin{% endblock %}
+{% block page_title %}Refund Processing{% endblock %}
+{% block page_subtitle %}Process customer refunds for cancelled orders and store-approved returns.{% endblock %}
+
+{% block content %}
+{% set rows = refunds if refunds is defined else [] %}
+{% set m = metrics if metrics is defined else {} %}
+
+<section class="nf-refund-processing">
+  <style>
+    .nf-refund-processing {
+      display: grid;
+      gap: 18px;
+    }
+
+    .rf-hero,
+    .rf-card,
+    .rf-kpi {
+      background: var(--nf-surface);
+      border: 1px solid var(--nf-line);
+      border-radius: 22px;
+      box-shadow: var(--nf-shadow);
+    }
+
+    .rf-hero {
+      padding: 22px;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(0,168,89,.12), transparent 32%),
+        radial-gradient(circle at 92% 4%, rgba(255,184,77,.14), transparent 28%),
+        linear-gradient(135deg, #fff, var(--nf-surface-2));
+    }
+
+    .rf-hero h2 {
+      margin: 0 0 8px;
+      color: var(--nf-text);
+      font-size: clamp(1.45rem, 3vw, 2.15rem);
+      line-height: 1.1;
+      letter-spacing: -.04em;
+      font-weight: 950;
+    }
+
+    .rf-hero p {
+      margin: 0;
+      max-width: 980px;
+      color: var(--nf-muted);
+      font-size: .95rem;
+      font-weight: 650;
+      line-height: 1.6;
+    }
+
+    .rf-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .rf-kpi {
+      padding: 16px;
+      min-height: 108px;
+      display: grid;
+      align-content: space-between;
+      gap: 9px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .rf-kpi::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: var(--nf-green);
+    }
+
+    .rf-kpi.orange::before {
+      background: var(--nf-warning);
+    }
+
+    .rf-kpi.red::before {
+      background: var(--nf-danger);
+    }
+
+    .rf-kpi.blue::before {
+      background: var(--nf-info);
+    }
+
+    .rf-kpi span {
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .rf-kpi strong {
+      color: var(--nf-text);
+      font-size: 1.22rem;
+      font-weight: 950;
+      letter-spacing: -.04em;
+      line-height: 1;
+    }
+
+    .rf-kpi small {
+      color: var(--nf-muted);
+      font-size: .72rem;
+      font-weight: 750;
+      line-height: 1.35;
+    }
+
+    .rf-card {
+      overflow: hidden;
+    }
+
+    .rf-card-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+    }
+
+    .rf-card-head h3 {
+      margin: 0;
+      color: var(--nf-text);
+      font-size: 1.08rem;
+      font-weight: 950;
+      letter-spacing: -.03em;
+    }
+
+    .rf-card-head p {
+      margin: 5px 0 0;
+      color: var(--nf-muted);
+      font-size: .84rem;
+      font-weight: 650;
+    }
+
+    .rf-filter {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--nf-line);
+      display: grid;
+      grid-template-columns: 1.4fr 190px 180px 170px auto auto;
+      gap: 10px;
+      align-items: end;
+      background: #fff;
+    }
+
+    .rf-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .rf-field label {
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .rf-field input,
+    .rf-field select,
+    .rf-field textarea {
+      width: 100%;
+      border: 1px solid var(--nf-line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 11px;
+      outline: none;
+      font-size: .82rem;
+      font-weight: 800;
+    }
+
+    .rf-field input,
+    .rf-field select {
+      min-height: 40px;
+    }
+
+    .rf-field textarea {
+      min-height: 74px;
+      padding-top: 10px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .rf-btn {
+      min-height: 40px;
+      border: 1px solid var(--nf-line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .8rem;
+      font-weight: 950;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .rf-btn.primary {
+      background: var(--nf-green);
+      border-color: var(--nf-green);
+      color: #fff;
+    }
+
+    .rf-btn.danger {
+      background: #FFF1F2;
+      border-color: rgba(239,68,68,.22);
+      color: #B91C1C;
+    }
+
+    .rf-btn.orange {
+      background: var(--nf-orange-soft);
+      border-color: rgba(245,158,11,.24);
+      color: var(--nf-orange-dark);
+    }
+
+    .rf-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 18px;
+    }
+
+    .rf-table {
+      width: 100%;
+      min-width: 1650px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .rf-table th {
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 12px;
+      border-top: 1px solid var(--nf-line);
+      border-bottom: 1px solid var(--nf-line);
+      white-space: nowrap;
+    }
+
+    .rf-table th:first-child {
+      border-left: 1px solid var(--nf-line);
+      border-top-left-radius: 14px;
+    }
+
+    .rf-table th:last-child {
+      border-right: 1px solid var(--nf-line);
+      border-top-right-radius: 14px;
+    }
+
+    .rf-table td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--nf-line);
+      background: #fff;
+      color: var(--nf-text);
+      vertical-align: top;
+      font-size: .84rem;
+      font-weight: 750;
+    }
+
+    .rf-main {
+      display: block;
+      color: var(--nf-text);
+      font-weight: 950;
+    }
+
+    .rf-sub {
+      display: block;
+      margin-top: 3px;
+      color: var(--nf-muted);
+      font-size: .74rem;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .rf-money {
+      color: var(--nf-text);
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .rf-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 950;
+      border: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      white-space: nowrap;
+      margin: 0 4px 5px 0;
+    }
+
+    .rf-pill.ready_for_refund,
+    .rf-pill.store_approved,
+    .rf-pill.return_refund {
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border-color: rgba(0,168,89,.22);
+    }
+
+    .rf-pill.pending,
+    .rf-pill.admin_review,
+    .rf-pill.need_admin_review,
+    .rf-pill.cancel_refund {
+      background: var(--nf-orange-soft);
+      color: var(--nf-orange-dark);
+      border-color: rgba(245,158,11,.24);
+    }
+
+    .rf-pill.rejected,
+    .rf-pill.failed {
+      background: #FFF1F2;
+      color: #B91C1C;
+      border-color: rgba(239,68,68,.20);
+    }
+
+    .rf-action-box {
+      display: grid;
+      gap: 10px;
+      min-width: 360px;
+    }
+
+    .rf-form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .rf-form-grid.full {
+      grid-template-columns: 1fr;
+    }
+
+    .rf-action-title {
+      color: var(--nf-text);
+      font-size: .83rem;
+      font-weight: 950;
+      margin: 0;
+    }
+
+    .rf-review-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .rf-note {
+      padding: 10px;
+      border-radius: 14px;
+      background: var(--nf-orange-soft);
+      border: 1px solid rgba(245,158,11,.24);
+      color: var(--nf-orange-dark);
+      font-size: .76rem;
+      font-weight: 800;
+      line-height: 1.45;
+    }
+
+    .rf-empty {
+      padding: 32px 18px;
+      text-align: center;
+      color: var(--nf-muted);
+      font-weight: 800;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 1280px) {
+      .rf-kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .rf-filter {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .rf-kpi-grid,
+      .rf-filter,
+      .rf-form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  <div class="rf-hero">
+    <h2>Admin Refund Processing Queue</h2>
+    <p>
+      Use this page only after the actual refund is completed manually through Razorpay dashboard, UPI,
+      bank transfer, cash or another approved method. The system records refund status, reference number
+      and settlement impact.
+    </p>
+  </div>
+
+  <div class="rf-kpi-grid">
+    <div class="rf-kpi">
+      <span>Total Queue</span>
+      <strong>{{ m.total|default(0) }}</strong>
+      <small>Pending refund/action records</small>
+    </div>
+
+    <div class="rf-kpi orange">
+      <span>Admin Review</span>
+      <strong>{{ m.admin_review|default(0) }}</strong>
+      <small>Store sent to Admin review</small>
+    </div>
+
+    <div class="rf-kpi">
+      <span>Ready For Refund</span>
+      <strong>{{ m.ready_for_refund|default(0) }}</strong>
+      <small>Can be processed by Admin</small>
+    </div>
+
+    <div class="rf-kpi blue">
+      <span>Cancel Refunds</span>
+      <strong>{{ m.cancel_refunds|default(0) }}</strong>
+      <small>Online paid cancelled orders</small>
+    </div>
+
+    <div class="rf-kpi">
+      <span>Return Refunds</span>
+      <strong>{{ m.return_refunds|default(0) }}</strong>
+      <small>Store-approved return refunds</small>
+    </div>
+
+    <div class="rf-kpi red">
+      <span>Amount Pending</span>
+      <strong>₹{{ "%.2f"|format(m.refund_amount|default(0)|float) }}</strong>
+      <small>Total refund amount in queue</small>
+    </div>
+  </div>
+
+  <div class="rf-card">
+    <div class="rf-card-head">
+      <h3>Refund Queue</h3>
+      <p>Process online cancellation refunds, store-approved return refunds, and admin-review return cases.</p>
+    </div>
+
+    <form class="rf-filter" method="get" action="{{ url_for('admin_refund_processing') }}">
+      <div class="rf-field">
+        <label>Search</label>
+        <input type="search" name="q" value="{{ q or '' }}" placeholder="Order, store, customer, phone, reason...">
+      </div>
+
+      <div class="rf-field">
+        <label>Queue Type</label>
+        <select name="queue">
+          <option value="">All</option>
+          <option value="CANCEL_REFUND" {% if queue_filter == 'CANCEL_REFUND' %}selected{% endif %}>Cancelled Order Refund</option>
+          <option value="RETURN_REFUND" {% if queue_filter == 'RETURN_REFUND' %}selected{% endif %}>Return Refund</option>
+          <option value="ADMIN_REVIEW" {% if queue_filter == 'ADMIN_REVIEW' %}selected{% endif %}>Admin Review</option>
+        </select>
+      </div>
+
+      <div class="rf-field">
+        <label>Refund Status</label>
+        <select name="refund_status">
+          <option value="">All</option>
+          <option value="PENDING" {% if refund_filter == 'PENDING' %}selected{% endif %}>Pending</option>
+          <option value="READY_FOR_REFUND" {% if refund_filter == 'READY_FOR_REFUND' %}selected{% endif %}>Ready For Refund</option>
+        </select>
+      </div>
+
+      <div class="rf-field">
+        <label>Payment</label>
+        <select name="payment">
+          <option value="">All</option>
+          <option value="ONLINE" {% if payment_filter == 'ONLINE' %}selected{% endif %}>Online</option>
+          <option value="COD" {% if payment_filter == 'COD' %}selected{% endif %}>COD</option>
+        </select>
+      </div>
+
+      <button class="rf-btn primary" type="submit">Apply</button>
+      <a class="rf-btn" href="{{ url_for('admin_refund_processing') }}">Reset</a>
+    </form>
+
+    {% if rows %}
+      <div class="rf-table-wrap">
+        <table class="rf-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Store / Customer</th>
+              <th>Queue</th>
+              <th>Payment</th>
+              <th>Original Amount</th>
+              <th>Refund Breakup</th>
+              <th>Reason / Notes</th>
+              <th>Current Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for o in rows %}
+              {% set queue_class = (o.queue_type or 'refund')|lower %}
+              {% set refund_class = (o.refund_status or 'pending')|lower %}
+              {% set return_class = (o.return_status or '')|lower %}
+              <tr>
+                <td>
+                  <span class="rf-main">#{{ o.id[-6:] if o.id else "-" }}</span>
+                  <span class="rf-sub">{{ o.id }}</span>
+                  <span class="rf-sub">Created: {{ o.created_at or "-" }}</span>
+                  <span class="rf-sub">Updated: {{ o.updated_at or "-" }}</span>
+                </td>
+
+                <td>
+                  <span class="rf-main">{{ o.store_name or "-" }}</span>
+                  <span class="rf-sub">Customer: {{ o.customer_name or "-" }}</span>
+                  {% if o.customer_phone %}
+                    <span class="rf-sub">{{ o.customer_phone }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="rf-pill {{ queue_class }}">{{ o.queue_label or "Refund" }}</span>
+                  <span class="rf-sub">{{ o.queue_type or "-" }}</span>
+                </td>
+
+                <td>
+                  <span class="rf-pill">{{ o.payment_method or "-" }}</span>
+                  <span class="rf-sub">Payment: {{ o.payment_status or "-" }}</span>
+                  {% if o.razorpay_payment_id %}
+                    <span class="rf-sub">Razorpay Payment: {{ o.razorpay_payment_id }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="rf-sub">Items: ₹{{ "%.2f"|format(o.items_subtotal|default(0)|float) }}</span>
+                  <span class="rf-sub">Delivery: ₹{{ "%.2f"|format(o.delivery_fee|default(0)|float) }}</span>
+                  <span class="rf-sub">Platform: ₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</span>
+                  <span class="rf-sub">Tip: ₹{{ "%.2f"|format(o.tip_amount|default(0)|float) }}</span>
+                  <span class="rf-main">Total: ₹{{ "%.2f"|format(o.total_payable|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="rf-money">Total refund ₹{{ "%.2f"|format(o.refund_amount|default(0)|float) }}</span>
+                  <span class="rf-sub">Items: ₹{{ "%.2f"|format(o.refund_items_amount|default(0)|float) }}</span>
+                  <span class="rf-sub">Delivery: ₹{{ "%.2f"|format(o.refund_delivery_fee|default(0)|float) }}</span>
+                  <span class="rf-sub">Platform: ₹{{ "%.2f"|format(o.refund_platform_fee|default(0)|float) }}</span>
+                  <span class="rf-sub">Tip: ₹{{ "%.2f"|format(o.refund_tip_amount|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="rf-main">{{ o.return_reason or o.refund_reason or "-" }}</span>
+                  {% if o.return_note %}
+                    <span class="rf-sub">Customer Note: {{ o.return_note }}</span>
+                  {% endif %}
+                  {% if o.store_return_review_remark %}
+                    <span class="rf-sub">Store Remark: {{ o.store_return_review_remark }}</span>
+                  {% endif %}
+                  {% if o.admin_return_review_remark %}
+                    <span class="rf-sub">Admin Remark: {{ o.admin_return_review_remark }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="rf-pill {{ return_class }}">{{ o.return_status or "-" }}</span>
+                  <span class="rf-pill {{ refund_class }}">{{ o.refund_status or "-" }}</span>
+                  <span class="rf-sub">Store Review: {{ o.store_return_review_status or "-" }}</span>
+                  <span class="rf-sub">Admin Review: {{ o.admin_return_review_status or "-" }}</span>
+                </td>
+
+                <td>
+                  <div class="rf-action-box">
+                    {% if o.queue_type == "ADMIN_REVIEW" %}
+                      <p class="rf-action-title">Admin Review Decision</p>
+
+                      <form method="post"
+                            action="{{ url_for('admin_refund_admin_review', oid=o.id) }}"
+                            onsubmit="return confirm('Submit Admin review decision for this return?');">
+                        <div class="rf-form-grid full">
+                          <div class="rf-field">
+                            <label>Remark</label>
+                            <textarea name="admin_review_remark" maxlength="700" placeholder="Write Admin decision note...">{{ o.admin_return_review_remark or "" }}</textarea>
+                          </div>
+                        </div>
+
+                        <div class="rf-review-actions" style="margin-top:8px;">
+                          <button class="rf-btn primary" type="submit" name="admin_review_decision" value="APPROVE">
+                            Approve For Refund
+                          </button>
+
+                          <button class="rf-btn danger" type="submit" name="admin_review_decision" value="REJECT">
+                            Reject Return
+                          </button>
+                        </div>
+                      </form>
+
+                      <div class="rf-note">
+                        Admin review must be approved before refund processing.
+                      </div>
+                    {% else %}
+                      <p class="rf-action-title">Process Refund</p>
+
+                      <form method="post"
+                            action="{{ url_for('admin_refund_process', oid=o.id) }}"
+                            onsubmit="return confirm('Mark this refund as processed? Make sure actual refund is already completed.');">
+
+                        <div class="rf-form-grid">
+                          <div class="rf-field">
+                            <label>Items Refund</label>
+                            <input type="number" name="refund_items_amount" min="0" step="0.01" value="{{ "%.2f"|format(o.refund_items_amount|default(0)|float) }}">
+                          </div>
+
+                          <div class="rf-field">
+                            <label>Delivery Refund</label>
+                            <input type="number" name="refund_delivery_fee" min="0" step="0.01" value="{{ "%.2f"|format(o.refund_delivery_fee|default(0)|float) }}">
+                          </div>
+
+                          <div class="rf-field">
+                            <label>Platform Refund</label>
+                            <input type="number" name="refund_platform_fee" min="0" step="0.01" value="{{ "%.2f"|format(o.refund_platform_fee|default(0)|float) }}">
+                          </div>
+
+                          <div class="rf-field">
+                            <label>Tip Refund</label>
+                            <input type="number" name="refund_tip_amount" min="0" step="0.01" value="{{ "%.2f"|format(o.refund_tip_amount|default(0)|float) }}">
+                          </div>
+
+                          <div class="rf-field">
+                            <label>Refund Method</label>
+                            <select name="refund_method">
+                              <option value="MANUAL">Manual</option>
+                              <option value="RAZORPAY_MANUAL">Razorpay Manual</option>
+                              <option value="UPI">UPI</option>
+                              <option value="BANK_TRANSFER">Bank Transfer</option>
+                              <option value="CASH">Cash</option>
+                              <option value="WALLET">Wallet</option>
+                              <option value="OTHER">Other</option>
+                            </select>
+                          </div>
+
+                          <div class="rf-field">
+                            <label>Refund Reference</label>
+                            <input type="text" name="refund_reference" maxlength="120" placeholder="Razorpay refund ID / UPI ref / note">
+                          </div>
+                        </div>
+
+                        <div class="rf-form-grid full" style="margin-top:8px;">
+                          <div class="rf-field">
+                            <label>Admin Note</label>
+                            <textarea name="refund_note" maxlength="700" placeholder="Example: Refunded manually from Razorpay dashboard."></textarea>
+                          </div>
+                        </div>
+
+                        <button class="rf-btn primary" type="submit" style="margin-top:8px;">
+                          Mark Refund Processed
+                        </button>
+                      </form>
+
+                      <div class="rf-note">
+                        This button does not call Razorpay API yet. Process the refund manually first, then save the reference here.
+                      </div>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="rf-empty">
+        No refund records found in the processing queue.<br>
+        Store-approved returns and online paid cancellation refunds will appear here.
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

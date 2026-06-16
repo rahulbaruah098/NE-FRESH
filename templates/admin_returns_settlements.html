@@ -1,0 +1,590 @@
+{% extends "admin_base.html" %}
+{% set active_page = "returns_settlements" %}
+{% set active_group = "settlements" %}
+
+{% block title %}Returns & Refund Settlements | NE FRESH Admin{% endblock %}
+{% block page_title %}Returns & Refund Settlements{% endblock %}
+{% block page_subtitle %}Read-only settlement impact report for cancelled, returned and refunded orders.{% endblock %}
+
+{% block content %}
+{% set rows = returns if returns is defined else [] %}
+{% set m = metrics if metrics is defined else {} %}
+
+<section class="nf-admin-returns">
+  <style>
+    .nf-admin-returns {
+      display: grid;
+      gap: 18px;
+    }
+
+    .ret-hero,
+    .ret-card,
+    .ret-kpi {
+      background: var(--nf-surface);
+      border: 1px solid var(--nf-line);
+      border-radius: 22px;
+      box-shadow: var(--nf-shadow);
+    }
+
+    .ret-hero {
+      padding: 22px;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(0,168,89,.12), transparent 32%),
+        radial-gradient(circle at 92% 4%, rgba(239,68,68,.08), transparent 28%),
+        linear-gradient(135deg, #fff, var(--nf-surface-2));
+    }
+
+    .ret-hero h2 {
+      margin: 0 0 8px;
+      font-size: clamp(1.45rem, 3vw, 2.15rem);
+      line-height: 1.1;
+      letter-spacing: -.04em;
+      font-weight: 950;
+      color: var(--nf-text);
+    }
+
+    .ret-hero p {
+      margin: 0;
+      max-width: 960px;
+      color: var(--nf-muted);
+      font-size: .95rem;
+      font-weight: 650;
+      line-height: 1.6;
+    }
+
+    .ret-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .ret-kpi {
+      padding: 18px;
+      min-height: 112px;
+      display: grid;
+      align-content: space-between;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ret-kpi::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: var(--nf-green);
+    }
+
+    .ret-kpi.orange::before {
+      background: var(--nf-warning);
+    }
+
+    .ret-kpi.red::before {
+      background: var(--nf-danger);
+    }
+
+    .ret-kpi.blue::before {
+      background: var(--nf-info);
+    }
+
+    .ret-kpi span {
+      color: var(--nf-muted);
+      font-size: .75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .ret-kpi strong {
+      color: var(--nf-text);
+      font-size: 1.35rem;
+      font-weight: 950;
+      letter-spacing: -.04em;
+      line-height: 1;
+    }
+
+    .ret-kpi small {
+      color: var(--nf-muted);
+      font-size: .75rem;
+      font-weight: 750;
+      line-height: 1.35;
+    }
+
+    .ret-card {
+      overflow: hidden;
+    }
+
+    .ret-card-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+    }
+
+    .ret-card-head h3 {
+      margin: 0;
+      color: var(--nf-text);
+      font-size: 1.08rem;
+      font-weight: 950;
+      letter-spacing: -.03em;
+    }
+
+    .ret-card-head p {
+      margin: 5px 0 0;
+      color: var(--nf-muted);
+      font-size: .84rem;
+      font-weight: 650;
+    }
+
+    .ret-filter {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--nf-line);
+      display: grid;
+      grid-template-columns: 1.3fr 180px 190px 170px 150px 150px auto auto;
+      gap: 10px;
+      align-items: end;
+      background: #fff;
+    }
+
+    .ret-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .ret-field label {
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .ret-field input,
+    .ret-field select {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--nf-line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 11px;
+      outline: none;
+      font-size: .82rem;
+      font-weight: 800;
+    }
+
+    .ret-btn {
+      min-height: 40px;
+      border: 1px solid var(--nf-line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .8rem;
+      font-weight: 950;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .ret-btn.primary {
+      background: var(--nf-green);
+      border-color: var(--nf-green);
+      color: #fff;
+    }
+
+    .ret-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 18px;
+    }
+
+    .ret-table {
+      width: 100%;
+      min-width: 1450px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .ret-table th {
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 12px;
+      border-top: 1px solid var(--nf-line);
+      border-bottom: 1px solid var(--nf-line);
+      white-space: nowrap;
+    }
+
+    .ret-table th:first-child {
+      border-left: 1px solid var(--nf-line);
+      border-top-left-radius: 14px;
+    }
+
+    .ret-table th:last-child {
+      border-right: 1px solid var(--nf-line);
+      border-top-right-radius: 14px;
+    }
+
+    .ret-table td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--nf-line);
+      background: #fff;
+      color: var(--nf-text);
+      vertical-align: top;
+      font-size: .84rem;
+      font-weight: 750;
+    }
+
+    .ret-main {
+      display: block;
+      color: var(--nf-text);
+      font-weight: 950;
+    }
+
+    .ret-sub {
+      display: block;
+      margin-top: 3px;
+      color: var(--nf-muted);
+      font-size: .74rem;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .ret-money {
+      color: var(--nf-text);
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .ret-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 950;
+      border: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      white-space: nowrap;
+    }
+
+    .ret-pill.processed,
+    .ret-pill.completed,
+    .ret-pill.refunded {
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border-color: rgba(0,168,89,.22);
+    }
+
+    .ret-pill.pending,
+    .ret-pill.not_started,
+    .ret-pill.ready_for_refund {
+      background: var(--nf-orange-soft);
+      color: var(--nf-orange-dark);
+      border-color: rgba(245,158,11,.24);
+    }
+
+    .ret-pill.failed,
+    .ret-pill.rejected,
+    .ret-pill.cancelled {
+      background: #FFF1F2;
+      color: #B91C1C;
+      border-color: rgba(239,68,68,.20);
+    }
+
+    .ret-empty {
+      padding: 28px 18px;
+      text-align: center;
+      color: var(--nf-muted);
+      font-weight: 800;
+    }
+
+    @media (max-width: 1280px) {
+      .ret-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .ret-filter {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .ret-kpi-grid,
+      .ret-filter {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  <div class="ret-hero">
+    <h2>Returns & Refund Settlement Impact</h2>
+    <p>
+      This report shows how cancelled, returned and refunded orders affect store payout,
+      platform fee earning and customer refund amount. This page is read-only.
+    </p>
+  </div>
+
+    <div class="ret-kpi-grid">
+    <div class="ret-kpi">
+      <span>Total Refund</span>
+      <strong>₹{{ "%.2f"|format(m.total_refund_amount|default(0)|float) }}</strong>
+      <small>{{ m.total_records|default(0) }} records</small>
+    </div>
+
+    <div class="ret-kpi">
+      <span>Processed Refund</span>
+      <strong>₹{{ "%.2f"|format(m.processed_refund_amount|default(0)|float) }}</strong>
+      <small>{{ m.processed_records|default(0) }} processed records</small>
+    </div>
+
+    <div class="ret-kpi orange">
+      <span>Pending Refund</span>
+      <strong>₹{{ "%.2f"|format(m.pending_refund_amount|default(0)|float) }}</strong>
+      <small>{{ m.pending_records|default(0) }} pending records</small>
+    </div>
+
+    <div class="ret-kpi blue">
+      <span>Cancel Refunds</span>
+      <strong>{{ m.cancel_refund_records|default(0) }}</strong>
+      <small>Cancelled online paid orders</small>
+    </div>
+
+    <div class="ret-kpi blue">
+      <span>Return Refunds</span>
+      <strong>{{ m.return_refund_records|default(0) }}</strong>
+      <small>Store-approved return refunds</small>
+    </div>
+
+    <div class="ret-kpi red">
+      <span>Store Adjustment Due</span>
+      <strong>₹{{ "%.2f"|format(m.store_adjustment_due|default(0)|float) }}</strong>
+      <small>Recover from next payout if already paid</small>
+    </div>
+
+    <div class="ret-kpi orange">
+      <span>Platform Fee Refund</span>
+      <strong>₹{{ "%.2f"|format(m.platform_refund_amount|default(0)|float) }}</strong>
+      <small>Platform fee reversed/refunded</small>
+    </div>
+
+    <div class="ret-kpi">
+      <span>Net Platform Fee</span>
+      <strong>₹{{ "%.2f"|format(m.net_platform_fee_after_refund|default(0)|float) }}</strong>
+      <small>After platform refund adjustment</small>
+    </div>
+  </div>
+
+  <div class="ret-card">
+    <div class="ret-card-head">
+      <h3>Order-wise Return / Refund Settlement Records</h3>
+      <p>Filter cancelled, returned and refunded orders by status, payment type, customer, store or date.</p>
+    </div>
+
+    <form class="ret-filter" method="get" action="{{ url_for('admin_returns_settlements') }}">
+      <div class="ret-field">
+        <label>Search</label>
+        <input type="search" name="q" value="{{ q or '' }}" placeholder="Order, store, customer, refund ref...">
+      </div>
+
+      <div class="ret-field">
+        <label>Refund Status</label>
+        <select name="refund_status">
+          <option value="">All</option>
+          <option value="NOT_STARTED" {% if refund_filter == 'NOT_STARTED' %}selected{% endif %}>Not Started</option>
+          <option value="PENDING" {% if refund_filter == 'PENDING' %}selected{% endif %}>Pending</option>
+          <option value="READY_FOR_REFUND" {% if refund_filter == 'READY_FOR_REFUND' %}selected{% endif %}>Ready</option>
+          <option value="PROCESSED" {% if refund_filter == 'PROCESSED' %}selected{% endif %}>Processed</option>
+          <option value="ADJUSTED" {% if refund_filter == 'ADJUSTED' %}selected{% endif %}>Adjusted</option>
+          <option value="VOID" {% if refund_filter == 'VOID' %}selected{% endif %}>Void</option>
+          <option value="FAILED" {% if refund_filter == 'FAILED' %}selected{% endif %}>Failed</option>
+          <option value="REJECTED" {% if refund_filter == 'REJECTED' %}selected{% endif %}>Rejected</option>
+        </select>
+      </div>
+
+      <div class="ret-field">
+        <label>Return Status</label>
+        <select name="return_status">
+          <option value="">All</option>
+          <option value="NOT_REQUESTED" {% if return_filter == 'NOT_REQUESTED' %}selected{% endif %}>Not Requested</option>
+          <option value="CANCELLED" {% if return_filter == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+          <option value="RETURN_REQUESTED" {% if return_filter == 'RETURN_REQUESTED' %}selected{% endif %}>Requested</option>
+          <option value="RETURNED" {% if return_filter == 'RETURNED' %}selected{% endif %}>Returned</option>
+          <option value="RETURN_COMPLETED" {% if return_filter == 'RETURN_COMPLETED' %}selected{% endif %}>Completed</option>
+        </select>
+      </div>
+
+      <div class="ret-field">
+        <label>Payment</label>
+        <select name="payment">
+          <option value="">All</option>
+          <option value="COD" {% if payment_filter == 'COD' %}selected{% endif %}>COD</option>
+          <option value="ONLINE" {% if payment_filter == 'ONLINE' %}selected{% endif %}>Online</option>
+        </select>
+      </div>
+
+      <div class="ret-field">
+        <label>From</label>
+        <input type="date" name="from" value="{{ date_from or '' }}">
+      </div>
+
+      <div class="ret-field">
+        <label>To</label>
+        <input type="date" name="to" value="{{ date_to or '' }}">
+      </div>
+
+      <button class="ret-btn primary" type="submit">Apply</button>
+      <a class="ret-btn" href="{{ url_for('admin_returns_settlements') }}">Reset</a>
+    </form>
+
+    {% if rows %}
+      <div class="ret-table-wrap">
+        <table class="ret-table">
+          <thead>
+            <tr>
+                            <th>Order</th>
+              <th>Store / Customer</th>
+              <th>Refund Type</th>
+              <th>Payment</th>
+              <th>Original Amount</th>
+              <th>Refund Breakup</th>
+              <th>Store Impact</th>
+              <th>Platform Impact</th>
+              <th>Status</th>
+              <th>Refund Processing</th>
+              <th>Settlement</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for o in rows %}
+              {% set refund_class = (o.refund_status or 'not_started')|lower %}
+              {% set return_class = (o.return_status or 'not_requested')|lower %}
+              <tr>
+                <td>
+                  <span class="ret-main">#{{ o.id[-6:] if o.id else "-" }}</span>
+                  <span class="ret-sub">{{ o.id }}</span>
+                </td>
+
+                <td>
+                  <span class="ret-main">{{ o.store_name or "-" }}</span>
+                  <span class="ret-sub">Customer: {{ o.customer_name or "-" }}</span>
+                  {% if o.customer_phone %}
+                    <span class="ret-sub">{{ o.customer_phone }}</span>
+                  {% endif %}
+                </td>
+
+                               <td>
+                  <span class="ret-pill">{{ o.refund_type_label or "Refund" }}</span>
+                  <span class="ret-sub">{{ o.refund_type or "-" }}</span>
+                </td>
+
+                <td>
+                  <span class="ret-pill">{{ o.payment_method or "-" }}</span>
+                  <span class="ret-sub">Payment: {{ o.payment_status or "-" }}</span>
+                </td>
+
+                <td>
+                  <span class="ret-sub">Items: ₹{{ "%.2f"|format(o.items_subtotal|default(0)|float) }}</span>
+                  <span class="ret-sub">Delivery: ₹{{ "%.2f"|format(o.delivery_fee|default(0)|float) }}</span>
+                  <span class="ret-sub">Platform: ₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</span>
+                  <span class="ret-sub">Tip: ₹{{ "%.2f"|format(o.tip_amount|default(0)|float) }}</span>
+                  <span class="ret-main">Total: ₹{{ "%.2f"|format(o.total_payable|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="ret-money">Total refund ₹{{ "%.2f"|format(o.refund_amount|default(0)|float) }}</span>
+                  <span class="ret-sub">Items: ₹{{ "%.2f"|format(o.refund_items_amount|default(0)|float) }}</span>
+                  <span class="ret-sub">Delivery: ₹{{ "%.2f"|format(o.refund_delivery_fee|default(0)|float) }}</span>
+                  <span class="ret-sub">Platform: ₹{{ "%.2f"|format(o.refund_platform_fee|default(0)|float) }}</span>
+                  <span class="ret-sub">Tip: ₹{{ "%.2f"|format(o.refund_tip_amount|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="ret-sub">Original payout: ₹{{ "%.2f"|format(o.store_payout_amount|default(0)|float) }}</span>
+                  <span class="ret-sub">Deduction: ₹{{ "%.2f"|format(o.store_refund_deduction|default(0)|float) }}</span>
+                  <span class="ret-sub">Adjusted payout: ₹{{ "%.2f"|format(o.adjusted_store_payout|default(0)|float) }}</span>
+                  <span class="ret-sub">Adjustment due: ₹{{ "%.2f"|format(o.store_adjustment_due|default(0)|float) }}</span>
+                  <span class="ret-main">{{ o.settlement_impact or "-" }}</span>
+                </td>
+
+                <td>
+                  <span class="ret-sub">Gross platform: ₹{{ "%.2f"|format(o.gross_platform_fee|default(0)|float) }}</span>
+                  <span class="ret-sub">Refund adjust: ₹{{ "%.2f"|format(o.platform_fee_adjustment|default(0)|float) }}</span>
+                  <span class="ret-main">Net: ₹{{ "%.2f"|format(o.net_platform_fee|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="ret-pill {{ return_class }}">{{ o.return_status or "-" }}</span>
+                  <span class="ret-sub"></span>
+                  <span class="ret-pill {{ refund_class }}">{{ o.refund_status or "-" }}</span>
+                </td>
+
+                                <td>
+                  {% if o.refund_status == "PROCESSED" %}
+                    <span class="ret-main">{{ o.refund_method or "Manual" }}</span>
+
+                    {% if o.refund_reference %}
+                      <span class="ret-sub">Ref: {{ o.refund_reference }}</span>
+                    {% else %}
+                      <span class="ret-sub">No refund reference saved</span>
+                    {% endif %}
+
+                    {% if o.refund_processed_by_name %}
+                      <span class="ret-sub">By: {{ o.refund_processed_by_name }}</span>
+                    {% endif %}
+
+                    {% if o.refund_note %}
+                      <span class="ret-sub">Note: {{ o.refund_note }}</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="ret-sub">Refund not processed yet</span>
+                    {% if o.refund_reference %}
+                      <span class="ret-sub">Ref: {{ o.refund_reference }}</span>
+                    {% endif %}
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="ret-main">{{ o.order_settlement_status or o.settlement_status or "-" }}</span>
+                  <span class="ret-sub">Store payout: {{ o.store_payout_status or "-" }}</span>
+                  <span class="ret-sub">Impact: {{ o.settlement_impact or "-" }}</span>
+                </td>
+
+                                <td>
+                  <span class="ret-main">{{ o.report_date or o.updated_at or o.created_at or "-" }}</span>
+                  <span class="ret-sub">{{ o.report_date_label or "Record Date" }}</span>
+
+                  {% if o.refund_processed_at %}
+                    <span class="ret-sub">Processed: {{ o.refund_processed_at }}</span>
+                  {% endif %}
+
+                  {% if o.cancelled_at %}
+                    <span class="ret-sub">Cancelled: {{ o.cancelled_at }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="ret-empty">No return/refund settlement records found for this filter.</div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

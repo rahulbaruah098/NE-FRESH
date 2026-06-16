@@ -1,0 +1,373 @@
+{% extends "admin_base.html" %}
+{% set active_page = "return_refund_policy" %}
+{% set active_group = "settlements" %}
+
+{% block title %}Return/Refund Policy | NE FRESH Admin{% endblock %}
+{% block page_title %}Return/Refund Policy{% endblock %}
+{% block page_subtitle %}Control whether customers can request returns and how default refund breakup is prepared.{% endblock %}
+
+{% block content %}
+<section class="nf-return-policy">
+  <style>
+    .nf-return-policy {
+      display: grid;
+      gap: 18px;
+    }
+
+    .rp-hero,
+    .rp-card,
+    .rp-kpi {
+      background: var(--nf-surface);
+      border: 1px solid var(--nf-line);
+      border-radius: 22px;
+      box-shadow: var(--nf-shadow);
+    }
+
+    .rp-hero {
+      padding: 22px;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(0,168,89,.12), transparent 32%),
+        radial-gradient(circle at 92% 4%, rgba(255,184,77,.14), transparent 28%),
+        linear-gradient(135deg, #fff, var(--nf-surface-2));
+    }
+
+    .rp-hero h2 {
+      margin: 0 0 8px;
+      color: var(--nf-text);
+      font-size: clamp(1.45rem, 3vw, 2.1rem);
+      line-height: 1.1;
+      letter-spacing: -.04em;
+      font-weight: 950;
+    }
+
+    .rp-hero p {
+      margin: 0;
+      max-width: 980px;
+      color: var(--nf-muted);
+      font-size: .94rem;
+      font-weight: 650;
+      line-height: 1.6;
+    }
+
+    .rp-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .rp-kpi {
+      padding: 18px;
+      min-height: 110px;
+      display: grid;
+      align-content: space-between;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .rp-kpi::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: var(--nf-green);
+    }
+
+    .rp-kpi.orange::before {
+      background: var(--nf-orange);
+    }
+
+    .rp-kpi.red::before {
+      background: var(--nf-red);
+    }
+
+    .rp-kpi span {
+      color: var(--nf-muted);
+      font-size: .72rem;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .rp-kpi strong {
+      color: var(--nf-text);
+      font-size: 1.35rem;
+      line-height: 1;
+      font-weight: 950;
+      letter-spacing: -.04em;
+    }
+
+    .rp-kpi small {
+      color: var(--nf-muted);
+      font-size: .75rem;
+      font-weight: 750;
+      line-height: 1.35;
+    }
+
+    .rp-card {
+      overflow: hidden;
+    }
+
+    .rp-card-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+    }
+
+    .rp-card-head h3 {
+      margin: 0;
+      color: var(--nf-text);
+      font-size: 1.08rem;
+      font-weight: 950;
+      letter-spacing: -.03em;
+    }
+
+    .rp-card-head p {
+      margin: 5px 0 0;
+      color: var(--nf-muted);
+      font-size: .84rem;
+      font-weight: 650;
+    }
+
+    .rp-form {
+      padding: 20px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .rp-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .rp-field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .rp-field label {
+      color: var(--nf-muted);
+      font-size: .72rem;
+      font-weight: 950;
+      letter-spacing: .055em;
+      text-transform: uppercase;
+    }
+
+    .rp-field input,
+    .rp-field textarea {
+      width: 100%;
+      border: 1px solid var(--nf-line);
+      border-radius: 13px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 11px 12px;
+      outline: none;
+      font-size: .9rem;
+      font-weight: 800;
+    }
+
+    .rp-field textarea {
+      min-height: 105px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .rp-check-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .rp-check {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 14px;
+      border: 1px solid var(--nf-line);
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    .rp-check input {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      accent-color: var(--nf-green);
+    }
+
+    .rp-check strong {
+      display: block;
+      color: var(--nf-text);
+      font-size: .9rem;
+      font-weight: 950;
+    }
+
+    .rp-check span {
+      display: block;
+      margin-top: 4px;
+      color: var(--nf-muted);
+      font-size: .78rem;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .rp-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--nf-line);
+      padding-top: 18px;
+    }
+
+    .rp-btn {
+      min-height: 42px;
+      border: 1px solid var(--nf-line);
+      border-radius: 13px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .85rem;
+      font-weight: 950;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .rp-btn.primary {
+      background: var(--nf-green);
+      border-color: var(--nf-green);
+      color: #fff;
+    }
+
+    .rp-note {
+      padding: 14px;
+      border: 1px solid rgba(255,184,77,.30);
+      border-radius: 16px;
+      background: var(--nf-orange-soft);
+      color: var(--nf-orange-dark);
+      font-size: .84rem;
+      font-weight: 750;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 900px) {
+      .rp-kpi-grid,
+      .rp-grid,
+      .rp-check-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  <div class="rp-hero">
+    <h2>Return/Refund Policy Control</h2>
+    <p>
+      Turn customer returns on or off from here. When disabled, customers will not see any return option,
+      and backend return requests will also be blocked.
+    </p>
+  </div>
+
+  <div class="rp-kpi-grid">
+    <div class="rp-kpi {% if not settings.enabled %}red{% endif %}">
+      <span>Return System</span>
+      <strong>{{ "Enabled" if settings.enabled else "Disabled" }}</strong>
+      <small>Controls customer return button and backend return route.</small>
+    </div>
+
+    <div class="rp-kpi orange">
+      <span>Return Window</span>
+      <strong>{{ settings.return_window_hours }} Hours</strong>
+      <small>Customer can request return only within this time after delivery.</small>
+    </div>
+
+    <div class="rp-kpi">
+      <span>Default Refund</span>
+      <strong>Dynamic</strong>
+      <small>Admin controls item, delivery fee, platform fee and tip defaults.</small>
+    </div>
+  </div>
+
+  <div class="rp-card">
+    <div class="rp-card-head">
+      <h3>Policy Settings</h3>
+      <p>These settings affect customer return button visibility and return request validation.</p>
+    </div>
+
+    <form class="rp-form" method="post" action="{{ url_for('admin_return_refund_policy') }}">
+      <div class="rp-check-grid">
+        <label class="rp-check">
+          <input type="checkbox" name="enabled" value="1" {% if settings.enabled %}checked{% endif %}>
+          <span>
+            <strong>Enable Return/Refund System</strong>
+            <span>When off, no customer can request return and no return button will be visible.</span>
+          </span>
+        </label>
+
+        <label class="rp-check">
+          <input type="checkbox" name="default_refund_items" value="1" {% if settings.default_refund_items %}checked{% endif %}>
+          <span>
+            <strong>Default Refund Item Amount</strong>
+            <span>Usually enabled. Store/product value is included in refund request by default.</span>
+          </span>
+        </label>
+
+        <label class="rp-check">
+          <input type="checkbox" name="default_refund_delivery_fee" value="1" {% if settings.default_refund_delivery_fee %}checked{% endif %}>
+          <span>
+            <strong>Default Refund Delivery Fee</strong>
+            <span>Usually off. Enable only if delivery fee should be included by default.</span>
+          </span>
+        </label>
+
+        <label class="rp-check">
+          <input type="checkbox" name="default_refund_platform_fee" value="1" {% if settings.default_refund_platform_fee %}checked{% endif %}>
+          <span>
+            <strong>Default Refund Platform Fee</strong>
+            <span>Usually off. Admin can still refund platform fee manually later.</span>
+          </span>
+        </label>
+
+        <label class="rp-check">
+          <input type="checkbox" name="default_refund_tip" value="1" {% if settings.default_refund_tip %}checked{% endif %}>
+          <span>
+            <strong>Default Refund Tip</strong>
+            <span>Usually off because tip is paid for completed delivery service.</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="rp-grid">
+        <div class="rp-field">
+          <label>Return Window Hours</label>
+          <input type="number" name="return_window_hours" min="1" max="720" step="1" value="{{ settings.return_window_hours or 24 }}" required>
+        </div>
+
+        <div class="rp-field">
+          <label>Last Updated</label>
+          <input type="text" value="{{ settings.updated_at or 'Not updated yet' }}" readonly>
+        </div>
+      </div>
+
+      <div class="rp-field">
+        <label>Policy Note</label>
+        <textarea name="policy_note" maxlength="1000" placeholder="Example: Return accepted within 24 hours for damaged, wrong, missing or quality issue products only.">{{ settings.policy_note or "" }}</textarea>
+      </div>
+
+      <div class="rp-note">
+        Recommended NE FRESH setup: enable returns, set window to 24 hours, keep default refund as item amount only.
+        Delivery fee, platform fee and tip should be refunded manually only in special cases.
+      </div>
+
+      <div class="rp-actions">
+        <button class="rp-btn primary" type="submit">Save Policy</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

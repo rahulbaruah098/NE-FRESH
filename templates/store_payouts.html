@@ -129,9 +129,9 @@
       color: #fff;
     }
 
-    .sp-kpi-grid {
+        .sp-kpi-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 14px;
     }
 
@@ -425,11 +425,29 @@
     </div>
   </div>
 
-  <div class="sp-kpi-grid">
+    <div class="sp-kpi-grid">
     <div class="sp-kpi">
-      <span>Total Store Earning</span>
+      <span>Original Store Earning</span>
       <strong>₹{{ "%.2f"|format(m.total_store_earning|default(0)|float) }}</strong>
-      <small>Delivered orders in current filter</small>
+      <small>Before refund deductions</small>
+    </div>
+
+    <div class="sp-kpi">
+      <span>Adjusted Payout</span>
+      <strong>₹{{ "%.2f"|format(m.total_adjusted_payout|default(0)|float) }}</strong>
+      <small>After refund deductions</small>
+    </div>
+
+    <div class="sp-kpi">
+      <span>Refund Deduction</span>
+      <strong>₹{{ "%.2f"|format(m.total_refund_deduction|default(0)|float) }}</strong>
+      <small>Deducted from store payout</small>
+    </div>
+
+    <div class="sp-kpi">
+      <span>Adjustment Due</span>
+      <strong>₹{{ "%.2f"|format(m.total_adjustment_due|default(0)|float) }}</strong>
+      <small>Will be adjusted from next payout</small>
     </div>
 
     <div class="sp-kpi">
@@ -442,18 +460,6 @@
       <span>Paid Payout</span>
       <strong>₹{{ "%.2f"|format(m.paid_amount|default(0)|float) }}</strong>
       <small>{{ m.paid_orders|default(0) }} orders paid</small>
-    </div>
-
-    <div class="sp-kpi">
-      <span>Total Orders</span>
-      <strong>{{ m.total_orders|default(0) }}</strong>
-      <small>Delivered payout records</small>
-    </div>
-
-    <div class="sp-kpi">
-      <span>Control</span>
-      <strong>Admin</strong>
-      <small>Only Admin can mark payout paid</small>
     </div>
   </div>
 
@@ -492,12 +498,12 @@
         <table class="sp-table">
           <thead>
             <tr>
-              <th>Order</th>
+                           <th>Order</th>
               <th>Customer</th>
               <th>Payment</th>
-              <th>Items Subtotal</th>
-              <th>Refund Deduction</th>
-              <th>Net Store Earning</th>
+              <th>Original Earning</th>
+              <th>Refund / Adjustment</th>
+              <th>Adjusted Payout</th>
               <th>Rider Cash</th>
               <th>Platform Fee</th>
               <th>Payout Status</th>
@@ -524,15 +530,27 @@
                   <span class="sp-sub">{{ o.payment_status or "-" }}</span>
                 </td>
 
-                <td><span class="sp-money">₹{{ "%.2f"|format(o.items_subtotal|default(0)|float) }}</span></td>
-
-                <td>
-                  <span class="sp-money">₹{{ "%.2f"|format(o.refund_deduction|default(0)|float) }}</span>
+                                <td>
+                  <span class="sp-money">₹{{ "%.2f"|format(o.original_store_payout_amount|default(o.items_subtotal)|float) }}</span>
+                  <span class="sp-sub">Items subtotal: ₹{{ "%.2f"|format(o.items_subtotal|default(0)|float) }}</span>
                 </td>
 
                 <td>
-                  <span class="sp-money">₹{{ "%.2f"|format(o.net_store_earning|default(0)|float) }}</span>
-                  <span class="sp-sub">Payout amount: ₹{{ "%.2f"|format(o.store_payout_amount|default(0)|float) }}</span>
+                  <span class="sp-money">₹{{ "%.2f"|format(o.store_refund_deduction|default(0)|float) }}</span>
+                  <span class="sp-sub">Refund deduction</span>
+
+                  {% if o.store_adjustment_due and o.store_adjustment_due > 0 %}
+                    <span class="sp-sub">Adjustment due: ₹{{ "%.2f"|format(o.store_adjustment_due|default(0)|float) }}</span>
+                  {% endif %}
+
+                  {% if o.settlement_impact %}
+                    <span class="sp-sub">Impact: {{ o.settlement_impact }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="sp-money">₹{{ "%.2f"|format(o.adjusted_store_payout|default(o.net_store_earning)|float) }}</span>
+                  <span class="sp-sub">Current payable: ₹{{ "%.2f"|format(o.net_store_earning|default(0)|float) }}</span>
                 </td>
 
                 <td>
@@ -551,11 +569,20 @@
                   {% endif %}
                 </td>
 
-                <td>
+                                <td>
                   <span class="sp-pill {{ payout_status_class }}">{{ o.store_payout_status or "PENDING" }}</span>
+
                   <span class="sp-sub">
                     Settlement: {{ o.order_settlement_status or o.store_settlement_status or "-" }}
                   </span>
+
+                  {% if o.refund_status %}
+                    <span class="sp-sub">Refund: {{ o.refund_status }}</span>
+                  {% endif %}
+
+                  {% if o.return_status %}
+                    <span class="sp-sub">Return: {{ o.return_status }}</span>
+                  {% endif %}
                 </td>
 
                 <td>
@@ -596,14 +623,14 @@
                 <strong>₹{{ "%.2f"|format(o.items_subtotal|default(0)|float) }}</strong>
               </div>
 
-              <div class="sp-mobile-metric">
-                <span>Refund</span>
-                <strong>₹{{ "%.2f"|format(o.refund_deduction|default(0)|float) }}</strong>
+                            <div class="sp-mobile-metric">
+                <span>Refund Deduction</span>
+                <strong>₹{{ "%.2f"|format(o.store_refund_deduction|default(0)|float) }}</strong>
               </div>
 
               <div class="sp-mobile-metric">
-                <span>Net Earning</span>
-                <strong>₹{{ "%.2f"|format(o.net_store_earning|default(0)|float) }}</strong>
+                <span>Adjusted Payout</span>
+                <strong>₹{{ "%.2f"|format(o.adjusted_store_payout|default(o.net_store_earning)|float) }}</strong>
               </div>
 
               <div class="sp-mobile-metric">
@@ -613,8 +640,16 @@
             </div>
 
             <div>
-              <span class="sp-pill {{ payout_status_class }}">{{ o.store_payout_status or "PENDING" }}</span>
+                            <span class="sp-pill {{ payout_status_class }}">{{ o.store_payout_status or "PENDING" }}</span>
               <span class="sp-sub">Settlement: {{ o.order_settlement_status or o.store_settlement_status or "-" }}</span>
+
+              {% if o.store_adjustment_due and o.store_adjustment_due > 0 %}
+                <span class="sp-sub">Adjustment due: ₹{{ "%.2f"|format(o.store_adjustment_due|default(0)|float) }}</span>
+              {% endif %}
+
+              {% if o.settlement_impact %}
+                <span class="sp-sub">Impact: {{ o.settlement_impact }}</span>
+              {% endif %}
               {% if (o.store_payout_status or '')|upper == 'PAID' %}
                 <span class="sp-sub">Paid: {{ o.store_payout_paid_at or "-" }}</span>
                 {% if o.store_payout_reference_no %}

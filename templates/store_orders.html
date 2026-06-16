@@ -15,7 +15,7 @@
 {% set delivery_people_total = metrics.delivery_people|default(0) %}
 {% set active_delivery_people_total = metrics.active_delivery_people|default(delivery_people_total) %}
 {% set accepted_delivery_total = metrics.accepted_by_delivery|default(metrics.delivery_accepted|default(0)) %}
-{% set ready_for_pickup_total = metrics.ready_for_pickup_orders|default(0) %}
+{% set shipment_ready_total = metrics.shipment_ready_orders|default(metrics.ready_for_pickup_orders|default(0)) %}
 {% set delivered_orders_total = metrics.delivered_orders|default(0) %}
 {% set available_delivery_people_list = available_delivery_people if available_delivery_people is defined else [] %}
 
@@ -546,35 +546,35 @@
                     </div>
                    {% set order_status = (o.status or '')|upper %}
 
-{% if order_status in ['PLACED', 'CONFIRMED', 'PREPARING'] %}
+{% if order_status in ['PLACED', 'CONFIRMED', 'PREPARING', 'PACKAGING'] %}
   <form method="post" action="{{ url_for('store_order_status', oid=o.id) }}" class="sd-row-actions">
     <select name="status">
-      <option value="PLACED" {{ 'selected' if order_status == 'PLACED' else '' }}>PLACED</option>
-      <option value="CONFIRMED" {{ 'selected' if order_status == 'CONFIRMED' else '' }}>CONFIRMED</option>
-      <option value="PREPARING" {{ 'selected' if order_status == 'PREPARING' else '' }}>PREPARING</option>
-      <option value="CANCELLED" {{ 'selected' if order_status == 'CANCELLED' else '' }}>CANCELLED</option>
+      <option value="PLACED" {{ 'selected' if order_status == 'PLACED' else '' }}>Placed</option>
+      <option value="CONFIRMED" {{ 'selected' if order_status == 'CONFIRMED' else '' }}>Confirmed</option>
+      <option value="PACKAGING" {{ 'selected' if order_status in ['PACKAGING', 'PREPARING'] else '' }}>Packaging</option>
+      <option value="CANCELLED" {{ 'selected' if order_status == 'CANCELLED' else '' }}>Cancelled</option>
     </select>
     <button type="submit">Update</button>
   </form>
 {% else %}
   <div class="sd-muted" style="margin:10px 0;font-weight:900;">
-    Status controlled by delivery workflow: {{ order_status.replace('_',' ') }}
+    Status controlled by delivery workflow: {{ order_status_label(order_status) }}
   </div>
 {% endif %}
-                    {% set order_status = (o.status or '')|upper %}
+   {% set order_status = (o.status or '')|upper %}
 {% set has_rider = o.delivery_partner_id or o.delivery_partner_id_str %}
 {% set can_mark_ready = order_status in ['CONFIRMED', 'PREPARING', 'PACKAGING'] and not has_rider %}
-{% set can_assign_delivery = order_status == 'READY_FOR_PICKUP' and not has_rider %}
+{% set can_assign_delivery = order_status in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] and not has_rider %}
 {% set can_reassign_delivery = has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
-{% set can_clear_delivery = has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
+{% set can_clear_delivery = has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'ACCEPTED_BY_DELIVERY_MAN', 'REACHED_STORE'] %}
 
 <div class="sd-delivery-control">
-  <div class="sd-delivery-title">
+   <div class="sd-delivery-title">
     <span>Delivery Assignment</span>
     {% if has_rider %}
       <span class="sd-tag">Assigned</span>
-    {% elif order_status == 'READY_FOR_PICKUP' %}
-      <span class="sd-tag">Ready</span>
+    {% elif order_status in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] %}
+      <span class="sd-tag">Shipment Ready</span>
     {% else %}
       <span class="sd-tag">Pending</span>
     {% endif %}
@@ -702,14 +702,14 @@
     </div>
   {% else %}
    <div class="sd-delivery-note">
-  First confirm/prepare the order, then mark it ready for pickup. Rider assignment opens only after that.
+  First confirm/prepare the order, then mark it shipment ready. Rider assignment opens only after that.
 </div>
   {% endif %}
 
   {% if can_mark_ready %}
     <form method="post" action="{{ url_for('store_order_ready_for_pickup', oid=o.id) }}" class="sd-delivery-form">
       <div class="sd-delivery-buttons">
-        <button type="submit" class="primary">Mark Ready for Pickup</button>
+        <button type="submit" class="primary">Mark Shipment Ready</button>
       </div>
     </form>
   {% endif %}
@@ -933,9 +933,14 @@ function showStatusPopover(button, message, type) {
     statusCellTag.textContent = selectedStatus;
   }
 
-  showStatusPopover(button, 'Order status updated to ' + selectedStatus + '.', 'success');
+ const selectedStatusLabel = selectedStatus
+  .replace('PREPARING', 'PACKAGING')
+  .replace('READY_FOR_PICKUP', 'SHIPMENT_READY')
+  .replaceAll('_', ' ');
 
-  if (['CONFIRMED', 'PREPARING', 'PACKAGING', 'READY_FOR_PICKUP'].includes(selectedStatus)) {
+showStatusPopover(button, 'Order status updated to ' + selectedStatusLabel + '.', 'success');
+
+ if (['CONFIRMED', 'PREPARING', 'PACKAGING', 'SHIPMENT_READY', 'READY_FOR_PICKUP'].includes(selectedStatus)) {
     setTimeout(function(){
       window.location.reload();
     }, 700);

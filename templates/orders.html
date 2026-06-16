@@ -355,8 +355,10 @@
       text-transform:capitalize;
     }
 
-    .my-orders-page .status-placed,
-    .my-orders-page .status-processing{
+        .my-orders-page .status-placed,
+    .my-orders-page .status-processing,
+    .my-orders-page .status-preparing,
+    .my-orders-page .status-packaging{
       background:#FFF8E8;
       color:#A96800;
       border-color:rgba(255,184,77,.30);
@@ -368,6 +370,8 @@
       border-color:rgba(0,168,89,.18);
     }
 
+        .my-orders-page .status-ready-for-pickup,
+    .my-orders-page .status-shipment-ready,
     .my-orders-page .status-out-for-delivery,
     .my-orders-page .status-shipped{
       background:#EAF3FF;
@@ -605,6 +609,56 @@
       background:var(--nf-red);
       color:#fff;
       transform:translateY(-2px);
+    }
+
+
+        .my-orders-page .btn-return{
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      border-radius:13px;
+      padding:0 13px;
+      font-size:.78rem;
+      font-weight:950;
+      border:1px solid rgba(255,184,77,.34);
+      cursor:pointer;
+      transition:background .22s var(--nf-ease), color .22s var(--nf-ease), transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease);
+      white-space:nowrap;
+      background:#FFF8E8;
+      color:#A96800;
+      text-decoration:none;
+    }
+
+    .my-orders-page .btn-return:hover{
+      background:#FFB84D;
+      color:#fff;
+      transform:translateY(-2px);
+      box-shadow:0 10px 22px rgba(255,184,77,.22);
+    }
+
+    .my-orders-page .return-note{
+      margin-top:7px;
+      display:grid;
+      gap:3px;
+      max-width:280px;
+      padding:8px 10px;
+      border-radius:12px;
+      background:#FFF8E8;
+      border:1px solid rgba(255,184,77,.30);
+      color:#7C4A03;
+      font-size:.75rem;
+      font-weight:800;
+      line-height:1.35;
+    }
+
+    .my-orders-page .return-note strong{
+      color:#A96800;
+      font-size:.7rem;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.04em;
     }
 
     /* MOBILE CARDS */
@@ -1101,7 +1155,7 @@
                           <td class="order-status">
   {% set order_status_upper = (o.status or '')|upper %}
   {% set is_failed_delivery = order_status_upper == 'DELIVERY_FAILED' %}
-  {% set is_rescheduled_delivery = o.delivery_rescheduled and order_status_upper == 'READY_FOR_PICKUP' %}
+    {% set is_rescheduled_delivery = o.delivery_rescheduled and order_status_upper in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] %}
   {% set is_cancelled_after_failed = order_status_upper == 'CANCELLED' and o.delivery_failed_store_decision == 'CANCELLED' %}
   {% set is_reassigning = o.needs_reassignment or o.delivery_cancelled_by_partner %}
 
@@ -1165,9 +1219,9 @@
       <span>The store is assigning another delivery partner.</span>
     </div>
 
-  {% else %}
+    {% else %}
     <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
-      {{ o.status.replace('_',' ') }}
+      {{ order_status_label(o.status) }}
     </span>
   {% endif %}
 </td>
@@ -1188,7 +1242,7 @@
                   </svg>
                 </a>
 
-                {% if o.status in ['PLACED', 'CONFIRMED'] %}
+                {% if o.status in ['PLACED', 'CONFIRMED', 'PACKAGING', 'PREPARING'] %}
                 <form class="cancel-form" method="post" action="{{ url_for('order_cancel', oid=o.id) }}" style="display:inline">
                   <button class="btn-cancel" type="submit"
                           data-cancel="1"
@@ -1198,6 +1252,19 @@
                     Cancel
                   </button>
                 </form>
+                {% endif %}
+
+                {% set o_return_status = (o.return_status or '')|upper %}
+                {% set o_refund_status = (o.refund_status or '')|upper %}
+                               {% if o.return_allowed %}
+                  <a class="btn-return" href="{{ url_for('order_track', oid=o.id) }}#return-request">
+                    Return
+                  </a>
+                                {% elif o_return_status %}
+                  <div class="return-note">
+                    <strong>Return Status</strong>
+                    <span>{{ order_status_label(o_return_status) }}</span>
+                  </div>
                 {% endif %}
               </td>
             </tr>
@@ -1218,7 +1285,7 @@
 <div class="right">
   {% set order_status_upper = (o.status or '')|upper %}
   {% set is_failed_delivery = order_status_upper == 'DELIVERY_FAILED' %}
-  {% set is_rescheduled_delivery = o.delivery_rescheduled and order_status_upper == 'READY_FOR_PICKUP' %}
+    {% set is_rescheduled_delivery = o.delivery_rescheduled and order_status_upper in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] %}
   {% set is_cancelled_after_failed = order_status_upper == 'CANCELLED' and o.delivery_failed_store_decision == 'CANCELLED' %}
   {% set is_reassigning = o.needs_reassignment or o.delivery_cancelled_by_partner %}
 
@@ -1238,9 +1305,9 @@
     <span class="status-badge status-reassigning">
       Reassigning Rider
     </span>
-  {% else %}
+    {% else %}
     <span class="status-badge status-{{ o.status|lower|replace(' ', '-')|replace('_','-') }}">
-      {{ o.status.replace('_',' ') }}
+      {{ order_status_label(o.status) }}
     </span>
   {% endif %}
 </div>
@@ -1304,7 +1371,7 @@
             </div>
                       {% set order_status_upper = (o.status or '')|upper %}
 {% set is_failed_delivery = order_status_upper == 'DELIVERY_FAILED' %}
-{% set is_rescheduled_delivery = o.delivery_rescheduled and order_status_upper == 'READY_FOR_PICKUP' %}
+{% set is_rescheduled_delivery = o.delivery_rescheduled and order_status_upper in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] %}
 {% set is_cancelled_after_failed = order_status_upper == 'CANCELLED' and o.delivery_failed_store_decision == 'CANCELLED' %}
 
 {% if is_failed_delivery %}
@@ -1346,7 +1413,7 @@
               </svg>
             </a>
 
-            {% if o.status in ['PLACED', 'CONFIRMED'] %}
+                       {% if o.status in ['PLACED', 'CONFIRMED', 'PACKAGING', 'PREPARING'] %}
             <form class="cancel-form" method="post" action="{{ url_for('order_cancel', oid=o.id) }}" style="margin-top:8px;">
               <button class="btn-cancel full" type="submit"
                       data-cancel="1"
@@ -1356,6 +1423,18 @@
                 Cancel Order
               </button>
             </form>
+            {% endif %}
+                        {% set o_return_status = (o.return_status or '')|upper %}
+            {% set o_refund_status = (o.refund_status or '')|upper %}
+                        {% if o.return_allowed %}
+              <a class="btn-return full" href="{{ url_for('order_track', oid=o.id) }}#return-request" style="margin-top:8px;">
+                Request Return
+              </a>
+                        {% elif o_return_status %}
+              <div class="return-note">
+                <strong>Return Status</strong>
+                <span>{{ order_status_label(o_return_status) }}</span>
+              </div>
             {% endif %}
           </div>
         </article>

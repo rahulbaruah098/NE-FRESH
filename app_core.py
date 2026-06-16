@@ -103,7 +103,8 @@ def _parse_since_to_sqlite(since_raw: str):
 def inject_globals():
     return {
         "datetime": datetime,
-        "service_area": session.get("service_area")
+        "service_area": session.get("service_area"),
+        "order_status_label": order_status_label
     }
 
 
@@ -173,9 +174,10 @@ def haversine_km(lat1, lon1, lat2, lon2):
 # ----------------------
 # DELIVERY PARTNER LIVE MODE
 # ----------------------
-# Delivery boys should see only store-ready, unassigned orders.
-# Store must first mark the order READY_FOR_PICKUP.
-DELIVERY_ACTIONABLE_STATUSES = ["READY_FOR_PICKUP"]
+# Delivery boys should see only store shipment-ready, unassigned orders.
+# New status: SHIPMENT_READY
+# Legacy supported status: READY_FOR_PICKUP
+DELIVERY_ACTIONABLE_STATUSES = ["SHIPMENT_READY", "READY_FOR_PICKUP"]
 
 # Active orders already assigned to a delivery boy.
 DELIVERY_ASSIGNED_ACTIVE_STATUSES = [
@@ -2263,10 +2265,55 @@ with app.app_context():
 # =========================================================
 # CUSTOMER CANCEL ORDER
 # =========================================================
-CANCELLABLE_STATUSES = {"PLACED", "CONFIRMED","PREPARING"}
+# New flow:
+# PLACED -> CONFIRMED -> PACKAGING -> SHIPMENT_READY
+#
+# Legacy support:
+# PREPARING is kept because old orders may already have it.
+#
+# Customer can cancel before shipment is ready / delivery assignment.
+CANCELLABLE_STATUSES = {
+    "PLACED",
+    "CONFIRMED",
+    "PACKAGING",
+    "PREPARING"
+}
+
 def is_cancellable(status: str) -> bool:
     return status and status.upper() in CANCELLABLE_STATUSES
 
+
+def order_status_label(status):
+    """
+    Display label helper for old and new order statuses.
+    Keeps old DB statuses readable while showing the new business wording.
+    """
+    status = (status or "").strip().upper()
+
+    labels = {
+        "PLACED": "Placed",
+        "CONFIRMED": "Confirmed",
+        "PREPARING": "Packaging",
+        "PACKAGING": "Packaging",
+        "READY_FOR_PICKUP": "Shipment Ready",
+        "SHIPMENT_READY": "Shipment Ready",
+        "ASSIGNED_TO_DELIVERY": "Assigned To Delivery",
+        "ACCEPTED_BY_DELIVERY_MAN": "Accepted By Delivery Boy",
+        "REACHED_STORE": "Reached Store",
+        "PICKED_UP": "Picked Up",
+        "OUT_FOR_DELIVERY": "Out For Delivery",
+        "DELIVERED": "Delivered",
+        "DELIVERY_FAILED": "Delivery Failed",
+        "CANCELLED": "Cancelled",
+        "CANCELED": "Cancelled",
+        "RETURN_REQUESTED": "Return Requested",
+        "STORE_APPROVED": "Store Approved",
+        "STORE_REJECTED": "Store Rejected",
+        "NEED_ADMIN_REVIEW": "Need Admin Review",
+        "RETURN_COMPLETED": "Return Completed",
+    }
+
+    return labels.get(status, status.replace("_", " ").title() if status else "")
 
 # ----------------------
 # PUBLIC PAGES (with pincode gating)

@@ -963,24 +963,73 @@ def store_payouts_page():
             row.get("store_earning") or 0
         )
 
-        refund_deduction = _store_delivery_money_float(
-            row.get("refund_deduction")
-            if row.get("refund_deduction") is not None
-            else row.get("refund_adjustment_amount"),
+        store_refund_deduction = _store_delivery_money_float(
+            row.get("store_refund_deduction")
+            if row.get("store_refund_deduction") is not None
+            else (
+                row.get("refund_deduction")
+                if row.get("refund_deduction") is not None
+                else row.get("refund_adjustment_amount")
+            ),
             0
+        )
+
+        store_adjustment_due = _store_delivery_money_float(
+            row.get("store_adjustment_due"),
+            0
+        )
+
+        original_store_payout_amount = _store_delivery_money_float(
+            row.get("original_store_payout_amount")
+            if row.get("original_store_payout_amount") is not None
+            else row.get("store_earning"),
+            items_subtotal
         )
 
         store_payout_amount = _store_delivery_money_float(
             row.get("store_payout_amount"),
-            row.get("store_earning") or items_subtotal
+            original_store_payout_amount
         )
 
-        net_store_earning = round(max(store_payout_amount - refund_deduction, 0), 2)
+        adjusted_store_payout = _store_delivery_money_float(
+            row.get("adjusted_store_payout"),
+            max(original_store_payout_amount - store_refund_deduction, 0)
+        )
+
+        payout_status_upper = (row.get("store_payout_status") or "").strip().upper()
+
+        if payout_status_upper == "PAID":
+            net_store_earning = round(store_payout_amount, 2)
+        else:
+            net_store_earning = round(adjusted_store_payout, 2)
+
+        settlement_impact = (
+            row.get("settlement_impact")
+            or (
+                "ADJUST_FROM_NEXT_PAYOUT"
+                if store_adjustment_due > 0
+                else (
+                    "DEDUCT_FROM_PENDING_PAYOUT"
+                    if store_refund_deduction > 0
+                    else "NO_DEDUCTION"
+                )
+            )
+        )
 
         row["items_subtotal"] = round(items_subtotal, 2)
-        row["refund_deduction"] = round(refund_deduction, 2)
+
+        row["original_store_payout_amount"] = round(original_store_payout_amount, 2)
+
+        row["store_refund_deduction"] = round(store_refund_deduction, 2)
+        row["refund_deduction"] = round(store_refund_deduction, 2)
+
+        row["adjusted_store_payout"] = round(adjusted_store_payout, 2)
+        row["store_adjustment_due"] = round(store_adjustment_due, 2)
+
         row["net_store_earning"] = net_store_earning
         row["store_payout_amount"] = round(store_payout_amount, 2)
+
+        row["settlement_impact"] = settlement_impact
 
         row["store_payout_status"] = (
             row.get("store_payout_status")
@@ -1039,26 +1088,46 @@ def store_payouts_page():
 
     metrics = {
         "total_orders": len(payout_rows),
+
         "pending_orders": sum(
             1 for r in payout_rows
             if (r.get("store_payout_status") or "").upper() != "PAID"
         ),
+
         "paid_orders": sum(
             1 for r in payout_rows
             if (r.get("store_payout_status") or "").upper() == "PAID"
         ),
+
         "pending_amount": round(sum(
             float(r.get("net_store_earning") or 0)
             for r in payout_rows
             if (r.get("store_payout_status") or "").upper() != "PAID"
         ), 2),
+
         "paid_amount": round(sum(
             float(r.get("net_store_earning") or 0)
             for r in payout_rows
             if (r.get("store_payout_status") or "").upper() == "PAID"
         ), 2),
+
         "total_store_earning": round(sum(
-            float(r.get("net_store_earning") or 0)
+            float(r.get("original_store_payout_amount") or 0)
+            for r in payout_rows
+        ), 2),
+
+        "total_refund_deduction": round(sum(
+            float(r.get("store_refund_deduction") or 0)
+            for r in payout_rows
+        ), 2),
+
+        "total_adjusted_payout": round(sum(
+            float(r.get("adjusted_store_payout") or 0)
+            for r in payout_rows
+        ), 2),
+
+        "total_adjustment_due": round(sum(
+            float(r.get("store_adjustment_due") or 0)
             for r in payout_rows
         ), 2),
     }
@@ -1705,18 +1774,23 @@ def store_order_ready_for_pickup(oid):
         flash("This order already has a delivery boy assigned.", "warning")
         return redirect(url_for("store_orders"))
 
-    allowed_ready_statuses = {
+    allowed_shipment_ready_statuses = {
         "CONFIRMED",
-        "PREPARING",
+        "PREPARING",   # legacy support
         "PACKAGING"
     }
 
-    if status == "READY_FOR_PICKUP":
-        flash("This order is already ready for pickup.", "info")
+    shipment_ready_statuses = {
+        "SHIPMENT_READY",
+        "READY_FOR_PICKUP"  # legacy support
+    }
+
+    if status in shipment_ready_statuses:
+        flash("This order is already marked shipment ready.", "info")
         return redirect(url_for("store_orders"))
 
-    if status not in allowed_ready_statuses:
-        flash("Only confirmed/preparing/packaging orders can be marked ready for pickup.", "warning")
+    if status not in allowed_shipment_ready_statuses:
+        flash("Only confirmed/packaging orders can be marked shipment ready.", "warning")
         return redirect(url_for("store_orders"))
 
     now = datetime.utcnow().isoformat()
@@ -1724,7 +1798,7 @@ def store_order_ready_for_pickup(oid):
     result = mongo.orders.update_one(
         {
             "_id": oid_obj,
-            "status": {"$in": list(allowed_ready_statuses)},
+            "status": {"$in": list(allowed_shipment_ready_statuses)},
             "$or": [
                 {"delivery_partner_id": {"$exists": False}},
                 {"delivery_partner_id": None},
@@ -1733,8 +1807,12 @@ def store_order_ready_for_pickup(oid):
         },
         {
             "$set": {
-                "status": "READY_FOR_PICKUP",
+                "status": "SHIPMENT_READY",
+                "shipment_ready_at": now,
+
+                # legacy timestamp kept so old pages/reports do not break
                 "ready_for_pickup_at": now,
+
                 "updated_at": now
             }
         }
@@ -1746,21 +1824,21 @@ def store_order_ready_for_pickup(oid):
 
     add_order_event(
         oid_obj,
-        "READY_FOR_PICKUP",
-        "Marked ready for pickup by store.",
+        "SHIPMENT_READY",
+        "Marked shipment ready by store.",
         u
     )
 
     _create_store_notification(
         store,
-        title="Order ready for pickup",
-        message=f"Order #{str(oid_obj)[-6:]} is ready for delivery pickup.",
+        title="Order shipment ready",
+        message=f"Order #{str(oid_obj)[-6:]} is shipment ready for delivery pickup.",
         notif_type="delivery",
         order=order,
-        event_key=f"ready-pickup-{str(oid_obj)}-{now}"
+        event_key=f"shipment-ready-{str(oid_obj)}-{now}"
     )
 
-    flash("Order marked ready for pickup.", "success")
+    flash("Order marked shipment ready.", "success")
     return redirect(url_for("store_orders"))
 
 
@@ -1787,8 +1865,8 @@ def store_order_assign_delivery(oid):
     
     status = (order.get("status") or "").strip().upper()
 
-    if status != "READY_FOR_PICKUP":
-        flash("Please mark this order ready for pickup before assigning a delivery boy.", "warning")
+    if status not in ["SHIPMENT_READY", "READY_FOR_PICKUP"]:
+        flash("Please mark this order shipment ready before assigning a delivery boy.", "warning")
         return redirect(request.referrer or url_for("store_delivery"))
 
     result = assign_delivery_partner_to_order(
@@ -2594,6 +2672,363 @@ def store_delivery_history_page():
         date_to=date_to,
         active_page="delivery_history"
     )
+
+
+@app.route('/store/returns', methods=['GET'], endpoint='store_returns')
+@login_required(role='store')
+def store_returns_page():
+    """
+    Store-side return/refund request page.
+
+    Store can:
+    - View own return requests
+    - Recommend APPROVE / REJECT / NEED_ADMIN_REVIEW
+    - Add store remark
+
+    Store cannot process refund.
+    Admin has final authority.
+    """
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    store_id = store["_id"]
+    store_id_str = str(store_id)
+
+    q = (request.args.get("q") or "").strip()
+    return_filter = (request.args.get("return_status") or "").strip().upper()
+    review_filter = (request.args.get("review_status") or "").strip().upper()
+    if review_filter == "APPROVE":
+        review_filter = "APPROVED"
+
+    if review_filter == "REJECT":
+        review_filter = "REJECTED"
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+
+    raw_orders = list(
+        mongo.orders.find({
+            "$and": [
+                {
+                    "$or": [
+                        {"store_id": store_id},
+                        {"store_id": store_id_str}
+                    ]
+                },
+                {
+                    "$or": [
+                        {"return_status": {"$exists": True, "$ne": ""}},
+                        {"return_requested_at": {"$exists": True}},
+                        {"refund_status": {"$exists": True, "$ne": ""}},
+                        {"return_audit_logs": {"$exists": True, "$ne": []}}
+                    ]
+                }
+            ]
+        }).sort("return_requested_at", -1)
+    )
+
+    rows = []
+
+    for order in raw_orders:
+        row = dict(order)
+        row["id"] = str(row.get("_id") or "")
+
+        row = _decorate_store_delivery_order(row)
+
+        row["return_status"] = (row.get("return_status") or "RETURN_REQUESTED").strip().upper()
+        row["refund_status"] = (row.get("refund_status") or "PENDING").strip().upper()
+        row["return_reason"] = row.get("return_reason") or ""
+        row["return_note"] = row.get("return_note") or ""
+        row["return_requested_at"] = row.get("return_requested_at") or row.get("updated_at") or row.get("created_at") or ""
+
+        row["refund_amount"] = _store_delivery_money_float(row.get("refund_amount"), 0)
+        row["refund_items_amount"] = _store_delivery_money_float(row.get("refund_items_amount"), 0)
+        row["refund_delivery_fee"] = _store_delivery_money_float(row.get("refund_delivery_fee"), 0)
+        row["refund_platform_fee"] = _store_delivery_money_float(row.get("refund_platform_fee"), 0)
+        row["refund_tip_amount"] = _store_delivery_money_float(row.get("refund_tip_amount"), 0)
+
+        row["store_return_review_status"] = (
+            row.get("store_return_review_status")
+            or row.get("store_review_status")
+            or "PENDING"
+        ).strip().upper()
+
+        # Backward support for old values used before Store final decision flow.
+        if row["store_return_review_status"] == "APPROVE":
+            row["store_return_review_status"] = "APPROVED"
+
+        if row["store_return_review_status"] == "REJECT":
+            row["store_return_review_status"] = "REJECTED"
+
+        row["store_return_review_remark"] = (
+            row.get("store_return_review_remark")
+            or row.get("store_review_note")
+            or row.get("store_return_review_note")
+            or ""
+        )
+
+        row["store_reviewed_at"] = row.get("store_reviewed_at") or ""
+        row["admin_return_review_status"] = (
+            row.get("admin_return_review_status")
+            or row.get("admin_decision")
+            or "PENDING"
+        ).strip().upper()
+
+        report_date = str(row.get("return_requested_at") or "")
+
+        if date_from and report_date and report_date[:10] < date_from:
+            continue
+
+        if date_to and report_date and report_date[:10] > date_to:
+            continue
+
+        if return_filter and row.get("return_status") != return_filter:
+            continue
+
+        if review_filter and row.get("store_return_review_status") != review_filter:
+            continue
+
+        if q:
+            haystack = " ".join([
+                str(row.get("id") or ""),
+                str(row.get("customer_name") or ""),
+                str(row.get("customer_phone") or ""),
+                str(row.get("return_reason") or ""),
+                str(row.get("return_note") or ""),
+                str(row.get("return_status") or ""),
+                str(row.get("refund_status") or ""),
+                str(row.get("store_return_review_status") or ""),
+                str(row.get("admin_return_review_status") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+        rows.append(row)
+
+    metrics = {
+        "total": len(rows),
+        "pending_review": sum(1 for r in rows if (r.get("store_return_review_status") or "") == "PENDING"),
+        "approved": sum(1 for r in rows if (r.get("store_return_review_status") or "") in ["APPROVED", "APPROVE"]),
+        "rejected": sum(1 for r in rows if (r.get("store_return_review_status") or "") in ["REJECTED", "REJECT"]),
+        "need_admin_review": sum(1 for r in rows if (r.get("store_return_review_status") or "") == "NEED_ADMIN_REVIEW"),
+        "refund_amount": round(sum(float(r.get("refund_amount") or 0) for r in rows), 2),
+        "items_refund_amount": round(sum(float(r.get("refund_items_amount") or 0) for r in rows), 2),
+    }
+
+    store_view = dict(store)
+    store_view["id"] = str(store["_id"])
+
+    return render_template(
+        "store_returns.html",
+        user=u,
+        store=store_view,
+        returns=rows,
+        metrics=metrics,
+        q=q,
+        return_filter=return_filter,
+        review_filter=review_filter,
+        date_from=date_from,
+        date_to=date_to,
+        active_page="returns"
+    )
+
+
+@app.route('/store/returns/<oid>/review', methods=['POST'], endpoint='store_return_review')
+@login_required(role='store')
+def store_return_review(oid):
+    """
+    Store final return decision.
+
+    Store can:
+    - Approve return
+    - Reject return
+    - Send to Admin review
+
+    Store cannot process customer refund money.
+    Admin/NE FRESH processes refund and platform settlement after store approval.
+    """
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    oid_obj, order = _get_store_owned_order(store, oid)
+
+    if not oid_obj or not order:
+        flash("Return order not found for your store.", "danger")
+        return redirect(url_for("store_returns"))
+
+    return_status = (order.get("return_status") or "").strip().upper()
+    refund_status = (order.get("refund_status") or "").strip().upper()
+
+    if refund_status in ["PROCESSED", "ADJUSTED"]:
+        flash("Refund is already processed for this order.", "warning")
+        return redirect(url_for("store_returns"))
+
+    if return_status not in [
+        "RETURN_REQUESTED",
+        "REQUESTED",
+        "STORE_REVIEWED",
+        "NEED_ADMIN_REVIEW"
+    ]:
+        flash("This order does not have an active return request for store decision.", "warning")
+        return redirect(url_for("store_returns"))
+
+    decision_raw = (request.form.get("store_review_decision") or "").strip().upper()
+    remark = (request.form.get("store_review_remark") or "").strip()
+
+    # Backward support for old template values.
+    if decision_raw == "APPROVE":
+        decision = "APPROVED"
+    elif decision_raw == "REJECT":
+        decision = "REJECTED"
+    else:
+        decision = decision_raw
+
+    if decision not in ["APPROVED", "REJECTED", "NEED_ADMIN_REVIEW"]:
+        flash("Please select a valid store return decision.", "warning")
+        return redirect(url_for("store_returns"))
+
+    if len(remark) > 700:
+        remark = remark[:700]
+
+    now = datetime.utcnow().isoformat()
+
+    old_store_review_status = (
+        order.get("store_return_review_status")
+        or order.get("store_review_status")
+        or "PENDING"
+    )
+
+    refund_amount = _store_delivery_money_float(order.get("refund_amount"), 0)
+    refund_items_amount = _store_delivery_money_float(order.get("refund_items_amount"), refund_amount)
+    refund_delivery_fee = _store_delivery_money_float(order.get("refund_delivery_fee"), 0)
+    refund_platform_fee = _store_delivery_money_float(order.get("refund_platform_fee"), 0)
+    refund_tip_amount = _store_delivery_money_float(order.get("refund_tip_amount"), 0)
+
+    if decision == "APPROVED":
+        next_return_status = "STORE_APPROVED"
+        next_refund_status = "READY_FOR_REFUND"
+        next_admin_review_status = "NOT_REQUIRED"
+        return_pickup_required = True
+        return_pickup_status = "PENDING_ASSIGNMENT"
+        event_note = "Store approved the return. Refund is ready for Admin/NE FRESH processing."
+
+    elif decision == "REJECTED":
+        next_return_status = "STORE_REJECTED"
+        next_refund_status = "REJECTED"
+        next_admin_review_status = "NOT_REQUIRED"
+        return_pickup_required = False
+        return_pickup_status = "NOT_REQUIRED"
+        event_note = "Store rejected the return request."
+
+    else:
+        next_return_status = "NEED_ADMIN_REVIEW"
+        next_refund_status = "PENDING"
+        next_admin_review_status = "PENDING"
+        return_pickup_required = False
+        return_pickup_status = "PENDING_ADMIN_REVIEW"
+        event_note = "Store requested Admin review for this return."
+
+    return_event = {
+        "action": "RETURN_DECIDED_BY_STORE",
+        "order_id": str(oid_obj),
+        "store_id": str(store.get("_id") or ""),
+        "store_name": store.get("store_name") or "",
+        "old_status": old_store_review_status,
+        "new_status": decision,
+        "return_status": next_return_status,
+        "refund_status": next_refund_status,
+        "refund_amount": refund_amount,
+        "refund_items_amount": refund_items_amount,
+        "refund_delivery_fee": refund_delivery_fee,
+        "refund_platform_fee": refund_platform_fee,
+        "refund_tip_amount": refund_tip_amount,
+        "note": remark,
+        "created_by": str(u.get("_id") or u.get("id") or ""),
+        "created_by_name": u.get("name") or store.get("store_name") or "Store",
+        "created_by_role": "store",
+        "created_at": now
+    }
+
+    update_data = {
+        "return_status": next_return_status,
+
+        "store_return_review_status": decision,
+        "store_review_status": decision,
+        "store_return_review_remark": remark,
+        "store_review_note": remark,
+        "store_reviewed_by": str(u.get("_id") or u.get("id") or ""),
+        "store_reviewed_by_name": u.get("name") or store.get("store_name") or "Store",
+        "store_reviewed_at": now,
+
+        "admin_return_review_status": next_admin_review_status,
+        "refund_status": next_refund_status,
+
+        "return_pickup_required": return_pickup_required,
+        "return_pickup_status": return_pickup_status,
+
+        # Store only decides product return validity.
+        # Admin/NE FRESH still handles final money/refund settlement.
+        "refund_amount": refund_amount,
+        "refund_items_amount": refund_items_amount,
+        "refund_delivery_fee": refund_delivery_fee,
+        "refund_platform_fee": refund_platform_fee,
+        "refund_tip_amount": refund_tip_amount,
+
+        "store_refund_deduction": refund_items_amount if decision == "APPROVED" else 0,
+        "refund_deduction": refund_items_amount if decision == "APPROVED" else 0,
+
+        "last_return_event": return_event,
+        "updated_at": now
+    }
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": update_data,
+            "$push": {
+                "return_audit_logs": return_event
+            }
+        }
+    )
+
+    mongo.transactions.update_many(
+        {"order_id": oid_obj},
+        {
+            "$set": {
+                "return_status": next_return_status,
+                "store_return_review_status": decision,
+                "store_review_status": decision,
+                "admin_return_review_status": next_admin_review_status,
+                "refund_status": next_refund_status,
+                "refund_amount": refund_amount,
+                "refund_items_amount": refund_items_amount,
+                "updated_at": now
+            }
+        }
+    )
+
+    mongo.order_events.insert_one({
+        "order_id": oid_obj,
+        "status": next_return_status,
+        "note": f"{event_note} {remark}".strip(),
+        "created_at": now
+    })
+
+    if decision == "APPROVED":
+        flash("Return approved by Store. Refund is now ready for Admin/NE FRESH processing.", "success")
+    elif decision == "REJECTED":
+        flash("Return rejected by Store.", "success")
+    else:
+        flash("Return sent to Admin review.", "success")
+
+    return redirect(url_for("store_returns"))
+
 
 @app.route('/store/inventory', methods=['GET'], endpoint='store_inventory')
 @login_required(role='store')
