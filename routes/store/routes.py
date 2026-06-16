@@ -908,6 +908,174 @@ def store_delivered_orders():
         orders=delivered
     )
 
+
+@app.route('/store/payouts', methods=['GET'], endpoint='store_payouts')
+@login_required(role='store')
+def store_payouts_page():
+    """
+    Store-side read-only payout/settlement view.
+
+    Important:
+    - Store can only view payout status.
+    - Store cannot mark payout paid.
+    - Only Admin controls rider cash settlement and store payout settlement.
+    """
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    store_id = store.get("_id")
+    store_id_str = str(store_id)
+
+    q = (request.args.get("q") or "").strip()
+    status_filter = (request.args.get("status") or "").strip().upper()
+
+    payout_docs = list(
+        mongo.orders.find({
+            "$and": [
+                {
+                    "$or": [
+                        {"store_id": store_id},
+                        {"store_id": store_id_str}
+                    ]
+                },
+                {
+                    "status": "DELIVERED"
+                }
+            ]
+        }).sort("delivered_at", -1)
+    )
+
+    payout_rows = []
+
+    for order in payout_docs:
+        row = dict(order)
+
+        row["id"] = str(row.get("_id") or row.get("id") or "")
+
+        # Existing helper safely prepares money, rider and store earning values.
+        row = _decorate_store_delivery_order(row)
+
+        items_subtotal = _store_delivery_money_float(
+            row.get("items_subtotal"),
+            row.get("store_earning") or 0
+        )
+
+        refund_deduction = _store_delivery_money_float(
+            row.get("refund_deduction")
+            if row.get("refund_deduction") is not None
+            else row.get("refund_adjustment_amount"),
+            0
+        )
+
+        store_payout_amount = _store_delivery_money_float(
+            row.get("store_payout_amount"),
+            row.get("store_earning") or items_subtotal
+        )
+
+        net_store_earning = round(max(store_payout_amount - refund_deduction, 0), 2)
+
+        row["items_subtotal"] = round(items_subtotal, 2)
+        row["refund_deduction"] = round(refund_deduction, 2)
+        row["net_store_earning"] = net_store_earning
+        row["store_payout_amount"] = round(store_payout_amount, 2)
+
+        row["store_payout_status"] = (
+            row.get("store_payout_status")
+            or "PENDING_AFTER_DELIVERY"
+        )
+
+        row["store_settlement_status"] = (
+            row.get("store_settlement_status")
+            or "PAYOUT_PENDING"
+        )
+
+        row["order_settlement_status"] = (
+            row.get("order_settlement_status")
+            or "STORE_PAYOUT_PENDING"
+        )
+
+        row["rider_cash_settlement_status"] = (
+            row.get("rider_cash_settlement_status")
+            or "NOT_REQUIRED"
+        )
+
+        row["platform_fee_status"] = row.get("platform_fee_status") or ""
+        row["store_payout_paid_at"] = row.get("store_payout_paid_at") or ""
+        row["store_payout_reference_no"] = row.get("store_payout_reference_no") or ""
+        row["store_payout_mode"] = row.get("store_payout_mode") or ""
+        row["store_payout_note"] = row.get("store_payout_note") or ""
+
+        if q:
+            haystack = " ".join([
+                str(row.get("id") or ""),
+                str(row.get("customer_name") or ""),
+                str(row.get("customer_phone") or ""),
+                str(row.get("payment_method") or ""),
+                str(row.get("store_payout_status") or ""),
+                str(row.get("order_settlement_status") or ""),
+                str(row.get("store_payout_reference_no") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+        if status_filter:
+            payout_status = (row.get("store_payout_status") or "").strip().upper()
+            settlement_status = (row.get("order_settlement_status") or "").strip().upper()
+
+            if status_filter == "PENDING":
+                if payout_status in ["PAID", "SETTLED"] or settlement_status == "SETTLED":
+                    continue
+            elif status_filter == "PAID":
+                if payout_status != "PAID":
+                    continue
+            elif status_filter not in [payout_status, settlement_status]:
+                continue
+
+        payout_rows.append(row)
+
+    metrics = {
+        "total_orders": len(payout_rows),
+        "pending_orders": sum(
+            1 for r in payout_rows
+            if (r.get("store_payout_status") or "").upper() != "PAID"
+        ),
+        "paid_orders": sum(
+            1 for r in payout_rows
+            if (r.get("store_payout_status") or "").upper() == "PAID"
+        ),
+        "pending_amount": round(sum(
+            float(r.get("net_store_earning") or 0)
+            for r in payout_rows
+            if (r.get("store_payout_status") or "").upper() != "PAID"
+        ), 2),
+        "paid_amount": round(sum(
+            float(r.get("net_store_earning") or 0)
+            for r in payout_rows
+            if (r.get("store_payout_status") or "").upper() == "PAID"
+        ), 2),
+        "total_store_earning": round(sum(
+            float(r.get("net_store_earning") or 0)
+            for r in payout_rows
+        ), 2),
+    }
+
+    store_view = dict(store)
+    store_view["id"] = str(store["_id"])
+
+    return render_template(
+        "store_payouts.html",
+        user=u,
+        store=store_view,
+        payouts=payout_rows,
+        metrics=metrics,
+        q=q,
+        status_filter=status_filter
+    )
+
 @app.route('/store/products/new', methods=['GET'], endpoint='store_add_product')
 @login_required(role='store')
 def store_add_product_page():
@@ -1075,7 +1243,15 @@ def _decorate_store_delivery_order(order):
     payment_method = (order.get("payment_method") or "COD").strip().upper()
     payment_status = (order.get("payment_status") or "PENDING").strip().upper()
 
-    if payment_method == "COD" and payment_status not in ["PAID", "COLLECTED", "ONLINE_PAID"]:
+    collected_payment_statuses = [
+        "PAID",
+        "COLLECTED",
+        "ONLINE_PAID",
+        "COLLECTED_BY_RIDER",
+        "COD_COLLECTED_BY_RIDER"
+    ]
+
+    if payment_method == "COD" and payment_status not in collected_payment_statuses:
         amount_to_collect = total_payable
     else:
         amount_to_collect = 0.0
@@ -1202,6 +1378,20 @@ def store_orders_page():
 
     available_delivery_people = _hydrate_store_delivery_people_for_template(store)
 
+    decorated_orders = []
+
+    for order in page_context.get("orders") or []:
+        row = dict(order)
+
+        row["_id"] = row.get("_id") or row.get("id")
+        row["id"] = str(row.get("_id") or row.get("id") or "")
+
+        # Ensure old/new order money fields are safely available in Store Orders page.
+        row = _decorate_store_delivery_order(row)
+
+        decorated_orders.append(row)
+
+    page_context["orders"] = decorated_orders
     page_context["available_delivery_people"] = available_delivery_people
     page_context["delivery_accept_radius_km"] = DELIVERY_ACCEPT_RADIUS_KM
 

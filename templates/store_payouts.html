@@ -1,0 +1,635 @@
+{% extends "store_base.html" %}
+{% set active_page = "payouts" %}
+
+{% block title %}Store Payouts | NE FRESH Store{% endblock %}
+{% block page_title %}Store Payouts{% endblock %}
+{% block page_subtitle %}Read-only payout and settlement status for your delivered orders.{% endblock %}
+
+{% block content %}
+{% set rows = payouts if payouts is defined else [] %}
+{% set m = metrics if metrics is defined else {} %}
+
+<section class="nf-store-payouts-page">
+  <style>
+    .nf-store-payouts-page {
+      --sp-green: var(--nf-green, #00A859);
+      --sp-green-dark: var(--nf-green-dark, #008A48);
+      --sp-green-soft: var(--nf-green-soft, #E9FFF3);
+      --sp-card: var(--nf-surface, #FFFFFF);
+      --sp-card-2: var(--nf-surface-2, #F2FBF6);
+      --sp-text: var(--nf-text, #1F332A);
+      --sp-muted: var(--nf-muted, #66756D);
+      --sp-muted-2: var(--nf-muted-2, #8A9890);
+      --sp-line: var(--nf-line, #DDECE4);
+      --sp-orange: #F59E0B;
+      --sp-red: var(--nf-red, #EF4444);
+      --sp-blue: var(--nf-blue, #0284C7);
+      --sp-shadow: var(--nf-shadow, 0 14px 36px rgba(17,64,38,.08));
+      display: grid;
+      gap: 20px;
+    }
+
+    .nf-store-payouts-page,
+    .nf-store-payouts-page * {
+      box-sizing: border-box;
+    }
+
+    .sp-hero,
+    .sp-card,
+    .sp-kpi {
+      background: var(--sp-card);
+      border: 1px solid var(--sp-line);
+      border-radius: 24px;
+      box-shadow: var(--sp-shadow);
+      overflow: hidden;
+    }
+
+    .sp-hero {
+      padding: 24px;
+      background:
+        radial-gradient(circle at 8% 12%, rgba(0,168,89,.12), transparent 34%),
+        radial-gradient(circle at 92% 8%, rgba(2,132,199,.10), transparent 30%),
+        linear-gradient(135deg, #FFFFFF, var(--sp-card-2));
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .sp-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--sp-green-soft);
+      color: var(--sp-green-dark);
+      border: 1px solid rgba(0,168,89,.18);
+      font-size: .76rem;
+      font-weight: 900;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .sp-hero h2 {
+      margin: 12px 0 8px;
+      color: var(--sp-text);
+      font-size: clamp(1.55rem, 3vw, 2.3rem);
+      line-height: 1.08;
+      font-weight: 950;
+      letter-spacing: -.05em;
+    }
+
+    .sp-hero p {
+      margin: 0;
+      max-width: 900px;
+      color: var(--sp-muted);
+      font-size: .95rem;
+      font-weight: 650;
+      line-height: 1.65;
+    }
+
+    .sp-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .sp-btn {
+      min-height: 42px;
+      border: 1px solid var(--sp-line);
+      border-radius: 14px;
+      background: #fff;
+      color: var(--sp-text);
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: .84rem;
+      font-weight: 900;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: .2s ease;
+    }
+
+    .sp-btn:hover {
+      border-color: rgba(0,168,89,.32);
+      color: var(--sp-green-dark);
+      box-shadow: 0 10px 22px rgba(17,64,38,.08);
+      transform: translateY(-1px);
+    }
+
+    .sp-btn.primary {
+      background: var(--sp-green);
+      border-color: var(--sp-green);
+      color: #fff;
+    }
+
+    .sp-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .sp-kpi {
+      min-height: 112px;
+      padding: 18px;
+      display: grid;
+      align-content: space-between;
+      gap: 10px;
+    }
+
+    .sp-kpi span {
+      color: var(--sp-muted);
+      font-size: .76rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .sp-kpi strong {
+      color: var(--sp-text);
+      font-size: clamp(1.15rem, 2.2vw, 1.75rem);
+      line-height: 1;
+      font-weight: 950;
+      letter-spacing: -.04em;
+    }
+
+    .sp-kpi small {
+      color: var(--sp-muted-2);
+      font-size: .76rem;
+      font-weight: 750;
+    }
+
+    .sp-filter-card {
+      padding: 18px;
+    }
+
+    .sp-filter-form {
+      display: grid;
+      grid-template-columns: 1.4fr 220px auto auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .sp-field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .sp-field label {
+      color: var(--sp-muted);
+      font-size: .74rem;
+      font-weight: 900;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .sp-field input,
+    .sp-field select {
+      width: 100%;
+      min-height: 42px;
+      border-radius: 14px;
+      border: 1px solid var(--sp-line);
+      background: #fff;
+      color: var(--sp-text);
+      padding: 0 12px;
+      outline: none;
+      font-size: .88rem;
+      font-weight: 750;
+    }
+
+    .sp-section-head {
+      padding: 18px 18px 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .sp-section-head h3 {
+      margin: 0;
+      color: var(--sp-text);
+      font-size: 1.05rem;
+      font-weight: 950;
+      letter-spacing: -.03em;
+    }
+
+    .sp-section-head p {
+      margin: 5px 0 0;
+      color: var(--sp-muted);
+      font-size: .84rem;
+      font-weight: 650;
+    }
+
+    .sp-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 18px;
+    }
+
+    .sp-table {
+      width: 100%;
+      min-width: 1250px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .sp-table th {
+      background: var(--sp-card-2);
+      color: var(--sp-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 12px;
+      border-top: 1px solid var(--sp-line);
+      border-bottom: 1px solid var(--sp-line);
+      white-space: nowrap;
+    }
+
+    .sp-table th:first-child {
+      border-left: 1px solid var(--sp-line);
+      border-top-left-radius: 16px;
+    }
+
+    .sp-table th:last-child {
+      border-right: 1px solid var(--sp-line);
+      border-top-right-radius: 16px;
+    }
+
+    .sp-table td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--sp-line);
+      color: var(--sp-text);
+      font-size: .84rem;
+      font-weight: 750;
+      vertical-align: top;
+      background: #fff;
+    }
+
+    .sp-main {
+      display: block;
+      color: var(--sp-text);
+      font-weight: 950;
+    }
+
+    .sp-sub {
+      display: block;
+      margin-top: 3px;
+      color: var(--sp-muted);
+      font-size: .74rem;
+      font-weight: 700;
+    }
+
+    .sp-money {
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .sp-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 950;
+      border: 1px solid var(--sp-line);
+      background: var(--sp-card-2);
+      color: var(--sp-muted);
+      white-space: nowrap;
+    }
+
+    .sp-pill.paid,
+    .sp-pill.received,
+    .sp-pill.settled {
+      background: var(--sp-green-soft);
+      color: var(--sp-green-dark);
+      border-color: rgba(0,168,89,.20);
+    }
+
+    .sp-pill.pending,
+    .sp-pill.pending_after_delivery,
+    .sp-pill.payout_pending,
+    .sp-pill.store_payout_pending,
+    .sp-pill.rider_cash_settlement_pending {
+      background: #FFF7E8;
+      color: #A84700;
+      border-color: rgba(245,158,11,.24);
+    }
+
+    .sp-empty {
+      padding: 34px 18px;
+      text-align: center;
+      color: var(--sp-muted);
+      font-size: .92rem;
+      font-weight: 750;
+    }
+
+    .sp-mobile-list {
+      display: none;
+      padding: 0 18px 18px;
+      gap: 12px;
+    }
+
+    .sp-mobile-card {
+      padding: 16px;
+      border-radius: 20px;
+      background: #fff;
+      border: 1px solid var(--sp-line);
+      box-shadow: 0 10px 26px rgba(17,64,38,.06);
+      display: grid;
+      gap: 12px;
+    }
+
+    .sp-mobile-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .sp-mobile-metric {
+      padding: 10px;
+      border-radius: 14px;
+      background: var(--sp-card-2);
+      display: grid;
+      gap: 3px;
+    }
+
+    .sp-mobile-metric span {
+      color: var(--sp-muted);
+      font-size: .68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .sp-mobile-metric strong {
+      color: var(--sp-text);
+      font-size: .88rem;
+      font-weight: 950;
+    }
+
+    @media (max-width: 1180px) {
+      .sp-kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .sp-filter-form {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .sp-hero {
+        padding: 18px;
+      }
+
+      .sp-kpi-grid,
+      .sp-filter-form {
+        grid-template-columns: 1fr;
+      }
+
+      .sp-table-wrap {
+        display: none;
+      }
+
+      .sp-mobile-list {
+        display: grid;
+      }
+    }
+  </style>
+
+  <div class="sp-hero">
+    <div>
+      <span class="sp-kicker">Read-only Store Settlement</span>
+      <h2>{{ store.store_name or "Store" }}</h2>
+      <p>
+        Track how much NE FRESH has to pay your store for delivered orders.
+        Store can only view payout status; payout is marked paid only by Admin.
+      </p>
+    </div>
+
+    <div class="sp-actions">
+      <a class="sp-btn" href="{{ url_for('store_dashboard') }}">Dashboard</a>
+      <a class="sp-btn" href="{{ url_for('store_delivered_orders') }}">Delivered Orders</a>
+      <a class="sp-btn primary" href="{{ url_for('store_payouts') }}">Refresh</a>
+    </div>
+  </div>
+
+  <div class="sp-kpi-grid">
+    <div class="sp-kpi">
+      <span>Total Store Earning</span>
+      <strong>₹{{ "%.2f"|format(m.total_store_earning|default(0)|float) }}</strong>
+      <small>Delivered orders in current filter</small>
+    </div>
+
+    <div class="sp-kpi">
+      <span>Pending Payout</span>
+      <strong>₹{{ "%.2f"|format(m.pending_amount|default(0)|float) }}</strong>
+      <small>{{ m.pending_orders|default(0) }} orders pending</small>
+    </div>
+
+    <div class="sp-kpi">
+      <span>Paid Payout</span>
+      <strong>₹{{ "%.2f"|format(m.paid_amount|default(0)|float) }}</strong>
+      <small>{{ m.paid_orders|default(0) }} orders paid</small>
+    </div>
+
+    <div class="sp-kpi">
+      <span>Total Orders</span>
+      <strong>{{ m.total_orders|default(0) }}</strong>
+      <small>Delivered payout records</small>
+    </div>
+
+    <div class="sp-kpi">
+      <span>Control</span>
+      <strong>Admin</strong>
+      <small>Only Admin can mark payout paid</small>
+    </div>
+  </div>
+
+  <div class="sp-card sp-filter-card">
+    <form class="sp-filter-form" method="get" action="{{ url_for('store_payouts') }}">
+      <div class="sp-field">
+        <label>Search</label>
+        <input type="text" name="q" value="{{ q or '' }}" placeholder="Order ID, customer, status, reference no.">
+      </div>
+
+      <div class="sp-field">
+        <label>Status</label>
+        <select name="status">
+          <option value="">All</option>
+          <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>Pending</option>
+          <option value="PAID" {% if status_filter == 'PAID' %}selected{% endif %}>Paid</option>
+          <option value="SETTLED" {% if status_filter == 'SETTLED' %}selected{% endif %}>Settled</option>
+        </select>
+      </div>
+
+      <button class="sp-btn primary" type="submit">Apply</button>
+      <a class="sp-btn" href="{{ url_for('store_payouts') }}">Reset</a>
+    </form>
+  </div>
+
+  <div class="sp-card">
+    <div class="sp-section-head">
+      <div>
+        <h3>Payout Records</h3>
+        <p>Each delivered order with store earning, refund deduction, payout status and admin payout reference.</p>
+      </div>
+    </div>
+
+    {% if rows %}
+      <div class="sp-table-wrap">
+        <table class="sp-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Customer</th>
+              <th>Payment</th>
+              <th>Items Subtotal</th>
+              <th>Refund Deduction</th>
+              <th>Net Store Earning</th>
+              <th>Rider Cash</th>
+              <th>Platform Fee</th>
+              <th>Payout Status</th>
+              <th>Payout Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in rows %}
+              {% set payout_status_class = (o.store_payout_status or 'pending')|lower %}
+              {% set settlement_status_class = (o.order_settlement_status or 'pending')|lower %}
+              <tr>
+                <td>
+                  <span class="sp-main">#{{ o.id[-6:] }}</span>
+                  <span class="sp-sub">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
+                </td>
+
+                <td>
+                  <span class="sp-main">{{ o.customer_name or "-" }}</span>
+                  <span class="sp-sub">{{ o.customer_phone or "" }}</span>
+                </td>
+
+                <td>
+                  <span class="sp-pill">{{ o.payment_method or "-" }}</span>
+                  <span class="sp-sub">{{ o.payment_status or "-" }}</span>
+                </td>
+
+                <td><span class="sp-money">₹{{ "%.2f"|format(o.items_subtotal|default(0)|float) }}</span></td>
+
+                <td>
+                  <span class="sp-money">₹{{ "%.2f"|format(o.refund_deduction|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="sp-money">₹{{ "%.2f"|format(o.net_store_earning|default(0)|float) }}</span>
+                  <span class="sp-sub">Payout amount: ₹{{ "%.2f"|format(o.store_payout_amount|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  {% if o.payment_method == "COD" %}
+                    <span class="sp-main">₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
+                    <span class="sp-sub">{{ o.rider_cash_settlement_status or "PENDING" }}</span>
+                  {% else %}
+                    <span class="sp-pill received">ONLINE</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="sp-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</span>
+                  {% if o.platform_fee_status %}
+                    <span class="sp-sub">{{ o.platform_fee_status }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="sp-pill {{ payout_status_class }}">{{ o.store_payout_status or "PENDING" }}</span>
+                  <span class="sp-sub">
+                    Settlement: {{ o.order_settlement_status or o.store_settlement_status or "-" }}
+                  </span>
+                </td>
+
+                <td>
+                  {% if (o.store_payout_status or '')|upper == 'PAID' %}
+                    <span class="sp-main">{{ o.store_payout_paid_at or "-" }}</span>
+                    {% if o.store_payout_mode %}
+                      <span class="sp-sub">Mode: {{ o.store_payout_mode }}</span>
+                    {% endif %}
+                    {% if o.store_payout_reference_no %}
+                      <span class="sp-sub">Ref: {{ o.store_payout_reference_no }}</span>
+                    {% endif %}
+                    {% if o.store_payout_note %}
+                      <span class="sp-sub">Note: {{ o.store_payout_note }}</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="sp-main">Pending from Admin</span>
+                    <span class="sp-sub">Store cannot mark payout paid.</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="sp-mobile-list">
+        {% for o in rows %}
+          {% set payout_status_class = (o.store_payout_status or 'pending')|lower %}
+          <div class="sp-mobile-card">
+            <div>
+              <span class="sp-main">#{{ o.id[-6:] }} · {{ o.customer_name or "Customer" }}</span>
+              <span class="sp-sub">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
+            </div>
+
+            <div class="sp-mobile-grid">
+              <div class="sp-mobile-metric">
+                <span>Items</span>
+                <strong>₹{{ "%.2f"|format(o.items_subtotal|default(0)|float) }}</strong>
+              </div>
+
+              <div class="sp-mobile-metric">
+                <span>Refund</span>
+                <strong>₹{{ "%.2f"|format(o.refund_deduction|default(0)|float) }}</strong>
+              </div>
+
+              <div class="sp-mobile-metric">
+                <span>Net Earning</span>
+                <strong>₹{{ "%.2f"|format(o.net_store_earning|default(0)|float) }}</strong>
+              </div>
+
+              <div class="sp-mobile-metric">
+                <span>Platform Fee</span>
+                <strong>₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</strong>
+              </div>
+            </div>
+
+            <div>
+              <span class="sp-pill {{ payout_status_class }}">{{ o.store_payout_status or "PENDING" }}</span>
+              <span class="sp-sub">Settlement: {{ o.order_settlement_status or o.store_settlement_status or "-" }}</span>
+              {% if (o.store_payout_status or '')|upper == 'PAID' %}
+                <span class="sp-sub">Paid: {{ o.store_payout_paid_at or "-" }}</span>
+                {% if o.store_payout_reference_no %}
+                  <span class="sp-sub">Ref: {{ o.store_payout_reference_no }}</span>
+                {% endif %}
+              {% else %}
+                <span class="sp-sub">Pending from Admin. Store cannot update this.</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="sp-empty">No payout records found for this filter.</div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

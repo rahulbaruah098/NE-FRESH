@@ -1,0 +1,440 @@
+{% extends "admin_base.html" %}
+{% set active_page = "settlements" %}
+{% set active_group = "settlements" %}
+
+{% block title %}Payment & Settlements | NE FRESH Admin{% endblock %}
+{% block page_title %}Payment & Settlements{% endblock %}
+{% block page_subtitle %}Admin-controlled rider COD cash settlement and store payout management.{% endblock %}
+
+{% block content %}
+<section class="nf-admin-settlements">
+  <style>
+    .nf-admin-settlements {
+      display: grid;
+      gap: 18px;
+    }
+
+    .settle-hero,
+    .settle-card,
+    .settle-kpi {
+      background: var(--nf-surface);
+      border: 1px solid var(--nf-line);
+      border-radius: 22px;
+      box-shadow: var(--nf-shadow);
+    }
+
+    .settle-hero {
+      padding: 22px;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(0,168,89,.12), transparent 32%),
+        radial-gradient(circle at 92% 4%, rgba(2,132,199,.10), transparent 28%),
+        linear-gradient(135deg, #fff, var(--nf-surface-2));
+    }
+
+    .settle-hero h2 {
+      margin: 0 0 8px;
+      font-size: clamp(1.45rem, 3vw, 2.15rem);
+      line-height: 1.1;
+      letter-spacing: -.04em;
+      font-weight: 950;
+      color: var(--nf-text);
+    }
+
+    .settle-hero p {
+      margin: 0;
+      max-width: 900px;
+      color: var(--nf-muted);
+      font-size: .95rem;
+      font-weight: 650;
+      line-height: 1.6;
+    }
+
+    .settle-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .settle-kpi {
+      padding: 18px;
+      min-height: 110px;
+      display: grid;
+      align-content: space-between;
+      gap: 10px;
+    }
+
+    .settle-kpi span {
+      color: var(--nf-muted);
+      font-size: .75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .settle-kpi strong {
+      color: var(--nf-text);
+      font-size: 1.55rem;
+      font-weight: 950;
+      letter-spacing: -.04em;
+    }
+
+    .settle-card {
+      overflow: hidden;
+    }
+
+    .settle-card-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .settle-card-head h3 {
+      margin: 0;
+      color: var(--nf-text);
+      font-size: 1.08rem;
+      font-weight: 950;
+      letter-spacing: -.03em;
+    }
+
+    .settle-card-head p {
+      margin: 5px 0 0;
+      color: var(--nf-muted);
+      font-size: .84rem;
+      font-weight: 650;
+    }
+
+    .settle-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 18px;
+    }
+
+    .settle-table {
+      width: 100%;
+      min-width: 1180px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .settle-table th {
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 12px;
+      border-top: 1px solid var(--nf-line);
+      border-bottom: 1px solid var(--nf-line);
+      white-space: nowrap;
+    }
+
+    .settle-table th:first-child {
+      border-left: 1px solid var(--nf-line);
+      border-top-left-radius: 14px;
+    }
+
+    .settle-table th:last-child {
+      border-right: 1px solid var(--nf-line);
+      border-top-right-radius: 14px;
+    }
+
+    .settle-table td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--nf-line);
+      background: #fff;
+      color: var(--nf-text);
+      vertical-align: top;
+      font-size: .84rem;
+      font-weight: 750;
+    }
+
+    .settle-main {
+      display: block;
+      color: var(--nf-text);
+      font-weight: 950;
+    }
+
+    .settle-sub {
+      display: block;
+      margin-top: 3px;
+      color: var(--nf-muted);
+      font-size: .74rem;
+      font-weight: 700;
+    }
+
+    .settle-money {
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .settle-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 950;
+      border: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      white-space: nowrap;
+    }
+
+    .settle-pill.pending {
+      background: var(--nf-orange-soft);
+      color: var(--nf-orange-dark);
+      border-color: rgba(245,158,11,.24);
+    }
+
+    .settle-pill.received,
+    .settle-pill.paid,
+    .settle-pill.settled {
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border-color: rgba(0,168,89,.22);
+    }
+
+    .settle-form {
+      display: grid;
+      gap: 7px;
+      min-width: 190px;
+    }
+
+    .settle-input,
+    .settle-select {
+      width: 100%;
+      height: 34px;
+      border: 1px solid var(--nf-line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 9px;
+      font-size: .75rem;
+      font-weight: 800;
+      outline: none;
+    }
+
+    .settle-btn {
+      min-height: 34px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--nf-green);
+      color: #fff;
+      padding: 0 12px;
+      font-size: .76rem;
+      font-weight: 950;
+      cursor: pointer;
+    }
+
+    .settle-btn:hover {
+      background: var(--nf-green-dark);
+    }
+
+    .settle-empty {
+      padding: 26px 18px;
+      text-align: center;
+      color: var(--nf-muted);
+      font-weight: 800;
+    }
+
+    @media (max-width: 980px) {
+      .settle-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      .settle-kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .settle-hero {
+        padding: 18px;
+      }
+    }
+  </style>
+
+    <div class="settle-hero">
+    <h2>Payment & Settlement Control</h2>
+    <p>
+      Rider COD cash is confirmed only by Admin. Store payout is also completed only by Admin,
+      keeping the NE FRESH platform-controlled settlement flow clean and auditable.
+    </p>
+
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+      <a class="settle-btn" href="{{ url_for('admin_settlements_export_csv') }}" style="text-decoration:none;display:inline-flex;align-items:center;">
+        Export CSV
+      </a>
+    </div>
+  </div>
+
+  <div class="settle-kpi-grid">
+    <div class="settle-kpi">
+      <span>Rider Cash Pending</span>
+      <strong>₹{{ "%.2f"|format(metrics.rider_cash_pending_amount|default(0)|float) }}</strong>
+    </div>
+
+    <div class="settle-kpi">
+      <span>Pending Rider Orders</span>
+      <strong>{{ metrics.rider_cash_pending_count|default(0) }}</strong>
+    </div>
+
+    <div class="settle-kpi">
+      <span>Store Payout Pending</span>
+      <strong>₹{{ "%.2f"|format(metrics.store_payout_pending_amount|default(0)|float) }}</strong>
+    </div>
+
+    <div class="settle-kpi">
+      <span>Pending Store Orders</span>
+      <strong>{{ metrics.store_payout_pending_count|default(0) }}</strong>
+    </div>
+  </div>
+
+  <div class="settle-card">
+    <div class="settle-card-head">
+      <div>
+        <h3>Rider COD Cash Settlement</h3>
+        <p>Admin confirms the cash submitted by delivery boy after COD delivery.</p>
+      </div>
+    </div>
+
+    {% if rider_cash_orders %}
+      <div class="settle-table-wrap">
+        <table class="settle-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Store</th>
+              <th>Delivery Boy</th>
+              <th>Total Collected</th>
+              <th>Rider Earning</th>
+              <th>Cash To Submit</th>
+              <th>Platform Fee</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in rider_cash_orders %}
+              <tr>
+                <td>
+                  <span class="settle-main">#{{ o.id[-6:] }}</span>
+                  <span class="settle-sub">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
+                </td>
+                <td>
+                  <span class="settle-main">{{ o.store_name or "-" }}</span>
+                  <span class="settle-sub">Customer: {{ o.customer_name or "-" }}</span>
+                </td>
+                <td>
+                  <span class="settle-main">{{ o.delivery_partner_name or "-" }}</span>
+                  <span class="settle-sub">{{ o.delivery_partner_phone or "" }}</span>
+                </td>
+                <td><span class="settle-money">₹{{ "%.2f"|format(o.cod_collected_amount|default(0)|float) }}</span></td>
+                <td><span class="settle-money">₹{{ "%.2f"|format(o.delivery_boy_earning|default(0)|float) }}</span></td>
+                <td><span class="settle-money">₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span></td>
+                <td><span class="settle-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</span></td>
+                <td>
+                  <span class="settle-pill pending">{{ o.rider_cash_settlement_status or "PENDING" }}</span>
+                </td>
+                <td>
+                  <form class="settle-form"
+                        method="post"
+                        action="{{ url_for('admin_settlement_rider_cash_received', oid=o.id) }}"
+                        onsubmit="return confirm('Confirm rider cash received by Admin?');">
+                    <input class="settle-input" type="text" name="note" maxlength="250" placeholder="Optional note">
+                    <button class="settle-btn" type="submit">Mark Cash Received</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="settle-empty">No pending rider COD cash settlement.</div>
+    {% endif %}
+  </div>
+
+  <div class="settle-card">
+    <div class="settle-card-head">
+      <div>
+        <h3>Store Payout Settlement</h3>
+        <p>After rider cash is received, Admin pays the store earning and completes settlement.</p>
+      </div>
+    </div>
+
+    {% if store_payout_orders %}
+      <div class="settle-table-wrap">
+        <table class="settle-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Store</th>
+              <th>Items Subtotal</th>
+              <th>Platform Fee</th>
+              <th>Store Payout</th>
+              <th>Rider Cash</th>
+              <th>Payout Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in store_payout_orders %}
+              <tr>
+                <td>
+                  <span class="settle-main">#{{ o.id[-6:] }}</span>
+                  <span class="settle-sub">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
+                </td>
+                <td>
+                  <span class="settle-main">{{ o.store_name or "-" }}</span>
+                  <span class="settle-sub">Customer: {{ o.customer_name or "-" }}</span>
+                </td>
+                <td><span class="settle-money">₹{{ "%.2f"|format(o.items_subtotal|default(0)|float) }}</span></td>
+                <td><span class="settle-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</span></td>
+                <td><span class="settle-money">₹{{ "%.2f"|format(o.store_payout_amount|default(0)|float) }}</span></td>
+                <td>
+                  {% if o.payment_method == "COD" %}
+                    <span class="settle-pill received">{{ o.rider_cash_settlement_status }}</span>
+                  {% else %}
+                    <span class="settle-pill received">ONLINE</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="settle-pill pending">{{ o.store_payout_status or "PENDING" }}</span>
+                </td>
+                <td>
+                  <form class="settle-form"
+                        method="post"
+                        action="{{ url_for('admin_settlement_store_payout_paid', oid=o.id) }}"
+                        onsubmit="return confirm('Confirm store payout paid by Admin?');">
+                    <select class="settle-select" name="payout_mode">
+                      <option value="CASH">Cash</option>
+                      <option value="UPI">UPI</option>
+                      <option value="BANK_TRANSFER">Bank Transfer</option>
+                      <option value="ADJUSTMENT">Adjustment</option>
+                    </select>
+                    <input class="settle-input" type="text" name="reference_no" maxlength="120" placeholder="Reference no.">
+                    <input class="settle-input" type="text" name="note" maxlength="250" placeholder="Optional note">
+                    <button class="settle-btn" type="submit">Mark Store Paid</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="settle-empty">No pending store payout.</div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

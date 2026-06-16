@@ -72,7 +72,15 @@ def _decorate_delivery_financials(order):
     payment_method = (order.get("payment_method") or "COD").strip().upper()
     payment_status = (order.get("payment_status") or "PENDING").strip().upper()
 
-    if payment_method == "COD" and payment_status not in ["PAID", "COLLECTED", "ONLINE_PAID"]:
+    collected_payment_statuses = [
+        "PAID",
+        "COLLECTED",
+        "ONLINE_PAID",
+        "COLLECTED_BY_RIDER",
+        "COD_COLLECTED_BY_RIDER"
+    ]
+
+    if payment_method == "COD" and payment_status not in collected_payment_statuses:
         amount_to_collect = total_payable
         collect_label = "Collect from customer"
     else:
@@ -108,6 +116,39 @@ def _decorate_delivery_financials(order):
 
     order["delivery_boy_expected_earning"] = round(delivery_boy_expected_earning, 2)
     order["delivery_fee_plus_tip"] = round(delivery_boy_expected_earning, 2)
+
+    # ------------------------------------------------------------
+    # Delivery-boy-facing COD settlement fields.
+    # Read-only for delivery panel. Admin controls settlement.
+    # ------------------------------------------------------------
+    cod_collected_amount = _delivery_money_float(
+        order.get("cod_collected_amount"),
+        total_payable if payment_method == "COD" and payment_status in collected_payment_statuses else 0
+    )
+
+    delivery_boy_earning = _delivery_money_float(
+        order.get("delivery_boy_earning"),
+        delivery_boy_expected_earning
+    )
+
+    rider_cash_to_submit = _delivery_money_float(
+        order.get("rider_cash_to_submit"),
+        order.get("expected_rider_cash_to_submit") or max(cod_collected_amount - delivery_boy_earning, 0)
+    )
+
+    order["cod_collected_amount"] = round(cod_collected_amount, 2)
+    order["delivery_boy_earning"] = round(delivery_boy_earning, 2)
+    order["delivery_boy_payout_status"] = order.get("delivery_boy_payout_status") or ""
+    order["rider_cash_to_submit"] = round(rider_cash_to_submit, 2)
+    order["expected_rider_cash_to_submit"] = round(
+        _delivery_money_float(order.get("expected_rider_cash_to_submit"), rider_cash_to_submit),
+        2
+    )
+    order["rider_cash_settlement_status"] = order.get("rider_cash_settlement_status") or "NOT_REQUIRED"
+    order["rider_cash_received_at"] = order.get("rider_cash_received_at") or ""
+    order["platform_fee_status"] = order.get("platform_fee_status") or ""
+    order["order_settlement_status"] = order.get("order_settlement_status") or ""
+    order["settlement_status"] = order.get("settlement_status") or ""
 
     order["free_delivery_above_applied"] = free_delivery_applied
     order["original_delivery_fee"] = round(original_delivery_fee, 2)
@@ -710,6 +751,125 @@ def delivery_successful_deliveries():
         total_payable=total_payable,
         total_platform_fee=total_platform_fee,
         total_expected_earning=total_expected_earning
+    )
+
+
+@app.route('/delivery/cod-settlements', methods=['GET'], endpoint='delivery_cod_settlements')
+@login_required(role='delivery')
+def delivery_cod_settlements():
+    """
+    Delivery-boy read-only COD settlement view.
+
+    Important:
+    - Delivery boy can view COD collected, own earning, and cash to submit.
+    - Delivery boy cannot mark cash submitted/received.
+    - Admin marks rider cash received from Admin Payment & Settlements.
+    """
+    u = current_user()
+
+    availability = _get_delivery_availability(u["id"])
+    delivery_active = bool(availability.get("active"))
+
+    q = (request.args.get("q") or "").strip()
+    status_filter = (request.args.get("status") or "").strip().upper()
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+
+    raw_orders = list(
+        mongo.orders.find({
+            "$and": [
+                {
+                    "$or": [
+                        {"delivery_partner_id": u["id"]},
+                        {"delivery_partner_id": str(u["id"])}
+                    ]
+                },
+                {
+                    "status": "DELIVERED"
+                },
+                {
+                    "payment_method": "COD"
+                },
+                {
+                    "payment_status": {"$in": ["COLLECTED_BY_RIDER", "COD_COLLECTED_BY_RIDER"]}
+                }
+            ]
+        }).sort("delivered_at", -1)
+    )
+
+    rows = []
+
+    for o in raw_orders:
+        o = _decorate_delivery_financials(_hydrate_delivery_order(o))
+
+        delivered_at = str(o.get("delivered_at") or o.get("updated_at") or "")
+
+        if date_from and delivered_at and delivered_at[:10] < date_from:
+            continue
+
+        if date_to and delivered_at and delivered_at[:10] > date_to:
+            continue
+
+        rider_status = (o.get("rider_cash_settlement_status") or "").strip().upper()
+
+        if status_filter:
+            if status_filter == "PENDING":
+                if rider_status in ["RECEIVED", "PAID", "SETTLED"]:
+                    continue
+            elif status_filter == "RECEIVED":
+                if rider_status != "RECEIVED":
+                    continue
+            elif status_filter != rider_status:
+                continue
+
+        if q:
+            haystack = " ".join([
+                str(o.get("id") or ""),
+                str(o.get("store_name") or ""),
+                str(o.get("customer_name") or ""),
+                str(o.get("customer_phone") or ""),
+                str(o.get("payment_status") or ""),
+                str(o.get("rider_cash_settlement_status") or ""),
+                str(o.get("order_settlement_status") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+        rows.append(o)
+
+    pending_rows = [
+        r for r in rows
+        if (r.get("rider_cash_settlement_status") or "").upper() not in ["RECEIVED", "PAID", "SETTLED"]
+    ]
+
+    received_rows = [
+        r for r in rows
+        if (r.get("rider_cash_settlement_status") or "").upper() in ["RECEIVED", "PAID", "SETTLED"]
+    ]
+
+    metrics = {
+        "total_orders": len(rows),
+        "cod_collected": round(sum(float(r.get("cod_collected_amount") or 0) for r in rows), 2),
+        "delivery_earning": round(sum(float(r.get("delivery_boy_earning") or 0) for r in rows), 2),
+        "cash_to_submit": round(sum(float(r.get("rider_cash_to_submit") or 0) for r in rows), 2),
+        "pending_cash": round(sum(float(r.get("rider_cash_to_submit") or 0) for r in pending_rows), 2),
+        "received_cash": round(sum(float(r.get("rider_cash_to_submit") or 0) for r in received_rows), 2),
+        "pending_orders": len(pending_rows),
+        "received_orders": len(received_rows),
+    }
+
+    return render_template(
+        "delivery_cod_settlements.html",
+        user=u,
+        orders=rows,
+        metrics=metrics,
+        delivery_active=delivery_active,
+        delivery_availability=availability,
+        q=q,
+        status_filter=status_filter,
+        date_from=date_from,
+        date_to=date_to
     )
 
 @app.route('/delivery/all-orders', methods=['GET'], endpoint='delivery_all_orders')
@@ -1407,16 +1567,147 @@ def delivery_status(oid):
         payment_status = (order.get("payment_status") or "PENDING").strip().upper()
         cod_received = request.form.get('cod_received')
 
-        if payment_method == "COD" and payment_status not in ["PAID", "COLLECTED", "ONLINE_PAID"]:
+        items_subtotal = _delivery_money_float(
+            order.get("items_subtotal")
+            if order.get("items_subtotal") is not None
+            else order.get("store_earning"),
+            0.0
+        )
+
+        delivery_fee = _delivery_money_float(
+            order.get("delivery_fee_amount")
+            if order.get("delivery_fee_amount") is not None
+            else order.get("delivery_fee"),
+            0.0
+        )
+
+        platform_fee = _delivery_money_float(order.get("platform_fee"), 0.0)
+
+        tip_amount = _delivery_money_float(
+            order.get("tip_amount")
+            if order.get("tip_amount") is not None
+            else order.get("delivery_tip_amount"),
+            0.0
+        )
+
+        total_payable = _delivery_money_float(
+            order.get("total_payable"),
+            items_subtotal + delivery_fee + platform_fee + tip_amount
+        )
+
+        delivery_boy_earning = round(delivery_fee + tip_amount, 2)
+        store_payout_amount = round(items_subtotal, 2)
+        admin_platform_earning = round(platform_fee, 2)
+
+        collected_payment_statuses = [
+            "PAID",
+            "COLLECTED",
+            "ONLINE_PAID",
+            "COLLECTED_BY_RIDER",
+            "COD_COLLECTED_BY_RIDER"
+        ]
+
+        if payment_method == "COD" and payment_status not in collected_payment_statuses:
             if cod_received != '1':
                 flash('Please confirm that COD amount has been collected before marking Delivered.', 'warning')
                 return redirect(request.referrer or url_for('delivery_active_orders'))
 
-            update_data["payment_status"] = "PAID"
-            event_note = "COD amount collected. Order delivered."
+            rider_cash_to_submit = round(
+                max(total_payable - delivery_boy_earning, 0),
+                2
+            )
+
+            update_data.update({
+                "items_subtotal": store_payout_amount,
+                "total_amount": round(total_payable, 2),
+                "total_payable": round(total_payable, 2),
+                "delivery_fee": delivery_fee,
+                "delivery_fee_amount": delivery_fee,
+                "platform_fee": platform_fee,
+                "tip_amount": tip_amount,
+                "delivery_tip_amount": tip_amount,
+
+                "payment_status": "COLLECTED_BY_RIDER",
+                "payment_received_by": "DELIVERY_BOY",
+                "payment_collected_at": now,
+                "payment_collection_status": "COLLECTED",
+                "cod_collection_status": "COLLECTED",
+
+                "cod_collected_amount": round(total_payable, 2),
+                "expected_rider_cash_to_submit": rider_cash_to_submit,
+                "rider_cash_to_submit": rider_cash_to_submit,
+                "rider_cash_settlement_status": "PENDING",
+
+                "delivery_boy_earning": delivery_boy_earning,
+                "delivery_boy_payout_amount": delivery_boy_earning,
+                "delivery_boy_payout_status": "SELF_DEDUCTED",
+
+                "store_earning": store_payout_amount,
+                "store_payout_amount": store_payout_amount,
+                "store_payout_status": "PENDING_AFTER_DELIVERY",
+
+                "admin_platform_earning": admin_platform_earning,
+                "platform_fee_status": "PENDING_RIDER_CASH_SETTLEMENT",
+                "platform_fee_received_at": None,
+
+                "order_settlement_status": "RIDER_CASH_SETTLEMENT_PENDING",
+                "settlement_status": "RIDER_CASH_PENDING",
+                "store_settlement_status": "PAYOUT_PENDING",
+                "admin_platform_fee_status": "PENDING_RIDER_CASH",
+                "delivery_settlement_status": "SELF_DEDUCTED",
+
+                "last_settlement_event": {
+                    "action": "COD_COLLECTED_BY_RIDER",
+                    "amount_collected": round(total_payable, 2),
+                    "delivery_boy_earning": delivery_boy_earning,
+                    "rider_cash_to_submit": rider_cash_to_submit,
+                    "platform_fee": admin_platform_earning,
+                    "store_payout_amount": store_payout_amount,
+                    "created_by": str(u.get("id") or u.get("_id") or ""),
+                    "created_by_name": u.get("name") or "Delivery Partner",
+                    "created_at": now
+                }
+            })
+
+            event_note = (
+                f"COD ₹{total_payable:.2f} collected by delivery boy. "
+                f"Delivery earning ₹{delivery_boy_earning:.2f}. "
+                f"Cash to submit ₹{rider_cash_to_submit:.2f}. Order delivered."
+            )
+
         else:
-            update_data["payment_status"] = payment_status if payment_status else "PAID"
-            event_note = "Order delivered. No cash collection required."
+            update_data.update({
+                "items_subtotal": store_payout_amount,
+                "total_amount": round(total_payable, 2),
+                "total_payable": round(total_payable, 2),
+                "delivery_fee": delivery_fee,
+                "delivery_fee_amount": delivery_fee,
+                "platform_fee": platform_fee,
+                "tip_amount": tip_amount,
+                "delivery_tip_amount": tip_amount,
+
+                "payment_status": payment_status if payment_status else "PAID",
+                "payment_collection_status": "NOT_REQUIRED",
+                "cod_collection_status": "NOT_REQUIRED",
+
+                "delivery_boy_earning": delivery_boy_earning,
+                "delivery_boy_payout_amount": delivery_boy_earning,
+                "delivery_boy_payout_status": "PENDING",
+
+                "store_earning": store_payout_amount,
+                "store_payout_amount": store_payout_amount,
+                "store_payout_status": "PENDING_AFTER_DELIVERY",
+
+                "admin_platform_earning": admin_platform_earning,
+                "platform_fee_status": order.get("platform_fee_status") or "RECEIVED",
+
+                "order_settlement_status": "STORE_PAYOUT_PENDING",
+                "settlement_status": "PAYOUT_PENDING",
+                "store_settlement_status": "PAYOUT_PENDING",
+                "delivery_settlement_status": "PENDING"
+            })
+
+            event_note = "Order delivered. No COD cash collection required."
 
         update_data["delivered_at"] = now
 
@@ -1510,15 +1801,43 @@ def delivery_status(oid):
             print("[DELIVERY FAILED STORE NOTIFICATION ERROR]", notify_error)
 
     if new_status == "DELIVERED":
-        payable_amount = float(
-            order.get("total_payable")
-            or (
-                float(order.get("items_subtotal") or order.get("total_amount") or 0)
-                + float(order.get("delivery_fee") or 0)
-                + float(order.get("platform_fee") or 0)
-                + float(order.get("tip_amount") or 0)
-            )
+        payable_amount = _delivery_money_float(
+            update_data.get("cod_collected_amount")
+            if update_data.get("cod_collected_amount") is not None
+            else order.get("total_payable"),
+            _delivery_money_float(order.get("total_amount"), 0.0)
         )
+
+        txn_update_data = {
+            "status": "PAID",
+            "amount": payable_amount,
+            "payment_method": order.get("payment_method") or "COD",
+            "payment_status": update_data.get("payment_status") or order.get("payment_status") or "PAID",
+            "payment_received_by": update_data.get("payment_received_by") or order.get("payment_received_by"),
+            "payment_collection_status": update_data.get("payment_collection_status") or order.get("payment_collection_status"),
+            "cod_collection_status": update_data.get("cod_collection_status") or order.get("cod_collection_status"),
+
+            "items_subtotal": update_data.get("store_earning", order.get("items_subtotal", 0)),
+            "delivery_fee": update_data.get("delivery_boy_earning", order.get("delivery_fee", 0)) - _delivery_money_float(order.get("tip_amount"), 0.0),
+            "platform_fee": update_data.get("admin_platform_earning", order.get("platform_fee", 0)),
+            "tip_amount": _delivery_money_float(order.get("tip_amount"), 0.0),
+
+            "store_payout_amount": update_data.get("store_payout_amount"),
+            "store_payout_status": update_data.get("store_payout_status"),
+
+            "delivery_boy_earning": update_data.get("delivery_boy_earning"),
+            "delivery_boy_payout_amount": update_data.get("delivery_boy_payout_amount"),
+            "delivery_boy_payout_status": update_data.get("delivery_boy_payout_status"),
+
+            "rider_cash_to_submit": update_data.get("rider_cash_to_submit"),
+            "rider_cash_settlement_status": update_data.get("rider_cash_settlement_status"),
+
+            "platform_fee_status": update_data.get("platform_fee_status"),
+            "order_settlement_status": update_data.get("order_settlement_status"),
+            "settlement_status": update_data.get("settlement_status"),
+
+            "updated_at": now
+        }
 
         existing_txn = mongo.transactions.find_one({
             "order_id": oid_obj
@@ -1528,24 +1847,19 @@ def delivery_status(oid):
             mongo.transactions.update_many(
                 {"order_id": oid_obj},
                 {
-                    "$set": {
-                        "status": "PAID",
-                        "amount": payable_amount,
-                        "updated_at": now
-                    }
+                    "$set": txn_update_data
                 }
             )
         else:
-            mongo.transactions.insert_one({
+            txn_update_data.update({
                 "order_id": oid_obj,
                 "store_id": order.get("store_id"),
                 "user_id": order.get("user_id"),
-                "amount": payable_amount,
-                "status": "PAID",
                 "method": order.get("payment_method") or "COD",
-                "created_at": now,
-                "updated_at": now
+                "created_at": now
             })
+
+            mongo.transactions.insert_one(txn_update_data)
 
         mongo.delivery_availability.update_one(
             {

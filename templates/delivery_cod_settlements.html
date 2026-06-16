@@ -1,0 +1,567 @@
+{% extends "delivery_base.html" %}
+{% set active_page = "cod_settlements" %}
+
+{% block delivery_kicker %}COD Settlement{% endblock %}
+{% block delivery_title %}COD Cash Settlements{% endblock %}
+{% block delivery_subtitle %}
+View COD collected from customers, delivery earning kept by you, and cash submitted/pending with Admin.
+{% endblock %}
+
+{% block delivery_actions %}
+  <a class="df-action-btn" href="{{ url_for('delivery_successful_deliveries') }}">Successful Deliveries</a>
+  <a class="df-action-btn primary" href="{{ url_for('delivery_cod_settlements') }}">Refresh</a>
+{% endblock %}
+
+{% block delivery_content %}
+{% set rows = orders if orders is defined else [] %}
+{% set m = metrics if metrics is defined else {} %}
+
+<style>
+  .dcs-grid {
+    display: grid;
+    gap: 18px;
+  }
+
+  .dcs-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .dcs-card,
+  .dcs-kpi {
+    background: #fff;
+    border: 1px solid var(--df-line);
+    border-radius: 24px;
+    box-shadow: var(--df-shadow);
+    overflow: hidden;
+  }
+
+  .dcs-kpi {
+    min-height: 126px;
+    padding: 18px;
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    position: relative;
+  }
+
+  .dcs-kpi::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: var(--df-green);
+  }
+
+  .dcs-kpi.blue::before { background: var(--df-blue); }
+  .dcs-kpi.orange::before { background: var(--df-orange); }
+  .dcs-kpi.red::before { background: var(--df-red); }
+
+  .dcs-kpi-label {
+    color: var(--df-muted);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+
+  .dcs-kpi-value {
+    margin-top: 10px;
+    color: var(--df-ink);
+    font-size: 30px;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: -.045em;
+  }
+
+  .dcs-kpi-meta {
+    margin-top: 8px;
+    color: var(--df-muted);
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.35;
+  }
+
+  .dcs-kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 17px;
+    display: grid;
+    place-items: center;
+    background: var(--df-mint);
+    font-size: 24px;
+    flex: 0 0 auto;
+  }
+
+  .dcs-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--df-line);
+    background: #FBFFFD;
+  }
+
+  .dcs-title {
+    margin: 0;
+    color: var(--df-ink);
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: -.03em;
+  }
+
+  .dcs-sub {
+    margin: 5px 0 0;
+    color: var(--df-muted);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .dcs-filter {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--df-line);
+    display: grid;
+    grid-template-columns: 1.3fr 180px 160px 160px auto auto;
+    gap: 10px;
+    background: #fff;
+    align-items: end;
+  }
+
+  .dcs-field {
+    display: grid;
+    gap: 6px;
+  }
+
+  .dcs-field label {
+    color: var(--df-muted);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+  }
+
+  .dcs-field input,
+  .dcs-field select {
+    min-height: 42px;
+    border: 1px solid var(--df-line);
+    border-radius: 14px;
+    background: #fff;
+    color: var(--df-ink);
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 850;
+    outline: none;
+  }
+
+  .dcs-btn {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    border: 1px solid var(--df-line);
+    background: #fff;
+    color: var(--df-text);
+    padding: 9px 13px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .dcs-btn.primary {
+    background: var(--df-green);
+    border-color: var(--df-green);
+    color: #fff;
+  }
+
+  .dcs-table-wrap {
+    overflow: auto;
+    padding: 0 20px 20px;
+  }
+
+  .dcs-table {
+    width: 100%;
+    min-width: 1180px;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--df-line);
+    border-radius: 18px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .dcs-table thead {
+    background: var(--df-green-dark);
+    color: #fff;
+  }
+
+  .dcs-table th {
+    padding: 14px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    white-space: nowrap;
+  }
+
+  .dcs-table td {
+    padding: 14px;
+    border-bottom: 1px solid var(--df-line);
+    color: var(--df-text);
+    font-size: 13px;
+    font-weight: 750;
+    vertical-align: top;
+  }
+
+  .dcs-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .dcs-main {
+    display: block;
+    color: var(--df-ink);
+    font-weight: 950;
+  }
+
+  .dcs-muted {
+    display: block;
+    margin-top: 4px;
+    color: var(--df-muted);
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.4;
+  }
+
+  .dcs-money {
+    color: var(--df-ink);
+    font-weight: 950;
+    white-space: nowrap;
+  }
+
+  .dcs-pill {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--df-mint);
+    color: var(--df-green-dark);
+    border: 1px solid rgba(0,168,89,.18);
+    font-size: 11px;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  .dcs-pill.pending,
+  .dcs-pill.not_collected_yet,
+  .dcs-pill.rider_cash_pending {
+    background: var(--df-orange-soft);
+    color: #C2410C;
+    border-color: #FED7AA;
+  }
+
+  .dcs-pill.received,
+  .dcs-pill.paid,
+  .dcs-pill.settled {
+    background: var(--df-mint);
+    color: var(--df-green-dark);
+    border-color: rgba(0,168,89,.18);
+  }
+
+  .dcs-empty {
+    margin: 18px;
+    padding: 26px;
+    border-radius: 22px;
+    background: var(--df-soft);
+    border: 1px dashed var(--df-line);
+    color: var(--df-muted);
+    text-align: center;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.55;
+  }
+
+  .dcs-mobile-list {
+    display: none;
+    padding: 0 18px 18px;
+    gap: 12px;
+  }
+
+  .dcs-mobile-card {
+    padding: 16px;
+    border-radius: 20px;
+    background: #fff;
+    border: 1px solid var(--df-line);
+    box-shadow: 0 10px 26px rgba(17,64,38,.06);
+    display: grid;
+    gap: 12px;
+  }
+
+  .dcs-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .dcs-mobile-metric {
+    padding: 10px;
+    border-radius: 14px;
+    background: var(--df-soft);
+    display: grid;
+    gap: 3px;
+  }
+
+  .dcs-mobile-metric span {
+    color: var(--df-muted);
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  .dcs-mobile-metric strong {
+    color: var(--df-ink);
+    font-size: 14px;
+    font-weight: 950;
+  }
+
+  @media (max-width: 1280px) {
+    .dcs-kpi-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .dcs-filter {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .dcs-kpi-grid,
+    .dcs-filter {
+      grid-template-columns: 1fr;
+    }
+
+    .dcs-table-wrap {
+      display: none;
+    }
+
+    .dcs-mobile-list {
+      display: grid;
+    }
+  }
+</style>
+
+<div class="dcs-grid">
+  <section class="dcs-kpi-grid">
+    <div class="dcs-card dcs-kpi blue">
+      <div>
+        <div class="dcs-kpi-label">COD Collected</div>
+        <div class="dcs-kpi-value">₹{{ "%.0f"|format(m.cod_collected|default(0)|float) }}</div>
+        <div class="dcs-kpi-meta">Full COD collected from customers.</div>
+      </div>
+      <div class="dcs-kpi-icon">💵</div>
+    </div>
+
+    <div class="dcs-card dcs-kpi">
+      <div>
+        <div class="dcs-kpi-label">My Earning</div>
+        <div class="dcs-kpi-value">₹{{ "%.0f"|format(m.delivery_earning|default(0)|float) }}</div>
+        <div class="dcs-kpi-meta">Delivery fee + tips retained/earned by you.</div>
+      </div>
+      <div class="dcs-kpi-icon">🛵</div>
+    </div>
+
+    <div class="dcs-card dcs-kpi orange">
+      <div>
+        <div class="dcs-kpi-label">Cash To Submit</div>
+        <div class="dcs-kpi-value">₹{{ "%.0f"|format(m.cash_to_submit|default(0)|float) }}</div>
+        <div class="dcs-kpi-meta">COD minus your delivery earning.</div>
+      </div>
+      <div class="dcs-kpi-icon">📤</div>
+    </div>
+
+    <div class="dcs-card dcs-kpi red">
+      <div>
+        <div class="dcs-kpi-label">Pending Submission</div>
+        <div class="dcs-kpi-value">₹{{ "%.0f"|format(m.pending_cash|default(0)|float) }}</div>
+        <div class="dcs-kpi-meta">{{ m.pending_orders|default(0) }} pending COD orders.</div>
+      </div>
+      <div class="dcs-kpi-icon">⏳</div>
+    </div>
+
+    <div class="dcs-card dcs-kpi">
+      <div>
+        <div class="dcs-kpi-label">Received By Admin</div>
+        <div class="dcs-kpi-value">₹{{ "%.0f"|format(m.received_cash|default(0)|float) }}</div>
+        <div class="dcs-kpi-meta">{{ m.received_orders|default(0) }} orders confirmed.</div>
+      </div>
+      <div class="dcs-kpi-icon">✅</div>
+    </div>
+  </section>
+
+  <section class="dcs-card">
+    <div class="dcs-head">
+      <div>
+        <h2 class="dcs-title">COD Settlement Records</h2>
+        <p class="dcs-sub">
+          This page is read-only. Admin confirms submitted cash from the Admin Payment & Settlements page.
+        </p>
+      </div>
+    </div>
+
+    <form method="get" action="{{ url_for('delivery_cod_settlements') }}" class="dcs-filter">
+      <div class="dcs-field">
+        <label>Search</label>
+        <input type="search" name="q" value="{{ q or '' }}" placeholder="Order, store, customer, phone, status...">
+      </div>
+
+      <div class="dcs-field">
+        <label>Status</label>
+        <select name="status">
+          <option value="">All</option>
+          <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>Pending</option>
+          <option value="RECEIVED" {% if status_filter == 'RECEIVED' %}selected{% endif %}>Received</option>
+        </select>
+      </div>
+
+      <div class="dcs-field">
+        <label>From</label>
+        <input type="date" name="from" value="{{ date_from or '' }}">
+      </div>
+
+      <div class="dcs-field">
+        <label>To</label>
+        <input type="date" name="to" value="{{ date_to or '' }}">
+      </div>
+
+      <button class="dcs-btn primary" type="submit">Apply</button>
+      <a class="dcs-btn" href="{{ url_for('delivery_cod_settlements') }}">Reset</a>
+    </form>
+
+    {% if rows and rows|length %}
+      <div class="dcs-table-wrap">
+        <table class="dcs-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Store</th>
+              <th>Customer</th>
+              <th>COD Collected</th>
+              <th>My Earning</th>
+              <th>Cash To Submit</th>
+              <th>Admin Status</th>
+              <th>Settlement</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for o in rows %}
+              {% set rider_status = (o.rider_cash_settlement_status or 'PENDING')|lower %}
+              <tr>
+                <td>
+                  <span class="dcs-main">#{{ o.id[-6:] if o.id else "-" }}</span>
+                  <span class="dcs-muted">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
+                </td>
+
+                <td>
+                  <span class="dcs-main">{{ o.store_name or "Store" }}</span>
+                  <span class="dcs-muted">{{ o.store_phone or "" }}</span>
+                </td>
+
+                <td>
+                  <span class="dcs-main">{{ o.customer_name or "Customer" }}</span>
+                  <span class="dcs-muted">{{ o.customer_phone or "" }}</span>
+                </td>
+
+                <td>
+                  <span class="dcs-money">₹{{ "%.2f"|format(o.cod_collected_amount|default(0)|float) }}</span>
+                  <span class="dcs-muted">Total paid by customer</span>
+                </td>
+
+                <td>
+                  <span class="dcs-money">₹{{ "%.2f"|format(o.delivery_boy_earning|default(0)|float) }}</span>
+                  <span class="dcs-muted">Delivery ₹{{ "%.2f"|format(o.delivery_fee|default(0)|float) }} + Tip ₹{{ "%.2f"|format(o.tip_amount|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="dcs-money">₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
+                  <span class="dcs-muted">Submit to Admin/NE FRESH</span>
+                </td>
+
+                <td>
+                  <span class="dcs-pill {{ rider_status }}">{{ o.rider_cash_settlement_status or "PENDING" }}</span>
+                  {% if o.rider_cash_received_at %}
+                    <span class="dcs-muted">Received: {{ o.rider_cash_received_at }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="dcs-muted">Platform: {{ o.platform_fee_status or "-" }}</span>
+                  <span class="dcs-muted">Order: {{ o.order_settlement_status or o.settlement_status or "-" }}</span>
+                  <span class="dcs-muted">No rider action here.</span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="dcs-mobile-list">
+        {% for o in rows %}
+          {% set rider_status = (o.rider_cash_settlement_status or 'PENDING')|lower %}
+          <div class="dcs-mobile-card">
+            <div>
+              <span class="dcs-main">#{{ o.id[-6:] if o.id else "-" }} · {{ o.store_name or "Store" }}</span>
+              <span class="dcs-muted">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
+            </div>
+
+            <div class="dcs-mobile-grid">
+              <div class="dcs-mobile-metric">
+                <span>COD Collected</span>
+                <strong>₹{{ "%.2f"|format(o.cod_collected_amount|default(0)|float) }}</strong>
+              </div>
+
+              <div class="dcs-mobile-metric">
+                <span>My Earning</span>
+                <strong>₹{{ "%.2f"|format(o.delivery_boy_earning|default(0)|float) }}</strong>
+              </div>
+
+              <div class="dcs-mobile-metric">
+                <span>Cash Submit</span>
+                <strong>₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</strong>
+              </div>
+
+              <div class="dcs-mobile-metric">
+                <span>Status</span>
+                <strong>{{ o.rider_cash_settlement_status or "PENDING" }}</strong>
+              </div>
+            </div>
+
+            <div>
+              <span class="dcs-pill {{ rider_status }}">{{ o.rider_cash_settlement_status or "PENDING" }}</span>
+              {% if o.rider_cash_received_at %}
+                <span class="dcs-muted">Admin received: {{ o.rider_cash_received_at }}</span>
+              {% else %}
+                <span class="dcs-muted">Pending Admin confirmation.</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="dcs-empty">
+        No COD settlement records found for this filter.
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

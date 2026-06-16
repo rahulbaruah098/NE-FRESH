@@ -1,0 +1,592 @@
+{% extends "admin_base.html" %}
+{% set active_page = "platform_earnings" %}
+{% set active_group = "settlements" %}
+
+{% block title %}Platform Earnings | NE FRESH Admin{% endblock %}
+{% block page_title %}Platform Earnings{% endblock %}
+{% block page_subtitle %}Read-only report of platform fee earned from online and COD rider-settled orders.{% endblock %}
+
+{% block content %}
+{% set rows = earnings if earnings is defined else [] %}
+{% set m = metrics if metrics is defined else {} %}
+
+<section class="nf-admin-platform-earnings">
+  <style>
+    .nf-admin-platform-earnings {
+      display: grid;
+      gap: 18px;
+    }
+
+    .pe-hero,
+    .pe-card,
+    .pe-kpi {
+      background: var(--nf-surface);
+      border: 1px solid var(--nf-line);
+      border-radius: 22px;
+      box-shadow: var(--nf-shadow);
+    }
+
+    .pe-hero {
+      padding: 22px;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(0,168,89,.12), transparent 32%),
+        radial-gradient(circle at 92% 4%, rgba(2,132,199,.10), transparent 28%),
+        linear-gradient(135deg, #fff, var(--nf-surface-2));
+    }
+
+    .pe-hero h2 {
+      margin: 0 0 8px;
+      font-size: clamp(1.45rem, 3vw, 2.15rem);
+      line-height: 1.1;
+      letter-spacing: -.04em;
+      font-weight: 950;
+      color: var(--nf-text);
+    }
+
+    .pe-hero p {
+      margin: 0;
+      max-width: 940px;
+      color: var(--nf-muted);
+      font-size: .95rem;
+      font-weight: 650;
+      line-height: 1.6;
+    }
+
+    .pe-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .pe-kpi {
+      padding: 18px;
+      min-height: 112px;
+      display: grid;
+      align-content: space-between;
+      gap: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .pe-kpi::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 5px;
+      background: var(--nf-green);
+    }
+
+    .pe-kpi.orange::before {
+      background: var(--nf-warning);
+    }
+
+    .pe-kpi.blue::before {
+      background: var(--nf-info);
+    }
+
+    .pe-kpi.red::before {
+      background: var(--nf-danger);
+    }
+
+    .pe-kpi span {
+      color: var(--nf-muted);
+      font-size: .75rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .pe-kpi strong {
+      color: var(--nf-text);
+      font-size: 1.45rem;
+      font-weight: 950;
+      letter-spacing: -.04em;
+      line-height: 1;
+    }
+
+    .pe-kpi small {
+      color: var(--nf-muted);
+      font-size: .75rem;
+      font-weight: 750;
+      line-height: 1.35;
+    }
+
+    .pe-card {
+      overflow: hidden;
+    }
+
+    .pe-card-head {
+      padding: 18px;
+      border-bottom: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .pe-card-head h3 {
+      margin: 0;
+      color: var(--nf-text);
+      font-size: 1.08rem;
+      font-weight: 950;
+      letter-spacing: -.03em;
+    }
+
+    .pe-card-head p {
+      margin: 5px 0 0;
+      color: var(--nf-muted);
+      font-size: .84rem;
+      font-weight: 650;
+    }
+
+    .pe-filter {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--nf-line);
+      display: grid;
+      grid-template-columns: 1.4fr 180px 190px 160px 160px auto auto;
+      gap: 10px;
+      align-items: end;
+      background: #fff;
+    }
+
+    .pe-field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .pe-field label {
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .pe-field input,
+    .pe-field select {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--nf-line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 11px;
+      outline: none;
+      font-size: .82rem;
+      font-weight: 800;
+    }
+
+    .pe-btn {
+      min-height: 40px;
+      border: 1px solid var(--nf-line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .8rem;
+      font-weight: 950;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .pe-btn.primary {
+      background: var(--nf-green);
+      border-color: var(--nf-green);
+      color: #fff;
+    }
+
+    .pe-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 18px;
+    }
+
+    .pe-table {
+      width: 100%;
+      min-width: 1180px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .pe-table th {
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 12px;
+      border-top: 1px solid var(--nf-line);
+      border-bottom: 1px solid var(--nf-line);
+      white-space: nowrap;
+    }
+
+    .pe-table th:first-child {
+      border-left: 1px solid var(--nf-line);
+      border-top-left-radius: 14px;
+    }
+
+    .pe-table th:last-child {
+      border-right: 1px solid var(--nf-line);
+      border-top-right-radius: 14px;
+    }
+
+    .pe-table td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--nf-line);
+      background: #fff;
+      color: var(--nf-text);
+      vertical-align: top;
+      font-size: .84rem;
+      font-weight: 750;
+    }
+
+    .pe-main {
+      display: block;
+      color: var(--nf-text);
+      font-weight: 950;
+    }
+
+    .pe-sub {
+      display: block;
+      margin-top: 3px;
+      color: var(--nf-muted);
+      font-size: .74rem;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .pe-money {
+      color: var(--nf-text);
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .pe-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 950;
+      border: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      white-space: nowrap;
+    }
+
+    .pe-pill.received,
+    .pe-pill.paid,
+    .pe-pill.settled {
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border-color: rgba(0,168,89,.22);
+    }
+
+    .pe-pill.pending_rider_cash,
+    .pe-pill.pending_payment,
+    .pe-pill.pending {
+      background: var(--nf-orange-soft);
+      color: var(--nf-orange-dark);
+      border-color: rgba(245,158,11,.24);
+    }
+
+    .pe-empty {
+      padding: 28px 18px;
+      text-align: center;
+      color: var(--nf-muted);
+      font-weight: 800;
+    }
+
+    .pe-mobile-list {
+      display: none;
+      padding: 0 18px 18px;
+      gap: 12px;
+    }
+
+    .pe-mobile-card {
+      padding: 16px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid var(--nf-line);
+      box-shadow: 0 10px 26px rgba(17,64,38,.06);
+      display: grid;
+      gap: 12px;
+    }
+
+    .pe-mobile-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .pe-mobile-metric {
+      padding: 10px;
+      border-radius: 14px;
+      background: var(--nf-surface-2);
+      display: grid;
+      gap: 3px;
+    }
+
+    .pe-mobile-metric span {
+      color: var(--nf-muted);
+      font-size: .68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .pe-mobile-metric strong {
+      color: var(--nf-text);
+      font-size: .88rem;
+      font-weight: 950;
+    }
+
+    @media (max-width: 1260px) {
+      .pe-kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .pe-filter {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .pe-kpi-grid,
+      .pe-filter {
+        grid-template-columns: 1fr;
+      }
+
+      .pe-table-wrap {
+        display: none;
+      }
+
+      .pe-mobile-list {
+        display: grid;
+      }
+    }
+  </style>
+
+  <div class="pe-hero">
+    <h2>Platform Earnings</h2>
+    <p>
+      This report separates Admin/NE FRESH platform fee from store earning and delivery boy earning.
+      COD platform fee is counted as received only after Admin confirms rider cash settlement.
+    </p>
+  </div>
+
+  <div class="pe-kpi-grid">
+    <div class="pe-kpi">
+      <span>Total Platform Fee</span>
+      <strong>₹{{ "%.2f"|format(m.total_platform_fee|default(0)|float) }}</strong>
+      <small>{{ m.total_records|default(0) }} records in current filter</small>
+    </div>
+
+    <div class="pe-kpi">
+      <span>Received</span>
+      <strong>₹{{ "%.2f"|format(m.received_amount|default(0)|float) }}</strong>
+      <small>{{ m.received_count|default(0) }} received records</small>
+    </div>
+
+    <div class="pe-kpi orange">
+      <span>Pending</span>
+      <strong>₹{{ "%.2f"|format(m.pending_amount|default(0)|float) }}</strong>
+      <small>{{ m.pending_count|default(0) }} pending records</small>
+    </div>
+
+    <div class="pe-kpi blue">
+      <span>COD Platform Fee</span>
+      <strong>₹{{ "%.2f"|format(m.cod_amount|default(0)|float) }}</strong>
+      <small>{{ m.cod_count|default(0) }} COD records</small>
+    </div>
+
+    <div class="pe-kpi blue">
+      <span>Online Platform Fee</span>
+      <strong>₹{{ "%.2f"|format(m.online_amount|default(0)|float) }}</strong>
+      <small>{{ m.online_count|default(0) }} online records</small>
+    </div>
+  </div>
+
+  <div class="pe-card">
+    <div class="pe-card-head">
+      <div>
+        <h3>Order-wise Platform Fee Records</h3>
+        <p>Filter by payment mode, platform fee status, date range, store, customer or order ID.</p>
+      </div>
+    </div>
+
+    <form class="pe-filter" method="get" action="{{ url_for('admin_platform_earnings') }}">
+      <div class="pe-field">
+        <label>Search</label>
+        <input type="search" name="q" value="{{ q or '' }}" placeholder="Order, store, customer, payment, status...">
+      </div>
+
+      <div class="pe-field">
+        <label>Status</label>
+        <select name="status">
+          <option value="">All</option>
+          <option value="RECEIVED" {% if status_filter == 'RECEIVED' %}selected{% endif %}>Received</option>
+          <option value="PENDING_RIDER_CASH" {% if status_filter == 'PENDING_RIDER_CASH' %}selected{% endif %}>Pending Rider Cash</option>
+          <option value="PENDING_PAYMENT" {% if status_filter == 'PENDING_PAYMENT' %}selected{% endif %}>Pending Payment</option>
+        </select>
+      </div>
+
+      <div class="pe-field">
+        <label>Payment</label>
+        <select name="payment">
+          <option value="">All</option>
+          <option value="COD" {% if payment_filter == 'COD' %}selected{% endif %}>COD</option>
+          <option value="ONLINE" {% if payment_filter == 'ONLINE' %}selected{% endif %}>Online</option>
+        </select>
+      </div>
+
+      <div class="pe-field">
+        <label>From</label>
+        <input type="date" name="from" value="{{ date_from or '' }}">
+      </div>
+
+      <div class="pe-field">
+        <label>To</label>
+        <input type="date" name="to" value="{{ date_to or '' }}">
+      </div>
+
+            <button class="pe-btn primary" type="submit">Apply</button>
+      <a class="pe-btn" href="{{ url_for('admin_platform_earnings') }}">Reset</a>
+      <a class="pe-btn" href="{{ url_for('admin_platform_earnings_export_csv', q=q, status=status_filter, payment=payment_filter, **{'from': date_from, 'to': date_to}) }}">Export CSV</a>
+    </form>
+
+    {% if rows %}
+      <div class="pe-table-wrap">
+        <table class="pe-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Store</th>
+              <th>Customer</th>
+              <th>Payment Method</th>
+              <th>Platform Fee</th>
+              <th>Platform Status</th>
+              <th>Rider Cash</th>
+              <th>Order Settlement</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for o in rows %}
+              {% set earning_status_class = (o.platform_earning_status or 'pending')|lower %}
+              <tr>
+                <td>
+                  <span class="pe-main">#{{ o.id[-6:] if o.id else "-" }}</span>
+                  <span class="pe-sub">Total payable: ₹{{ "%.2f"|format(o.total_payable|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="pe-main">{{ o.store_name or "-" }}</span>
+                  <span class="pe-sub">Store earning: ₹{{ "%.2f"|format(o.store_earning|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="pe-main">{{ o.customer_name or "-" }}</span>
+                  <span class="pe-sub">{{ o.customer_phone or "" }}</span>
+                </td>
+
+                <td>
+                  <span class="pe-pill">{{ o.payment_method or "-" }}</span>
+                  <span class="pe-sub">{{ o.payment_status or "-" }}</span>
+                </td>
+
+                <td>
+                  <span class="pe-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</span>
+                </td>
+
+                <td>
+                  <span class="pe-pill {{ earning_status_class }}">{{ o.platform_earning_status or "-" }}</span>
+                  {% if o.platform_fee_received_at %}
+                    <span class="pe-sub">Received: {{ o.platform_fee_received_at }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  {% if o.payment_method == "COD" %}
+                    <span class="pe-main">{{ o.rider_cash_settlement_status or "PENDING" }}</span>
+                    <span class="pe-sub">Cash to submit: ₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
+                  {% else %}
+                    <span class="pe-pill received">NOT REQUIRED</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="pe-main">{{ o.order_settlement_status or "-" }}</span>
+                  {% if o.store_payout_status %}
+                    <span class="pe-sub">Store payout: {{ o.store_payout_status }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="pe-main">{{ o.report_date or o.delivered_at or o.created_at or "-" }}</span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pe-mobile-list">
+        {% for o in rows %}
+          {% set earning_status_class = (o.platform_earning_status or 'pending')|lower %}
+          <div class="pe-mobile-card">
+            <div>
+              <span class="pe-main">#{{ o.id[-6:] if o.id else "-" }} · {{ o.store_name or "Store" }}</span>
+              <span class="pe-sub">{{ o.report_date or o.delivered_at or o.created_at or "-" }}</span>
+            </div>
+
+            <div class="pe-mobile-grid">
+              <div class="pe-mobile-metric">
+                <span>Platform Fee</span>
+                <strong>₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</strong>
+              </div>
+
+              <div class="pe-mobile-metric">
+                <span>Status</span>
+                <strong>{{ o.platform_earning_status or "-" }}</strong>
+              </div>
+
+              <div class="pe-mobile-metric">
+                <span>Payment</span>
+                <strong>{{ o.payment_method or "-" }}</strong>
+              </div>
+
+              <div class="pe-mobile-metric">
+                <span>Settlement</span>
+                <strong>{{ o.order_settlement_status or "-" }}</strong>
+              </div>
+            </div>
+
+            <div>
+              <span class="pe-pill {{ earning_status_class }}">{{ o.platform_earning_status or "-" }}</span>
+              {% if o.payment_method == "COD" %}
+                <span class="pe-sub">Rider cash: {{ o.rider_cash_settlement_status or "PENDING" }}</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="pe-empty">No platform earning records found for this filter.</div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

@@ -49,6 +49,112 @@ def _admin_money_or_default(value, default=0):
         return float(default)
 
 
+
+def _admin_settlement_money(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return float(default)
+        return round(float(value), 2)
+    except Exception:
+        return float(default)
+
+
+def _admin_order_id_or_none(oid):
+    try:
+        return ObjectId(str(oid))
+    except Exception:
+        return None
+
+
+def _admin_hydrate_settlement_order(order):
+    order = order or {}
+
+    oid = order.get("_id")
+    order["id"] = str(oid) if oid else ""
+
+    order["items_subtotal"] = _admin_settlement_money(
+        order.get("items_subtotal"),
+        order.get("store_earning") or 0
+    )
+    order["store_earning"] = _admin_settlement_money(
+        order.get("store_earning"),
+        order.get("items_subtotal") or 0
+    )
+    order["store_payout_amount"] = _admin_settlement_money(
+        order.get("store_payout_amount"),
+        order.get("store_earning") or order.get("items_subtotal") or 0
+    )
+
+    order["delivery_fee"] = _admin_settlement_money(order.get("delivery_fee"))
+    order["tip_amount"] = _admin_settlement_money(
+        order.get("tip_amount"),
+        order.get("delivery_tip_amount") or 0
+    )
+    order["delivery_boy_earning"] = _admin_settlement_money(
+        order.get("delivery_boy_earning"),
+        order["delivery_fee"] + order["tip_amount"]
+    )
+
+    order["platform_fee"] = _admin_settlement_money(order.get("platform_fee"))
+    order["admin_platform_earning"] = _admin_settlement_money(
+        order.get("admin_platform_earning"),
+        order["platform_fee"]
+    )
+
+    order["total_payable"] = _admin_settlement_money(
+        order.get("total_payable"),
+        (
+            order["items_subtotal"]
+            + order["delivery_fee"]
+            + order["platform_fee"]
+            + order["tip_amount"]
+        )
+    )
+    order["total_amount"] = _admin_settlement_money(
+        order.get("total_amount"),
+        order["total_payable"]
+    )
+
+    order["cod_collected_amount"] = _admin_settlement_money(
+        order.get("cod_collected_amount"),
+        order["total_payable"] if (order.get("payment_method") or "").upper() == "COD" else 0
+    )
+
+    order["rider_cash_to_submit"] = _admin_settlement_money(
+        order.get("rider_cash_to_submit"),
+        order.get("expected_rider_cash_to_submit") or 0
+    )
+
+    order["payment_method"] = (order.get("payment_method") or "").upper()
+    order["payment_status"] = (order.get("payment_status") or "").upper()
+    order["rider_cash_settlement_status"] = (order.get("rider_cash_settlement_status") or "").upper()
+    order["platform_fee_status"] = (order.get("platform_fee_status") or "").upper()
+    order["store_payout_status"] = (order.get("store_payout_status") or "").upper()
+    order["order_settlement_status"] = (order.get("order_settlement_status") or "").upper()
+
+    return order
+
+
+def _admin_csv_value(value):
+    value = "" if value is None else str(value)
+    return '"' + value.replace('"', '""') + '"'
+
+
+def _admin_csv_response(rows, filename):
+    csv_data = "\n".join(
+        ",".join(_admin_csv_value(col) for col in row)
+        for row in rows
+    )
+
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        }
+    )
+
+
 def _admin_parse_delivery_zone_polygon(raw):
     try:
         if not raw or not str(raw).strip():
@@ -239,6 +345,1048 @@ def admin_platform_fee_settings():
         active_group="system",
         active_page="platform_fee_settings"
     )
+
+
+@app.route("/admin/settlements", methods=["GET"], endpoint="admin_settlements")
+@login_required(role="admin")
+def admin_settlements():
+    rider_cash_orders_raw = list(
+        mongo.orders.find({
+            "status": "DELIVERED",
+            "payment_method": "COD",
+            "payment_status": {"$in": ["COLLECTED_BY_RIDER", "COD_COLLECTED_BY_RIDER"]},
+            "rider_cash_settlement_status": {"$in": ["PENDING", "RIDER_CASH_PENDING"]}
+        }).sort("delivered_at", -1)
+    )
+
+    store_payout_orders_raw = list(
+        mongo.orders.find({
+            "status": "DELIVERED",
+            "store_payout_status": {"$in": ["PENDING_AFTER_DELIVERY", "PENDING", "PAYOUT_PENDING"]},
+            "$or": [
+                {"payment_method": {"$ne": "COD"}},
+                {"rider_cash_settlement_status": "RECEIVED"}
+            ]
+        }).sort("delivered_at", -1)
+    )
+
+    rider_cash_orders = [
+        _admin_hydrate_settlement_order(o)
+        for o in rider_cash_orders_raw
+    ]
+
+    store_payout_orders = [
+        _admin_hydrate_settlement_order(o)
+        for o in store_payout_orders_raw
+    ]
+
+    metrics = {
+        "rider_cash_pending_count": len(rider_cash_orders),
+        "rider_cash_pending_amount": round(sum(float(o.get("rider_cash_to_submit") or 0) for o in rider_cash_orders), 2),
+        "store_payout_pending_count": len(store_payout_orders),
+        "store_payout_pending_amount": round(sum(float(o.get("store_payout_amount") or 0) for o in store_payout_orders), 2),
+        "platform_fee_pending_amount": round(sum(float(o.get("platform_fee") or 0) for o in rider_cash_orders), 2),
+        "platform_fee_received_amount": round(sum(float(o.get("platform_fee") or 0) for o in store_payout_orders), 2),
+    }
+
+    return render_template(
+        "admin_settlements.html",
+        user=current_user(),
+        rider_cash_orders=rider_cash_orders,
+        store_payout_orders=store_payout_orders,
+        metrics=metrics,
+        active_group="settlements",
+        active_page="settlements"
+    )
+
+
+
+@app.route("/admin/settlements/export.csv", methods=["GET"], endpoint="admin_settlements_export_csv")
+@login_required(role="admin")
+def admin_settlements_export_csv():
+    rider_cash_orders_raw = list(
+        mongo.orders.find({
+            "status": "DELIVERED",
+            "payment_method": "COD",
+            "payment_status": {"$in": ["COLLECTED_BY_RIDER", "COD_COLLECTED_BY_RIDER"]},
+            "rider_cash_settlement_status": {"$in": ["PENDING", "RIDER_CASH_PENDING"]}
+        }).sort("delivered_at", -1)
+    )
+
+    store_payout_orders_raw = list(
+        mongo.orders.find({
+            "status": "DELIVERED",
+            "store_payout_status": {"$in": ["PENDING_AFTER_DELIVERY", "PENDING", "PAYOUT_PENDING"]},
+            "$or": [
+                {"payment_method": {"$ne": "COD"}},
+                {"rider_cash_settlement_status": "RECEIVED"}
+            ]
+        }).sort("delivered_at", -1)
+    )
+
+    rows = [[
+        "Section",
+        "Order ID",
+        "Store Name",
+        "Customer Name",
+        "Customer Phone",
+        "Delivery Boy",
+        "Payment Method",
+        "Payment Status",
+        "Items Subtotal",
+        "COD Collected",
+        "Delivery Boy Earning",
+        "Rider Cash To Submit",
+        "Platform Fee",
+        "Store Payout Amount",
+        "Rider Cash Status",
+        "Platform Fee Status",
+        "Store Payout Status",
+        "Order Settlement Status",
+        "Delivered At",
+        "Updated At"
+    ]]
+
+    for order in rider_cash_orders_raw:
+        o = _admin_hydrate_settlement_order(dict(order))
+
+        rows.append([
+            "Rider COD Cash Pending",
+            o.get("id"),
+            o.get("store_name"),
+            o.get("customer_name"),
+            o.get("customer_phone"),
+            o.get("delivery_partner_name"),
+            o.get("payment_method"),
+            o.get("payment_status"),
+            o.get("items_subtotal"),
+            o.get("cod_collected_amount"),
+            o.get("delivery_boy_earning"),
+            o.get("rider_cash_to_submit"),
+            o.get("platform_fee"),
+            o.get("store_payout_amount"),
+            o.get("rider_cash_settlement_status"),
+            o.get("platform_fee_status"),
+            o.get("store_payout_status"),
+            o.get("order_settlement_status"),
+            o.get("delivered_at"),
+            o.get("updated_at")
+        ])
+
+    for order in store_payout_orders_raw:
+        o = _admin_hydrate_settlement_order(dict(order))
+
+        rows.append([
+            "Store Payout Pending",
+            o.get("id"),
+            o.get("store_name"),
+            o.get("customer_name"),
+            o.get("customer_phone"),
+            o.get("delivery_partner_name"),
+            o.get("payment_method"),
+            o.get("payment_status"),
+            o.get("items_subtotal"),
+            o.get("cod_collected_amount"),
+            o.get("delivery_boy_earning"),
+            o.get("rider_cash_to_submit"),
+            o.get("platform_fee"),
+            o.get("store_payout_amount"),
+            o.get("rider_cash_settlement_status"),
+            o.get("platform_fee_status"),
+            o.get("store_payout_status"),
+            o.get("order_settlement_status"),
+            o.get("delivered_at"),
+            o.get("updated_at")
+        ])
+
+    return _admin_csv_response(rows, "nefresh_payment_settlements.csv")
+
+
+@app.route("/admin/settlements/<oid>/rider-cash-received", methods=["POST"], endpoint="admin_settlement_rider_cash_received")
+@login_required(role="admin")
+def admin_settlement_rider_cash_received(oid):
+    admin_user = current_user() or {}
+    oid_obj = _admin_order_id_or_none(oid)
+
+    if not oid_obj:
+        flash("Invalid order.", "danger")
+        return redirect(url_for("admin_settlements"))
+
+    order = mongo.orders.find_one({"_id": oid_obj})
+
+    if not order:
+        flash("Order not found.", "danger")
+        return redirect(url_for("admin_settlements"))
+
+    order = _admin_hydrate_settlement_order(order)
+
+    if order.get("status") != "DELIVERED":
+        flash("Rider cash can be marked received only after delivery.", "warning")
+        return redirect(url_for("admin_settlements"))
+
+    if order.get("payment_method") != "COD":
+        flash("This is not a COD order.", "warning")
+        return redirect(url_for("admin_settlements"))
+
+    if order.get("payment_status") not in ["COLLECTED_BY_RIDER", "COD_COLLECTED_BY_RIDER"]:
+        flash("COD has not been marked collected by rider for this order.", "warning")
+        return redirect(url_for("admin_settlements"))
+
+    if order.get("rider_cash_settlement_status") == "RECEIVED":
+        flash("Rider cash is already received for this order.", "info")
+        return redirect(url_for("admin_settlements"))
+
+    now = datetime.utcnow().isoformat()
+    note = (request.form.get("note") or "").strip()
+
+    rider_cash_to_submit = _admin_settlement_money(order.get("rider_cash_to_submit"))
+    platform_fee = _admin_settlement_money(order.get("platform_fee"))
+    store_payout_amount = _admin_settlement_money(order.get("store_payout_amount"))
+
+    settlement_event = {
+        "action": "RIDER_CASH_RECEIVED_BY_ADMIN",
+        "order_id": str(oid_obj),
+        "amount_received": rider_cash_to_submit,
+        "platform_fee": platform_fee,
+        "store_payout_amount": store_payout_amount,
+        "created_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+        "created_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+        "created_by_role": "admin",
+        "note": note,
+        "created_at": now
+    }
+
+    update_data = {
+        "rider_cash_settlement_status": "RECEIVED",
+        "rider_cash_received_at": now,
+        "rider_cash_received_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+        "rider_cash_received_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+        "rider_cash_settlement_note": note,
+
+        "platform_fee_status": "RECEIVED",
+        "platform_fee_received_at": now,
+        "admin_platform_fee_status": "RECEIVED",
+
+        "store_payout_status": "PENDING_AFTER_DELIVERY",
+        "store_settlement_status": "PAYOUT_PENDING",
+
+        "order_settlement_status": "STORE_PAYOUT_PENDING",
+        "settlement_status": "STORE_PAYOUT_PENDING",
+
+        "last_settlement_event": settlement_event,
+        "updated_at": now
+    }
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": update_data,
+            "$push": {
+                "settlement_audit_logs": settlement_event
+            }
+        }
+    )
+
+    mongo.transactions.update_many(
+        {"order_id": oid_obj},
+        {
+            "$set": {
+                "rider_cash_settlement_status": "RECEIVED",
+                "rider_cash_received_at": now,
+                "rider_cash_received_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+                "rider_cash_settlement_note": note,
+                "platform_fee_status": "RECEIVED",
+                "platform_fee_received_at": now,
+                "admin_platform_fee_status": "RECEIVED",
+                "store_payout_status": "PENDING_AFTER_DELIVERY",
+                "store_settlement_status": "PAYOUT_PENDING",
+                "order_settlement_status": "STORE_PAYOUT_PENDING",
+                "settlement_status": "STORE_PAYOUT_PENDING",
+                "updated_at": now
+            }
+        }
+    )
+
+    mongo.order_events.insert_one({
+        "order_id": oid_obj,
+        "status": "RIDER_CASH_RECEIVED_BY_ADMIN",
+        "note": (
+            f"Admin received rider cash ₹{rider_cash_to_submit:.2f}. "
+            f"Platform fee ₹{platform_fee:.2f} marked received. "
+            f"Store payout ₹{store_payout_amount:.2f} is pending."
+        ),
+        "created_at": now
+    })
+
+    flash("Rider cash received by Admin. Store payout is now pending.", "success")
+    return redirect(url_for("admin_settlements"))
+
+
+@app.route("/admin/settlements/<oid>/store-payout-paid", methods=["POST"], endpoint="admin_settlement_store_payout_paid")
+@login_required(role="admin")
+def admin_settlement_store_payout_paid(oid):
+    admin_user = current_user() or {}
+    oid_obj = _admin_order_id_or_none(oid)
+
+    if not oid_obj:
+        flash("Invalid order.", "danger")
+        return redirect(url_for("admin_settlements"))
+
+    order = mongo.orders.find_one({"_id": oid_obj})
+
+    if not order:
+        flash("Order not found.", "danger")
+        return redirect(url_for("admin_settlements"))
+
+    order = _admin_hydrate_settlement_order(order)
+
+    if order.get("status") != "DELIVERED":
+        flash("Store payout can be marked only after delivery.", "warning")
+        return redirect(url_for("admin_settlements"))
+
+    if order.get("payment_method") == "COD" and order.get("rider_cash_settlement_status") != "RECEIVED":
+        flash("Cannot pay store before Admin receives rider COD cash.", "warning")
+        return redirect(url_for("admin_settlements"))
+
+    if order.get("store_payout_status") == "PAID":
+        flash("Store payout is already marked paid.", "info")
+        return redirect(url_for("admin_settlements"))
+
+    now = datetime.utcnow().isoformat()
+    note = (request.form.get("note") or "").strip()
+    reference_no = (request.form.get("reference_no") or "").strip()
+    payout_mode = (request.form.get("payout_mode") or "CASH").strip().upper()
+
+    store_payout_amount = _admin_settlement_money(order.get("store_payout_amount"))
+    platform_fee = _admin_settlement_money(order.get("platform_fee"))
+
+    settlement_event = {
+        "action": "STORE_PAYOUT_PAID_BY_ADMIN",
+        "order_id": str(oid_obj),
+        "store_id": str(order.get("store_id") or ""),
+        "store_name": order.get("store_name") or "",
+        "amount_paid": store_payout_amount,
+        "platform_fee": platform_fee,
+        "payment_mode": payout_mode,
+        "reference_no": reference_no,
+        "created_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+        "created_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+        "created_by_role": "admin",
+        "note": note,
+        "created_at": now
+    }
+
+    update_data = {
+        "store_payout_status": "PAID",
+        "store_payout_paid_at": now,
+        "store_payout_marked_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+        "store_payout_marked_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+        "store_payout_note": note,
+        "store_payout_reference_no": reference_no,
+        "store_payout_mode": payout_mode,
+
+        "store_settlement_status": "PAID",
+        "settlement_status": "SETTLED",
+        "order_settlement_status": "SETTLED",
+
+        "last_settlement_event": settlement_event,
+        "updated_at": now
+    }
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": update_data,
+            "$push": {
+                "settlement_audit_logs": settlement_event
+            }
+        }
+    )
+
+    mongo.transactions.update_many(
+        {"order_id": oid_obj},
+        {
+            "$set": {
+                "store_payout_status": "PAID",
+                "store_payout_paid_at": now,
+                "store_payout_marked_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+                "store_payout_note": note,
+                "store_payout_reference_no": reference_no,
+                "store_payout_mode": payout_mode,
+                "store_settlement_status": "PAID",
+                "settlement_status": "SETTLED",
+                "order_settlement_status": "SETTLED",
+                "updated_at": now
+            }
+        }
+    )
+
+    mongo.order_events.insert_one({
+        "order_id": oid_obj,
+        "status": "STORE_PAYOUT_PAID",
+        "note": (
+            f"Store payout ₹{store_payout_amount:.2f} marked paid by Admin. "
+            f"Settlement completed."
+        ),
+        "created_at": now
+    })
+
+    flash("Store payout marked paid. Order settlement completed.", "success")
+    return redirect(url_for("admin_settlements"))
+
+
+
+@app.route("/admin/platform-earnings", methods=["GET"], endpoint="admin_platform_earnings")
+@login_required(role="admin")
+def admin_platform_earnings():
+    """
+    Admin read-only platform earnings report.
+
+    Rule:
+    - ONLINE_PLATFORM / online-paid orders: platform fee is received after successful payment.
+    - COD_RIDER_COLLECTION orders: platform fee is received only after rider cash settlement is RECEIVED.
+    """
+    q = (request.args.get("q") or "").strip()
+    status_filter = (request.args.get("status") or "").strip().upper()
+    payment_filter = (request.args.get("payment") or "").strip().upper()
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+
+    raw_orders = list(
+        mongo.orders.find({
+            "platform_fee": {
+                "$exists": True
+            }
+        }).sort("created_at", -1)
+    )
+
+    rows = []
+
+    for order in raw_orders:
+        row = _admin_hydrate_settlement_order(dict(order))
+
+        platform_fee = _admin_settlement_money(row.get("platform_fee"), 0)
+
+        if platform_fee <= 0:
+            continue
+
+        payment_method = (row.get("payment_method") or "").strip().upper()
+        payment_status = (row.get("payment_status") or "").strip().upper()
+        platform_fee_status = (row.get("platform_fee_status") or "").strip().upper()
+        rider_cash_status = (row.get("rider_cash_settlement_status") or "").strip().upper()
+
+        created_at = str(row.get("created_at") or "")
+        delivered_at = str(row.get("delivered_at") or row.get("updated_at") or created_at)
+
+        report_date = delivered_at or created_at
+
+        if date_from and report_date and report_date[:10] < date_from:
+            continue
+
+        if date_to and report_date and report_date[:10] > date_to:
+            continue
+
+        # Final platform earning status for report.
+        if platform_fee_status == "RECEIVED":
+            earning_status = "RECEIVED"
+        elif payment_method == "COD":
+            if rider_cash_status == "RECEIVED":
+                earning_status = "RECEIVED"
+            else:
+                earning_status = "PENDING_RIDER_CASH"
+        elif payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
+            earning_status = "RECEIVED"
+        else:
+            earning_status = "PENDING_PAYMENT"
+
+        row["platform_earning_status"] = earning_status
+        row["platform_fee"] = platform_fee
+        row["report_date"] = report_date
+        row["payment_method"] = payment_method or "UNKNOWN"
+        row["payment_status"] = payment_status or "UNKNOWN"
+        row["platform_fee_status"] = platform_fee_status or earning_status
+        row["rider_cash_settlement_status"] = rider_cash_status or "NOT_REQUIRED"
+
+        if payment_filter:
+            if payment_filter == "ONLINE":
+                if payment_method in ["COD", "COD_RIDER_COLLECTION"]:
+                    continue
+            elif payment_filter == "COD":
+                if payment_method != "COD":
+                    continue
+            elif payment_filter != payment_method:
+                continue
+
+        if status_filter:
+            if status_filter != earning_status and status_filter != platform_fee_status:
+                continue
+
+        if q:
+            haystack = " ".join([
+                str(row.get("id") or ""),
+                str(row.get("store_name") or ""),
+                str(row.get("customer_name") or ""),
+                str(row.get("customer_phone") or ""),
+                str(row.get("payment_method") or ""),
+                str(row.get("payment_status") or ""),
+                str(row.get("platform_fee_status") or ""),
+                str(row.get("platform_earning_status") or ""),
+                str(row.get("order_settlement_status") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+        rows.append(row)
+
+    received_rows = [
+        r for r in rows
+        if (r.get("platform_earning_status") or "").upper() == "RECEIVED"
+    ]
+
+    pending_rows = [
+        r for r in rows
+        if (r.get("platform_earning_status") or "").upper() != "RECEIVED"
+    ]
+
+    cod_rows = [
+        r for r in rows
+        if (r.get("payment_method") or "").upper() == "COD"
+    ]
+
+    online_rows = [
+        r for r in rows
+        if (r.get("payment_method") or "").upper() != "COD"
+    ]
+
+    metrics = {
+        "total_records": len(rows),
+        "total_platform_fee": round(sum(float(r.get("platform_fee") or 0) for r in rows), 2),
+
+        "received_count": len(received_rows),
+        "received_amount": round(sum(float(r.get("platform_fee") or 0) for r in received_rows), 2),
+
+        "pending_count": len(pending_rows),
+        "pending_amount": round(sum(float(r.get("platform_fee") or 0) for r in pending_rows), 2),
+
+        "cod_count": len(cod_rows),
+        "cod_amount": round(sum(float(r.get("platform_fee") or 0) for r in cod_rows), 2),
+
+        "online_count": len(online_rows),
+        "online_amount": round(sum(float(r.get("platform_fee") or 0) for r in online_rows), 2),
+    }
+
+    return render_template(
+        "admin_platform_earnings.html",
+        user=current_user(),
+        earnings=rows,
+        metrics=metrics,
+        q=q,
+        status_filter=status_filter,
+        payment_filter=payment_filter,
+        date_from=date_from,
+        date_to=date_to,
+        active_group="settlements",
+        active_page="platform_earnings"
+    )
+
+
+
+@app.route("/admin/platform-earnings/export.csv", methods=["GET"], endpoint="admin_platform_earnings_export_csv")
+@login_required(role="admin")
+def admin_platform_earnings_export_csv():
+    q = (request.args.get("q") or "").strip()
+    status_filter = (request.args.get("status") or "").strip().upper()
+    payment_filter = (request.args.get("payment") or "").strip().upper()
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+
+    raw_orders = list(
+        mongo.orders.find({
+            "platform_fee": {
+                "$exists": True
+            }
+        }).sort("created_at", -1)
+    )
+
+    rows = [[
+        "Order ID",
+        "Store Name",
+        "Customer Name",
+        "Customer Phone",
+        "Payment Method",
+        "Payment Status",
+        "Items Subtotal",
+        "Delivery Fee",
+        "Tip",
+        "Total Payable",
+        "Store Earning",
+        "Platform Fee",
+        "Platform Earning Status",
+        "Platform Fee Status",
+        "Rider Cash Status",
+        "Rider Cash To Submit",
+        "Store Payout Status",
+        "Order Settlement Status",
+        "Report Date",
+        "Created At"
+    ]]
+
+    for order in raw_orders:
+        row = _admin_hydrate_settlement_order(dict(order))
+
+        platform_fee = _admin_settlement_money(row.get("platform_fee"), 0)
+
+        if platform_fee <= 0:
+            continue
+
+        payment_method = (row.get("payment_method") or "").strip().upper()
+        payment_status = (row.get("payment_status") or "").strip().upper()
+        platform_fee_status = (row.get("platform_fee_status") or "").strip().upper()
+        rider_cash_status = (row.get("rider_cash_settlement_status") or "").strip().upper()
+
+        created_at = str(row.get("created_at") or "")
+        delivered_at = str(row.get("delivered_at") or row.get("updated_at") or created_at)
+        report_date = delivered_at or created_at
+
+        if date_from and report_date and report_date[:10] < date_from:
+            continue
+
+        if date_to and report_date and report_date[:10] > date_to:
+            continue
+
+        if platform_fee_status == "RECEIVED":
+            earning_status = "RECEIVED"
+        elif payment_method == "COD":
+            if rider_cash_status == "RECEIVED":
+                earning_status = "RECEIVED"
+            else:
+                earning_status = "PENDING_RIDER_CASH"
+        elif payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
+            earning_status = "RECEIVED"
+        else:
+            earning_status = "PENDING_PAYMENT"
+
+        if payment_filter:
+            if payment_filter == "ONLINE":
+                if payment_method in ["COD", "COD_RIDER_COLLECTION"]:
+                    continue
+            elif payment_filter == "COD":
+                if payment_method != "COD":
+                    continue
+            elif payment_filter != payment_method:
+                continue
+
+        if status_filter:
+            if status_filter != earning_status and status_filter != platform_fee_status:
+                continue
+
+        if q:
+            haystack = " ".join([
+                str(row.get("id") or ""),
+                str(row.get("store_name") or ""),
+                str(row.get("customer_name") or ""),
+                str(row.get("customer_phone") or ""),
+                str(payment_method or ""),
+                str(payment_status or ""),
+                str(platform_fee_status or ""),
+                str(earning_status or ""),
+                str(row.get("order_settlement_status") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+        rows.append([
+            row.get("id"),
+            row.get("store_name"),
+            row.get("customer_name"),
+            row.get("customer_phone"),
+            payment_method or "UNKNOWN",
+            payment_status or "UNKNOWN",
+            row.get("items_subtotal"),
+            row.get("delivery_fee"),
+            row.get("tip_amount"),
+            row.get("total_payable"),
+            row.get("store_earning"),
+            platform_fee,
+            earning_status,
+            platform_fee_status or earning_status,
+            rider_cash_status or "NOT_REQUIRED",
+            row.get("rider_cash_to_submit"),
+            row.get("store_payout_status"),
+            row.get("order_settlement_status"),
+            report_date,
+            row.get("created_at")
+        ])
+
+    return _admin_csv_response(rows, "nefresh_platform_earnings.csv")
+
+
+@app.route("/admin/settlement-audit-logs", methods=["GET"], endpoint="admin_settlement_audit_logs")
+@login_required(role="admin")
+def admin_settlement_audit_logs():
+    """
+    Admin read-only settlement audit log page.
+
+    Shows settlement_audit_logs pushed inside orders during:
+    - RIDER_CASH_RECEIVED_BY_ADMIN
+    - STORE_PAYOUT_PAID_BY_ADMIN
+
+    No update action is available here.
+    """
+    q = (request.args.get("q") or "").strip()
+    action_filter = (request.args.get("action") or "").strip().upper()
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+
+    raw_orders = list(
+        mongo.orders.find({
+            "$or": [
+                {"settlement_audit_logs": {"$exists": True, "$ne": []}},
+                {"last_settlement_event": {"$exists": True}}
+            ]
+        }).sort("updated_at", -1)
+    )
+
+    logs = []
+
+    for order in raw_orders:
+        hydrated_order = _admin_hydrate_settlement_order(dict(order))
+
+        order_id = hydrated_order.get("id") or str(order.get("_id") or "")
+        short_order_id = order_id[-6:] if order_id else ""
+
+        audit_entries = order.get("settlement_audit_logs") or []
+
+        if not isinstance(audit_entries, list):
+            audit_entries = []
+
+        # Fallback for orders that only have last_settlement_event.
+        last_event = order.get("last_settlement_event")
+        if isinstance(last_event, dict):
+            last_action = last_event.get("action")
+            already_exists = any(
+                isinstance(entry, dict)
+                and entry.get("action") == last_action
+                and entry.get("created_at") == last_event.get("created_at")
+                for entry in audit_entries
+            )
+
+            if not already_exists:
+                audit_entries.append(last_event)
+
+        for entry in audit_entries:
+            if not isinstance(entry, dict):
+                continue
+
+            action = (entry.get("action") or "").strip().upper()
+            created_at = str(entry.get("created_at") or "")
+
+            if action_filter and action != action_filter:
+                continue
+
+            if date_from and created_at and created_at[:10] < date_from:
+                continue
+
+            if date_to and created_at and created_at[:10] > date_to:
+                continue
+
+            amount_received = _admin_settlement_money(entry.get("amount_received"), 0)
+            amount_paid = _admin_settlement_money(entry.get("amount_paid"), 0)
+            store_payout_amount = _admin_settlement_money(entry.get("store_payout_amount"), hydrated_order.get("store_payout_amount") or 0)
+            platform_fee = _admin_settlement_money(entry.get("platform_fee"), hydrated_order.get("platform_fee") or 0)
+
+            amount_display = amount_received if amount_received > 0 else amount_paid
+
+            log_row = {
+                "order_id": order_id,
+                "short_order_id": short_order_id,
+                "action": action,
+                "action_label": action.replace("_", " ").title() if action else "Settlement Event",
+
+                "amount_received": amount_received,
+                "amount_paid": amount_paid,
+                "amount_display": amount_display,
+                "platform_fee": platform_fee,
+                "store_payout_amount": store_payout_amount,
+
+                "payment_mode": entry.get("payment_mode") or "",
+                "reference_no": entry.get("reference_no") or "",
+                "note": entry.get("note") or "",
+
+                "created_by": entry.get("created_by") or "",
+                "created_by_name": entry.get("created_by_name") or "Admin",
+                "created_by_role": entry.get("created_by_role") or "admin",
+                "created_at": created_at,
+
+                "store_id": entry.get("store_id") or str(hydrated_order.get("store_id") or ""),
+                "store_name": entry.get("store_name") or hydrated_order.get("store_name") or "",
+                "customer_name": hydrated_order.get("customer_name") or "",
+                "customer_phone": hydrated_order.get("customer_phone") or "",
+                "delivery_partner_name": hydrated_order.get("delivery_partner_name") or "",
+                "delivery_partner_phone": hydrated_order.get("delivery_partner_phone") or "",
+
+                "payment_method": hydrated_order.get("payment_method") or "",
+                "payment_status": hydrated_order.get("payment_status") or "",
+                "rider_cash_settlement_status": hydrated_order.get("rider_cash_settlement_status") or "",
+                "platform_fee_status": hydrated_order.get("platform_fee_status") or "",
+                "store_payout_status": hydrated_order.get("store_payout_status") or "",
+                "order_settlement_status": hydrated_order.get("order_settlement_status") or "",
+            }
+
+            if q:
+                haystack = " ".join([
+                    str(log_row.get("order_id") or ""),
+                    str(log_row.get("short_order_id") or ""),
+                    str(log_row.get("action") or ""),
+                    str(log_row.get("store_name") or ""),
+                    str(log_row.get("customer_name") or ""),
+                    str(log_row.get("customer_phone") or ""),
+                    str(log_row.get("delivery_partner_name") or ""),
+                    str(log_row.get("created_by_name") or ""),
+                    str(log_row.get("reference_no") or ""),
+                    str(log_row.get("note") or ""),
+                    str(log_row.get("payment_method") or ""),
+                    str(log_row.get("order_settlement_status") or "")
+                ]).lower()
+
+                if q.lower() not in haystack:
+                    continue
+
+            logs.append(log_row)
+
+    logs.sort(
+        key=lambda row: str(row.get("created_at") or ""),
+        reverse=True
+    )
+
+    rider_cash_logs = [
+        row for row in logs
+        if row.get("action") == "RIDER_CASH_RECEIVED_BY_ADMIN"
+    ]
+
+    store_payout_logs = [
+        row for row in logs
+        if row.get("action") == "STORE_PAYOUT_PAID_BY_ADMIN"
+    ]
+
+    metrics = {
+        "total_logs": len(logs),
+        "rider_cash_logs": len(rider_cash_logs),
+        "store_payout_logs": len(store_payout_logs),
+        "rider_cash_received_amount": round(sum(float(row.get("amount_received") or 0) for row in rider_cash_logs), 2),
+        "store_payout_paid_amount": round(sum(float(row.get("amount_paid") or 0) for row in store_payout_logs), 2),
+        "platform_fee_tracked": round(sum(float(row.get("platform_fee") or 0) for row in logs), 2),
+    }
+
+    return render_template(
+        "admin_settlement_audit_logs.html",
+        user=current_user(),
+        logs=logs,
+        metrics=metrics,
+        q=q,
+        action_filter=action_filter,
+        date_from=date_from,
+        date_to=date_to,
+        active_group="settlements",
+        active_page="settlement_audit_logs"
+    )
+
+
+
+@app.route("/admin/settlement-audit-logs/export.csv", methods=["GET"], endpoint="admin_settlement_audit_logs_export_csv")
+@login_required(role="admin")
+def admin_settlement_audit_logs_export_csv():
+    q = (request.args.get("q") or "").strip()
+    action_filter = (request.args.get("action") or "").strip().upper()
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+
+    raw_orders = list(
+        mongo.orders.find({
+            "$or": [
+                {"settlement_audit_logs": {"$exists": True, "$ne": []}},
+                {"last_settlement_event": {"$exists": True}}
+            ]
+        }).sort("updated_at", -1)
+    )
+
+    log_rows = []
+
+    for order in raw_orders:
+        hydrated_order = _admin_hydrate_settlement_order(dict(order))
+
+        order_id = hydrated_order.get("id") or str(order.get("_id") or "")
+        short_order_id = order_id[-6:] if order_id else ""
+
+        audit_entries = order.get("settlement_audit_logs") or []
+
+        if not isinstance(audit_entries, list):
+            audit_entries = []
+
+        last_event = order.get("last_settlement_event")
+        if isinstance(last_event, dict):
+            last_action = last_event.get("action")
+
+            already_exists = any(
+                isinstance(entry, dict)
+                and entry.get("action") == last_action
+                and entry.get("created_at") == last_event.get("created_at")
+                for entry in audit_entries
+            )
+
+            if not already_exists:
+                audit_entries.append(last_event)
+
+        for entry in audit_entries:
+            if not isinstance(entry, dict):
+                continue
+
+            action = (entry.get("action") or "").strip().upper()
+            created_at = str(entry.get("created_at") or "")
+
+            if action_filter and action != action_filter:
+                continue
+
+            if date_from and created_at and created_at[:10] < date_from:
+                continue
+
+            if date_to and created_at and created_at[:10] > date_to:
+                continue
+
+            amount_received = _admin_settlement_money(entry.get("amount_received"), 0)
+            amount_paid = _admin_settlement_money(entry.get("amount_paid"), 0)
+            store_payout_amount = _admin_settlement_money(
+                entry.get("store_payout_amount"),
+                hydrated_order.get("store_payout_amount") or 0
+            )
+            platform_fee = _admin_settlement_money(
+                entry.get("platform_fee"),
+                hydrated_order.get("platform_fee") or 0
+            )
+
+            amount_display = amount_received if amount_received > 0 else amount_paid
+
+            log_row = {
+                "order_id": order_id,
+                "short_order_id": short_order_id,
+                "action": action,
+                "action_label": action.replace("_", " ").title() if action else "Settlement Event",
+                "amount_received": amount_received,
+                "amount_paid": amount_paid,
+                "amount_display": amount_display,
+                "platform_fee": platform_fee,
+                "store_payout_amount": store_payout_amount,
+                "payment_mode": entry.get("payment_mode") or "",
+                "reference_no": entry.get("reference_no") or "",
+                "note": entry.get("note") or "",
+                "created_by": entry.get("created_by") or "",
+                "created_by_name": entry.get("created_by_name") or "Admin",
+                "created_by_role": entry.get("created_by_role") or "admin",
+                "created_at": created_at,
+                "store_id": entry.get("store_id") or str(hydrated_order.get("store_id") or ""),
+                "store_name": entry.get("store_name") or hydrated_order.get("store_name") or "",
+                "customer_name": hydrated_order.get("customer_name") or "",
+                "customer_phone": hydrated_order.get("customer_phone") or "",
+                "delivery_partner_name": hydrated_order.get("delivery_partner_name") or "",
+                "delivery_partner_phone": hydrated_order.get("delivery_partner_phone") or "",
+                "payment_method": hydrated_order.get("payment_method") or "",
+                "payment_status": hydrated_order.get("payment_status") or "",
+                "rider_cash_settlement_status": hydrated_order.get("rider_cash_settlement_status") or "",
+                "platform_fee_status": hydrated_order.get("platform_fee_status") or "",
+                "store_payout_status": hydrated_order.get("store_payout_status") or "",
+                "order_settlement_status": hydrated_order.get("order_settlement_status") or "",
+            }
+
+            if q:
+                haystack = " ".join([
+                    str(log_row.get("order_id") or ""),
+                    str(log_row.get("short_order_id") or ""),
+                    str(log_row.get("action") or ""),
+                    str(log_row.get("store_name") or ""),
+                    str(log_row.get("customer_name") or ""),
+                    str(log_row.get("customer_phone") or ""),
+                    str(log_row.get("delivery_partner_name") or ""),
+                    str(log_row.get("created_by_name") or ""),
+                    str(log_row.get("reference_no") or ""),
+                    str(log_row.get("note") or ""),
+                    str(log_row.get("payment_method") or ""),
+                    str(log_row.get("order_settlement_status") or "")
+                ]).lower()
+
+                if q.lower() not in haystack:
+                    continue
+
+            log_rows.append(log_row)
+
+    log_rows.sort(
+        key=lambda row: str(row.get("created_at") or ""),
+        reverse=True
+    )
+
+    rows = [[
+        "Order ID",
+        "Short Order ID",
+        "Action",
+        "Action Label",
+        "Amount Received",
+        "Amount Paid",
+        "Amount Display",
+        "Platform Fee",
+        "Store Payout Amount",
+        "Payment Mode",
+        "Reference No",
+        "Note",
+        "Created By Name",
+        "Created By Role",
+        "Created At",
+        "Store Name",
+        "Customer Name",
+        "Customer Phone",
+        "Delivery Boy",
+        "Delivery Boy Phone",
+        "Payment Method",
+        "Payment Status",
+        "Rider Cash Status",
+        "Platform Fee Status",
+        "Store Payout Status",
+        "Order Settlement Status"
+    ]]
+
+    for log in log_rows:
+        rows.append([
+            log.get("order_id"),
+            log.get("short_order_id"),
+            log.get("action"),
+            log.get("action_label"),
+            log.get("amount_received"),
+            log.get("amount_paid"),
+            log.get("amount_display"),
+            log.get("platform_fee"),
+            log.get("store_payout_amount"),
+            log.get("payment_mode"),
+            log.get("reference_no"),
+            log.get("note"),
+            log.get("created_by_name"),
+            log.get("created_by_role"),
+            log.get("created_at"),
+            log.get("store_name"),
+            log.get("customer_name"),
+            log.get("customer_phone"),
+            log.get("delivery_partner_name"),
+            log.get("delivery_partner_phone"),
+            log.get("payment_method"),
+            log.get("payment_status"),
+            log.get("rider_cash_settlement_status"),
+            log.get("platform_fee_status"),
+            log.get("store_payout_status"),
+            log.get("order_settlement_status")
+        ])
+
+    return _admin_csv_response(rows, "nefresh_settlement_audit_logs.csv")
+
+
 
 @app.route("/admin/dashboard")
 @login_required(role="admin")

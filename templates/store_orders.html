@@ -407,6 +407,75 @@
   font-weight:800;
   line-height:1.35;
 }
+
+.sd-money-breakdown{
+  margin:8px 0 10px;
+  padding:10px;
+  border:1px solid var(--line2);
+  border-radius:14px;
+  background:#fff;
+  display:grid;
+  gap:7px;
+}
+
+.sd-money-breakdown-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:850;
+}
+
+.sd-money-breakdown-row strong{
+  color:var(--ink);
+  font-weight:950;
+  white-space:nowrap;
+}
+
+.sd-money-breakdown-row.highlight{
+  padding-top:7px;
+  border-top:1px dashed var(--line);
+  color:var(--green-dark);
+}
+
+.sd-delivery-quick-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin-top:8px;
+}
+
+.sd-delivery-quick-box{
+  padding:9px;
+  border:1px solid var(--line2);
+  border-radius:12px;
+  background:var(--soft2);
+  display:grid;
+  gap:3px;
+}
+
+.sd-delivery-quick-box span{
+  color:var(--muted);
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+
+.sd-delivery-quick-box strong{
+  color:var(--ink);
+  font-size:12px;
+  font-weight:950;
+  line-height:1.25;
+}
+
+@media (max-width:560px){
+  .sd-delivery-quick-grid{
+    grid-template-columns:1fr;
+  }
+}
   </style>
 
   <div class="sd-shell">
@@ -444,10 +513,36 @@
                     <div style="margin-top:10px"><a href="{{ url_for('order_track', oid=o.id) }}">View items & track</a></div>
                   </td>
                   <td style="min-width:260px">
-                    <div class="sd-muted" style="margin:6px 0">
-                      {% set total_payable = (o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0) %}
-                      Total Payable: <strong>₹ {{ '%.2f'|format(total_payable) }}</strong>
-                      {% if o.tip_amount and o.tip_amount > 0 %}<span class="sd-tag">includes tip ₹{{ '%.2f'|format(o.tip_amount) }}</span>{% endif %}
+                    <div class="sd-money-breakdown">
+                      <div class="sd-money-breakdown-row">
+                        <span>Items Subtotal</span>
+                        <strong>₹{{ '%.2f'|format(o.items_subtotal|default(o.total_amount|default(0))|float) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row">
+                        <span>Delivery Fee</span>
+                        <strong>₹{{ '%.2f'|format(o.delivery_fee|default(0)|float) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row">
+                        <span>Platform Fee</span>
+                        <strong>₹{{ '%.2f'|format(o.platform_fee|default(0)|float) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row">
+                        <span>Tip</span>
+                        <strong>₹{{ '%.2f'|format(o.tip_amount|default(0)|float) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row highlight">
+                        <span>Total Payable</span>
+                        <strong>₹{{ '%.2f'|format(o.total_payable|default(o.total_amount|default(0))|float) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row">
+                        <span>COD / Amount to Collect</span>
+                        <strong>₹{{ '%.2f'|format(o.amount_to_collect|default(0)|float) }}</strong>
+                      </div>
                     </div>
                    {% set order_status = (o.status or '')|upper %}
 
@@ -467,7 +562,7 @@
   </div>
 {% endif %}
                     {% set order_status = (o.status or '')|upper %}
-{% set has_rider = o.delivery_partner_id %}
+{% set has_rider = o.delivery_partner_id or o.delivery_partner_id_str %}
 {% set can_mark_ready = order_status in ['CONFIRMED', 'PREPARING', 'PACKAGING'] and not has_rider %}
 {% set can_assign_delivery = order_status == 'READY_FOR_PICKUP' and not has_rider %}
 {% set can_reassign_delivery = has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
@@ -542,15 +637,68 @@
 {% elif has_rider %}
     <div class="sd-rider-card">
       <strong>{{ o.delivery_partner_name or 'Delivery Partner' }}</strong>
+
       {% if o.delivery_partner_phone %}
         <a href="tel:{{ o.delivery_partner_phone }}">📞 {{ o.delivery_partner_phone }}</a>
       {% else %}
         <span>Phone not available</span>
       {% endif %}
-      <span>Status: {{ order_status }}</span>
+
+      <span>Status: {{ order_status.replace('_',' ') }}</span>
+
+      {% if o.delivery_assignment_source_label %}
+        <span>Assignment: {{ o.delivery_assignment_source_label }}</span>
+      {% endif %}
+
       {% if o.assigned_at %}
         <span>Assigned at: {{ o.assigned_at }}</span>
       {% endif %}
+
+      {% if o.reached_store_at %}
+        <span>Reached store: {{ o.reached_store_at }}</span>
+      {% endif %}
+
+      {% if o.picked_up_at %}
+        <span>Picked up: {{ o.picked_up_at }}</span>
+      {% endif %}
+
+      {% if o.out_for_delivery_at %}
+        <span>Out for delivery: {{ o.out_for_delivery_at }}</span>
+      {% endif %}
+
+      {% if o.delivered_at %}
+        <span>Delivered: {{ o.delivered_at }}</span>
+      {% endif %}
+
+      {% if o.delivery_failed_reason %}
+        <span>Failed reason: {{ o.delivery_failed_reason }}</span>
+      {% endif %}
+
+      {% if o.rider_cancel_reason %}
+        <span>Rider cancel reason: {{ o.rider_cancel_reason }}</span>
+      {% endif %}
+
+      <div class="sd-delivery-quick-grid">
+        <div class="sd-delivery-quick-box">
+          <span>Payment</span>
+          <strong>{{ o.payment_method or 'COD' }} / {{ o.payment_status or 'PENDING' }}</strong>
+        </div>
+
+        <div class="sd-delivery-quick-box">
+          <span>Collect</span>
+          <strong>₹{{ '%.2f'|format(o.amount_to_collect|default(0)|float) }}</strong>
+        </div>
+
+        <div class="sd-delivery-quick-box">
+          <span>Delivery + Tip</span>
+          <strong>₹{{ '%.2f'|format(o.delivery_fee_plus_tip|default(0)|float) }}</strong>
+        </div>
+
+        <div class="sd-delivery-quick-box">
+          <span>Platform Fee</span>
+          <strong>₹{{ '%.2f'|format(o.platform_fee|default(0)|float) }}</strong>
+        </div>
+      </div>
     </div>
   {% else %}
    <div class="sd-delivery-note">
@@ -596,7 +744,7 @@
         <select name="delivery_user_id" required>
           <option value="">Reassign to another active delivery boy</option>
           {% for d in available_delivery_people_list %}
-            {% if d.id != o.delivery_partner_id %}
+            {% if d.id != (o.delivery_partner_id_str or o.delivery_partner_id) %}
               <option value="{{ d.id }}">
                 {{ d.name }}
                 {% if d.distance_km is not none %} · {{ '%.2f'|format(d.distance_km) }} km{% endif %}

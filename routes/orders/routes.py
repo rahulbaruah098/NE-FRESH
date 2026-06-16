@@ -6,6 +6,96 @@ Only the file location changed.
 
 from app_core import *
 
+def _money_float(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return default
+        return float(value)
+    except Exception:
+        return default
+
+
+def normalize_order_money_fields(order_doc):
+    """
+    Normalizes money fields for old and new orders.
+
+    Correct meaning:
+    - items_subtotal = only product/items subtotal
+    - store_earning = only store payable amount before refund/adjustment
+    - total_amount = final customer payable amount
+    - total_payable = final customer payable amount
+
+    Backward support:
+    - Old orders may have total_amount as items subtotal.
+    - New orders should have total_payable saved.
+    """
+    if not order_doc:
+        return order_doc
+
+    delivery_fee = _money_float(
+        order_doc.get("delivery_fee_amount")
+        if order_doc.get("delivery_fee_amount") is not None
+        else order_doc.get("delivery_fee"),
+        0.0
+    )
+    platform_fee = _money_float(order_doc.get("platform_fee"), 0.0)
+    tip_amount = _money_float(
+        order_doc.get("tip_amount")
+        if order_doc.get("tip_amount") is not None
+        else order_doc.get("delivery_tip_amount"),
+        0.0
+    )
+
+    raw_total_payable = order_doc.get("total_payable")
+    raw_total_amount = order_doc.get("total_amount")
+    raw_items_subtotal = order_doc.get("items_subtotal")
+    raw_store_earning = order_doc.get("store_earning")
+
+    if raw_items_subtotal is not None:
+        items_subtotal = _money_float(raw_items_subtotal, 0.0)
+    elif raw_store_earning is not None:
+        items_subtotal = _money_float(raw_store_earning, 0.0)
+    elif raw_total_payable is not None:
+        items_subtotal = max(
+            _money_float(raw_total_payable, 0.0) - delivery_fee - platform_fee - tip_amount,
+            0.0
+        )
+    else:
+        # Old orders stored total_amount as subtotal.
+        items_subtotal = _money_float(raw_total_amount, 0.0)
+
+    if raw_total_payable is not None:
+        final_total = _money_float(raw_total_payable, 0.0)
+    elif raw_total_amount is not None:
+        # Old orders without total_payable used total_amount as subtotal.
+        final_total = (
+            _money_float(raw_total_amount, 0.0)
+            + delivery_fee
+            + platform_fee
+            + tip_amount
+        )
+    else:
+        final_total = items_subtotal + delivery_fee + platform_fee + tip_amount
+
+    store_earning = _money_float(raw_store_earning, items_subtotal)
+
+    order_doc["items_subtotal"] = round(items_subtotal, 2)
+    order_doc["store_earning"] = round(store_earning, 2)
+    order_doc["delivery_fee"] = round(delivery_fee, 2)
+    order_doc["delivery_fee_amount"] = round(delivery_fee, 2)
+    order_doc["platform_fee"] = round(platform_fee, 2)
+    order_doc["tip_amount"] = round(tip_amount, 2)
+    order_doc["delivery_tip_amount"] = round(
+        _money_float(order_doc.get("delivery_tip_amount"), tip_amount),
+        2
+    )
+
+    # Both should now mean final customer payable.
+    order_doc["total_amount"] = round(final_total, 2)
+    order_doc["total_payable"] = round(final_total, 2)
+
+    return order_doc
+
 
 @app.route('/orders/<oid>/cancel', methods=['POST'])
 @login_required()
@@ -370,6 +460,36 @@ def checkout():
 
         total_payable = float(money_breakdown.get("total_payable") or 0)
 
+        # ------------------------------------------------------------
+        # Platform-controlled payment / settlement base fields
+        # ------------------------------------------------------------
+        # Current checkout flow is COD. We keep existing payment_method="COD"
+        # for backward compatibility with existing store/admin/delivery pages.
+        #
+        # New official flow key:
+        # COD_RIDER_COLLECTION = customer pays delivery boy, delivery boy submits
+        # remaining cash to NE FRESH/Admin, then NE FRESH pays store.
+        # ------------------------------------------------------------
+        platform_payment_flow = "COD_RIDER_COLLECTION"
+        delivery_type = "OWN_DELIVERY"
+
+        items_subtotal_amount = round(float(money_breakdown.get("items_subtotal") or items_total or 0), 2)
+        delivery_fee_amount_final = round(float(money_breakdown.get("delivery_fee") or delivery_fee or 0), 2)
+        platform_fee_amount = round(float(money_breakdown.get("platform_fee") or 0), 2)
+        tip_amount_final = round(float(money_breakdown.get("tip_amount") or tip_amount or 0), 2)
+
+        store_earning_amount = round(float(money_breakdown.get("store_earning") or items_subtotal_amount or 0), 2)
+        delivery_boy_earning_amount = round(delivery_fee_amount_final + tip_amount_final, 2)
+        admin_platform_earning_amount = round(
+            float(money_breakdown.get("admin_platform_earning") or platform_fee_amount or 0),
+            2
+        )
+
+        expected_rider_cash_to_submit = round(
+            max(float(total_payable or 0) - float(delivery_boy_earning_amount or 0), 0),
+            2
+        )
+
         order_items_docs = []
 
         for it in items:
@@ -397,12 +517,29 @@ def checkout():
             "store_id": store_id,
             "store_name": store.get("store_name", ""),
 
-            "items_subtotal": float(money_breakdown.get("items_subtotal") or items_total),
-            "total_amount": float(money_breakdown.get("total_amount") or items_total),
+            "items_subtotal": items_subtotal_amount,
+
+            # Final payable amount including items + delivery fee + platform fee + tip.
+            # Keep this same as total_payable so old pages using total_amount do not show only subtotal.
+            "total_amount": float(total_payable),
 
             "status": "PLACED",
             "payment_status": "PENDING",
             "payment_method": payment_method,
+
+            # ------------------------------------------------------------
+            # New platform-controlled payment flow fields
+            # ------------------------------------------------------------
+            "payment_flow": platform_payment_flow,
+            "official_payment_mode": platform_payment_flow,
+            "delivery_type": delivery_type,
+
+            # At order creation, COD money is not collected yet.
+            # It will be collected by delivery boy at delivery time.
+            "payment_received_by": None,
+            "payment_collected_at": None,
+            "payment_collection_status": "PENDING",
+            "cod_collection_status": "PENDING",
 
             "delivery_partner_id": None,
 
@@ -424,18 +561,51 @@ def checkout():
                 "store_max_delivery_distance_km": store.get("max_delivery_distance_km"),
             },
 
-            "platform_fee": float(money_breakdown.get("platform_fee") or 0),
-            "admin_platform_earning": float(money_breakdown.get("admin_platform_earning") or 0),
+            "platform_fee": platform_fee_amount,
+            "admin_platform_earning": admin_platform_earning_amount,
             "platform_fee_source": money_breakdown.get("platform_fee_source") or "disabled",
             "platform_fee_settings_snapshot": money_breakdown.get("platform_fee_settings_snapshot") or {},
 
-            "store_earning": float(money_breakdown.get("store_earning") or items_total),
-            "delivery_tip_amount": float(money_breakdown.get("delivery_tip_amount") or tip_amount),
+            "store_earning": store_earning_amount,
+            "delivery_tip_amount": tip_amount_final,
 
+            # ------------------------------------------------------------
+            # Existing settlement fields preserved for current pages
+            # ------------------------------------------------------------
             "settlement_status": money_breakdown.get("settlement_status") or "PENDING",
             "store_settlement_status": money_breakdown.get("store_settlement_status") or "PENDING",
             "admin_platform_fee_status": money_breakdown.get("admin_platform_fee_status") or "DUE",
             "delivery_settlement_status": money_breakdown.get("delivery_settlement_status") or "PENDING",
+
+            # ------------------------------------------------------------
+            # New platform-controlled settlement fields
+            # ------------------------------------------------------------
+            "platform_fee_status": "PENDING_COLLECTION",
+            "platform_fee_received_at": None,
+
+            "store_payout_amount": store_earning_amount,
+            "store_payout_status": "PENDING_AFTER_DELIVERY",
+            "store_payout_paid_at": None,
+            "store_payout_marked_by": None,
+            "store_payout_note": "",
+
+            "delivery_boy_earning": delivery_boy_earning_amount,
+            "delivery_boy_payout_amount": delivery_boy_earning_amount,
+            "delivery_boy_payout_status": "PENDING_DELIVERY",
+            "delivery_boy_payout_paid_at": None,
+            "delivery_boy_payout_marked_by": None,
+            "delivery_boy_payout_note": "",
+
+            "cod_collected_amount": 0.0,
+            "expected_rider_cash_to_submit": expected_rider_cash_to_submit,
+            "rider_cash_to_submit": 0.0,
+            "rider_cash_settlement_status": "NOT_COLLECTED_YET",
+            "rider_cash_received_at": None,
+            "rider_cash_received_by": None,
+            "rider_cash_settlement_note": "",
+
+            "order_settlement_status": "NOT_STARTED",
+            "settlement_audit_logs": [],
 
             "distance_km": float(km) if km is not None else None,
             "delivery_zone_matched": True,
@@ -447,7 +617,7 @@ def checkout():
             "store_online_at_order": int(store.get("is_online", store.get("is_open", 1)) or 0),
             "delivery_enabled_at_order": int(store.get("delivery_enabled", 1 if store.get("delivery_available", False) else 0) or 0),
 
-            "tip_amount": float(money_breakdown.get("tip_amount") or tip_amount),
+            "tip_amount": tip_amount_final,
             "total_payable": float(total_payable),
 
     # Final checkout delivery location used for fee calculation.
@@ -500,16 +670,39 @@ def checkout():
         mongo.transactions.insert_one({
             "order_id": oid,
             "amount": float(total_payable),
-            "items_subtotal": float(money_breakdown.get("items_subtotal") or items_total),
-            "delivery_fee": float(money_breakdown.get("delivery_fee") or delivery_fee),
+            "items_subtotal": items_subtotal_amount,
+            "delivery_fee": delivery_fee_amount_final,
             "delivery_fee_source": delivery_fee_source,
             "delivery_fee_slab": delivery_fee_slab,
             "delivery_base_fee": delivery_base_fee,
-            "platform_fee": float(money_breakdown.get("platform_fee") or 0),
-            "tip_amount": float(money_breakdown.get("tip_amount") or tip_amount),
+            "platform_fee": platform_fee_amount,
+            "tip_amount": tip_amount_final,
+
             "payment_method": payment_method,
+            "payment_flow": platform_payment_flow,
+            "official_payment_mode": platform_payment_flow,
+            "payment_received_by": None,
+            "payment_collection_status": "PENDING",
+
+            "store_earning": store_earning_amount,
+            "delivery_boy_earning": delivery_boy_earning_amount,
+            "admin_platform_earning": admin_platform_earning_amount,
+
+            "store_payout_amount": store_earning_amount,
+            "store_payout_status": "PENDING_AFTER_DELIVERY",
+
+            "delivery_boy_payout_amount": delivery_boy_earning_amount,
+            "delivery_boy_payout_status": "PENDING_DELIVERY",
+
+            "expected_rider_cash_to_submit": expected_rider_cash_to_submit,
+            "rider_cash_to_submit": 0.0,
+            "rider_cash_settlement_status": "NOT_COLLECTED_YET",
+
+            "platform_fee_status": "PENDING_COLLECTION",
+
             "status": "PENDING",
             "settlement_status": "PENDING",
+            "order_settlement_status": "NOT_STARTED",
             "admin_platform_fee_status": money_breakdown.get("admin_platform_fee_status") or "DUE",
             "created_at": now
         })
@@ -728,8 +921,8 @@ def my_orders():
     for o in orders:
         o["id"] = str(o["_id"])
         o["store_name"] = o.get("store_name", "")
-        o["total_amount"] = float(o.get("total_amount") or 0)
-        o["items_subtotal"] = float(o.get("items_subtotal") or o.get("total_amount") or 0)
+
+        o = normalize_order_money_fields(o)
 
         o["delivery_fee"] = float(o.get("delivery_fee") or 0)
         o["delivery_fee_amount"] = float(o.get("delivery_fee_amount") or o.get("delivery_fee") or 0)
@@ -757,17 +950,10 @@ def my_orders():
         o["tip_amount"] = float(o.get("tip_amount") or 0)
         o["delivery_tip_amount"] = float(o.get("delivery_tip_amount") or o.get("tip_amount") or 0)
 
-        o["store_earning"] = float(o.get("store_earning") or o.get("total_amount") or 0)
-
-        o["total_payable"] = float(
-            o.get("total_payable")
-            or (
-                float(o.get("total_amount") or 0)
-                + float(o.get("delivery_fee") or 0)
-                + float(o.get("platform_fee") or 0)
-                + float(o.get("tip_amount") or 0)
-            )
-        )
+        # Already normalized above:
+        # items_subtotal = product subtotal
+        # store_earning = store payout amount
+        # total_amount / total_payable = final customer payable
 
         o["admin_platform_fee_status"] = o.get("admin_platform_fee_status") or ""
         o["settlement_status"] = o.get("settlement_status") or ""
@@ -942,7 +1128,7 @@ def api_order_status(oid):
             "error": "not found"
         }), 404
 
-    o = data["order"]
+    o = normalize_order_money_fields(data["order"])
 
     events = []
     for e in data.get("events", []):
@@ -973,15 +1159,7 @@ def api_order_status(oid):
 
         "platform_fee": float(o.get("platform_fee") or 0),
         "tip_amount": float(o.get("tip_amount") or 0),
-        "total_payable": float(
-            o.get("total_payable")
-            or (
-                float(o.get("total_amount") or 0)
-                + float(o.get("delivery_fee") or 0)
-                + float(o.get("platform_fee") or 0)
-                + float(o.get("tip_amount") or 0)
-            )
-        ),
+        "total_payable": float(o.get("total_payable") or o.get("total_amount") or 0),
         "admin_platform_fee_status": o.get("admin_platform_fee_status") or "",
         "platform_fee_source": o.get("platform_fee_source") or "disabled",
 
@@ -1022,6 +1200,7 @@ def api_orders_list(user_id):
     result = []
 
     for o in orders:
+        o = normalize_order_money_fields(o)
         result.append({
             "id": str(o["_id"]),
             "store_name": o.get("store_name", ""),
@@ -1047,15 +1226,7 @@ def api_orders_list(user_id):
 
             "store_earning": float(o.get("store_earning") or o.get("total_amount") or 0),
 
-            "total_payable": float(
-                o.get("total_payable")
-                or (
-                    float(o.get("total_amount") or 0)
-                    + float(o.get("delivery_fee") or 0)
-                    + float(o.get("platform_fee") or 0)
-                    + float(o.get("tip_amount") or 0)
-                )
-            ),
+            "total_payable": float(o.get("total_payable") or o.get("total_amount") or 0),
 
             "admin_platform_fee_status": o.get("admin_platform_fee_status") or "",
             "settlement_status": o.get("settlement_status") or "",
@@ -1183,7 +1354,7 @@ def api_order_detail(user_id, oid):
             "error": "Order not found"
         }), 404
 
-    o = data["order"]
+    o = normalize_order_money_fields(data["order"])
 
     items = []
 
@@ -1253,15 +1424,7 @@ def api_order_detail(user_id, oid):
 
             "store_earning": float(o.get("store_earning") or o.get("total_amount") or 0),
 
-            "total_payable": float(
-                o.get("total_payable")
-                or (
-                    float(o.get("total_amount") or 0)
-                    + float(o.get("delivery_fee") or 0)
-                    + float(o.get("platform_fee") or 0)
-                    + float(o.get("tip_amount") or 0)
-                )
-            ),
+            "total_payable": float(o.get("total_payable") or o.get("total_amount") or 0),
 
             "admin_platform_fee_status": o.get("admin_platform_fee_status") or "",
             "settlement_status": o.get("settlement_status") or "",
