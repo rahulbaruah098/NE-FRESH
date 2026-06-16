@@ -174,7 +174,7 @@ Review delivery assignments you cancelled before pickup. These did not cancel th
 
   .dc-table{
     width:100%;
-    min-width:1050px;
+    min-width:1180px;
     border-collapse:separate;
     border-spacing:0;
     border:1px solid var(--df-line);
@@ -232,6 +232,36 @@ Review delivery assignments you cancelled before pickup. These did not cancel th
     font-size:12px;
     font-weight:750;
     line-height:1.4;
+  }
+
+    .dc-money{
+    display:grid;
+    gap:4px;
+    color:var(--df-muted);
+    font-size:12px;
+    font-weight:800;
+    line-height:1.4;
+  }
+
+  .dc-money strong{
+    color:var(--df-ink);
+    font-weight:950;
+  }
+
+  .dc-collect{
+    color:var(--df-green-dark);
+    font-weight:950;
+  }
+
+  .dc-old-fee{
+    color:var(--df-muted);
+    text-decoration:line-through;
+    margin-right:5px;
+  }
+
+  .dc-free-fee{
+    color:var(--df-green-dark);
+    font-weight:950;
   }
 
   .dc-empty{
@@ -317,7 +347,8 @@ Review delivery assignments you cancelled before pickup. These did not cancel th
             <tr>
               <th>Order</th>
               <th>Store</th>
-              <th>Customer</th>
+                            <th>Customer</th>
+              <th>Financials</th>
               <th>Status Before Cancel</th>
               <th>Reason</th>
               <th>Cancelled At</th>
@@ -332,12 +363,44 @@ Review delivery assignments you cancelled before pickup. These did not cancel th
                   <div class="dc-muted">Current: {{ (o.status or '').replace('_',' ') }}</div>
                 </td>
                 <td>{{ o.store_name or 'Store' }}</td>
-                <td>
+                               <td>
                   {{ o.customer_name or 'Customer' }}
                   {% if o.customer_phone %}
                     <div class="dc-muted">{{ o.customer_phone }}</div>
                   {% endif %}
                 </td>
+
+                <td>
+                  <div class="dc-money">
+                    <div>
+                      <span>Collect:</span>
+                      <strong class="dc-collect">₹ {{ '%.2f'|format(o.amount_to_collect or 0) }}</strong>
+                    </div>
+
+                    <div>
+                      <span>Order Value:</span>
+                      <strong>₹ {{ '%.2f'|format(o.total_payable or 0) }}</strong>
+                    </div>
+
+                    <div>
+                      <span>Delivery:</span>
+                      <strong>
+                        {% if o.free_delivery_above_applied %}
+                          <span class="dc-old-fee">₹{{ '%.2f'|format(o.original_delivery_fee or 0) }}</span>
+                          <span class="dc-free-fee">FREE</span>
+                        {% else %}
+                          ₹{{ '%.2f'|format(o.delivery_fee or 0) }}
+                        {% endif %}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Tip:</span>
+                      <strong>₹{{ '%.2f'|format(o.tip_amount or 0) }}</strong>
+                    </div>
+                  </div>
+                </td>
+
                 <td>
                   <span class="dc-pill">
                     {{ (o.cancelled_status_from or 'ASSIGNED').replace('_',' ') }}

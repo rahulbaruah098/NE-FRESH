@@ -135,6 +135,28 @@ Accept only store-ready orders. These orders are unassigned and already marked r
     font-weight:900;
     text-align:right;
   }
+  .dao-old-fee{
+  color:var(--df-muted);
+  text-decoration:line-through;
+  margin-right:5px;
+}
+
+.dao-free-fee{
+  color:var(--df-green-dark);
+  font-weight:950;
+}
+
+.dao-money-note{
+  margin-top:-4px;
+  padding:9px 10px;
+  border-radius:14px;
+  background:var(--df-mint);
+  border:1px solid rgba(0,168,89,.18);
+  color:var(--df-green-dark);
+  font-size:12px;
+  font-weight:850;
+  line-height:1.45;
+}
 
   .dao-address{
     color:var(--df-text);
@@ -235,19 +257,61 @@ Accept only store-ready orders. These orders are unassigned and already marked r
           </div>
 
           <div class="dao-info">
-            <div class="dao-row">
-              <span>Total Payable</span>
-              <strong>₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}</strong>
-            </div>
-            <div class="dao-row">
-              <span>Delivery Fee</span>
-              <strong>₹ {{ '%.2f'|format(o.delivery_fee or 0) }}</strong>
-            </div>
-            <div class="dao-row">
-              <span>Tip</span>
-              <strong>₹ {{ '%.2f'|format(o.tip_amount or 0) }}</strong>
-            </div>
-          </div>
+  <div class="dao-row">
+    <span>Amount to Collect</span>
+    <strong>
+      {% if o.amount_to_collect and o.amount_to_collect > 0 %}
+        ₹ {{ '%.2f'|format(o.amount_to_collect or 0) }}
+      {% else %}
+        ₹ 0.00
+      {% endif %}
+    </strong>
+  </div>
+
+  <div class="dao-row">
+    <span>Payment</span>
+    <strong>
+      {% if o.is_cod_order %}
+        COD
+      {% else %}
+        Online / Paid
+      {% endif %}
+    </strong>
+  </div>
+
+  <div class="dao-row">
+    <span>Order Value</span>
+    <strong>₹ {{ '%.2f'|format(o.total_payable or 0) }}</strong>
+  </div>
+
+  <div class="dao-row">
+    <span>Delivery Charge</span>
+    <strong>
+      {% if o.free_delivery_above_applied %}
+        <span class="dao-old-fee">₹ {{ '%.2f'|format(o.original_delivery_fee or 0) }}</span>
+        <span class="dao-free-fee">FREE</span>
+      {% else %}
+        ₹ {{ '%.2f'|format(o.delivery_fee or 0) }}
+      {% endif %}
+    </strong>
+  </div>
+
+  <div class="dao-row">
+    <span>Tip</span>
+    <strong>₹ {{ '%.2f'|format(o.tip_amount or 0) }}</strong>
+  </div>
+
+  <div class="dao-row">
+    <span>Delivery + Tip</span>
+    <strong>₹ {{ '%.2f'|format(o.delivery_boy_expected_earning or 0) }}</strong>
+  </div>
+</div>
+
+{% if o.free_delivery_above_applied %}
+  <div class="dao-money-note">
+    🎉 Customer received free delivery. Delivery charge was waived for this order.
+  </div>
+{% endif %}
 
           <div class="dao-address">
             <strong>Deliver To:</strong><br>

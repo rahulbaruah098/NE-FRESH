@@ -733,6 +733,22 @@ def my_orders():
 
         o["delivery_fee"] = float(o.get("delivery_fee") or 0)
         o["delivery_fee_amount"] = float(o.get("delivery_fee_amount") or o.get("delivery_fee") or 0)
+        o["delivery_fee_source"] = o.get("delivery_fee_source") or ""
+        o["delivery_fee_slab"] = o.get("delivery_fee_slab") or {}
+        o["delivery_fee_details"] = o.get("delivery_fee_details") or {}
+
+        o["free_delivery_above_applied"] = bool(o.get("free_delivery_above_applied"))
+        o["free_delivery_above"] = float(o.get("free_delivery_above") or 0)
+        o["original_delivery_fee"] = float(o.get("original_delivery_fee") or o.get("delivery_fee") or 0)
+        o["free_delivery_savings"] = float(o.get("free_delivery_savings") or 0)
+        o["delivery_fee_source"] = o.get("delivery_fee_source") or ""
+        o["delivery_fee_slab"] = o.get("delivery_fee_slab") or {}
+        o["delivery_fee_details"] = o.get("delivery_fee_details") or {}
+
+        o["free_delivery_above_applied"] = bool(o.get("free_delivery_above_applied"))
+        o["free_delivery_above"] = float(o.get("free_delivery_above") or 0)
+        o["original_delivery_fee"] = float(o.get("original_delivery_fee") or o.get("delivery_fee") or 0)
+        o["free_delivery_savings"] = float(o.get("free_delivery_savings") or 0)
 
         o["platform_fee"] = float(o.get("platform_fee") or 0)
         o["admin_platform_earning"] = float(o.get("admin_platform_earning") or o.get("platform_fee") or 0)
@@ -946,6 +962,15 @@ def api_order_status(oid):
         "total_amount": float(o.get("total_amount") or 0),
         "items_subtotal": float(o.get("items_subtotal") or o.get("total_amount") or 0),
         "delivery_fee": float(o.get("delivery_fee") or 0),
+        "delivery_fee_amount": float(o.get("delivery_fee_amount") or o.get("delivery_fee") or 0),
+        "delivery_fee_source": o.get("delivery_fee_source") or "",
+        "delivery_fee_slab": o.get("delivery_fee_slab") or {},
+        "delivery_fee_details": o.get("delivery_fee_details") or {},
+        "free_delivery_above_applied": bool(o.get("free_delivery_above_applied")),
+        "free_delivery_above": float(o.get("free_delivery_above") or 0),
+        "original_delivery_fee": float(o.get("original_delivery_fee") or o.get("delivery_fee") or 0),
+        "free_delivery_savings": float(o.get("free_delivery_savings") or 0),
+
         "platform_fee": float(o.get("platform_fee") or 0),
         "tip_amount": float(o.get("tip_amount") or 0),
         "total_payable": float(
@@ -1005,6 +1030,13 @@ def api_orders_list(user_id):
 
             "delivery_fee": float(o.get("delivery_fee") or 0),
             "delivery_fee_amount": float(o.get("delivery_fee_amount") or o.get("delivery_fee") or 0),
+            "delivery_fee_source": o.get("delivery_fee_source") or "",
+            "delivery_fee_slab": o.get("delivery_fee_slab") or {},
+            "delivery_fee_details": o.get("delivery_fee_details") or {},
+            "free_delivery_above_applied": bool(o.get("free_delivery_above_applied")),
+            "free_delivery_above": float(o.get("free_delivery_above") or 0),
+            "original_delivery_fee": float(o.get("original_delivery_fee") or o.get("delivery_fee") or 0),
+            "free_delivery_savings": float(o.get("free_delivery_savings") or 0),
 
             "platform_fee": float(o.get("platform_fee") or 0),
             "admin_platform_earning": float(o.get("admin_platform_earning") or o.get("platform_fee") or 0),
@@ -1204,6 +1236,13 @@ def api_order_detail(user_id, oid):
 
             "delivery_fee": float(o.get("delivery_fee") or 0),
             "delivery_fee_amount": float(o.get("delivery_fee_amount") or o.get("delivery_fee") or 0),
+            "delivery_fee_source": o.get("delivery_fee_source") or "",
+            "delivery_fee_slab": o.get("delivery_fee_slab") or {},
+            "delivery_fee_details": o.get("delivery_fee_details") or {},
+            "free_delivery_above_applied": bool(o.get("free_delivery_above_applied")),
+            "free_delivery_above": float(o.get("free_delivery_above") or 0),
+            "original_delivery_fee": float(o.get("original_delivery_fee") or o.get("delivery_fee") or 0),
+            "free_delivery_savings": float(o.get("free_delivery_savings") or 0),
 
             "platform_fee": float(o.get("platform_fee") or 0),
             "admin_platform_earning": float(o.get("admin_platform_earning") or o.get("platform_fee") or 0),

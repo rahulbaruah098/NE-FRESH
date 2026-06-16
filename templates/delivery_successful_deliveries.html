@@ -15,7 +15,7 @@ View only your successfully delivered orders, COD handled, delivery fees, tips a
 {% block delivery_content %}
 <style>
   .ds-grid{display:grid;gap:18px;}
-  .ds-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+.ds-kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;}
   .ds-card{background:#fff;border:1px solid var(--df-line);border-radius:24px;box-shadow:var(--df-shadow);overflow:hidden;}
   .ds-kpi{min-height:126px;padding:18px;display:flex;justify-content:space-between;gap:14px;position:relative;}
   .ds-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--df-green);}
@@ -41,8 +41,40 @@ View only your successfully delivered orders, COD handled, delivery fees, tips a
   .ds-table tbody tr:last-child td{border-bottom:0;}
   .ds-pill{min-height:28px;display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;background:var(--df-mint);color:var(--df-green-dark);border:1px solid rgba(0,168,89,.18);font-size:11px;font-weight:900;white-space:nowrap;}
   .ds-muted{margin-top:4px;color:var(--df-muted);font-size:12px;font-weight:750;line-height:1.4;}
+
+.ds-money{
+  display:grid;
+  gap:4px;
+  color:var(--df-muted);
+  font-size:12px;
+  font-weight:800;
+  line-height:1.4;
+}
+
+.ds-money strong{
+  color:var(--df-ink);
+  font-weight:950;
+}
+
+.ds-collect{
+  color:var(--df-green-dark);
+  font-weight:950;
+}
+
+.ds-old-fee{
+  color:var(--df-muted);
+  text-decoration:line-through;
+  margin-right:5px;
+}
+
+.ds-free-fee{
+  color:var(--df-green-dark);
+  font-weight:950;
+}
+
   .ds-empty{margin:18px;padding:26px;border-radius:22px;background:var(--df-soft);border:1px dashed var(--df-line);color:var(--df-muted);text-align:center;font-size:14px;font-weight:800;line-height:1.55;}
-  @media(max-width:980px){.ds-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @media(max-width:1200px){.ds-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:980px){.ds-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
   @media(max-width:560px){.ds-kpi-grid{grid-template-columns:1fr;}.ds-head{flex-direction:column;}.ds-filter input,.ds-filter button,.ds-filter a{width:100%;}}
 </style>
 
@@ -75,13 +107,13 @@ View only your successfully delivered orders, COD handled, delivery fees, tips a
       <div class="ds-kpi-icon">🛵</div>
     </div>
 
-    <div class="ds-card ds-kpi">
+        <div class="ds-card ds-kpi blue">
       <div>
-        <div class="ds-kpi-label">Tips</div>
-        <div class="ds-kpi-value">₹{{ '%.0f'|format(total_tip or 0) }}</div>
-        <div class="ds-kpi-meta">Tips from listed orders.</div>
+        <div class="ds-kpi-label">Delivery + Tip</div>
+        <div class="ds-kpi-value">₹{{ '%.0f'|format(total_expected_earning or 0) }}</div>
+        <div class="ds-kpi-meta">Delivery charge plus tips from listed orders.</div>
       </div>
-      <div class="ds-kpi-icon">🎁</div>
+      <div class="ds-kpi-icon">💰</div>
     </div>
   </section>
 
@@ -109,7 +141,7 @@ View only your successfully delivered orders, COD handled, delivery fees, tips a
               <th>Order</th>
               <th>Store</th>
               <th>Customer</th>
-              <th>Total</th>
+                         <th>Financials</th>
               <th>Payment</th>
               <th>Delivered At</th>
               <th>Address</th>
@@ -126,7 +158,41 @@ View only your successfully delivered orders, COD handled, delivery fees, tips a
                     <div class="ds-muted">{{ o.customer_phone }}</div>
                   {% endif %}
                 </td>
-                <td>₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}</td>
+                                <td>
+                  <div class="ds-money">
+                    <div>
+                      <span>Collected:</span>
+                      <strong class="ds-collect">₹ {{ '%.2f'|format(o.amount_to_collect or 0) }}</strong>
+                    </div>
+
+                    <div>
+                      <span>Order Value:</span>
+                      <strong>₹ {{ '%.2f'|format(o.total_payable or 0) }}</strong>
+                    </div>
+
+                    <div>
+                      <span>Delivery:</span>
+                      <strong>
+                        {% if o.free_delivery_above_applied %}
+                          <span class="ds-old-fee">₹{{ '%.2f'|format(o.original_delivery_fee or 0) }}</span>
+                          <span class="ds-free-fee">FREE</span>
+                        {% else %}
+                          ₹{{ '%.2f'|format(o.delivery_fee or 0) }}
+                        {% endif %}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Tip:</span>
+                      <strong>₹{{ '%.2f'|format(o.tip_amount or 0) }}</strong>
+                    </div>
+
+                    <div>
+                      <span>Delivery + Tip:</span>
+                      <strong>₹{{ '%.2f'|format(o.delivery_boy_expected_earning or 0) }}</strong>
+                    </div>
+                  </div>
+                </td>
                 <td>
                   <span class="ds-pill">{{ o.payment_status or 'PAID' }}</span>
                   <div class="ds-muted">{{ o.payment_method or 'COD' }}</div>

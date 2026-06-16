@@ -481,6 +481,61 @@
       letter-spacing:.04em;
     }
 
+    .my-orders-page .order-money-breakdown{
+  margin-top:5px;
+  display:grid;
+  gap:4px;
+  color:var(--nf-muted);
+  font-size:.74rem;
+  font-weight:800;
+  line-height:1.35;
+}
+
+.my-orders-page .order-money-breakdown .money-line{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  flex-wrap:wrap;
+}
+
+.my-orders-page .order-old-fee{
+  color:var(--nf-muted);
+  text-decoration:line-through;
+  font-weight:850;
+}
+
+.my-orders-page .order-free-fee{
+  color:var(--nf-green-dark);
+  font-weight:950;
+}
+
+.my-orders-page .order-free-delivery-note,
+.my-orders-page .order-delivery-note{
+  margin-top:7px;
+  width:max-content;
+  max-width:280px;
+  min-height:26px;
+  display:flex;
+  align-items:center;
+  border-radius:999px;
+  padding:5px 10px;
+  font-size:.72rem;
+  line-height:1.35;
+  font-weight:850;
+}
+
+.my-orders-page .order-free-delivery-note{
+  background:var(--nf-green-soft);
+  color:var(--nf-green-dark);
+  border:1px solid rgba(0,168,89,.16);
+}
+
+.my-orders-page .order-delivery-note{
+  background:#FFF8E8;
+  color:#9A6500;
+  border:1px solid rgba(255,184,77,.30);
+}
+
     .my-orders-page .payment-paid{
       background:var(--nf-green-soft);
       color:var(--nf-green-dark);
@@ -997,17 +1052,50 @@
             <tr class="order-row">
               <td class="order-id">#{{ o.id }}</td>
               <td class="store-name">{{ o.store_name }}</td>
-              <td class="order-total">
-  ₹{{ '%.2f'|format(o.total_payable if o.total_payable is defined and o.total_payable is not none else (o.total_amount + o.delivery_fee + o.platform_fee + o.tip_amount)) }}
+             <td class="order-total">
+  {% set order_items_total = o.items_subtotal if o.items_subtotal is defined and o.items_subtotal is not none else o.total_amount %}
+  {% set order_delivery_fee = o.delivery_fee or 0 %}
+  {% set order_platform_fee = o.platform_fee or 0 %}
+  {% set order_tip = o.tip_amount or 0 %}
+  {% set order_total_payable = o.total_payable if o.total_payable is defined and o.total_payable is not none else ((order_items_total or 0) + order_delivery_fee + order_platform_fee + order_tip) %}
 
-  <div class="muted" style="margin-top:4px;font-size:.74rem;font-weight:800;line-height:1.35;">
-    Items ₹{{ '%.2f'|format(o.total_amount or 0) }}
-    + Delivery ₹{{ '%.2f'|format(o.delivery_fee or 0) }}
-    + Platform ₹{{ '%.2f'|format(o.platform_fee or 0) }}
-    {% if o.tip_amount and o.tip_amount > 0 %}
-      + Tip ₹{{ '%.2f'|format(o.tip_amount or 0) }}
+  ₹{{ '%.2f'|format(order_total_payable or 0) }}
+
+  <div class="order-money-breakdown">
+    <div class="money-line">
+      Items ₹{{ '%.2f'|format(order_items_total or 0) }}
+    </div>
+
+    <div class="money-line">
+      Delivery
+      {% if o.free_delivery_above_applied %}
+        <span class="order-old-fee">₹{{ '%.2f'|format(o.original_delivery_fee or o.free_delivery_savings or 0) }}</span>
+        <span class="order-free-fee">FREE</span>
+      {% else %}
+        ₹{{ '%.2f'|format(order_delivery_fee or 0) }}
+      {% endif %}
+    </div>
+
+    <div class="money-line">
+      Platform Fee ₹{{ '%.2f'|format(order_platform_fee or 0) }}
+    </div>
+
+    {% if order_tip and order_tip > 0 %}
+      <div class="money-line">
+        Tip ₹{{ '%.2f'|format(order_tip or 0) }}
+      </div>
     {% endif %}
   </div>
+
+  {% if o.free_delivery_above_applied %}
+    <div class="order-free-delivery-note">
+      🎉 Free delivery applied — saved ₹{{ '%.2f'|format(o.free_delivery_savings or o.original_delivery_fee or 0) }}
+    </div>
+  {% elif order_delivery_fee and order_delivery_fee > 0 %}
+    <div class="order-delivery-note">
+      Delivery charge ₹{{ '%.2f'|format(order_delivery_fee or 0) }}
+    </div>
+  {% endif %}
 </td>
 
                           <td class="order-status">
@@ -1159,24 +1247,47 @@
           </div>
 
           <div class="card-body">
-          <div class="row">
+         {% set order_items_total = o.items_subtotal if o.items_subtotal is defined and o.items_subtotal is not none else o.total_amount %}
+{% set order_delivery_fee = o.delivery_fee or 0 %}
+{% set order_platform_fee = o.platform_fee or 0 %}
+{% set order_tip = o.tip_amount or 0 %}
+{% set order_total_payable = o.total_payable if o.total_payable is defined and o.total_payable is not none else ((order_items_total or 0) + order_delivery_fee + order_platform_fee + order_tip) %}
+
+<div class="row">
   <span class="label">Total Payable</span>
   <span class="value strong">
-    ₹{{ '%.2f'|format(o.total_payable if o.total_payable is defined and o.total_payable is not none else (o.total_amount + o.delivery_fee + o.platform_fee + o.tip_amount)) }}
+    ₹{{ '%.2f'|format(order_total_payable or 0) }}
   </span>
 </div>
 
 <div class="row">
   <span class="label">Breakdown</span>
   <span class="value">
-    Items ₹{{ '%.2f'|format(o.total_amount or 0) }}
-    + Delivery ₹{{ '%.2f'|format(o.delivery_fee or 0) }}
-    + Platform ₹{{ '%.2f'|format(o.platform_fee or 0) }}
-    {% if o.tip_amount and o.tip_amount > 0 %}
-      + Tip ₹{{ '%.2f'|format(o.tip_amount or 0) }}
+    <span>Items ₹{{ '%.2f'|format(order_items_total or 0) }}</span><br>
+
+    <span>
+      Delivery
+      {% if o.free_delivery_above_applied %}
+        <span class="order-old-fee">₹{{ '%.2f'|format(o.original_delivery_fee or o.free_delivery_savings or 0) }}</span>
+        <span class="order-free-fee">FREE</span>
+      {% else %}
+        ₹{{ '%.2f'|format(order_delivery_fee or 0) }}
+      {% endif %}
+    </span><br>
+
+    <span>Platform Fee ₹{{ '%.2f'|format(order_platform_fee or 0) }}</span>
+
+    {% if order_tip and order_tip > 0 %}
+      <br><span>Tip ₹{{ '%.2f'|format(order_tip or 0) }}</span>
     {% endif %}
   </span>
 </div>
+
+{% if o.free_delivery_above_applied %}
+  <div class="order-free-delivery-note">
+    🎉 Free delivery applied — saved ₹{{ '%.2f'|format(o.free_delivery_savings or o.original_delivery_fee or 0) }}
+  </div>
+{% endif %}
 
             <div class="row">
               <span class="label">Payment</span>

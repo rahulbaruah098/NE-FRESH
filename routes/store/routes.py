@@ -256,9 +256,23 @@ def api_store_order_detail(oid):
             "created_at": o.get("created_at"),
             "status": o.get("status"),
             "payment_status": o.get("payment_status"),
+            "items_subtotal": float(o.get("items_subtotal") or o.get("total_amount") or 0),
             "total_amount": float(o.get("total_amount") or 0),
             "delivery_fee": float(o.get("delivery_fee") or 0),
+            "platform_fee": float(o.get("platform_fee") or 0),
             "tip_amount": float(o.get("tip_amount") or 0),
+            "total_payable": float(
+                o.get("total_payable")
+                or (
+                    float(o.get("items_subtotal") or o.get("total_amount") or 0)
+                    + float(o.get("delivery_fee") or 0)
+                    + float(o.get("platform_fee") or 0)
+                    + float(o.get("tip_amount") or 0)
+                )
+            ),
+            "delivery_partner_name": o.get("delivery_partner_name") or "",
+            "delivery_partner_phone": o.get("delivery_partner_phone") or "",
+            "delivery_assignment_source": o.get("delivery_assignment_source") or "",
             "customer_name": customer.get("name") if customer else o.get("customer_name"),
             "customer_phone": customer.get("phone") if customer else o.get("customer_phone"),
             "addr_line1": addr.get("line1") if addr else "",
@@ -880,14 +894,7 @@ def store_delivered_orders():
         row["addr_lat"] = addr.get("latitude") if addr else None
         row["addr_lng"] = addr.get("longitude") if addr else None
 
-        row["total_amount"] = float(o.get("total_amount") or 0)
-        row["delivery_fee"] = float(o.get("delivery_fee") or 0)
-        row["tip_amount"] = float(o.get("tip_amount") or 0)
-        row["total_payable"] = (
-            float(o.get("total_amount") or 0)
-            + float(o.get("delivery_fee") or 0)
-            + float(o.get("tip_amount") or 0)
-        )
+        row = _decorate_store_delivery_order(row)
 
         delivered.append(row)
 
@@ -976,6 +983,212 @@ def _hydrate_store_delivery_people_for_template(store):
         )
     except Exception:
         return []
+    
+
+def _store_delivery_money_float(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return float(default)
+        return float(value)
+    except Exception:
+        return float(default)
+
+
+def _store_delivery_safe_str(value):
+    if value is None:
+        return ""
+
+    try:
+        if isinstance(value, ObjectId):
+            return str(value)
+    except Exception:
+        pass
+
+    return str(value)
+
+
+def _store_delivery_latest_history_entry(order, action_name):
+    entries = []
+
+    for h in order.get("delivery_history") or []:
+        if not isinstance(h, dict):
+            continue
+
+        if h.get("action") == action_name:
+            entries.append(h)
+
+    return entries[-1] if entries else {}
+
+
+def _store_delivery_assignment_source_label(source):
+    source = (source or "").strip().lower()
+
+    if source == "rider_self":
+        return "Accepted by rider"
+
+    if source == "store_manual":
+        return "Assigned by store"
+
+    if source == "store_reassign":
+        return "Reassigned by store"
+
+    if source == "admin_manual":
+        return "Assigned by admin"
+
+    if source == "admin_reassign":
+        return "Reassigned by admin"
+
+    if source:
+        return source.replace("_", " ").title()
+
+    return "Not assigned"
+
+
+def _decorate_store_delivery_order(order):
+    """
+    Store-side delivery/order display helper.
+
+    This does not update database values.
+    It only prepares safe financial + delivery boy fields for store templates.
+    """
+    order = order or {}
+
+    items_subtotal = _store_delivery_money_float(
+        order.get("items_subtotal")
+        if order.get("items_subtotal") is not None
+        else order.get("total_amount")
+    )
+
+    delivery_fee = _store_delivery_money_float(order.get("delivery_fee"))
+    platform_fee = _store_delivery_money_float(order.get("platform_fee"))
+    tip_amount = _store_delivery_money_float(
+        order.get("tip_amount")
+        if order.get("tip_amount") is not None
+        else order.get("delivery_tip_amount")
+    )
+
+    total_payable = _store_delivery_money_float(
+        order.get("total_payable"),
+        items_subtotal + delivery_fee + platform_fee + tip_amount
+    )
+
+    payment_method = (order.get("payment_method") or "COD").strip().upper()
+    payment_status = (order.get("payment_status") or "PENDING").strip().upper()
+
+    if payment_method == "COD" and payment_status not in ["PAID", "COLLECTED", "ONLINE_PAID"]:
+        amount_to_collect = total_payable
+    else:
+        amount_to_collect = 0.0
+
+    free_delivery_applied = bool(order.get("free_delivery_above_applied"))
+
+    original_delivery_fee = _store_delivery_money_float(
+        order.get("original_delivery_fee"),
+        delivery_fee
+    )
+
+    free_delivery_savings = _store_delivery_money_float(
+        order.get("free_delivery_savings"),
+        original_delivery_fee if free_delivery_applied else 0
+    )
+
+    delivery_fee_plus_tip = delivery_fee + tip_amount
+
+    # Store earning means product/items subtotal only.
+    # Platform fee is separate and belongs to platform/admin.
+    store_earning = items_subtotal
+    admin_platform_earning = platform_fee
+
+    delivery_partner_id = order.get("delivery_partner_id") or order.get("previous_delivery_partner_id")
+    delivery_partner_name = (
+        order.get("delivery_partner_name")
+        or order.get("previous_delivery_partner_name")
+        or ""
+    )
+    delivery_partner_phone = (
+        order.get("delivery_partner_phone")
+        or order.get("previous_delivery_partner_phone")
+        or ""
+    )
+
+    # Fallback lookup if order has rider id but name/phone missing.
+    if delivery_partner_id and (not delivery_partner_name or not delivery_partner_phone):
+        delivery_user = None
+
+        try:
+            if ObjectId.is_valid(str(delivery_partner_id)):
+                delivery_user = mongo.users.find_one({"_id": ObjectId(str(delivery_partner_id))})
+        except Exception:
+            delivery_user = None
+
+        if not delivery_user:
+            try:
+                delivery_user = mongo.users.find_one({"_id": str(delivery_partner_id)})
+            except Exception:
+                delivery_user = None
+
+        if delivery_user:
+            delivery_partner_name = delivery_partner_name or delivery_user.get("name") or delivery_user.get("username") or ""
+            delivery_partner_phone = delivery_partner_phone or delivery_user.get("phone") or delivery_user.get("contact") or ""
+
+    rider_cancel_entry = _store_delivery_latest_history_entry(order, "cancelled_by_delivery_partner")
+
+    order["items_subtotal"] = round(items_subtotal, 2)
+    order["delivery_fee"] = round(delivery_fee, 2)
+    order["platform_fee"] = round(platform_fee, 2)
+    order["tip_amount"] = round(tip_amount, 2)
+    order["total_payable"] = round(total_payable, 2)
+
+    order["payment_method"] = payment_method
+    order["payment_status"] = payment_status
+    order["is_cod_order"] = payment_method == "COD"
+    order["amount_to_collect"] = round(amount_to_collect, 2)
+
+    order["free_delivery_above_applied"] = free_delivery_applied
+    order["original_delivery_fee"] = round(original_delivery_fee, 2)
+    order["free_delivery_savings"] = round(free_delivery_savings, 2)
+    order["free_delivery_above"] = _store_delivery_money_float(order.get("free_delivery_above"))
+
+    order["delivery_fee_plus_tip"] = round(delivery_fee_plus_tip, 2)
+    order["delivery_boy_expected_earning"] = round(delivery_fee_plus_tip, 2)
+    order["store_earning"] = round(store_earning, 2)
+    order["admin_platform_earning"] = round(admin_platform_earning, 2)
+
+    order["delivery_partner_id_str"] = _store_delivery_safe_str(delivery_partner_id)
+    order["delivery_partner_name"] = delivery_partner_name or "Not assigned"
+    order["delivery_partner_phone"] = delivery_partner_phone or ""
+    order["has_delivery_partner"] = bool(delivery_partner_id)
+
+    order["delivery_assignment_source_label"] = _store_delivery_assignment_source_label(
+        order.get("delivery_assignment_source")
+    )
+
+    order["assigned_at"] = order.get("delivery_assigned_at") or order.get("assigned_at") or ""
+    order["reached_store_at"] = order.get("reached_store_at") or ""
+    order["picked_up_at"] = order.get("picked_up_at") or ""
+    order["out_for_delivery_at"] = order.get("out_for_delivery_at") or ""
+    order["delivered_at"] = order.get("delivered_at") or ""
+    order["delivery_failed_at"] = order.get("delivery_failed_at") or ""
+    order["delivery_failed_reason"] = order.get("delivery_failed_reason") or ""
+    order["delivery_failed_note"] = order.get("delivery_failed_note") or ""
+
+    order["rider_cancel_reason"] = (
+        rider_cancel_entry.get("reason")
+        or order.get("delivery_cancel_reason")
+        or ""
+    )
+    order["rider_cancelled_at"] = (
+        rider_cancel_entry.get("at")
+        or order.get("delivery_cancelled_at")
+        or ""
+    )
+    order["rider_cancelled_status_from"] = (
+        rider_cancel_entry.get("status_before_cancel")
+        or order.get("delivery_cancelled_status_from")
+        or ""
+    )
+
+    return order
 
 @app.route('/store/orders', methods=['GET'], endpoint='store_orders')
 @login_required(role='store')
@@ -1078,18 +1291,27 @@ def store_delivery_page():
         row["addr_lat"] = row.get("addr_lat") or (addr.get("latitude") if addr else None)
         row["addr_lng"] = row.get("addr_lng") or (addr.get("longitude") if addr else None)
 
+        row["items_subtotal"] = _safe_float(
+            row.get("items_subtotal")
+            if row.get("items_subtotal") is not None
+            else row.get("total_amount")
+        )
         row["total_amount"] = _safe_float(row.get("total_amount"))
         row["delivery_fee"] = _safe_float(row.get("delivery_fee"))
+        row["platform_fee"] = _safe_float(row.get("platform_fee"))
         row["tip_amount"] = _safe_float(row.get("tip_amount"))
 
         if row.get("total_payable") is None:
             row["total_payable"] = (
-                row["total_amount"]
+                row["items_subtotal"]
                 + row["delivery_fee"]
+                + row["platform_fee"]
                 + row["tip_amount"]
             )
         else:
             row["total_payable"] = _safe_float(row.get("total_payable"))
+
+        row = _decorate_store_delivery_order(row)
 
         return row
 
@@ -1748,6 +1970,440 @@ def store_order_delivery_options(oid):
         "order_id": str(oid_obj),
         "delivery_people": people
     })
+
+
+@app.route('/store/delivery-history', methods=['GET'], endpoint='store_delivery_history')
+@login_required(role='store')
+def store_delivery_history_page():
+    """
+    Store Delivery Boy History.
+
+    This keeps the existing route and endpoint:
+        /store/delivery-history
+        endpoint='store_delivery_history'
+
+    It shows delivery-boy-wise history only for the currently logged-in store.
+    It is read-only and does not affect delivery assignment/reassignment/cancel flows.
+    """
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    store_id = store.get("_id")
+    store_id_str = str(store_id)
+    store_name = (store.get("store_name") or store.get("name") or "").strip().lower()
+
+    q = (request.args.get("q") or "").strip()
+    status_filter = (request.args.get("status") or "").strip().upper()
+    delivery_user_filter = (request.args.get("delivery_user_id") or "").strip()
+    payment_type_filter = (request.args.get("payment_type") or "").strip().upper()
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+
+    allowed_history_statuses = {
+        "DELIVERED",
+        "DELIVERY_FAILED",
+        "CANCELLED",
+        "READY_FOR_PICKUP",
+        "ASSIGNED_TO_DELIVERY",
+        "ACCEPTED_BY_DELIVERY_MAN",
+        "REACHED_STORE",
+        "PICKED_UP",
+        "OUT_FOR_DELIVERY"
+    }
+
+    def _store_history_float(value, default=0.0):
+        try:
+            if value is None or str(value).strip() == "":
+                return float(default)
+            return float(value)
+        except Exception:
+            return float(default)
+
+    def _store_history_belongs_to_store(order):
+        order_store_id = order.get("store_id")
+        order_store_name = (order.get("store_name") or "").strip().lower()
+
+        if order_store_id and str(order_store_id) == store_id_str:
+            return True
+
+        if store_name and order_store_name and order_store_name == store_name:
+            return True
+
+        return False
+
+    def _store_history_entries(order):
+        entries = order.get("delivery_history") or []
+        return [entry for entry in entries if isinstance(entry, dict)]
+
+    def _store_history_latest_action(order, action_name):
+        matched = []
+
+        for entry in _store_history_entries(order):
+            if entry.get("action") == action_name:
+                matched.append(entry)
+
+        return matched[-1] if matched else {}
+
+    def _store_history_latest_value(order, *keys):
+        for entry in reversed(_store_history_entries(order)):
+            for key in keys:
+                value = entry.get(key)
+                if value not in [None, ""]:
+                    return value
+
+        return ""
+
+    def _store_history_effective_partner_id(order):
+        return (
+            order.get("delivery_partner_id")
+            or order.get("previous_delivery_partner_id")
+            or _store_history_latest_value(
+                order,
+                "delivery_partner_id",
+                "previous_delivery_partner_id",
+                "old_delivery_partner_id"
+            )
+            or ""
+        )
+
+    def _store_history_effective_partner_name(order):
+        return (
+            order.get("delivery_partner_name")
+            or order.get("previous_delivery_partner_name")
+            or _store_history_latest_value(
+                order,
+                "delivery_partner_name",
+                "previous_delivery_partner_name",
+                "old_delivery_partner_name"
+            )
+            or "Unknown Delivery Boy"
+        )
+
+    def _store_history_effective_partner_phone(order):
+        return (
+            order.get("delivery_partner_phone")
+            or order.get("previous_delivery_partner_phone")
+            or _store_history_latest_value(
+                order,
+                "delivery_partner_phone",
+                "previous_delivery_partner_phone",
+                "old_delivery_partner_phone"
+            )
+            or ""
+        )
+
+    def _store_history_has_rider_cancel(order):
+        if order.get("delivery_cancelled_by_partner"):
+            return True
+
+        if order.get("delivery_cancelled_at") or order.get("delivery_cancel_reason"):
+            return True
+
+        if _store_history_latest_action(order, "cancelled_by_delivery_partner"):
+            return True
+
+        return False
+
+    def _store_history_record_at(order):
+        rider_cancel_entry = _store_history_latest_action(order, "cancelled_by_delivery_partner")
+
+        return (
+            order.get("delivered_at")
+            or order.get("delivery_failed_at")
+            or rider_cancel_entry.get("at")
+            or order.get("delivery_cancelled_at")
+            or order.get("out_for_delivery_at")
+            or order.get("picked_up_at")
+            or order.get("reached_store_at")
+            or order.get("delivery_assigned_at")
+            or order.get("assigned_at")
+            or order.get("updated_at")
+            or order.get("created_at")
+            or ""
+        )
+
+    def _store_history_apply_status_label(row, has_rider_cancel_history):
+        status = (row.get("status") or "").strip().upper()
+
+        if has_rider_cancel_history and status in {
+            "READY_FOR_PICKUP",
+            "CANCELLED"
+        }:
+            row["history_type"] = "rider_cancelled"
+            row["history_label"] = "Rider Cancelled Assignment"
+
+        elif status == "DELIVERED":
+            row["history_type"] = "delivered"
+            row["history_label"] = "Delivered"
+
+        elif status == "DELIVERY_FAILED":
+            row["history_type"] = "failed"
+            row["history_label"] = "Delivery Failed"
+
+        elif status in {
+            "ASSIGNED_TO_DELIVERY",
+            "ACCEPTED_BY_DELIVERY_MAN",
+            "REACHED_STORE",
+            "PICKED_UP",
+            "OUT_FOR_DELIVERY"
+        }:
+            row["history_type"] = "active"
+            row["history_label"] = "Active Delivery"
+
+        elif status == "READY_FOR_PICKUP":
+            row["history_type"] = "ready"
+            row["history_label"] = "Ready For Pickup"
+
+        elif status == "CANCELLED":
+            row["history_type"] = "cancelled"
+            row["history_label"] = "Cancelled"
+
+        else:
+            row["history_type"] = "record"
+            row["history_label"] = status.replace("_", " ").title() if status else "Record"
+
+        return row
+
+    base_query = {
+        "$or": [
+            {"store_id": store_id},
+            {"store_id": store_id_str},
+            {"store_name": store.get("store_name")},
+            {"store_name": store.get("name")}
+        ]
+    }
+
+    raw_orders = list(
+        mongo.orders.find(base_query).sort("updated_at", -1)
+    )
+
+    history_orders = []
+    delivery_people_map = {}
+    rider_summary_map = {}
+
+    for order in raw_orders:
+        if not _store_history_belongs_to_store(order):
+            continue
+
+        status = (order.get("status") or "").strip().upper()
+        has_rider_cancel_history = _store_history_has_rider_cancel(order)
+
+        has_delivery_activity = bool(
+            order.get("delivery_partner_id")
+            or order.get("previous_delivery_partner_id")
+            or order.get("delivery_history")
+            or status in allowed_history_statuses
+            or has_rider_cancel_history
+        )
+
+        if not has_delivery_activity:
+            continue
+
+        if status not in allowed_history_statuses and not has_rider_cancel_history:
+            continue
+
+        effective_partner_id = _store_history_effective_partner_id(order)
+
+        if not effective_partner_id:
+            continue
+
+        effective_partner_id_str = str(effective_partner_id)
+
+        if delivery_user_filter and effective_partner_id_str != delivery_user_filter:
+            continue
+
+        payment_method = (order.get("payment_method") or "COD").strip().upper()
+
+        if payment_type_filter == "COD" and payment_method != "COD":
+            continue
+
+        if payment_type_filter == "ONLINE" and payment_method == "COD":
+            continue
+
+        row = dict(order)
+        row["id"] = str(row.get("_id") or "")
+        row["delivery_partner_id"] = effective_partner_id_str
+        row["delivery_partner_id_str"] = effective_partner_id_str
+        row["delivery_partner_name"] = _store_history_effective_partner_name(order)
+        row["delivery_partner_phone"] = _store_history_effective_partner_phone(order)
+
+        customer = None
+
+        if row.get("user_id"):
+            try:
+                customer = mongo.users.find_one({"_id": ObjectId(str(row.get("user_id")))})
+            except Exception:
+                customer = None
+
+        row["customer_name"] = (
+            row.get("customer_name")
+            or (customer.get("name") if customer else "")
+            or "Customer"
+        )
+
+        row["customer_phone"] = (
+            row.get("customer_phone")
+            or (customer.get("phone") if customer else "")
+            or ""
+        )
+
+        row = _decorate_store_delivery_order(row)
+
+        row["delivery_partner_id"] = effective_partner_id_str
+        row["delivery_partner_id_str"] = effective_partner_id_str
+        row["delivery_partner_name"] = row.get("delivery_partner_name") or _store_history_effective_partner_name(order)
+        row["delivery_partner_phone"] = row.get("delivery_partner_phone") or _store_history_effective_partner_phone(order)
+
+        record_at = _store_history_record_at(order)
+        row["record_at"] = record_at
+
+        row = _store_history_apply_status_label(row, has_rider_cancel_history)
+
+        if status_filter:
+            if status_filter == "RIDER_CANCELLED":
+                if row.get("history_type") != "rider_cancelled":
+                    continue
+            elif status_filter != status and status_filter != (row.get("history_type") or "").upper():
+                continue
+
+        if date_from and record_at and str(record_at)[:10] < date_from:
+            continue
+
+        if date_to and record_at and str(record_at)[:10] > date_to:
+            continue
+
+        if q:
+            haystack = " ".join([
+                str(row.get("id") or ""),
+                str(row.get("customer_name") or ""),
+                str(row.get("customer_phone") or ""),
+                str(row.get("delivery_partner_name") or ""),
+                str(row.get("delivery_partner_phone") or ""),
+                str(row.get("history_label") or ""),
+                str(row.get("payment_method") or ""),
+                str(row.get("payment_status") or ""),
+                str(row.get("delivery_failed_reason") or ""),
+                str(row.get("delivery_failed_note") or ""),
+                str(row.get("rider_cancel_reason") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+        delivery_people_map[effective_partner_id_str] = {
+            "id": effective_partner_id_str,
+            "name": row.get("delivery_partner_name") or "Delivery Boy",
+            "phone": row.get("delivery_partner_phone") or ""
+        }
+
+        if effective_partner_id_str not in rider_summary_map:
+            rider_summary_map[effective_partner_id_str] = {
+                "delivery_partner_id": effective_partner_id_str,
+                "delivery_partner_name": row.get("delivery_partner_name") or "Delivery Boy",
+                "delivery_partner_phone": row.get("delivery_partner_phone") or "",
+                "total_orders": 0,
+                "delivered": 0,
+                "failed": 0,
+                "rider_cancelled": 0,
+                "active": 0,
+                "cancelled": 0,
+                "cod_to_collect": 0.0,
+                "delivery_fee": 0.0,
+                "tip": 0.0,
+                "delivery_earning": 0.0,
+                "platform_fee": 0.0,
+                "store_earning": 0.0,
+                "last_record_at": "",
+            }
+
+        rider_row = rider_summary_map[effective_partner_id_str]
+
+        rider_row["total_orders"] += 1
+
+        if row.get("history_type") == "delivered":
+            rider_row["delivered"] += 1
+        elif row.get("history_type") == "failed":
+            rider_row["failed"] += 1
+        elif row.get("history_type") == "rider_cancelled":
+            rider_row["rider_cancelled"] += 1
+        elif row.get("history_type") == "active":
+            rider_row["active"] += 1
+        elif row.get("history_type") == "cancelled":
+            rider_row["cancelled"] += 1
+
+        rider_row["cod_to_collect"] += _store_history_float(row.get("amount_to_collect"))
+        rider_row["delivery_fee"] += _store_history_float(row.get("delivery_fee"))
+        rider_row["tip"] += _store_history_float(row.get("tip_amount"))
+        rider_row["delivery_earning"] += _store_history_float(row.get("delivery_fee_plus_tip"))
+        rider_row["platform_fee"] += _store_history_float(row.get("platform_fee"))
+        rider_row["store_earning"] += _store_history_float(row.get("store_earning"))
+
+        if record_at and str(record_at) > str(rider_row.get("last_record_at") or ""):
+            rider_row["last_record_at"] = record_at
+
+        history_orders.append(row)
+
+    history_orders.sort(
+        key=lambda x: str(x.get("record_at") or ""),
+        reverse=True
+    )
+
+    rider_summary_rows = list(rider_summary_map.values())
+
+    for rider_row in rider_summary_rows:
+        rider_row["cod_to_collect"] = round(_store_history_float(rider_row.get("cod_to_collect")), 2)
+        rider_row["delivery_fee"] = round(_store_history_float(rider_row.get("delivery_fee")), 2)
+        rider_row["tip"] = round(_store_history_float(rider_row.get("tip")), 2)
+        rider_row["delivery_earning"] = round(_store_history_float(rider_row.get("delivery_earning")), 2)
+        rider_row["platform_fee"] = round(_store_history_float(rider_row.get("platform_fee")), 2)
+        rider_row["store_earning"] = round(_store_history_float(rider_row.get("store_earning")), 2)
+
+    rider_summary_rows.sort(
+        key=lambda x: (
+            str(x.get("last_record_at") or ""),
+            int(x.get("total_orders") or 0)
+        ),
+        reverse=True
+    )
+
+    history_metrics = {
+        "total": len(history_orders),
+        "total_delivery_boys": len(rider_summary_rows),
+        "delivered": sum(1 for r in history_orders if r.get("history_type") == "delivered"),
+        "failed": sum(1 for r in history_orders if r.get("history_type") == "failed"),
+        "rider_cancelled": sum(1 for r in history_orders if r.get("history_type") == "rider_cancelled"),
+        "active": sum(1 for r in history_orders if r.get("history_type") == "active"),
+        "cancelled": sum(1 for r in history_orders if r.get("history_type") == "cancelled"),
+        "cod_to_collect": round(sum(_store_history_float(r.get("amount_to_collect")) for r in history_orders), 2),
+        "delivery_fee": round(sum(_store_history_float(r.get("delivery_fee")) for r in history_orders), 2),
+        "tip": round(sum(_store_history_float(r.get("tip_amount")) for r in history_orders), 2),
+        "delivery_earning": round(sum(_store_history_float(r.get("delivery_fee_plus_tip")) for r in history_orders), 2),
+        "platform_fee": round(sum(_store_history_float(r.get("platform_fee")) for r in history_orders), 2),
+        "store_earning": round(sum(_store_history_float(r.get("store_earning")) for r in history_orders), 2),
+    }
+
+    store_view = dict(store)
+    store_view["id"] = str(store["_id"])
+
+    return render_template(
+        "store_delivery_history.html",
+        user=u,
+        store=store_view,
+        orders=history_orders,
+        rider_summary_rows=rider_summary_rows,
+        delivery_people=list(delivery_people_map.values()),
+        history_metrics=history_metrics,
+        q=q,
+        status_filter=status_filter,
+        delivery_user_filter=delivery_user_filter,
+        payment_type_filter=payment_type_filter,
+        date_from=date_from,
+        date_to=date_to,
+        active_page="delivery_history"
+    )
 
 @app.route('/store/inventory', methods=['GET'], endpoint='store_inventory')
 @login_required(role='store')

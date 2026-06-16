@@ -32,6 +32,89 @@ def _delivery_notification_order_values(order_id):
 
     return values
 
+def _delivery_money_float(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return float(default)
+        return float(value)
+    except Exception:
+        return float(default)
+
+
+def _decorate_delivery_financials(order):
+    """
+    Adds delivery-boy-facing money fields.
+
+    This does not change database values.
+    It only prepares display values for delivery dashboard/templates.
+    """
+    order = order or {}
+
+    items_subtotal = _delivery_money_float(
+        order.get("items_subtotal")
+        if order.get("items_subtotal") is not None
+        else order.get("total_amount")
+    )
+
+    delivery_fee = _delivery_money_float(order.get("delivery_fee"))
+    platform_fee = _delivery_money_float(order.get("platform_fee"))
+    tip_amount = _delivery_money_float(
+        order.get("tip_amount")
+        if order.get("tip_amount") is not None
+        else order.get("delivery_tip_amount")
+    )
+
+    total_payable = _delivery_money_float(
+        order.get("total_payable"),
+        items_subtotal + delivery_fee + platform_fee + tip_amount
+    )
+
+    payment_method = (order.get("payment_method") or "COD").strip().upper()
+    payment_status = (order.get("payment_status") or "PENDING").strip().upper()
+
+    if payment_method == "COD" and payment_status not in ["PAID", "COLLECTED", "ONLINE_PAID"]:
+        amount_to_collect = total_payable
+        collect_label = "Collect from customer"
+    else:
+        amount_to_collect = 0.0
+        collect_label = "No cash collection"
+
+    free_delivery_applied = bool(order.get("free_delivery_above_applied"))
+
+    original_delivery_fee = _delivery_money_float(
+        order.get("original_delivery_fee"),
+        delivery_fee
+    )
+
+    free_delivery_savings = _delivery_money_float(
+        order.get("free_delivery_savings"),
+        original_delivery_fee if free_delivery_applied else 0
+    )
+
+    delivery_boy_expected_earning = delivery_fee + tip_amount
+
+    order["items_subtotal"] = round(items_subtotal, 2)
+    order["delivery_fee"] = round(delivery_fee, 2)
+    order["platform_fee"] = round(platform_fee, 2)
+    order["tip_amount"] = round(tip_amount, 2)
+    order["total_payable"] = round(total_payable, 2)
+
+    order["payment_method"] = payment_method
+    order["payment_status"] = payment_status
+
+    order["amount_to_collect"] = round(amount_to_collect, 2)
+    order["collect_label"] = collect_label
+    order["is_cod_order"] = payment_method == "COD"
+
+    order["delivery_boy_expected_earning"] = round(delivery_boy_expected_earning, 2)
+    order["delivery_fee_plus_tip"] = round(delivery_boy_expected_earning, 2)
+
+    order["free_delivery_above_applied"] = free_delivery_applied
+    order["original_delivery_fee"] = round(original_delivery_fee, 2)
+    order["free_delivery_savings"] = round(free_delivery_savings, 2)
+    order["free_delivery_above"] = _delivery_money_float(order.get("free_delivery_above"))
+
+    return order
 
 def _hydrate_delivery_notification(n):
     if not n:
@@ -149,7 +232,7 @@ def _sync_delivery_available_order_notifications(delivery_user, availability):
         if distance_km is not None and distance_km > DELIVERY_ACCEPT_RADIUS_KM:
             continue
 
-        hydrated_order = _hydrate_delivery_order(order)
+        hydrated_order = _decorate_delivery_financials(_hydrate_delivery_order(order))
 
         oid = str(order["_id"])
         store_name = hydrated_order.get("store_name") or "Store"
@@ -262,7 +345,7 @@ def delivery_dashboard():
         )
 
         for o in raw_orders:
-            o = _hydrate_delivery_order(o)
+            o = _decorate_delivery_financials(_hydrate_delivery_order(o))
             distance_km = _driver_distance_to_store_km(o, availability)
             o["driver_store_distance_km"] = distance_km
 
@@ -323,7 +406,7 @@ def delivery_available_orders():
         )
 
         for o in raw_orders:
-            o = _hydrate_delivery_order(o)
+            o = _decorate_delivery_financials(_hydrate_delivery_order(o))
             distance_km = _driver_distance_to_store_km(o, availability)
             o["driver_store_distance_km"] = distance_km
 
@@ -440,7 +523,7 @@ def delivery_active_orders():
     orders = []
 
     for o in raw_orders:
-        o = _hydrate_delivery_order(o)
+        o = _decorate_delivery_financials(_hydrate_delivery_order(o))
         distance_km = _driver_distance_to_store_km(o, availability)
         o["driver_store_distance_km"] = distance_km
         orders.append(o)
@@ -488,7 +571,7 @@ def delivery_cancelled_orders():
     cancelled_orders = []
 
     for o in raw_orders:
-        o = _hydrate_delivery_order(o)
+        o = _decorate_delivery_financials(_hydrate_delivery_order(o))
 
         my_cancel_entries = []
 
@@ -572,7 +655,7 @@ def delivery_successful_deliveries():
     orders = []
 
     for o in raw_orders:
-        o = _hydrate_delivery_order(o)
+        o = _decorate_delivery_financials(_hydrate_delivery_order(o))
 
         delivered_at = str(o.get("delivered_at") or o.get("updated_at") or "")
 
@@ -601,23 +684,16 @@ def delivery_successful_deliveries():
     total_delivery_fee = 0
     total_tip = 0
     total_payable = 0
+    total_platform_fee = 0
+    total_expected_earning = 0
 
     for o in orders:
-        payable = float(
-            o.get("total_payable")
-            or (
-                float(o.get("total_amount") or 0)
-                + float(o.get("delivery_fee") or 0)
-                + float(o.get("tip_amount") or 0)
-            )
-        )
-
-        total_payable += payable
+        total_payable += float(o.get("total_payable") or 0)
         total_delivery_fee += float(o.get("delivery_fee") or 0)
         total_tip += float(o.get("tip_amount") or 0)
-
-        if (o.get("payment_method") or "COD").upper() == "COD":
-            total_cod_collected += payable
+        total_platform_fee += float(o.get("platform_fee") or 0)
+        total_expected_earning += float(o.get("delivery_boy_expected_earning") or 0)
+        total_cod_collected += float(o.get("amount_to_collect") or 0)
 
     return render_template(
         "delivery_successful_deliveries.html",
@@ -631,7 +707,9 @@ def delivery_successful_deliveries():
         total_cod_collected=total_cod_collected,
         total_delivery_fee=total_delivery_fee,
         total_tip=total_tip,
-        total_payable=total_payable
+        total_payable=total_payable,
+        total_platform_fee=total_platform_fee,
+        total_expected_earning=total_expected_earning
     )
 
 @app.route('/delivery/all-orders', methods=['GET'], endpoint='delivery_all_orders')
@@ -675,7 +753,7 @@ def delivery_all_orders():
     )
 
     for o in direct_orders:
-        o = _hydrate_delivery_order(o)
+        o = _decorate_delivery_financials(_hydrate_delivery_order(o))
 
         status = (o.get("status") or "").strip().upper()
 
@@ -721,7 +799,7 @@ def delivery_all_orders():
     )
 
     for o in cancelled_orders:
-        o = _hydrate_delivery_order(o)
+        o = _decorate_delivery_financials(_hydrate_delivery_order(o)) 
 
         my_cancel_entries = []
 
@@ -800,7 +878,13 @@ def delivery_all_orders():
         "active": sum(1 for r in rows if r.get("record_type") == "active"),
         "successful": sum(1 for r in rows if r.get("record_type") == "successful"),
         "failed": sum(1 for r in rows if r.get("record_type") == "failed"),
-        "cancelled_by_me": sum(1 for r in rows if r.get("record_type") == "cancelled_by_me")
+        "cancelled_by_me": sum(1 for r in rows if r.get("record_type") == "cancelled_by_me"),
+        "cod_to_collect": sum(float(r.get("amount_to_collect") or 0) for r in rows),
+        "total_payable": sum(float(r.get("total_payable") or 0) for r in rows),
+        "delivery_fee": sum(float(r.get("delivery_fee") or 0) for r in rows),
+        "tip": sum(float(r.get("tip_amount") or 0) for r in rows),
+        "delivery_earning": sum(float(r.get("delivery_boy_expected_earning") or 0) for r in rows),
+        "platform_fee": sum(float(r.get("platform_fee") or 0) for r in rows)
     }
 
     return render_template(
@@ -885,7 +969,7 @@ def delivery_order_detail(oid):
         flash("Order not found or not assigned to you.", "danger")
         return redirect(url_for("delivery_active_orders"))
 
-    order = _hydrate_delivery_order(order)
+    order = _decorate_delivery_financials(_hydrate_delivery_order(order))
 
     store = None
     if order.get("store_id"):
@@ -943,7 +1027,7 @@ def delivery_order_detail(oid):
     }
 
     for ao in active_order_rows:
-        ao = _hydrate_delivery_order(ao)
+        ao = _decorate_delivery_financials(_hydrate_delivery_order(ao))
         ao["status_priority"] = status_priority.get((ao.get("status") or "").upper(), 99)
         active_orders.append(ao)
 
@@ -1000,7 +1084,7 @@ def delivery_earnings():
     orders = []
 
     for o in raw_orders:
-        o = _hydrate_delivery_order(o)
+        o = _decorate_delivery_financials(_hydrate_delivery_order(o))
 
         delivered_at = str(o.get("delivered_at") or o.get("updated_at") or "")
 
@@ -1029,23 +1113,16 @@ def delivery_earnings():
     total_delivery_fee = 0
     total_tip = 0
     total_payable = 0
+    total_platform_fee = 0
+    total_expected_earning = 0
 
     for o in orders:
-        payable = float(
-            o.get("total_payable")
-            or (
-                float(o.get("total_amount") or 0)
-                + float(o.get("delivery_fee") or 0)
-                + float(o.get("tip_amount") or 0)
-            )
-        )
-
-        total_payable += payable
+        total_payable += float(o.get("total_payable") or 0)
         total_delivery_fee += float(o.get("delivery_fee") or 0)
         total_tip += float(o.get("tip_amount") or 0)
-
-        if (o.get("payment_method") or "COD").upper() == "COD":
-            total_cod_collected += payable
+        total_platform_fee += float(o.get("platform_fee") or 0)
+        total_expected_earning += float(o.get("delivery_boy_expected_earning") or 0)
+        total_cod_collected += float(o.get("amount_to_collect") or 0)
 
     return render_template(
         "delivery_earnings.html",
@@ -1059,7 +1136,9 @@ def delivery_earnings():
         total_cod_collected=total_cod_collected,
         total_delivery_fee=total_delivery_fee,
         total_tip=total_tip,
-        total_payable=total_payable
+        total_payable=total_payable,
+        total_platform_fee=total_platform_fee,
+        total_expected_earning=total_expected_earning
     )
 
 
@@ -1324,15 +1403,22 @@ def delivery_status(oid):
         event_note = "Order is out for delivery."
 
     elif new_status == "DELIVERED":
+        payment_method = (order.get("payment_method") or "COD").strip().upper()
+        payment_status = (order.get("payment_status") or "PENDING").strip().upper()
         cod_received = request.form.get('cod_received')
 
-        if cod_received != '1':
-            flash('Please confirm that payment (COD) has been received before marking Delivered.', 'warning')
-            return redirect(request.referrer or url_for('delivery_active_orders'))
+        if payment_method == "COD" and payment_status not in ["PAID", "COLLECTED", "ONLINE_PAID"]:
+            if cod_received != '1':
+                flash('Please confirm that COD amount has been collected before marking Delivered.', 'warning')
+                return redirect(request.referrer or url_for('delivery_active_orders'))
 
-        update_data["payment_status"] = "PAID"
+            update_data["payment_status"] = "PAID"
+            event_note = "COD amount collected. Order delivered."
+        else:
+            update_data["payment_status"] = payment_status if payment_status else "PAID"
+            event_note = "Order delivered. No cash collection required."
+
         update_data["delivered_at"] = now
-        event_note = "COD received. Order delivered."
 
     elif new_status == "DELIVERY_FAILED":
         failed_reason = (request.form.get("delivery_failed_reason") or "").strip()
@@ -1424,10 +1510,14 @@ def delivery_status(oid):
             print("[DELIVERY FAILED STORE NOTIFICATION ERROR]", notify_error)
 
     if new_status == "DELIVERED":
-        payable_amount = (
-            float(order.get("total_amount") or 0)
-            + float(order.get("delivery_fee") or 0)
-            + float(order.get("tip_amount") or 0)
+        payable_amount = float(
+            order.get("total_payable")
+            or (
+                float(order.get("items_subtotal") or order.get("total_amount") or 0)
+                + float(order.get("delivery_fee") or 0)
+                + float(order.get("platform_fee") or 0)
+                + float(order.get("tip_amount") or 0)
+            )
         )
 
         existing_txn = mongo.transactions.find_one({
@@ -1659,10 +1749,14 @@ def delivery_cancel_assignment(oid):
                     "payment_status": order.get("payment_status", ""),
                     "customer_name": order.get("customer_name", ""),
                     "customer_phone": order.get("customer_phone", ""),
-                    "total_payable": (
-                        float(order.get("total_amount") or 0)
-                        + float(order.get("delivery_fee") or 0)
-                        + float(order.get("tip_amount") or 0)
+                    "total_payable": float(
+                        order.get("total_payable")
+                        or (
+                            float(order.get("items_subtotal") or order.get("total_amount") or 0)
+                            + float(order.get("delivery_fee") or 0)
+                            + float(order.get("platform_fee") or 0)
+                            + float(order.get("tip_amount") or 0)
+                        )
                     ),
                     "event_key": event_key,
                     "is_read": False,

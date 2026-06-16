@@ -205,6 +205,37 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
     line-height:1.45;
   }
 
+  .dd-money-mini{
+  margin-top:8px;
+  display:grid;
+  gap:4px;
+  color:var(--df-muted);
+  font-size:12px;
+  font-weight:800;
+  line-height:1.4;
+}
+
+.dd-money-mini strong{
+  color:var(--df-ink);
+  font-weight:950;
+}
+
+.dd-money-collect{
+  color:var(--df-green-dark);
+  font-weight:950;
+}
+
+.dd-old-fee{
+  color:var(--df-muted);
+  text-decoration:line-through;
+  margin-right:5px;
+}
+
+.dd-free-fee{
+  color:var(--df-green-dark);
+  font-weight:950;
+}
+
   .dd-pill{
     min-height:28px;
     display:inline-flex;
@@ -463,13 +494,38 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
               <div class="dd-order-top">
                 <div>
                   <div class="dd-order-id">#{{ o.id }}</div>
-                  <div class="dd-order-meta">
-                    {{ o.store_name or 'Store' }} · {{ o.customer_name or 'Customer' }}<br>
-                    ₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}
-                    {% if o.driver_store_distance_km is not none %}
-                      · {{ '%.2f'|format(o.driver_store_distance_km) }} km away
-                    {% endif %}
-                  </div>
+                 <div class="dd-order-meta">
+  {{ o.store_name or 'Store' }} · {{ o.customer_name or 'Customer' }}
+  {% if o.driver_store_distance_km is not none %}
+    <br>{{ '%.2f'|format(o.driver_store_distance_km) }} km from you to store
+  {% endif %}
+
+  <div class="dd-money-mini">
+    <div>
+      <span>Collect:</span>
+      <strong class="dd-money-collect">₹ {{ '%.2f'|format(o.amount_to_collect or 0) }}</strong>
+      <span>({{ 'COD' if o.is_cod_order else 'Online/Paid' }})</span>
+    </div>
+
+    <div>
+      <span>Order Value:</span>
+      <strong>₹ {{ '%.2f'|format(o.total_payable or 0) }}</strong>
+    </div>
+
+    <div>
+      <span>Delivery:</span>
+      <strong>
+        {% if o.free_delivery_above_applied %}
+          <span class="dd-old-fee">₹{{ '%.2f'|format(o.original_delivery_fee or 0) }}</span>
+          <span class="dd-free-fee">FREE</span>
+        {% else %}
+          ₹{{ '%.2f'|format(o.delivery_fee or 0) }}
+        {% endif %}
+      </strong>
+      <span>+ Tip ₹{{ '%.2f'|format(o.tip_amount or 0) }}</span>
+    </div>
+  </div>
+</div>
                 </div>
                 <span class="dd-pill">Ready</span>
               </div>
@@ -516,9 +572,27 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
                 <div>
                   <div class="dd-order-id">#{{ o.id }}</div>
                   <div class="dd-order-meta">
-                    {{ o.store_name or 'Store' }} · {{ o.customer_name or 'Customer' }}<br>
-                    {{ o.customer_phone or 'No phone' }}
-                  </div>
+  {{ o.store_name or 'Store' }} · {{ o.customer_name or 'Customer' }}<br>
+  {{ o.customer_phone or 'No phone' }}
+
+  <div class="dd-money-mini">
+    <div>
+      <span>Collect:</span>
+      <strong class="dd-money-collect">₹ {{ '%.2f'|format(o.amount_to_collect or 0) }}</strong>
+      <span>({{ 'COD' if o.is_cod_order else 'Online/Paid' }})</span>
+    </div>
+
+    <div>
+      <span>Order Value:</span>
+      <strong>₹ {{ '%.2f'|format(o.total_payable or 0) }}</strong>
+    </div>
+
+    <div>
+      <span>Delivery + Tip:</span>
+      <strong>₹ {{ '%.2f'|format(o.delivery_boy_expected_earning or 0) }}</strong>
+    </div>
+  </div>
+</div>
                 </div>
                 <span class="dd-pill blue">{{ st.replace('_', ' ') }}</span>
               </div>

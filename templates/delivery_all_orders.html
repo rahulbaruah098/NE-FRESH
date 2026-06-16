@@ -15,7 +15,7 @@ View all active, successful and cancelled-by-you delivery records in one place.
 {% block delivery_content %}
 <style>
   .da-grid{display:grid;gap:18px;}
-  .da-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+ .da-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;}
   .da-card{background:#fff;border:1px solid var(--df-line);border-radius:24px;box-shadow:var(--df-shadow);overflow:hidden;}
   .da-kpi{min-height:126px;padding:18px;display:flex;justify-content:space-between;gap:14px;position:relative;}
   .da-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--df-green);}
@@ -45,8 +45,40 @@ View all active, successful and cancelled-by-you delivery records in one place.
   .da-pill.orange{background:var(--df-orange-soft);color:#9A3412;border-color:rgba(234,88,12,.18);}
   .da-pill.red{background:var(--df-red-soft);color:#B91C1C;border-color:#FECACA;}
   .da-muted{margin-top:4px;color:var(--df-muted);font-size:12px;font-weight:750;line-height:1.4;}
+
+.da-money{
+  display:grid;
+  gap:4px;
+  color:var(--df-muted);
+  font-size:12px;
+  font-weight:800;
+  line-height:1.4;
+}
+
+.da-money strong{
+  color:var(--df-ink);
+  font-weight:950;
+}
+
+.da-collect{
+  color:var(--df-green-dark);
+  font-weight:950;
+}
+
+.da-old-fee{
+  color:var(--df-muted);
+  text-decoration:line-through;
+  margin-right:5px;
+}
+
+.da-free-fee{
+  color:var(--df-green-dark);
+  font-weight:950;
+}
+
   .da-empty{margin:18px;padding:26px;border-radius:22px;background:var(--df-soft);border:1px dashed var(--df-line);color:var(--df-muted);text-align:center;font-size:14px;font-weight:800;line-height:1.55;}
-  @media(max-width:980px){.da-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:1200px){.da-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:980px){.da-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
   @media(max-width:560px){.da-kpi-grid{grid-template-columns:1fr;}.da-head{flex-direction:column;}.da-filter input,.da-filter select,.da-filter button,.da-filter a{width:100%;}}
 </style>
 
@@ -79,13 +111,22 @@ View all active, successful and cancelled-by-you delivery records in one place.
       <div class="da-kpi-icon">✅</div>
     </div>
 
-    <div class="da-card da-kpi red">
+        <div class="da-card da-kpi blue">
       <div>
-        <div class="da-kpi-label">Cancelled By Me</div>
-        <div class="da-kpi-value">{{ stats.cancelled_by_me or 0 }}</div>
-        <div class="da-kpi-meta">Assignments cancelled before pickup.</div>
+        <div class="da-kpi-label">COD To Collect</div>
+        <div class="da-kpi-value">₹{{ '%.0f'|format(stats.cod_to_collect or 0) }}</div>
+        <div class="da-kpi-meta">COD amount from listed records.</div>
       </div>
-      <div class="da-kpi-icon">🚫</div>
+      <div class="da-kpi-icon">💵</div>
+    </div>
+
+    <div class="da-card da-kpi orange">
+      <div>
+        <div class="da-kpi-label">Delivery + Tip</div>
+        <div class="da-kpi-value">₹{{ '%.0f'|format(stats.delivery_earning or 0) }}</div>
+        <div class="da-kpi-meta">Delivery charges plus rider tips.</div>
+      </div>
+      <div class="da-kpi-icon">💰</div>
     </div>
   </section>
 
@@ -120,7 +161,7 @@ View all active, successful and cancelled-by-you delivery records in one place.
               <th>Store</th>
               <th>Customer</th>
               <th>Current Status</th>
-              <th>Amount</th>
+                           <th>Financials</th>
               <th>Record Time</th>
               <th>Remarks</th>
             </tr>
@@ -150,7 +191,41 @@ View all active, successful and cancelled-by-you delivery records in one place.
                   {% endif %}
                 </td>
                 <td>{{ (o.status or '').replace('_',' ') }}</td>
-                <td>₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}</td>
+                                <td>
+                  <div class="da-money">
+                    <div>
+                      <span>Collect:</span>
+                      <strong class="da-collect">₹ {{ '%.2f'|format(o.amount_to_collect or 0) }}</strong>
+                    </div>
+
+                    <div>
+                      <span>Order Value:</span>
+                      <strong>₹ {{ '%.2f'|format(o.total_payable or 0) }}</strong>
+                    </div>
+
+                    <div>
+                      <span>Delivery:</span>
+                      <strong>
+                        {% if o.free_delivery_above_applied %}
+                          <span class="da-old-fee">₹{{ '%.2f'|format(o.original_delivery_fee or 0) }}</span>
+                          <span class="da-free-fee">FREE</span>
+                        {% else %}
+                          ₹{{ '%.2f'|format(o.delivery_fee or 0) }}
+                        {% endif %}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Tip:</span>
+                      <strong>₹{{ '%.2f'|format(o.tip_amount or 0) }}</strong>
+                    </div>
+
+                    <div>
+                      <span>Delivery + Tip:</span>
+                      <strong>₹{{ '%.2f'|format(o.delivery_boy_expected_earning or 0) }}</strong>
+                    </div>
+                  </div>
+                </td>
                 <td>{{ o.record_at or o.updated_at or o.created_at or '—' }}</td>
                 <td>
                  {% if o.record_type == 'cancelled_by_me' %}

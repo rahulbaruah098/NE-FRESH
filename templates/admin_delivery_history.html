@@ -1,0 +1,831 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "delivery" %}
+{% set active_page = "delivery_history" %}
+
+{% block title %}Delivery Boy History | NE FRESH Admin{% endblock %}
+{% block page_title %}Delivery Boy History{% endblock %}
+{% block page_subtitle %}Global delivery-boy-wise history across all stores, COD handling, earnings, failed deliveries and rider cancellations.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-admin-rider-history-page {
+    --arh-green: var(--nf-green, #00A859);
+    --arh-green-dark: var(--nf-green-dark, #008A48);
+    --arh-green-soft: var(--nf-green-soft, #E9FFF3);
+    --arh-green-soft-2: var(--nf-green-soft-2, #F3FFF8);
+    --arh-blue: var(--nf-blue, #0284C7);
+    --arh-red: var(--nf-red, #EF4444);
+    --arh-orange: #F59E0B;
+    --arh-card: var(--nf-surface, #FFFFFF);
+    --arh-card-2: var(--nf-surface-2, #F2FBF6);
+    --arh-text: var(--nf-text, #1F332A);
+    --arh-muted: var(--nf-muted, #66756D);
+    --arh-muted-2: var(--nf-muted-2, #8A9890);
+    --arh-line: var(--nf-line, #DDECE4);
+    --arh-shadow: var(--nf-shadow, 0 14px 36px rgba(17,64,38,.08));
+    --arh-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17,64,38,.06));
+    display: grid;
+    gap: 20px;
+    animation: arhFade .38s ease both;
+  }
+
+  .nf-admin-rider-history-page,
+  .nf-admin-rider-history-page * {
+    box-sizing: border-box;
+  }
+
+  @keyframes arhFade {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .arh-hero,
+  .arh-card {
+    background: var(--arh-card);
+    border: 1px solid var(--arh-line);
+    border-radius: 24px;
+    box-shadow: var(--arh-shadow);
+    overflow: hidden;
+  }
+
+  .arh-hero {
+    position: relative;
+    padding: 24px;
+    background:
+      radial-gradient(circle at 8% 12%, rgba(0,168,89,.13), transparent 32%),
+      radial-gradient(circle at 92% 8%, rgba(2,132,199,.11), transparent 30%),
+      linear-gradient(135deg, #FFFFFF, var(--arh-card-2));
+  }
+
+  .arh-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: var(--arh-green-soft);
+    color: var(--arh-green-dark);
+    border: 1px solid rgba(0,168,89,.18);
+    font-size: .76rem;
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .arh-hero h2 {
+    margin: 12px 0 8px;
+    color: var(--arh-text);
+    font-size: clamp(1.55rem, 3vw, 2.35rem);
+    line-height: 1.08;
+    font-weight: 950;
+    letter-spacing: -.05em;
+  }
+
+  .arh-hero p {
+    margin: 0;
+    max-width: 980px;
+    color: var(--arh-muted);
+    font-size: .95rem;
+    font-weight: 650;
+    line-height: 1.65;
+  }
+
+  .arh-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .arh-kpi {
+    min-height: 112px;
+    padding: 18px;
+    border-radius: 22px;
+    background: var(--arh-card);
+    border: 1px solid var(--arh-line);
+    box-shadow: var(--arh-shadow-soft);
+    display: grid;
+    align-content: space-between;
+    gap: 10px;
+  }
+
+  .arh-kpi span {
+    color: var(--arh-muted);
+    font-size: .76rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .055em;
+  }
+
+  .arh-kpi strong {
+    color: var(--arh-text);
+    font-size: clamp(1.2rem, 2.2vw, 1.78rem);
+    line-height: 1;
+    font-weight: 950;
+    letter-spacing: -.04em;
+  }
+
+  .arh-kpi small {
+    color: var(--arh-muted-2);
+    font-size: .76rem;
+    font-weight: 750;
+  }
+
+  .arh-filters {
+    padding: 18px;
+  }
+
+  .arh-filter-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .arh-field {
+    display: grid;
+    gap: 7px;
+  }
+
+  .arh-field label {
+    color: var(--arh-muted);
+    font-size: .74rem;
+    font-weight: 900;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+
+  .arh-field input,
+  .arh-field select {
+    width: 100%;
+    min-height: 42px;
+    border-radius: 14px;
+    border: 1px solid var(--arh-line);
+    background: #fff;
+    color: var(--arh-text);
+    padding: 0 12px;
+    outline: none;
+    font-size: .86rem;
+    font-weight: 750;
+  }
+
+  .arh-field input:focus,
+  .arh-field select:focus {
+    border-color: rgba(0,168,89,.45);
+    box-shadow: 0 0 0 4px rgba(0,168,89,.10);
+  }
+
+  .arh-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .arh-btn {
+    min-height: 42px;
+    border: 1px solid var(--arh-line);
+    border-radius: 14px;
+    background: #fff;
+    color: var(--arh-text);
+    padding: 0 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: .82rem;
+    font-weight: 900;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: .2s ease;
+  }
+
+  .arh-btn:hover {
+    border-color: rgba(0,168,89,.30);
+    color: var(--arh-green-dark);
+    box-shadow: 0 10px 22px rgba(17,64,38,.08);
+    transform: translateY(-1px);
+  }
+
+  .arh-btn.primary {
+    background: var(--arh-green);
+    border-color: var(--arh-green);
+    color: #fff;
+  }
+
+  .arh-section-head {
+    padding: 18px 18px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .arh-section-head h3 {
+    margin: 0;
+    color: var(--arh-text);
+    font-size: 1.05rem;
+    font-weight: 950;
+    letter-spacing: -.03em;
+  }
+
+  .arh-section-head p {
+    margin: 5px 0 0;
+    color: var(--arh-muted);
+    font-size: .84rem;
+    font-weight: 650;
+  }
+
+  .arh-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    padding: 18px;
+  }
+
+  .arh-table {
+    width: 100%;
+    min-width: 1280px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .arh-table th {
+    background: var(--arh-card-2);
+    color: var(--arh-muted);
+    font-size: .7rem;
+    font-weight: 950;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 12px;
+    border-top: 1px solid var(--arh-line);
+    border-bottom: 1px solid var(--arh-line);
+    white-space: nowrap;
+  }
+
+  .arh-table th:first-child {
+    border-left: 1px solid var(--arh-line);
+    border-top-left-radius: 16px;
+  }
+
+  .arh-table th:last-child {
+    border-right: 1px solid var(--arh-line);
+    border-top-right-radius: 16px;
+  }
+
+  .arh-table td {
+    padding: 13px 12px;
+    border-bottom: 1px solid var(--arh-line);
+    color: var(--arh-text);
+    font-size: .84rem;
+    font-weight: 750;
+    vertical-align: top;
+    background: #fff;
+  }
+
+  .arh-table tr:hover td {
+    background: #FBFFFD;
+  }
+
+  .arh-main-text {
+    display: block;
+    color: var(--arh-text);
+    font-weight: 950;
+  }
+
+  .arh-sub-text {
+    display: block;
+    margin-top: 3px;
+    color: var(--arh-muted);
+    font-size: .74rem;
+    font-weight: 700;
+  }
+
+  .arh-money {
+    font-weight: 950;
+    white-space: nowrap;
+  }
+
+  .arh-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 26px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 950;
+    border: 1px solid var(--arh-line);
+    background: var(--arh-card-2);
+    color: var(--arh-muted);
+    white-space: nowrap;
+  }
+
+  .arh-pill.delivered {
+    background: var(--arh-green-soft);
+    color: var(--arh-green-dark);
+    border-color: rgba(0,168,89,.20);
+  }
+
+  .arh-pill.failed {
+    background: #FFF1F2;
+    color: #B91C1C;
+    border-color: rgba(239,68,68,.20);
+  }
+
+  .arh-pill.cancelled,
+  .arh-pill.rider_cancelled {
+    background: #FFF7E8;
+    color: #A84700;
+    border-color: rgba(245,158,11,.24);
+  }
+
+  .arh-pill.active,
+  .arh-pill.ready {
+    background: #E0F2FE;
+    color: #0369A1;
+    border-color: rgba(2,132,199,.20);
+  }
+
+  .arh-empty {
+    padding: 34px 18px;
+    text-align: center;
+    color: var(--arh-muted);
+    font-size: .92rem;
+    font-weight: 750;
+  }
+
+  .arh-mobile-list {
+    display: none;
+    padding: 0 18px 18px;
+    gap: 12px;
+  }
+
+  .arh-mobile-card {
+    padding: 16px;
+    border-radius: 20px;
+    background: #fff;
+    border: 1px solid var(--arh-line);
+    box-shadow: 0 10px 26px rgba(17,64,38,.06);
+    display: grid;
+    gap: 12px;
+  }
+
+  .arh-mobile-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .arh-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .arh-mobile-metric {
+    padding: 10px;
+    border-radius: 14px;
+    background: var(--arh-card-2);
+    display: grid;
+    gap: 3px;
+  }
+
+  .arh-mobile-metric span {
+    color: var(--arh-muted);
+    font-size: .68rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  .arh-mobile-metric strong {
+    color: var(--arh-text);
+    font-size: .88rem;
+    font-weight: 950;
+  }
+
+  @media (max-width: 1300px) {
+    .arh-kpi-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .arh-filter-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 760px) {
+    .arh-hero {
+      padding: 18px;
+    }
+
+    .arh-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .arh-filter-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .arh-table-wrap {
+      display: none;
+    }
+
+    .arh-mobile-list {
+      display: grid;
+    }
+  }
+
+  @media (max-width: 460px) {
+    .arh-kpi-grid,
+    .arh-mobile-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set metrics = history_metrics if history_metrics is defined else {} %}
+{% set riders = rider_summary_rows if rider_summary_rows is defined else [] %}
+{% set records = orders if orders is defined else [] %}
+{% set people = delivery_people if delivery_people is defined else [] %}
+{% set store_options = stores if stores is defined else [] %}
+
+<section class="nf-admin-rider-history-page">
+  <div class="arh-hero">
+    <span class="arh-kicker">Global Delivery Boy History</span>
+    <h2>Rider-wise delivery performance across all stores</h2>
+    <p>
+      Track every delivery boy across every store. This global view includes store coverage,
+      delivered orders, failed deliveries, rider cancellations, COD handled, delivery charges,
+      tips, platform fee and store earning separation.
+    </p>
+  </div>
+
+  <div class="arh-kpi-grid">
+    <div class="arh-kpi">
+      <span>Delivery Boys</span>
+      <strong>{{ metrics.total_delivery_boys|default(0) }}</strong>
+      <small>Riders found in delivery records</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>Stores Covered</span>
+      <strong>{{ metrics.total_stores|default(0) }}</strong>
+      <small>Stores included in filtered records</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>Total Records</span>
+      <strong>{{ metrics.total|default(0) }}</strong>
+      <small>Filtered delivery records</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>Delivered</span>
+      <strong>{{ metrics.delivered|default(0) }}</strong>
+      <small>Completed deliveries</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>Failed / Rider Cancelled</span>
+      <strong>{{ metrics.failed|default(0) }} / {{ metrics.rider_cancelled|default(0) }}</strong>
+      <small>Failed delivery and rider cancellation</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>Active</span>
+      <strong>{{ metrics.active|default(0) }}</strong>
+      <small>Assigned/picked/out-for-delivery</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>COD Handled</span>
+      <strong>₹{{ "%.2f"|format(metrics.cod_to_collect|default(0)|float) }}</strong>
+      <small>Online-paid records show zero collection</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>Delivery Fee</span>
+      <strong>₹{{ "%.2f"|format(metrics.delivery_fee|default(0)|float) }}</strong>
+      <small>Delivery charge total</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>Tips</span>
+      <strong>₹{{ "%.2f"|format(metrics.tip|default(0)|float) }}</strong>
+      <small>Customer tips</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>Delivery + Tip</span>
+      <strong>₹{{ "%.2f"|format(metrics.delivery_earning|default(0)|float) }}</strong>
+      <small>Rider earning component</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>Platform Fee</span>
+      <strong>₹{{ "%.2f"|format(metrics.platform_fee|default(0)|float) }}</strong>
+      <small>Platform/admin earning</small>
+    </div>
+
+    <div class="arh-kpi">
+      <span>Store Earning</span>
+      <strong>₹{{ "%.2f"|format(metrics.store_earning|default(0)|float) }}</strong>
+      <small>Items subtotal only</small>
+    </div>
+  </div>
+
+  <div class="arh-card">
+    <form class="arh-filters" method="GET" action="{{ url_for('admin_delivery_history') }}">
+      <div class="arh-filter-grid">
+        <div class="arh-field">
+          <label>Search</label>
+          <input type="search" name="q" value="{{ q|default('') }}" placeholder="Order, store, customer, rider, phone, reason">
+        </div>
+
+        <div class="arh-field">
+          <label>Store</label>
+          <select name="store_id">
+            <option value="">All stores</option>
+            {% for store in store_options %}
+              <option value="{{ store.id }}" {% if store_filter == store.id %}selected{% endif %}>
+                {{ store.store_name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="arh-field">
+          <label>Delivery Boy</label>
+          <select name="delivery_user_id">
+            <option value="">All delivery boys</option>
+            {% for person in people %}
+              <option value="{{ person.id }}" {% if delivery_user_filter == person.id %}selected{% endif %}>
+                {{ person.name }}{% if person.phone %} - {{ person.phone }}{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="arh-field">
+          <label>Status</label>
+          <select name="status">
+            <option value="">All status</option>
+            <option value="DELIVERED" {% if status_filter == 'DELIVERED' %}selected{% endif %}>Delivered</option>
+            <option value="DELIVERY_FAILED" {% if status_filter == 'DELIVERY_FAILED' %}selected{% endif %}>Delivery Failed</option>
+            <option value="RIDER_CANCELLED" {% if status_filter == 'RIDER_CANCELLED' %}selected{% endif %}>Rider Cancelled</option>
+            <option value="ACTIVE" {% if status_filter == 'ACTIVE' %}selected{% endif %}>Active Delivery</option>
+            <option value="CANCELLED" {% if status_filter == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+          </select>
+        </div>
+
+        <div class="arh-field">
+          <label>Payment</label>
+          <select name="payment_type">
+            <option value="">All payments</option>
+            <option value="COD" {% if payment_type_filter == 'COD' %}selected{% endif %}>COD</option>
+            <option value="ONLINE" {% if payment_type_filter == 'ONLINE' %}selected{% endif %}>Online</option>
+          </select>
+        </div>
+
+        <div class="arh-field">
+          <label>From</label>
+          <input type="date" name="from" value="{{ date_from|default('') }}">
+        </div>
+
+        <div class="arh-actions">
+          <button type="submit" class="arh-btn primary">Apply</button>
+          <a href="{{ url_for('admin_delivery_history') }}" class="arh-btn">Reset</a>
+        </div>
+
+        <div class="arh-field">
+          <label>To</label>
+          <input type="date" name="to" value="{{ date_to|default('') }}">
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="arh-card">
+    <div class="arh-section-head">
+      <div>
+        <h3>Delivery-boy-wise summary</h3>
+        <p>Each row is one delivery boy’s global performance across all stores.</p>
+      </div>
+    </div>
+
+    {% if riders %}
+      <div class="arh-table-wrap">
+        <table class="arh-table">
+          <thead>
+            <tr>
+              <th>Delivery Boy</th>
+              <th>Stores Served</th>
+              <th>Total</th>
+              <th>Delivered</th>
+              <th>Failed</th>
+              <th>Rider Cancelled</th>
+              <th>Active</th>
+              <th>COD</th>
+              <th>Delivery Fee</th>
+              <th>Tip</th>
+              <th>Delivery + Tip</th>
+              <th>Platform Fee</th>
+              <th>Store Earning</th>
+              <th>Last Record</th>
+              <th>Filter</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rider in riders %}
+              <tr>
+                <td>
+                  <span class="arh-main-text">{{ rider.delivery_partner_name }}</span>
+                  <span class="arh-sub-text">{{ rider.delivery_partner_phone or 'Phone not available' }}</span>
+                </td>
+                <td>
+                  <span class="arh-main-text">{{ rider.stores_served|default(0) }}</span>
+                  <span class="arh-sub-text">{{ rider.store_names or '-' }}</span>
+                </td>
+                <td>{{ rider.total_orders|default(0) }}</td>
+                <td>{{ rider.delivered|default(0) }}</td>
+                <td>{{ rider.failed|default(0) }}</td>
+                <td>{{ rider.rider_cancelled|default(0) }}</td>
+                <td>{{ rider.active|default(0) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(rider.cod_to_collect|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(rider.delivery_fee|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(rider.tip|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(rider.delivery_earning|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(rider.platform_fee|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(rider.store_earning|default(0)|float) }}</td>
+                <td>{{ rider.last_record_at or '-' }}</td>
+                <td>
+                  <a class="arh-btn" href="{{ url_for('admin_delivery_history', delivery_user_id=rider.delivery_partner_id) }}">View</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="arh-mobile-list">
+        {% for rider in riders %}
+          <div class="arh-mobile-card">
+            <div class="arh-mobile-top">
+              <div>
+                <span class="arh-main-text">{{ rider.delivery_partner_name }}</span>
+                <span class="arh-sub-text">{{ rider.delivery_partner_phone or 'Phone not available' }}</span>
+              </div>
+              <a class="arh-btn" href="{{ url_for('admin_delivery_history', delivery_user_id=rider.delivery_partner_id) }}">View</a>
+            </div>
+
+            <div class="arh-mobile-grid">
+              <div class="arh-mobile-metric"><span>Stores</span><strong>{{ rider.stores_served|default(0) }}</strong></div>
+              <div class="arh-mobile-metric"><span>Total</span><strong>{{ rider.total_orders|default(0) }}</strong></div>
+              <div class="arh-mobile-metric"><span>Delivered</span><strong>{{ rider.delivered|default(0) }}</strong></div>
+              <div class="arh-mobile-metric"><span>Failed</span><strong>{{ rider.failed|default(0) }}</strong></div>
+              <div class="arh-mobile-metric"><span>COD</span><strong>₹{{ "%.2f"|format(rider.cod_to_collect|default(0)|float) }}</strong></div>
+              <div class="arh-mobile-metric"><span>Delivery + Tip</span><strong>₹{{ "%.2f"|format(rider.delivery_earning|default(0)|float) }}</strong></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="arh-empty">No delivery-boy records found for the selected filters.</div>
+    {% endif %}
+  </div>
+
+  <div class="arh-card">
+    <div class="arh-section-head">
+      <div>
+        <h3>Order-wise delivery boy records</h3>
+        <p>Detailed global delivery records behind the rider summary.</p>
+      </div>
+    </div>
+
+    {% if records %}
+      <div class="arh-table-wrap">
+        <table class="arh-table">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Store</th>
+              <th>Delivery Boy</th>
+              <th>Customer</th>
+              <th>Status</th>
+              <th>Payment</th>
+              <th>COD / Collect</th>
+              <th>Total Payable</th>
+              <th>Delivery Fee</th>
+              <th>Platform Fee</th>
+              <th>Tip</th>
+              <th>Delivery + Tip</th>
+              <th>Store Earning</th>
+              <th>Assigned</th>
+              <th>Delivered / Failed / Cancelled</th>
+              <th>Reason / Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in records %}
+              <tr>
+                <td>
+                  <span class="arh-main-text">#{{ (order.id|string)[-6:] }}</span>
+                  <span class="arh-sub-text">{{ order.record_at or order.created_at or '-' }}</span>
+                </td>
+                <td>
+                  <span class="arh-main-text">{{ order.store_name or 'Unknown Store' }}</span>
+                  <span class="arh-sub-text">{{ order.store_phone or order.store_id_str or '-' }}</span>
+                </td>
+                <td>
+                  <span class="arh-main-text">{{ order.delivery_partner_name or 'Not assigned' }}</span>
+                  <span class="arh-sub-text">{{ order.delivery_partner_phone or 'Phone not available' }}</span>
+                </td>
+                <td>
+                  <span class="arh-main-text">{{ order.customer_name or 'Customer' }}</span>
+                  <span class="arh-sub-text">{{ order.customer_phone or '-' }}</span>
+                </td>
+                <td>
+                  <span class="arh-pill {{ order.history_type|default('record') }}">{{ order.history_label or order.status }}</span>
+                  <span class="arh-sub-text">{{ order.delivery_assignment_source_label or '' }}</span>
+                </td>
+                <td>
+                  <span class="arh-main-text">{{ order.payment_method or '-' }}</span>
+                  <span class="arh-sub-text">{{ order.payment_status or '-' }}</span>
+                </td>
+                <td class="arh-money">₹{{ "%.2f"|format(order.amount_to_collect|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(order.total_payable|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(order.delivery_fee|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(order.platform_fee|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(order.tip_amount|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(order.delivery_fee_plus_tip|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(order.store_earning|default(0)|float) }}</td>
+                <td>{{ order.assigned_at or '-' }}</td>
+                <td>
+                  {% if order.history_type == 'delivered' %}
+                    {{ order.delivered_at or order.record_at or '-' }}
+                  {% elif order.history_type == 'failed' %}
+                    {{ order.delivery_failed_at or order.record_at or '-' }}
+                  {% elif order.history_type == 'rider_cancelled' %}
+                    {{ order.rider_cancelled_at or order.record_at or '-' }}
+                  {% else %}
+                    {{ order.record_at or '-' }}
+                  {% endif %}
+                </td>
+                <td>
+                  {% if order.history_type == 'failed' %}
+                    <span class="arh-main-text">{{ order.delivery_failed_reason or 'Failed' }}</span>
+                    <span class="arh-sub-text">{{ order.delivery_failed_note or '' }}</span>
+                  {% elif order.history_type == 'rider_cancelled' %}
+                    <span class="arh-main-text">{{ order.rider_cancel_reason or 'Rider cancelled assignment' }}</span>
+                    <span class="arh-sub-text">{{ order.rider_cancelled_status_from or '' }}</span>
+                  {% else %}
+                    <span class="arh-sub-text">-</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="arh-mobile-list">
+        {% for order in records %}
+          <div class="arh-mobile-card">
+            <div class="arh-mobile-top">
+              <div>
+                <span class="arh-main-text">#{{ (order.id|string)[-6:] }} · {{ order.delivery_partner_name or 'Not assigned' }}</span>
+                <span class="arh-sub-text">{{ order.store_name or 'Unknown Store' }} · {{ order.customer_name or 'Customer' }}</span>
+              </div>
+              <span class="arh-pill {{ order.history_type|default('record') }}">{{ order.history_label or order.status }}</span>
+            </div>
+
+            <div class="arh-mobile-grid">
+              <div class="arh-mobile-metric"><span>COD</span><strong>₹{{ "%.2f"|format(order.amount_to_collect|default(0)|float) }}</strong></div>
+              <div class="arh-mobile-metric"><span>Total</span><strong>₹{{ "%.2f"|format(order.total_payable|default(0)|float) }}</strong></div>
+              <div class="arh-mobile-metric"><span>Delivery</span><strong>₹{{ "%.2f"|format(order.delivery_fee|default(0)|float) }}</strong></div>
+              <div class="arh-mobile-metric"><span>Tip</span><strong>₹{{ "%.2f"|format(order.tip_amount|default(0)|float) }}</strong></div>
+              <div class="arh-mobile-metric"><span>Platform</span><strong>₹{{ "%.2f"|format(order.platform_fee|default(0)|float) }}</strong></div>
+              <div class="arh-mobile-metric"><span>Delivery + Tip</span><strong>₹{{ "%.2f"|format(order.delivery_fee_plus_tip|default(0)|float) }}</strong></div>
+            </div>
+
+            {% if order.delivery_failed_reason or order.rider_cancel_reason %}
+              <span class="arh-sub-text">
+                {{ order.delivery_failed_reason or order.rider_cancel_reason }}
+              </span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="arh-empty">No order-wise delivery records found for the selected filters.</div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

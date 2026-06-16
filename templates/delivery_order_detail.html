@@ -110,6 +110,39 @@ Pickup, delivery, navigation, customer call, live location and status update for
     word-break:break-word;
   }
 
+  .dod-info.collect{
+  background:var(--df-mint);
+  border-color:rgba(0,168,89,.22);
+}
+
+.dod-info.collect strong{
+  color:var(--df-green-dark);
+  font-size:18px;
+}
+
+.dod-old-fee{
+  color:var(--df-muted);
+  text-decoration:line-through;
+  margin-right:6px;
+  font-weight:850;
+}
+
+.dod-free-fee{
+  color:var(--df-green-dark);
+  font-weight:950;
+}
+
+.dod-money-note{
+  padding:11px 12px;
+  border-radius:16px;
+  background:var(--df-mint);
+  border:1px solid rgba(0,168,89,.18);
+  color:var(--df-green-dark);
+  font-size:13px;
+  font-weight:850;
+  line-height:1.45;
+}
+
   .dod-box{
     padding:14px;
     border-radius:18px;
@@ -570,9 +603,15 @@ Pickup, delivery, navigation, customer call, live location and status update for
 
           <div class="dod-switch-line">
             <div>
-              <strong>Payable:</strong>
-              ₹ {{ '%.2f'|format(ao.total_payable or ((ao.total_amount or 0) + (ao.delivery_fee or 0) + (ao.tip_amount or 0))) }}
-            </div>
+  <strong>Collect:</strong>
+  ₹ {{ '%.2f'|format(ao.amount_to_collect or 0) }}
+  <span>({{ 'COD' if ao.is_cod_order else 'Online/Paid' }})</span>
+</div>
+
+<div>
+  <strong>Order Value:</strong>
+  ₹ {{ '%.2f'|format(ao.total_payable or 0) }}
+</div>
 
             {% if ao.customer_phone %}
               <div>
@@ -606,26 +645,62 @@ Pickup, delivery, navigation, customer call, live location and status update for
 
     <div class="dod-body">
       <div class="dod-info-grid">
-        <div class="dod-info">
-          <span>Total Payable</span>
-          <strong>₹ {{ '%.2f'|format(order.total_payable or ((order.total_amount or 0) + (order.delivery_fee or 0) + (order.tip_amount or 0))) }}</strong>
-        </div>
+  <div class="dod-info collect">
+    <span>Amount to Collect</span>
+    <strong>₹ {{ '%.2f'|format(order.amount_to_collect or 0) }}</strong>
+  </div>
 
-        <div class="dod-info">
-          <span>Payment</span>
-          <strong>{{ order.payment_method or 'COD' }} · {{ order.payment_status or 'PENDING' }}</strong>
-        </div>
+  <div class="dod-info">
+    <span>Payment</span>
+    <strong>
+      {{ 'COD' if order.is_cod_order else 'Online / Paid' }}
+      · {{ order.payment_status or 'PENDING' }}
+    </strong>
+  </div>
 
-        <div class="dod-info">
-          <span>Delivery Fee</span>
-          <strong>₹ {{ '%.2f'|format(order.delivery_fee or 0) }}</strong>
-        </div>
+  <div class="dod-info">
+    <span>Order Value</span>
+    <strong>₹ {{ '%.2f'|format(order.total_payable or 0) }}</strong>
+  </div>
 
-        <div class="dod-info">
-          <span>Tip</span>
-          <strong>₹ {{ '%.2f'|format(order.tip_amount or 0) }}</strong>
-        </div>
-      </div>
+  <div class="dod-info">
+    <span>Items Subtotal</span>
+    <strong>₹ {{ '%.2f'|format(order.items_subtotal or order.total_amount or 0) }}</strong>
+  </div>
+
+  <div class="dod-info">
+    <span>Delivery Charge</span>
+    <strong>
+      {% if order.free_delivery_above_applied %}
+        <span class="dod-old-fee">₹{{ '%.2f'|format(order.original_delivery_fee or 0) }}</span>
+        <span class="dod-free-fee">FREE</span>
+      {% else %}
+        ₹ {{ '%.2f'|format(order.delivery_fee or 0) }}
+      {% endif %}
+    </strong>
+  </div>
+
+  <div class="dod-info">
+    <span>Tip</span>
+    <strong>₹ {{ '%.2f'|format(order.tip_amount or 0) }}</strong>
+  </div>
+
+  <div class="dod-info">
+    <span>Platform Fee</span>
+    <strong>₹ {{ '%.2f'|format(order.platform_fee or 0) }}</strong>
+  </div>
+
+  <div class="dod-info">
+    <span>Delivery + Tip</span>
+    <strong>₹ {{ '%.2f'|format(order.delivery_boy_expected_earning or 0) }}</strong>
+  </div>
+</div>
+
+{% if order.free_delivery_above_applied %}
+  <div class="dod-money-note">
+    🎉 Free delivery was applied for the customer. The delivery charge was waived for this order.
+  </div>
+{% endif %}
 
       <div class="dod-box">
         <div class="dod-box-title">Pickup From Store</div>

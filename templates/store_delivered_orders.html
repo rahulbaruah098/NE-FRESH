@@ -1,370 +1,614 @@
-{% extends "base.html" %}
+{% extends "store_base.html" %}
+{% set active_page = "delivered_orders" %}
+
+{% block title %}Delivered Orders | NE FRESH Store{% endblock %}
+{% block page_title %}Delivered Orders{% endblock %}
+{% block page_subtitle %}Delivered order report with delivery boy, payment, COD and earning breakdown.{% endblock %}
+
 {% block content %}
+{% set delivered_orders = orders if orders is defined else [] %}
 
-<section class="store-delivered-page" data-page="store-delivered">
+<section class="nf-store-delivered-report">
   <style>
-    /* ========================================
-       STORE DELIVERED ORDERS — MATCH STORE DASHBOARD THEME
-       ✅ NO route/logic changes
-       ✅ ONLY design/theme replacement
-       ✅ Keep table as table (structure preserved)
-       ✅ Mobile/App + Web responsive
-       Scoped to .store-delivered-page
-       ======================================== */
-
-    /* Font imports (page-scoped) */
-    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
-
-    /* ✅ Page-scoped tokens + full-bleed like dashboard */
-    .store-delivered-page{
-      --crimson: #8B0000;
-      --black: #000000;
-      --off-white: #FAF9F6;
-      --light-crimson: #FFF5F5;
-      --border-standard: 4px;
-      --border-accent: 8px;
-      --transition-speed: 0.3s;
-
-      width: 100vw;
-      margin-left: calc(50% - 50vw);
-      margin-right: calc(50% - 50vw);
-      font-weight: bold;
-      background-color: var(--off-white);
-      color: var(--black);
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1.125rem;
-      line-height: 1.6;
-      min-height: 100vh;
-      overflow-x: hidden;
-      position: relative;
+    .nf-store-delivered-report {
+      --dor-green: var(--nf-green, #00A859);
+      --dor-green-dark: var(--nf-green-dark, #008A48);
+      --dor-green-soft: var(--nf-green-soft, #E9FFF3);
+      --dor-card: var(--nf-surface, #FFFFFF);
+      --dor-card-2: var(--nf-surface-2, #F2FBF6);
+      --dor-text: var(--nf-text, #1F332A);
+      --dor-muted: var(--nf-muted, #66756D);
+      --dor-muted-2: var(--nf-muted-2, #8A9890);
+      --dor-line: var(--nf-line, #DDECE4);
+      --dor-red: var(--nf-red, #EF4444);
+      --dor-blue: var(--nf-blue, #0284C7);
+      --dor-shadow: var(--nf-shadow, 0 14px 36px rgba(17,64,38,.08));
+      display: grid;
+      gap: 20px;
+      animation: dorFade .35s ease both;
     }
 
-    .store-delivered-page,
-    .store-delivered-page *{ box-sizing: border-box; }
-
-    /* reset only inside page */
-    .store-delivered-page *{
-      margin: 0;
-      padding: 0;
-      border-radius: 0 !important;
+    .nf-store-delivered-report,
+    .nf-store-delivered-report * {
+      box-sizing: border-box;
     }
 
-    /* ✅ Cursor (scoped, same as dashboard) */
-    .store-delivered-page,
-    .store-delivered-page *{
-      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 2 C10 2 8 6 8 10 C8 12 9 14 10 14 C11 14 11 13 11 12 C11 10 12 8 14 8 L14 20 L12 20 C10 20 10 22 12 24 L14 26 L14 30 L18 30 L18 26 L20 24 C22 22 22 20 20 20 L18 20 L18 8 C20 8 21 10 21 12 C21 13 21 14 22 14 C23 14 24 12 24 10 C24 6 22 2 16 2 Z" fill="%238B0000" stroke="%23000000" stroke-width="1"/></svg>'), auto;
-    }
-    .store-delivered-page a,
-    .store-delivered-page button,
-    .store-delivered-page select,
-    .store-delivered-page input{ cursor: pointer; }
-
-    .store-delivered-page ::selection{
-      background-color: var(--crimson);
-      color: #fff;
+    @keyframes dorFade {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
-    /* ========================================
-       FILM GRAIN OVERLAY
-       ======================================== */
-    .store-delivered-page .grain-overlay{
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
-      z-index: 1;
-      opacity: 0.12;
-      background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
+    .dor-hero,
+    .dor-card {
+      background: var(--dor-card);
+      border: 1px solid var(--dor-line);
+      border-radius: 24px;
+      box-shadow: var(--dor-shadow);
+      overflow: hidden;
     }
 
-    /* ========================================
-       TOP BAR + HERO (same style)
-       ======================================== */
-    .store-delivered-page .top-bar{
-      position: relative;
-      z-index: 2;
-      width: 100%;
-      padding: 1rem 2rem;
+    .dor-hero {
+      padding: 24px;
+      background:
+        radial-gradient(circle at 8% 12%, rgba(0,168,89,.12), transparent 34%),
+        radial-gradient(circle at 92% 8%, rgba(2,132,199,.10), transparent 30%),
+        linear-gradient(135deg, #FFFFFF, var(--dor-card-2));
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      border-bottom: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      font-variant: small-caps;
+      gap: 16px;
+      align-items: flex-start;
+      flex-wrap: wrap;
     }
 
-    .store-delivered-page .hero-section{
-      position: relative;
-      z-index: 2;
-      text-align: center;
-      padding: 5.25rem 2rem 4.25rem;
-      border-bottom: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-    }
-
-    .store-delivered-page .hero-title{
-      font-family: 'Dancing Script', cursive;
-      font-size: clamp(3rem, 10vw, 6rem);
-      color: var(--crimson);
-      font-style: italic;
-      font-weight: 700;
-      margin: 0 0 0.75rem 0;
-      line-height: 1.15;
-      text-transform: uppercase;
-    }
-
-    .store-delivered-page .hero-subtitle{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      font-variant: small-caps;
-      margin-bottom: 1.75rem;
-    }
-
-    .store-delivered-page .hero-divider{
-      width: 6rem;
-      height: 4px;
-      background: var(--crimson);
-      margin: 0 auto;
-    }
-
-    /* ========================================
-       MAIN CONTAINER
-       ======================================== */
-    .store-delivered-page .main-container{
-      position: relative;
-      z-index: 2;
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 3rem 2rem;
-    }
-
-    /* ========================================
-       PANEL + HEADER (dashboard language)
-       ======================================== */
-    .store-delivered-page .panel{
-      border: var(--border-standard) solid var(--black);
-      padding: 2rem;
-      margin-bottom: 2.75rem;
-      background: var(--light-crimson);
-    }
-
-    .store-delivered-page .section-header{
-      display: flex;
-      align-items: start;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-
-    .store-delivered-page .icon-box{
-      width: 48px;
-      height: 48px;
-      background: var(--crimson);
-      border: var(--border-standard) solid var(--black);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      color: #fff;
-      font-family: 'Italiana', serif;
-      font-weight: 700;
-      letter-spacing: .08em;
-    }
-
-    .store-delivered-page .section-title{
-      font-family: 'Playfair Display', serif;
-      font-size: 1.5rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.25rem;
-    }
-
-    .store-delivered-page .section-description{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1rem;
-      opacity: 0.85;
-    }
-
-    /* ========================================
-       BACK BUTTON (keep class="btn" but reskin)
-       ======================================== */
-    .store-delivered-page a{ color: inherit; text-decoration: none; }
-
-    .store-delivered-page .btn{
+    .dor-kicker {
       display: inline-flex;
       align-items: center;
-      gap: .6rem;
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
-      color: var(--black);
-      padding: 0.9rem 1.25rem;
-      font-family: 'Italiana', serif;
-      font-size: 0.75rem;
-      letter-spacing: 0.3em;
+      gap: 8px;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--dor-green-soft);
+      color: var(--dor-green-dark);
+      border: 1px solid rgba(0,168,89,.18);
+      font-size: .76rem;
+      font-weight: 900;
+      letter-spacing: .06em;
       text-transform: uppercase;
-      transition: all var(--transition-speed);
-      box-shadow: 4px 4px 0 var(--black);
     }
-    .store-delivered-page .btn:hover{
-      transform: translateY(-4px);
-      background: var(--black);
+
+    .dor-hero h2 {
+      margin: 12px 0 8px;
+      color: var(--dor-text);
+      font-size: clamp(1.55rem, 3vw, 2.3rem);
+      line-height: 1.08;
+      font-weight: 950;
+      letter-spacing: -.05em;
+    }
+
+    .dor-hero p {
+      margin: 0;
+      max-width: 860px;
+      color: var(--dor-muted);
+      font-size: .95rem;
+      font-weight: 650;
+      line-height: 1.65;
+    }
+
+    .dor-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .dor-btn {
+      min-height: 42px;
+      border: 1px solid var(--dor-line);
+      border-radius: 14px;
+      background: #fff;
+      color: var(--dor-text);
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: .84rem;
+      font-weight: 900;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: .2s ease;
+    }
+
+    .dor-btn:hover {
+      border-color: rgba(0,168,89,.32);
+      color: var(--dor-green-dark);
+      box-shadow: 0 10px 22px rgba(17,64,38,.08);
+      transform: translateY(-1px);
+    }
+
+    .dor-btn.primary {
+      background: var(--dor-green);
+      border-color: var(--dor-green);
       color: #fff;
     }
 
-    /* ========================================
-       TABLES — keep table structure
-       ======================================== */
-    .store-delivered-page .table-shell{
-      margin-top: 1.25rem;
-      overflow-x: auto;
-      border: var(--border-standard) solid var(--black);
-      background: var(--off-white);
+    .dor-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
     }
 
-    .store-delivered-page table.table{
+    .dor-kpi {
+      min-height: 112px;
+      padding: 18px;
+      border-radius: 22px;
+      background: var(--dor-card);
+      border: 1px solid var(--dor-line);
+      box-shadow: 0 10px 26px rgba(17,64,38,.06);
+      display: grid;
+      align-content: space-between;
+      gap: 10px;
+    }
+
+    .dor-kpi span {
+      color: var(--dor-muted);
+      font-size: .76rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .dor-kpi strong {
+      color: var(--dor-text);
+      font-size: clamp(1.15rem, 2.2vw, 1.75rem);
+      line-height: 1;
+      font-weight: 950;
+      letter-spacing: -.04em;
+    }
+
+    .dor-kpi small {
+      color: var(--dor-muted-2);
+      font-size: .76rem;
+      font-weight: 750;
+    }
+
+    .dor-section-head {
+      padding: 18px 18px 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .dor-section-head h3 {
+      margin: 0;
+      color: var(--dor-text);
+      font-size: 1.05rem;
+      font-weight: 950;
+      letter-spacing: -.03em;
+    }
+
+    .dor-section-head p {
+      margin: 5px 0 0;
+      color: var(--dor-muted);
+      font-size: .84rem;
+      font-weight: 650;
+    }
+
+    .dor-table-wrap {
       width: 100%;
-      border-collapse: collapse;
-      min-width: 980px;
-      background: var(--off-white);
+      overflow-x: auto;
+      padding: 18px;
     }
 
-    .store-delivered-page table.table thead{
-      background: var(--black);
-      color: #fff;
+    .dor-table {
+      width: 100%;
+      min-width: 1280px;
+      border-collapse: separate;
+      border-spacing: 0;
     }
 
-    .store-delivered-page table.table th{
-      padding: 1rem;
-      text-align: left;
-      font-family: 'Italiana', serif;
-      font-size: 0.75rem;
-      letter-spacing: 0.3em;
+    .dor-table th {
+      background: var(--dor-card-2);
+      color: var(--dor-muted);
+      font-size: .7rem;
+      font-weight: 950;
+      letter-spacing: .06em;
       text-transform: uppercase;
-      font-weight: 800;
-      border-right: 2px solid var(--crimson);
+      text-align: left;
+      padding: 12px;
+      border-top: 1px solid var(--dor-line);
+      border-bottom: 1px solid var(--dor-line);
       white-space: nowrap;
     }
-    .store-delivered-page table.table th:last-child{ border-right: none; }
 
-    .store-delivered-page table.table tbody tr{
-      border-bottom: 2px solid var(--black);
-    }
-    .store-delivered-page table.table tbody tr:nth-child(even){
-      background: var(--light-crimson);
+    .dor-table th:first-child {
+      border-left: 1px solid var(--dor-line);
+      border-top-left-radius: 16px;
     }
 
-    .store-delivered-page table.table td{
-      padding: 1rem;
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1rem;
-      vertical-align: middle;
+    .dor-table th:last-child {
+      border-right: 1px solid var(--dor-line);
+      border-top-right-radius: 16px;
     }
 
-    .store-delivered-page .muted{ color: rgba(0,0,0,.65); }
-
-    .store-delivered-page *:focus-visible{
-      outline: 3px solid var(--crimson);
-      outline-offset: 3px;
+    .dor-table td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--dor-line);
+      color: var(--dor-text);
+      font-size: .84rem;
+      font-weight: 750;
+      vertical-align: top;
+      background: #fff;
     }
 
-    /* ========================================
-       RESPONSIVE
-       ======================================== */
-    @media (max-width: 768px){
-      .store-delivered-page .main-container{ padding: 2rem 1rem; }
-      .store-delivered-page .top-bar{
-        padding: 1rem;
-        font-size: 0.625rem;
-        letter-spacing: 0.35em;
+    .dor-table tr:hover td {
+      background: #FBFFFD;
+    }
+
+    .dor-main {
+      display: block;
+      color: var(--dor-text);
+      font-weight: 950;
+    }
+
+    .dor-sub {
+      display: block;
+      margin-top: 3px;
+      color: var(--dor-muted);
+      font-size: .74rem;
+      font-weight: 700;
+    }
+
+    .dor-money {
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .dor-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 950;
+      border: 1px solid var(--dor-line);
+      background: var(--dor-card-2);
+      color: var(--dor-muted);
+      white-space: nowrap;
+    }
+
+    .dor-pill.paid,
+    .dor-pill.online_paid,
+    .dor-pill.collected {
+      background: var(--dor-green-soft);
+      color: var(--dor-green-dark);
+      border-color: rgba(0,168,89,.20);
+    }
+
+    .dor-pill.pending {
+      background: #FFF7E8;
+      color: #A84700;
+      border-color: rgba(245,158,11,.24);
+    }
+
+    .dor-empty {
+      padding: 34px 18px;
+      text-align: center;
+      color: var(--dor-muted);
+      font-size: .92rem;
+      font-weight: 750;
+    }
+
+    .dor-mobile-list {
+      display: none;
+      padding: 0 18px 18px;
+      gap: 12px;
+    }
+
+    .dor-mobile-card {
+      padding: 16px;
+      border-radius: 20px;
+      background: #fff;
+      border: 1px solid var(--dor-line);
+      box-shadow: 0 10px 26px rgba(17,64,38,.06);
+      display: grid;
+      gap: 12px;
+    }
+
+    .dor-mobile-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .dor-mobile-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .dor-mobile-metric {
+      padding: 10px;
+      border-radius: 14px;
+      background: var(--dor-card-2);
+      display: grid;
+      gap: 3px;
+    }
+
+    .dor-mobile-metric span {
+      color: var(--dor-muted);
+      font-size: .68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .dor-mobile-metric strong {
+      color: var(--dor-text);
+      font-size: .88rem;
+      font-weight: 950;
+    }
+
+    @media (max-width: 1280px) {
+      .dor-summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
-      .store-delivered-page .hero-section{ padding: 4rem 1rem 3rem; }
-      .store-delivered-page .panel{ padding: 1.25rem; }
-      .store-delivered-page .table-shell{ overflow-x: scroll; }
     }
 
-    @media (prefers-reduced-motion: reduce){
-      .store-delivered-page *,
-      .store-delivered-page *::before,
-      .store-delivered-page *::after{
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
+    @media (max-width: 760px) {
+      .dor-hero {
+        padding: 18px;
+      }
+
+      .dor-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .dor-table-wrap {
+        display: none;
+      }
+
+      .dor-mobile-list {
+        display: grid;
+      }
+    }
+
+    @media (max-width: 460px) {
+      .dor-summary-grid,
+      .dor-mobile-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 
-  <!-- Film Grain Overlay -->
-  <div class="grain-overlay" aria-hidden="true"></div>
+  {% set total_orders = delivered_orders|length %}
+  {% set ns = namespace(
+    total_payable=0,
+    cod_collect=0,
+    delivery_fee=0,
+    platform_fee=0,
+    tip=0,
+    delivery_plus_tip=0,
+    store_earning=0
+  ) %}
 
-  <!-- Top Bar -->
-  <div class="top-bar">
-    <span>EST. 2018</span>
-    <span>MIZORAM, INDIA</span>
+  {% for o in delivered_orders %}
+    {% set ns.total_payable = ns.total_payable + (o.total_payable|default(0)|float) %}
+    {% set ns.cod_collect = ns.cod_collect + (o.amount_to_collect|default(0)|float) %}
+    {% set ns.delivery_fee = ns.delivery_fee + (o.delivery_fee|default(0)|float) %}
+    {% set ns.platform_fee = ns.platform_fee + (o.platform_fee|default(0)|float) %}
+    {% set ns.tip = ns.tip + (o.tip_amount|default(0)|float) %}
+    {% set ns.delivery_plus_tip = ns.delivery_plus_tip + (o.delivery_fee_plus_tip|default(0)|float) %}
+    {% set ns.store_earning = ns.store_earning + (o.store_earning|default(0)|float) %}
+  {% endfor %}
+
+  <div class="dor-hero">
+    <div>
+      <span class="dor-kicker">Delivered Orders Report</span>
+      <h2>{{ store.store_name or "Store" }}</h2>
+      <p>
+        View all delivered orders with payment method, delivery boy details, COD collection,
+        delivery charge, platform fee, customer tip, rider earning and store earning separation.
+      </p>
+    </div>
+
+    <div class="dor-actions">
+      <a class="dor-btn" href="{{ url_for('store_dashboard') }}">Dashboard</a>
+      <a class="dor-btn primary" href="{{ url_for('store_delivery_history') }}">Delivery Boy History</a>
+    </div>
   </div>
 
-  <!-- Hero -->
-  <header class="hero-section">
-    <h1 class="hero-title">{{ store.store_name }}</h1>
-    <p class="hero-subtitle">Delivered Orders</p>
-    <div class="hero-divider"></div>
-  </header>
+  <div class="dor-summary-grid">
+    <div class="dor-kpi">
+      <span>Delivered Orders</span>
+      <strong>{{ total_orders }}</strong>
+      <small>Total delivered records</small>
+    </div>
 
-  <main class="main-container">
-    <section class="panel" aria-label="Delivered orders list">
-      <div class="section-header">
-        <div class="icon-box" aria-hidden="true">✓</div>
-        <div>
-          <h3 class="section-title">Order History</h3>
-          <p class="section-description">All orders marked as delivered</p>
-        </div>
+    <div class="dor-kpi">
+      <span>Total Payable</span>
+      <strong>₹{{ "%.2f"|format(ns.total_payable|float) }}</strong>
+      <small>Includes delivery, platform fee and tip</small>
+    </div>
+
+    <div class="dor-kpi">
+      <span>COD Collection</span>
+      <strong>₹{{ "%.2f"|format(ns.cod_collect|float) }}</strong>
+      <small>Online-paid orders show zero collection</small>
+    </div>
+
+    <div class="dor-kpi">
+      <span>Delivery Fee</span>
+      <strong>₹{{ "%.2f"|format(ns.delivery_fee|float) }}</strong>
+      <small>Delivery fee total</small>
+    </div>
+
+    <div class="dor-kpi">
+      <span>Platform Fee</span>
+      <strong>₹{{ "%.2f"|format(ns.platform_fee|float) }}</strong>
+      <small>Separated platform/admin fee</small>
+    </div>
+
+    <div class="dor-kpi">
+      <span>Tips</span>
+      <strong>₹{{ "%.2f"|format(ns.tip|float) }}</strong>
+      <small>Customer tips</small>
+    </div>
+
+    <div class="dor-kpi">
+      <span>Delivery + Tip</span>
+      <strong>₹{{ "%.2f"|format(ns.delivery_plus_tip|float) }}</strong>
+      <small>Delivery-boy earning component</small>
+    </div>
+
+    <div class="dor-kpi">
+      <span>Store Earning</span>
+      <strong>₹{{ "%.2f"|format(ns.store_earning|float) }}</strong>
+      <small>Items subtotal only</small>
+    </div>
+  </div>
+
+  <div class="dor-card">
+    <div class="dor-section-head">
+      <div>
+        <h3>Delivered order details</h3>
+        <p>Each row contains delivery, payment and financial breakdown for one delivered order.</p>
       </div>
+    </div>
 
-      <!-- ✅ SAME link, same route, same class name -->
-      <a class="btn" href="{{ url_for('store_dashboard') }}">← Back to Active Orders</a>
-
-      <!-- ✅ SAME table structure, only wrapped for styling -->
-      <div class="table-shell">
-        <table class="table" style="margin-top:16px">
+    {% if delivered_orders %}
+      <div class="dor-table-wrap">
+        <table class="dor-table">
           <thead>
             <tr>
-              <th>#</th>
+              <th>Order</th>
               <th>Customer</th>
-              <th>Phone</th>
-              <th>Total (₹)</th>
-              <th>Delivered On</th>
+              <th>Delivery Boy</th>
               <th>Payment</th>
+              <th>COD / Collected</th>
+              <th>Items Subtotal</th>
+              <th>Delivery Fee</th>
+              <th>Platform Fee</th>
+              <th>Tip</th>
+              <th>Total Payable</th>
+              <th>Delivery + Tip</th>
+              <th>Store Earning</th>
+              <th>Delivered On</th>
             </tr>
           </thead>
           <tbody>
-          {% if orders and orders|length %}
-            {% for o in orders %}
+            {% for o in delivered_orders %}
               <tr>
-                <td>{{ o.id }}</td>
-                <td>{{ o.customer_name }}</td>
-                <td>{{ o.customer_phone or '—' }}</td>
-                <td>{{ '%.2f'|format(o.total_amount or 0) }}</td>
-                <td>{{ o.created_at.split('T')[0] if o.created_at else '' }}</td>
-                <td>{{ o.payment_status }}</td>
+                <td>
+                  <span class="dor-main">#{{ (o.id|string)[-6:] }}</span>
+                  <span class="dor-sub">{{ o.id }}</span>
+                </td>
+
+                <td>
+                  <span class="dor-main">{{ o.customer_name or "Customer" }}</span>
+                  <span class="dor-sub">{{ o.customer_phone or "Phone not available" }}</span>
+                </td>
+
+                <td>
+                  <span class="dor-main">{{ o.delivery_partner_name or "Not assigned" }}</span>
+                  <span class="dor-sub">{{ o.delivery_partner_phone or "Phone not available" }}</span>
+                  {% if o.delivery_assignment_source_label %}
+                    <span class="dor-sub">{{ o.delivery_assignment_source_label }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="dor-main">{{ o.payment_method or "COD" }}</span>
+                  <span class="dor-pill {{ (o.payment_status or 'PENDING')|lower }}">
+                    {{ o.payment_status or "PENDING" }}
+                  </span>
+                </td>
+
+                <td class="dor-money">₹{{ "%.2f"|format(o.amount_to_collect|default(0)|float) }}</td>
+                <td class="dor-money">₹{{ "%.2f"|format(o.items_subtotal|default(o.total_amount|default(0))|float) }}</td>
+                <td class="dor-money">₹{{ "%.2f"|format(o.delivery_fee|default(0)|float) }}</td>
+                <td class="dor-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</td>
+                <td class="dor-money">₹{{ "%.2f"|format(o.tip_amount|default(0)|float) }}</td>
+                <td class="dor-money">₹{{ "%.2f"|format(o.total_payable|default(o.total_amount|default(0))|float) }}</td>
+                <td class="dor-money">₹{{ "%.2f"|format(o.delivery_fee_plus_tip|default(0)|float) }}</td>
+                <td class="dor-money">₹{{ "%.2f"|format(o.store_earning|default(o.items_subtotal|default(o.total_amount|default(0)))|float) }}</td>
+
+                <td>
+                  <span class="dor-main">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
+                  {% if o.assigned_at %}
+                    <span class="dor-sub">Assigned: {{ o.assigned_at }}</span>
+                  {% endif %}
+                </td>
               </tr>
             {% endfor %}
-          {% else %}
-            <tr><td colspan="6" class="muted" style="text-align:center">No delivered orders yet.</td></tr>
-          {% endif %}
           </tbody>
         </table>
       </div>
-    </section>
-  </main>
-</section>
 
+      <div class="dor-mobile-list">
+        {% for o in delivered_orders %}
+          <div class="dor-mobile-card">
+            <div class="dor-mobile-top">
+              <div>
+                <span class="dor-main">#{{ (o.id|string)[-6:] }} · {{ o.customer_name or "Customer" }}</span>
+                <span class="dor-sub">{{ o.customer_phone or "Phone not available" }}</span>
+              </div>
+              <span class="dor-pill {{ (o.payment_status or 'PENDING')|lower }}">
+                {{ o.payment_status or "PENDING" }}
+              </span>
+            </div>
+
+            <div>
+              <span class="dor-main">{{ o.delivery_partner_name or "Not assigned" }}</span>
+              <span class="dor-sub">{{ o.delivery_partner_phone or "Phone not available" }}</span>
+            </div>
+
+            <div class="dor-mobile-grid">
+              <div class="dor-mobile-metric">
+                <span>COD</span>
+                <strong>₹{{ "%.2f"|format(o.amount_to_collect|default(0)|float) }}</strong>
+              </div>
+
+              <div class="dor-mobile-metric">
+                <span>Total</span>
+                <strong>₹{{ "%.2f"|format(o.total_payable|default(o.total_amount|default(0))|float) }}</strong>
+              </div>
+
+              <div class="dor-mobile-metric">
+                <span>Delivery</span>
+                <strong>₹{{ "%.2f"|format(o.delivery_fee|default(0)|float) }}</strong>
+              </div>
+
+              <div class="dor-mobile-metric">
+                <span>Platform</span>
+                <strong>₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</strong>
+              </div>
+
+              <div class="dor-mobile-metric">
+                <span>Tip</span>
+                <strong>₹{{ "%.2f"|format(o.tip_amount|default(0)|float) }}</strong>
+              </div>
+
+              <div class="dor-mobile-metric">
+                <span>Store Earning</span>
+                <strong>₹{{ "%.2f"|format(o.store_earning|default(o.items_subtotal|default(o.total_amount|default(0)))|float) }}</strong>
+              </div>
+            </div>
+
+            <span class="dor-sub">
+              Delivered: {{ o.delivered_at or o.updated_at or o.created_at or "-" }}
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="dor-empty">No delivered orders yet.</div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

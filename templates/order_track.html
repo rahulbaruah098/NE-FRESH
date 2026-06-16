@@ -598,6 +598,30 @@
       font-size:1.1rem;
     }
 
+    .track-order-page .track-old-fee{
+  color:var(--nf-muted);
+  text-decoration:line-through;
+  margin-right:6px;
+  font-weight:800;
+}
+
+.track-order-page .track-free-fee{
+  color:var(--nf-green-dark);
+  font-weight:950;
+}
+
+.track-order-page .track-free-note{
+  margin:8px 0 10px;
+  padding:10px 12px;
+  border-radius:12px;
+  background:var(--nf-green-soft);
+  border:1px solid rgba(0,168,89,.16);
+  color:var(--nf-green-dark);
+  font-size:.8rem;
+  line-height:1.45;
+  font-weight:800;
+}
+
     /* =========================================================
        PROGRESS TRACKER
        ========================================================= */
@@ -1633,11 +1657,13 @@
             <h3>Order Summary</h3>
           </div>
           <div class="card-body">
-            {% set items_subtotal = order.items_subtotal if order.items_subtotal is defined and order.items_subtotal is not none else order.total_amount %}
+{% set items_subtotal = order.items_subtotal if order.items_subtotal is defined and order.items_subtotal is not none else order.total_amount %}
 {% set delivery_fee = order.delivery_fee or 0 %}
 {% set platform_fee = order.platform_fee or 0 %}
 {% set tip_amount = order.tip_amount or 0 %}
 {% set final_total = order.total_payable if order.total_payable is defined and order.total_payable is not none else ((items_subtotal or 0) + delivery_fee + platform_fee + tip_amount) %}
+{% set original_delivery_fee = order.original_delivery_fee or order.free_delivery_savings or delivery_fee %}
+{% set delivery_savings = order.free_delivery_savings or original_delivery_fee or 0 %}
 
 <div class="sum-row">
   <span>Items Subtotal</span>
@@ -1645,25 +1671,41 @@
 </div>
 
 <div class="sum-row">
-  <span>Delivery Fee</span>
-  <span>₹{{ '%.2f'|format(delivery_fee) }}</span>
+  <span>Delivery Charge</span>
+  <span>
+    {% if order.free_delivery_above_applied %}
+      <span class="track-old-fee">₹{{ '%.2f'|format(original_delivery_fee or 0) }}</span>
+      <span class="track-free-fee">FREE</span>
+    {% else %}
+      ₹{{ '%.2f'|format(delivery_fee or 0) }}
+    {% endif %}
+  </span>
 </div>
+
+{% if order.free_delivery_above_applied %}
+  <div class="track-free-note">
+    🎉 Free delivery applied. You saved ₹{{ '%.2f'|format(delivery_savings or 0) }}.
+    {% if order.free_delivery_above %}
+      Offer applied because your order was above ₹{{ '%.2f'|format(order.free_delivery_above or 0) }}.
+    {% endif %}
+  </div>
+{% endif %}
 
 <div class="sum-row">
   <span>Platform Fee</span>
-  <span>₹{{ '%.2f'|format(platform_fee) }}</span>
+  <span>₹{{ '%.2f'|format(platform_fee or 0) }}</span>
 </div>
 
 {% if tip_amount and tip_amount > 0 %}
 <div class="sum-row">
-  <span>Tip</span>
-  <span>₹{{ '%.2f'|format(tip_amount) }}</span>
+  <span>Rider Tip</span>
+  <span>₹{{ '%.2f'|format(tip_amount or 0) }}</span>
 </div>
 {% endif %}
 
 {% if order.distance_km %}
 <div class="sum-row muted">
-  <span>Distance</span>
+  <span>Delivery Distance</span>
   <span>{{ '%.2f'|format(order.distance_km) }} km</span>
 </div>
 {% endif %}
@@ -1671,7 +1713,7 @@
 <div class="sum-divider"></div>
 
 <div class="sum-row total">
-  <span>Grand Total Payable</span>
+  <span>Total Payable</span>
   <span>₹{{ '%.2f'|format(final_total or 0) }}</span>
 </div>
           </div>
@@ -1774,27 +1816,60 @@
           {% endfor %}
         </div>
 
-        <div class="order-total-summary">
-          <div class="total-row">
-            <span>Items Subtotal</span>
-            <strong>₹ {{ '%.2f'|format(order.total_amount or 0) }}</strong>
-          </div>
-          <div class="total-row">
-            <span>Delivery Fee</span>
-            <strong>₹ {{ '%.2f'|format(order.delivery_fee or 0) }}</strong>
-          </div>
-          {% if order.tip_amount and order.tip_amount > 0 %}
-          <div class="total-row">
-            <span>Tip</span>
-            <strong>₹ {{ '%.2f'|format(order.tip_amount) }}</strong>
-          </div>
-          {% endif %}
-          <div class="divider"></div>
-          <div class="total-row grand">
-            <span>Grand Total Payable</span>
-            <strong>₹ {{ '%.2f'|format((order.total_amount or 0) + (order.delivery_fee or 0) + (order.tip_amount or 0)) }}</strong>
-          </div>
-        </div>
+{% set mobile_items_subtotal = order.items_subtotal if order.items_subtotal is defined and order.items_subtotal is not none else order.total_amount %}
+{% set mobile_delivery_fee = order.delivery_fee or 0 %}
+{% set mobile_platform_fee = order.platform_fee or 0 %}
+{% set mobile_tip_amount = order.tip_amount or 0 %}
+{% set mobile_final_total = order.total_payable if order.total_payable is defined and order.total_payable is not none else ((mobile_items_subtotal or 0) + mobile_delivery_fee + mobile_platform_fee + mobile_tip_amount) %}
+{% set mobile_original_delivery_fee = order.original_delivery_fee or order.free_delivery_savings or mobile_delivery_fee %}
+{% set mobile_delivery_savings = order.free_delivery_savings or mobile_original_delivery_fee or 0 %}
+
+<div class="order-total-summary">
+  <div class="total-row">
+    <span>Items Subtotal</span>
+    <strong>₹ {{ '%.2f'|format(mobile_items_subtotal or 0) }}</strong>
+  </div>
+
+  <div class="total-row">
+    <span>Delivery Charge</span>
+    <strong>
+      {% if order.free_delivery_above_applied %}
+        <span class="track-old-fee">₹{{ '%.2f'|format(mobile_original_delivery_fee or 0) }}</span>
+        <span class="track-free-fee">FREE</span>
+      {% else %}
+        ₹ {{ '%.2f'|format(mobile_delivery_fee or 0) }}
+      {% endif %}
+    </strong>
+  </div>
+
+  {% if order.free_delivery_above_applied %}
+    <div class="track-free-note">
+      🎉 Free delivery applied. You saved ₹{{ '%.2f'|format(mobile_delivery_savings or 0) }}.
+      {% if order.free_delivery_above %}
+        Offer applied because your order was above ₹{{ '%.2f'|format(order.free_delivery_above or 0) }}.
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="total-row">
+    <span>Platform Fee</span>
+    <strong>₹ {{ '%.2f'|format(mobile_platform_fee or 0) }}</strong>
+  </div>
+
+  {% if mobile_tip_amount and mobile_tip_amount > 0 %}
+  <div class="total-row">
+    <span>Rider Tip</span>
+    <strong>₹ {{ '%.2f'|format(mobile_tip_amount or 0) }}</strong>
+  </div>
+  {% endif %}
+
+  <div class="divider"></div>
+
+  <div class="total-row grand">
+    <span>Total Payable</span>
+    <strong>₹ {{ '%.2f'|format(mobile_final_total or 0) }}</strong>
+  </div>
+</div>
       </section>
 
       <!-- ===== Address ===== -->

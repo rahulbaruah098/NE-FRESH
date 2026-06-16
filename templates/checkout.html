@@ -814,8 +814,91 @@
     font-weight:750;
   }
 
-  #fee-preview strong{ color:#111714; font-weight:950; }
-  #fee-meta{ margin-top:5px; color:var(--nf-muted); font-size:.68rem; line-height:1.4; }
+ #fee-preview strong{ color:#111714; font-weight:950; }
+
+#fee-meta{
+  margin-top:7px;
+  color:var(--nf-muted);
+  font-size:.68rem;
+  line-height:1.45;
+  font-weight:800;
+}
+
+.fee-meta-stack{
+  display:grid;
+  gap:6px;
+}
+
+.fee-meta-line{
+  color:var(--nf-muted);
+  font-size:.68rem;
+  line-height:1.45;
+  font-weight:800;
+}
+
+.fee-free-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  width:max-content;
+  max-width:100%;
+  min-height:26px;
+  padding:0 10px;
+  border-radius:999px;
+  background:var(--nf-green-soft);
+  border:1px solid rgba(0,168,89,.18);
+  color:var(--nf-green-dark);
+  font-size:.68rem;
+  font-weight:950;
+}
+
+.fee-slab-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  width:max-content;
+  max-width:100%;
+  min-height:24px;
+  padding:0 9px;
+  border-radius:999px;
+  background:#FFF8E8;
+  border:1px solid rgba(255,184,77,.30);
+  color:#9A6500;
+  font-size:.66rem;
+  font-weight:950;
+}
+
+.fee-old-price{
+  color:var(--nf-muted);
+  text-decoration:line-through;
+  font-weight:850;
+}
+
+.fee-free-text{
+  color:var(--nf-green-dark);
+  font-weight:950;
+}
+
+.pay-line.free-delivery strong{
+  color:var(--nf-green-dark);
+}
+
+.pay-line.free-delivery .fee-old-price{
+  margin-right:6px;
+  font-size:.78rem;
+}
+
+.checkout-saving-note{
+  margin-top:4px;
+  padding:9px 10px;
+  border-radius:10px;
+  background:var(--nf-green-soft);
+  border:1px solid rgba(0,168,89,.16);
+  color:var(--nf-green-dark);
+  font-size:.68rem;
+  line-height:1.45;
+  font-weight:850;
+}
 
   #fee-warn{
     display:none;
@@ -1701,6 +1784,80 @@ const payGrandTotal = document.getElementById('pay-grand-total');
     return (Number(n) || 0).toFixed(2);
   }
 
+  function escapeHtml(value){
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatMoneyDisplay(amount){
+  return `₹${format2(amount)}`;
+}
+
+function buildSlabLabel(slab){
+  if (!slab || typeof slab !== "object") return "";
+
+  const minRaw = slab.min_km ?? slab.low ?? "";
+  const maxRaw = slab.max_km ?? slab.high ?? "";
+  const feeRaw = slab.fee ?? "";
+
+  const minText = String(minRaw === null || minRaw === undefined || minRaw === "" ? "0" : minRaw);
+  const feeText = feeRaw === "" || feeRaw === null || feeRaw === undefined ? "" : `₹${format2(feeRaw)}`;
+
+  if (maxRaw === null || maxRaw === undefined || String(maxRaw).trim() === "") {
+   return `${minText}+ km delivery area${feeText ? ` • Delivery charge ${feeText}` : ""}`;
+  }
+
+  return `${minText}–${maxRaw} km delivery area${feeText ? ` • Delivery charge ${feeText}` : ""}`;
+}
+
+function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
+  const info = feeInfo || {};
+  const details = info.delivery_fee_details || {};
+  const slab = info.delivery_fee_slab || details.delivery_fee_slab || null;
+
+  const source = info.delivery_fee_source || details.delivery_fee_source || "";
+  const freeApplied = Boolean(
+    info.free_delivery_above_applied ||
+    source === "store_free_delivery_above"
+  );
+
+  const originalFee = Number(
+    info.original_delivery_fee ??
+    details.original_delivery_fee ??
+    details.delivery_fee_before_discount ??
+    deliveryFee ??
+    0
+  ) || 0;
+
+  const savings = Number(
+    info.free_delivery_savings ??
+    details.free_delivery_savings ??
+    0
+  ) || 0;
+
+  const freeAbove = Number(
+    info.free_delivery_above ??
+    details.free_delivery_above ??
+    0
+  ) || 0;
+
+  const slabLabel = buildSlabLabel(slab);
+
+  return {
+    source,
+    freeApplied,
+    originalFee,
+    savings,
+    freeAbove,
+    slabLabel,
+    slab
+  };
+}
+
   function clampTip(v){
     let tip = Number(v || 0);
 
@@ -1797,39 +1954,59 @@ const payGrandTotal = document.getElementById('pay-grand-total');
     return null;
   }
 
-  function updateUI(deliveryFee, tip, metaLine, platformFee = 0, platformFeeLabel = "Platform Fee"){
+ function updateUI(
+  deliveryFee,
+  tip,
+  metaLine,
+  platformFee = 0,
+  platformFeeLabel = "Platform Fee",
+  feeInfo = null
+){
   deliveryFee = Number(deliveryFee || 0);
   tip = Number(tip || 0);
   platformFee = Number(platformFee || 0);
 
   const payable = ITEMS_TOTAL + deliveryFee + platformFee + tip;
+  const deliveryDisplay = buildDeliveryDisplayInfo(deliveryFee, feeInfo);
+
+  const deliveryAmountHtml = deliveryDisplay.freeApplied
+    ? `<span class="fee-old-price">${formatMoneyDisplay(deliveryDisplay.originalFee)}</span><span class="fee-free-text">FREE</span>`
+    : `${formatMoneyDisplay(deliveryFee)}`;
+
+  const deliveryPlainText = deliveryDisplay.freeApplied
+    ? `FREE`
+    : `${formatMoneyDisplay(deliveryFee)}`;
 
   if (feeAmountEl) {
     if ("value" in feeAmountEl) {
-      feeAmountEl.value = `₹${format2(deliveryFee)}`;
+      feeAmountEl.value = deliveryDisplay.freeApplied
+        ? `FREE - saved ₹${format2(deliveryDisplay.savings || deliveryDisplay.originalFee)}`
+        : `${formatMoneyDisplay(deliveryFee)}`;
     } else {
-      feeAmountEl.textContent = `₹${format2(deliveryFee)}`;
+      feeAmountEl.innerHTML = deliveryAmountHtml;
     }
   }
 
   if (totalPayableEl) {
-    totalPayableEl.textContent = `₹${format2(payable)}`;
+    totalPayableEl.textContent = `${formatMoneyDisplay(payable)}`;
   }
 
   if (payItemsTotal) {
-    payItemsTotal.textContent = `₹${format2(ITEMS_TOTAL)}`;
+    payItemsTotal.textContent = `${formatMoneyDisplay(ITEMS_TOTAL)}`;
   }
 
   if (payDeliveryFee) {
-    payDeliveryFee.textContent = `₹${format2(deliveryFee)}`;
+    payDeliveryFee.innerHTML = deliveryAmountHtml;
+    payDeliveryFee.closest('.pay-line')?.classList.toggle('free-delivery', deliveryDisplay.freeApplied);
   }
 
   if (payCheckoutDeliveryFee) {
-    payCheckoutDeliveryFee.textContent = `₹${format2(deliveryFee)}`;
+    payCheckoutDeliveryFee.innerHTML = deliveryAmountHtml;
+    payCheckoutDeliveryFee.closest('.pay-line')?.classList.toggle('free-delivery', deliveryDisplay.freeApplied);
   }
 
   if (payPlatformFee) {
-    payPlatformFee.textContent = `₹${format2(platformFee)}`;
+    payPlatformFee.textContent = `${formatMoneyDisplay(platformFee)}`;
   }
 
   if (payPlatformFeeLabel) {
@@ -1837,27 +2014,62 @@ const payGrandTotal = document.getElementById('pay-grand-total');
   }
 
   if (payTipAmount) {
-    payTipAmount.textContent = `₹${format2(tip)}`;
+    payTipAmount.textContent = `${formatMoneyDisplay(tip)}`;
   }
 
   if (payGrandTotal) {
-    payGrandTotal.textContent = `₹${format2(payable)}`;
+    payGrandTotal.textContent = `${formatMoneyDisplay(payable)}`;
   }
 
   if (btn) {
-    btn.textContent = `Place Order ₹${format2(payable)}`;
+    btn.textContent = `Place Order ${formatMoneyDisplay(payable)}`;
   }
 
   if (totalBreakdown){
+    const deliveryBreakdownLine = deliveryDisplay.freeApplied
+      ? `<div class="pay-line free-delivery"><span>Delivery charge</span><strong>${deliveryAmountHtml}</strong></div>`
+      : `<div class="pay-line"><span>Delivery charge</span><strong>${formatMoneyDisplay(deliveryFee)}</strong></div>`;
+
+    const savingNote = deliveryDisplay.freeApplied
+      ? `<div class="checkout-saving-note">🎉 Free delivery applied. You saved ₹${format2(deliveryDisplay.savings || deliveryDisplay.originalFee)}${deliveryDisplay.freeAbove > 0 ? ` because your order is above ₹${format2(deliveryDisplay.freeAbove)}` : ""}.</div>`
+      : "";
+
     totalBreakdown.innerHTML =
-      `<div class="pay-line"><span>Product subtotal</span><strong>₹${format2(ITEMS_TOTAL)}</strong></div>` +
-      `<div class="pay-line"><span>Delivery charge</span><strong>₹${format2(deliveryFee)}</strong></div>` +
-      `<div class="pay-line"><span>${platformFeeLabel || "Platform Fee"}</span><strong>₹${format2(platformFee)}</strong></div>` +
-      `<div class="pay-line"><span>Rider tip</span><strong>₹${format2(tip)}</strong></div>`;
+      `<div class="pay-line"><span>Product subtotal</span><strong>${formatMoneyDisplay(ITEMS_TOTAL)}</strong></div>` +
+      deliveryBreakdownLine +
+      `<div class="pay-line"><span>${escapeHtml(platformFeeLabel || "Platform Fee")}</span><strong>${formatMoneyDisplay(platformFee)}</strong></div>` +
+      `<div class="pay-line"><span>Rider tip</span><strong>${formatMoneyDisplay(tip)}</strong></div>` +
+      savingNote;
   }
 
   if (feeMeta) {
-    feeMeta.textContent = metaLine || "";
+    const metaParts = [];
+
+    if (deliveryDisplay.freeApplied) {
+      metaParts.push(
+        `<span class="fee-free-badge">🎉 Free delivery applied</span>`
+      );
+
+      metaParts.push(
+        `<div class="fee-meta-line">You saved ₹${format2(deliveryDisplay.savings || deliveryDisplay.originalFee)}${deliveryDisplay.freeAbove > 0 ? ` because your order is above ₹${format2(deliveryDisplay.freeAbove)}` : ""}.</div>`
+      );
+    }
+
+    if (deliveryDisplay.slabLabel) {
+      metaParts.push(
+`<span class="fee-slab-badge">Delivery charge for this distance: ${escapeHtml(deliveryDisplay.slabLabel)}</span>`
+      );
+    }
+
+    if (metaLine) {
+      metaParts.push(
+        `<div class="fee-meta-line">${escapeHtml(metaLine)}</div>`
+      );
+    }
+
+    feeMeta.innerHTML = metaParts.length
+      ? `<div class="fee-meta-stack">${metaParts.join("")}</div>`
+      : "";
   }
 }
 
@@ -2143,14 +2355,15 @@ const platformFeeLabel = result.platform_fee_label || "Platform Fee";
   setWarn(result.message || "Delivery is not available for your selected location.");
 
   updateUI(
-    deliveryFee,
-    tip,
-    result.reason
-      ? `Distance: ${Number(result.distance_km || 0).toFixed(2)} km | ${result.reason}`
-      : "Delivery unavailable",
-    platformFee,
-    platformFeeLabel
-  );
+  deliveryFee,
+  tip,
+  result.reason
+    ? `Distance: ${Number(result.distance_km || 0).toFixed(2)} km | ${result.reason}`
+    : "Delivery unavailable",
+  platformFee,
+  platformFeeLabel,
+  result
+);
 
   return;
 }
@@ -2170,12 +2383,23 @@ const platformFeeLabel = result.platform_fee_label || "Platform Fee";
         resolved.source === "pincode" ? "Pincode location" :
         "Detected location";
 
-      updateUI(
+    const deliveryDisplay = buildDeliveryDisplayInfo(deliveryFee, result);
+
+const deliveryText = deliveryDisplay.freeApplied
+  ? `Delivery FREE | Saved ₹${format2(deliveryDisplay.savings || deliveryDisplay.originalFee)}`
+  : `Delivery Fee ₹${format2(deliveryFee)}`;
+
+const slabText = deliveryDisplay.slabLabel
+  ? ` | Delivery area: ${deliveryDisplay.slabLabel}`
+  : "";
+
+updateUI(
   deliveryFee,
   tip,
-  `${distanceText} | Delivery Fee ₹${format2(deliveryFee)} | ${platformFeeLabel} ₹${format2(platformFee)} | ${sourceLabel}${resolved.pin ? ` | Pin: ${resolved.pin}` : ""}`,
+  `${distanceText} | ${deliveryText}${slabText} | ${platformFeeLabel} ₹${format2(platformFee)} | ${sourceLabel}${resolved.pin ? ` | Pin: ${resolved.pin}` : ""}`,
   platformFee,
-  platformFeeLabel
+  platformFeeLabel,
+  result
 );
 
       setLocMsg(result.message || "Delivery available for this location.", true);
@@ -2184,7 +2408,7 @@ const platformFeeLabel = result.platform_fee_label || "Platform Fee";
       lastServiceability = null;
       setButtonEnabled(false);
       setWarn(e.message || "Could not check delivery availability.");
-      updateUI(deliveryFee, tip, "");
+      updateUI(deliveryFee, tip, "Could not check delivery availability.");
     }
   }
 
