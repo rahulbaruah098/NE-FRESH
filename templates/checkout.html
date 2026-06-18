@@ -480,6 +480,85 @@
     gap:12px;
   }
 
+    .payment-method-box{
+    display:grid;
+    gap:10px;
+    padding:12px;
+    border:1px solid rgba(227,241,233,.88);
+    border-radius:10px;
+    background:rgba(255,255,255,.88);
+    box-shadow:0 8px 24px rgba(17,64,38,.035);
+  }
+
+  .payment-method-title{
+    margin:0;
+    color:#111714;
+    font-size:.82rem;
+    font-weight:950;
+  }
+
+  .payment-method-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+
+  .payment-method-option{
+    position:relative;
+    display:grid;
+    gap:5px;
+    min-height:78px;
+    padding:12px;
+    border:1px solid var(--nf-line);
+    border-radius:10px;
+    background:#fff;
+    color:#111714;
+    cursor:pointer;
+    transition:.22s var(--nf-ease);
+  }
+
+  .payment-method-option input{
+    position:absolute;
+    opacity:0;
+    pointer-events:none;
+  }
+
+  .payment-method-option strong{
+    font-size:.82rem;
+    font-weight:950;
+  }
+
+  .payment-method-option span{
+    color:var(--nf-muted);
+    font-size:.68rem;
+    font-weight:750;
+    line-height:1.35;
+  }
+
+  .payment-method-option:has(input:checked){
+    border-color:var(--nf-green);
+    background:var(--nf-green-soft-2);
+    box-shadow:0 0 0 3px rgba(0,168,89,.08);
+  }
+
+  .payment-method-option.disabled{
+    opacity:.55;
+    cursor:not-allowed;
+  }
+
+  .payment-method-note{
+    color:var(--nf-muted);
+    font-size:.7rem;
+    font-weight:750;
+    line-height:1.4;
+  }
+
+  @media(max-width:560px){
+    .payment-method-grid{
+      grid-template-columns:1fr;
+    }
+  }
+
   .payment-tabs{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -1413,27 +1492,50 @@
       <aside class="checkout-right" aria-label="Payment and delivery details">
         <div class="checkout-form-card">
           <form method="post" id="checkout-form">
-            <div class="payment-tabs" role="tablist" aria-label="Payment type">
-              <button class="payment-tab active" type="button">Pay on Delivery</button>
-              <button class="payment-tab" type="button">Pay Online</button>
-            </div>
+                       <div class="payment-method-box">
+              <p class="payment-method-title">Select payment method</p>
 
-            <div class="wallet-row" aria-label="Payment options">
-              <button class="wallet-btn active" type="button">💵 COD</button>
-              <button class="wallet-btn" type="button">💳 Card</button>
-              <button class="wallet-btn" type="button">🏦 UPI</button>
-              <button class="wallet-btn" type="button">➕ Wallet</button>
-            </div>
+              <div class="payment-method-grid">
+                <label class="payment-method-option">
+                  <input type="radio" name="payment_method" value="COD" checked>
+                  <strong>💵 Cash on Delivery</strong>
+                  <span>Pay the delivery partner when your order arrives.</span>
+                </label>
 
-            <div class="secure-row">
-              <span>Secure order confirmation</span>
-              <span>Cash on Delivery</span>
+                <label class="payment-method-option {% if not online_payment_enabled %}disabled{% endif %}">
+                  <input type="radio"
+                         name="payment_method"
+                         value="ONLINE"
+                         {% if not online_payment_enabled %}disabled{% endif %}>
+                  <strong>💳 Pay Online</strong>
+                  <span>
+                    {% if online_payment_enabled %}
+                      Pay securely through {{ payment_gateway_settings.gateway|default("RAZORPAY") }}.
+                    {% else %}
+                      Online payment is currently disabled by Admin.
+                    {% endif %}
+                  </span>
+                </label>
+              </div>
+
+              <div class="secure-row">
+                <span id="payment-secure-label">Secure order confirmation</span>
+                <span id="payment-mode-label">Cash on Delivery</span>
+              </div>
+
+              <div class="payment-method-note">
+                {% if online_payment_enabled %}
+                  Online payment order will be prepared for Razorpay payment in the next step.
+                {% else %}
+                  COD is available now. Online payment will appear after Admin enables Razorpay.
+                {% endif %}
+              </div>
             </div>
 
             <div class="field-grid" aria-label="Customer details preview">
               <label class="field-label readonly-card-number">
-                Payment method
-                <input type="text" value="Cash on Delivery" readonly aria-readonly="true">
+                                Payment method
+                <input type="text" id="payment-method-preview" value="Cash on Delivery" readonly aria-readonly="true">
                 <span class="card-brand-row" aria-hidden="true">
                   <span class="card-brand">COD</span>
                   <span class="card-brand">₹</span>
@@ -1514,9 +1616,7 @@
               <div id="locMsg" class="loc-msg"></div>
             </div>
 
-            <div id="fee-preview" aria-live="polite">
-              Estimated Delivery Fee:
-              <strong>₹{{ '%.2f'|format(base_fee|default(40)) }}</strong>
+                       <div id="fee-preview" aria-live="polite" style="display:none;">
               <div id="fee-meta" class="muted"></div>
               <div id="fee-warn" role="alert" aria-live="polite"></div>
             </div>
@@ -1650,10 +1750,11 @@
 
     <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const BASE_DELIVERY_FEE = Number({{ (base_fee|default(40))|tojson }});
+    const BASE_DELIVERY_FEE = Number({{ (base_fee|default(40))|tojson }});
   const MAX_DELIVERY_KM   = Number({{ (max_km|default(10.0))|tojson }});
   const SLABS_RAW         = {{ (slabs|default([(0,2,0),(2,5,15),(5,7,25),(7,10,35)]))|tojson }};
   const ITEMS_TOTAL       = Number({{ (total|default(0))|tojson }}) || 0;
+  const ONLINE_PAYMENT_ENABLED = Boolean({{ (online_payment_enabled|default(false))|tojson }});
 
   const SLAB_LIST = Array.isArray(SLABS_RAW)
     ? SLABS_RAW.map(s => ({ low: Number(s[0]), high: Number(s[1]), fee: Number(s[2]) }))
@@ -1678,6 +1779,9 @@ const payTipAmount = document.getElementById('pay-tip-amount');
 const payGrandTotal = document.getElementById('pay-grand-total');
 
   const btn = document.getElementById('place-order-btn');
+    const paymentRadios = Array.from(document.querySelectorAll('input[name="payment_method"]'));
+  const paymentMethodPreview = document.getElementById('payment-method-preview');
+  const paymentModeLabel = document.getElementById('payment-mode-label');
 
   const resolvedLatInput = document.getElementById('resolved_lat');
   const resolvedLngInput = document.getElementById('resolved_lng');
@@ -1820,9 +1924,9 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
   const slab = info.delivery_fee_slab || details.delivery_fee_slab || null;
 
   const source = info.delivery_fee_source || details.delivery_fee_source || "";
-  const freeApplied = Boolean(
+   const freeApplied = Boolean(
     info.free_delivery_above_applied ||
-    source === "store_free_delivery_above"
+    source === "admin_free_delivery_above"
   );
 
   const originalFee = Number(
@@ -1894,6 +1998,36 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
 
     locMsg.textContent = text || "";
     locMsg.style.color = ok ? "green" : "crimson";
+  }
+
+    function selectedPaymentMethod(){
+    const selected = paymentRadios.find(r => r.checked);
+    return selected ? selected.value : "COD";
+  }
+
+  function syncPaymentUI(){
+    const method = selectedPaymentMethod();
+
+    if (method === "ONLINE" && !ONLINE_PAYMENT_ENABLED) {
+      const codRadio = paymentRadios.find(r => r.value === "COD");
+      if (codRadio) codRadio.checked = true;
+      return syncPaymentUI();
+    }
+
+    const isOnline = method === "ONLINE";
+    const label = isOnline ? "Online Payment" : "Cash on Delivery";
+
+    if (paymentMethodPreview) {
+      paymentMethodPreview.value = label;
+    }
+
+    if (paymentModeLabel) {
+      paymentModeLabel.textContent = label;
+    }
+
+    if (btn) {
+      btn.dataset.paymentMethod = method;
+    }
   }
 
   function setButtonEnabled(ok){
@@ -2021,8 +2155,10 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
     payGrandTotal.textContent = `${formatMoneyDisplay(payable)}`;
   }
 
-  if (btn) {
-    btn.textContent = `Place Order ${formatMoneyDisplay(payable)}`;
+    if (btn) {
+    const method = selectedPaymentMethod();
+    const prefix = method === "ONLINE" ? "Continue to Pay" : "Place Order";
+    btn.textContent = `${prefix} ${formatMoneyDisplay(payable)}`;
   }
 
   if (totalBreakdown){
@@ -2042,7 +2178,7 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
       savingNote;
   }
 
-  if (feeMeta) {
+    if (feeMeta) {
     const metaParts = [];
 
     if (deliveryDisplay.freeApplied) {
@@ -2052,18 +2188,6 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
 
       metaParts.push(
         `<div class="fee-meta-line">You saved ₹${format2(deliveryDisplay.savings || deliveryDisplay.originalFee)}${deliveryDisplay.freeAbove > 0 ? ` because your order is above ₹${format2(deliveryDisplay.freeAbove)}` : ""}.</div>`
-      );
-    }
-
-    if (deliveryDisplay.slabLabel) {
-      metaParts.push(
-`<span class="fee-slab-badge">Delivery charge for this distance: ${escapeHtml(deliveryDisplay.slabLabel)}</span>`
-      );
-    }
-
-    if (metaLine) {
-      metaParts.push(
-        `<div class="fee-meta-line">${escapeHtml(metaLine)}</div>`
       );
     }
 
@@ -2385,18 +2509,10 @@ const platformFeeLabel = result.platform_fee_label || "Platform Fee";
 
     const deliveryDisplay = buildDeliveryDisplayInfo(deliveryFee, result);
 
-const deliveryText = deliveryDisplay.freeApplied
-  ? `Delivery FREE | Saved ₹${format2(deliveryDisplay.savings || deliveryDisplay.originalFee)}`
-  : `Delivery Fee ₹${format2(deliveryFee)}`;
-
-const slabText = deliveryDisplay.slabLabel
-  ? ` | Delivery area: ${deliveryDisplay.slabLabel}`
-  : "";
-
 updateUI(
   deliveryFee,
   tip,
-  `${distanceText} | ${deliveryText}${slabText} | ${platformFeeLabel} ₹${format2(platformFee)} | ${sourceLabel}${resolved.pin ? ` | Pin: ${resolved.pin}` : ""}`,
+  "",
   platformFee,
   platformFeeLabel,
   result
@@ -2745,90 +2861,154 @@ updateUI(
   }
 
 
-   async function usePincode(){
-    if (cartStoreCount > 1){
-      setLocMsg("Checkout blocked: Multiple stores in cart. Please clear cart to one store.", false);
+async function usePincode(){
+  if (cartStoreCount > 1){
+    setLocMsg("Checkout blocked: Multiple stores in cart. Please clear cart to one store.", false);
+    setButtonEnabled(false);
+    return;
+  }
+
+  const p = cleanPin(pinInput?.value || "");
+
+  if (!/^\d{6}$/.test(p)){
+    setLocMsg("Please enter a valid 6-digit pincode.", false);
+    setButtonEnabled(false);
+    setWarn("Please enter a valid 6-digit pincode.");
+    return;
+  }
+
+  try {
+    if (btnPin) {
+      btnPin.disabled = true;
+      btnPin.textContent = "Checking...";
+    }
+
+    setWarn("");
+    setLocMsg("Checking delivery availability for this pincode...", true);
+
+    const resolvedPin = await apiResolvePincode(p);
+
+    if (!resolvedPin.assam) {
+      setButtonEnabled(false);
+      setLocMsg("Delivery is not available for this pincode. NE FRESH delivery is currently available only within Assam.", false);
+      setWarn("Delivery is not available for this pincode.");
+      updateUI(BASE_DELIVERY_FEE, clampTip(tipInput ? tipInput.value : 0), "");
       return;
     }
 
-    const p = cleanPin(pinInput?.value || "");
+    const pinLat = resolvedPin.lat !== null && resolvedPin.lat !== undefined
+      ? Number(resolvedPin.lat)
+      : null;
 
-    if (!/^\d{6}$/.test(p)){
-      setLocMsg("Please enter a valid 6-digit pincode.", false);
+    const pinLng = resolvedPin.lng !== null && resolvedPin.lng !== undefined
+      ? Number(resolvedPin.lng)
+      : null;
+
+    if (!Number.isFinite(pinLat) || !Number.isFinite(pinLng)) {
       setButtonEnabled(false);
+      setLocMsg("Pincode is valid, but exact delivery check needs current location. Please use Current Location.", false);
+      setWarn("Please use current location for exact delivery availability.");
+      updateUI(BASE_DELIVERY_FEE, clampTip(tipInput ? tipInput.value : 0), "");
       return;
     }
 
-    try {
-      if (btnPin) {
-        btnPin.disabled = true;
-        btnPin.textContent = "Checking...";
-      }
+    await apiSetLocation({
+      address: resolvedPin.address || `Pincode ${p}`,
+      pincode: p,
+      lat: pinLat,
+      lng: pinLng,
+      city: resolvedPin.city || "",
+      state: resolvedPin.state || "",
+      source: "checkout-pincode"
+    });
 
-      setLocMsg("Resolving pincode and checking delivery zone...", true);
+    gpsCache = null;
 
-      const resolvedPin = await apiResolvePincode(p);
+    sessionLoc = {
+      pin: p,
+      lat: pinLat,
+      lng: pinLng,
+      address: resolvedPin.address || `Pincode ${p}`,
+      city: resolvedPin.city || "",
+      state: resolvedPin.state || "",
+      source: "pincode"
+    };
 
-      if (!resolvedPin.assam) {
-        setLocMsg("This pincode appears outside Assam. Please use another location.", false);
-        setButtonEnabled(false);
-        setWarn("This pincode appears outside Assam.");
-        return;
-      }
+    if (resolvedLatInput) {
+      resolvedLatInput.value = String(pinLat);
+    }
 
-      await apiSetLocation({
-        address: resolvedPin.address || `Pincode ${p}`,
-        pincode: p,
-        lat: resolvedPin.lat,
-        lng: resolvedPin.lng,
-        city: resolvedPin.city || "",
-        state: resolvedPin.state || "",
-        source: "checkout-pincode"
-      });
+    if (resolvedLngInput) {
+      resolvedLngInput.value = String(pinLng);
+    }
 
-      gpsCache = null;
+    if (pinInput) {
+      pinInput.value = p;
+    }
 
-      sessionLoc = {
-        pin: p,
-        lat: resolvedPin.lat,
-        lng: resolvedPin.lng,
-        address: resolvedPin.address || `Pincode ${p}`,
-        city: resolvedPin.city || "",
-        state: resolvedPin.state || "",
-        source: "pincode"
-      };
+    const result = await apiCheckoutServiceability({
+      lat: pinLat,
+      lng: pinLng,
+      pincode: p
+    });
 
-      if (resolvedLatInput) {
-        resolvedLatInput.value = resolvedPin.lat !== null && resolvedPin.lat !== undefined
-          ? String(resolvedPin.lat)
-          : "";
-      }
+    lastServiceability = result;
 
-      if (resolvedLngInput) {
-        resolvedLngInput.value = resolvedPin.lng !== null && resolvedPin.lng !== undefined
-          ? String(resolvedPin.lng)
-          : "";
-      }
+    const tip = clampTip(tipInput ? tipInput.value : 0);
+    const deliveryFee = Number(result.delivery_fee || 0);
+    const platformFee = Number(result.platform_fee || 0);
+    const platformFeeLabel = result.platform_fee_label || "Platform Fee";
 
-      if (pinInput) {
-        pinInput.value = p;
-      }
+    updateUI(
+      deliveryFee,
+      tip,
+      "",
+      platformFee,
+      platformFeeLabel,
+      result
+    );
 
-      setLocMsg("Pincode resolved. Checking store delivery availability...", true);
-
-      await recalc();
-
-    } catch (e) {
+    if (!result.serviceable) {
       setButtonEnabled(false);
-      setLocMsg(e.message || "Could not check this pincode.", false);
-      setWarn(e.message || "Could not check this pincode.");
-    } finally {
-      if (btnPin) {
-        btnPin.disabled = false;
-        btnPin.textContent = "Apply";
-      }
+
+      const notAvailableMessage = result.message || "Delivery is not available for this pincode.";
+
+      setLocMsg(notAvailableMessage, false);
+      setWarn(notAvailableMessage);
+      return;
+    }
+
+    const selectedAddress = ensureSelected();
+
+    if (!selectedAddress) {
+      setButtonEnabled(false);
+      setWarn("Delivery is available for this pincode. Please add/select a delivery address to continue.");
+      setLocMsg("Delivery is available for this pincode. Please add/select a delivery address to continue.", true);
+      return;
+    }
+
+    setButtonEnabled(true);
+    setWarn("");
+
+    const distanceText = result.distance_km !== null && result.distance_km !== undefined
+      ? ` Distance: ${Number(result.distance_km).toFixed(2)} km.`
+      : "";
+
+    setLocMsg(`Delivery is available for this pincode.${distanceText}`, true);
+
+  } catch (e) {
+    lastServiceability = null;
+    setButtonEnabled(false);
+    setLocMsg(e.message || "Could not check this pincode.", false);
+    setWarn(e.message || "Could not check this pincode.");
+    updateUI(BASE_DELIVERY_FEE, clampTip(tipInput ? tipInput.value : 0), "");
+  } finally {
+    if (btnPin) {
+      btnPin.disabled = false;
+      btnPin.textContent = "Apply";
     }
   }
+}
 
   radios().forEach(r => {
     r.addEventListener('change', async () => {
@@ -2849,9 +3029,12 @@ updateUI(
     });
   });
 
-  if (tipInput) {
-    tipInput.addEventListener('input', () => recalc());
-  }
+    paymentRadios.forEach(radio => {
+    radio.addEventListener("change", function(){
+      syncPaymentUI();
+      recalc();
+    });
+  });
 
   if (btnGps) {
     btnGps.addEventListener("click", useGps);
@@ -2939,6 +3122,7 @@ updateUI(
     sessionLoc.pin = firstPin;
   }
 
+    syncPaymentUI();
   recalc();
 });
 </script>

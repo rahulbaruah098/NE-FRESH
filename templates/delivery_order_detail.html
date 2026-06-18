@@ -910,6 +910,7 @@ Pickup, delivery, navigation, customer call, live location and status update for
       order_id: orderId,
       latitude: coords.latitude,
       longitude: coords.longitude,
+      accuracy: (typeof coords.accuracy === 'number') ? coords.accuracy : null,
       heading: (typeof coords.heading === 'number') ? coords.heading : null,
       speed: (typeof coords.speed === 'number') ? coords.speed : null
     };
@@ -976,8 +977,9 @@ Pickup, delivery, navigation, customer call, live location and status update for
 
         if (gpsInfo) {
           gpsInfo.textContent =
-            `Live location active: lat ${c.latitude.toFixed(5)}, lng ${c.longitude.toFixed(5)}` +
-            (typeof c.speed === 'number' ? ` | speed ${(c.speed || 0).toFixed(1)} m/s` : '');
+  `Live location active: lat ${c.latitude.toFixed(6)}, lng ${c.longitude.toFixed(6)}` +
+  (typeof c.accuracy === 'number' ? ` | accuracy ${Math.round(c.accuracy)} m` : '') +
+  (typeof c.speed === 'number' ? ` | speed ${(c.speed || 0).toFixed(1)} m/s` : '');
         }
 
         postPing(activeOrderId, c);
@@ -986,7 +988,11 @@ Pickup, delivery, navigation, customer call, live location and status update for
         console.warn('GPS error', err);
         if (gpsInfo) gpsInfo.textContent = 'Location error. Please allow GPS permission.';
       },
-      { enableHighAccuracy: true, maximumAge: 4000, timeout: 10000 }
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 15000
+      }
     );
   }
 

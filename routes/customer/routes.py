@@ -404,21 +404,31 @@ def customer_complaints():
             flash("Please select a valid complaint type.", "warning")
             return redirect(url_for("customer_complaints"))
 
-        if not store_id:
-            flash("Please select the store related to this complaint.", "warning")
-            return redirect(url_for("customer_complaints"))
+        store_obj_id = None
+        store = None
+        assigned_to = "admin"
+        target_type = "admin"
+        store_name = ""
 
-        try:
-            store_obj_id = ObjectId(store_id)
-        except Exception:
-            flash("Invalid store selected.", "danger")
-            return redirect(url_for("customer_complaints"))
+        # Store selection is optional now.
+        # If selected, complaint goes to the store and Admin can also view it.
+        # If not selected, complaint goes directly to NE FRESH Admin.
+        if store_id:
+            try:
+                store_obj_id = ObjectId(store_id)
+            except Exception:
+                flash("Invalid store selected.", "danger")
+                return redirect(url_for("customer_complaints"))
 
-        store = mongo.stores.find_one({"_id": store_obj_id})
+            store = mongo.stores.find_one({"_id": store_obj_id})
 
-        if not store:
-            flash("Selected store was not found.", "danger")
-            return redirect(url_for("customer_complaints"))
+            if not store:
+                flash("Selected store was not found.", "danger")
+                return redirect(url_for("customer_complaints"))
+
+            assigned_to = "store"
+            target_type = "store"
+            store_name = store.get("store_name", "")
 
         if not subject:
             flash("Complaint subject is required.", "warning")
@@ -475,11 +485,11 @@ def customer_complaints():
             "attachment_type": "image" if complaint_image_path else "",
 
             "store_id": store_obj_id,
-            "store_id_str": str(store_obj_id),
-            "store_name": store.get("store_name", ""),
+            "store_id_str": str(store_obj_id) if store_obj_id else "",
+            "store_name": store_name,
 
-            "assigned_to": "store",
-            "target_type": "store",
+            "assigned_to": assigned_to,
+            "target_type": target_type,
 
             "status": "open",
             "progress_status": "received",
@@ -488,13 +498,17 @@ def customer_complaints():
             "admin_reply": "",
             "store_reply": "",
             "store_progress_note": "",
+            "admin_progress_note": "",
 
             "created_at": now,
             "updated_at": now,
             "is_active": 1
         })
 
-        flash("Your complaint has been submitted to the selected store.", "success")
+        if assigned_to == "admin":
+            flash("Your complaint has been submitted directly to NE FRESH Admin.", "success")
+        else:
+            flash("Your complaint has been submitted to the selected store.", "success")
         return redirect(url_for("customer_complaints"))
 
     complaints = list(

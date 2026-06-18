@@ -76,26 +76,36 @@ def _admin_hydrate_settlement_order(order):
         order.get("items_subtotal"),
         order.get("store_earning") or 0
     )
+
     order["store_earning"] = _admin_settlement_money(
         order.get("store_earning"),
         order.get("items_subtotal") or 0
     )
-    order["store_payout_amount"] = _admin_settlement_money(
-        order.get("store_payout_amount"),
+
+    original_store_payout = _admin_settlement_money(
+        order.get("original_store_payout_amount"),
         order.get("store_earning") or order.get("items_subtotal") or 0
     )
 
+    saved_store_payout = _admin_settlement_money(
+        order.get("store_payout_amount"),
+        original_store_payout
+    )
+
     order["delivery_fee"] = _admin_settlement_money(order.get("delivery_fee"))
+
     order["tip_amount"] = _admin_settlement_money(
         order.get("tip_amount"),
         order.get("delivery_tip_amount") or 0
     )
+
     order["delivery_boy_earning"] = _admin_settlement_money(
         order.get("delivery_boy_earning"),
         order["delivery_fee"] + order["tip_amount"]
     )
 
     order["platform_fee"] = _admin_settlement_money(order.get("platform_fee"))
+
     order["admin_platform_earning"] = _admin_settlement_money(
         order.get("admin_platform_earning"),
         order["platform_fee"]
@@ -110,6 +120,7 @@ def _admin_hydrate_settlement_order(order):
             + order["tip_amount"]
         )
     )
+
     order["total_amount"] = _admin_settlement_money(
         order.get("total_amount"),
         order["total_payable"]
@@ -125,6 +136,54 @@ def _admin_hydrate_settlement_order(order):
         order.get("expected_rider_cash_to_submit") or 0
     )
 
+    refund_items_amount = _admin_settlement_money(
+        order.get("refund_items_amount")
+        if order.get("refund_items_amount") is not None
+        else order.get("refund_item_amount"),
+        0
+    )
+
+    store_refund_deduction = _admin_settlement_money(
+        order.get("store_refund_deduction")
+        if order.get("store_refund_deduction") is not None
+        else order.get("refund_deduction"),
+        refund_items_amount
+    )
+
+    adjusted_store_payout = _admin_settlement_money(
+        order.get("adjusted_store_payout"),
+        saved_store_payout
+    )
+
+    if store_refund_deduction > 0 and order.get("adjusted_store_payout") is None:
+        adjusted_store_payout = round(max(original_store_payout - store_refund_deduction, 0), 2)
+
+    store_adjustment_due = _admin_settlement_money(
+        order.get("store_adjustment_due"),
+        0
+    )
+
+    settlement_impact = (
+        order.get("settlement_impact")
+        or (
+            "DEDUCT_FROM_PENDING_PAYOUT"
+            if store_refund_deduction > 0
+            else "NO_DEDUCTION"
+        )
+    )
+
+    order["original_store_payout_amount"] = original_store_payout
+    order["store_refund_deduction"] = store_refund_deduction
+    order["refund_deduction"] = store_refund_deduction
+    order["adjusted_store_payout"] = adjusted_store_payout
+    order["store_adjustment_due"] = store_adjustment_due
+    order["settlement_impact"] = settlement_impact
+
+    # For the settlement page, store_payout_amount must mean the payable amount Admin will actually pay now.
+    order["store_payout_amount"] = adjusted_store_payout
+
+    order["refund_status"] = (order.get("refund_status") or "").upper()
+    order["return_status"] = (order.get("return_status") or "").upper()
     order["payment_method"] = (order.get("payment_method") or "").upper()
     order["payment_status"] = (order.get("payment_status") or "").upper()
     order["rider_cash_settlement_status"] = (order.get("rider_cash_settlement_status") or "").upper()
@@ -154,6 +213,514 @@ def _admin_csv_response(rows, filename):
         }
     )
 
+
+def _admin_is_store_complaint_doc(complaint):
+    """
+    Single source of truth:
+    Store complaint = view-only in Admin panel until Admin takes over.
+
+    Handles both new and old complaint records:
+    - assigned_to / target_type
+    - old target_kind
+    - store_id / store_id_str / real store_name
+    - excludes direct Admin complaints saved with store_name = NE FRESH Admin
+    """
+    complaint = complaint or {}
+
+    admin_takeover_status = str(
+        complaint.get("admin_takeover_status") or ""
+    ).strip().upper()
+
+    if admin_takeover_status == "TAKEN_OVER":
+        return False
+
+    assigned_to = str(complaint.get("assigned_to") or "").strip().lower()
+    target_type = str(complaint.get("target_type") or "").strip().lower()
+    target_kind = str(complaint.get("target_kind") or "").strip().lower()
+
+    store_name = str(complaint.get("store_name") or "").strip()
+    store_name_lower = store_name.lower()
+
+    has_real_store_id = bool(
+        complaint.get("store_id")
+        or complaint.get("store_id_str")
+    )
+
+    has_real_store_name = bool(
+        store_name
+        and store_name_lower not in [
+            "ne fresh admin",
+            "ne fresh admin / website owner",
+            "admin",
+            "website owner"
+        ]
+    )
+
+    return bool(
+        assigned_to == "store"
+        or target_type == "store"
+        or target_kind == "store"
+        or has_real_store_id
+        or has_real_store_name
+    )
+
+
+def _admin_prepare_complaint_row(c):
+    """
+    Normalizes one complaint row for Admin complaints page.
+    Keeps direct Admin complaints editable.
+    Keeps Store complaints view-only unless taken over.
+    """
+    c = c or {}
+
+    c["id"] = str(c.get("_id") or c.get("id") or "")
+    c["complaint_image_path"] = c.get("complaint_image_path") or c.get("image_path") or ""
+
+    admin_takeover_status = str(
+        c.get("admin_takeover_status") or ""
+    ).strip().upper()
+
+    is_taken_over = admin_takeover_status == "TAKEN_OVER"
+    is_store_complaint = _admin_is_store_complaint_doc(c)
+
+    c["admin_takeover_status"] = admin_takeover_status
+    c["is_admin_takeover"] = is_taken_over
+
+    if is_store_complaint:
+        c["assigned_to"] = "store"
+        c["target_type"] = "store"
+        c["assigned_label"] = c.get("store_name") or "Store"
+        c["admin_can_update"] = False
+    else:
+        c["assigned_to"] = "admin"
+        c["target_type"] = "admin"
+        c["assigned_label"] = "NE FRESH Admin"
+        c["admin_can_update"] = True
+
+    status = str(c.get("status") or "open").strip().lower()
+    progress_status = str(c.get("progress_status") or "received").strip().lower()
+
+    c["status"] = status
+    c["progress_status"] = progress_status
+    c["status_label"] = status.replace("_", " ").title()
+    c["progress_status_label"] = progress_status.replace("_", " ").title()
+
+    created_at = c.get("created_at") or ""
+    updated_at = c.get("updated_at") or ""
+
+    c["created_at_display"] = created_at
+    c["updated_at_display"] = updated_at
+
+    try:
+        if isinstance(created_at, str) and created_at:
+            clean_dt = created_at.replace("Z", "")
+            dt_obj = datetime.fromisoformat(clean_dt)
+            c["created_at_display"] = dt_obj.strftime("%d %b %Y, %I:%M %p")
+    except Exception:
+        pass
+
+    try:
+        if isinstance(updated_at, str) and updated_at:
+            clean_dt = updated_at.replace("Z", "")
+            dt_obj = datetime.fromisoformat(clean_dt)
+            c["updated_at_display"] = dt_obj.strftime("%d %b %Y, %I:%M %p")
+    except Exception:
+        pass
+
+    return c
+
+@app.route("/admin/exports", methods=["GET"], endpoint="admin_exports")
+@login_required(role="admin")
+def admin_exports():
+    """
+    Central Admin Export Center.
+
+    This page does not generate CSV itself.
+    It gives Admin one place to download all important reports.
+    """
+    export_cards = [
+        {
+            "title": "Payment & Settlements",
+            "description": "Rider COD cash, store payout pending, refund deduction, adjusted payout and settlement impact.",
+            "icon": "💳",
+            "page_endpoint": "admin_settlements",
+            "export_endpoint": "admin_settlements_export_csv",
+            "button": "Download Settlements CSV",
+            "tag": "Settlement"
+        },
+        {
+            "title": "Platform Earnings",
+            "description": "Platform fee earnings, refund platform fee adjustment, net platform fee and payment status.",
+            "icon": "📈",
+            "page_endpoint": "admin_platform_earnings",
+            "export_endpoint": "admin_platform_earnings_export_csv",
+            "button": "Download Earnings CSV",
+            "tag": "Earnings"
+        },
+        {
+            "title": "Returns & Refund Settlements",
+            "description": "Cancelled, returned and refunded orders with refund amount, store deduction and payout impact.",
+            "icon": "↩️",
+            "page_endpoint": "admin_returns_settlements",
+            "export_endpoint": "admin_returns_settlements_export_csv",
+            "button": "Download Returns CSV",
+            "tag": "Refunds"
+        },
+        {
+            "title": "Settlement Audit Logs",
+            "description": "Audit history for rider cash received, store payout paid and refund processed by Admin.",
+            "icon": "📜",
+            "page_endpoint": "admin_settlement_audit_logs",
+            "export_endpoint": "admin_settlement_audit_logs_export_csv",
+            "button": "Download Audit CSV",
+            "tag": "Audit"
+        },
+        {
+            "title": "Transactions",
+            "description": "Transaction-level report from the existing transactions export.",
+            "icon": "🧾",
+            "page_endpoint": "",
+            "export_endpoint": "admin_transactions_csv",
+            "button": "Download Transactions CSV",
+            "tag": "Transactions"
+        },
+    ]
+
+    return render_template(
+        "admin_exports.html",
+        user=current_user(),
+        export_cards=export_cards,
+        active_page="exports",
+        active_group="exports"
+    )
+
+
+ADMIN_DELIVERY_FEE_SETTINGS_KEY = "delivery_fee_settings"
+
+
+def _admin_clean_delivery_fee_slabs_from_form():
+    min_values = request.form.getlist("slab_min_km[]")
+    max_values = request.form.getlist("slab_max_km[]")
+    fee_values = request.form.getlist("slab_fee[]")
+
+    max_len = max(len(min_values), len(max_values), len(fee_values), 0)
+    cleaned = []
+
+    for index in range(max_len):
+        min_raw = min_values[index] if index < len(min_values) else ""
+        max_raw = max_values[index] if index < len(max_values) else ""
+        fee_raw = fee_values[index] if index < len(fee_values) else ""
+
+        if str(min_raw).strip() == "" and str(max_raw).strip() == "" and str(fee_raw).strip() == "":
+            continue
+
+        min_km = _admin_float_or_none(min_raw, 0, 999999)
+        max_km = _admin_float_or_none(max_raw, 0, 999999)
+        fee = _admin_money_or_default(fee_raw, -1)
+
+        if min_km is None:
+            min_km = 0.0
+
+        if fee is None or fee < 0:
+            continue
+
+        if max_km is not None and max_km <= min_km:
+            continue
+
+        cleaned.append({
+            "min_km": round(float(min_km), 3),
+            "max_km": round(float(max_km), 3) if max_km is not None else None,
+            "fee": round(float(fee), 2)
+        })
+
+    cleaned.sort(key=lambda row: float(row.get("min_km") or 0))
+
+    return cleaned
+
+
+@app.route("/admin/delivery-fee-settings", methods=["GET", "POST"], endpoint="admin_delivery_fee_settings")
+@login_required(role="admin")
+def admin_delivery_fee_settings():
+    admin_user = current_user() or {}
+
+    existing = mongo.platform_settings.find_one({
+        "key": ADMIN_DELIVERY_FEE_SETTINGS_KEY
+    }) or {}
+
+    if request.method == "POST":
+        delivery_base_fee = _admin_money_or_default(
+            request.form.get("delivery_base_fee"),
+            existing.get("delivery_base_fee", BASE_DELIVERY_FEE_INR)
+        )
+
+        free_delivery_above = _admin_money_or_default(
+            request.form.get("free_delivery_above"),
+            existing.get("free_delivery_above", 0)
+        )
+
+        delivery_min_order_amount = _admin_money_or_default(
+            request.form.get("delivery_min_order_amount"),
+            existing.get("delivery_min_order_amount", 0)
+        )
+
+        max_delivery_distance_km = _admin_float_or_none(
+            request.form.get("max_delivery_distance_km"),
+            0,
+            999999
+        )
+
+        delivery_fee_slabs_enabled = _admin_bool_from_form(
+            "delivery_fee_slabs_enabled",
+            False
+        )
+
+        delivery_fee_slabs = _admin_clean_delivery_fee_slabs_from_form()
+
+        if delivery_fee_slabs_enabled and not delivery_fee_slabs:
+            flash("Please add at least one valid delivery fee slab or disable distance-wise slabs.", "warning")
+            return redirect(url_for("admin_delivery_fee_settings"))
+
+        delivery_boy_earning_rule = (
+            request.form.get("delivery_boy_earning_rule")
+            or "DELIVERY_FEE_PLUS_TIP"
+        ).strip().upper()
+
+        if delivery_boy_earning_rule not in ["DELIVERY_FEE_PLUS_TIP"]:
+            delivery_boy_earning_rule = "DELIVERY_FEE_PLUS_TIP"
+
+        notes = (request.form.get("notes") or "").strip()
+
+        if len(notes) > 1000:
+            notes = notes[:1000]
+
+        now = datetime.utcnow().isoformat()
+
+        update_data = {
+            "key": ADMIN_DELIVERY_FEE_SETTINGS_KEY,
+            "delivery_base_fee": round(float(delivery_base_fee), 2),
+            "free_delivery_above": round(float(free_delivery_above), 2),
+            "delivery_min_order_amount": round(float(delivery_min_order_amount), 2),
+            "max_delivery_distance_km": max_delivery_distance_km,
+            "delivery_fee_slabs_enabled": bool(delivery_fee_slabs_enabled),
+            "delivery_fee_slabs": delivery_fee_slabs,
+            "delivery_boy_earning_rule": delivery_boy_earning_rule,
+            "notes": notes,
+            "updated_at": now,
+            "updated_by": str(admin_user.get("_id") or admin_user.get("id") or ""),
+            "updated_by_name": admin_user.get("name") or admin_user.get("email") or "Admin"
+        }
+
+        mongo.platform_settings.update_one(
+            {"key": ADMIN_DELIVERY_FEE_SETTINGS_KEY},
+            {
+                "$set": update_data,
+                "$setOnInsert": {
+                    "created_at": now
+                }
+            },
+            upsert=True
+        )
+
+        flash("Delivery fee settings updated successfully.", "success")
+        return redirect(url_for("admin_delivery_fee_settings"))
+
+    settings = get_platform_delivery_fee_settings()
+
+    return render_template(
+        "admin_delivery_fee_settings.html",
+        user=admin_user,
+        settings=settings,
+        active_group="delivery",
+        active_page="delivery_fee_settings"
+    )
+
+
+PAYMENT_GATEWAY_SETTINGS_KEY = "payment_gateway_settings"
+
+
+def _admin_get_razorpay_env_status(mode="TEST"):
+    mode = (mode or "TEST").strip().upper()
+
+    if mode == "LIVE":
+        key_id = (os.getenv("RAZORPAY_LIVE_KEY_ID") or "").strip()
+        key_secret = (os.getenv("RAZORPAY_LIVE_KEY_SECRET") or "").strip()
+    else:
+        key_id = (os.getenv("RAZORPAY_TEST_KEY_ID") or "").strip()
+        key_secret = (os.getenv("RAZORPAY_TEST_KEY_SECRET") or "").strip()
+
+    return {
+        "key_id_configured": bool(key_id),
+        "key_secret_configured": bool(key_secret),
+        "key_id_masked": (
+            key_id[:10] + "..." + key_id[-4:]
+            if len(key_id) > 16
+            else ("Configured" if key_id else "Not configured")
+        ),
+    }
+
+
+def _admin_get_payment_gateway_settings():
+    settings = mongo.platform_settings.find_one({
+        "key": PAYMENT_GATEWAY_SETTINGS_KEY
+    }) or {}
+
+    mode = (settings.get("mode") or "TEST").strip().upper()
+
+    if mode not in ["TEST", "LIVE"]:
+        mode = "TEST"
+
+    gateway = (settings.get("gateway") or "RAZORPAY").strip().upper()
+
+    if gateway not in ["RAZORPAY"]:
+        gateway = "RAZORPAY"
+
+    env_status = _admin_get_razorpay_env_status(mode)
+
+    return {
+        "enabled": bool(settings.get("enabled", False)),
+        "gateway": gateway,
+        "mode": mode,
+
+        # Keys are now read from .env only.
+        "razorpay_key_id": env_status.get("key_id_masked") or "",
+        "razorpay_key_id_configured": bool(env_status.get("key_id_configured")),
+        "razorpay_key_secret_configured": bool(env_status.get("key_secret_configured")),
+
+        "auto_refund_enabled": bool(settings.get("auto_refund_enabled", False)),
+        "auto_capture_enabled": bool(settings.get("auto_capture_enabled", True)),
+        "notes": settings.get("notes") or "",
+        "updated_at": settings.get("updated_at") or "",
+        "updated_by_name": settings.get("updated_by_name") or "",
+    }
+
+
+# =========================================================
+# ADMIN - ONLINE PAYMENT / RAZORPAY SETTINGS
+# =========================================================
+
+@app.route("/admin/payment-settings", methods=["GET", "POST"], endpoint="admin_payment_settings")
+@login_required(role="admin")
+def admin_payment_settings():
+    """
+    Admin controls online payment settings.
+
+    Razorpay Key ID / Secret are read from .env only.
+    This page only controls gateway enable/disable, mode, capture/refund flags and notes.
+    """
+    admin_user = current_user() or {}
+
+    if request.method == "POST":
+        enabled = _admin_bool_from_form("enabled", False)
+        auto_refund_enabled = _admin_bool_from_form("auto_refund_enabled", False)
+        auto_capture_enabled = _admin_bool_from_form("auto_capture_enabled", True)
+
+        gateway = (request.form.get("gateway") or "RAZORPAY").strip().upper()
+        mode = (request.form.get("mode") or "TEST").strip().upper()
+
+        if gateway not in ["RAZORPAY"]:
+            gateway = "RAZORPAY"
+
+        if mode not in ["TEST", "LIVE"]:
+            mode = "TEST"
+
+        notes = (request.form.get("notes") or "").strip()
+
+        if len(notes) > 1000:
+            notes = notes[:1000]
+
+        env_status = _admin_get_razorpay_env_status(mode)
+
+        if enabled:
+            if not env_status.get("key_id_configured") or not env_status.get("key_secret_configured"):
+                flash(
+                    "Razorpay credentials are missing in .env. Please set the Key ID and Secret for the selected mode before enabling online payment.",
+                    "warning"
+                )
+                return redirect(url_for("admin_payment_settings"))
+
+        now = datetime.utcnow().isoformat()
+
+        old_settings = mongo.platform_settings.find_one({
+            "key": PAYMENT_GATEWAY_SETTINGS_KEY
+        }) or {}
+
+        update_data = {
+            "key": PAYMENT_GATEWAY_SETTINGS_KEY,
+            "enabled": bool(enabled),
+            "gateway": gateway,
+            "mode": mode,
+
+            # Security: do not store Razorpay keys/secrets in MongoDB.
+            # Actual keys are loaded from .env in routes/orders/routes.py.
+            "auto_refund_enabled": bool(auto_refund_enabled),
+            "auto_capture_enabled": bool(auto_capture_enabled),
+            "notes": notes,
+
+            "updated_at": now,
+            "updated_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+            "updated_by_name": admin_user.get("name") or admin_user.get("email") or "Admin"
+        }
+
+        mongo.platform_settings.update_one(
+            {"key": PAYMENT_GATEWAY_SETTINGS_KEY},
+            {
+                "$set": update_data,
+                "$unset": {
+                    "razorpay_key_id": "",
+                    "razorpay_key_secret": "",
+                    "webhook_secret": ""
+                },
+                "$setOnInsert": {
+                    "created_at": now
+                }
+            },
+            upsert=True
+        )
+
+        mongo.admin_audit_logs.insert_one({
+            "action": "PAYMENT_GATEWAY_SETTINGS_UPDATED",
+            "module": "payment_gateway",
+            "old_value": {
+                "enabled": old_settings.get("enabled"),
+                "gateway": old_settings.get("gateway"),
+                "mode": old_settings.get("mode"),
+                "auto_refund_enabled": old_settings.get("auto_refund_enabled"),
+                "auto_capture_enabled": old_settings.get("auto_capture_enabled"),
+            },
+            "new_value": {
+                "enabled": update_data.get("enabled"),
+                "gateway": update_data.get("gateway"),
+                "mode": update_data.get("mode"),
+                "auto_refund_enabled": update_data.get("auto_refund_enabled"),
+                "auto_capture_enabled": update_data.get("auto_capture_enabled"),
+            },
+            "created_at": now,
+            "created_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+            "created_by_name": admin_user.get("name") or admin_user.get("email") or "Admin"
+        })
+
+        flash("Online payment settings updated successfully.", "success")
+        return redirect(url_for("admin_payment_settings"))
+
+    settings = _admin_get_payment_gateway_settings()
+
+    secret_masked = (
+        "Razorpay secret is configured in .env for the selected mode."
+        if settings.get("razorpay_key_secret_configured")
+        else "Razorpay secret is not configured in .env for the selected mode."
+    )
+
+    webhook_masked = ""
+
+    return render_template(
+        "admin_payment_settings.html",
+        user=current_user(),
+        settings=settings,
+        secret_masked=secret_masked,
+        webhook_masked=webhook_masked,
+        active_group="system",
+        active_page="payment_settings"
+    )
 
 RETURN_REFUND_POLICY_SETTINGS_KEY = "return_refund_policy_settings"
 
@@ -185,7 +752,6 @@ def _admin_get_return_refund_policy_settings():
         "updated_at": settings.get("updated_at") or "",
         "updated_by_name": settings.get("updated_by_name") or "",
     }
-
 
 @app.route("/admin/return-refund-policy", methods=["GET", "POST"], endpoint="admin_return_refund_policy")
 @login_required(role="admin")
@@ -1211,6 +1777,32 @@ def admin_settlements():
         }).sort("delivered_at", -1)
     )
 
+    online_paid_orders_raw = list(
+        mongo.orders.find({
+            "payment_method": {
+                "$in": ["ONLINE", "ONLINE_PAYMENT", "RAZORPAY"]
+            },
+            "payment_status": {
+                "$in": ["PAID", "ONLINE_PAID", "SUCCESS"]
+            }
+        }).sort("payment_collected_at", -1)
+    )
+
+    cod_collected_orders_raw = list(
+        mongo.orders.find({
+            "payment_method": "COD",
+            "payment_status": {
+                "$in": ["COLLECTED_BY_RIDER", "COD_COLLECTED_BY_RIDER"]
+            }
+        }).sort("delivered_at", -1)
+    )
+
+    platform_fee_received_orders_raw = list(
+        mongo.orders.find({
+            "platform_fee_status": "RECEIVED"
+        }).sort("platform_fee_received_at", -1)
+    )
+
     rider_cash_orders = [
         _admin_hydrate_settlement_order(o)
         for o in rider_cash_orders_raw
@@ -1221,13 +1813,79 @@ def admin_settlements():
         for o in store_payout_orders_raw
     ]
 
+    online_paid_orders = [
+        _admin_hydrate_settlement_order(o)
+        for o in online_paid_orders_raw
+    ]
+
+    cod_collected_orders = [
+        _admin_hydrate_settlement_order(o)
+        for o in cod_collected_orders_raw
+    ]
+
+    platform_fee_received_orders = [
+        _admin_hydrate_settlement_order(o)
+        for o in platform_fee_received_orders_raw
+    ]
+
     metrics = {
+
+        "online_payment_received_count": len(online_paid_orders),
+        "online_payment_received_amount": round(
+            sum(float(o.get("total_payable") or o.get("total_amount") or 0) for o in online_paid_orders),
+            2
+        ),
+
+        "cod_collected_by_rider_count": len(cod_collected_orders),
+        "cod_collected_by_rider_amount": round(
+            sum(float(o.get("cod_collected_amount") or o.get("total_payable") or 0) for o in cod_collected_orders),
+            2
+        ),
+
+        "platform_fee_received_total_amount": round(
+            sum(float(o.get("platform_fee") or 0) for o in platform_fee_received_orders),
+            2
+        ),
+        
         "rider_cash_pending_count": len(rider_cash_orders),
-        "rider_cash_pending_amount": round(sum(float(o.get("rider_cash_to_submit") or 0) for o in rider_cash_orders), 2),
+        "rider_cash_pending_amount": round(
+            sum(float(o.get("rider_cash_to_submit") or 0) for o in rider_cash_orders),
+            2
+        ),
+
         "store_payout_pending_count": len(store_payout_orders),
-        "store_payout_pending_amount": round(sum(float(o.get("store_payout_amount") or 0) for o in store_payout_orders), 2),
-        "platform_fee_pending_amount": round(sum(float(o.get("platform_fee") or 0) for o in rider_cash_orders), 2),
-        "platform_fee_received_amount": round(sum(float(o.get("platform_fee") or 0) for o in store_payout_orders), 2),
+
+        # Original earning before refund deduction.
+        "store_payout_original_amount": round(
+            sum(float(o.get("original_store_payout_amount") or 0) for o in store_payout_orders),
+            2
+        ),
+
+        # Actual payable amount Admin should pay now.
+        "store_payout_pending_amount": round(
+            sum(float(o.get("adjusted_store_payout") or o.get("store_payout_amount") or 0) for o in store_payout_orders),
+            2
+        ),
+
+        "store_refund_deduction_amount": round(
+            sum(float(o.get("store_refund_deduction") or 0) for o in store_payout_orders),
+            2
+        ),
+
+        "store_adjustment_due_amount": round(
+            sum(float(o.get("store_adjustment_due") or 0) for o in store_payout_orders),
+            2
+        ),
+
+        "platform_fee_pending_amount": round(
+            sum(float(o.get("platform_fee") or 0) for o in rider_cash_orders),
+            2
+        ),
+
+        "platform_fee_received_amount": round(
+            sum(float(o.get("platform_fee") or 0) for o in store_payout_orders),
+            2
+        ),
     }
 
     return render_template(
@@ -1274,12 +1932,33 @@ def admin_settlements_export_csv():
         "Delivery Boy",
         "Payment Method",
         "Payment Status",
+
         "Items Subtotal",
         "COD Collected",
         "Delivery Boy Earning",
         "Rider Cash To Submit",
         "Platform Fee",
-        "Store Payout Amount",
+
+        "Original Store Payout",
+        "Store Refund Deduction",
+        "Adjusted Store Payout",
+        "Store Adjustment Due",
+        "Settlement Impact",
+
+        "Refund Status",
+        "Refund Amount",
+        "Refund Items Amount",
+        "Refund Delivery Fee",
+        "Refund Platform Fee",
+        "Refund Tip Amount",
+        "Refund Method",
+        "Refund Reference",
+        "Refund Processed At",
+
+        "Return Status",
+        "Store Return Review Status",
+        "Admin Return Review Status",
+
         "Rider Cash Status",
         "Platform Fee Status",
         "Store Payout Status",
@@ -1288,11 +1967,11 @@ def admin_settlements_export_csv():
         "Updated At"
     ]]
 
-    for order in rider_cash_orders_raw:
+    def _append_settlement_csv_row(section, order):
         o = _admin_hydrate_settlement_order(dict(order))
 
         rows.append([
-            "Rider COD Cash Pending",
+            section,
             o.get("id"),
             o.get("store_name"),
             o.get("customer_name"),
@@ -1300,12 +1979,33 @@ def admin_settlements_export_csv():
             o.get("delivery_partner_name"),
             o.get("payment_method"),
             o.get("payment_status"),
+
             o.get("items_subtotal"),
             o.get("cod_collected_amount"),
             o.get("delivery_boy_earning"),
             o.get("rider_cash_to_submit"),
             o.get("platform_fee"),
-            o.get("store_payout_amount"),
+
+            o.get("original_store_payout_amount"),
+            o.get("store_refund_deduction"),
+            o.get("adjusted_store_payout"),
+            o.get("store_adjustment_due"),
+            o.get("settlement_impact"),
+
+            o.get("refund_status"),
+            _admin_settlement_money(o.get("refund_amount"), 0),
+            _admin_settlement_money(o.get("refund_items_amount"), 0),
+            _admin_settlement_money(o.get("refund_delivery_fee"), 0),
+            _admin_settlement_money(o.get("refund_platform_fee"), 0),
+            _admin_settlement_money(o.get("refund_tip_amount"), 0),
+            o.get("refund_method") or "",
+            o.get("refund_reference") or "",
+            o.get("refund_processed_at") or "",
+
+            o.get("return_status"),
+            (o.get("store_return_review_status") or o.get("store_review_status") or ""),
+            (o.get("admin_return_review_status") or o.get("admin_decision") or ""),
+
             o.get("rider_cash_settlement_status"),
             o.get("platform_fee_status"),
             o.get("store_payout_status"),
@@ -1313,32 +2013,12 @@ def admin_settlements_export_csv():
             o.get("delivered_at"),
             o.get("updated_at")
         ])
+
+    for order in rider_cash_orders_raw:
+        _append_settlement_csv_row("Rider COD Cash Pending", order)
 
     for order in store_payout_orders_raw:
-        o = _admin_hydrate_settlement_order(dict(order))
-
-        rows.append([
-            "Store Payout Pending",
-            o.get("id"),
-            o.get("store_name"),
-            o.get("customer_name"),
-            o.get("customer_phone"),
-            o.get("delivery_partner_name"),
-            o.get("payment_method"),
-            o.get("payment_status"),
-            o.get("items_subtotal"),
-            o.get("cod_collected_amount"),
-            o.get("delivery_boy_earning"),
-            o.get("rider_cash_to_submit"),
-            o.get("platform_fee"),
-            o.get("store_payout_amount"),
-            o.get("rider_cash_settlement_status"),
-            o.get("platform_fee_status"),
-            o.get("store_payout_status"),
-            o.get("order_settlement_status"),
-            o.get("delivered_at"),
-            o.get("updated_at")
-        ])
+        _append_settlement_csv_row("Store Payout Pending", order)
 
     return _admin_csv_response(rows, "nefresh_payment_settlements.csv")
 
@@ -1498,7 +2178,35 @@ def admin_settlement_store_payout_paid(oid):
     reference_no = (request.form.get("reference_no") or "").strip()
     payout_mode = (request.form.get("payout_mode") or "CASH").strip().upper()
 
-    store_payout_amount = _admin_settlement_money(order.get("store_payout_amount"))
+    original_store_payout_amount = _admin_settlement_money(
+        order.get("original_store_payout_amount"),
+        order.get("store_earning") or order.get("items_subtotal") or 0
+    )
+
+    store_refund_deduction = _admin_settlement_money(
+        order.get("store_refund_deduction")
+        if order.get("store_refund_deduction") is not None
+        else order.get("refund_deduction"),
+        0
+    )
+
+    adjusted_store_payout = _admin_settlement_money(
+        order.get("adjusted_store_payout"),
+        order.get("store_payout_amount") or original_store_payout_amount
+    )
+
+    store_adjustment_due = _admin_settlement_money(
+        order.get("store_adjustment_due"),
+        0
+    )
+
+    settlement_impact = order.get("settlement_impact") or (
+        "DEDUCT_FROM_PENDING_PAYOUT" if store_refund_deduction > 0 else "NO_DEDUCTION"
+    )
+
+    # Final amount Admin is paying now.
+    store_payout_amount = adjusted_store_payout
+
     platform_fee = _admin_settlement_money(order.get("platform_fee"))
 
     settlement_event = {
@@ -1507,6 +2215,11 @@ def admin_settlement_store_payout_paid(oid):
         "store_id": str(order.get("store_id") or ""),
         "store_name": order.get("store_name") or "",
         "amount_paid": store_payout_amount,
+        "original_store_payout_amount": original_store_payout_amount,
+        "store_refund_deduction": store_refund_deduction,
+        "adjusted_store_payout": adjusted_store_payout,
+        "store_adjustment_due": store_adjustment_due,
+        "settlement_impact": settlement_impact,
         "platform_fee": platform_fee,
         "payment_mode": payout_mode,
         "reference_no": reference_no,
@@ -1525,6 +2238,15 @@ def admin_settlement_store_payout_paid(oid):
         "store_payout_note": note,
         "store_payout_reference_no": reference_no,
         "store_payout_mode": payout_mode,
+
+        "original_store_payout_amount": original_store_payout_amount,
+        "store_refund_deduction": store_refund_deduction,
+        "refund_deduction": store_refund_deduction,
+        "adjusted_store_payout": adjusted_store_payout,
+        "store_payout_amount": adjusted_store_payout,
+        "store_payout_paid_amount": store_payout_amount,
+        "store_adjustment_due": store_adjustment_due,
+        "settlement_impact": settlement_impact,
 
         "store_settlement_status": "PAID",
         "settlement_status": "SETTLED",
@@ -1554,6 +2276,16 @@ def admin_settlement_store_payout_paid(oid):
                 "store_payout_note": note,
                 "store_payout_reference_no": reference_no,
                 "store_payout_mode": payout_mode,
+
+                "original_store_payout_amount": original_store_payout_amount,
+                "store_refund_deduction": store_refund_deduction,
+                "refund_deduction": store_refund_deduction,
+                "adjusted_store_payout": adjusted_store_payout,
+                "store_payout_amount": adjusted_store_payout,
+                "store_payout_paid_amount": store_payout_amount,
+                "store_adjustment_due": store_adjustment_due,
+                "settlement_impact": settlement_impact,
+
                 "store_settlement_status": "PAID",
                 "settlement_status": "SETTLED",
                 "order_settlement_status": "SETTLED",
@@ -1567,6 +2299,8 @@ def admin_settlement_store_payout_paid(oid):
         "status": "STORE_PAYOUT_PAID",
         "note": (
             f"Store payout ₹{store_payout_amount:.2f} marked paid by Admin. "
+            f"Original payout ₹{original_store_payout_amount:.2f}, "
+            f"refund deduction ₹{store_refund_deduction:.2f}. "
             f"Settlement completed."
         ),
         "created_at": now
@@ -1757,18 +2491,38 @@ def admin_platform_earnings_export_csv():
         "Customer Phone",
         "Payment Method",
         "Payment Status",
+
         "Items Subtotal",
         "Delivery Fee",
         "Tip",
         "Total Payable",
         "Store Earning",
+
         "Platform Fee",
+        "Refund Platform Fee",
+        "Net Platform Fee",
         "Platform Earning Status",
         "Platform Fee Status",
+
+        "Refund Status",
+        "Refund Amount",
+        "Refund Method",
+        "Refund Reference",
+        "Refund Processed At",
+
+        "Return Status",
+        "Store Return Review Status",
+        "Admin Return Review Status",
+
         "Rider Cash Status",
         "Rider Cash To Submit",
         "Store Payout Status",
+        "Store Refund Deduction",
+        "Adjusted Store Payout",
+        "Store Adjustment Due",
+        "Settlement Impact",
         "Order Settlement Status",
+
         "Report Date",
         "Created At"
     ]]
@@ -1796,8 +2550,19 @@ def admin_platform_earnings_export_csv():
         if date_to and report_date and report_date[:10] > date_to:
             continue
 
+        refund_platform_fee = _admin_settlement_money(
+            row.get("refund_platform_fee")
+            if row.get("refund_platform_fee") is not None
+            else row.get("platform_fee_adjustment"),
+            0
+        )
+
+        net_platform_fee = round(max(platform_fee - refund_platform_fee, 0), 2)
+
         if platform_fee_status == "RECEIVED":
             earning_status = "RECEIVED"
+        elif platform_fee_status == "REFUNDED":
+            earning_status = "REFUNDED"
         elif payment_method == "COD":
             if rider_cash_status == "RECEIVED":
                 earning_status = "RECEIVED"
@@ -1805,15 +2570,17 @@ def admin_platform_earnings_export_csv():
                 earning_status = "PENDING_RIDER_CASH"
         elif payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
             earning_status = "RECEIVED"
+        elif payment_status in ["REFUNDED", "PARTIALLY_REFUNDED"]:
+            earning_status = "REFUNDED"
         else:
             earning_status = "PENDING_PAYMENT"
 
         if payment_filter:
             if payment_filter == "ONLINE":
-                if payment_method in ["COD", "COD_RIDER_COLLECTION"]:
+                if payment_method in ["COD", "COD_RIDER_COLLECTION", "CASH_ON_DELIVERY"]:
                     continue
             elif payment_filter == "COD":
-                if payment_method != "COD":
+                if payment_method not in ["COD", "COD_RIDER_COLLECTION", "CASH_ON_DELIVERY"]:
                     continue
             elif payment_filter != payment_method:
                 continue
@@ -1832,6 +2599,10 @@ def admin_platform_earnings_export_csv():
                 str(payment_status or ""),
                 str(platform_fee_status or ""),
                 str(earning_status or ""),
+                str(row.get("refund_status") or ""),
+                str(row.get("refund_reference") or ""),
+                str(row.get("return_status") or ""),
+                str(row.get("settlement_impact") or ""),
                 str(row.get("order_settlement_status") or "")
             ]).lower()
 
@@ -1845,18 +2616,38 @@ def admin_platform_earnings_export_csv():
             row.get("customer_phone"),
             payment_method or "UNKNOWN",
             payment_status or "UNKNOWN",
+
             row.get("items_subtotal"),
             row.get("delivery_fee"),
             row.get("tip_amount"),
             row.get("total_payable"),
             row.get("store_earning"),
+
             platform_fee,
+            refund_platform_fee,
+            net_platform_fee,
             earning_status,
             platform_fee_status or earning_status,
+
+            row.get("refund_status") or "",
+            _admin_settlement_money(row.get("refund_amount"), 0),
+            row.get("refund_method") or "",
+            row.get("refund_reference") or "",
+            row.get("refund_processed_at") or "",
+
+            row.get("return_status") or "",
+            row.get("store_return_review_status") or row.get("store_review_status") or "",
+            row.get("admin_return_review_status") or row.get("admin_decision") or "",
+
             rider_cash_status or "NOT_REQUIRED",
             row.get("rider_cash_to_submit"),
             row.get("store_payout_status"),
+            row.get("store_refund_deduction"),
+            row.get("adjusted_store_payout"),
+            row.get("store_adjustment_due"),
+            row.get("settlement_impact"),
             row.get("order_settlement_status"),
+
             report_date,
             row.get("created_at")
         ])
@@ -1873,6 +2664,7 @@ def admin_settlement_audit_logs():
     Shows settlement_audit_logs pushed inside orders during:
     - RIDER_CASH_RECEIVED_BY_ADMIN
     - STORE_PAYOUT_PAID_BY_ADMIN
+    - REFUND_PROCESSED_BY_ADMIN
 
     No update action is available here.
     """
@@ -1935,10 +2727,69 @@ def admin_settlement_audit_logs():
 
             amount_received = _admin_settlement_money(entry.get("amount_received"), 0)
             amount_paid = _admin_settlement_money(entry.get("amount_paid"), 0)
-            store_payout_amount = _admin_settlement_money(entry.get("store_payout_amount"), hydrated_order.get("store_payout_amount") or 0)
-            platform_fee = _admin_settlement_money(entry.get("platform_fee"), hydrated_order.get("platform_fee") or 0)
 
-            amount_display = amount_received if amount_received > 0 else amount_paid
+            refund_amount = _admin_settlement_money(
+                entry.get("refund_amount"),
+                hydrated_order.get("refund_amount") or 0
+            )
+
+            refund_items_amount = _admin_settlement_money(
+                entry.get("refund_items_amount"),
+                hydrated_order.get("refund_items_amount") or 0
+            )
+
+            refund_delivery_fee = _admin_settlement_money(
+                entry.get("refund_delivery_fee"),
+                hydrated_order.get("refund_delivery_fee") or 0
+            )
+
+            refund_platform_fee = _admin_settlement_money(
+                entry.get("refund_platform_fee"),
+                hydrated_order.get("refund_platform_fee") or 0
+            )
+
+            refund_tip_amount = _admin_settlement_money(
+                entry.get("refund_tip_amount"),
+                hydrated_order.get("refund_tip_amount") or 0
+            )
+
+            original_store_payout_amount = _admin_settlement_money(
+                entry.get("original_store_payout_amount"),
+                hydrated_order.get("original_store_payout_amount") or hydrated_order.get("items_subtotal") or 0
+            )
+
+            store_refund_deduction = _admin_settlement_money(
+                entry.get("store_refund_deduction"),
+                hydrated_order.get("store_refund_deduction") or 0
+            )
+
+            adjusted_store_payout = _admin_settlement_money(
+                entry.get("adjusted_store_payout"),
+                hydrated_order.get("adjusted_store_payout") or hydrated_order.get("store_payout_amount") or 0
+            )
+
+            store_adjustment_due = _admin_settlement_money(
+                entry.get("store_adjustment_due"),
+                hydrated_order.get("store_adjustment_due") or 0
+            )
+
+            store_payout_amount = _admin_settlement_money(
+                entry.get("store_payout_amount"),
+                hydrated_order.get("store_payout_amount") or adjusted_store_payout or 0
+            )
+
+            platform_fee = _admin_settlement_money(
+                entry.get("platform_fee"),
+                hydrated_order.get("platform_fee") or 0
+            )
+
+            amount_display = (
+                refund_amount
+                if refund_amount > 0
+                else amount_received
+                if amount_received > 0
+                else amount_paid
+            )
 
             log_row = {
                 "order_id": order_id,
@@ -1948,12 +2799,25 @@ def admin_settlement_audit_logs():
 
                 "amount_received": amount_received,
                 "amount_paid": amount_paid,
+                "refund_amount": refund_amount,
+                "refund_items_amount": refund_items_amount,
+                "refund_delivery_fee": refund_delivery_fee,
+                "refund_platform_fee": refund_platform_fee,
+                "refund_tip_amount": refund_tip_amount,
                 "amount_display": amount_display,
+
                 "platform_fee": platform_fee,
                 "store_payout_amount": store_payout_amount,
+                "original_store_payout_amount": original_store_payout_amount,
+                "store_refund_deduction": store_refund_deduction,
+                "adjusted_store_payout": adjusted_store_payout,
+                "store_adjustment_due": store_adjustment_due,
+                "settlement_impact": entry.get("settlement_impact") or hydrated_order.get("settlement_impact") or "",
 
-                "payment_mode": entry.get("payment_mode") or "",
-                "reference_no": entry.get("reference_no") or "",
+                "payment_mode": entry.get("payment_mode") or entry.get("refund_method") or "",
+                "reference_no": entry.get("reference_no") or entry.get("refund_reference") or "",
+                "refund_method": entry.get("refund_method") or hydrated_order.get("refund_method") or "",
+                "refund_reference": entry.get("refund_reference") or hydrated_order.get("refund_reference") or "",
                 "note": entry.get("note") or "",
 
                 "created_by": entry.get("created_by") or "",
@@ -1989,6 +2853,9 @@ def admin_settlement_audit_logs():
                     str(log_row.get("reference_no") or ""),
                     str(log_row.get("note") or ""),
                     str(log_row.get("payment_method") or ""),
+                    str(log_row.get("refund_method") or ""),
+                    str(log_row.get("refund_reference") or ""),
+                    str(log_row.get("settlement_impact") or ""),
                     str(log_row.get("order_settlement_status") or "")
                 ]).lower()
 
@@ -2012,13 +2879,46 @@ def admin_settlement_audit_logs():
         if row.get("action") == "STORE_PAYOUT_PAID_BY_ADMIN"
     ]
 
+    refund_logs = [
+        row for row in logs
+        if row.get("action") == "REFUND_PROCESSED_BY_ADMIN"
+    ]
+
     metrics = {
         "total_logs": len(logs),
         "rider_cash_logs": len(rider_cash_logs),
         "store_payout_logs": len(store_payout_logs),
-        "rider_cash_received_amount": round(sum(float(row.get("amount_received") or 0) for row in rider_cash_logs), 2),
-        "store_payout_paid_amount": round(sum(float(row.get("amount_paid") or 0) for row in store_payout_logs), 2),
-        "platform_fee_tracked": round(sum(float(row.get("platform_fee") or 0) for row in logs), 2),
+        "refund_logs": len(refund_logs),
+
+        "rider_cash_received_amount": round(
+            sum(float(row.get("amount_received") or 0) for row in rider_cash_logs),
+            2
+        ),
+
+        "store_payout_paid_amount": round(
+            sum(float(row.get("amount_paid") or 0) for row in store_payout_logs),
+            2
+        ),
+
+        "refund_processed_amount": round(
+            sum(float(row.get("refund_amount") or 0) for row in refund_logs),
+            2
+        ),
+
+        "store_refund_deduction_amount": round(
+            sum(float(row.get("store_refund_deduction") or 0) for row in refund_logs),
+            2
+        ),
+
+        "store_adjustment_due_amount": round(
+            sum(float(row.get("store_adjustment_due") or 0) for row in refund_logs),
+            2
+        ),
+
+        "platform_fee_tracked": round(
+            sum(float(row.get("platform_fee") or 0) for row in logs),
+            2
+        ),
     }
 
     return render_template(
@@ -2098,16 +2998,69 @@ def admin_settlement_audit_logs_export_csv():
 
             amount_received = _admin_settlement_money(entry.get("amount_received"), 0)
             amount_paid = _admin_settlement_money(entry.get("amount_paid"), 0)
+
+            refund_amount = _admin_settlement_money(
+                entry.get("refund_amount"),
+                hydrated_order.get("refund_amount") or 0
+            )
+
+            refund_items_amount = _admin_settlement_money(
+                entry.get("refund_items_amount"),
+                hydrated_order.get("refund_items_amount") or 0
+            )
+
+            refund_delivery_fee = _admin_settlement_money(
+                entry.get("refund_delivery_fee"),
+                hydrated_order.get("refund_delivery_fee") or 0
+            )
+
+            refund_platform_fee = _admin_settlement_money(
+                entry.get("refund_platform_fee"),
+                hydrated_order.get("refund_platform_fee") or 0
+            )
+
+            refund_tip_amount = _admin_settlement_money(
+                entry.get("refund_tip_amount"),
+                hydrated_order.get("refund_tip_amount") or 0
+            )
+
+            original_store_payout_amount = _admin_settlement_money(
+                entry.get("original_store_payout_amount"),
+                hydrated_order.get("original_store_payout_amount") or hydrated_order.get("items_subtotal") or 0
+            )
+
+            store_refund_deduction = _admin_settlement_money(
+                entry.get("store_refund_deduction"),
+                hydrated_order.get("store_refund_deduction") or 0
+            )
+
+            adjusted_store_payout = _admin_settlement_money(
+                entry.get("adjusted_store_payout"),
+                hydrated_order.get("adjusted_store_payout") or hydrated_order.get("store_payout_amount") or 0
+            )
+
+            store_adjustment_due = _admin_settlement_money(
+                entry.get("store_adjustment_due"),
+                hydrated_order.get("store_adjustment_due") or 0
+            )
+
             store_payout_amount = _admin_settlement_money(
                 entry.get("store_payout_amount"),
-                hydrated_order.get("store_payout_amount") or 0
+                hydrated_order.get("store_payout_amount") or adjusted_store_payout or 0
             )
+
             platform_fee = _admin_settlement_money(
                 entry.get("platform_fee"),
                 hydrated_order.get("platform_fee") or 0
             )
 
-            amount_display = amount_received if amount_received > 0 else amount_paid
+            amount_display = (
+                refund_amount
+                if refund_amount > 0
+                else amount_received
+                if amount_received > 0
+                else amount_paid
+            )
 
             log_row = {
                 "order_id": order_id,
@@ -2116,11 +3069,25 @@ def admin_settlement_audit_logs_export_csv():
                 "action_label": action.replace("_", " ").title() if action else "Settlement Event",
                 "amount_received": amount_received,
                 "amount_paid": amount_paid,
+                "refund_amount": refund_amount,
+                "refund_items_amount": refund_items_amount,
+                "refund_delivery_fee": refund_delivery_fee,
+                "refund_platform_fee": refund_platform_fee,
+                "refund_tip_amount": refund_tip_amount,
                 "amount_display": amount_display,
+
                 "platform_fee": platform_fee,
                 "store_payout_amount": store_payout_amount,
-                "payment_mode": entry.get("payment_mode") or "",
-                "reference_no": entry.get("reference_no") or "",
+                "original_store_payout_amount": original_store_payout_amount,
+                "store_refund_deduction": store_refund_deduction,
+                "adjusted_store_payout": adjusted_store_payout,
+                "store_adjustment_due": store_adjustment_due,
+                "settlement_impact": entry.get("settlement_impact") or hydrated_order.get("settlement_impact") or "",
+
+                "payment_mode": entry.get("payment_mode") or entry.get("refund_method") or "",
+                "reference_no": entry.get("reference_no") or entry.get("refund_reference") or "",
+                "refund_method": entry.get("refund_method") or hydrated_order.get("refund_method") or "",
+                "refund_reference": entry.get("refund_reference") or hydrated_order.get("refund_reference") or "",
                 "note": entry.get("note") or "",
                 "created_by": entry.get("created_by") or "",
                 "created_by_name": entry.get("created_by_name") or "Admin",
@@ -2153,6 +3120,9 @@ def admin_settlement_audit_logs_export_csv():
                     str(log_row.get("reference_no") or ""),
                     str(log_row.get("note") or ""),
                     str(log_row.get("payment_method") or ""),
+                    str(log_row.get("refund_method") or ""),
+                    str(log_row.get("refund_reference") or ""),
+                    str(log_row.get("settlement_impact") or ""),
                     str(log_row.get("order_settlement_status") or "")
                 ]).lower()
 
@@ -2173,11 +3143,22 @@ def admin_settlement_audit_logs_export_csv():
         "Action Label",
         "Amount Received",
         "Amount Paid",
+        "Refund Amount",
+        "Refund Items Amount",
+        "Refund Delivery Fee",
+        "Refund Platform Fee",
+        "Refund Tip Amount",
         "Amount Display",
         "Platform Fee",
-        "Store Payout Amount",
+        "Original Store Payout",
+        "Store Refund Deduction",
+        "Adjusted Store Payout",
+        "Store Adjustment Due",
+        "Settlement Impact",
         "Payment Mode",
         "Reference No",
+        "Refund Method",
+        "Refund Reference",
         "Note",
         "Created By Name",
         "Created By Role",
@@ -2203,11 +3184,22 @@ def admin_settlement_audit_logs_export_csv():
             log.get("action_label"),
             log.get("amount_received"),
             log.get("amount_paid"),
+            log.get("refund_amount"),
+            log.get("refund_items_amount"),
+            log.get("refund_delivery_fee"),
+            log.get("refund_platform_fee"),
+            log.get("refund_tip_amount"),
             log.get("amount_display"),
             log.get("platform_fee"),
-            log.get("store_payout_amount"),
+            log.get("original_store_payout_amount"),
+            log.get("store_refund_deduction"),
+            log.get("adjusted_store_payout"),
+            log.get("store_adjustment_due"),
+            log.get("settlement_impact"),
             log.get("payment_mode"),
             log.get("reference_no"),
+            log.get("refund_method"),
+            log.get("refund_reference"),
             log.get("note"),
             log.get("created_by_name"),
             log.get("created_by_role"),
@@ -2315,15 +3307,16 @@ def admin_returns_settlements():
                 str(row.get("return_status") or ""),
                 str(row.get("refund_status") or ""),
                 str(row.get("refund_reference") or ""),
+                str(row.get("refund_method") or ""),
                 str(row.get("settlement_impact") or "")
             ]).lower()
 
             if q.lower() not in haystack:
                 continue
 
-            rows.append(row)
+        rows.append(row)
 
-        processed_rows = [
+    processed_rows = [
         r for r in rows
         if (r.get("refund_status") or "").upper() == "PROCESSED"
     ]
@@ -2378,6 +3371,193 @@ def admin_returns_settlements():
         active_group="settlements",
         active_page="returns_settlements"
     )
+
+
+
+
+@app.route("/admin/returns-settlements/export.csv", methods=["GET"], endpoint="admin_returns_settlements_export_csv")
+@login_required(role="admin")
+def admin_returns_settlements_export_csv():
+    q = (request.args.get("q") or "").strip()
+    refund_filter = (request.args.get("refund_status") or "").strip().upper()
+    return_filter = (request.args.get("return_status") or "").strip().upper()
+    payment_filter = (request.args.get("payment") or "").strip().upper()
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+
+    raw_orders = list(
+        mongo.orders.find({
+            "$or": [
+                {"status": {"$in": ["CANCELLED", "RETURNED", "RETURN_REQUESTED", "RETURN_PICKED_UP", "RETURN_COMPLETED"]}},
+                {"payment_status": {"$in": ["REFUNDED", "VOID", "PARTIALLY_REFUNDED"]}},
+                {"refund_status": {"$exists": True}},
+                {"return_status": {"$exists": True}},
+                {"refund_amount": {"$gt": 0}},
+                {"store_adjustment_due": {"$gt": 0}},
+                {"refund_deduction": {"$gt": 0}},
+                {"store_refund_deduction": {"$gt": 0}},
+                {"platform_fee_adjustment": {"$gt": 0}}
+            ]
+        }).sort("updated_at", -1)
+    )
+
+    rows = [[
+        "Order ID",
+        "Store Name",
+        "Customer Name",
+        "Customer Phone",
+
+        "Order Status",
+        "Payment Method",
+        "Payment Status",
+        "Return Status",
+        "Refund Status",
+        "Refund Type",
+        "Refund Type Label",
+
+        "Items Subtotal",
+        "Delivery Fee",
+        "Platform Fee",
+        "Tip Amount",
+        "Total Payable",
+
+        "Refund Amount",
+        "Refund Items Amount",
+        "Refund Delivery Fee",
+        "Refund Platform Fee",
+        "Refund Tip Amount",
+        "Refund Method",
+        "Refund Reference",
+        "Refund Note",
+        "Refund Processed At",
+        "Refund Processed By",
+
+        "Store Payout Amount",
+        "Original Store Payout",
+        "Store Refund Deduction",
+        "Adjusted Store Payout",
+        "Store Adjustment Due",
+        "Settlement Impact",
+
+        "Gross Platform Fee",
+        "Platform Fee Adjustment",
+        "Net Platform Fee",
+
+        "Store Payout Status",
+        "Order Settlement Status",
+        "Settlement Status",
+
+        "Cancelled At",
+        "Created At",
+        "Updated At",
+        "Report Date"
+    ]]
+
+    for order in raw_orders:
+        row = _admin_hydrate_return_settlement_order(order)
+
+        report_date = str(
+            row.get("refund_processed_at")
+            or row.get("cancelled_at")
+            or row.get("updated_at")
+            or row.get("created_at")
+            or ""
+        )
+
+        if date_from and report_date and report_date[:10] < date_from:
+            continue
+
+        if date_to and report_date and report_date[:10] > date_to:
+            continue
+
+        if refund_filter and refund_filter != row.get("refund_status"):
+            continue
+
+        if return_filter and return_filter != row.get("return_status"):
+            continue
+
+        if payment_filter:
+            if payment_filter == "ONLINE":
+                if row.get("payment_method") in ["COD", "COD_RIDER_COLLECTION", "CASH_ON_DELIVERY"]:
+                    continue
+            elif payment_filter == "COD":
+                if row.get("payment_method") not in ["COD", "COD_RIDER_COLLECTION", "CASH_ON_DELIVERY"]:
+                    continue
+            elif payment_filter != row.get("payment_method"):
+                continue
+
+        if q:
+            haystack = " ".join([
+                str(row.get("id") or ""),
+                str(row.get("store_name") or ""),
+                str(row.get("customer_name") or ""),
+                str(row.get("customer_phone") or ""),
+                str(row.get("payment_method") or ""),
+                str(row.get("payment_status") or ""),
+                str(row.get("return_status") or ""),
+                str(row.get("refund_status") or ""),
+                str(row.get("refund_method") or ""),
+                str(row.get("refund_reference") or ""),
+                str(row.get("settlement_impact") or ""),
+                str(row.get("order_settlement_status") or "")
+            ]).lower()
+
+            if q.lower() not in haystack:
+                continue
+
+        rows.append([
+            row.get("id"),
+            row.get("store_name"),
+            row.get("customer_name"),
+            row.get("customer_phone"),
+
+            row.get("status"),
+            row.get("payment_method"),
+            row.get("payment_status"),
+            row.get("return_status"),
+            row.get("refund_status"),
+            row.get("refund_type"),
+            row.get("refund_type_label"),
+
+            row.get("items_subtotal"),
+            row.get("delivery_fee"),
+            row.get("platform_fee"),
+            row.get("tip_amount"),
+            row.get("total_payable"),
+
+            row.get("refund_amount"),
+            row.get("refund_items_amount"),
+            row.get("refund_delivery_fee"),
+            row.get("refund_platform_fee"),
+            row.get("refund_tip_amount"),
+            row.get("refund_method"),
+            row.get("refund_reference"),
+            row.get("refund_note"),
+            row.get("refund_processed_at"),
+            row.get("refund_processed_by_name"),
+
+            row.get("store_payout_amount"),
+            row.get("original_store_payout_amount"),
+            row.get("store_refund_deduction"),
+            row.get("adjusted_store_payout"),
+            row.get("store_adjustment_due"),
+            row.get("settlement_impact"),
+
+            row.get("gross_platform_fee"),
+            row.get("platform_fee_adjustment"),
+            row.get("net_platform_fee"),
+
+            row.get("store_payout_status"),
+            row.get("order_settlement_status"),
+            row.get("settlement_status"),
+
+            row.get("cancelled_at"),
+            row.get("created_at"),
+            row.get("updated_at"),
+            report_date
+        ])
+
+    return _admin_csv_response(rows, "nefresh_returns_refund_settlements.csv")
 
 @app.route("/admin/dashboard")
 @login_required(role="admin")
@@ -2447,6 +3627,51 @@ def admin_dashboard():
 
     total_earnings_from_paid_txn = sum(float(t.get("amount") or 0) for t in transactions if _norm_status(t.get("status")) == "PAID")
     total_earnings = total_earnings_from_paid_txn if total_earnings_from_paid_txn > 0 else gmv
+
+
+        # -------------------------
+    # Refund / return dashboard KPIs
+    # -------------------------
+    refund_pending_docs = []
+    admin_review_needed_docs = []
+    refund_processed_docs = []
+
+    ready_for_refund_amount = 0.0
+    refund_processed_amount = 0.0
+    store_refund_deduction_amount = 0.0
+    store_adjustment_due_amount = 0.0
+
+    for order in orders:
+        refund_status = _norm_status(order.get("refund_status"))
+        return_status = _norm_status(order.get("return_status"))
+        admin_review_status = _norm_status(order.get("admin_return_review_status"))
+
+        refund_amount = float(order.get("refund_amount") or 0)
+        store_refund_deduction = float(
+            order.get("store_refund_deduction")
+            if order.get("store_refund_deduction") is not None
+            else order.get("refund_deduction")
+            or 0
+        )
+        store_adjustment_due = float(order.get("store_adjustment_due") or 0)
+
+        if refund_status in ["READY_FOR_REFUND", "PENDING"]:
+            refund_pending_docs.append(order)
+            ready_for_refund_amount += refund_amount
+
+        if return_status == "NEED_ADMIN_REVIEW" and admin_review_status == "PENDING":
+            admin_review_needed_docs.append(order)
+
+        if refund_status in ["PROCESSED", "ADJUSTED"]:
+            refund_processed_docs.append(order)
+            refund_processed_amount += refund_amount
+
+        store_refund_deduction_amount += store_refund_deduction
+        store_adjustment_due_amount += store_adjustment_due
+
+    refund_pending_count = len(refund_pending_docs)
+    admin_review_needed_count = len(admin_review_needed_docs)
+    refund_processed_count = len(refund_processed_docs)
 
     # -------------------------
     # Stores performance (revenue-first)
@@ -2520,12 +3745,78 @@ def admin_dashboard():
     # -------------------------
     sales_labels, sales_values = _dashboard_monthly_sales()
 
+
+    # -------------------------
+    # Payment / settlement dashboard metrics
+    # -------------------------
+    online_paid_orders = list(
+        mongo.orders.find({
+            "payment_method": {
+                "$in": ["ONLINE", "ONLINE_PAYMENT", "RAZORPAY"]
+            },
+            "payment_status": {
+                "$in": ["PAID", "ONLINE_PAID", "SUCCESS"]
+            }
+        })
+    )
+
+    cod_rider_pending_orders = list(
+        mongo.orders.find({
+            "payment_method": {
+                "$in": ["COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"]
+            },
+            "status": "DELIVERED",
+            "rider_cash_settlement_status": {
+                "$nin": ["RECEIVED_BY_ADMIN", "RECEIVED", "SETTLED", "NOT_REQUIRED"]
+            }
+        })
+    )
+
+    platform_fee_received_orders = list(
+        mongo.orders.find({
+            "platform_fee_status": "RECEIVED"
+        })
+    )
+
+    store_payout_pending_orders = list(
+        mongo.orders.find({
+            "status": "DELIVERED",
+            "store_payout_status": {
+                "$nin": ["PAID", "SETTLED", "NOT_REQUIRED"]
+            }
+        })
+    )
+
+    online_payment_received_amount = round(
+        sum(float(o.get("total_payable") or o.get("total_amount") or 0) for o in online_paid_orders),
+        2
+    )
+
+    cod_rider_cash_pending_amount = round(
+        sum(float(o.get("rider_cash_to_submit") or o.get("expected_rider_cash_to_submit") or 0) for o in cod_rider_pending_orders),
+        2
+    )
+
+    platform_fee_received_amount = round(
+        sum(float(o.get("platform_fee") or 0) for o in platform_fee_received_orders),
+        2
+    )
+
+    store_payout_pending_amount = round(
+        sum(float(o.get("adjusted_store_payout") or o.get("store_payout_amount") or o.get("store_earning") or o.get("items_subtotal") or 0) for o in store_payout_pending_orders),
+        2
+    )
+
+
     # -------------------------
     # Quick links
     # -------------------------
     quick_links = [
-        {"label": "Pending Approvals", "endpoint": "admin_approvals"},
+        
         {"label": "Manage Users", "endpoint": "admin_users"},
+        {"label": "Refund Processing", "endpoint": "admin_refund_processing"},
+        {"label": "Returns & Refund Settlements", "endpoint": "admin_returns_settlements"},
+        {"label": "Payment & Settlements", "endpoint": "admin_settlements"},
         {"label": "Complaints", "endpoint": "admin_complaints"},
         {"label": "Create Store", "endpoint": "admin_create_store"},
         {"label": "Create Delivery Partner", "endpoint": "admin_create_delivery"},
@@ -2552,6 +3843,26 @@ def admin_dashboard():
         "failed_payments": failed_payments_total,
         "pending_payments": pending_payments_total,
         "paid_transactions": paid_txn_total,
+                # Payment / settlement dashboard KPIs
+        "online_payment_received_amount": online_payment_received_amount,
+        "online_payment_received_count": len(online_paid_orders),
+
+        "cod_rider_cash_pending_amount": cod_rider_cash_pending_amount,
+        "cod_rider_cash_pending_count": len(cod_rider_pending_orders),
+
+        "platform_fee_received_amount": platform_fee_received_amount,
+
+        "store_payout_pending_amount": store_payout_pending_amount,
+        "store_payout_pending_count": len(store_payout_pending_orders),
+
+        # Refund / return dashboard KPIs
+        "refund_pending_count": refund_pending_count,
+        "admin_review_needed_count": admin_review_needed_count,
+        "refund_processed_count": refund_processed_count,
+        "ready_for_refund_amount": round(ready_for_refund_amount, 2),
+        "refund_processed_amount": round(refund_processed_amount, 2),
+        "store_refund_deduction_amount": round(store_refund_deduction_amount, 2),
+        "store_adjustment_due_amount": round(store_adjustment_due_amount, 2),
     }
 
     return render_template(
@@ -4361,19 +5672,221 @@ def admin_user_delete_hard(uid):
 @app.route('/admin/complaints')
 @login_required(role='admin')
 def admin_complaints():
-    complaints = list_recent_complaints(limit=200)
-    return render_template('admin_complaints.html', user=current_user(), complaints=complaints)
+    complaints = list(
+        mongo.customer_complaints.find({
+            "$or": [
+                {"is_active": 1},
+                {"is_active": True},
+                {"is_active": {"$exists": False}}
+            ]
+        }).sort("created_at", -1).limit(300)
+    )
 
-@app.route('/admin/complaints/<int:cid>/status', methods=['POST'])
+    for c in complaints:
+        _admin_prepare_complaint_row(c)
+
+    complaint_metrics = {
+        "total": len(complaints),
+        "admin": sum(1 for c in complaints if c.get("assigned_to") == "admin" or c.get("target_type") == "admin"),
+        "store": sum(1 for c in complaints if c.get("assigned_to") == "store" or c.get("target_type") == "store"),
+        "open": sum(1 for c in complaints if c.get("status") == "open"),
+        "in_progress": sum(1 for c in complaints if c.get("status") == "in_progress"),
+        "resolved": sum(1 for c in complaints if c.get("status") == "resolved")
+    }
+
+    return render_template(
+        'admin_complaints.html',
+        user=current_user(),
+        complaints=complaints,
+        complaint_metrics=complaint_metrics,
+        active_page="complaints",
+        active_group="operations"
+    )
+
+
+@app.route('/admin/complaints/<cid>/status', methods=['POST'])
 @login_required(role='admin')
 def admin_complaint_set_status(cid):
-    status = request.form.get('status','OPEN')
     try:
-        update_complaint_status(cid, status)
-        flash('Complaint status updated.','success')
-    except Exception as e:
-        flash(f'Failed to update: {e}','danger')
-    return redirect(url_for('admin_complaints'))
+        cid_obj = ObjectId(cid)
+    except Exception:
+        flash("Invalid complaint.", "danger")
+        return redirect(url_for("admin_complaints"))
+
+    complaint = mongo.customer_complaints.find_one({"_id": cid_obj})
+
+    if not complaint:
+        flash("Complaint not found.", "danger")
+        return redirect(url_for("admin_complaints"))
+
+    if _admin_is_store_complaint_doc(complaint):
+        flash("This is a store complaint. Admin can only view it unless it is taken over.", "warning")
+        return redirect(url_for("admin_complaints"))
+
+    status = (request.form.get("status") or "open").strip().lower()
+    progress_status = (request.form.get("progress_status") or status).strip().lower()
+    admin_reply = (request.form.get("admin_reply") or "").strip()
+    admin_progress_note = (request.form.get("admin_progress_note") or "").strip()
+
+    allowed_status = {
+        "open",
+        "in_progress",
+        "resolved",
+        "rejected"
+    }
+
+    allowed_progress = {
+        "received",
+        "in_progress",
+        "resolved",
+        "rejected"
+    }
+
+    if status not in allowed_status:
+        flash("Please select a valid complaint status.", "warning")
+        return redirect(url_for("admin_complaints"))
+
+    if progress_status not in allowed_progress:
+        flash("Please select a valid progress status.", "warning")
+        return redirect(url_for("admin_complaints"))
+
+    if status == "resolved":
+        progress_status = "resolved"
+    elif status == "in_progress":
+        progress_status = "in_progress"
+    elif status == "rejected":
+        progress_status = "rejected"
+
+    if len(admin_reply) > 1000:
+        admin_reply = admin_reply[:1000]
+
+    if len(admin_progress_note) > 1000:
+        admin_progress_note = admin_progress_note[:1000]
+
+    now = datetime.utcnow().isoformat()
+    admin_user = current_user() or {}
+
+    mongo.customer_complaints.update_one(
+        {"_id": cid_obj},
+        {
+            "$set": {
+                "status": status,
+                "progress_status": progress_status,
+                "admin_reply": admin_reply,
+                "admin_progress_note": admin_progress_note,
+                "admin_updated_at": now,
+                "admin_updated_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+                "admin_updated_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+                "updated_at": now
+            },
+            "$push": {
+                "complaint_history": {
+                    "action": "ADMIN_COMPLAINT_STATUS_UPDATED",
+                    "status": status,
+                    "progress_status": progress_status,
+                    "admin_reply": admin_reply,
+                    "admin_progress_note": admin_progress_note,
+                    "created_at": now,
+                    "created_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+                    "created_by_name": admin_user.get("name") or admin_user.get("email") or "Admin"
+                }
+            }
+        }
+    )
+
+    flash("Complaint status updated.", "success")
+    return redirect(url_for("admin_complaints"))
+
+@app.route('/admin/complaints/<cid>/takeover', methods=['POST'], endpoint='admin_complaint_takeover')
+@login_required(role='admin')
+def admin_complaint_takeover(cid):
+    try:
+        cid_obj = ObjectId(cid)
+    except Exception:
+        flash("Invalid complaint.", "danger")
+        return redirect(url_for("admin_complaints"))
+
+    complaint = mongo.customer_complaints.find_one({"_id": cid_obj})
+
+    if not complaint:
+        flash("Complaint not found.", "danger")
+        return redirect(url_for("admin_complaints"))
+
+    admin_takeover_status = str(
+        complaint.get("admin_takeover_status") or ""
+    ).strip().upper()
+
+    if admin_takeover_status == "TAKEN_OVER":
+        flash("This complaint is already taken over by Admin.", "warning")
+        return redirect(url_for("admin_complaints"))
+
+    if not _admin_is_store_complaint_doc(complaint):
+        flash("Only store complaints can be taken over.", "warning")
+        return redirect(url_for("admin_complaints"))
+
+    assigned_to = str(complaint.get("assigned_to") or "").strip().lower()
+    target_type = str(
+        complaint.get("target_type")
+        or complaint.get("target_kind")
+        or ""
+    ).strip().lower()
+
+    takeover_reason = (request.form.get("takeover_reason") or "").strip()
+
+    if len(takeover_reason) > 700:
+        takeover_reason = takeover_reason[:700]
+
+    now = datetime.utcnow().isoformat()
+    admin_user = current_user() or {}
+
+    original_store_id = complaint.get("store_id")
+    original_store_id_str = complaint.get("store_id_str") or str(original_store_id or "")
+    original_store_name = complaint.get("store_name") or ""
+
+    takeover_event = {
+        "action": "ADMIN_TAKEOVER_STORE_COMPLAINT",
+        "old_assigned_to": assigned_to,
+        "old_target_type": target_type,
+        "new_assigned_to": "admin",
+        "new_target_type": "admin",
+        "original_store_id": original_store_id_str,
+        "original_store_name": original_store_name,
+        "takeover_reason": takeover_reason,
+        "created_at": now,
+        "created_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+        "created_by_name": admin_user.get("name") or admin_user.get("email") or "Admin"
+    }
+
+    mongo.customer_complaints.update_one(
+        {"_id": cid_obj},
+        {
+            "$set": {
+                "assigned_to": "admin",
+                "target_type": "admin",
+                "admin_takeover_status": "TAKEN_OVER",
+                "admin_takeover_at": now,
+                "admin_takeover_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+                "admin_takeover_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+                "admin_takeover_reason": takeover_reason,
+
+                "original_assigned_to": assigned_to,
+                "original_target_type": target_type,
+                "original_store_id": original_store_id,
+                "original_store_id_str": original_store_id_str,
+                "original_store_name": original_store_name,
+
+                "progress_status": "in_progress",
+                "status": "in_progress",
+                "updated_at": now
+            },
+            "$push": {
+                "complaint_history": takeover_event
+            }
+        }
+    )
+
+    flash("Store complaint has been taken over by Admin.", "success")
+    return redirect(url_for("admin_complaints"))
 
 @app.route('/admin/users')
 @login_required(role='admin')

@@ -964,6 +964,111 @@ def _delivery_float_or_none(value):
         return None
 
 
+DELIVERY_FEE_SETTINGS_KEY = "delivery_fee_settings"
+
+
+def _delivery_clean_platform_fee_slabs(raw_slabs):
+    cleaned = []
+
+    if not raw_slabs:
+        return cleaned
+
+    if isinstance(raw_slabs, str):
+        try:
+            raw_slabs = json.loads(raw_slabs)
+        except Exception:
+            return cleaned
+
+    if not isinstance(raw_slabs, list):
+        return cleaned
+
+    for row in raw_slabs:
+        if not isinstance(row, dict):
+            continue
+
+        min_km = _delivery_float_or_none(row.get("min_km"))
+        max_km = _delivery_float_or_none(row.get("max_km"))
+        fee = _delivery_float_or_none(row.get("fee"))
+
+        if min_km is None:
+            min_km = 0.0
+
+        if min_km < 0:
+            continue
+
+        if fee is None or fee < 0:
+            continue
+
+        if max_km is not None and max_km <= min_km:
+            continue
+
+        cleaned.append({
+            "min_km": round(float(min_km), 3),
+            "max_km": round(float(max_km), 3) if max_km is not None else None,
+            "fee": round(float(fee), 2)
+        })
+
+    cleaned.sort(key=lambda x: float(x.get("min_km") or 0))
+
+    return cleaned
+
+
+def get_platform_delivery_fee_settings():
+    """
+    Admin-controlled delivery fee settings.
+
+    Store can enable/disable delivery, but delivery fee/rate/slab/free delivery
+    settings must come only from mongo.platform_settings.
+    """
+    settings = {}
+
+    try:
+        settings = mongo.platform_settings.find_one({
+            "key": DELIVERY_FEE_SETTINGS_KEY
+        }) or {}
+    except Exception:
+        settings = {}
+
+    base_fee = _delivery_float_or_none(settings.get("delivery_base_fee"))
+
+    if base_fee is None:
+        base_fee = float(BASE_DELIVERY_FEE_INR)
+
+    free_delivery_above = _delivery_float_or_none(settings.get("free_delivery_above"))
+
+    if free_delivery_above is None:
+        free_delivery_above = 0.0
+
+    delivery_min_order_amount = _delivery_float_or_none(
+        settings.get("delivery_min_order_amount")
+    )
+
+    if delivery_min_order_amount is None:
+        delivery_min_order_amount = 0.0
+
+    max_delivery_distance_km = _delivery_float_or_none(
+        settings.get("max_delivery_distance_km")
+    )
+
+    slabs_enabled = bool(settings.get("delivery_fee_slabs_enabled", False))
+    slabs = _delivery_clean_platform_fee_slabs(
+        settings.get("delivery_fee_slabs") or []
+    )
+
+    return {
+        "key": DELIVERY_FEE_SETTINGS_KEY,
+        "delivery_base_fee": round(float(base_fee), 2),
+        "free_delivery_above": round(float(free_delivery_above), 2),
+        "delivery_min_order_amount": round(float(delivery_min_order_amount), 2),
+        "max_delivery_distance_km": max_delivery_distance_km,
+        "delivery_fee_slabs_enabled": bool(slabs_enabled),
+        "delivery_fee_slabs": slabs,
+        "delivery_boy_earning_rule": settings.get("delivery_boy_earning_rule") or "DELIVERY_FEE_PLUS_TIP",
+        "notes": settings.get("notes") or "",
+        "updated_at": settings.get("updated_at") or "",
+        "updated_by_name": settings.get("updated_by_name") or ""
+    }
+
 def _clean_delivery_polygon(polygon):
     """
     Expected format:
@@ -1050,9 +1155,14 @@ def point_in_polygon(lat, lng, polygon):
 def normalize_store_delivery_status(store):
     """
     Normalizes old + new store delivery fields.
-    Keeps backward compatibility with:
-    - is_open
-    - delivery_available
+
+    Store controls only:
+    - active / online
+    - delivery enabled
+    - store coordinates
+    - delivery zone
+
+    Delivery fee/rate/slab/free delivery/min order are Admin-controlled only.
     """
     store = store or {}
 
@@ -1082,12 +1192,7 @@ def normalize_store_delivery_status(store):
         0
     )
 
-    delivery_base_fee = BASE_DELIVERY_FEE_INR
-
-    try:
-        delivery_base_fee = float(store.get("delivery_base_fee") or BASE_DELIVERY_FEE_INR)
-    except Exception:
-        delivery_base_fee = BASE_DELIVERY_FEE_INR
+    delivery_settings = get_platform_delivery_fee_settings()
 
     return {
         "is_active": is_active,
@@ -1098,13 +1203,15 @@ def normalize_store_delivery_status(store):
         "store_lng": store_lng,
         "delivery_zone_polygon": polygon,
         "delivery_zone_configured": zone_configured,
-        "delivery_base_fee": delivery_base_fee,
 
-        # Store-specific delivery fee slab settings.
-        "delivery_fee_slabs_enabled": bool(store.get("delivery_fee_slabs_enabled", False)),
-        "delivery_fee_slabs": store.get("delivery_fee_slabs") or [],
-        "free_delivery_above": float(store.get("free_delivery_above") or 0),
-        "max_delivery_distance_km": _delivery_float_or_none(store.get("max_delivery_distance_km")),
+        # Admin-controlled delivery fee settings.
+        "delivery_base_fee": delivery_settings.get("delivery_base_fee", BASE_DELIVERY_FEE_INR),
+        "delivery_fee_slabs_enabled": delivery_settings.get("delivery_fee_slabs_enabled", False),
+        "delivery_fee_slabs": delivery_settings.get("delivery_fee_slabs") or [],
+        "free_delivery_above": delivery_settings.get("free_delivery_above", 0),
+        "delivery_min_order_amount": delivery_settings.get("delivery_min_order_amount", 0),
+        "max_delivery_distance_km": delivery_settings.get("max_delivery_distance_km"),
+        "delivery_boy_earning_rule": delivery_settings.get("delivery_boy_earning_rule", "DELIVERY_FEE_PLUS_TIP"),
     }
 
 
@@ -1170,19 +1277,16 @@ def calculate_store_delivery_fee_details(store, distance_km, items_total=None):
     """
     Calculates delivery fee with full metadata.
 
-    Priority:
-    1. Free delivery above store order value, if configured.
-    2. Store-specific delivery fee slabs if enabled.
-    3. Store base fee + global surcharge slab fallback.
+    Delivery fee settings are Admin-controlled from mongo.platform_settings.
+    Store document is used only for pickup location / delivery zone / delivery enabled.
     """
     store = store or {}
+    settings = get_platform_delivery_fee_settings()
 
-    base_fee = BASE_DELIVERY_FEE_INR
-
-    try:
-        base_fee = float(store.get("delivery_base_fee") or BASE_DELIVERY_FEE_INR)
-    except Exception:
-        base_fee = BASE_DELIVERY_FEE_INR
+    base_fee = float(settings.get("delivery_base_fee") or BASE_DELIVERY_FEE_INR)
+    free_delivery_above = _delivery_float_or_none(settings.get("free_delivery_above"))
+    slabs_enabled = bool(settings.get("delivery_fee_slabs_enabled", False))
+    slabs = _delivery_clean_platform_fee_slabs(settings.get("delivery_fee_slabs") or [])
 
     try:
         distance_km = float(distance_km) if distance_km is not None else None
@@ -1197,8 +1301,6 @@ def calculate_store_delivery_fee_details(store, distance_km, items_total=None):
     if items_total < 0:
         items_total = 0.0
 
-    free_delivery_above = _delivery_float_or_none(store.get("free_delivery_above"))
-
     def _apply_free_delivery_if_eligible(source, slab, calculated_fee):
         calculated_fee = round(float(calculated_fee or 0), 2)
 
@@ -1209,15 +1311,17 @@ def calculate_store_delivery_fee_details(store, distance_km, items_total=None):
         ):
             return {
                 "delivery_fee": 0.0,
-                "delivery_fee_source": "store_free_delivery_above",
+                "delivery_fee_source": "admin_free_delivery_above",
                 "delivery_fee_slab": slab,
                 "delivery_base_fee": round(float(base_fee), 2),
                 "free_delivery_above": round(float(free_delivery_above), 2),
+                "delivery_min_order_amount": round(float(settings.get("delivery_min_order_amount") or 0), 2),
                 "original_delivery_fee": calculated_fee,
                 "delivery_fee_before_discount": calculated_fee,
                 "free_delivery_savings": calculated_fee,
                 "items_total_for_free_delivery": round(float(items_total), 2),
-                "original_delivery_fee_source": source
+                "original_delivery_fee_source": source,
+                "delivery_fee_settings_source": "admin_platform_settings"
             }
 
         return {
@@ -1226,22 +1330,21 @@ def calculate_store_delivery_fee_details(store, distance_km, items_total=None):
             "delivery_fee_slab": slab,
             "delivery_base_fee": round(float(base_fee), 2),
             "free_delivery_above": round(float(free_delivery_above or 0), 2),
+            "delivery_min_order_amount": round(float(settings.get("delivery_min_order_amount") or 0), 2),
             "original_delivery_fee": calculated_fee,
             "delivery_fee_before_discount": calculated_fee,
             "free_delivery_savings": 0.0,
             "items_total_for_free_delivery": round(float(items_total), 2),
-            "original_delivery_fee_source": source
+            "original_delivery_fee_source": source,
+            "delivery_fee_settings_source": "admin_platform_settings"
         }
 
     if distance_km is None:
         return _apply_free_delivery_if_eligible(
-            "store_base_fee_no_distance",
+            "admin_base_fee_no_distance",
             None,
             round(float(base_fee), 2)
         )
-
-    slabs_enabled = bool(store.get("delivery_fee_slabs_enabled", False))
-    slabs = _clean_delivery_fee_slabs(store.get("delivery_fee_slabs") or [])
 
     if slabs_enabled and slabs:
         for slab in slabs:
@@ -1252,18 +1355,17 @@ def calculate_store_delivery_fee_details(store, distance_km, items_total=None):
                 if distance_km >= min_km:
                     matched_fee = round(float(slab.get("fee") or 0), 2)
                     return _apply_free_delivery_if_eligible(
-                        "store_custom_slab",
+                        "admin_custom_slab",
                         slab,
                         matched_fee
                     )
-
             else:
                 max_km = float(max_km)
 
                 if distance_km >= min_km and distance_km < max_km:
                     matched_fee = round(float(slab.get("fee") or 0), 2)
                     return _apply_free_delivery_if_eligible(
-                        "store_custom_slab",
+                        "admin_custom_slab",
                         slab,
                         matched_fee
                     )
@@ -1276,18 +1378,23 @@ def calculate_store_delivery_fee_details(store, distance_km, items_total=None):
             break
 
     fallback_slab = {
+        "min_km": 0,
+        "max_km": None,
+        "fee": round(float(base_fee + surcharge), 2),
         "base_fee": round(float(base_fee), 2),
         "surcharge": round(float(surcharge), 2),
-        "distance_km": round(float(distance_km), 3)
+        "distance_km": round(float(distance_km), 3),
+        "label": "Fallback delivery fee"
     }
 
     final_fee = round(float(base_fee + surcharge), 2)
 
     return _apply_free_delivery_if_eligible(
-        "global_surcharge_fallback",
+        "admin_global_surcharge_fallback",
         fallback_slab,
         final_fee
     )
+
 
 def calculate_store_delivery_fee(store, distance_km):
     """
@@ -1348,6 +1455,28 @@ def check_store_serviceability(store, customer_lat, customer_lng, customer_pinco
             "message": "Delivery is currently unavailable for this store.",
             "distance_km": None,
             "delivery_fee": 0
+        }
+    
+    delivery_min_order_amount = _delivery_float_or_none(
+        status.get("delivery_min_order_amount")
+    )
+
+    items_total_for_check = _delivery_float_or_none(items_total)
+
+    if (
+        delivery_min_order_amount is not None
+        and delivery_min_order_amount > 0
+        and items_total_for_check is not None
+        and items_total_for_check < delivery_min_order_amount
+    ):
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "DELIVERY_MIN_ORDER_NOT_MET",
+            "message": f"Minimum order amount for delivery is ₹{delivery_min_order_amount:g}.",
+            "distance_km": None,
+            "delivery_fee": 0,
+            "delivery_min_order_amount": round(float(delivery_min_order_amount), 2)
         }
 
     if customer_pincode and not is_serviceable_pincode(customer_pincode):
@@ -1440,7 +1569,8 @@ def check_store_serviceability(store, customer_lat, customer_lng, customer_pinco
 # =========================================================
 
 DELIVERY_STORE_ASSIGNABLE_STATUSES = {
-    "READY_FOR_PICKUP",
+    "SHIPMENT_READY",
+    "READY_FOR_PICKUP",  # legacy support
     "ASSIGNED_TO_DELIVERY",
     "REACHED_STORE"
 }
@@ -1706,7 +1836,7 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
     if status not in DELIVERY_STORE_ASSIGNABLE_STATUSES:
         return {
             "ok": False,
-            "error": "Store must mark this order ready for pickup before delivery assignment."
+            "error": "Store must mark this order shipment ready before delivery assignment."
         }
 
     existing_partner = order.get("delivery_partner_id")
@@ -1798,7 +1928,12 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
 
     unassigned_filter = {
         "_id": oid_obj,
-        "status": "READY_FOR_PICKUP",
+        "status": {
+            "$in": [
+                "SHIPMENT_READY",
+                "READY_FOR_PICKUP"  # legacy support
+            ]
+        },
         "$or": [
             {"delivery_partner_id": {"$exists": False}},
             {"delivery_partner_id": None},
@@ -1810,7 +1945,8 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
         "_id": oid_obj,
         "status": {
             "$in": [
-                "READY_FOR_PICKUP",
+                "SHIPMENT_READY",
+                "READY_FOR_PICKUP",  # legacy support
                 "ASSIGNED_TO_DELIVERY",
                 "REACHED_STORE"
             ]
@@ -1879,11 +2015,11 @@ def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, sou
                 "error": "This order has moved forward and delivery partner cannot be changed now."
             }
 
-        if latest_status != "READY_FOR_PICKUP" and not allow_reassign:
+        if latest_status not in ["SHIPMENT_READY", "READY_FOR_PICKUP"] and not allow_reassign:
             return {
                 "ok": False,
                 "error": "This order is no longer available for delivery assignment."
-            }
+        }
 
         return {
             "ok": False,
@@ -1984,7 +2120,7 @@ def clear_delivery_assignment(order_id, actor=None, reason="Delivery assignment 
         {"_id": oid_obj},
         {
             "$set": {
-                "status": "READY_FOR_PICKUP",
+                "status": "SHIPMENT_READY",
                 "delivery_partner_id": None,
                 "delivery_partner_name": "",
                 "delivery_partner_phone": "",
@@ -2011,7 +2147,7 @@ def clear_delivery_assignment(order_id, actor=None, reason="Delivery assignment 
 
     add_order_event(
         oid_obj,
-        "READY_FOR_PICKUP",
+        "SHIPMENT_READY",
         reason,
         actor
     )
@@ -2548,6 +2684,57 @@ def get_order_full(oid, for_user_id=None):
 
     order["id"] = str(order["_id"])
 
+    def _track_float(value):
+        try:
+            if value is None or str(value).strip() == "":
+                return None
+            number = float(value)
+            if not math.isfinite(number):
+                return None
+            return number
+        except Exception:
+            return None
+
+    def _clean_lat_lng(lat_value, lng_value):
+        """
+        Returns clean map-safe coordinates.
+
+        Also fixes accidental swapped lat/lng values:
+        - correct Assam example: lat 26.x, lng 92.x
+        - wrong swapped example: lat 92.x, lng 26.x
+        """
+        lat = _track_float(lat_value)
+        lng = _track_float(lng_value)
+
+        if lat is None or lng is None:
+            return None, None
+
+        # Fix swapped lat/lng when lat looks like longitude and lng looks like latitude.
+        if abs(lat) > 90 and abs(lng) <= 90:
+            lat, lng = lng, lat
+
+        # Extra swap guard for India/Assam-style values.
+        if 65 <= lat <= 100 and 5 <= lng <= 40:
+            lat, lng = lng, lat
+
+        if lat < -90 or lat > 90:
+            return None, None
+
+        if lng < -180 or lng > 180:
+            return None, None
+
+        return round(lat, 7), round(lng, 7)
+
+    def _safe_id(value):
+        if value is None:
+            return ""
+        try:
+            if isinstance(value, ObjectId):
+                return str(value)
+        except Exception:
+            pass
+        return str(value)
+
     items = list(mongo.order_items.find({"order_id": oid_obj}))
 
     for item in items:
@@ -2565,6 +2752,163 @@ def get_order_full(oid, for_user_id=None):
 
     if addr:
         addr["id"] = str(addr["_id"])
+    else:
+        addr = None
+
+    # ------------------------------------------------------------
+    # Customer delivery point
+    # Priority:
+    # 1. order_addresses final checkout latitude/longitude
+    # 2. order.delivery_latitude / order.delivery_longitude snapshot
+    # 3. saved address latitude/longitude snapshot
+    # ------------------------------------------------------------
+    customer_lat, customer_lng = _clean_lat_lng(
+        addr.get("latitude") if addr else None,
+        addr.get("longitude") if addr else None
+    )
+
+    customer_source = (addr.get("location_source") if addr else "") or ""
+
+    if customer_lat is None or customer_lng is None:
+        customer_lat, customer_lng = _clean_lat_lng(
+            order.get("delivery_latitude"),
+            order.get("delivery_longitude")
+        )
+        customer_source = order.get("delivery_location_source") or "order_delivery_snapshot"
+
+    if (customer_lat is None or customer_lng is None) and addr:
+        customer_lat, customer_lng = _clean_lat_lng(
+            addr.get("saved_address_latitude"),
+            addr.get("saved_address_longitude")
+        )
+        customer_source = "saved_address_snapshot"
+
+    if addr:
+        addr["latitude"] = customer_lat
+        addr["longitude"] = customer_lng
+        addr["location_source"] = customer_source
+
+    # ------------------------------------------------------------
+    # Store pickup point
+    # Priority:
+    # 1. stores collection current latitude/longitude
+    # 2. order store_latitude/store_longitude snapshot
+    # ------------------------------------------------------------
+    store_doc = None
+    store_id = order.get("store_id")
+
+    if store_id:
+        try:
+            store_doc = mongo.stores.find_one({"_id": store_id})
+        except Exception:
+            store_doc = None
+
+        if not store_doc:
+            try:
+                store_doc = mongo.stores.find_one({"_id": ObjectId(str(store_id))})
+            except Exception:
+                store_doc = mongo.stores.find_one({"_id": str(store_id)})
+
+    store_lat, store_lng = _clean_lat_lng(
+        store_doc.get("latitude") if store_doc else None,
+        store_doc.get("longitude") if store_doc else None
+    )
+
+    if store_lat is None or store_lng is None:
+        store_lat, store_lng = _clean_lat_lng(
+            order.get("store_latitude"),
+            order.get("store_longitude")
+        )
+
+    store_view = {
+        "id": _safe_id(store_doc.get("_id") if store_doc else store_id),
+        "store_name": (
+            store_doc.get("store_name")
+            if store_doc
+            else order.get("store_name")
+            or "Store"
+        ),
+        "address": store_doc.get("address") if store_doc else "",
+        "latitude": store_lat,
+        "longitude": store_lng,
+    }
+
+    order["store_latitude"] = store_lat
+    order["store_longitude"] = store_lng
+
+    # ------------------------------------------------------------
+    # Rider live point
+    # Priority:
+    # 1. latest delivery_locations for this order
+    # 2. delivery_availability for assigned rider
+    # ------------------------------------------------------------
+    latest_rider_location = mongo.delivery_locations.find_one(
+        {"order_id": oid_obj},
+        sort=[("recorded_at", -1)]
+    )
+
+    rider_lat = None
+    rider_lng = None
+    rider_updated_at = ""
+    rider_source = ""
+
+    if latest_rider_location:
+        rider_lat, rider_lng = _clean_lat_lng(
+            latest_rider_location.get("latitude"),
+            latest_rider_location.get("longitude")
+        )
+        rider_updated_at = latest_rider_location.get("recorded_at") or ""
+        rider_source = "delivery_locations"
+
+    if rider_lat is None or rider_lng is None:
+        delivery_partner_id = _safe_id(order.get("delivery_partner_id"))
+
+        if delivery_partner_id:
+            availability = mongo.delivery_availability.find_one({
+                "user_id": delivery_partner_id,
+                "active": True
+            }) or {}
+
+            rider_lat, rider_lng = _clean_lat_lng(
+                availability.get("latitude"),
+                availability.get("longitude")
+            )
+            rider_updated_at = availability.get("updated_at") or ""
+            rider_source = "delivery_availability"
+
+    rider_view = {
+        "id": _safe_id(order.get("delivery_partner_id")),
+        "name": order.get("delivery_partner_name") or "",
+        "phone": order.get("delivery_partner_phone") or "",
+        "latitude": rider_lat,
+        "longitude": rider_lng,
+        "updated_at": rider_updated_at,
+        "source": rider_source,
+    }
+
+    tracking_map = {
+        "order_id": str(oid_obj),
+        "customer": {
+            "label": "Delivery Address",
+            "latitude": customer_lat,
+            "longitude": customer_lng,
+            "source": customer_source,
+            "address": {
+                "line1": addr.get("line1") if addr else "",
+                "line2": addr.get("line2") if addr else "",
+                "city": addr.get("city") if addr else "",
+                "state": addr.get("state") if addr else "",
+                "pincode": addr.get("pincode") if addr else "",
+            }
+        },
+        "store": {
+            "label": store_view.get("store_name") or "Store",
+            "latitude": store_lat,
+            "longitude": store_lng,
+            "address": store_view.get("address") or "",
+        },
+        "rider": rider_view
+    }
 
     events = list(mongo.order_events.find({"order_id": oid_obj}).sort("created_at", 1))
 
@@ -2576,6 +2920,8 @@ def get_order_full(oid, for_user_id=None):
         "items": items,
         "address": addr,
         "events": events,
+        "store": store_view,
+        "tracking_map": tracking_map,
     }
 
 

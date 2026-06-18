@@ -2116,6 +2116,12 @@ def delivery_update_location():
     oid = data.get("order_id")
     heading = data.get("heading")
     speed = data.get("speed")
+    accuracy = data.get("accuracy")
+
+    try:
+        accuracy = float(accuracy) if accuracy is not None and str(accuracy).strip() != "" else None
+    except Exception:
+        accuracy = None
 
     oid_obj = None
 
@@ -2149,6 +2155,7 @@ def delivery_update_location():
         "order_id": oid_obj,
         "latitude": lat,
         "longitude": lng,
+        "accuracy": accuracy,
         "heading": heading,
         "speed": speed,
         "recorded_at": now
@@ -2162,6 +2169,7 @@ def delivery_update_location():
                 "active": True,
                 "latitude": lat,
                 "longitude": lng,
+                "accuracy": accuracy,
                 "current_order_id": str(oid_obj) if oid_obj else None,
                 "updated_at": now
             },
@@ -2176,6 +2184,7 @@ def delivery_update_location():
         "ok": True,
         "latitude": lat,
         "longitude": lng,
+        "accuracy": accuracy,
         "order_id": str(oid_obj) if oid_obj else None
     })
 
@@ -2204,6 +2213,7 @@ def delivery_api_get_latest(oid):
         "data": {
             "latitude": row.get("latitude"),
             "longitude": row.get("longitude"),
+            "accuracy": row.get("accuracy"),
             "updated_at": row.get("recorded_at")
         }
     })

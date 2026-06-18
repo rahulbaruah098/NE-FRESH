@@ -1,0 +1,334 @@
+{% extends "admin_base.html" %}
+{% set active_page = "exports" %}
+{% set active_group = "exports" %}
+
+{% block title %}Export Center | NE FRESH Admin{% endblock %}
+{% block page_title %}Export Center{% endblock %}
+{% block page_subtitle %}Download all admin reports, settlement reports, refund reports and audit CSV files from one place.{% endblock %}
+
+{% block content %}
+{% set cards = export_cards if export_cards is defined else [] %}
+
+<section class="nf-admin-exports">
+  <style>
+    .nf-admin-exports {
+      display: grid;
+      gap: 18px;
+    }
+
+    .ex-hero,
+    .ex-card,
+    .ex-mini {
+      background: var(--nf-surface);
+      border: 1px solid var(--nf-line);
+      border-radius: 22px;
+      box-shadow: var(--nf-shadow);
+    }
+
+    .ex-hero {
+      padding: 24px;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(0,168,89,.13), transparent 32%),
+        radial-gradient(circle at 92% 4%, rgba(2,132,199,.10), transparent 28%),
+        linear-gradient(135deg, #fff, var(--nf-surface-2));
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .ex-hero h2 {
+      margin: 0 0 8px;
+      color: var(--nf-text);
+      font-size: clamp(1.5rem, 3vw, 2.15rem);
+      line-height: 1.1;
+      font-weight: 950;
+      letter-spacing: -.04em;
+    }
+
+    .ex-hero p {
+      margin: 0;
+      max-width: 900px;
+      color: var(--nf-muted);
+      font-size: .95rem;
+      font-weight: 650;
+      line-height: 1.6;
+    }
+
+    .ex-hero-badge {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 13px;
+      border-radius: 999px;
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border: 1px solid rgba(0,168,89,.18);
+      font-size: .78rem;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .ex-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .ex-card {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+      min-height: 250px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ex-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 5px;
+      background: var(--nf-green);
+    }
+
+    .ex-card.orange::before {
+      background: var(--nf-warning);
+    }
+
+    .ex-card.blue::before {
+      background: var(--nf-info);
+    }
+
+    .ex-card.red::before {
+      background: var(--nf-danger);
+    }
+
+    .ex-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .ex-icon {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border: 1px solid rgba(0,168,89,.18);
+      font-size: 1.45rem;
+      flex: 0 0 auto;
+    }
+
+    .ex-tag {
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 0 10px;
+      background: var(--nf-surface-2);
+      color: var(--nf-muted);
+      border: 1px solid var(--nf-line);
+      font-size: .7rem;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+
+    .ex-title {
+      margin: 0;
+      color: var(--nf-text);
+      font-size: 1.08rem;
+      font-weight: 950;
+      letter-spacing: -.03em;
+      line-height: 1.25;
+    }
+
+    .ex-desc {
+      margin: 0;
+      color: var(--nf-muted);
+      font-size: .84rem;
+      font-weight: 650;
+      line-height: 1.55;
+    }
+
+    .ex-actions {
+      margin-top: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .ex-btn {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 12px;
+      border: 1px solid var(--nf-line);
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 13px;
+      font-size: .8rem;
+      font-weight: 950;
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .ex-btn.primary {
+      background: var(--nf-green);
+      border-color: var(--nf-green);
+      color: #fff;
+      box-shadow: 0 12px 26px rgba(0,168,89,.16);
+    }
+
+    .ex-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--nf-shadow-soft);
+    }
+
+    .ex-info-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .ex-mini {
+      padding: 16px;
+      display: grid;
+      gap: 8px;
+      min-height: 108px;
+    }
+
+    .ex-mini span {
+      color: var(--nf-muted);
+      font-size: .72rem;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .ex-mini strong {
+      color: var(--nf-text);
+      font-size: 1rem;
+      font-weight: 950;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 1180px) {
+      .ex-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .ex-info-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .ex-grid,
+      .ex-info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .ex-actions {
+        display: grid;
+      }
+
+      .ex-btn {
+        width: 100%;
+      }
+    }
+  </style>
+
+  <div class="ex-hero">
+    <div>
+      <h2>Admin Export Center</h2>
+      <p>
+        Download settlement, platform earning, return/refund, audit and transaction CSV reports
+        from one central page. These reports are used for accounts, reconciliation and audit checking.
+      </p>
+    </div>
+
+    <span class="ex-hero-badge">CSV Reports</span>
+  </div>
+
+  <div class="ex-info-grid">
+    <div class="ex-mini">
+      <span>Settlement Reports</span>
+      <strong>COD cash, platform fee and store payout reports.</strong>
+    </div>
+
+    <div class="ex-mini">
+      <span>Refund Reports</span>
+      <strong>Refund amount, method, reference and processed date.</strong>
+    </div>
+
+    <div class="ex-mini">
+      <span>Store Impact</span>
+      <strong>Refund deduction, adjusted payout and adjustment due.</strong>
+    </div>
+
+    <div class="ex-mini">
+      <span>Audit Trail</span>
+      <strong>Admin settlement and refund action history.</strong>
+    </div>
+  </div>
+
+  <div class="ex-grid">
+    {% for item in cards %}
+      {% set color_class = 'orange' if loop.index in [2, 5] else 'blue' if loop.index == 4 else 'red' if loop.index == 3 else '' %}
+
+      <article class="ex-card {{ color_class }}">
+        <div class="ex-top">
+          <div class="ex-icon">{{ item.icon }}</div>
+          <span class="ex-tag">{{ item.tag }}</span>
+        </div>
+
+        <div>
+          <h3 class="ex-title">{{ item.title }}</h3>
+          <p class="ex-desc">{{ item.description }}</p>
+        </div>
+
+        <div class="ex-actions">
+          <a class="ex-btn primary" href="{{ url_for(item.export_endpoint) }}">
+            {{ item.button }}
+          </a>
+
+                    {% if item.page_endpoint %}
+            <a class="ex-btn" href="{{ url_for(item.page_endpoint) }}">
+              Open Page
+            </a>
+          {% else %}
+            <span class="ex-btn" style="opacity:.55;cursor:not-allowed;">
+              Export Only
+            </span>
+          {% endif %}
+        </div>
+      </article>
+    {% else %}
+      <article class="ex-card">
+        <div class="ex-top">
+          <div class="ex-icon">📤</div>
+          <span class="ex-tag">Empty</span>
+        </div>
+
+        <div>
+          <h3 class="ex-title">No exports configured</h3>
+          <p class="ex-desc">Please add export routes from the admin routes file.</p>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

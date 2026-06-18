@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="nf-order-payment-page">
+  <style>
+    .nf-order-payment-page {
+      width: 100vw;
+      min-height: 100vh;
+      margin-left: calc(50% - 50vw);
+      margin-right: calc(50% - 50vw);
+      display: grid;
+      place-items: center;
+      padding: 28px 16px;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(0,168,89,.10), transparent 30%),
+        radial-gradient(circle at 100% 0%, rgba(255,184,77,.12), transparent 28%),
+        linear-gradient(180deg, #ffffff, #f8fffb);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .pay-card {
+      width: min(620px, 100%);
+      background: #fff;
+      border: 1px solid #e3f1e9;
+      border-radius: 24px;
+      box-shadow: 0 22px 70px rgba(17,64,38,.12);
+      padding: 26px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .pay-badge {
+      width: max-content;
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: #e9fff3;
+      color: #008a48;
+      border: 1px solid rgba(0,168,89,.18);
+      font-size: .76rem;
+      font-weight: 950;
+    }
+
+    .pay-title {
+      margin: 0;
+      color: #111714;
+      font-size: clamp(1.55rem, 4vw, 2.25rem);
+      line-height: 1.08;
+      letter-spacing: -.045em;
+      font-weight: 950;
+    }
+
+    .pay-sub {
+      margin: 0;
+      color: #66756d;
+      font-size: .92rem;
+      font-weight: 700;
+      line-height: 1.55;
+    }
+
+    .pay-summary {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border-radius: 18px;
+      background: #f8fffb;
+      border: 1px solid #e3f1e9;
+    }
+
+    .pay-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      color: #66756d;
+      font-size: .9rem;
+      font-weight: 800;
+    }
+
+    .pay-row strong {
+      color: #111714;
+      font-weight: 950;
+      text-align: right;
+    }
+
+    .pay-actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .pay-btn {
+      width: 100%;
+      min-height: 46px;
+      border: 0;
+      border-radius: 14px;
+      background: #00A859;
+      color: #fff;
+      font-size: .92rem;
+      font-weight: 950;
+      cursor: pointer;
+      box-shadow: 0 14px 30px rgba(0,168,89,.22);
+    }
+
+    .pay-btn:hover {
+      background: #008A48;
+    }
+
+    .pay-btn[disabled] {
+      opacity: .6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .pay-link {
+      width: 100%;
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 14px;
+      background: #fff;
+      color: #23332a;
+      border: 1px solid #e3f1e9;
+      text-decoration: none;
+      font-size: .86rem;
+      font-weight: 900;
+    }
+
+    .pay-msg {
+      display: none;
+      padding: 12px;
+      border-radius: 14px;
+      background: #fff7f7;
+      border: 1px solid rgba(239,68,68,.22);
+      color: #b91c1c;
+      font-size: .82rem;
+      font-weight: 850;
+      line-height: 1.45;
+    }
+
+    .pay-msg.show {
+      display: block;
+    }
+  </style>
+
+  <div class="pay-card">
+    <span class="pay-badge">Razorpay · {{ payment_gateway_settings.mode|default("TEST") }}</span>
+
+    <div>
+      <h1 class="pay-title">Complete Online Payment</h1>
+      <p class="pay-sub">
+        Your order has been created. Click below to create a Razorpay payment order and continue payment.
+      </p>
+    </div>
+
+    <div class="pay-summary">
+      <div class="pay-row">
+        <span>Order ID</span>
+        <strong>#{{ order._id|string }}</strong>
+      </div>
+
+      <div class="pay-row">
+        <span>Payment Method</span>
+        <strong>{{ order.payment_method }}</strong>
+      </div>
+
+      <div class="pay-row">
+        <span>Payment Status</span>
+        <strong>{{ order.payment_status }}</strong>
+      </div>
+
+      <div class="pay-row">
+        <span>Total Payable</span>
+        <strong>₹{{ "%.2f"|format(order.total_payable|default(0)|float) }}</strong>
+      </div>
+    </div>
+
+    <div id="payMsg" class="pay-msg"></div>
+
+    <div class="pay-actions">
+      <button type="button" class="pay-btn" id="startRazorpayBtn">
+        Continue to Razorpay
+      </button>
+
+      <a class="pay-link" href="{{ url_for('orders') }}">Pay Later / Back to Orders</a>
+    </div>
+  </div>
+</section>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  const btn = document.getElementById("startRazorpayBtn");
+  const msg = document.getElementById("payMsg");
+
+  function showMsg(text){
+    if (!msg) return;
+    msg.textContent = text || "";
+    msg.classList.toggle("show", Boolean(text));
+  }
+
+  async function createRazorpayOrder(){
+    const res = await fetch("{{ url_for('api_create_razorpay_order', oid=order._id|string) }}", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({})
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      throw new Error(data.message || "Unable to create Razorpay order.");
+    }
+
+    return data;
+  }
+
+
+  async function verifyRazorpayPayment(response){
+    const res = await fetch("{{ url_for('api_verify_razorpay_payment', oid=order._id|string) }}", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        razorpay_order_id: response.razorpay_order_id || "",
+        razorpay_payment_id: response.razorpay_payment_id || "",
+        razorpay_signature: response.razorpay_signature || ""
+      })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || !data.ok) {
+      throw new Error(data.message || "Payment verification failed.");
+    }
+
+    return data;
+  }
+
+  async function startPayment(){
+    if (!btn) return;
+
+    showMsg("");
+    btn.disabled = true;
+    btn.textContent = "Preparing Razorpay...";
+
+    try {
+      const data = await createRazorpayOrder();
+
+      const options = {
+        key: data.razorpay_key_id,
+        amount: data.amount,
+        currency: data.currency || "INR",
+        name: "NE FRESH",
+        description: "Order Payment",
+        order_id: data.razorpay_order_id,
+
+        prefill: {
+          name: data.customer?.name || "",
+          email: data.customer?.email || "",
+          contact: data.customer?.phone || ""
+        },
+
+        notes: {
+          order_id: data.order_id
+        },
+
+        theme: {
+          color: "#00A859"
+        },
+
+                handler: async function (response) {
+          console.log("Razorpay success response:", response);
+
+          try {
+            btn.textContent = "Verifying payment...";
+            const verified = await verifyRazorpayPayment(response);
+
+            btn.textContent = "Payment Verified";
+            showMsg("");
+
+            window.location.href = verified.redirect_url || "{{ url_for('order_track', oid=order._id|string) }}";
+          } catch (err) {
+            btn.disabled = false;
+            btn.textContent = "Verify / Retry Payment";
+            showMsg(err.message || "Payment verification failed. Please contact NE FRESH support.");
+          }
+        },
+
+        modal: {
+          ondismiss: function(){
+            btn.disabled = false;
+            btn.textContent = "Continue to Razorpay";
+            showMsg("Payment popup closed. You can try again.");
+          }
+        }
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
+
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = "Continue to Razorpay";
+      showMsg(err.message || "Unable to start payment.");
+    }
+  }
+
+  if (btn) {
+    btn.addEventListener("click", startPayment);
+  }
+});
+</script>
+
+{% endblock %}

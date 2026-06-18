@@ -51,9 +51,9 @@
       line-height: 1.6;
     }
 
-    .sr-kpi-grid {
+        .sr-kpi-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(8, minmax(0, 1fr));
       gap: 14px;
     }
 
@@ -203,9 +203,9 @@
       padding: 18px;
     }
 
-    .sr-table {
+        .sr-table {
       width: 100%;
-      min-width: 1360px;
+      min-width: 1680px;
       border-collapse: separate;
       border-spacing: 0;
     }
@@ -263,6 +263,47 @@
       color: var(--nf-text);
       font-weight: 950;
       white-space: nowrap;
+    }
+
+        .sr-money.deduct {
+      color: #B91C1C;
+    }
+
+    .sr-money.adjusted {
+      color: var(--nf-green-dark);
+    }
+
+    .sr-status-stack {
+      display: grid;
+      gap: 6px;
+    }
+
+    .sr-impact-box {
+      display: grid;
+      gap: 5px;
+      padding: 10px;
+      border-radius: 12px;
+      background: var(--nf-surface-2);
+      border: 1px solid var(--nf-line);
+      min-width: 190px;
+    }
+
+    .sr-impact-box.warning {
+      background: var(--nf-orange-soft);
+      color: #7C4A03;
+      border-color: rgba(255,184,77,.30);
+    }
+
+    .sr-impact-box.success {
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border-color: rgba(0,168,89,.20);
+    }
+
+    .sr-impact-box.danger {
+      background: #FFF1F2;
+      color: #B91C1C;
+      border-color: rgba(239,68,68,.20);
     }
 
     .sr-pill {
@@ -366,7 +407,7 @@
     </p>
   </div>
 
-  <div class="sr-kpi-grid">
+    <div class="sr-kpi-grid">
     <div class="sr-kpi">
       <span>Total Requests</span>
       <strong>{{ m.total|default(0) }}</strong>
@@ -392,9 +433,19 @@
       <strong>{{ m.need_admin_review|default(0) }}</strong>
     </div>
 
+    <div class="sr-kpi orange">
+      <span>Ready For Refund</span>
+      <strong>{{ m.ready_for_refund|default(0) }}</strong>
+    </div>
+
     <div class="sr-kpi">
       <span>Refund Requested</span>
       <strong>₹{{ "%.2f"|format(m.refund_amount|default(0)|float) }}</strong>
+    </div>
+
+    <div class="sr-kpi red">
+      <span>Store Deduction</span>
+      <strong>₹{{ "%.2f"|format(m.store_refund_deduction|default(0)|float) }}</strong>
     </div>
   </div>
 
@@ -450,22 +501,27 @@
     {% if rows %}
       <div class="sr-table-wrap">
         <table class="sr-table">
-          <thead>
+                   <thead>
             <tr>
               <th>Order</th>
               <th>Customer</th>
               <th>Return Reason</th>
               <th>Refund Requested</th>
-              <th>Statuses</th>
+              <th>Status Flow</th>
+              <th>Settlement Impact</th>
+              <th>Refund Processing</th>
               <th>Store Remark</th>
-                            <th>Store Decision</th>
+              <th>Store Decision</th>
             </tr>
           </thead>
 
           <tbody>
-            {% for o in rows %}
+                       {% for o in rows %}
               {% set review_class = (o.store_return_review_status or 'pending')|lower %}
               {% set return_class = (o.return_status or 'return_requested')|lower %}
+              {% set refund_class = (o.refund_status or 'pending')|lower %}
+              {% set admin_class = (o.admin_return_review_status or 'pending')|lower %}
+              {% set can_store_decide = o.return_status in ['RETURN_REQUESTED', 'REQUESTED', 'STORE_REVIEWED', 'NEED_ADMIN_REVIEW'] and o.refund_status not in ['PROCESSED', 'ADJUSTED', 'REJECTED'] %}
               <tr>
                 <td>
                   <span class="sr-main">#{{ o.id[-6:] if o.id else "-" }}</span>
@@ -494,12 +550,62 @@
                   <span class="sr-sub">Platform: ₹{{ "%.2f"|format(o.refund_platform_fee|default(0)|float) }}</span>
                 </td>
 
-                <td>
-                  <span class="sr-pill {{ return_class }}">{{ o.return_status or "-" }}</span>
-                  <span class="sr-sub"></span>
-                  <span class="sr-pill {{ review_class }}">{{ o.store_return_review_status or "PENDING" }}</span>
-                  <span class="sr-sub">Refund: {{ o.refund_status or "-" }}</span>
-                  <span class="sr-sub">Admin: {{ o.admin_return_review_status or "PENDING" }}</span>
+                                <td>
+                  <div class="sr-status-stack">
+                    <span class="sr-pill {{ return_class }}">Return: {{ o.return_status or "-" }}</span>
+                    <span class="sr-pill {{ review_class }}">Store: {{ o.store_return_review_status or "PENDING" }}</span>
+                    <span class="sr-pill {{ refund_class }}">Refund: {{ o.refund_status or "-" }}</span>
+                    <span class="sr-pill {{ admin_class }}">Admin: {{ o.admin_return_review_status or "PENDING" }}</span>
+                  </div>
+                </td>
+
+                                <td>
+                  {% set impact_class = 'success' if o.settlement_impact in ['NO_DEDUCTION', 'NO_ADJUSTMENT'] else 'danger' if o.store_refund_deduction and o.store_refund_deduction|float > 0 else 'warning' %}
+
+                  <div class="sr-impact-box {{ impact_class }}">
+                    <span class="sr-main">{{ o.settlement_impact or "NO_DEDUCTION" }}</span>
+
+                    <span class="sr-sub">
+                      Store deduction:
+                      <strong class="sr-money deduct">₹{{ "%.2f"|format(o.store_refund_deduction|default(0)|float) }}</strong>
+                    </span>
+
+                    <span class="sr-sub">
+                      Adjusted payout:
+                      <strong class="sr-money adjusted">₹{{ "%.2f"|format(o.adjusted_store_payout|default(0)|float) }}</strong>
+                    </span>
+
+                    {% if o.store_adjustment_due and o.store_adjustment_due|float > 0 %}
+                      <span class="sr-sub">
+                        Adjustment due:
+                        <strong class="sr-money deduct">₹{{ "%.2f"|format(o.store_adjustment_due|float) }}</strong>
+                      </span>
+                    {% endif %}
+                  </div>
+                </td>
+
+                                <td>
+                  {% if o.refund_status in ['PROCESSED', 'ADJUSTED'] %}
+                    <span class="sr-pill completed">PROCESSED</span>
+                    {% if o.refund_processed_at %}
+                      <span class="sr-sub">Processed: {{ o.refund_processed_at }}</span>
+                    {% endif %}
+                    {% if o.refund_method %}
+                      <span class="sr-sub">Method: {{ o.refund_method }}</span>
+                    {% endif %}
+                    {% if o.refund_reference %}
+                      <span class="sr-sub">Ref: {{ o.refund_reference }}</span>
+                    {% endif %}
+                  {% elif o.refund_status == 'READY_FOR_REFUND' %}
+                    <span class="sr-pill ready_for_refund">READY FOR ADMIN REFUND</span>
+                    <span class="sr-sub">Store approved. Admin will process payment refund.</span>
+                  {% elif o.refund_status == 'REJECTED' %}
+                    <span class="sr-pill rejected">REFUND REJECTED</span>
+                    <span class="sr-sub">Closed after rejection.</span>
+                  {% else %}
+                    <span class="sr-pill pending">{{ o.refund_status or "PENDING" }}</span>
+                    <span class="sr-sub">No store-side refund action allowed.</span>
+                  {% endif %}
                 </td>
 
                 <td>
@@ -514,27 +620,34 @@
                 </td>
 
                 <td>
-                  {% if o.return_status in ['RETURN_REQUESTED', 'REQUESTED', 'STORE_REVIEWED', 'NEED_ADMIN_REVIEW'] %}
+                  {% if can_store_decide %}
                     <form class="sr-review-form"
                           method="post"
                           action="{{ url_for('store_return_review', oid=o.id) }}"
                           onsubmit="return confirm('Submit store decision for this return request?');">
-                      <select name="store_review_decision" required>
+                                            <select name="store_review_decision" required>
                         <option value="">Select decision</option>
-                        <option value="APPROVED" {% if o.store_return_review_status in ['APPROVED', 'APPROVE'] %}selected{% endif %}>Approve Return</option>
-                        <option value="REJECTED" {% if o.store_return_review_status in ['REJECTED', 'REJECT'] %}selected{% endif %}>Reject Return</option>
-                        <option value="NEED_ADMIN_REVIEW" {% if o.store_return_review_status == 'NEED_ADMIN_REVIEW' %}selected{% endif %}>Send to Admin Review</option>
+                        <option value="APPROVED">Approve Return</option>
+                        <option value="REJECTED">Reject Return</option>
+                        <option value="NEED_ADMIN_REVIEW">Need Admin Review</option>
                       </select>
 
                       <textarea name="store_review_remark" maxlength="700" placeholder="Write store decision remark...">{{ o.store_return_review_remark or '' }}</textarea>
 
                       <button class="sr-btn primary" type="submit">Submit Decision</button>
                     </form>
-                  {% else %}
-                    <span class="sr-sub">Store decision completed.</span>
+                                    {% else %}
+                    <span class="sr-main">Store decision completed.</span>
+
                     {% if o.refund_status == 'READY_FOR_REFUND' %}
                       <span class="sr-sub">Waiting for NE FRESH/Admin refund processing.</span>
+                    {% elif o.refund_status in ['PROCESSED', 'ADJUSTED'] %}
+                      <span class="sr-sub">Refund already processed by Admin.</span>
+                    {% elif o.refund_status == 'REJECTED' %}
+                      <span class="sr-sub">Return/refund request closed after rejection.</span>
                     {% endif %}
+
+                    <span class="sr-sub">Store cannot process customer refund money.</span>
                   {% endif %}
                 </td>
               </tr>

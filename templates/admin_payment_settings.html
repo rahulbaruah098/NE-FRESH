@@ -1,0 +1,406 @@
+{% extends "admin_base.html" %}
+{% set active_page = "payment_settings" %}
+{% set active_group = "system" %}
+
+{% block title %}Online Payment Settings | NE FRESH Admin{% endblock %}
+{% block page_title %}Online Payment Settings{% endblock %}
+{% block page_subtitle %}Configure Razorpay online payment before enabling customer online checkout.{% endblock %}
+
+{% block content %}
+{% set s = settings if settings is defined else {} %}
+
+<section class="nf-admin-payment-settings">
+  <style>
+    .nf-admin-payment-settings {
+      display: grid;
+      gap: 18px;
+    }
+
+    .payset-hero,
+    .payset-card,
+    .payset-kpi {
+      background: var(--nf-surface);
+      border: 1px solid var(--nf-line);
+      border-radius: 22px;
+      box-shadow: var(--nf-shadow);
+    }
+
+    .payset-hero {
+      padding: 22px;
+      background:
+        radial-gradient(circle at 8% 8%, rgba(0,168,89,.13), transparent 32%),
+        radial-gradient(circle at 92% 4%, rgba(2,132,199,.10), transparent 28%),
+        linear-gradient(135deg, #fff, var(--nf-surface-2));
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .payset-hero h2 {
+      margin: 0 0 8px;
+      color: var(--nf-text);
+      font-size: clamp(1.45rem, 3vw, 2.1rem);
+      line-height: 1.1;
+      font-weight: 950;
+      letter-spacing: -.04em;
+    }
+
+    .payset-hero p {
+      margin: 0;
+      max-width: 900px;
+      color: var(--nf-muted);
+      font-size: .95rem;
+      font-weight: 650;
+      line-height: 1.6;
+    }
+
+    .payset-badge {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 13px;
+      border-radius: 999px;
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border: 1px solid rgba(0,168,89,.18);
+      font-size: .78rem;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .payset-grid {
+      display: grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .payset-card {
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .payset-card h3 {
+      margin: 0;
+      color: var(--nf-text);
+      font-size: 1.08rem;
+      font-weight: 950;
+      letter-spacing: -.03em;
+    }
+
+    .payset-card p {
+      margin: 4px 0 0;
+      color: var(--nf-muted);
+      font-size: .84rem;
+      font-weight: 650;
+      line-height: 1.55;
+    }
+
+    .payset-form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .payset-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .payset-field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .payset-field label {
+      color: var(--nf-muted);
+      font-size: .72rem;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .payset-field input,
+    .payset-field select,
+    .payset-field textarea {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--nf-line);
+      border-radius: 13px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 12px;
+      outline: none;
+      font-size: .86rem;
+      font-weight: 800;
+    }
+
+    .payset-field textarea {
+      min-height: 92px;
+      padding: 12px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .payset-help {
+      color: var(--nf-muted);
+      font-size: .74rem;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .payset-switch-row {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 16px;
+      background: var(--nf-surface-2);
+      border: 1px solid var(--nf-line);
+    }
+
+    .payset-check {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      color: var(--nf-text);
+      font-size: .9rem;
+      font-weight: 850;
+      line-height: 1.45;
+    }
+
+    .payset-check input {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      accent-color: var(--nf-green);
+      flex: 0 0 auto;
+    }
+
+    .payset-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding-top: 4px;
+    }
+
+    .payset-btn {
+      min-height: 42px;
+      border: 1px solid var(--nf-line);
+      border-radius: 13px;
+      background: #fff;
+      color: var(--nf-text);
+      padding: 0 15px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .84rem;
+      font-weight: 950;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .payset-btn.primary {
+      background: var(--nf-green);
+      border-color: var(--nf-green);
+      color: #fff;
+      box-shadow: 0 12px 26px rgba(0,168,89,.16);
+    }
+
+    .payset-kpi-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .payset-kpi {
+      padding: 17px;
+      display: grid;
+      gap: 8px;
+      min-height: 106px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .payset-kpi::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 5px;
+      background: var(--nf-green);
+    }
+
+    .payset-kpi.orange::before {
+      background: var(--nf-warning);
+    }
+
+    .payset-kpi.red::before {
+      background: var(--nf-danger);
+    }
+
+    .payset-kpi span {
+      color: var(--nf-muted);
+      font-size: .72rem;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .055em;
+    }
+
+    .payset-kpi strong {
+      color: var(--nf-text);
+      font-size: 1.05rem;
+      font-weight: 950;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .payset-warning {
+      padding: 14px;
+      border-radius: 16px;
+      background: var(--nf-orange-soft);
+      color: var(--nf-orange-dark);
+      border: 1px solid rgba(245,158,11,.22);
+      font-size: .82rem;
+      font-weight: 800;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 980px) {
+      .payset-grid,
+      .payset-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  <div class="payset-hero">
+    <div>
+      <h2>Online Payment / Razorpay Settings</h2>
+      <p>
+        Enable or disable customer online payment from here. In this step, settings are saved only.
+        Checkout integration will be connected in the next step.
+      </p>
+    </div>
+
+    <span class="payset-badge">{{ s.gateway|default("RAZORPAY") }} · {{ s.mode|default("TEST") }}</span>
+  </div>
+
+  <div class="payset-grid">
+    <form class="payset-card payset-form" method="POST" action="{{ url_for('admin_payment_settings') }}">
+      <div>
+        <h3>Gateway Configuration</h3>
+        <p>Use Razorpay test keys during testing. Switch to live only after Razorpay account activation is completed.</p>
+      </div>
+
+      <div class="payset-switch-row">
+        <label class="payset-check">
+          <input type="checkbox" name="enabled" value="1" {% if s.enabled %}checked{% endif %}>
+          <span>
+            Enable Online Payment
+            <span class="payset-help">When enabled, customer checkout will show online payment option after Step 15B.</span>
+          </span>
+        </label>
+
+        <label class="payset-check">
+          <input type="checkbox" name="auto_capture_enabled" value="1" {% if s.auto_capture_enabled %}checked{% endif %}>
+          <span>
+            Auto Capture Payment
+            <span class="payset-help">Recommended for Razorpay standard checkout.</span>
+          </span>
+        </label>
+
+        <label class="payset-check">
+          <input type="checkbox" name="auto_refund_enabled" value="1" {% if s.auto_refund_enabled %}checked{% endif %}>
+          <span>
+            Enable Auto Refund Later
+            <span class="payset-help">Keep disabled for now. Manual/Admin refund flow is already active.</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="payset-row">
+        <div class="payset-field">
+          <label>Gateway</label>
+          <select name="gateway">
+            <option value="RAZORPAY" {% if s.gateway == "RAZORPAY" %}selected{% endif %}>Razorpay</option>
+          </select>
+        </div>
+
+        <div class="payset-field">
+          <label>Mode</label>
+          <select name="mode">
+            <option value="TEST" {% if s.mode == "TEST" %}selected{% endif %}>Test Mode</option>
+            <option value="LIVE" {% if s.mode == "LIVE" %}selected{% endif %}>Live Mode</option>
+          </select>
+        </div>
+      </div>
+
+            <div class="payset-field">
+        <label>Razorpay Key ID Source</label>
+        <input type="text"
+               value="{{ s.razorpay_key_id|default('Not configured') }}"
+               readonly
+               aria-readonly="true">
+        <div class="payset-help">
+          Key ID is loaded from .env based on selected mode.
+          TEST uses RAZORPAY_TEST_KEY_ID and LIVE uses RAZORPAY_LIVE_KEY_ID.
+        </div>
+      </div>
+
+      <div class="payset-field">
+        <label>Razorpay Key Secret Source</label>
+        <input type="text"
+               value="{% if s.razorpay_key_secret_configured %}Configured in .env{% else %}Not configured in .env{% endif %}"
+               readonly
+               aria-readonly="true">
+        {% if secret_masked %}
+          <div class="payset-help">{{ secret_masked }}</div>
+        {% endif %}
+      </div>
+
+      <div class="payset-field">
+        <label>Admin Notes</label>
+        <textarea name="notes" placeholder="Example: Razorpay test account enabled for internal testing.">{{ s.notes|default('') }}</textarea>
+      </div>
+
+            <div class="payset-warning">
+        Razorpay keys are now loaded only from .env. Do not paste secret keys in templates, MongoDB, GitHub, frontend JavaScript, or screenshots. Only the public Razorpay Key ID is sent to Razorpay Checkout.
+      </div>
+
+      <div class="payset-actions">
+        <button class="payset-btn primary" type="submit">Save Payment Settings</button>
+        <a class="payset-btn" href="{{ url_for('admin_dashboard') }}">Back to Dashboard</a>
+      </div>
+    </form>
+
+    <aside class="payset-kpi-grid">
+      <div class="payset-kpi {% if not s.enabled %}orange{% endif %}">
+        <span>Online Payment</span>
+        <strong>{{ "Enabled" if s.enabled else "Disabled" }}</strong>
+      </div>
+
+      <div class="payset-kpi">
+        <span>Gateway</span>
+        <strong>{{ s.gateway|default("RAZORPAY") }}</strong>
+      </div>
+
+      <div class="payset-kpi {% if s.mode == 'LIVE' %}red{% endif %}">
+        <span>Mode</span>
+        <strong>{{ s.mode|default("TEST") }}</strong>
+      </div>
+
+      <div class="payset-kpi">
+        <span>Last Updated</span>
+        <strong>{{ s.updated_at|default("-") or "-" }}</strong>
+      </div>
+
+      <div class="payset-kpi">
+        <span>Updated By</span>
+        <strong>{{ s.updated_by_name|default("-") or "-" }}</strong>
+      </div>
+    </aside>
+  </div>
+</section>
+{% endblock %}

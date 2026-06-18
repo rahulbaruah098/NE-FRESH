@@ -728,26 +728,11 @@ def store_settings_page():
             300
         )
 
-        delivery_base_fee = _store_money_or_default(
-            request.form.get("delivery_base_fee"),
-            store.get("delivery_base_fee", 40)
-        )
-
         lat_raw = (request.form.get("latitude") or "").strip()
         lng_raw = (request.form.get("longitude") or "").strip()
 
         latitude = _store_float_or_none(lat_raw, -90, 90)
         longitude = _store_float_or_none(lng_raw, -180, 180)
-
-        free_delivery_above = _store_money_or_default(
-            request.form.get("free_delivery_above"),
-            store.get("free_delivery_above", 0)
-        )
-
-        delivery_min_order_amount = _store_money_or_default(
-            request.form.get("delivery_min_order_amount"),
-            store.get("delivery_min_order_amount", 0)
-        )
 
         estimated_delivery_time = _settings_int_or_default(
             request.form.get("estimated_delivery_time"),
@@ -793,9 +778,8 @@ def store_settings_page():
 
             "delivery_enabled": 1 if delivery_enabled else 0,
             "delivery_available": bool(delivery_enabled),
-            "delivery_base_fee": delivery_base_fee,
-            "free_delivery_above": free_delivery_above,
-            "delivery_min_order_amount": delivery_min_order_amount,
+
+            # Delivery fee/rate/slab/minimum order are Admin-controlled only.
             "estimated_delivery_time": estimated_delivery_time,
             "rider_instructions": rider_instructions,
 
@@ -1435,6 +1419,65 @@ def _decorate_store_delivery_order(order):
 
     return order
 
+
+def _store_should_show_order_to_store(order):
+    """
+    Store should not see unpaid online orders.
+
+    Online order flow:
+    - Before payment success: status/payment_status = PENDING_PAYMENT
+    - After Razorpay verification: status = PLACED, payment_status = PAID
+
+    COD orders can be shown immediately because payment is collected later by rider.
+    """
+    order = order or {}
+
+    status = (order.get("status") or "").strip().upper()
+    payment_method = (order.get("payment_method") or "COD").strip().upper()
+    payment_status = (order.get("payment_status") or "").strip().upper()
+    payment_collection_status = (order.get("payment_collection_status") or "").strip().upper()
+
+    blocked_statuses = {
+        "PENDING_PAYMENT",
+        "PAYMENT_PENDING",
+        "ONLINE_PENDING"
+    }
+
+    if status in blocked_statuses:
+        return False
+
+    is_cod = payment_method in {
+        "COD",
+        "CASH_ON_DELIVERY",
+        "COD_RIDER_COLLECTION"
+    }
+
+    if is_cod:
+        return True
+
+    paid_statuses = {
+        "PAID",
+        "ONLINE_PAID",
+        "SUCCESS"
+    }
+
+    paid_collection_statuses = {
+        "PAID",
+        "ONLINE_PAID",
+        "COLLECTED",
+        "PAID_REFUND_PENDING"
+    }
+
+    if payment_status in paid_statuses:
+        return True
+
+    if payment_collection_status in paid_collection_statuses:
+        return True
+
+    return False
+
+
+
 @app.route('/store/orders', methods=['GET'], endpoint='store_orders')
 @login_required(role='store')
 def store_orders_page():
@@ -1450,6 +1493,9 @@ def store_orders_page():
     decorated_orders = []
 
     for order in page_context.get("orders") or []:
+        if not _store_should_show_order_to_store(order):
+            continue
+
         row = dict(order)
 
         row["_id"] = row.get("_id") or row.get("id")
@@ -1602,11 +1648,24 @@ def store_delivery_page():
     # 2. Add all orders that match this store by ObjectId/string/name.
     direct_store_orders = list(
         mongo.orders.find({
-            "$or": [
-                {"store_id": store_id},
-                {"store_id": store_id_str},
-                {"store_name": store.get("store_name")},
-                {"store_name": store.get("name")}
+            "$and": [
+                {
+                    "$or": [
+                        {"store_id": store_id},
+                        {"store_id": store_id_str},
+                        {"store_name": store.get("store_name")},
+                        {"store_name": store.get("name")}
+                    ]
+                },
+                {
+                    "status": {
+                        "$nin": [
+                            "PENDING_PAYMENT",
+                            "PAYMENT_PENDING",
+                            "ONLINE_PENDING"
+                        ]
+                    }
+                }
             ]
         }).sort("updated_at", -1)
     )
@@ -1635,7 +1694,7 @@ def store_delivery_page():
     orders = [
         _hydrate_store_delivery_order(order)
         for order in raw_orders_by_id.values()
-        if _order_belongs_to_store(order)
+        if _order_belongs_to_store(order) and _store_should_show_order_to_store(order)
     ]
 
     delivery_metrics = {
@@ -2749,6 +2808,52 @@ def store_returns_page():
         row["refund_platform_fee"] = _store_delivery_money_float(row.get("refund_platform_fee"), 0)
         row["refund_tip_amount"] = _store_delivery_money_float(row.get("refund_tip_amount"), 0)
 
+        row["refund_method"] = row.get("refund_method") or ""
+        row["refund_reference"] = row.get("refund_reference") or ""
+        row["refund_processed_at"] = row.get("refund_processed_at") or ""
+        row["refund_processed_by_name"] = row.get("refund_processed_by_name") or ""
+
+        row["store_refund_deduction"] = _store_delivery_money_float(
+            row.get("store_refund_deduction")
+            if row.get("store_refund_deduction") is not None
+            else row.get("refund_deduction"),
+            row["refund_items_amount"]
+        )
+
+        row["store_adjustment_due"] = _store_delivery_money_float(
+            row.get("store_adjustment_due"),
+            0
+        )
+
+        row["original_store_payout_amount"] = _store_delivery_money_float(
+            row.get("original_store_payout_amount")
+            if row.get("original_store_payout_amount") is not None
+            else row.get("store_earning"),
+            row.get("items_subtotal") or 0
+        )
+
+        row["adjusted_store_payout"] = _store_delivery_money_float(
+            row.get("adjusted_store_payout"),
+            max(
+                float(row.get("original_store_payout_amount") or 0)
+                - float(row.get("store_refund_deduction") or 0),
+                0
+            )
+        )
+
+        row["settlement_impact"] = (
+            row.get("settlement_impact")
+            or (
+                "ADJUST_FROM_NEXT_PAYOUT"
+                if row["store_adjustment_due"] > 0
+                else (
+                    "DEDUCT_FROM_PENDING_PAYOUT"
+                    if row["store_refund_deduction"] > 0
+                    else "NO_DEDUCTION"
+                )
+            )
+        )
+
         row["store_return_review_status"] = (
             row.get("store_return_review_status")
             or row.get("store_review_status")
@@ -2773,7 +2878,11 @@ def store_returns_page():
         row["admin_return_review_status"] = (
             row.get("admin_return_review_status")
             or row.get("admin_decision")
-            or "PENDING"
+            or (
+                "NOT_REQUIRED"
+                if row["store_return_review_status"] in ["APPROVED", "REJECTED"]
+                else "PENDING"
+            )
         ).strip().upper()
 
         report_date = str(row.get("return_requested_at") or "")
@@ -2799,8 +2908,11 @@ def store_returns_page():
                 str(row.get("return_note") or ""),
                 str(row.get("return_status") or ""),
                 str(row.get("refund_status") or ""),
+                str(row.get("refund_method") or ""),
+                str(row.get("refund_reference") or ""),
                 str(row.get("store_return_review_status") or ""),
-                str(row.get("admin_return_review_status") or "")
+                str(row.get("admin_return_review_status") or ""),
+                str(row.get("settlement_impact") or "")
             ]).lower()
 
             if q.lower() not in haystack:
@@ -2808,14 +2920,58 @@ def store_returns_page():
 
         rows.append(row)
 
-    metrics = {
+        metrics = {
         "total": len(rows),
-        "pending_review": sum(1 for r in rows if (r.get("store_return_review_status") or "") == "PENDING"),
-        "approved": sum(1 for r in rows if (r.get("store_return_review_status") or "") in ["APPROVED", "APPROVE"]),
-        "rejected": sum(1 for r in rows if (r.get("store_return_review_status") or "") in ["REJECTED", "REJECT"]),
-        "need_admin_review": sum(1 for r in rows if (r.get("store_return_review_status") or "") == "NEED_ADMIN_REVIEW"),
-        "refund_amount": round(sum(float(r.get("refund_amount") or 0) for r in rows), 2),
-        "items_refund_amount": round(sum(float(r.get("refund_items_amount") or 0) for r in rows), 2),
+
+        "pending_review": sum(
+            1 for r in rows
+            if (r.get("store_return_review_status") or "") == "PENDING"
+        ),
+
+        "approved": sum(
+            1 for r in rows
+            if (r.get("store_return_review_status") or "") in ["APPROVED", "APPROVE"]
+        ),
+
+        "rejected": sum(
+            1 for r in rows
+            if (r.get("store_return_review_status") or "") in ["REJECTED", "REJECT"]
+        ),
+
+        "need_admin_review": sum(
+            1 for r in rows
+            if (r.get("store_return_review_status") or "") == "NEED_ADMIN_REVIEW"
+        ),
+
+        "ready_for_refund": sum(
+            1 for r in rows
+            if (r.get("refund_status") or "") == "READY_FOR_REFUND"
+        ),
+
+        "refund_processed": sum(
+            1 for r in rows
+            if (r.get("refund_status") or "") in ["PROCESSED", "ADJUSTED"]
+        ),
+
+        "refund_amount": round(
+            sum(float(r.get("refund_amount") or 0) for r in rows),
+            2
+        ),
+
+        "items_refund_amount": round(
+            sum(float(r.get("refund_items_amount") or 0) for r in rows),
+            2
+        ),
+
+        "store_refund_deduction": round(
+            sum(float(r.get("store_refund_deduction") or 0) for r in rows),
+            2
+        ),
+
+        "store_adjustment_due": round(
+            sum(float(r.get("store_adjustment_due") or 0) for r in rows),
+            2
+        ),
     }
 
     store_view = dict(store)
@@ -2916,6 +3072,9 @@ def store_return_review(oid):
         next_admin_review_status = "NOT_REQUIRED"
         return_pickup_required = True
         return_pickup_status = "PENDING_ASSIGNMENT"
+        store_refund_deduction = refund_items_amount
+        settlement_impact = "DEDUCT_FROM_PENDING_PAYOUT"
+        order_settlement_status = "REFUND_PENDING"
         event_note = "Store approved the return. Refund is ready for Admin/NE FRESH processing."
 
     elif decision == "REJECTED":
@@ -2924,6 +3083,9 @@ def store_return_review(oid):
         next_admin_review_status = "NOT_REQUIRED"
         return_pickup_required = False
         return_pickup_status = "NOT_REQUIRED"
+        store_refund_deduction = 0.0
+        settlement_impact = "NO_DEDUCTION"
+        order_settlement_status = "RETURN_REJECTED"
         event_note = "Store rejected the return request."
 
     else:
@@ -2932,6 +3094,9 @@ def store_return_review(oid):
         next_admin_review_status = "PENDING"
         return_pickup_required = False
         return_pickup_status = "PENDING_ADMIN_REVIEW"
+        store_refund_deduction = 0.0
+        settlement_impact = "PENDING_ADMIN_REVIEW"
+        order_settlement_status = "ADMIN_RETURN_REVIEW_PENDING"
         event_note = "Store requested Admin review for this return."
 
     return_event = {
@@ -2948,6 +3113,9 @@ def store_return_review(oid):
         "refund_delivery_fee": refund_delivery_fee,
         "refund_platform_fee": refund_platform_fee,
         "refund_tip_amount": refund_tip_amount,
+        "store_refund_deduction": store_refund_deduction,
+        "settlement_impact": settlement_impact,
+        "order_settlement_status": order_settlement_status,
         "note": remark,
         "created_by": str(u.get("_id") or u.get("id") or ""),
         "created_by_name": u.get("name") or store.get("store_name") or "Store",
@@ -2980,8 +3148,11 @@ def store_return_review(oid):
         "refund_platform_fee": refund_platform_fee,
         "refund_tip_amount": refund_tip_amount,
 
-        "store_refund_deduction": refund_items_amount if decision == "APPROVED" else 0,
-        "refund_deduction": refund_items_amount if decision == "APPROVED" else 0,
+        "store_refund_deduction": store_refund_deduction,
+        "refund_deduction": store_refund_deduction,
+        "settlement_impact": settlement_impact,
+        "order_settlement_status": order_settlement_status,
+        "settlement_status": order_settlement_status,
 
         "last_return_event": return_event,
         "updated_at": now
@@ -3008,6 +3179,11 @@ def store_return_review(oid):
                 "refund_status": next_refund_status,
                 "refund_amount": refund_amount,
                 "refund_items_amount": refund_items_amount,
+                "store_refund_deduction": store_refund_deduction,
+                "refund_deduction": store_refund_deduction,
+                "settlement_impact": settlement_impact,
+                "order_settlement_status": order_settlement_status,
+                "settlement_status": order_settlement_status,
                 "updated_at": now
             }
         }
@@ -3412,11 +3588,18 @@ def store_complaints_page():
 
         status = str(c.get("status") or "open").strip().lower()
         progress_status = str(c.get("progress_status") or "received").strip().lower()
+        admin_takeover_status = str(c.get("admin_takeover_status") or "").strip().upper()
 
         c["status"] = status
         c["progress_status"] = progress_status
         c["status_label"] = status.replace("_", " ").title()
         c["progress_status_label"] = progress_status.replace("_", " ").title()
+
+        c["admin_takeover_status"] = admin_takeover_status
+        c["is_admin_taken_over"] = admin_takeover_status == "TAKEN_OVER"
+        c["admin_takeover_reason"] = c.get("admin_takeover_reason") or ""
+        c["admin_takeover_by_name"] = c.get("admin_takeover_by_name") or "NE FRESH Admin"
+        c["admin_takeover_at"] = c.get("admin_takeover_at") or ""
 
         created_at = c.get("created_at") or ""
         updated_at = c.get("updated_at") or ""
@@ -3484,6 +3667,14 @@ def store_complaint_update(cid):
 
     if not complaint:
         flash("Complaint not found for your store.", "danger")
+        return redirect(url_for("store_complaints"))
+    
+    admin_takeover_status = str(
+        complaint.get("admin_takeover_status") or ""
+    ).strip().upper()
+
+    if admin_takeover_status == "TAKEN_OVER":
+        flash("This complaint has been taken over by NE FRESH Admin. Store updates are disabled.", "warning")
         return redirect(url_for("store_complaints"))
 
     progress_status = (request.form.get("progress_status") or "").strip().lower()
@@ -3635,39 +3826,6 @@ def store_profile_update():
     else:
         delivery_zone_polygon = existing_delivery_zone_polygon
 
-    delivery_base_fee = _store_money_or_default(
-        request.form.get("delivery_base_fee"),
-        store.get("delivery_base_fee", 40)
-    )
-
-    # Store-specific delivery fee slabs.
-    # These fields will be submitted after we add the UI in store_profile.html.
-    existing_delivery_fee_slabs_enabled = bool(
-        store.get("delivery_fee_slabs_enabled", False)
-    )
-
-    delivery_fee_slabs_enabled = _store_bool_from_form(
-        "delivery_fee_slabs_enabled",
-        existing_delivery_fee_slabs_enabled
-    )
-
-    delivery_fee_slabs = _parse_store_delivery_fee_slabs_from_form(
-        store.get("delivery_fee_slabs") or []
-    )
-
-    free_delivery_above = _store_money_or_default(
-        request.form.get("free_delivery_above"),
-        store.get("free_delivery_above", 0)
-    )
-
-    if "max_delivery_distance_km" in request.form:
-        max_delivery_distance_km = _store_float_or_none(
-            request.form.get("max_delivery_distance_km"),
-            0,
-            999999
-        )
-    else:
-        max_delivery_distance_km = store.get("max_delivery_distance_km")
 
     lat_raw = (request.form.get("latitude") or "").strip()
     lng_raw = (request.form.get("longitude") or "").strip()
@@ -3713,23 +3871,6 @@ def store_profile_update():
         flash("Delivery zone polygon is required when delivery is enabled.", "warning")
         return redirect(url_for("store_profile"))
     
-
-    if delivery_fee_slabs_enabled and not delivery_fee_slabs:
-        flash("Please add at least one valid delivery fee slab, or disable custom delivery fee slabs.", "warning")
-        return redirect(url_for("store_profile"))
-
-    if free_delivery_above < 0:
-        free_delivery_above = 0
-
-    if max_delivery_distance_km is not None:
-        try:
-            max_delivery_distance_km = float(max_delivery_distance_km)
-
-            if max_delivery_distance_km < 0:
-                max_delivery_distance_km = None
-        except Exception:
-             max_delivery_distance_km = None
-
     update_data = {
         "store_name": store_name,
         "owner_name": owner_name,
@@ -3762,12 +3903,10 @@ def store_profile_update():
         "delivery_mode": delivery_mode,
         "delivery_zone_polygon": delivery_zone_polygon,
         "delivery_zone_configured": 1 if delivery_zone_polygon else 0,
-        "delivery_base_fee": delivery_base_fee,
-        "delivery_fee_slabs_enabled": bool(delivery_fee_slabs_enabled),
-        "delivery_fee_slabs": delivery_fee_slabs,
-        "free_delivery_above": round(float(str(free_delivery_above or 0).strip() or 0), 2),
-        "max_delivery_distance_km": max_delivery_distance_km,
-        "delivery_fee_updated_at": now,
+        "delivery_enabled": 1 if delivery_enabled else 0,
+        "delivery_mode": delivery_mode,
+        "delivery_zone_polygon": delivery_zone_polygon,
+        "delivery_zone_configured": 1 if delivery_zone_polygon else 0,
 
         "profile_updated_at": now,
         "updated_at": now

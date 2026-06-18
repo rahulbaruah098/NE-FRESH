@@ -476,6 +476,119 @@
     grid-template-columns:1fr;
   }
 }
+
+
+.sd-payment-stack{
+  display:grid;
+  gap:8px;
+  min-width:150px;
+}
+
+.sd-payment-pill{
+  width:max-content;
+  max-width:100%;
+  min-height:28px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  padding:0 10px;
+  font-size:11px;
+  font-weight:950;
+  letter-spacing:.03em;
+  text-transform:uppercase;
+  border:1px solid transparent;
+  white-space:nowrap;
+}
+
+.sd-payment-pill.online-paid{
+  background:var(--green-soft);
+  color:var(--green-dark);
+  border-color:rgba(0,168,89,.18);
+}
+
+.sd-payment-pill.online-pending{
+  background:#FFF8E8;
+  color:#A96800;
+  border-color:rgba(255,184,77,.30);
+}
+
+.sd-payment-pill.cod{
+  background:#F8FAFC;
+  color:#475569;
+  border-color:#CBD5E1;
+}
+
+.sd-payment-pill.failed{
+  background:var(--red-soft);
+  color:#B91C1C;
+  border-color:#FECACA;
+}
+
+.sd-payment-note{
+  display:grid;
+  gap:3px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+  line-height:1.35;
+}
+
+.sd-payment-note strong{
+  color:var(--ink);
+  font-size:12px;
+  font-weight:950;
+}
+
+.sd-settlement-box{
+  margin-top:10px;
+  padding:10px;
+  border:1px solid var(--line2);
+  border-radius:14px;
+  background:var(--soft2);
+  display:grid;
+  gap:7px;
+}
+
+.sd-settlement-box.online{
+  background:var(--green-soft);
+  border-color:rgba(0,168,89,.18);
+}
+
+.sd-settlement-box.cod{
+  background:#FFF8E8;
+  border-color:rgba(255,184,77,.30);
+}
+
+.sd-settlement-title{
+  color:var(--ink);
+  font-size:11px;
+  font-weight:950;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+
+.sd-settlement-text{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+  line-height:1.4;
+}
+
+.sd-money-breakdown-row.store-earning{
+  padding-top:7px;
+  border-top:1px dashed var(--line);
+  color:var(--green-dark);
+}
+
+.sd-money-breakdown-row.collect-zero strong{
+  color:var(--green-dark);
+}
+
+.sd-money-breakdown-row.collect-cod strong{
+  color:#A96800;
+}
+
   </style>
 
   <div class="sd-shell">
@@ -497,14 +610,51 @@
             <thead><tr><th>#</th><th>Customer</th><th>Phone</th><th>Total (₹)</th><th>Status</th><th>Payment</th><th>Deliver To</th><th>Action</th></tr></thead>
             <tbody id="orders-list">
             {% if orders and orders|length %}
-              {% for o in orders %}
+                            {% for o in orders %}
+                {% set payment_method = (o.payment_method or 'COD')|upper %}
+                {% set payment_status = (o.payment_status or 'PENDING')|upper %}
+                {% set payment_collection_status = (o.payment_collection_status or '')|upper %}
+                {% set is_online_order = payment_method in ['ONLINE', 'ONLINE_PAYMENT', 'RAZORPAY'] %}
+                {% set is_cod_order = payment_method in ['COD', 'CASH_ON_DELIVERY', 'COD_RIDER_COLLECTION'] %}
+                {% set is_online_paid = is_online_order and (payment_status in ['PAID', 'ONLINE_PAID', 'SUCCESS'] or payment_collection_status in ['PAID', 'ONLINE_PAID']) %}
+                {% set is_online_pending = is_online_order and not is_online_paid %}
+                {% set total_payable = o.total_payable|default(o.total_amount|default(0))|float %}
+                {% set items_subtotal = o.items_subtotal|default(o.store_earning|default(o.total_amount|default(0)))|float %}
+                {% set store_earning = o.store_earning|default(items_subtotal)|float %}
+                {% set amount_to_collect = o.amount_to_collect|default(0)|float %}
                 <tr data-order-id="{{ o.id }}" data-created-at="{{ o.created_at }}">
                   <td>{{ o.id }}</td>
                   <td>{{ o.customer_name }}</td>
                   <td>{{ o.customer_phone or '—' }}</td>
-                  <td>{{ '%.2f'|format(o.total_amount or 0) }}</td>
+                                    <td>{{ '%.2f'|format(total_payable or 0) }}</td>
                   <td><span class="sd-tag">{{ o.status }}</span></td>
-                  <td>{{ o.payment_status }}</td>
+                                   <td>
+                    <div class="sd-payment-stack">
+                      {% if is_online_paid %}
+                        <span class="sd-payment-pill online-paid">Online Paid</span>
+                        <div class="sd-payment-note">
+                          <strong>Paid to NE FRESH</strong>
+                          <span>No cash collection from customer.</span>
+                        </div>
+                      {% elif is_online_pending %}
+                        <span class="sd-payment-pill online-pending">Online Pending</span>
+                        <div class="sd-payment-note">
+                          <strong>Waiting for payment</strong>
+                          <span>Order will appear only after payment verification.</span>
+                        </div>
+                      {% elif is_cod_order %}
+                        <span class="sd-payment-pill cod">COD</span>
+                        <div class="sd-payment-note">
+                          <strong>Pay on Delivery</strong>
+                          <span>Rider collects cash from customer.</span>
+                        </div>
+                      {% elif payment_status in ['FAILED', 'PAYMENT_VERIFICATION_FAILED'] %}
+                        <span class="sd-payment-pill failed">Payment Failed</span>
+                      {% else %}
+                        <span class="sd-payment-pill cod">{{ payment_status.replace('_', ' ') }}</span>
+                      {% endif %}
+                    </div>
+                  </td>
                   <td class="sd-muted">
                     {% if o.addr_line1 %}
                       {{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %}, {{ o.addr_city }}, {{ o.addr_state }} {{ o.addr_pincode }}
@@ -516,7 +666,12 @@
                     <div class="sd-money-breakdown">
                       <div class="sd-money-breakdown-row">
                         <span>Items Subtotal</span>
-                        <strong>₹{{ '%.2f'|format(o.items_subtotal|default(o.total_amount|default(0))|float) }}</strong>
+                        <strong>₹{{ '%.2f'|format(items_subtotal or 0) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row store-earning">
+                        <span>Store Earning</span>
+                        <strong>₹{{ '%.2f'|format(store_earning or 0) }}</strong>
                       </div>
 
                       <div class="sd-money-breakdown-row">
@@ -535,15 +690,31 @@
                       </div>
 
                       <div class="sd-money-breakdown-row highlight">
-                        <span>Total Payable</span>
-                        <strong>₹{{ '%.2f'|format(o.total_payable|default(o.total_amount|default(0))|float) }}</strong>
+                        <span>Total Customer Paid/Payable</span>
+                        <strong>₹{{ '%.2f'|format(total_payable or 0) }}</strong>
                       </div>
 
-                      <div class="sd-money-breakdown-row">
-                        <span>COD / Amount to Collect</span>
-                        <strong>₹{{ '%.2f'|format(o.amount_to_collect|default(0)|float) }}</strong>
+                      <div class="sd-money-breakdown-row {% if is_online_paid %}collect-zero{% elif is_cod_order %}collect-cod{% endif %}">
+                        <span>{% if is_online_paid %}Cash to Collect{% else %}Amount to Collect{% endif %}</span>
+                        <strong>₹{{ '%.2f'|format(amount_to_collect or 0) }}</strong>
                       </div>
                     </div>
+
+                    {% if is_online_paid %}
+                      <div class="sd-settlement-box online">
+                        <div class="sd-settlement-title">Online Payment Settlement</div>
+                        <div class="sd-settlement-text">
+                          Customer paid NE FRESH through Razorpay. Store payout will be handled by Admin after delivery.
+                        </div>
+                      </div>
+                    {% elif is_cod_order %}
+                      <div class="sd-settlement-box cod">
+                        <div class="sd-settlement-title">COD Settlement</div>
+                        <div class="sd-settlement-text">
+                          Rider collects ₹{{ '%.2f'|format(total_payable or 0) }} from customer, keeps delivery fee + tip, and submits remaining cash to Admin.
+                        </div>
+                      </div>
+                    {% endif %}
                    {% set order_status = (o.status or '')|upper %}
 
 {% if order_status in ['PLACED', 'CONFIRMED', 'PREPARING', 'PACKAGING'] %}
@@ -679,14 +850,22 @@
       {% endif %}
 
       <div class="sd-delivery-quick-grid">
-        <div class="sd-delivery-quick-box">
+               <div class="sd-delivery-quick-box">
           <span>Payment</span>
-          <strong>{{ o.payment_method or 'COD' }} / {{ o.payment_status or 'PENDING' }}</strong>
+          <strong>
+            {% if is_online_paid %}
+              Online Paid
+            {% elif is_cod_order %}
+              COD / Pay on Delivery
+            {% else %}
+              {{ payment_method }} / {{ payment_status }}
+            {% endif %}
+          </strong>
         </div>
 
         <div class="sd-delivery-quick-box">
           <span>Collect</span>
-          <strong>₹{{ '%.2f'|format(o.amount_to_collect|default(0)|float) }}</strong>
+          <strong>₹{{ '%.2f'|format(amount_to_collect or 0) }}</strong>
         </div>
 
         <div class="sd-delivery-quick-box">

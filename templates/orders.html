@@ -559,6 +559,62 @@
       border-color:rgba(239,68,68,.22);
     }
 
+        .my-orders-page .payment-cod{
+      background:#F8FAFC;
+      color:#475569;
+      border-color:#CBD5E1;
+    }
+
+    .my-orders-page .payment-method-note{
+      margin-top:6px;
+      display:grid;
+      gap:3px;
+      max-width:260px;
+      color:var(--nf-muted);
+      font-size:.74rem;
+      font-weight:800;
+      line-height:1.35;
+    }
+
+    .my-orders-page .payment-method-note strong{
+      color:var(--nf-ink);
+      font-size:.72rem;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+
+    .my-orders-page .btn-pay-now{
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      border-radius:13px;
+      padding:0 13px;
+      font-size:.78rem;
+      font-weight:950;
+      border:1px solid #FFB84D;
+      cursor:pointer;
+      transition:background .22s var(--nf-ease), color .22s var(--nf-ease), transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease);
+      white-space:nowrap;
+      background:#FFB84D;
+      color:#fff;
+      text-decoration:none;
+      box-shadow:0 10px 22px rgba(255,184,77,.22);
+    }
+
+    .my-orders-page .btn-pay-now:hover{
+      background:#E39A22;
+      border-color:#E39A22;
+      color:#fff;
+      transform:translateY(-2px);
+    }
+
+    .my-orders-page .btn-pay-now.full{
+      width:100%;
+    }
+
     /* BUTTONS */
     .my-orders-page .btn-track,
     .my-orders-page .btn-cancel{
@@ -659,6 +715,29 @@
       font-weight:950;
       text-transform:uppercase;
       letter-spacing:.04em;
+    }
+
+        .my-orders-page .return-note.refund-pending{
+      background:#FFF8E8;
+      border-color:rgba(255,184,77,.30);
+      color:#7C4A03;
+    }
+
+    .my-orders-page .return-note.refund-processed{
+      background:var(--nf-green-soft);
+      border-color:rgba(0,168,89,.18);
+      color:var(--nf-green-dark);
+    }
+
+    .my-orders-page .return-note.refund-rejected{
+      background:#FFF1F2;
+      border-color:rgba(239,68,68,.22);
+      color:var(--nf-red);
+    }
+
+    .my-orders-page .return-note .refund-amount{
+      color:var(--nf-ink);
+      font-weight:950;
     }
 
     /* MOBILE CARDS */
@@ -1226,15 +1305,28 @@
   {% endif %}
 </td>
 
-              <td class="payment-status">
-                <span class="payment-badge payment-{{ o.payment_status|lower|replace(' ', '-')|replace('_','-') }}">
-                  {{ o.payment_status }}
+                            <td class="payment-status">
+                <span class="payment-badge payment-{{ o.payment_badge_class|default(o.payment_status|lower|replace(' ', '-')|replace('_','-')) }}">
+                  {{ o.payment_status_label|default(o.payment_status) }}
                 </span>
+
+                <div class="payment-method-note">
+                  <strong>{{ o.payment_method_label|default(o.payment_method) }}</strong>
+                  {% if o.payment_notice %}
+                    <span>{{ o.payment_notice }}</span>
+                  {% endif %}
+                </div>
               </td>
 
               <td class="order-date">{{ o.created_at }}</td>
 
-              <td class="order-actions">
+                            <td class="order-actions">
+                {% if o.can_pay_online_now %}
+                <a class="btn-pay-now" href="{{ o.pay_now_url }}">
+                  Pay Now
+                </a>
+                {% endif %}
+
                 <a class="btn-track" href="{{ url_for('order_track', oid=o.id) }}">
                   <span>Track</span>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -1260,10 +1352,37 @@
                   <a class="btn-return" href="{{ url_for('order_track', oid=o.id) }}#return-request">
                     Return
                   </a>
-                                {% elif o_return_status %}
-                  <div class="return-note">
-                    <strong>Return Status</strong>
-                    <span>{{ order_status_label(o_return_status) }}</span>
+                                                              {% elif o_return_status or o_refund_status %}
+                  {% set refund_note_class = 'refund-processed' if o_refund_status in ['PROCESSED', 'ADJUSTED'] else 'refund-rejected' if o_refund_status in ['REJECTED', 'VOID'] else 'refund-pending' %}
+
+                  <div class="return-note {{ refund_note_class }}">
+                    {% if o_refund_status in ['PROCESSED', 'ADJUSTED'] %}
+                      <strong>Refund Processed</strong>
+                    {% elif o_refund_status == 'READY_FOR_REFUND' %}
+                      <strong>Refund Pending</strong>
+                    {% elif o_refund_status == 'PENDING' %}
+                      <strong>Refund Under Review</strong>
+                    {% elif o_refund_status in ['REJECTED', 'VOID'] %}
+                      <strong>Refund Closed</strong>
+                    {% else %}
+                      <strong>Return Status</strong>
+                    {% endif %}
+
+                    {% if o_return_status %}
+                      <span>Return: {{ order_status_label(o_return_status) }}</span>
+                    {% endif %}
+
+                    {% if o_refund_status %}
+                      <span>Refund: {{ order_status_label(o_refund_status) }}</span>
+                    {% endif %}
+
+                    {% if o.refund_amount and o.refund_amount|float > 0 %}
+                      <span class="refund-amount">Amount: ₹{{ "%.2f"|format(o.refund_amount|float) }}</span>
+                    {% endif %}
+
+                    {% if o.refund_reference %}
+                      <span>Ref: {{ o.refund_reference }}</span>
+                    {% endif %}
                   </div>
                 {% endif %}
               </td>
@@ -1356,11 +1475,18 @@
   </div>
 {% endif %}
 
-            <div class="row">
+                        <div class="row">
               <span class="label">Payment</span>
               <span class="value">
-                <span class="payment-badge payment-{{ o.payment_status|lower|replace(' ', '-')|replace('_','-') }}">
-                  {{ o.payment_status }}
+                <span class="payment-badge payment-{{ o.payment_badge_class|default(o.payment_status|lower|replace(' ', '-')|replace('_','-')) }}">
+                  {{ o.payment_status_label|default(o.payment_status) }}
+                </span>
+
+                <span class="payment-method-note">
+                  <strong>{{ o.payment_method_label|default(o.payment_method) }}</strong>
+                  {% if o.payment_notice %}
+                    <span>{{ o.payment_notice }}</span>
+                  {% endif %}
                 </span>
               </span>
             </div>
@@ -1405,7 +1531,13 @@
 {% endif %}
           </div>
 
-          <div class="card-actions">
+                    <div class="card-actions">
+            {% if o.can_pay_online_now %}
+            <a class="btn-pay-now full" href="{{ o.pay_now_url }}">
+              Complete Payment
+            </a>
+            {% endif %}
+
             <a class="btn-track full" href="{{ url_for('order_track', oid=o.id) }}">
               <span>Track Order</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -1430,10 +1562,37 @@
               <a class="btn-return full" href="{{ url_for('order_track', oid=o.id) }}#return-request" style="margin-top:8px;">
                 Request Return
               </a>
-                        {% elif o_return_status %}
-              <div class="return-note">
-                <strong>Return Status</strong>
-                <span>{{ order_status_label(o_return_status) }}</span>
+                                               {% elif o_return_status or o_refund_status %}
+              {% set refund_note_class = 'refund-processed' if o_refund_status in ['PROCESSED', 'ADJUSTED'] else 'refund-rejected' if o_refund_status in ['REJECTED', 'VOID'] else 'refund-pending' %}
+
+              <div class="return-note {{ refund_note_class }}">
+                {% if o_refund_status in ['PROCESSED', 'ADJUSTED'] %}
+                  <strong>Refund Processed</strong>
+                {% elif o_refund_status == 'READY_FOR_REFUND' %}
+                  <strong>Refund Pending</strong>
+                {% elif o_refund_status == 'PENDING' %}
+                  <strong>Refund Under Review</strong>
+                {% elif o_refund_status in ['REJECTED', 'VOID'] %}
+                  <strong>Refund Closed</strong>
+                {% else %}
+                  <strong>Return Status</strong>
+                {% endif %}
+
+                {% if o_return_status %}
+                  <span>Return: {{ order_status_label(o_return_status) }}</span>
+                {% endif %}
+
+                {% if o_refund_status %}
+                  <span>Refund: {{ order_status_label(o_refund_status) }}</span>
+                {% endif %}
+
+                {% if o.refund_amount and o.refund_amount|float > 0 %}
+                  <span class="refund-amount">Amount: ₹{{ "%.2f"|format(o.refund_amount|float) }}</span>
+                {% endif %}
+
+                {% if o.refund_reference %}
+                  <span>Ref: {{ o.refund_reference }}</span>
+                {% endif %}
               </div>
             {% endif %}
           </div>

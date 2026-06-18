@@ -5,6 +5,7 @@ Only the file location changed.
 """
 
 from app_core import *
+import razorpay
 
 def _money_float(value, default=0.0):
     try:
@@ -96,7 +97,233 @@ def normalize_order_money_fields(order_doc):
 
     return order_doc
 
+
+
+def decorate_customer_payment_display(order_doc):
+    """
+    Adds customer-facing payment display fields.
+
+    This does not change database.
+    It only prepares safe labels/flags for orders.html and order_track.html.
+    """
+    order_doc = order_doc or {}
+
+    payment_method = (order_doc.get("payment_method") or "COD").strip().upper()
+    payment_status = (order_doc.get("payment_status") or "").strip().upper()
+    payment_collection_status = (order_doc.get("payment_collection_status") or "").strip().upper()
+    status = (order_doc.get("status") or "").strip().upper()
+
+    is_cod_order = payment_method in [
+        "COD",
+        "CASH_ON_DELIVERY",
+        "COD_RIDER_COLLECTION"
+    ]
+
+    is_online_order = payment_method in [
+        "ONLINE",
+        "ONLINE_PAYMENT",
+        "RAZORPAY"
+    ]
+
+    online_pending_statuses = [
+        "PENDING_PAYMENT",
+        "PAYMENT_PENDING",
+        "ONLINE_PENDING"
+    ]
+
+    paid_statuses = [
+        "PAID",
+        "ONLINE_PAID",
+        "SUCCESS"
+    ]
+
+    online_payment_pending = bool(
+        is_online_order
+        and (
+            status in online_pending_statuses
+            or payment_status in online_pending_statuses
+            or payment_collection_status in online_pending_statuses
+        )
+    )
+
+    online_payment_paid = bool(
+        is_online_order
+        and (
+            payment_status in paid_statuses
+            or payment_collection_status in paid_statuses
+        )
+    )
+
+    if is_online_order:
+        payment_method_label = "Online Payment"
+    elif is_cod_order:
+        payment_method_label = "Cash on Delivery"
+    else:
+        payment_method_label = payment_method.replace("_", " ").title() if payment_method else "Payment"
+
+    if online_payment_paid:
+        payment_status_label = "Paid"
+        payment_badge_class = "paid"
+        payment_notice = "Payment received by NE FRESH through Razorpay."
+    elif online_payment_pending:
+        payment_status_label = "Payment Pending"
+        payment_badge_class = "pending"
+        payment_notice = "Please complete online payment to confirm this order."
+    elif is_cod_order:
+        payment_status_label = "Pay on Delivery"
+        payment_badge_class = "cod"
+        payment_notice = "Please pay the delivery boy at delivery time."
+    elif payment_status:
+        payment_status_label = payment_status.replace("_", " ").title()
+        payment_badge_class = "pending"
+        payment_notice = ""
+    else:
+        payment_status_label = "Pending"
+        payment_badge_class = "pending"
+        payment_notice = ""
+
+    payment_received_by = (order_doc.get("payment_received_by") or "").strip().upper()
+
+    if payment_received_by == "ADMIN_PLATFORM":
+        payment_received_by_label = "NE FRESH / Platform"
+    elif payment_received_by:
+        payment_received_by_label = payment_received_by.replace("_", " ").title()
+    elif is_cod_order:
+        payment_received_by_label = "Delivery Boy at delivery time"
+    else:
+        payment_received_by_label = "Pending"
+
+    order_id = str(order_doc.get("_id") or order_doc.get("id") or "")
+
+    order_doc["payment_method"] = payment_method
+    order_doc["payment_status"] = payment_status
+    order_doc["payment_collection_status"] = payment_collection_status
+
+    order_doc["is_cod_order"] = is_cod_order
+    order_doc["is_online_order"] = is_online_order
+    order_doc["online_payment_pending"] = online_payment_pending
+    order_doc["online_payment_paid"] = online_payment_paid
+
+    order_doc["can_pay_online_now"] = bool(is_online_order and online_payment_pending and order_id)
+    order_doc["pay_now_url"] = url_for("order_payment", oid=order_id) if order_doc["can_pay_online_now"] else ""
+
+    order_doc["payment_method_label"] = payment_method_label
+    order_doc["payment_status_label"] = payment_status_label
+    order_doc["payment_badge_class"] = payment_badge_class
+    order_doc["payment_notice"] = payment_notice
+    order_doc["payment_received_by_label"] = payment_received_by_label
+
+    order_doc["cod_collection_required"] = bool(is_cod_order and not online_payment_paid)
+    order_doc["amount_to_collect_from_customer"] = (
+        float(order_doc.get("total_payable") or order_doc.get("total_amount") or 0)
+        if is_cod_order
+        else 0.0
+    )
+
+    return order_doc
+
+
+PAYMENT_GATEWAY_SETTINGS_KEY = "payment_gateway_settings"
 RETURN_REFUND_POLICY_SETTINGS_KEY = "return_refund_policy_settings"
+
+
+def _get_razorpay_env_keys(mode="TEST"):
+    mode = (mode or "TEST").strip().upper()
+
+    if mode == "LIVE":
+        return {
+            "key_id": (os.getenv("RAZORPAY_LIVE_KEY_ID") or "").strip(),
+            "key_secret": (os.getenv("RAZORPAY_LIVE_KEY_SECRET") or "").strip(),
+        }
+
+    return {
+        "key_id": (os.getenv("RAZORPAY_TEST_KEY_ID") or "").strip(),
+        "key_secret": (os.getenv("RAZORPAY_TEST_KEY_SECRET") or "").strip(),
+    }
+
+
+def get_checkout_payment_gateway_settings():
+    settings = mongo.platform_settings.find_one({
+        "key": PAYMENT_GATEWAY_SETTINGS_KEY
+    }) or {}
+
+    mode = (settings.get("mode") or "TEST").strip().upper()
+
+    if mode not in ["TEST", "LIVE"]:
+        mode = "TEST"
+
+    gateway = (settings.get("gateway") or "RAZORPAY").strip().upper()
+
+    if gateway not in ["RAZORPAY"]:
+        gateway = "RAZORPAY"
+
+    env_keys = _get_razorpay_env_keys(mode)
+
+    return {
+        "enabled": bool(settings.get("enabled", False)),
+        "gateway": gateway,
+        "mode": mode,
+
+        # Public key only. This can go to frontend Razorpay Checkout.
+        "razorpay_key_id": env_keys.get("key_id") or "",
+
+        "auto_capture_enabled": bool(settings.get("auto_capture_enabled", True)),
+    }
+
+
+def get_server_payment_gateway_settings():
+    settings = mongo.platform_settings.find_one({
+        "key": PAYMENT_GATEWAY_SETTINGS_KEY
+    }) or {}
+
+    mode = (settings.get("mode") or "TEST").strip().upper()
+
+    if mode not in ["TEST", "LIVE"]:
+        mode = "TEST"
+
+    gateway = (settings.get("gateway") or "RAZORPAY").strip().upper()
+
+    if gateway not in ["RAZORPAY"]:
+        gateway = "RAZORPAY"
+
+    env_keys = _get_razorpay_env_keys(mode)
+
+    return {
+        "enabled": bool(settings.get("enabled", False)),
+        "gateway": gateway,
+        "mode": mode,
+
+        # Read from .env only. Do not store/use secret from MongoDB.
+        "razorpay_key_id": env_keys.get("key_id") or "",
+        "razorpay_key_secret": env_keys.get("key_secret") or "",
+
+        "auto_capture_enabled": bool(settings.get("auto_capture_enabled", True)),
+    }
+
+
+def get_razorpay_client_from_settings(settings=None):
+    settings = settings or get_server_payment_gateway_settings()
+
+    if not settings.get("enabled"):
+        return None, "Online payment is disabled by Admin."
+
+    if settings.get("gateway") != "RAZORPAY":
+        return None, "Only Razorpay gateway is supported right now."
+
+    key_id = (settings.get("razorpay_key_id") or "").strip()
+    key_secret = (settings.get("razorpay_key_secret") or "").strip()
+
+    if not key_id or not key_secret:
+        return None, (
+            "Razorpay credentials are missing in .env. "
+            "Please set RAZORPAY_TEST_KEY_ID and RAZORPAY_TEST_KEY_SECRET for TEST mode."
+        )
+
+    try:
+        client = razorpay.Client(auth=(key_id, key_secret))
+        return client, ""
+    except Exception as exc:
+        return None, f"Unable to initialize Razorpay client: {str(exc)}"
 
 
 def get_return_refund_policy_settings():
@@ -719,6 +946,13 @@ def checkout():
     store_lat = None
     store_lng = None
 
+    payment_settings = get_checkout_payment_gateway_settings()
+    online_payment_enabled = bool(
+        payment_settings.get("enabled")
+        and payment_settings.get("gateway") == "RAZORPAY"
+        and payment_settings.get("razorpay_key_id")
+    )
+
     cart_items = list(mongo.cart_items.find({"cart_id": cid}))
 
     items = []
@@ -946,10 +1180,9 @@ def checkout():
         delivery_base_fee = float(serviceability.get("delivery_base_fee") or 0)
         delivery_fee_details = serviceability.get("delivery_fee_details") or {}
 
-        free_delivery_above_applied = delivery_fee_source == "store_free_delivery_above"
+        free_delivery_above_applied = delivery_fee_source == "admin_free_delivery_above"
         free_delivery_above = float(
             delivery_fee_details.get("free_delivery_above")
-            or store.get("free_delivery_above")
             or 0
         )
         original_delivery_fee = float(
@@ -984,7 +1217,25 @@ def checkout():
 
         now = datetime.utcnow().isoformat()
 
-        payment_method = "COD"
+        requested_payment_method = (request.form.get("payment_method") or "COD").strip().upper()
+
+        if requested_payment_method not in ["COD", "ONLINE"]:
+            requested_payment_method = "COD"
+
+        store_allows_online = bool(store.get("allow_online_payment", True))
+
+        if requested_payment_method == "ONLINE":
+            if not online_payment_enabled:
+                flash("Online payment is currently not enabled by Admin. Please use Cash on Delivery.", "warning")
+                return redirect(url_for("checkout"))
+
+            if not store_allows_online:
+                flash("Online payment is currently not enabled for this store. Please use Cash on Delivery.", "warning")
+                return redirect(url_for("checkout"))
+
+            payment_method = "ONLINE"
+        else:
+            payment_method = "COD"
 
         money_breakdown = build_order_money_breakdown(
             items_total=items_total,
@@ -998,14 +1249,30 @@ def checkout():
         # ------------------------------------------------------------
         # Platform-controlled payment / settlement base fields
         # ------------------------------------------------------------
-        # Current checkout flow is COD. We keep existing payment_method="COD"
-        # for backward compatibility with existing store/admin/delivery pages.
-        #
-        # New official flow key:
-        # COD_RIDER_COLLECTION = customer pays delivery boy, delivery boy submits
-        # remaining cash to NE FRESH/Admin, then NE FRESH pays store.
+        # COD_RIDER_COLLECTION = customer pays rider, rider submits remaining cash to Admin.
+        # ONLINE_PLATFORM = customer pays NE FRESH through platform gateway.
         # ------------------------------------------------------------
-        platform_payment_flow = "COD_RIDER_COLLECTION"
+        is_online_order = payment_method == "ONLINE"
+
+        if is_online_order:
+            platform_payment_flow = "ONLINE_PLATFORM"
+            initial_payment_status = "PENDING_PAYMENT"
+            payment_collection_status = "ONLINE_PENDING"
+            cod_collection_status = "NOT_REQUIRED"
+            platform_fee_status = "PENDING_PAYMENT"
+            rider_cash_settlement_status = "NOT_REQUIRED"
+            expected_rider_cash_to_submit = 0.0
+            rider_cash_to_submit = 0.0
+            flash_message = "Order created. Please complete online payment in the next step."
+        else:
+            platform_payment_flow = "COD_RIDER_COLLECTION"
+            initial_payment_status = "PENDING"
+            payment_collection_status = "PENDING"
+            cod_collection_status = "PENDING"
+            platform_fee_status = "PENDING_COLLECTION"
+            rider_cash_settlement_status = "NOT_COLLECTED_YET"
+            flash_message = "Order placed! (COD)"
+
         delivery_type = "OWN_DELIVERY"
 
         items_subtotal_amount = round(float(money_breakdown.get("items_subtotal") or items_total or 0), 2)
@@ -1020,10 +1287,12 @@ def checkout():
             2
         )
 
-        expected_rider_cash_to_submit = round(
-            max(float(total_payable or 0) - float(delivery_boy_earning_amount or 0), 0),
-            2
-        )
+        if not is_online_order:
+            expected_rider_cash_to_submit = round(
+                max(float(total_payable or 0) - float(delivery_boy_earning_amount or 0), 0),
+                2
+            )
+            rider_cash_to_submit = expected_rider_cash_to_submit
 
         order_items_docs = []
 
@@ -1058,8 +1327,8 @@ def checkout():
             # Keep this same as total_payable so old pages using total_amount do not show only subtotal.
             "total_amount": float(total_payable),
 
-            "status": "PLACED",
-            "payment_status": "PENDING",
+            "status": "PENDING_PAYMENT" if is_online_order else "PLACED",
+            "payment_status": initial_payment_status,
             "payment_method": payment_method,
 
             # ------------------------------------------------------------
@@ -1073,8 +1342,8 @@ def checkout():
             # It will be collected by delivery boy at delivery time.
             "payment_received_by": None,
             "payment_collected_at": None,
-            "payment_collection_status": "PENDING",
-            "cod_collection_status": "PENDING",
+            "payment_collection_status": payment_collection_status,
+            "cod_collection_status": cod_collection_status,
 
             "delivery_partner_id": None,
 
@@ -1089,11 +1358,13 @@ def checkout():
             "original_delivery_fee": float(original_delivery_fee or 0),
             "free_delivery_savings": float(free_delivery_savings or 0),
             "delivery_fee_settings_snapshot": {
-                "store_delivery_base_fee": delivery_base_fee,
-                "store_delivery_fee_slabs_enabled": bool(store.get("delivery_fee_slabs_enabled", False)),
-                "store_delivery_fee_slabs": store.get("delivery_fee_slabs") or [],
-                "store_free_delivery_above": float(store.get("free_delivery_above") or 0),
-                "store_max_delivery_distance_km": store.get("max_delivery_distance_km"),
+                "delivery_fee_settings_source": delivery_fee_details.get("delivery_fee_settings_source") or "admin_platform_settings",
+                "admin_delivery_base_fee": delivery_base_fee,
+                "admin_free_delivery_above": float(free_delivery_above or 0),
+                "admin_delivery_fee_source": delivery_fee_source,
+                "admin_delivery_fee_slab": delivery_fee_slab,
+                "admin_original_delivery_fee": float(original_delivery_fee or 0),
+                "admin_free_delivery_savings": float(free_delivery_savings or 0),
             },
 
             "platform_fee": platform_fee_amount,
@@ -1115,7 +1386,7 @@ def checkout():
             # ------------------------------------------------------------
             # New platform-controlled settlement fields
             # ------------------------------------------------------------
-            "platform_fee_status": "PENDING_COLLECTION",
+            "platform_fee_status": platform_fee_status,
             "platform_fee_received_at": None,
 
             "store_payout_amount": store_earning_amount,
@@ -1131,10 +1402,10 @@ def checkout():
             "delivery_boy_payout_marked_by": None,
             "delivery_boy_payout_note": "",
 
-            "cod_collected_amount": 0.0,
+            "cod_collected_amount": float(total_payable) if not is_online_order else 0.0,
             "expected_rider_cash_to_submit": expected_rider_cash_to_submit,
-            "rider_cash_to_submit": 0.0,
-            "rider_cash_settlement_status": "NOT_COLLECTED_YET",
+            "rider_cash_to_submit": rider_cash_to_submit,
+            "rider_cash_settlement_status": rider_cash_settlement_status,
             "rider_cash_received_at": None,
             "rider_cash_received_by": None,
             "rider_cash_settlement_note": "",
@@ -1217,7 +1488,7 @@ def checkout():
             "payment_flow": platform_payment_flow,
             "official_payment_mode": platform_payment_flow,
             "payment_received_by": None,
-            "payment_collection_status": "PENDING",
+            "payment_collection_status": payment_collection_status,
 
             "store_earning": store_earning_amount,
             "delivery_boy_earning": delivery_boy_earning_amount,
@@ -1230,12 +1501,12 @@ def checkout():
             "delivery_boy_payout_status": "PENDING_DELIVERY",
 
             "expected_rider_cash_to_submit": expected_rider_cash_to_submit,
-            "rider_cash_to_submit": 0.0,
-            "rider_cash_settlement_status": "NOT_COLLECTED_YET",
+            "rider_cash_to_submit": rider_cash_to_submit,
+            "rider_cash_settlement_status": rider_cash_settlement_status,
 
-            "platform_fee_status": "PENDING_COLLECTION",
+            "platform_fee_status": platform_fee_status,
 
-            "status": "PENDING",
+            "status": initial_payment_status,
             "settlement_status": "PENDING",
             "order_settlement_status": "NOT_STARTED",
             "admin_platform_fee_status": money_breakdown.get("admin_platform_fee_status") or "DUE",
@@ -1264,9 +1535,9 @@ def checkout():
 
         mongo.order_events.insert_one({
             "order_id": oid,
-            "status": "PLACED",
+            "status": "PENDING_PAYMENT" if is_online_order else "PLACED",
             "note": (
-                f"Order placed. "
+                f"{'Online payment order created' if is_online_order else 'Order placed'}. "
                 f"Items: ₹{float(money_breakdown.get('items_subtotal') or items_total):.2f}, "
                 f"Delivery: ₹{float(money_breakdown.get('delivery_fee') or delivery_fee):.2f}, "
                 f"Platform fee: ₹{float(money_breakdown.get('platform_fee') or 0):.2f}, "
@@ -1278,7 +1549,11 @@ def checkout():
 
         mongo.cart_items.delete_many({"cart_id": cid})
 
-        flash("Order placed! (COD)", "success")
+        flash(flash_message, "success")
+
+        if is_online_order:
+            return redirect(url_for("order_payment", oid=str(oid)))
+
         return redirect(url_for("orders"))
 
     total = sum([
@@ -1300,7 +1575,425 @@ def checkout():
         store_lat=store_lat,
         store_lng=store_lng,
         cart_store_count=cart_store_count,
+        online_payment_enabled=online_payment_enabled,
+        payment_gateway_settings=payment_settings,
     )
+
+
+@app.route("/orders/<oid>/payment", methods=["GET"], endpoint="order_payment")
+@login_required()
+def order_payment(oid):
+    u = current_user()
+
+    try:
+        oid_obj = ObjectId(oid)
+    except Exception:
+        flash("Invalid order.", "danger")
+        return redirect(url_for("orders"))
+
+    order_doc = mongo.orders.find_one({
+        "_id": oid_obj,
+        "user_id": u["id"]
+    })
+
+    if not order_doc:
+        flash("Order not found.", "danger")
+        return redirect(url_for("orders"))
+
+    payment_method = (order_doc.get("payment_method") or "").strip().upper()
+    payment_status = (order_doc.get("payment_status") or "").strip().upper()
+
+    if payment_method != "ONLINE":
+        flash("This order is not an online payment order.", "warning")
+        return redirect(url_for("order_track", oid=oid))
+
+    if payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
+        flash("Payment is already completed for this order.", "info")
+        return redirect(url_for("order_track", oid=oid))
+
+    settings = get_checkout_payment_gateway_settings()
+
+    if not settings.get("enabled") or not settings.get("razorpay_key_id"):
+        flash("Online payment is currently unavailable. Please contact NE FRESH support.", "warning")
+        return redirect(url_for("orders"))
+
+    order_doc = normalize_order_money_fields(order_doc)
+
+    return render_template(
+        "order_payment.html",
+        user=u,
+        order=order_doc,
+        razorpay_key_id=settings.get("razorpay_key_id"),
+        payment_gateway_settings=settings
+    )
+
+
+@app.route("/api/payment/create-razorpay-order/<oid>", methods=["POST"], endpoint="api_create_razorpay_order")
+@login_required()
+def api_create_razorpay_order(oid):
+    u = current_user()
+
+    try:
+        oid_obj = ObjectId(oid)
+    except Exception:
+        return jsonify({
+            "ok": False,
+            "message": "Invalid order."
+        }), 400
+
+    order_doc = mongo.orders.find_one({
+        "_id": oid_obj,
+        "user_id": u["id"]
+    })
+
+    if not order_doc:
+        return jsonify({
+            "ok": False,
+            "message": "Order not found."
+        }), 404
+
+    payment_method = (order_doc.get("payment_method") or "").strip().upper()
+    payment_status = (order_doc.get("payment_status") or "").strip().upper()
+    order_status = (order_doc.get("status") or "").strip().upper()
+
+    if payment_method != "ONLINE":
+        return jsonify({
+            "ok": False,
+            "message": "This order is not an online payment order."
+        }), 400
+
+    if payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
+        return jsonify({
+            "ok": False,
+            "message": "Payment is already completed for this order."
+        }), 400
+
+    if order_status not in ["PENDING_PAYMENT", "PLACED"]:
+        return jsonify({
+            "ok": False,
+            "message": "Payment cannot be started for this order status."
+        }), 400
+
+    settings = get_server_payment_gateway_settings()
+    client, client_error = get_razorpay_client_from_settings(settings)
+
+    if client_error:
+        return jsonify({
+            "ok": False,
+            "message": client_error
+        }), 400
+
+    order_doc = normalize_order_money_fields(order_doc)
+
+    total_payable = float(order_doc.get("total_payable") or 0)
+
+    if total_payable <= 0:
+        return jsonify({
+            "ok": False,
+            "message": "Invalid payable amount."
+        }), 400
+
+    amount_paise = int(round(total_payable * 100))
+    receipt_id = f"nefresh_{str(oid_obj)[-12:]}"
+
+    try:
+        razorpay_order = client.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": receipt_id,
+            "notes": {
+                "order_id": str(oid_obj),
+                "customer_id": str(u.get("_id") or u.get("id") or ""),
+                "platform": "NE_FRESH"
+            }
+        })
+    except Exception as exc:
+        now = datetime.utcnow().isoformat()
+
+        mongo.orders.update_one(
+            {"_id": oid_obj},
+            {
+                "$set": {
+                    "razorpay_order_create_error": str(exc),
+                    "razorpay_order_create_failed_at": now,
+                    "updated_at": now
+                }
+            }
+        )
+
+        return jsonify({
+            "ok": False,
+            "message": f"Unable to create Razorpay order: {str(exc)}"
+        }), 500
+
+    now = datetime.utcnow().isoformat()
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": {
+                "razorpay_order_id": razorpay_order.get("id"),
+                "razorpay_order_amount": amount_paise,
+                "razorpay_order_currency": "INR",
+                "razorpay_order_receipt": receipt_id,
+                "razorpay_order_status": razorpay_order.get("status"),
+                "razorpay_order_created_at": now,
+                "payment_gateway": "RAZORPAY",
+                "payment_gateway_mode": settings.get("mode"),
+                "payment_status": "PENDING_PAYMENT",
+                "payment_collection_status": "ONLINE_PENDING",
+                "updated_at": now
+            },
+            "$push": {
+                "payment_audit_logs": {
+                    "action": "RAZORPAY_ORDER_CREATED",
+                    "order_id": str(oid_obj),
+                    "razorpay_order_id": razorpay_order.get("id"),
+                    "amount": total_payable,
+                    "amount_paise": amount_paise,
+                    "created_by": str(u.get("_id") or u.get("id") or ""),
+                    "created_by_name": u.get("name") or "Customer",
+                    "created_at": now
+                }
+            }
+        }
+    )
+
+    mongo.transactions.update_many(
+        {"order_id": oid_obj},
+        {
+            "$set": {
+                "payment_gateway": "RAZORPAY",
+                "payment_gateway_mode": settings.get("mode"),
+                "razorpay_order_id": razorpay_order.get("id"),
+                "payment_status": "PENDING_PAYMENT",
+                "status": "PENDING_PAYMENT",
+                "payment_collection_status": "ONLINE_PENDING",
+                "updated_at": now
+            }
+        }
+    )
+
+    return jsonify({
+        "ok": True,
+        "message": "Razorpay order created.",
+        "order_id": str(oid_obj),
+        "razorpay_order_id": razorpay_order.get("id"),
+        "razorpay_key_id": settings.get("razorpay_key_id"),
+        "amount": amount_paise,
+        "currency": "INR",
+        "display_amount": total_payable,
+        "customer": {
+            "name": u.get("name") or "Customer",
+            "email": u.get("email") or "",
+            "phone": u.get("phone") or ""
+        }
+    })
+
+
+@app.route("/api/payment/verify-razorpay-payment/<oid>", methods=["POST"], endpoint="api_verify_razorpay_payment")
+@login_required()
+def api_verify_razorpay_payment(oid):
+    u = current_user()
+
+    try:
+        oid_obj = ObjectId(oid)
+    except Exception:
+        return jsonify({
+            "ok": False,
+            "message": "Invalid order."
+        }), 400
+
+    order_doc = mongo.orders.find_one({
+        "_id": oid_obj,
+        "user_id": u["id"]
+    })
+
+    if not order_doc:
+        return jsonify({
+            "ok": False,
+            "message": "Order not found."
+        }), 404
+
+    payment_method = (order_doc.get("payment_method") or "").strip().upper()
+    payment_status = (order_doc.get("payment_status") or "").strip().upper()
+
+    if payment_method != "ONLINE":
+        return jsonify({
+            "ok": False,
+            "message": "This order is not an online payment order."
+        }), 400
+
+    if payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
+        return jsonify({
+            "ok": True,
+            "message": "Payment is already verified.",
+            "redirect_url": url_for("order_track", oid=str(oid_obj))
+        })
+
+    data = request.get_json(silent=True) or {}
+
+    razorpay_order_id = (data.get("razorpay_order_id") or "").strip()
+    razorpay_payment_id = (data.get("razorpay_payment_id") or "").strip()
+    razorpay_signature = (data.get("razorpay_signature") or "").strip()
+
+    if not razorpay_order_id or not razorpay_payment_id or not razorpay_signature:
+        return jsonify({
+            "ok": False,
+            "message": "Missing Razorpay payment verification details."
+        }), 400
+
+    saved_razorpay_order_id = (order_doc.get("razorpay_order_id") or "").strip()
+
+    if saved_razorpay_order_id and saved_razorpay_order_id != razorpay_order_id:
+        return jsonify({
+            "ok": False,
+            "message": "Razorpay order ID mismatch."
+        }), 400
+
+    settings = get_server_payment_gateway_settings()
+    client, client_error = get_razorpay_client_from_settings(settings)
+
+    if client_error:
+        return jsonify({
+            "ok": False,
+            "message": client_error
+        }), 400
+
+    try:
+        client.utility.verify_payment_signature({
+            "razorpay_order_id": razorpay_order_id,
+            "razorpay_payment_id": razorpay_payment_id,
+            "razorpay_signature": razorpay_signature
+        })
+    except Exception as exc:
+        now = datetime.utcnow().isoformat()
+
+        failed_event = {
+            "action": "RAZORPAY_PAYMENT_VERIFICATION_FAILED",
+            "order_id": str(oid_obj),
+            "razorpay_order_id": razorpay_order_id,
+            "razorpay_payment_id": razorpay_payment_id,
+            "error": str(exc),
+            "created_by": str(u.get("_id") or u.get("id") or ""),
+            "created_by_name": u.get("name") or "Customer",
+            "created_at": now
+        }
+
+        mongo.orders.update_one(
+            {"_id": oid_obj},
+            {
+                "$set": {
+                    "payment_status": "PAYMENT_VERIFICATION_FAILED",
+                    "payment_collection_status": "ONLINE_VERIFICATION_FAILED",
+                    "razorpay_payment_verification_error": str(exc),
+                    "razorpay_payment_verification_failed_at": now,
+                    "updated_at": now
+                },
+                "$push": {
+                    "payment_audit_logs": failed_event
+                }
+            }
+        )
+
+        mongo.transactions.update_many(
+            {"order_id": oid_obj},
+            {
+                "$set": {
+                    "payment_status": "PAYMENT_VERIFICATION_FAILED",
+                    "status": "PAYMENT_VERIFICATION_FAILED",
+                    "payment_collection_status": "ONLINE_VERIFICATION_FAILED",
+                    "updated_at": now
+                }
+            }
+        )
+
+        return jsonify({
+            "ok": False,
+            "message": "Payment verification failed. Please contact NE FRESH support."
+        }), 400
+
+    now = datetime.utcnow().isoformat()
+
+    paid_event = {
+        "action": "RAZORPAY_PAYMENT_VERIFIED",
+        "order_id": str(oid_obj),
+        "razorpay_order_id": razorpay_order_id,
+        "razorpay_payment_id": razorpay_payment_id,
+        "amount": float(order_doc.get("total_payable") or order_doc.get("total_amount") or 0),
+        "created_by": str(u.get("_id") or u.get("id") or ""),
+        "created_by_name": u.get("name") or "Customer",
+        "created_at": now
+    }
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": {
+                "status": "PLACED",
+                "payment_status": "PAID",
+                "payment_collection_status": "PAID",
+                "payment_received_by": "ADMIN_PLATFORM",
+                "payment_collected_at": now,
+
+                "razorpay_order_id": razorpay_order_id,
+                "razorpay_payment_id": razorpay_payment_id,
+                "razorpay_signature": razorpay_signature,
+                "razorpay_payment_verified_at": now,
+
+                "platform_fee_status": "RECEIVED",
+                "platform_fee_received_at": now,
+                "rider_cash_settlement_status": "NOT_REQUIRED",
+                "cod_collection_status": "NOT_REQUIRED",
+
+                "order_settlement_status": "PENDING_STORE_PAYOUT",
+                "settlement_status": "PENDING",
+                "updated_at": now
+            },
+            "$push": {
+                "payment_audit_logs": paid_event,
+                "settlement_audit_logs": paid_event
+            }
+        }
+    )
+
+    mongo.transactions.update_many(
+        {"order_id": oid_obj},
+        {
+            "$set": {
+                "status": "PAID",
+                "payment_status": "PAID",
+                "payment_collection_status": "PAID",
+                "payment_received_by": "ADMIN_PLATFORM",
+                "payment_collected_at": now,
+
+                "razorpay_order_id": razorpay_order_id,
+                "razorpay_payment_id": razorpay_payment_id,
+                "payment_gateway": "RAZORPAY",
+                "payment_gateway_mode": settings.get("mode"),
+
+                "platform_fee_status": "RECEIVED",
+                "rider_cash_settlement_status": "NOT_REQUIRED",
+                "order_settlement_status": "PENDING_STORE_PAYOUT",
+                "settlement_status": "PENDING",
+                "updated_at": now
+            }
+        }
+    )
+
+    mongo.order_events.insert_one({
+        "order_id": oid_obj,
+        "status": "PLACED",
+        "note": "Online payment verified successfully. Order placed and waiting for store confirmation.",
+        "created_at": now
+    })
+
+    return jsonify({
+        "ok": True,
+        "message": "Payment verified successfully.",
+        "redirect_url": url_for("order_track", oid=str(oid_obj))
+    })
+
 
 @app.route("/api/checkout/serviceability", methods=["POST"])
 @login_required()
@@ -1424,7 +2117,7 @@ def api_checkout_serviceability():
         "delivery_fee_slab": serviceability.get("delivery_fee_slab"),
         "delivery_base_fee": float(serviceability.get("delivery_base_fee") or 0),
         "delivery_fee_details": serviceability.get("delivery_fee_details") or {},
-        "free_delivery_above_applied": serviceability.get("delivery_fee_source") == "store_free_delivery_above",
+        "free_delivery_above_applied": serviceability.get("delivery_fee_source") == "admin_free_delivery_above",
         "free_delivery_above": float((serviceability.get("delivery_fee_details") or {}).get("free_delivery_above") or 0),
         "original_delivery_fee": float((serviceability.get("delivery_fee_details") or {}).get("original_delivery_fee") or serviceability.get("delivery_fee") or 0),
         "free_delivery_savings": float((serviceability.get("delivery_fee_details") or {}).get("free_delivery_savings") or 0),
@@ -1458,6 +2151,7 @@ def my_orders():
         o["store_name"] = o.get("store_name", "")
 
         o = normalize_order_money_fields(o)
+        o = decorate_customer_payment_display(o)
 
         o["delivery_fee"] = float(o.get("delivery_fee") or 0)
         o["delivery_fee_amount"] = float(o.get("delivery_fee_amount") or o.get("delivery_fee") or 0)
@@ -1492,6 +2186,22 @@ def my_orders():
 
         o["admin_platform_fee_status"] = o.get("admin_platform_fee_status") or ""
         o["settlement_status"] = o.get("settlement_status") or ""
+
+        # Customer-facing return/refund display fields
+        o["return_status"] = (o.get("return_status") or "").strip().upper()
+        o["refund_status"] = (o.get("refund_status") or "").strip().upper()
+        o["refund_reason"] = o.get("refund_reason") or ""
+        o["refund_amount"] = float(o.get("refund_amount") or 0)
+        o["refund_items_amount"] = float(o.get("refund_items_amount") or 0)
+        o["refund_delivery_fee"] = float(o.get("refund_delivery_fee") or 0)
+        o["refund_platform_fee"] = float(o.get("refund_platform_fee") or 0)
+        o["refund_tip_amount"] = float(o.get("refund_tip_amount") or 0)
+        o["refund_method"] = o.get("refund_method") or ""
+        o["refund_reference"] = o.get("refund_reference") or ""
+        o["refund_processed_at"] = o.get("refund_processed_at") or ""
+        o["refund_processed_by_name"] = o.get("refund_processed_by_name") or ""
+        o["return_requested_at"] = o.get("return_requested_at") or ""
+        o["return_reason"] = o.get("return_reason") or ""
 
         # Customer-friendly delivery workflow state for My Orders page
         o["needs_reassignment"] = bool(o.get("needs_reassignment"))
@@ -1542,6 +2252,11 @@ def order_track(oid):
 
     return_policy_settings = get_return_refund_policy_settings()
     order_doc = data.get("order") or {}
+
+    order_doc = normalize_order_money_fields(order_doc)
+    order_doc = decorate_customer_payment_display(order_doc)
+
+    data["order"] = order_doc
 
     return_eligibility = get_order_return_eligibility(order_doc, return_policy_settings)
 

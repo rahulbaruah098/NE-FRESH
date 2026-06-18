@@ -328,14 +328,114 @@
         grid-template-columns: 1fr;
       }
     }
+
+        .ret-payment-flow {
+      display: grid;
+      gap: 6px;
+      min-width: 160px;
+    }
+
+    .ret-flow-pill {
+      width: max-content;
+      max-width: 100%;
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 0 10px;
+      font-size: .68rem;
+      font-weight: 950;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      border: 1px solid var(--nf-line);
+      white-space: nowrap;
+    }
+
+    .ret-flow-pill.online {
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border-color: rgba(0,168,89,.22);
+    }
+
+    .ret-flow-pill.cod {
+      background: var(--nf-orange-soft);
+      color: var(--nf-orange-dark);
+      border-color: rgba(245,158,11,.24);
+    }
+
+    .ret-flow-pill.refunded {
+      background: #FFF1F2;
+      color: #B91C1C;
+      border-color: rgba(239,68,68,.20);
+    }
+
+    .ret-flow-note {
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 750;
+      line-height: 1.38;
+    }
+
+    .ret-impact-box {
+      display: grid;
+      gap: 6px;
+      min-width: 190px;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+    }
+
+    .ret-impact-box.cancel {
+      background: #FFF1F2;
+      border-color: rgba(239,68,68,.20);
+    }
+
+    .ret-impact-box.return {
+      background: var(--nf-orange-soft);
+      border-color: rgba(245,158,11,.24);
+    }
+
+    .ret-impact-box.clear {
+      background: var(--nf-green-soft);
+      border-color: rgba(0,168,89,.20);
+    }
+
+    .ret-impact-box strong {
+      color: var(--nf-text);
+      font-size: .78rem;
+      font-weight: 950;
+      line-height: 1.3;
+    }
+
+    .ret-impact-box span {
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 760;
+      line-height: 1.38;
+    }
+
+    .ret-danger-note {
+      color: #B91C1C !important;
+      font-weight: 850 !important;
+    }
   </style>
 
-  <div class="ret-hero">
+    <div class="ret-hero">
     <h2>Returns & Refund Settlement Impact</h2>
     <p>
       This report shows how cancelled, returned and refunded orders affect store payout,
       platform fee earning and customer refund amount. This page is read-only.
     </p>
+
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+      <a class="ret-btn"
+         href="{{ url_for('admin_returns_settlements_export_csv', q=q, refund_status=refund_filter, return_status=return_filter, payment=payment_filter, **{'from': date_from, 'to': date_to}) }}"
+         style="text-decoration:none;display:inline-flex;align-items:center;">
+        Export CSV
+      </a>
+    </div>
   </div>
 
     <div class="ret-kpi-grid">
@@ -471,9 +571,22 @@
           </thead>
 
           <tbody>
-            {% for o in rows %}
+                        {% for o in rows %}
               {% set refund_class = (o.refund_status or 'not_started')|lower %}
               {% set return_class = (o.return_status or 'not_requested')|lower %}
+              {% set payment_method = (o.payment_method or '')|upper %}
+              {% set payment_status = (o.payment_status or '')|upper %}
+              {% set refund_type = (o.refund_type or '')|upper %}
+              {% set is_online_order = payment_method in ['ONLINE', 'ONLINE_PAYMENT', 'RAZORPAY'] %}
+              {% set is_cod_order = payment_method in ['COD', 'CASH_ON_DELIVERY', 'COD_RIDER_COLLECTION'] %}
+              {% set is_cancel_refund = refund_type == 'CANCEL_REFUND' %}
+              {% set is_return_refund = refund_type == 'RETURN_REFUND' %}
+              {% set original_store_payout = o.original_store_payout_amount|default(o.store_payout_amount|default(0))|float %}
+              {% set store_deduction = o.store_refund_deduction|default(0)|float %}
+              {% set adjusted_store_payout = o.adjusted_store_payout|default(o.store_payout_amount|default(0))|float %}
+              {% set store_adjustment_due = o.store_adjustment_due|default(0)|float %}
+              {% set platform_adjustment = o.platform_fee_adjustment|default(0)|float %}
+              {% set net_platform_fee = o.net_platform_fee|default(0)|float %}
               <tr>
                 <td>
                   <span class="ret-main">#{{ o.id[-6:] if o.id else "-" }}</span>
@@ -493,9 +606,26 @@
                   <span class="ret-sub">{{ o.refund_type or "-" }}</span>
                 </td>
 
-                <td>
-                  <span class="ret-pill">{{ o.payment_method or "-" }}</span>
-                  <span class="ret-sub">Payment: {{ o.payment_status or "-" }}</span>
+                                <td>
+                  <div class="ret-payment-flow">
+                    {% if payment_status in ['REFUNDED', 'PARTIALLY_REFUNDED'] %}
+                      <span class="ret-flow-pill refunded">{{ payment_status.replace('_', ' ') }}</span>
+                    {% elif is_online_order %}
+                      <span class="ret-flow-pill online">Online Payment</span>
+                      <span class="ret-flow-note">Customer paid NE FRESH through Razorpay.</span>
+                    {% elif is_cod_order %}
+                      <span class="ret-flow-pill cod">COD</span>
+                      <span class="ret-flow-note">Refund usually not required unless cash was collected.</span>
+                    {% else %}
+                      <span class="ret-flow-pill">{{ payment_method or "UNKNOWN" }}</span>
+                    {% endif %}
+
+                    <span class="ret-sub">Payment: {{ o.payment_status or "-" }}</span>
+
+                    {% if o.razorpay_payment_id %}
+                      <span class="ret-sub">Razorpay: {{ o.razorpay_payment_id }}</span>
+                    {% endif %}
+                  </div>
                 </td>
 
                 <td>
@@ -514,18 +644,48 @@
                   <span class="ret-sub">Tip: ₹{{ "%.2f"|format(o.refund_tip_amount|default(0)|float) }}</span>
                 </td>
 
-                <td>
-                  <span class="ret-sub">Original payout: ₹{{ "%.2f"|format(o.store_payout_amount|default(0)|float) }}</span>
-                  <span class="ret-sub">Deduction: ₹{{ "%.2f"|format(o.store_refund_deduction|default(0)|float) }}</span>
-                  <span class="ret-sub">Adjusted payout: ₹{{ "%.2f"|format(o.adjusted_store_payout|default(0)|float) }}</span>
-                  <span class="ret-sub">Adjustment due: ₹{{ "%.2f"|format(o.store_adjustment_due|default(0)|float) }}</span>
+                               <td>
+                  {% if is_cancel_refund %}
+                    <div class="ret-impact-box cancel">
+                      <strong>No Store Payout</strong>
+                      <span>Cancelled order refund. Store payout should be not required.</span>
+                      <span>Original payout: ₹{{ "%.2f"|format(original_store_payout) }}</span>
+                      <span>Deduction: ₹{{ "%.2f"|format(store_deduction) }}</span>
+                      <span>Adjusted payout: ₹{{ "%.2f"|format(adjusted_store_payout) }}</span>
+                    </div>
+                  {% elif store_deduction > 0 %}
+                    <div class="ret-impact-box return">
+                      <strong>Store Payout Deduction</strong>
+                      <span>Item refund affects store payout.</span>
+                      <span>Original payout: ₹{{ "%.2f"|format(original_store_payout) }}</span>
+                      <span>Deduction: ₹{{ "%.2f"|format(store_deduction) }}</span>
+                      <span>Adjusted payout: ₹{{ "%.2f"|format(adjusted_store_payout) }}</span>
+
+                      {% if store_adjustment_due > 0 %}
+                        <span class="ret-danger-note">Adjustment due: ₹{{ "%.2f"|format(store_adjustment_due) }}</span>
+                      {% endif %}
+                    </div>
+                  {% else %}
+                    <div class="ret-impact-box clear">
+                      <strong>No Store Deduction</strong>
+                      <span>Original payout: ₹{{ "%.2f"|format(original_store_payout) }}</span>
+                      <span>Adjusted payout: ₹{{ "%.2f"|format(adjusted_store_payout) }}</span>
+                    </div>
+                  {% endif %}
+
                   <span class="ret-main">{{ o.settlement_impact or "-" }}</span>
                 </td>
 
-                <td>
+                                <td>
                   <span class="ret-sub">Gross platform: ₹{{ "%.2f"|format(o.gross_platform_fee|default(0)|float) }}</span>
-                  <span class="ret-sub">Refund adjust: ₹{{ "%.2f"|format(o.platform_fee_adjustment|default(0)|float) }}</span>
-                  <span class="ret-main">Net: ₹{{ "%.2f"|format(o.net_platform_fee|default(0)|float) }}</span>
+
+                  {% if platform_adjustment > 0 %}
+                    <span class="ret-sub ret-danger-note">Refund adjust: - ₹{{ "%.2f"|format(platform_adjustment) }}</span>
+                  {% else %}
+                    <span class="ret-sub">Refund adjust: ₹0.00</span>
+                  {% endif %}
+
+                  <span class="ret-main">Net: ₹{{ "%.2f"|format(net_platform_fee) }}</span>
                 </td>
 
                 <td>
@@ -559,10 +719,16 @@
                   {% endif %}
                 </td>
 
-                <td>
+                               <td>
                   <span class="ret-main">{{ o.order_settlement_status or o.settlement_status or "-" }}</span>
                   <span class="ret-sub">Store payout: {{ o.store_payout_status or "-" }}</span>
                   <span class="ret-sub">Impact: {{ o.settlement_impact or "-" }}</span>
+
+                  {% if store_adjustment_due > 0 %}
+                    <span class="ret-danger-note">Recover from next payout: ₹{{ "%.2f"|format(store_adjustment_due) }}</span>
+                  {% elif store_deduction > 0 and (o.store_payout_status or '')|upper != 'PAID' %}
+                    <span class="ret-sub">Deducted from pending payout.</span>
+                  {% endif %}
                 </td>
 
                                 <td>

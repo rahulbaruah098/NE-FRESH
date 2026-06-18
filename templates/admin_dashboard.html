@@ -26,6 +26,20 @@
 {% set failed_payments_total = metrics.failed_payments|default(0) %}
 {% set pending_payments_total = metrics.pending_payments|default(0) %}
 {% set paid_transactions_total = metrics.paid_transactions|default(0) %}
+{% set refund_pending_total = metrics.refund_pending_count|default(0) %}
+{% set admin_review_needed_total = metrics.admin_review_needed_count|default(0) %}
+{% set refund_processed_total = metrics.refund_processed_count|default(0) %}
+{% set ready_for_refund_amount = metrics.ready_for_refund_amount|default(0) %}
+{% set refund_processed_amount = metrics.refund_processed_amount|default(0) %}
+{% set store_refund_deduction_amount = metrics.store_refund_deduction_amount|default(0) %}
+{% set store_adjustment_due_amount = metrics.store_adjustment_due_amount|default(0) %}
+{% set online_payment_received_amount = metrics.online_payment_received_amount|default(0) %}
+{% set online_payment_received_count = metrics.online_payment_received_count|default(0) %}
+{% set cod_rider_cash_pending_amount = metrics.cod_rider_cash_pending_amount|default(0) %}
+{% set cod_rider_cash_pending_count = metrics.cod_rider_cash_pending_count|default(0) %}
+{% set platform_fee_received_amount = metrics.platform_fee_received_amount|default(0) %}
+{% set store_payout_pending_amount = metrics.store_payout_pending_amount|default(0) %}
+{% set store_payout_pending_count = metrics.store_payout_pending_count|default(0) %}
 
 <section class="nf-grocery-dashboard" data-page="admin-dashboard">
   <style>
@@ -223,6 +237,75 @@
       font-size:13px;
       font-weight:800;
     }
+
+        .gd-refund-card{
+      border-color:#FECACA;
+      background:
+        radial-gradient(circle at 20% 12%, rgba(255,49,88,.08), transparent 34%),
+        linear-gradient(180deg,#FFFFFF,#FFF7F8);
+    }
+
+    .gd-refund-card .gd-kpi-icon{
+      color:var(--red);
+    }
+
+    .gd-refund-card .gd-kpi-label{
+      color:#B91C1C;
+    }
+
+    .gd-refund-card .gd-kpi-value{
+      color:#B91C1C;
+    }
+
+    .gd-refund-card.warning{
+      border-color:rgba(255,159,28,.32);
+      background:
+        radial-gradient(circle at 20% 12%, rgba(255,159,28,.10), transparent 34%),
+        linear-gradient(180deg,#FFFFFF,#FFF8E8);
+    }
+
+    .gd-refund-card.warning .gd-kpi-label,
+    .gd-refund-card.warning .gd-kpi-value{
+      color:#A84700;
+    }
+
+    .gd-refund-card.success{
+      border-color:rgba(0,200,121,.24);
+      background:
+        radial-gradient(circle at 20% 12%, rgba(0,200,121,.09), transparent 34%),
+        linear-gradient(180deg,#FFFFFF,#F0FFF8);
+    }
+
+    .gd-refund-card.success .gd-kpi-label,
+    .gd-refund-card.success .gd-kpi-value{
+      color:#008A48;
+    }
+
+    .gd-refund-action{
+      margin-top:10px;
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 10px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid rgba(185,28,28,.16);
+      color:#B91C1C;
+      font-size:12px;
+      font-weight:900;
+      text-decoration:none;
+    }
+
+    .gd-refund-card.warning .gd-refund-action{
+      color:#A84700;
+      border-color:rgba(255,159,28,.28);
+    }
+
+    .gd-refund-card.success .gd-refund-action{
+      color:#008A48;
+      border-color:rgba(0,200,121,.20);
+    } 
 
     .gd-status-grid{
       display:grid;
@@ -926,6 +1009,78 @@
             <div class="gd-kpi-sub">Paid transactions / delivered GMV</div>
           </div>
 
+                    <div class="gd-kpi-card gd-refund-card success">
+            <div class="gd-kpi-icon">💳</div>
+            <div class="gd-kpi-label">Online Payment Received</div>
+            <div class="gd-kpi-value">₹ {{ '%.2f'|format(online_payment_received_amount|float) }}</div>
+            <div class="gd-kpi-sub">{{ online_payment_received_count }} online paid orders</div>
+            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Settlements</a>
+          </div>
+
+          <div class="gd-kpi-card gd-refund-card warning">
+            <div class="gd-kpi-icon">🧾</div>
+            <div class="gd-kpi-label">COD Rider Cash Pending</div>
+            <div class="gd-kpi-value">₹ {{ '%.2f'|format(cod_rider_cash_pending_amount|float) }}</div>
+            <div class="gd-kpi-sub">{{ cod_rider_cash_pending_count }} rider cash settlements pending</div>
+            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Collect Cash</a>
+          </div>
+
+          <div class="gd-kpi-card gd-refund-card success">
+            <div class="gd-kpi-icon">📈</div>
+            <div class="gd-kpi-label">Platform Fee Received</div>
+            <div class="gd-kpi-value">₹ {{ '%.2f'|format(platform_fee_received_amount|float) }}</div>
+            <div class="gd-kpi-sub">Received from online payment / settled COD</div>
+            <a class="gd-refund-action" href="{{ url_for('admin_platform_earnings') }}">View Earnings</a>
+          </div>
+
+          <div class="gd-kpi-card gd-refund-card warning">
+            <div class="gd-kpi-icon">🏪</div>
+            <div class="gd-kpi-label">Store Payout Pending</div>
+            <div class="gd-kpi-value">₹ {{ '%.2f'|format(store_payout_pending_amount|float) }}</div>
+            <div class="gd-kpi-sub">{{ store_payout_pending_count }} store payouts pending</div>
+            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Pay Stores</a>
+          </div>
+
+                    <div class="gd-kpi-card gd-refund-card warning">
+            <div class="gd-kpi-icon">⏳</div>
+            <div class="gd-kpi-label">Refunds Pending</div>
+            <div class="gd-kpi-value">{{ refund_pending_total }}</div>
+            <div class="gd-kpi-sub">₹ {{ '%.2f'|format(ready_for_refund_amount|float) }} waiting</div>
+            <a class="gd-refund-action" href="{{ url_for('admin_refund_processing') }}">Open Refunds</a>
+          </div>
+
+          <div class="gd-kpi-card gd-refund-card">
+            <div class="gd-kpi-icon">🧾</div>
+            <div class="gd-kpi-label">Admin Review Needed</div>
+            <div class="gd-kpi-value">{{ admin_review_needed_total }}</div>
+            <div class="gd-kpi-sub">Returns waiting for Admin decision</div>
+            <a class="gd-refund-action" href="{{ url_for('admin_refund_processing') }}">Review Now</a>
+          </div>
+
+          <div class="gd-kpi-card gd-refund-card success">
+            <div class="gd-kpi-icon">✅</div>
+            <div class="gd-kpi-label">Refunds Processed</div>
+            <div class="gd-kpi-value">{{ refund_processed_total }}</div>
+            <div class="gd-kpi-sub">₹ {{ '%.2f'|format(refund_processed_amount|float) }} processed</div>
+            <a class="gd-refund-action" href="{{ url_for('admin_returns_settlements') }}">View Report</a>
+          </div>
+
+          <div class="gd-kpi-card gd-refund-card warning">
+            <div class="gd-kpi-icon">🏪</div>
+            <div class="gd-kpi-label">Store Deduction</div>
+            <div class="gd-kpi-value">₹ {{ '%.2f'|format(store_refund_deduction_amount|float) }}</div>
+            <div class="gd-kpi-sub">Deducted from store payout</div>
+            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Settlements</a>
+          </div>
+
+          <div class="gd-kpi-card gd-refund-card">
+            <div class="gd-kpi-icon">⚠️</div>
+            <div class="gd-kpi-label">Store Adjustment Due</div>
+            <div class="gd-kpi-value">₹ {{ '%.2f'|format(store_adjustment_due_amount|float) }}</div>
+            <div class="gd-kpi-sub">Recover from next payout</div>
+            <a class="gd-refund-action" href="{{ url_for('admin_returns_settlements') }}">View Impact</a>
+          </div>
+
           <div class="gd-kpi-card">
             <div class="gd-kpi-icon">🚚</div>
             <div class="gd-kpi-label">Delivery Persons</div>
@@ -934,71 +1089,6 @@
           </div>
         </div>
 
-        <div class="gd-status-grid">
-          <div class="gd-status-card">
-            <div class="gd-status-left">
-              <span class="gd-status-icon">📦</span>
-              <span class="gd-status-label">Unassigned Orders</span>
-            </div>
-            <div class="gd-status-value">{{ unassigned_orders_total }}</div>
-          </div>
-
-          <div class="gd-status-card">
-            <div class="gd-status-left">
-              <span class="gd-status-icon">🧾</span>
-              <span class="gd-status-label">Accepted By Delivery Man</span>
-            </div>
-            <div class="gd-status-value is-green">{{ accepted_delivery_total }}</div>
-          </div>
-
-          <div class="gd-status-card">
-            <div class="gd-status-left">
-              <span class="gd-status-icon">🛍️</span>
-              <span class="gd-status-label">Packaging</span>
-            </div>
-            <div class="gd-status-value">{{ packaging_orders_total }}</div>
-          </div>
-
-          <div class="gd-status-card">
-            <div class="gd-status-left">
-              <span class="gd-status-icon">🚚</span>
-              <span class="gd-status-label">Out For Delivery</span>
-            </div>
-            <div class="gd-status-value is-green">{{ out_for_delivery_total }}</div>
-          </div>
-
-          <div class="gd-status-card">
-            <div class="gd-status-left">
-              <span class="gd-status-icon">✅</span>
-              <span class="gd-status-label">Delivered</span>
-            </div>
-            <div class="gd-status-value is-green">{{ delivered_orders_total }}</div>
-          </div>
-
-          <div class="gd-status-card">
-            <div class="gd-status-left">
-              <span class="gd-status-icon">❌</span>
-              <span class="gd-status-label">Canceled</span>
-            </div>
-            <div class="gd-status-value is-red">{{ cancelled_orders_total }}</div>
-          </div>
-
-          <div class="gd-status-card">
-            <div class="gd-status-left">
-              <span class="gd-status-icon">💵</span>
-              <span class="gd-status-label">Refunded</span>
-            </div>
-            <div class="gd-status-value is-red">{{ refunded_orders_total }}</div>
-          </div>
-
-          <div class="gd-status-card">
-            <div class="gd-status-left">
-              <span class="gd-status-icon">💳</span>
-              <span class="gd-status-label">Payment Failed</span>
-            </div>
-            <div class="gd-status-value is-red">{{ failed_payments_total }}</div>
-          </div>
-        </div>
       </section>
 
       <section class="gd-chart-grid">

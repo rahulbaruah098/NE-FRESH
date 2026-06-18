@@ -377,6 +377,87 @@
         display: grid;
       }
     }
+
+        .pe-flow-box {
+      display: grid;
+      gap: 6px;
+      min-width: 160px;
+    }
+
+    .pe-flow-pill {
+      width: max-content;
+      max-width: 100%;
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 0 10px;
+      font-size: .68rem;
+      font-weight: 950;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      border: 1px solid var(--nf-line);
+      white-space: nowrap;
+    }
+
+    .pe-flow-pill.online {
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      border-color: rgba(0,168,89,.22);
+    }
+
+    .pe-flow-pill.cod {
+      background: var(--nf-orange-soft);
+      color: var(--nf-orange-dark);
+      border-color: rgba(245,158,11,.24);
+    }
+
+    .pe-flow-note {
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 750;
+      line-height: 1.38;
+    }
+
+    .pe-status-box {
+      display: grid;
+      gap: 5px;
+      min-width: 170px;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid var(--nf-line);
+      background: var(--nf-surface-2);
+    }
+
+    .pe-status-box.received {
+      background: var(--nf-green-soft);
+      border-color: rgba(0,168,89,.20);
+    }
+
+    .pe-status-box.pending {
+      background: var(--nf-orange-soft);
+      border-color: rgba(245,158,11,.24);
+    }
+
+    .pe-status-box strong {
+      color: var(--nf-text);
+      font-size: .78rem;
+      font-weight: 950;
+      line-height: 1.3;
+    }
+
+    .pe-status-box span {
+      color: var(--nf-muted);
+      font-size: .7rem;
+      font-weight: 760;
+      line-height: 1.38;
+    }
+
+    .pe-danger-note {
+      color: #B91C1C !important;
+      font-weight: 850 !important;
+    }
   </style>
 
   <div class="pe-hero">
@@ -472,21 +553,28 @@
         <table class="pe-table">
           <thead>
             <tr>
-              <th>Order</th>
+                            <th>Order</th>
               <th>Store</th>
               <th>Customer</th>
-              <th>Payment Method</th>
+              <th>Payment Flow</th>
               <th>Platform Fee</th>
               <th>Platform Status</th>
-              <th>Rider Cash</th>
+              <th>Rider Cash / COD</th>
               <th>Order Settlement</th>
               <th>Date</th>
             </tr>
           </thead>
 
           <tbody>
-            {% for o in rows %}
+                        {% for o in rows %}
               {% set earning_status_class = (o.platform_earning_status or 'pending')|lower %}
+              {% set payment_method = (o.payment_method or '')|upper %}
+              {% set payment_status = (o.payment_status or '')|upper %}
+              {% set rider_cash_status = (o.rider_cash_settlement_status or '')|upper %}
+              {% set is_online_order = payment_method in ['ONLINE', 'ONLINE_PAYMENT', 'RAZORPAY'] %}
+              {% set is_cod_order = payment_method in ['COD', 'CASH_ON_DELIVERY', 'COD_RIDER_COLLECTION'] %}
+              {% set platform_status = (o.platform_earning_status or o.platform_fee_status or '')|upper %}
+              {% set platform_received = platform_status in ['RECEIVED', 'PAID', 'SETTLED'] %}
               <tr>
                 <td>
                   <span class="pe-main">#{{ o.id[-6:] if o.id else "-" }}</span>
@@ -503,28 +591,78 @@
                   <span class="pe-sub">{{ o.customer_phone or "" }}</span>
                 </td>
 
-                <td>
-                  <span class="pe-pill">{{ o.payment_method or "-" }}</span>
-                  <span class="pe-sub">{{ o.payment_status or "-" }}</span>
+                                <td>
+                  <div class="pe-flow-box">
+                    {% if is_online_order %}
+                      <span class="pe-flow-pill online">Online Payment</span>
+                      <span class="pe-flow-note">Platform fee received after Razorpay payment success.</span>
+                    {% elif is_cod_order %}
+                      <span class="pe-flow-pill cod">COD</span>
+                      <span class="pe-flow-note">Platform fee received only after rider cash is confirmed by Admin.</span>
+                    {% else %}
+                      <span class="pe-flow-pill">{{ payment_method or "UNKNOWN" }}</span>
+                    {% endif %}
+
+                    <span class="pe-sub">Payment: {{ o.payment_status or "-" }}</span>
+                  </div>
                 </td>
 
                 <td>
                   <span class="pe-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</span>
                 </td>
 
-                <td>
-                  <span class="pe-pill {{ earning_status_class }}">{{ o.platform_earning_status or "-" }}</span>
-                  {% if o.platform_fee_received_at %}
-                    <span class="pe-sub">Received: {{ o.platform_fee_received_at }}</span>
+                               <td>
+                  {% if platform_received %}
+                    <div class="pe-status-box received">
+                      <strong>Received</strong>
+                      {% if is_online_order %}
+                        <span>Online payment received by NE FRESH.</span>
+                      {% elif is_cod_order %}
+                        <span>COD cash received from rider by Admin.</span>
+                      {% else %}
+                        <span>Platform fee marked received.</span>
+                      {% endif %}
+
+                      {% if o.platform_fee_received_at %}
+                        <span>Received: {{ o.platform_fee_received_at }}</span>
+                      {% endif %}
+                    </div>
+                  {% else %}
+                    <div class="pe-status-box pending">
+                      <strong>{{ o.platform_earning_status or o.platform_fee_status or "PENDING" }}</strong>
+                      {% if is_cod_order %}
+                        <span>Waiting for rider cash settlement.</span>
+                      {% elif is_online_order %}
+                        <span>Waiting for online payment success.</span>
+                      {% else %}
+                        <span>Platform fee is pending.</span>
+                      {% endif %}
+                    </div>
                   {% endif %}
                 </td>
 
-                <td>
-                  {% if o.payment_method == "COD" %}
-                    <span class="pe-main">{{ o.rider_cash_settlement_status or "PENDING" }}</span>
-                    <span class="pe-sub">Cash to submit: ₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
+                               <td>
+                  {% if is_online_order %}
+                    <div class="pe-status-box received">
+                      <strong>Not Required</strong>
+                      <span>Customer paid NE FRESH online. Rider cash is not involved.</span>
+                    </div>
+                  {% elif is_cod_order %}
+                    {% if rider_cash_status in ['RECEIVED_BY_ADMIN', 'RECEIVED', 'SETTLED'] %}
+                      <div class="pe-status-box received">
+                        <strong>{{ o.rider_cash_settlement_status or "RECEIVED" }}</strong>
+                        <span>Admin received rider cash.</span>
+                        <span>Cash submitted: ₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
+                      </div>
+                    {% else %}
+                      <div class="pe-status-box pending">
+                        <strong>{{ o.rider_cash_settlement_status or "PENDING" }}</strong>
+                        <span>Cash to submit: ₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
+                        <span class="pe-danger-note">Platform fee pending until rider cash is received.</span>
+                      </div>
+                    {% endif %}
                   {% else %}
-                    <span class="pe-pill received">NOT REQUIRED</span>
+                    <span class="pe-pill pending">{{ o.rider_cash_settlement_status or "PENDING" }}</span>
                   {% endif %}
                 </td>
 
@@ -545,8 +683,14 @@
       </div>
 
       <div class="pe-mobile-list">
-        {% for o in rows %}
+                {% for o in rows %}
           {% set earning_status_class = (o.platform_earning_status or 'pending')|lower %}
+          {% set payment_method = (o.payment_method or '')|upper %}
+          {% set rider_cash_status = (o.rider_cash_settlement_status or '')|upper %}
+          {% set is_online_order = payment_method in ['ONLINE', 'ONLINE_PAYMENT', 'RAZORPAY'] %}
+          {% set is_cod_order = payment_method in ['COD', 'CASH_ON_DELIVERY', 'COD_RIDER_COLLECTION'] %}
+          {% set platform_status = (o.platform_earning_status or o.platform_fee_status or '')|upper %}
+          {% set platform_received = platform_status in ['RECEIVED', 'PAID', 'SETTLED'] %}
           <div class="pe-mobile-card">
             <div>
               <span class="pe-main">#{{ o.id[-6:] if o.id else "-" }} · {{ o.store_name or "Store" }}</span>
@@ -564,9 +708,17 @@
                 <strong>{{ o.platform_earning_status or "-" }}</strong>
               </div>
 
-              <div class="pe-mobile-metric">
+                            <div class="pe-mobile-metric">
                 <span>Payment</span>
-                <strong>{{ o.payment_method or "-" }}</strong>
+                <strong>
+                  {% if is_online_order %}
+                    Online
+                  {% elif is_cod_order %}
+                    COD
+                  {% else %}
+                    {{ o.payment_method or "-" }}
+                  {% endif %}
+                </strong>
               </div>
 
               <div class="pe-mobile-metric">
@@ -575,10 +727,18 @@
               </div>
             </div>
 
-            <div>
-              <span class="pe-pill {{ earning_status_class }}">{{ o.platform_earning_status or "-" }}</span>
-              {% if o.payment_method == "COD" %}
+                       <div>
+              {% if platform_received %}
+                <span class="pe-pill received">PLATFORM FEE RECEIVED</span>
+              {% else %}
+                <span class="pe-pill pending">{{ o.platform_earning_status or o.platform_fee_status or "PENDING" }}</span>
+              {% endif %}
+
+              {% if is_online_order %}
+                <span class="pe-sub">Online payment received by NE FRESH. Rider cash not required.</span>
+              {% elif is_cod_order %}
                 <span class="pe-sub">Rider cash: {{ o.rider_cash_settlement_status or "PENDING" }}</span>
+                <span class="pe-sub">Cash to submit: ₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
               {% endif %}
             </div>
           </div>

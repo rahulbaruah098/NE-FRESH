@@ -411,6 +411,30 @@
       word-break:break-word;
     }
 
+        .sc-admin-taken-over{
+      border:1px solid rgba(239,68,68,.25);
+      border-radius:18px;
+      background:linear-gradient(180deg,#FFF1F2 0%,#FFFFFF 100%);
+      padding:14px;
+      display:grid;
+      gap:8px;
+    }
+
+    .sc-admin-taken-over strong{
+      color:var(--sc-red);
+      font-size:.78rem;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+    }
+
+    .sc-admin-taken-over span{
+      color:#7F1D1D;
+      font-size:.88rem;
+      line-height:1.45;
+      font-weight:750;
+    }
+
     .sc-update{
       border-top:1px solid var(--sc-line);
       padding-top:14px;
@@ -734,32 +758,63 @@
   </div>
 {% endif %}
 
-            <form class="sc-update" method="POST" action="{{ url_for('store_complaint_update', cid=c.id) }}">
-              <div class="sc-form-grid">
-                <div class="sc-field">
-                  <label>Progress Status</label>
-                  <select name="progress_status" required>
-                    <option value="received" {% if c.progress_status == 'received' %}selected{% endif %}>Received / Open</option>
-                    <option value="in_progress" {% if c.progress_status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                    <option value="resolved" {% if c.progress_status == 'resolved' %}selected{% endif %}>Resolved / Completed</option>
-                  </select>
+            {% if c.is_admin_taken_over %}
+              <div class="sc-admin-taken-over">
+                <strong>Taken over by NE FRESH Admin</strong>
+
+                <span>
+                  This complaint has been escalated and is now handled directly by NE FRESH Admin.
+                  Store updates are disabled for this complaint.
+                </span>
+
+                {% if c.admin_takeover_reason %}
+                  <span><b>Reason:</b> {{ c.admin_takeover_reason }}</span>
+                {% endif %}
+
+                {% if c.admin_takeover_by_name %}
+                  <span><b>Taken over by:</b> {{ c.admin_takeover_by_name }}</span>
+                {% endif %}
+
+                {% if c.admin_takeover_at %}
+                  <span><b>Takeover Time:</b> {{ c.admin_takeover_at }}</span>
+                {% endif %}
+
+                {% if c.admin_reply %}
+                  <span><b>Admin Reply:</b> {{ c.admin_reply }}</span>
+                {% endif %}
+
+                {% if c.admin_progress_note %}
+                  <span><b>Admin Note:</b> {{ c.admin_progress_note }}</span>
+                {% endif %}
+              </div>
+            {% else %}
+              <form class="sc-update" method="POST" action="{{ url_for('store_complaint_update', cid=c.id) }}">
+                <div class="sc-form-grid">
+                  <div class="sc-field">
+                    <label>Progress Status</label>
+                    <select name="progress_status" required>
+                      <option value="received" {% if c.progress_status == 'received' %}selected{% endif %}>Received / Open</option>
+                      <option value="in_progress" {% if c.progress_status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                      <option value="resolved" {% if c.progress_status == 'resolved' %}selected{% endif %}>Resolved / Completed</option>
+                    </select>
+                  </div>
+
+                  <div class="sc-field">
+                    <label>Progress Note</label>
+                    <textarea name="store_progress_note" maxlength="1000" placeholder="Example: We are checking this issue with our packing team.">{{ c.store_progress_note or '' }}</textarea>
+                  </div>
                 </div>
 
                 <div class="sc-field">
-                  <label>Progress Note</label>
-                  <textarea name="store_progress_note" maxlength="1000" placeholder="Example: We are checking this issue with our packing team.">{{ c.store_progress_note or '' }}</textarea>
+                  <label>Store Reply To Customer</label>
+                  <textarea name="store_reply" maxlength="1000" placeholder="Write reply visible to customer complaint tracking page.">{{ c.store_reply or '' }}</textarea>
                 </div>
-              </div>
 
-              <div class="sc-field">
-                <label>Store Reply To Customer</label>
-                <textarea name="store_reply" maxlength="1000" placeholder="Write reply visible to customer complaint tracking page.">{{ c.store_reply or '' }}</textarea>
-              </div>
-
-              <button class="sc-submit" type="submit">
-                Update Complaint
-              </button>
-            </form>
+                <button class="sc-submit" type="submit">
+                  Update Complaint
+                </button>
+              </form>
+            {% endif %}
           </article>
         {% endfor %}
       {% else %}
