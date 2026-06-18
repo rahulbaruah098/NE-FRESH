@@ -324,6 +324,25 @@ def get_razorpay_client_from_settings(settings=None):
         return client, ""
     except Exception as exc:
         return None, f"Unable to initialize Razorpay client: {str(exc)}"
+    
+
+
+def _order_attempt_id_values(attempt_id):
+    values = []
+
+    if attempt_id is None:
+        return values
+
+    values.append(attempt_id)
+    values.append(str(attempt_id))
+
+    try:
+        if ObjectId.is_valid(str(attempt_id)):
+            values.append(ObjectId(str(attempt_id)))
+    except Exception:
+        pass
+
+    return values
 
 
 def get_return_refund_policy_settings():
@@ -1537,7 +1556,7 @@ def checkout():
             "order_id": oid,
             "status": "PENDING_PAYMENT" if is_online_order else "PLACED",
             "note": (
-                f"{'Online payment order created' if is_online_order else 'Order placed'}. "
+                f"{'Online payment attempt prepared' if is_online_order else 'Order placed'}. "
                 f"Items: ₹{float(money_breakdown.get('items_subtotal') or items_total):.2f}, "
                 f"Delivery: ₹{float(money_breakdown.get('delivery_fee') or delivery_fee):.2f}, "
                 f"Platform fee: ₹{float(money_breakdown.get('platform_fee') or 0):.2f}, "
@@ -1546,6 +1565,89 @@ def checkout():
             ),
             "created_at": now
         })
+
+        # ------------------------------------------------------------
+        # ONLINE PAYMENT FIX:
+        # Online payment is NOT a real order until Razorpay success.
+        #
+        # We temporarily created the order above only to reuse the
+        # existing checkout calculation/snapshot logic.
+        # Now move that snapshot into payment_attempts and remove it
+        # from real order collections.
+        #
+        # Result:
+        # - No unpaid online order appears in My Orders.
+        # - No unpaid online order appears in Store Orders.
+        # - Stock is restored until payment succeeds.
+        # - Cart is NOT cleared until payment succeeds.
+        # ------------------------------------------------------------
+        if is_online_order:
+            order_doc_snapshot = mongo.orders.find_one({"_id": oid}) or {}
+            order_items_snapshot = list(mongo.order_items.find({"order_id": oid}))
+            transactions_snapshot = list(mongo.transactions.find({"order_id": oid}))
+            order_address_snapshot = mongo.order_addresses.find_one({"order_id": oid}) or {}
+
+            payment_attempt_doc = {
+                "_id": oid,
+                "attempt_id": str(oid),
+                "user_id": u["id"],
+                "customer_name": u.get("name"),
+                "customer_phone": u.get("phone"),
+                "customer_email": u.get("email") or "",
+                "cart_id": cid,
+
+                "status": "PENDING_PAYMENT",
+                "payment_method": "ONLINE",
+                "payment_gateway": "RAZORPAY",
+                "payment_status": "PENDING_PAYMENT",
+                "payment_collection_status": "ONLINE_PENDING",
+
+                "order_doc": order_doc_snapshot,
+                "order_items": order_items_snapshot,
+                "transactions": transactions_snapshot,
+                "order_address": order_address_snapshot,
+
+                "total_payable": float(total_payable),
+                "amount": float(total_payable),
+                "currency": "INR",
+
+                "created_at": now,
+                "updated_at": now,
+                "expires_at": (datetime.utcnow() + timedelta(hours=24)).isoformat()
+            }
+
+            mongo.payment_attempts.replace_one(
+                {"_id": oid},
+                payment_attempt_doc,
+                upsert=True
+            )
+
+            # Restore stock because this is not a real order yet.
+            for order_item in order_items_snapshot:
+                restore_qty = float(order_item.get("quantity") or order_item.get("cart_quantity") or 0)
+
+                if order_item.get("product_id") and restore_qty > 0:
+                    mongo.products.update_one(
+                        {"_id": order_item["product_id"]},
+                        {
+                            "$inc": {
+                                "stock_quantity": restore_qty
+                            },
+                            "$set": {
+                                "is_active": 1
+                            }
+                        }
+                    )
+
+            # Remove temporary real-order records.
+            mongo.orders.delete_one({"_id": oid})
+            mongo.order_items.delete_many({"order_id": oid})
+            mongo.transactions.delete_many({"order_id": oid})
+            mongo.order_addresses.delete_many({"order_id": oid})
+            mongo.order_events.delete_many({"order_id": oid})
+
+            flash("Please complete online payment to place your order.", "success")
+            return redirect(url_for("order_payment", oid=str(oid)))
 
         mongo.cart_items.delete_many({"cart_id": cid})
 
@@ -1588,45 +1690,55 @@ def order_payment(oid):
     try:
         oid_obj = ObjectId(oid)
     except Exception:
-        flash("Invalid order.", "danger")
-        return redirect(url_for("orders"))
+        flash("Invalid payment attempt.", "danger")
+        return redirect(url_for("checkout"))
 
-    order_doc = mongo.orders.find_one({
+    # If this ID has already become a real paid order, go to tracking.
+    existing_order = mongo.orders.find_one({
         "_id": oid_obj,
         "user_id": u["id"]
     })
 
-    if not order_doc:
-        flash("Order not found.", "danger")
-        return redirect(url_for("orders"))
+    if existing_order:
+        payment_status = (existing_order.get("payment_status") or "").strip().upper()
 
-    payment_method = (order_doc.get("payment_method") or "").strip().upper()
-    payment_status = (order_doc.get("payment_status") or "").strip().upper()
+        if payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
+            return redirect(url_for("order_track", oid=str(oid_obj)))
 
-    if payment_method != "ONLINE":
-        flash("This order is not an online payment order.", "warning")
-        return redirect(url_for("order_track", oid=oid))
+    attempt = mongo.payment_attempts.find_one({
+        "_id": oid_obj,
+        "user_id": u["id"]
+    })
 
-    if payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
-        flash("Payment is already completed for this order.", "info")
-        return redirect(url_for("order_track", oid=oid))
+    if not attempt:
+        flash("Payment attempt not found. Please checkout again.", "warning")
+        return redirect(url_for("checkout"))
+
+    attempt_status = (attempt.get("status") or "").strip().upper()
+
+    if attempt_status in ["PAID", "CONVERTED_TO_ORDER"] and attempt.get("order_id"):
+        return redirect(url_for("order_track", oid=str(attempt.get("order_id"))))
+
+    order_for_template = dict(attempt.get("order_doc") or {})
+    order_for_template["_id"] = oid_obj
+    order_for_template["id"] = str(oid_obj)
+    order_for_template["payment_method"] = "ONLINE"
+    order_for_template["payment_status"] = attempt.get("payment_status") or "PENDING_PAYMENT"
+    order_for_template["total_payable"] = float(attempt.get("total_payable") or attempt.get("amount") or 0)
 
     settings = get_checkout_payment_gateway_settings()
 
     if not settings.get("enabled") or not settings.get("razorpay_key_id"):
-        flash("Online payment is currently unavailable. Please contact NE FRESH support.", "warning")
-        return redirect(url_for("orders"))
-
-    order_doc = normalize_order_money_fields(order_doc)
+        flash("Online payment is currently unavailable. Please try again later or choose COD.", "warning")
+        return redirect(url_for("checkout"))
 
     return render_template(
         "order_payment.html",
         user=u,
-        order=order_doc,
-        razorpay_key_id=settings.get("razorpay_key_id"),
-        payment_gateway_settings=settings
+        order=order_for_template,
+        payment_gateway_settings=settings,
+        razorpay_key_id=settings.get("razorpay_key_id")
     )
-
 
 @app.route("/api/payment/create-razorpay-order/<oid>", methods=["POST"], endpoint="api_create_razorpay_order")
 @login_required()
@@ -1638,41 +1750,46 @@ def api_create_razorpay_order(oid):
     except Exception:
         return jsonify({
             "ok": False,
-            "message": "Invalid order."
+            "message": "Invalid payment attempt."
         }), 400
 
-    order_doc = mongo.orders.find_one({
+    # If payment was already converted to order, do not recreate Razorpay order.
+    existing_order = mongo.orders.find_one({
         "_id": oid_obj,
         "user_id": u["id"]
     })
 
-    if not order_doc:
+    if existing_order:
+        payment_status = (existing_order.get("payment_status") or "").strip().upper()
+
+        if payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
+            return jsonify({
+                "ok": True,
+                "already_paid": True,
+                "message": "Payment is already completed.",
+                "redirect_url": url_for("order_track", oid=str(oid_obj))
+            })
+
+    attempt = mongo.payment_attempts.find_one({
+        "_id": oid_obj,
+        "user_id": u["id"]
+    })
+
+    if not attempt:
         return jsonify({
             "ok": False,
-            "message": "Order not found."
+            "message": "Payment attempt not found. Please checkout again."
         }), 404
 
-    payment_method = (order_doc.get("payment_method") or "").strip().upper()
-    payment_status = (order_doc.get("payment_status") or "").strip().upper()
-    order_status = (order_doc.get("status") or "").strip().upper()
+    attempt_status = (attempt.get("status") or "").strip().upper()
 
-    if payment_method != "ONLINE":
+    if attempt_status in ["PAID", "CONVERTED_TO_ORDER"]:
         return jsonify({
-            "ok": False,
-            "message": "This order is not an online payment order."
-        }), 400
-
-    if payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
-        return jsonify({
-            "ok": False,
-            "message": "Payment is already completed for this order."
-        }), 400
-
-    if order_status not in ["PENDING_PAYMENT", "PLACED"]:
-        return jsonify({
-            "ok": False,
-            "message": "Payment cannot be started for this order status."
-        }), 400
+            "ok": True,
+            "already_paid": True,
+            "message": "Payment is already completed.",
+            "redirect_url": url_for("order_track", oid=str(attempt.get("order_id") or oid_obj))
+        })
 
     settings = get_server_payment_gateway_settings()
     client, client_error = get_razorpay_client_from_settings(settings)
@@ -1683,34 +1800,33 @@ def api_create_razorpay_order(oid):
             "message": client_error
         }), 400
 
-    order_doc = normalize_order_money_fields(order_doc)
-
-    total_payable = float(order_doc.get("total_payable") or 0)
+    total_payable = float(attempt.get("total_payable") or attempt.get("amount") or 0)
 
     if total_payable <= 0:
         return jsonify({
             "ok": False,
-            "message": "Invalid payable amount."
+            "message": "Invalid payment amount."
         }), 400
 
     amount_paise = int(round(total_payable * 100))
-    receipt_id = f"nefresh_{str(oid_obj)[-12:]}"
+    receipt_id = f"attempt_{str(oid_obj)[-12:]}"
 
     try:
         razorpay_order = client.order.create({
             "amount": amount_paise,
             "currency": "INR",
             "receipt": receipt_id,
+            "payment_capture": 1 if settings.get("auto_capture_enabled", True) else 0,
             "notes": {
-                "order_id": str(oid_obj),
+                "payment_attempt_id": str(oid_obj),
                 "customer_id": str(u.get("_id") or u.get("id") or ""),
-                "platform": "NE_FRESH"
+                "source": "NE_FRESH_CHECKOUT"
             }
         })
     except Exception as exc:
         now = datetime.utcnow().isoformat()
 
-        mongo.orders.update_one(
+        mongo.payment_attempts.update_one(
             {"_id": oid_obj},
             {
                 "$set": {
@@ -1728,7 +1844,7 @@ def api_create_razorpay_order(oid):
 
     now = datetime.utcnow().isoformat()
 
-    mongo.orders.update_one(
+    mongo.payment_attempts.update_one(
         {"_id": oid_obj},
         {
             "$set": {
@@ -1746,8 +1862,8 @@ def api_create_razorpay_order(oid):
             },
             "$push": {
                 "payment_audit_logs": {
-                    "action": "RAZORPAY_ORDER_CREATED",
-                    "order_id": str(oid_obj),
+                    "action": "RAZORPAY_ORDER_CREATED_FOR_ATTEMPT",
+                    "payment_attempt_id": str(oid_obj),
                     "razorpay_order_id": razorpay_order.get("id"),
                     "amount": total_payable,
                     "amount_paise": amount_paise,
@@ -1759,25 +1875,11 @@ def api_create_razorpay_order(oid):
         }
     )
 
-    mongo.transactions.update_many(
-        {"order_id": oid_obj},
-        {
-            "$set": {
-                "payment_gateway": "RAZORPAY",
-                "payment_gateway_mode": settings.get("mode"),
-                "razorpay_order_id": razorpay_order.get("id"),
-                "payment_status": "PENDING_PAYMENT",
-                "status": "PENDING_PAYMENT",
-                "payment_collection_status": "ONLINE_PENDING",
-                "updated_at": now
-            }
-        }
-    )
-
     return jsonify({
         "ok": True,
         "message": "Razorpay order created.",
         "order_id": str(oid_obj),
+        "payment_attempt_id": str(oid_obj),
         "razorpay_order_id": razorpay_order.get("id"),
         "razorpay_key_id": settings.get("razorpay_key_id"),
         "amount": amount_paise,
@@ -1801,34 +1903,42 @@ def api_verify_razorpay_payment(oid):
     except Exception:
         return jsonify({
             "ok": False,
-            "message": "Invalid order."
+            "message": "Invalid payment attempt."
         }), 400
 
-    order_doc = mongo.orders.find_one({
+    existing_order = mongo.orders.find_one({
         "_id": oid_obj,
         "user_id": u["id"]
     })
 
-    if not order_doc:
+    if existing_order:
+        payment_status = (existing_order.get("payment_status") or "").strip().upper()
+
+        if payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
+            return jsonify({
+                "ok": True,
+                "message": "Payment is already verified.",
+                "redirect_url": url_for("order_track", oid=str(oid_obj))
+            })
+
+    attempt = mongo.payment_attempts.find_one({
+        "_id": oid_obj,
+        "user_id": u["id"]
+    })
+
+    if not attempt:
         return jsonify({
             "ok": False,
-            "message": "Order not found."
+            "message": "Payment attempt not found. Please checkout again."
         }), 404
 
-    payment_method = (order_doc.get("payment_method") or "").strip().upper()
-    payment_status = (order_doc.get("payment_status") or "").strip().upper()
+    attempt_status = (attempt.get("status") or "").strip().upper()
 
-    if payment_method != "ONLINE":
-        return jsonify({
-            "ok": False,
-            "message": "This order is not an online payment order."
-        }), 400
-
-    if payment_status in ["PAID", "ONLINE_PAID", "SUCCESS"]:
+    if attempt_status in ["PAID", "CONVERTED_TO_ORDER"] and attempt.get("order_id"):
         return jsonify({
             "ok": True,
             "message": "Payment is already verified.",
-            "redirect_url": url_for("order_track", oid=str(oid_obj))
+            "redirect_url": url_for("order_track", oid=str(attempt.get("order_id")))
         })
 
     data = request.get_json(silent=True) or {}
@@ -1843,7 +1953,7 @@ def api_verify_razorpay_payment(oid):
             "message": "Missing Razorpay payment verification details."
         }), 400
 
-    saved_razorpay_order_id = (order_doc.get("razorpay_order_id") or "").strip()
+    saved_razorpay_order_id = (attempt.get("razorpay_order_id") or "").strip()
 
     if saved_razorpay_order_id and saved_razorpay_order_id != razorpay_order_id:
         return jsonify({
@@ -1871,7 +1981,7 @@ def api_verify_razorpay_payment(oid):
 
         failed_event = {
             "action": "RAZORPAY_PAYMENT_VERIFICATION_FAILED",
-            "order_id": str(oid_obj),
+            "payment_attempt_id": str(oid_obj),
             "razorpay_order_id": razorpay_order_id,
             "razorpay_payment_id": razorpay_payment_id,
             "error": str(exc),
@@ -1880,7 +1990,7 @@ def api_verify_razorpay_payment(oid):
             "created_at": now
         }
 
-        mongo.orders.update_one(
+        mongo.payment_attempts.update_one(
             {"_id": oid_obj},
             {
                 "$set": {
@@ -1896,18 +2006,6 @@ def api_verify_razorpay_payment(oid):
             }
         )
 
-        mongo.transactions.update_many(
-            {"order_id": oid_obj},
-            {
-                "$set": {
-                    "payment_status": "PAYMENT_VERIFICATION_FAILED",
-                    "status": "PAYMENT_VERIFICATION_FAILED",
-                    "payment_collection_status": "ONLINE_VERIFICATION_FAILED",
-                    "updated_at": now
-                }
-            }
-        )
-
         return jsonify({
             "ok": False,
             "message": "Payment verification failed. Please contact NE FRESH support."
@@ -1915,71 +2013,151 @@ def api_verify_razorpay_payment(oid):
 
     now = datetime.utcnow().isoformat()
 
+    order_doc = dict(attempt.get("order_doc") or {})
+    order_items = list(attempt.get("order_items") or [])
+    transactions = list(attempt.get("transactions") or [])
+    order_address = dict(attempt.get("order_address") or {})
+
+    if not order_doc or not order_items:
+        return jsonify({
+            "ok": False,
+            "message": "Payment attempt data is incomplete. Please contact NE FRESH support."
+        }), 400
+
+    # Re-check stock at final payment success before creating real order.
+    for item in order_items:
+        product_id = item.get("product_id")
+        requested_qty = float(item.get("quantity") or item.get("cart_quantity") or 0)
+
+        product = mongo.products.find_one({"_id": product_id}) if product_id else None
+
+        if not product:
+            return jsonify({
+                "ok": False,
+                "message": f"{item.get('product_name') or 'One product'} is no longer available."
+            }), 409
+
+        current_stock = float(product.get("stock_quantity") or 0)
+        is_active = int(product.get("is_active") or 0)
+
+        if is_active != 1 or current_stock < requested_qty:
+            return jsonify({
+                "ok": False,
+                "message": f"{item.get('product_name') or 'One product'} is out of stock or quantity is no longer available."
+            }), 409
+
     paid_event = {
         "action": "RAZORPAY_PAYMENT_VERIFIED",
         "order_id": str(oid_obj),
+        "payment_attempt_id": str(oid_obj),
         "razorpay_order_id": razorpay_order_id,
         "razorpay_payment_id": razorpay_payment_id,
-        "amount": float(order_doc.get("total_payable") or order_doc.get("total_amount") or 0),
+        "amount": float(attempt.get("total_payable") or attempt.get("amount") or order_doc.get("total_payable") or 0),
         "created_by": str(u.get("_id") or u.get("id") or ""),
         "created_by_name": u.get("name") or "Customer",
         "created_at": now
     }
 
-    mongo.orders.update_one(
-        {"_id": oid_obj},
-        {
-            "$set": {
-                "status": "PLACED",
-                "payment_status": "PAID",
-                "payment_collection_status": "PAID",
-                "payment_received_by": "ADMIN_PLATFORM",
-                "payment_collected_at": now,
+    order_doc["_id"] = oid_obj
+    order_doc["status"] = "PLACED"
+    order_doc["payment_status"] = "PAID"
+    order_doc["payment_collection_status"] = "PAID"
+    order_doc["payment_received_by"] = "ADMIN_PLATFORM"
+    order_doc["payment_collected_at"] = now
 
-                "razorpay_order_id": razorpay_order_id,
-                "razorpay_payment_id": razorpay_payment_id,
-                "razorpay_signature": razorpay_signature,
-                "razorpay_payment_verified_at": now,
+    order_doc["razorpay_order_id"] = razorpay_order_id
+    order_doc["razorpay_payment_id"] = razorpay_payment_id
+    order_doc["razorpay_signature"] = razorpay_signature
+    order_doc["razorpay_payment_verified_at"] = now
 
-                "platform_fee_status": "RECEIVED",
-                "platform_fee_received_at": now,
-                "rider_cash_settlement_status": "NOT_REQUIRED",
-                "cod_collection_status": "NOT_REQUIRED",
+    order_doc["payment_gateway"] = "RAZORPAY"
+    order_doc["payment_gateway_mode"] = settings.get("mode")
 
-                "order_settlement_status": "PENDING_STORE_PAYOUT",
-                "settlement_status": "PENDING",
-                "updated_at": now
-            },
-            "$push": {
-                "payment_audit_logs": paid_event,
-                "settlement_audit_logs": paid_event
-            }
-        }
-    )
+    order_doc["platform_fee_status"] = "RECEIVED"
+    order_doc["platform_fee_received_at"] = now
+    order_doc["rider_cash_settlement_status"] = "NOT_REQUIRED"
+    order_doc["cod_collection_status"] = "NOT_REQUIRED"
 
-    mongo.transactions.update_many(
-        {"order_id": oid_obj},
-        {
-            "$set": {
-                "status": "PAID",
-                "payment_status": "PAID",
-                "payment_collection_status": "PAID",
-                "payment_received_by": "ADMIN_PLATFORM",
-                "payment_collected_at": now,
+    order_doc["order_settlement_status"] = "PENDING_STORE_PAYOUT"
+    order_doc["settlement_status"] = "PENDING"
+    order_doc["updated_at"] = now
 
-                "razorpay_order_id": razorpay_order_id,
-                "razorpay_payment_id": razorpay_payment_id,
-                "payment_gateway": "RAZORPAY",
-                "payment_gateway_mode": settings.get("mode"),
+    order_doc["payment_audit_logs"] = list(order_doc.get("payment_audit_logs") or []) + [paid_event]
+    order_doc["settlement_audit_logs"] = list(order_doc.get("settlement_audit_logs") or []) + [paid_event]
 
-                "platform_fee_status": "RECEIVED",
-                "rider_cash_settlement_status": "NOT_REQUIRED",
-                "order_settlement_status": "PENDING_STORE_PAYOUT",
-                "settlement_status": "PENDING",
-                "updated_at": now
-            }
-        }
-    )
+    try:
+        mongo.orders.insert_one(order_doc)
+    except DuplicateKeyError:
+        pass
+
+    for item in order_items:
+        item_doc = dict(item)
+        item_doc["order_id"] = oid_obj
+
+        try:
+            mongo.order_items.insert_one(item_doc)
+        except DuplicateKeyError:
+            pass
+
+        deduct_qty = float(item_doc.get("quantity") or item_doc.get("cart_quantity") or 0)
+
+        if item_doc.get("product_id") and deduct_qty > 0:
+            mongo.products.update_one(
+                {"_id": item_doc["product_id"]},
+                {
+                    "$inc": {
+                        "stock_quantity": -deduct_qty
+                    }
+                }
+            )
+
+            updated_product = mongo.products.find_one({"_id": item_doc["product_id"]})
+
+            if updated_product:
+                updated_stock = float(updated_product.get("stock_quantity") or 0)
+
+                if updated_stock <= 0:
+                    mongo.products.update_one(
+                        {"_id": item_doc["product_id"]},
+                        {
+                            "$set": {
+                                "stock_quantity": 0,
+                                "is_active": 0
+                            }
+                        }
+                    )
+
+    for tx in transactions:
+        tx_doc = dict(tx)
+        tx_doc["order_id"] = oid_obj
+        tx_doc["status"] = "PAID"
+        tx_doc["payment_status"] = "PAID"
+        tx_doc["payment_collection_status"] = "PAID"
+        tx_doc["payment_received_by"] = "ADMIN_PLATFORM"
+        tx_doc["payment_collected_at"] = now
+        tx_doc["razorpay_order_id"] = razorpay_order_id
+        tx_doc["razorpay_payment_id"] = razorpay_payment_id
+        tx_doc["payment_gateway"] = "RAZORPAY"
+        tx_doc["payment_gateway_mode"] = settings.get("mode")
+        tx_doc["platform_fee_status"] = "RECEIVED"
+        tx_doc["rider_cash_settlement_status"] = "NOT_REQUIRED"
+        tx_doc["order_settlement_status"] = "PENDING_STORE_PAYOUT"
+        tx_doc["settlement_status"] = "PENDING"
+        tx_doc["updated_at"] = now
+
+        try:
+            mongo.transactions.insert_one(tx_doc)
+        except DuplicateKeyError:
+            pass
+
+    if order_address:
+        address_doc = dict(order_address)
+        address_doc["order_id"] = oid_obj
+
+        try:
+            mongo.order_addresses.insert_one(address_doc)
+        except DuplicateKeyError:
+            pass
 
     mongo.order_events.insert_one({
         "order_id": oid_obj,
@@ -1988,9 +2166,33 @@ def api_verify_razorpay_payment(oid):
         "created_at": now
     })
 
+    mongo.cart_items.delete_many({
+        "cart_id": attempt.get("cart_id")
+    })
+
+    mongo.payment_attempts.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": {
+                "status": "CONVERTED_TO_ORDER",
+                "payment_status": "PAID",
+                "payment_collection_status": "PAID",
+                "order_id": str(oid_obj),
+                "razorpay_order_id": razorpay_order_id,
+                "razorpay_payment_id": razorpay_payment_id,
+                "razorpay_signature": razorpay_signature,
+                "converted_to_order_at": now,
+                "updated_at": now
+            },
+            "$push": {
+                "payment_audit_logs": paid_event
+            }
+        }
+    )
+
     return jsonify({
         "ok": True,
-        "message": "Payment verified successfully.",
+        "message": "Payment verified successfully. Order placed.",
         "redirect_url": url_for("order_track", oid=str(oid_obj))
     })
 

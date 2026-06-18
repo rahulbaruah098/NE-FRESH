@@ -1,0 +1,491 @@
+{% extends "store_base.html" %}
+{% set active_page = "cancelled_orders" %}
+
+{% block title %}Cancelled Orders | NE FRESH Store{% endblock %}
+{% block page_title %}Cancelled Orders{% endblock %}
+{% block page_subtitle %}Review orders cancelled by customers and by your store.{% endblock %}
+
+{% block content %}
+<section class="nf-cancelled-orders-page">
+  <style>
+    .nf-cancelled-orders-page{
+      --bg:#F8FFFB;
+      --card:#FFFFFF;
+      --soft:#F3FFF8;
+      --line:#DDECE4;
+      --ink:#1F332A;
+      --text:#40534A;
+      --muted:#66756D;
+      --green:#00A859;
+      --green-dark:#008A48;
+      --green-soft:#E9FFF3;
+      --red:#EF4444;
+      --red-soft:#FFF1F2;
+      --orange:#F59E0B;
+      --orange-soft:#FFF7E8;
+      --blue:#0284C7;
+      --blue-soft:#E0F2FE;
+      --shadow:0 14px 36px rgba(17,64,38,.08);
+      width:100%;
+      min-height:100%;
+      background:
+        radial-gradient(circle at top left, rgba(0,168,89,.08), transparent 30%),
+        var(--bg);
+      color:var(--ink);
+      padding:24px;
+    }
+
+    .nf-cancel-shell{
+      width:100%;
+      max-width:1600px;
+      margin:0 auto;
+      display:grid;
+      gap:20px;
+    }
+
+    .nf-cancel-hero{
+      border:1px solid var(--line);
+      border-radius:28px;
+      background:#fff;
+      box-shadow:var(--shadow);
+      padding:24px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:18px;
+      flex-wrap:wrap;
+    }
+
+    .nf-cancel-kicker{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:0 12px;
+      border-radius:999px;
+      background:var(--red-soft);
+      color:#B91C1C;
+      border:1px solid #FECACA;
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .nf-cancel-title{
+      margin:14px 0 8px;
+      color:var(--ink);
+      font-size:clamp(26px,3vw,42px);
+      line-height:1.04;
+      font-weight:900;
+      letter-spacing:-.05em;
+    }
+
+    .nf-cancel-copy{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      font-weight:650;
+      line-height:1.65;
+    }
+
+    .nf-cancel-actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .nf-cancel-btn{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:0 15px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      text-decoration:none;
+      font-size:13px;
+      font-weight:900;
+      transition:.2s ease;
+    }
+
+    .nf-cancel-btn:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.3);
+      color:var(--green-dark);
+      box-shadow:0 12px 24px rgba(17,64,38,.09);
+    }
+
+    .nf-cancel-btn.active{
+      background:var(--green);
+      border-color:var(--green);
+      color:#fff;
+      box-shadow:0 12px 24px rgba(0,168,89,.18);
+    }
+
+    .nf-cancel-metrics{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .nf-cancel-metric{
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:#fff;
+      box-shadow:0 10px 26px rgba(17,64,38,.06);
+      padding:18px;
+    }
+
+    .nf-cancel-metric span{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+
+    .nf-cancel-metric strong{
+      display:block;
+      margin-top:8px;
+      color:var(--ink);
+      font-size:28px;
+      line-height:1;
+      font-weight:900;
+      letter-spacing:-.04em;
+    }
+
+    .nf-cancel-card{
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:#fff;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .nf-cancel-card-head{
+      padding:18px 20px;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      background:linear-gradient(180deg,#fff 0%,#FBFFFD 100%);
+    }
+
+    .nf-cancel-card-head h2{
+      margin:0;
+      color:var(--ink);
+      font-size:18px;
+      font-weight:900;
+      letter-spacing:-.03em;
+    }
+
+    .nf-cancel-table-wrap{
+      width:100%;
+      overflow:auto;
+    }
+
+    .nf-cancel-table{
+      width:100%;
+      min-width:1120px;
+      border-collapse:collapse;
+    }
+
+    .nf-cancel-table th,
+    .nf-cancel-table td{
+      padding:14px 16px;
+      border-bottom:1px solid #EEF6F1;
+      text-align:left;
+      vertical-align:top;
+    }
+
+    .nf-cancel-table th{
+      color:#60756A;
+      background:#FBFFFD;
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+    }
+
+    .nf-cancel-table td{
+      color:var(--text);
+      font-size:13px;
+      font-weight:700;
+      line-height:1.45;
+    }
+
+    .nf-order-id{
+      color:var(--green-dark);
+      font-weight:900;
+    }
+
+    .nf-sub{
+      display:block;
+      margin-top:3px;
+      color:#8A9890;
+      font-size:12px;
+      font-weight:700;
+    }
+
+    .nf-tag{
+      display:inline-flex;
+      align-items:center;
+      min-height:27px;
+      padding:0 9px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .nf-tag.cancel{
+      background:var(--red-soft);
+      color:#B91C1C;
+      border:1px solid #FECACA;
+    }
+
+    .nf-tag.customer{
+      background:var(--blue-soft);
+      color:#075985;
+      border:1px solid #BAE6FD;
+    }
+
+    .nf-tag.store{
+      background:var(--orange-soft);
+      color:#9A3412;
+      border:1px solid #FED7AA;
+    }
+
+    .nf-tag.pay{
+      background:var(--green-soft);
+      color:var(--green-dark);
+      border:1px solid #BBF7D0;
+    }
+
+    .nf-tag.refund{
+      background:#F8FAFC;
+      color:#475569;
+      border:1px solid #E2E8F0;
+    }
+
+    .nf-empty{
+      min-height:300px;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:36px 20px;
+    }
+
+    .nf-empty-box{
+      max-width:520px;
+    }
+
+    .nf-empty-icon{
+      width:76px;
+      height:76px;
+      display:grid;
+      place-items:center;
+      margin:0 auto 14px;
+      border-radius:24px;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      font-size:32px;
+    }
+
+    .nf-empty h3{
+      margin:0;
+      color:var(--ink);
+      font-size:22px;
+      font-weight:900;
+      letter-spacing:-.03em;
+    }
+
+    .nf-empty p{
+      margin:8px 0 0;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:650;
+      line-height:1.6;
+    }
+
+    @media(max-width:1100px){
+      .nf-cancel-metrics{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media(max-width:640px){
+      .nf-cancelled-orders-page{
+        padding:14px;
+      }
+
+      .nf-cancel-hero{
+        padding:18px;
+      }
+
+      .nf-cancel-actions{
+        width:100%;
+        display:grid;
+        grid-template-columns:1fr;
+      }
+
+      .nf-cancel-btn{
+        width:100%;
+      }
+
+      .nf-cancel-metrics{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+
+  <div class="nf-cancel-shell">
+    <div class="nf-cancel-hero">
+      <div>
+        <span class="nf-cancel-kicker">Cancelled Orders</span>
+        <h1 class="nf-cancel-title">
+          {{ "Cancelled by Customer" if cancel_type == "customer" else "Cancelled by Store" }}
+        </h1>
+        <p class="nf-cancel-copy">
+          Track cancelled order records, payment status, refund status and cancellation reasons for your store.
+        </p>
+      </div>
+
+      <div class="nf-cancel-actions">
+        <a class="nf-cancel-btn {{ 'active' if cancel_type == 'customer' else '' }}"
+           href="{{ url_for('store_cancelled_orders', cancel_type='customer') }}">
+          Cancelled by Customer
+          <span>({{ customer_cancelled_count }})</span>
+        </a>
+
+        <a class="nf-cancel-btn {{ 'active' if cancel_type == 'store' else '' }}"
+           href="{{ url_for('store_cancelled_orders', cancel_type='store') }}">
+          Cancelled by Store
+          <span>({{ store_cancelled_count }})</span>
+        </a>
+
+        <a class="nf-cancel-btn" href="{{ url_for('store_orders') }}">
+          Back to Active Orders
+        </a>
+      </div>
+    </div>
+
+    <div class="nf-cancel-metrics">
+      <div class="nf-cancel-metric">
+        <span>Total Cancelled</span>
+        <strong>{{ total_cancelled_count }}</strong>
+      </div>
+
+      <div class="nf-cancel-metric">
+        <span>This List</span>
+        <strong>{{ current_cancelled_count }}</strong>
+      </div>
+
+      <div class="nf-cancel-metric">
+        <span>List Value</span>
+        <strong>₹{{ "%.2f"|format(total_cancelled_value or 0) }}</strong>
+      </div>
+
+      <div class="nf-cancel-metric">
+        <span>Refund Pending</span>
+        <strong>{{ online_refund_pending_count }}</strong>
+      </div>
+    </div>
+
+    <div class="nf-cancel-card">
+      <div class="nf-cancel-card-head">
+        <h2>{{ "Customer Cancelled Orders" if cancel_type == "customer" else "Store Cancelled Orders" }}</h2>
+        <span class="nf-tag cancel">{{ current_cancelled_count }} records</span>
+      </div>
+
+      {% if orders %}
+        <div class="nf-cancel-table-wrap">
+          <table class="nf-cancel-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Cancelled</th>
+                <th>Reason</th>
+                <th>Payment</th>
+                <th>Refund / Settlement</th>
+                <th>Amount</th>
+                <th>Items</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for o in orders %}
+                <tr>
+                  <td>
+                    <span class="nf-order-id">#{{ o.short_id }}</span>
+                    <span class="nf-sub">Placed: {{ o.created_at or "-" }}</span>
+                  </td>
+
+                  <td>
+                    {{ o.customer_name or "Customer" }}
+                    <span class="nf-sub">{{ o.customer_phone or "No phone" }}</span>
+                  </td>
+
+                  <td>
+                    <span class="nf-tag {{ 'customer' if cancel_type == 'customer' else 'store' }}">
+                      {{ o.cancelled_by }}
+                    </span>
+                    <span class="nf-sub">{{ o.cancelled_at or "-" }}</span>
+                    <span class="nf-sub">{{ o.cancelled_by_name or "" }}</span>
+                  </td>
+
+                  <td>
+                    {{ o.cancel_reason or "No reason recorded" }}
+                  </td>
+
+                  <td>
+                    <span class="nf-tag pay">{{ o.payment_method or "COD" }}</span>
+                    <span class="nf-sub">{{ o.payment_status or "PENDING" }}</span>
+                    {% if o.payment_collection_status %}
+                      <span class="nf-sub">{{ o.payment_collection_status }}</span>
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    <span class="nf-tag refund">{{ o.refund_status or "NOT_REQUIRED" }}</span>
+                    {% if o.order_settlement_status %}
+                      <span class="nf-sub">{{ o.order_settlement_status }}</span>
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    <strong>₹{{ "%.2f"|format(o.total_payable or 0) }}</strong>
+                    <span class="nf-sub">Subtotal: ₹{{ "%.2f"|format(o.items_subtotal or 0) }}</span>
+                  </td>
+
+                  <td>
+                    {{ o.items_count or 0 }}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="nf-empty">
+          <div class="nf-empty-box">
+            <div class="nf-empty-icon">✓</div>
+            <h3>No cancelled orders found</h3>
+            <p>
+              There are no {{ "customer-cancelled" if cancel_type == "customer" else "store-cancelled" }} orders for this store yet.
+            </p>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

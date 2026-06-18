@@ -53,6 +53,164 @@ def _store_money_or_default(value, default=0):
         return round(number, 2)
     except Exception:
         return float(default)
+    
+
+def _store_cancelled_money(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return float(default)
+
+        return round(float(value), 2)
+    except Exception:
+        return float(default)
+
+
+def _store_cancelled_text(value, fallback=""):
+    if value is None:
+        return fallback
+
+    value = str(value).strip()
+
+    return value if value else fallback
+
+
+def _store_order_id_values(order_id):
+    values = []
+
+    if order_id is None:
+        return values
+
+    values.append(order_id)
+    values.append(str(order_id))
+
+    try:
+        if ObjectId.is_valid(str(order_id)):
+            values.append(ObjectId(str(order_id)))
+    except Exception:
+        pass
+
+    return values
+
+
+def _store_cancelled_source_query(cancel_type):
+    cancel_type = (cancel_type or "customer").strip().lower()
+
+    if cancel_type == "store":
+        return {
+            "$or": [
+                {"cancelled_by": "store"},
+                {"cancelled_by_role": "store"},
+                {"cancel_source": "store"},
+                {"cancelled_source": "store"},
+                {"cancelled_by_role": "STORE"},
+                {"cancelled_by": "STORE"}
+            ]
+        }
+
+    return {
+        "$or": [
+            {"cancelled_by": "customer"},
+            {"cancelled_by_role": "customer"},
+            {"cancel_source": "customer"},
+            {"cancelled_source": "customer"},
+            {"cancelled_by": "user"},
+            {"cancelled_by_role": "user"},
+            {"cancelled_by": "CUSTOMER"},
+            {"cancelled_by_role": "CUSTOMER"}
+        ]
+    }
+
+
+def _store_prepare_cancelled_order_row(order, store=None):
+    order = order or {}
+
+    order_id = order.get("_id") or order.get("id")
+    order["id"] = str(order_id) if order_id else ""
+
+    order["short_id"] = order["id"][-6:] if order["id"] else ""
+
+    order["status"] = _store_cancelled_text(order.get("status"), "CANCELLED").upper()
+    order["created_at"] = _store_cancelled_text(order.get("created_at"))
+    order["cancelled_at"] = _store_cancelled_text(order.get("cancelled_at"))
+
+    order["cancelled_by"] = _store_cancelled_text(
+        order.get("cancelled_by_role") or order.get("cancelled_by"),
+        "Unknown"
+    ).replace("_", " ").title()
+
+    order["cancelled_by_name"] = _store_cancelled_text(
+        order.get("cancelled_by_name"),
+        order["cancelled_by"]
+    )
+
+    order["cancel_reason"] = _store_cancelled_text(
+        order.get("cancellation_reason") or order.get("cancel_reason") or order.get("refund_reason"),
+        "No reason recorded"
+    )
+
+    order["customer_name"] = _store_cancelled_text(order.get("customer_name"), "Customer")
+    order["customer_phone"] = _store_cancelled_text(order.get("customer_phone"), "")
+
+    if order.get("user_id") and (not order["customer_phone"] or order["customer_name"] == "Customer"):
+        try:
+            customer = mongo.users.find_one({"_id": ObjectId(str(order.get("user_id")))})
+        except Exception:
+            customer = mongo.users.find_one({"_id": str(order.get("user_id"))})
+
+        if customer:
+            order["customer_name"] = customer.get("name") or order["customer_name"]
+            order["customer_phone"] = customer.get("phone") or order["customer_phone"]
+
+    order["items_subtotal"] = _store_cancelled_money(
+        order.get("items_subtotal"),
+        order.get("store_earning") or order.get("total_amount") or 0
+    )
+
+    order["delivery_fee"] = _store_cancelled_money(
+        order.get("delivery_fee_amount")
+        if order.get("delivery_fee_amount") is not None
+        else order.get("delivery_fee"),
+        0
+    )
+
+    order["platform_fee"] = _store_cancelled_money(order.get("platform_fee"), 0)
+    order["tip_amount"] = _store_cancelled_money(
+        order.get("tip_amount")
+        if order.get("tip_amount") is not None
+        else order.get("delivery_tip_amount"),
+        0
+    )
+
+    order["total_payable"] = _store_cancelled_money(
+        order.get("total_payable"),
+        order.get("total_amount") or (
+            order["items_subtotal"]
+            + order["delivery_fee"]
+            + order["platform_fee"]
+            + order["tip_amount"]
+        )
+    )
+
+    order["payment_method"] = _store_cancelled_text(order.get("payment_method"), "COD").upper()
+    order["payment_status"] = _store_cancelled_text(order.get("payment_status"), "PENDING").upper()
+    order["payment_collection_status"] = _store_cancelled_text(order.get("payment_collection_status"), "").upper()
+    order["refund_status"] = _store_cancelled_text(order.get("refund_status"), "NOT_REQUIRED").upper()
+    order["order_settlement_status"] = _store_cancelled_text(order.get("order_settlement_status"), "").upper()
+
+    order_item_count = mongo.order_items.count_documents({
+        "order_id": {
+            "$in": _store_order_id_values(order_id)
+        }
+    })
+
+    order["items_count"] = order_item_count
+
+    if store:
+        order["store_name"] = store.get("store_name") or store.get("name") or "Store"
+    else:
+        order["store_name"] = _store_cancelled_text(order.get("store_name"), "Store")
+
+    return order
 
 
 def _parse_store_delivery_fee_slabs_from_form(existing_slabs=None):
@@ -4935,6 +5093,137 @@ def store_txn_csv():
         download_name="store_transactions.csv"
     )
 
+
+@app.route("/store/cancelled-orders")
+@app.route("/store/cancelled-orders/<cancel_type>")
+@login_required(role="store")
+def store_cancelled_orders(cancel_type="customer"):
+    u = current_user()
+
+    store = mongo.stores.find_one({
+        "user_id": u["id"]
+    })
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    cancel_type = (cancel_type or "customer").strip().lower()
+
+    if cancel_type not in ["customer", "store"]:
+        cancel_type = "customer"
+
+    store_id_values = [
+        store["_id"],
+        str(store["_id"])
+    ]
+
+    base_query = {
+        "$and": [
+            {
+                "store_id": {
+                    "$in": store_id_values
+                }
+            },
+            {
+                "status": {
+                    "$in": ["CANCELLED", "CANCELED"]
+                }
+            },
+            _store_cancelled_source_query(cancel_type)
+        ]
+    }
+
+    cancelled_orders = list(
+        mongo.orders.find(base_query).sort("cancelled_at", -1)
+    )
+
+    prepared_orders = [
+        _store_prepare_cancelled_order_row(order, store)
+        for order in cancelled_orders
+    ]
+
+    customer_cancelled_count = mongo.orders.count_documents({
+        "$and": [
+            {
+                "store_id": {
+                    "$in": store_id_values
+                }
+            },
+            {
+                "status": {
+                    "$in": ["CANCELLED", "CANCELED"]
+                }
+            },
+            _store_cancelled_source_query("customer")
+        ]
+    })
+
+    store_cancelled_count = mongo.orders.count_documents({
+        "$and": [
+            {
+                "store_id": {
+                    "$in": store_id_values
+                }
+            },
+            {
+                "status": {
+                    "$in": ["CANCELLED", "CANCELED"]
+                }
+            },
+            _store_cancelled_source_query("store")
+        ]
+    })
+
+    total_cancelled_count = customer_cancelled_count + store_cancelled_count
+
+    total_cancelled_value = round(
+        sum(float(order.get("total_payable") or 0) for order in prepared_orders),
+        2
+    )
+
+    online_refund_pending_count = sum(
+        1
+        for order in prepared_orders
+        if order.get("refund_status") in [
+            "READY_FOR_REFUND",
+            "REFUND_PENDING",
+            "NOT_STARTED",
+            "PENDING"
+        ]
+    )
+
+    cod_void_count = sum(
+        1
+        for order in prepared_orders
+        if order.get("payment_method") in [
+            "COD",
+            "CASH_ON_DELIVERY",
+            "COD_RIDER_COLLECTION"
+        ]
+        and order.get("payment_status") in [
+            "VOID",
+            "CANCELLED",
+            "PENDING"
+        ]
+    )
+
+    return render_template(
+        "store_cancelled_orders.html",
+        user=u,
+        store=store,
+        orders=prepared_orders,
+        cancel_type=cancel_type,
+        customer_cancelled_count=customer_cancelled_count,
+        store_cancelled_count=store_cancelled_count,
+        total_cancelled_count=total_cancelled_count,
+        current_cancelled_count=len(prepared_orders),
+        total_cancelled_value=total_cancelled_value,
+        online_refund_pending_count=online_refund_pending_count,
+        cod_void_count=cod_void_count
+    )
+
+
 @app.route('/store/order/<oid>/status', methods=['POST'])
 @app.route('/store/orders/<oid>/status', methods=['POST'])
 @login_required(role='store')
@@ -4969,9 +5258,14 @@ def store_order_status(oid):
     new_status = (request.form.get("status") or "").strip().upper()
     now = datetime.utcnow().isoformat()
 
+    if current_status in {"CANCELLED", "CANCELED", "DELIVERED"}:
+        flash("This order can no longer be updated.", "warning")
+        return redirect(url_for("store_orders"))
+
     # Delivery workflow statuses must not be controlled by the normal order dropdown.
     delivery_locked_statuses = {
         "READY_FOR_PICKUP",
+        "SHIPMENT_READY",
         "ASSIGNED_TO_DELIVERY",
         "ACCEPTED_BY_DELIVERY_MAN",
         "REACHED_STORE",
@@ -4989,6 +5283,7 @@ def store_order_status(oid):
         "PLACED",
         "CONFIRMED",
         "PREPARING",
+        "PACKAGING",
         "CANCELLED",
     }
 
@@ -5001,14 +5296,153 @@ def store_order_status(oid):
         "updated_at": now
     }
 
+    unset_data = {}
+
     if new_status == "PREPARING":
         update_data["preparing_at"] = now
 
+    if new_status == "PACKAGING":
+        update_data["packaging_at"] = now
+
     if new_status == "CANCELLED":
-        update_data["cancelled_at"] = now
-        update_data["cancelled_by"] = "store"
-        update_data["cancelled_by_id"] = str(u.get("_id") or u.get("id"))
-        update_data["cancelled_by_name"] = u.get("name") or "Store User"
+        # Restore stock only once because already-cancelled orders are blocked above.
+        order_items = list(mongo.order_items.find({
+            "$or": [
+                {"order_id": oid_obj},
+                {"order_id": str(oid_obj)}
+            ]
+        }))
+
+        for line in order_items:
+            product_id = line.get("product_id")
+            restore_qty = 0
+
+            try:
+                restore_qty = float(line.get("quantity") or line.get("cart_quantity") or 0)
+            except Exception:
+                restore_qty = 0
+
+            if product_id and restore_qty > 0:
+                product_query_values = [product_id]
+
+                try:
+                    if ObjectId.is_valid(str(product_id)):
+                        product_query_values.append(ObjectId(str(product_id)))
+                except Exception:
+                    pass
+
+                mongo.products.update_one(
+                    {"_id": {"$in": product_query_values}},
+                    {
+                        "$inc": {
+                            "stock_quantity": restore_qty
+                        },
+                        "$set": {
+                            "is_active": 1,
+                            "updated_at": now
+                        }
+                    }
+                )
+
+        payment_method = (order.get("payment_method") or "COD").strip().upper()
+        payment_status = (order.get("payment_status") or "PENDING").strip().upper()
+
+        is_cod_order = payment_method in {
+            "COD",
+            "CASH_ON_DELIVERY",
+            "COD_RIDER_COLLECTION"
+        }
+
+        is_online_paid = (
+            payment_method not in {
+                "COD",
+                "CASH_ON_DELIVERY",
+                "COD_RIDER_COLLECTION"
+            }
+            and payment_status in {
+                "PAID",
+                "ONLINE_PAID",
+                "SUCCESS"
+            }
+        )
+
+        update_data.update({
+            "status": "CANCELLED",
+            "cancelled_at": now,
+            "cancelled_by": "store",
+            "cancelled_by_role": "store",
+            "cancelled_by_id": str(u.get("_id") or u.get("id")),
+            "cancelled_by_name": u.get("name") or "Store User",
+            "cancel_reason": request.form.get("cancel_reason") or "Cancelled by store",
+            "cancellation_reason": request.form.get("cancel_reason") or "Cancelled by store",
+
+            # Make sure order does not remain in active delivery/store queue.
+            "delivery_status": "CANCELLED",
+            "delivery_fulfillment_status": "CANCELLED",
+            "ready_for_pickup": False,
+            "shipment_ready": False,
+            "needs_reassignment": False,
+            "delivery_cancelled_by_partner": False,
+
+            # Internal delivery settlement should not remain active.
+            "delivery_boy_earning": 0,
+            "delivery_boy_payout_amount": 0,
+            "delivery_boy_payout_status": "NOT_REQUIRED",
+            "rider_cash_to_submit": 0,
+            "expected_rider_cash_to_submit": 0,
+            "rider_cash_settlement_status": "NOT_REQUIRED",
+            "cod_collection_status": "NOT_REQUIRED",
+
+            "updated_at": now
+        })
+
+        if is_online_paid:
+            update_data.update({
+                "refund_status": "READY_FOR_REFUND",
+                "refund_reason": "STORE_CANCELLED_BEFORE_DELIVERY",
+                "order_settlement_status": "REFUND_PENDING",
+                "payment_collection_status": "PAID_REFUND_PENDING",
+                "transaction_status": "REFUND_PENDING"
+            })
+        elif is_cod_order:
+            update_data.update({
+                "payment_status": "VOID",
+                "refund_status": "NOT_REQUIRED",
+                "refund_reason": "COD_CANCELLED_BEFORE_PAYMENT",
+                "order_settlement_status": "CANCELLED_VOID",
+                "payment_collection_status": "VOID",
+                "transaction_status": "VOID",
+                "platform_fee_status": "NOT_REQUIRED",
+                "store_payout_status": "NOT_REQUIRED"
+            })
+        else:
+            update_data.update({
+                "refund_status": "NOT_REQUIRED",
+                "order_settlement_status": "CANCELLED",
+                "payment_collection_status": "CANCELLED",
+                "transaction_status": "CANCELLED"
+            })
+
+        unset_data.update({
+            "delivery_partner_id": "",
+            "delivery_partner_name": "",
+            "delivery_partner_phone": "",
+            "delivery_assignment_source": "",
+            "assigned_at": "",
+            "delivery_assigned_at": "",
+            "reached_store_at": "",
+            "picked_up_at": "",
+            "out_for_delivery_at": "",
+            "shipment_ready_at": "",
+            "ready_for_pickup_at": ""
+        })
+
+    update_payload = {
+        "$set": update_data
+    }
+
+    if unset_data:
+        update_payload["$unset"] = unset_data
 
     mongo.orders.update_one(
         {
@@ -5018,24 +5452,70 @@ def store_order_status(oid):
                 {"store_id": str(store["_id"])}
             ]
         },
-        {"$set": update_data}
+        update_payload
     )
+
+    if new_status == "CANCELLED":
+        # Stop any active delivery notifications for this order.
+        mongo.delivery_notifications.update_many(
+            {
+                "$or": [
+                    {"order_id": oid_obj},
+                    {"order_id": str(oid_obj)}
+                ]
+            },
+            {
+                "$set": {
+                    "is_active": False,
+                    "updated_at": now,
+                    "closed_reason": "ORDER_CANCELLED_BY_STORE"
+                }
+            }
+        )
+
+        # Keep transactions aligned for reports.
+        mongo.transactions.update_many(
+            {
+                "$or": [
+                    {"order_id": oid_obj},
+                    {"order_id": str(oid_obj)}
+                ]
+            },
+            {
+                "$set": {
+                    "status": update_data.get("transaction_status", "CANCELLED"),
+                    "payment_status": update_data.get("payment_status", payment_status),
+                    "payment_collection_status": update_data.get("payment_collection_status", "CANCELLED"),
+                    "order_settlement_status": update_data.get("order_settlement_status", "CANCELLED"),
+                    "refund_status": update_data.get("refund_status", "NOT_REQUIRED"),
+                    "updated_at": now
+                }
+            }
+        )
 
     add_order_event(
         oid_obj,
         new_status,
-        "Updated by store",
+        "Cancelled by store" if new_status == "CANCELLED" else "Updated by store",
         u
     )
 
     _create_store_notification(
         store,
-        title="Order status updated",
-        message=f"Order #{str(order['_id'])[-6:]} status changed to {new_status}.",
+        title="Order cancelled" if new_status == "CANCELLED" else "Order status updated",
+        message=(
+            f"Order #{str(order['_id'])[-6:]} was cancelled by store."
+            if new_status == "CANCELLED"
+            else f"Order #{str(order['_id'])[-6:]} status changed to {new_status}."
+        ),
         notif_type="order",
         order=order,
         event_key=f"store-status-{str(order['_id'])}-{new_status}-{now}"
     )
 
-    flash("Order status updated successfully.", "success")
+    if new_status == "CANCELLED":
+        flash("Order cancelled successfully and removed from active queue.", "success")
+    else:
+        flash("Order status updated successfully.", "success")
+
     return redirect(url_for("store_orders"))

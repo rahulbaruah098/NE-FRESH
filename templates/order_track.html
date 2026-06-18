@@ -2368,8 +2368,12 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
            <!-- ===== Live Map ===== -->
       {% set map_data = tracking_map if tracking_map is defined else {} %}
       {% set customer_point = map_data.customer if map_data.customer is defined else {} %}
+      {% set order_status = (order.status or '')|upper %}
+      {% set has_assigned_delivery = order.delivery_partner_id or order.delivery_partner_id_str %}
+      {% set live_delivery_statuses = ['ASSIGNED_TO_DELIVERY', 'ACCEPTED_BY_DELIVERY_MAN', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
+      {% set show_live_delivery_map = has_assigned_delivery and order_status in live_delivery_statuses and customer_point and customer_point.latitude is not none and customer_point.longitude is not none %}
 
-      {% if customer_point and customer_point.latitude is not none and customer_point.longitude is not none %}
+      {% if show_live_delivery_map %}
       <section class="map-section card fade-in">
         <div class="card-head">
           <h3>Live Map</h3>
@@ -2386,7 +2390,7 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
 
           <div class="rider-live-box">
             <div id="riderLiveText">
-              Waiting for delivery-boy live location…
+              Delivery partner assigned. Waiting for live location…
             </div>
 
             <div id="riderLiveActions" class="rider-live-actions" style="display:none;">
@@ -2963,10 +2967,14 @@ if (elDeliveryStagePill) {
     })();
     </script>
 
-       {% set map_data = tracking_map if tracking_map is defined else {} %}
-    {% set customer_point = map_data.customer if map_data.customer is defined else {} %}
+            {% set map_data = tracking_map if tracking_map is defined else {} %}
+       {% set customer_point = map_data.customer if map_data.customer is defined else {} %}
+       {% set order_status = (order.status or '')|upper %}
+       {% set has_assigned_delivery = order.delivery_partner_id or order.delivery_partner_id_str %}
+       {% set live_delivery_statuses = ['ASSIGNED_TO_DELIVERY', 'ACCEPTED_BY_DELIVERY_MAN', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
+       {% set show_live_delivery_map = has_assigned_delivery and order_status in live_delivery_statuses and customer_point and customer_point.latitude is not none and customer_point.longitude is not none %}
 
-    {% if customer_point and customer_point.latitude is not none and customer_point.longitude is not none %}
+    {% if show_live_delivery_map %}
     <script>
     /* Accurate customer + store + delivery-boy live map */
     (function(){

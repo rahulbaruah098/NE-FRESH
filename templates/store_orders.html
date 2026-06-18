@@ -589,18 +589,156 @@
   color:#A96800;
 }
 
+/* Store cancel confirmation modal */
+.sd-cancel-modal{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+
+.sd-cancel-modal.is-open{
+  display:flex;
+}
+
+.sd-cancel-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(15,23,42,.52);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+
+.sd-cancel-dialog{
+  position:relative;
+  z-index:2;
+  width:min(460px,100%);
+  border-radius:24px;
+  background:#fff;
+  border:1px solid #FECACA;
+  box-shadow:0 30px 80px rgba(15,23,42,.28);
+  overflow:hidden;
+}
+
+.sd-cancel-head{
+  padding:18px 20px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  border-bottom:1px solid #FEE2E2;
+  background:#FFF7F7;
+}
+
+.sd-cancel-title{
+  color:#991B1B;
+  font-size:18px;
+  font-weight:900;
+  letter-spacing:-.02em;
+}
+
+.sd-cancel-x{
+  width:34px;
+  height:34px;
+  border:0;
+  border-radius:50%;
+  background:#fff;
+  color:#991B1B;
+  cursor:pointer;
+  font-weight:900;
+}
+
+.sd-cancel-body{
+  padding:20px;
+  display:grid;
+  gap:12px;
+}
+
+.sd-cancel-meta{
+  color:#334155;
+  font-size:14px;
+  font-weight:900;
+}
+
+.sd-cancel-msg{
+  color:#64748B;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.55;
+}
+
+.sd-cancel-reason{
+  width:100%;
+  min-height:44px;
+  border:1px solid #FECACA;
+  border-radius:14px;
+  background:#fff;
+  color:#1F2937;
+  padding:0 12px;
+  font:inherit;
+  font-size:14px;
+  font-weight:800;
+  outline:none;
+}
+
+.sd-cancel-actions{
+  padding:0 20px 20px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.sd-cancel-btn{
+  min-height:44px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  font:inherit;
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.sd-cancel-btn.keep{
+  background:#fff;
+  color:#334155;
+}
+
+.sd-cancel-btn.danger{
+  background:#DC2626;
+  border-color:#DC2626;
+  color:#fff;
+}
+
+@media(max-width:520px){
+  .sd-cancel-actions{
+    grid-template-columns:1fr;
+  }
+}
+
   </style>
 
   <div class="sd-shell">
     <div class="sd-stack">
 <section class="sd-card" id="orders" aria-label="Orders">
-        <div class="sd-section-head">
-          <div>
-            <h2 class="sd-section-title">Order Management</h2>
-<p class="sd-section-sub">Review customer details, prepare orders, mark pickup readiness and assign delivery boys.</p>
-          </div>
-          <a class="sd-view-link" href="{{ url_for('store_delivered_orders') }}">Delivered orders</a>
-        </div>
+       <div class="sd-section-head">
+  <div>
+    <h2 class="sd-section-title">Order Management</h2>
+    <p class="sd-section-sub">Review customer details, prepare orders, mark pickup readiness and assign delivery boys.</p>
+  </div>
+
+  <div class="sd-section-actions">
+    <a class="sd-view-link" href="{{ url_for('store_cancelled_orders', cancel_type='customer') }}">
+      Cancelled Orders
+    </a>
+
+    <a class="sd-view-link" href="{{ url_for('store_delivered_orders') }}">
+      Delivered orders
+    </a>
+  </div>
+</div>
         <div class="sd-table-toolbar">
           <div class="sd-search-wrap"><input class="sd-search-input" type="search" data-sd-order-search placeholder="Search orders, customer, phone or status..."></div>
           <span class="sd-muted">{{ orders_total }} orders · {{ delivered_orders_total }} delivered</span>
@@ -718,13 +856,22 @@
                    {% set order_status = (o.status or '')|upper %}
 
 {% if order_status in ['PLACED', 'CONFIRMED', 'PREPARING', 'PACKAGING'] %}
-  <form method="post" action="{{ url_for('store_order_status', oid=o.id) }}" class="sd-row-actions">
+  <form method="post"
+        action="{{ url_for('store_order_status', oid=o.id) }}"
+        class="sd-row-actions sd-status-form"
+        data-order-id="{{ o.id }}"
+        data-order-ref="#{{ o.id[-6:] if o.id else '' }}"
+        data-customer="{{ o.customer_name|default('Customer')|e }}"
+        data-total="₹{{ '%.2f'|format(total_payable or o.total_payable or o.total_amount or 0) }}">
     <select name="status">
       <option value="PLACED" {{ 'selected' if order_status == 'PLACED' else '' }}>Placed</option>
       <option value="CONFIRMED" {{ 'selected' if order_status == 'CONFIRMED' else '' }}>Confirmed</option>
       <option value="PACKAGING" {{ 'selected' if order_status in ['PACKAGING', 'PREPARING'] else '' }}>Packaging</option>
       <option value="CANCELLED" {{ 'selected' if order_status == 'CANCELLED' else '' }}>Cancelled</option>
     </select>
+
+    <input type="hidden" name="cancel_reason" value="Cancelled by store">
+
     <button type="submit">Update</button>
   </form>
 {% else %}
@@ -970,6 +1117,39 @@
       </section>
     </div>
   </div>
+
+  <div class="sd-cancel-modal" id="sdStoreCancelModal" aria-hidden="true">
+    <div class="sd-cancel-backdrop" data-store-cancel-close="1"></div>
+
+    <div class="sd-cancel-dialog" role="dialog" aria-modal="true" aria-labelledby="sdCancelTitle">
+      <div class="sd-cancel-head">
+        <div class="sd-cancel-title" id="sdCancelTitle">Cancel Order?</div>
+        <button type="button" class="sd-cancel-x" data-store-cancel-close="1" aria-label="Close">X</button>
+      </div>
+
+      <div class="sd-cancel-body">
+        <div class="sd-cancel-meta" id="sdCancelMeta">Order</div>
+        <div class="sd-cancel-msg">
+          This will fully cancel the order, restore product stock, remove it from active delivery/store queues, and mark settlement as cancelled. This action should be used carefully.
+        </div>
+
+        <select class="sd-cancel-reason" id="sdCancelReason">
+          <option value="Cancelled by store">Cancelled by store</option>
+          <option value="Product unavailable">Product unavailable</option>
+          <option value="Store unable to fulfil order">Store unable to fulfil order</option>
+          <option value="Customer requested cancellation">Customer requested cancellation</option>
+          <option value="Payment/order issue">Payment/order issue</option>
+          <option value="Other operational reason">Other operational reason</option>
+        </select>
+      </div>
+
+      <div class="sd-cancel-actions">
+        <button type="button" class="sd-cancel-btn keep" data-store-cancel-close="1">Keep Order</button>
+        <button type="button" class="sd-cancel-btn danger" id="sdCancelConfirmBtn">Yes, Cancel Order</button>
+      </div>
+    </div>
+  </div>
+  
 <script>
   (function(){
     'use strict';
@@ -1074,64 +1254,150 @@ function showStatusPopover(button, message, type) {
   }
 });
 
+            const storeCancelModal = document.getElementById('sdStoreCancelModal');
+      const storeCancelMeta = document.getElementById('sdCancelMeta');
+      const storeCancelReason = document.getElementById('sdCancelReason');
+      const storeCancelConfirmBtn = document.getElementById('sdCancelConfirmBtn');
+
+      let pendingCancelForm = null;
+
+      function openStoreCancelModal(form){
+        pendingCancelForm = form;
+
+        const orderRef = form.getAttribute('data-order-ref') || 'Order';
+        const customer = form.getAttribute('data-customer') || 'Customer';
+        const total = form.getAttribute('data-total') || '';
+
+        if(storeCancelMeta){
+          storeCancelMeta.textContent = `${orderRef} • ${customer}${total ? ' • ' + total : ''}`;
+        }
+
+        if(storeCancelModal){
+          storeCancelModal.classList.add('is-open');
+          storeCancelModal.setAttribute('aria-hidden', 'false');
+          document.documentElement.style.overflow = 'hidden';
+          document.body.style.overflow = 'hidden';
+        }
+      }
+
+      function closeStoreCancelModal(){
+        if(storeCancelModal){
+          storeCancelModal.classList.remove('is-open');
+          storeCancelModal.setAttribute('aria-hidden', 'true');
+        }
+
+        pendingCancelForm = null;
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+      }
+
+      function submitStatusForm(form, forceReload){
+        const button = form.querySelector('button[type="submit"]');
+        const select = form.querySelector('select[name="status"]');
+        const row = form.closest('tr');
+
+        if (!button || !select) {
+          form.submit();
+          return;
+        }
+
+        const selectedStatus = (select.value || '').trim().toUpperCase();
+        const oldButtonText = button.textContent;
+
+        button.disabled = true;
+        button.textContent = selectedStatus === 'CANCELLED' ? 'Cancelling...' : 'Updating...';
+
+        const formData = new FormData(form);
+
+        fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin',
+          redirect: 'follow'
+        })
+        .then(function(response){
+          if (!response.ok) {
+            throw new Error('Status update failed');
+          }
+
+          const selectedStatusLabel = selectedStatus
+            .replace('PREPARING', 'PACKAGING')
+            .replace('READY_FOR_PICKUP', 'SHIPMENT_READY')
+            .replaceAll('_', ' ');
+
+          showStatusPopover(button, 'Order status updated to ' + selectedStatusLabel + '.', 'success');
+
+          if (row) {
+            const statusCellTag = row.querySelector('td:nth-child(5) .sd-tag');
+
+            if (statusCellTag) {
+              statusCellTag.textContent = selectedStatus;
+            }
+          }
+
+          if (
+            forceReload ||
+            ['CONFIRMED', 'PREPARING', 'PACKAGING', 'SHIPMENT_READY', 'READY_FOR_PICKUP', 'CANCELLED'].includes(selectedStatus)
+          ) {
+            setTimeout(function(){
+              window.location.reload();
+            }, 650);
+          }
+        })
+        .catch(function(){
+          showStatusPopover(button, 'Could not update order status. Please try again.', 'error');
+        })
+        .finally(function(){
+          button.disabled = false;
+          button.textContent = oldButtonText;
+        });
+      }
+
+      document.querySelectorAll('[data-store-cancel-close="1"]').forEach(function(btn){
+        btn.addEventListener('click', closeStoreCancelModal);
+      });
+
+      if(storeCancelConfirmBtn){
+        storeCancelConfirmBtn.addEventListener('click', function(){
+          if(!pendingCancelForm) return;
+
+          const hiddenReason = pendingCancelForm.querySelector('input[name="cancel_reason"]');
+
+          if(hiddenReason && storeCancelReason){
+            hiddenReason.value = storeCancelReason.value || 'Cancelled by store';
+          }
+
+          const formToSubmit = pendingCancelForm;
+          closeStoreCancelModal();
+          submitStatusForm(formToSubmit, true);
+        });
+      }
+
+      document.addEventListener('keydown', function(event){
+        if(event.key === 'Escape' && storeCancelModal && storeCancelModal.classList.contains('is-open')){
+          closeStoreCancelModal();
+        }
+      });
+
       document.querySelectorAll('form[action*="/status"]').forEach(function(form){
         form.addEventListener('submit', function(event){
           event.preventDefault();
 
-          const button = form.querySelector('button[type="submit"]');
           const select = form.querySelector('select[name="status"]');
-          const row = form.closest('tr');
 
-          if (!button || !select || !row) {
+          if (!select) {
             form.submit();
             return;
           }
 
           const selectedStatus = (select.value || '').trim().toUpperCase();
-          const oldButtonText = button.textContent;
 
-          button.disabled = true;
-          button.textContent = 'Updating...';
+          if(selectedStatus === 'CANCELLED'){
+            openStoreCancelModal(form);
+            return;
+          }
 
-          const formData = new FormData(form);
-
-          fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            credentials: 'same-origin',
-            redirect: 'follow'
-          })
-          .then(function(response){
-  if (!response.ok) {
-    throw new Error('Status update failed');
-  }
-
-  const statusCellTag = row.querySelector('td:nth-child(5) .sd-tag');
-
-  if (statusCellTag) {
-    statusCellTag.textContent = selectedStatus;
-  }
-
- const selectedStatusLabel = selectedStatus
-  .replace('PREPARING', 'PACKAGING')
-  .replace('READY_FOR_PICKUP', 'SHIPMENT_READY')
-  .replaceAll('_', ' ');
-
-showStatusPopover(button, 'Order status updated to ' + selectedStatusLabel + '.', 'success');
-
- if (['CONFIRMED', 'PREPARING', 'PACKAGING', 'SHIPMENT_READY', 'READY_FOR_PICKUP'].includes(selectedStatus)) {
-    setTimeout(function(){
-      window.location.reload();
-    }, 700);
-  }
-})
-          .catch(function(){
-            showStatusPopover(button, 'Could not update order status. Please try again.', 'error');
-          })
-          .finally(function(){
-            button.disabled = false;
-            button.textContent = oldButtonText;
-          });
+          submitStatusForm(form, false);
         });
       });
     });

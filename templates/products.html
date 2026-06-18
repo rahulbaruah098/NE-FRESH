@@ -1900,16 +1900,6 @@
 }
 
 /* Grid */
-.nf-products-grid,
-.nf-products-grid.list-mode{
-  display:grid !important;
-  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
-  gap:14px !important;
-  align-items:stretch !important;
-  overflow:visible !important;
-  padding:0 !important;
-  margin:0 !important;
-}
 
 /* Card smaller */
 .nf-product-card{
@@ -1925,6 +1915,65 @@
   display:flex !important;
   flex-direction:column !important;
   overflow:hidden !important;
+}
+
+/* List view card structure */
+.nf-products-grid.list-mode .nf-product-card{
+  min-height:178px !important;
+  display:grid !important;
+  grid-template-columns:190px minmax(0,1fr) 250px !important;
+  align-items:stretch !important;
+}
+
+.nf-products-grid.list-mode .nf-product-img-link{
+  display:block !important;
+  min-width:0 !important;
+}
+
+.nf-products-grid.list-mode .nf-product-img{
+  height:calc(100% - 18px) !important;
+  min-height:150px !important;
+  margin:9px !important;
+  padding-top:28px !important;
+}
+
+.nf-products-grid.list-mode .nf-product-body{
+  justify-content:center !important;
+  align-items:flex-start !important;
+  text-align:left !important;
+  border-top:0 !important;
+  border-left:1px solid #F0F3F5 !important;
+  padding:12px 14px !important;
+}
+
+.nf-products-grid.list-mode .nf-store-name,
+.nf-products-grid.list-mode .nf-product-title{
+  text-align:left !important;
+}
+
+.nf-products-grid.list-mode .nf-product-title{
+  min-height:auto !important;
+  font-size:.86rem !important;
+  line-height:1.25 !important;
+}
+
+.nf-products-grid.list-mode .nf-product-meta,
+.nf-products-grid.list-mode .nf-price-row,
+.nf-products-grid.list-mode .nf-price-block{
+  justify-content:flex-start !important;
+  align-items:flex-start !important;
+}
+
+.nf-products-grid.list-mode .nf-card-actions{
+  border-top:0 !important;
+  border-left:1px solid #F0F3F5 !important;
+  display:flex !important;
+  align-items:center !important;
+  padding:12px !important;
+}
+
+.nf-products-grid.list-mode .nf-cart-add{
+  width:100% !important;
 }
 
 .nf-product-card:hover{
@@ -2234,16 +2283,26 @@
 
 /* Desktop responsiveness */
 @media(max-width:1320px){
-  .nf-products-grid,
-  .nf-products-grid.list-mode{
+  .nf-products-grid{
     grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  }
+
+  .nf-products-grid.list-mode{
+    grid-template-columns:1fr !important;
   }
 }
 
 @media(max-width:1080px){
-  .nf-products-grid,
-  .nf-products-grid.list-mode{
+  .nf-products-grid{
     grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  }
+
+  .nf-products-grid.list-mode{
+    grid-template-columns:1fr !important;
+  }
+
+  .nf-products-grid.list-mode .nf-product-card{
+    grid-template-columns:170px minmax(0,1fr) 230px !important;
   }
 }
 
@@ -2524,9 +2583,10 @@
   {# =========================================================
      Product helper values + category/store metadata
      ========================================================= #}
-  {% set all_products = products if products else [] %}
+    {% set all_products = products if products else [] %}
   {% set sorted_products = all_products|sort(attribute='category') %}
-  {% set sorted_stores = all_products|sort(attribute='store_name') %}
+  {% set show_store_section = user and user.role == 'admin' %}
+  {% set sorted_stores = all_products|sort(attribute='store_name') if show_store_section else [] %}
   {% set ns = namespace(cats=[]) %}
   {% for grp in sorted_products|groupby('category') %}
     {% set cat_name = grp.grouper if grp.grouper else 'Uncategorized' %}
@@ -2544,16 +2604,19 @@
         <span class="nf-search-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M10 2a8 8 0 1 1-5.3 13.7l-4 4a1 1 0 1 1-1.4-1.4l4-4A8 8 0 0 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>
         </span>
-        <input id="nfProductSearch" type="search" placeholder="Search for product or store..." autocomplete="off">
+                <input id="nfProductSearch" type="search" placeholder="{% if show_store_section %}Search for product or store...{% else %}Search for product...{% endif %}" autocomplete="off">
         <button class="nf-search-clear" id="nfSearchClearBtn" type="button" aria-label="Clear search" title="Clear search" hidden>×</button>
         <button class="nf-voice-btn" id="nfVoiceSearchBtn" type="button" aria-label="Search by voice" title="Search by voice">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H8v2h8v-2h-3v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
         </button>
       </label>
 
-      <div class="nf-shop-tabs" role="tablist" aria-label="Shop sections">
+            <div class="nf-shop-tabs" role="tablist" aria-label="Shop sections">
         <button type="button" class="nf-shop-tab active" data-shop-tab="groceries" role="tab" aria-selected="true">Products</button>
-        <button type="button" class="nf-shop-tab" data-shop-tab="stores" role="tab" aria-selected="false">Stores</button>
+
+        {% if show_store_section %}
+          <button type="button" class="nf-shop-tab" data-shop-tab="stores" role="tab" aria-selected="false">Stores</button>
+        {% endif %}
       </div>
     </div>
   </section>
@@ -2837,6 +2900,7 @@ data-offer="{{ (pct_off | round(0, 'floor') | int) }}"
             {% endif %}
           </div>
 
+                    {% if show_store_section %}
           <div class="nf-tab-panel" id="nfStoresPanel" data-panel="stores">
             {% if all_products and all_products|length > 0 %}
               <section class="nf-stores-grid" id="nfStoresGrid" aria-label="Store list">
@@ -2887,7 +2951,7 @@ data-offer="{{ (pct_off | round(0, 'floor') | int) }}"
     alt="{{ store_name }}"
     loading="lazy">
 {% endif %}
-      <div class="nf-store-banner-text">
+        <div class="nf-store-banner-text">
   {{ first_product.store_profile_intro or 'Fresh groceries and daily essentials from this store.' }}
 </div>
     </div>
@@ -2948,8 +3012,9 @@ data-offer="{{ (pct_off | round(0, 'floor') | int) }}"
                   <p>Stores will appear here when products are available for your selected location.</p>
                 </div>
               </div>
-            {% endif %}
+                        {% endif %}
           </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -2984,7 +3049,9 @@ data-offer="{{ (pct_off | round(0, 'floor') | int) }}"
       const toastClose = toastEl ? toastEl.querySelector('.nf-toast-close') : null;
       const toastIcon = toastEl ? toastEl.querySelector('.nf-toast-icon') : null;
 
-      if(!page) return;
+           if(!page) return;
+
+      const canViewStoreSection = {{ 'true' if show_store_section else 'false' }};
 
       let activeCategory = 'all';
       let activeSubcategory = 'all';
@@ -3139,7 +3206,7 @@ function restoreScrollPosition(savedY){
 
         activeView = state.activeView || 'grid';
 
-        const savedTab = state.activeShopTab === 'stores' ? 'stores' : 'groceries';
+                const savedTab = (canViewStoreSection && state.activeShopTab === 'stores') ? 'stores' : 'groceries';
         setShopTab(savedTab);
         setView(activeView);
 
@@ -3197,12 +3264,12 @@ function restoreScrollPosition(savedY){
         return raw.replace(/[^a-zA-Z0-9_-]/g, function(ch){ return '\\' + ch; });
       }
 
-      function currentCards(){
-        return activeShopTab === 'stores' ? storeCards : productCards;
+           function currentCards(){
+        return (canViewStoreSection && activeShopTab === 'stores') ? storeCards : productCards;
       }
 
       function currentGrid(){
-        return activeShopTab === 'stores' ? storeGrid : productGrid;
+        return (canViewStoreSection && activeShopTab === 'stores') ? storeGrid : productGrid;
       }
 
       function resetProductDisplayLimit(){
@@ -3321,11 +3388,17 @@ function restoreScrollPosition(savedY){
         applyFilters();
       }
 
-      function setShopTab(tab){
-        const nextShopTab = tab === 'stores' ? 'stores' : 'groceries';
+            function setShopTab(tab){
+        const requestedTab = tab === 'stores' ? 'stores' : 'groceries';
+        const nextShopTab = requestedTab === 'stores' && canViewStoreSection
+          ? 'stores'
+          : 'groceries';
+
         if(nextShopTab !== activeShopTab) resetProductDisplayLimit();
+
         activeShopTab = nextShopTab;
-        page.classList.toggle('is-stores', activeShopTab === 'stores');
+
+        page.classList.toggle('is-stores', canViewStoreSection && activeShopTab === 'stores');
         page.classList.toggle('is-products', activeShopTab !== 'stores');
 
         page.querySelectorAll('.nf-shop-tab').forEach(function(btn){
@@ -3338,7 +3411,7 @@ function restoreScrollPosition(savedY){
           panel.classList.toggle('active', panel.getAttribute('data-panel') === activeShopTab);
         });
 
-        if(activeShopTab === 'stores'){
+        if(canViewStoreSection && activeShopTab === 'stores'){
           clearActiveStoreFilter(true);
           setView('grid');
         }else{
@@ -3360,7 +3433,9 @@ function restoreScrollPosition(savedY){
         }
       }
 
-      function applyStoreFilter(storeName){
+            function applyStoreFilter(storeName){
+        if(!canViewStoreSection) return;
+
         const store = normalize(storeName);
         if(!store) return;
 

@@ -2191,25 +2191,92 @@ def delivery_update_location():
 @app.route('/api/delivery/orders/<oid>/location', methods=['GET'])
 @login_required()
 def delivery_api_get_latest(oid):
+    u = current_user()
+
     try:
         oid_obj = ObjectId(oid)
     except Exception:
         return jsonify({"ok": False, "error": "invalid order id"}), 400
 
+    order = mongo.orders.find_one({"_id": oid_obj})
+
+    if not order:
+        return jsonify({
+            "ok": False,
+            "error": "order not found"
+        }), 404
+
+    role = (u.get("role") or "").strip().lower()
+    user_id = str(u.get("id") or u.get("_id") or "")
+
+    if role == "customer" and str(order.get("user_id")) != user_id:
+        return jsonify({
+            "ok": False,
+            "error": "not allowed"
+        }), 403
+
+    if role == "delivery":
+        assigned_delivery_id = str(order.get("delivery_partner_id") or "")
+
+        if assigned_delivery_id != user_id:
+            return jsonify({
+                "ok": False,
+                "error": "not assigned to this delivery user"
+            }), 403
+
+    if role == "store":
+        store = mongo.stores.find_one({"user_id": u["id"]})
+
+        if not store or str(order.get("store_id")) not in [str(store.get("_id")), store.get("_id")]:
+            return jsonify({
+                "ok": False,
+                "error": "not allowed"
+            }), 403
+
+    assigned_delivery_id = str(order.get("delivery_partner_id") or "").strip()
+    order_status = (order.get("status") or "").strip().upper()
+
+    active_delivery_statuses = [
+        "ASSIGNED_TO_DELIVERY",
+        "ACCEPTED_BY_DELIVERY_MAN",
+        "REACHED_STORE",
+        "PICKED_UP",
+        "OUT_FOR_DELIVERY"
+    ]
+
+    if not assigned_delivery_id or order_status not in active_delivery_statuses:
+        return jsonify({
+            "ok": True,
+            "has_location": False,
+            "delivery_assigned": False,
+            "message": "Delivery partner is not assigned or live tracking is not active for this order."
+        })
+
     row = mongo.delivery_locations.find_one(
-        {"order_id": oid_obj},
+        {
+            "order_id": oid_obj,
+            "delivery_partner_id": {
+                "$in": [
+                    assigned_delivery_id,
+                    str(assigned_delivery_id)
+                ]
+            }
+        },
         sort=[("recorded_at", -1)]
     )
 
     if not row:
         return jsonify({
             "ok": True,
-            "has_location": False
+            "has_location": False,
+            "delivery_assigned": True,
+            "message": "Delivery partner assigned, but live location is not available yet."
         })
 
     return jsonify({
         "ok": True,
         "has_location": True,
+        "delivery_assigned": True,
         "data": {
             "latitude": row.get("latitude"),
             "longitude": row.get("longitude"),
