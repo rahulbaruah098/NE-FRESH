@@ -6,6 +6,9 @@ Only the file location changed.
 
 from app_core import *
 
+import re
+import requests
+
 @app.route('/')
 def index():
     user = current_user()
@@ -459,27 +462,243 @@ def search():
 
     return render_template("search.html", user=user, q=q, products=products, stores=stores)
 
+NEWSLETTER_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$")
+BREVO_CONTACTS_API_URL = "https://api.brevo.com/v3/contacts"
+
+
+def _newsletter_now():
+    return datetime.utcnow().isoformat()
+
+
+def _get_brevo_newsletter_config():
+    api_key = (os.getenv("BREVO_API_KEY") or "").strip()
+    list_id_raw = (os.getenv("BREVO_NEWSLETTER_LIST_ID") or "").strip()
+
+    if not api_key:
+        return None, None, "BREVO_API_KEY is missing in .env"
+
+    if not list_id_raw:
+        return None, None, "BREVO_NEWSLETTER_LIST_ID is missing in .env"
+
+    try:
+        list_id = int(list_id_raw)
+    except ValueError:
+        return None, None, "BREVO_NEWSLETTER_LIST_ID must be a number"
+
+    return api_key, list_id, None
+
+
+def _sync_newsletter_email_to_brevo(email):
+    api_key, list_id, config_error = _get_brevo_newsletter_config()
+
+    if config_error:
+        return {
+            "ok": False,
+            "status_code": 500,
+            "message": config_error,
+            "brevo_response": None
+        }
+
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "api-key": api_key
+    }
+
+    payload = {
+        "email": email,
+        "listIds": [list_id],
+        "updateEnabled": True
+    }
+
+    try:
+        response = requests.post(
+            BREVO_CONTACTS_API_URL,
+            headers=headers,
+            json=payload,
+            timeout=15
+        )
+
+        try:
+            brevo_response = response.json()
+        except Exception:
+            brevo_response = {
+                "raw": response.text
+            }
+
+        if response.status_code in [200, 201, 204]:
+            return {
+                "ok": True,
+                "status_code": response.status_code,
+                "message": "Synced with Brevo.",
+                "brevo_response": brevo_response
+            }
+
+        return {
+            "ok": False,
+            "status_code": response.status_code,
+            "message": "Brevo rejected the newsletter subscription.",
+            "brevo_response": brevo_response
+        }
+
+    except requests.RequestException as e:
+        return {
+            "ok": False,
+            "status_code": 502,
+            "message": str(e),
+            "brevo_response": None
+        }
+
+
 @app.route('/newsletter/subscribe', methods=['POST'])
 def newsletter_subscribe():
-    email = request.form.get('email', '').strip().lower()
+    data = request.get_json(silent=True) or {}
 
-    if not email or '@' not in email:
-        flash('Please enter a valid email.', 'danger')
-        return redirect(request.referrer or url_for('index'))
+    email = (
+        data.get("email")
+        or request.form.get("email")
+        or ""
+    )
 
-    existing = mongo.newsletter_subscribers.find_one({"email": email})
+    email = str(email).strip().lower()
 
-    if existing:
-        flash('You are already subscribed.', 'info')
-        return redirect(request.referrer or url_for('index'))
+    wants_json = (
+        request.is_json
+        or "application/json" in str(request.headers.get("Accept", ""))
+    )
 
-    mongo.newsletter_subscribers.insert_one({
-        "email": email,
-        "created_at": datetime.utcnow().isoformat()
-    })
+    def fail_response(message, status_code=400):
+        if wants_json:
+            return jsonify({
+                "ok": False,
+                "message": message
+            }), status_code
 
-    flash('Subscribed to newsletter!', 'success')
-    return redirect(request.referrer or url_for('index'))
+        flash(message, "danger")
+        return redirect(request.referrer or url_for("index"))
+
+    def success_response(message, status_code=200):
+        if wants_json:
+            return jsonify({
+                "ok": True,
+                "message": message
+            }), status_code
+
+        flash(message, "success")
+        return redirect(request.referrer or url_for("index"))
+
+    if not email:
+        return fail_response("Please enter your email address.", 400)
+
+    if not NEWSLETTER_EMAIL_RE.match(email):
+        return fail_response("Please enter a valid email address.", 400)
+
+    now = _newsletter_now()
+
+    try:
+        mongo.newsletter_subscribers.create_index(
+            "email",
+            unique=True
+        )
+
+        existing = mongo.newsletter_subscribers.find_one({
+            "email": email
+        })
+
+        if existing and existing.get("brevo_synced") is True:
+            mongo.newsletter_subscribers.update_one(
+                {
+                    "email": email
+                },
+                {
+                    "$set": {
+                        "is_active": True,
+                        "source": "footer",
+                        "updated_at": now,
+                        "last_subscribed_at": now
+                    }
+                }
+            )
+
+            return success_response("You are already subscribed.", 200)
+
+        mongo.newsletter_subscribers.update_one(
+            {
+                "email": email
+            },
+            {
+                "$set": {
+                    "email": email,
+                    "source": "footer",
+                    "is_active": True,
+                    "brevo_synced": False,
+                    "brevo_status": "pending",
+                    "updated_at": now,
+                    "last_subscribed_at": now
+                },
+                "$setOnInsert": {
+                    "created_at": now
+                }
+            },
+            upsert=True
+        )
+
+        brevo_result = _sync_newsletter_email_to_brevo(email)
+
+        if not brevo_result.get("ok"):
+            mongo.newsletter_subscribers.update_one(
+                {
+                    "email": email
+                },
+                {
+                    "$set": {
+                        "brevo_synced": False,
+                        "brevo_status": "failed",
+                        "brevo_status_code": brevo_result.get("status_code"),
+                        "brevo_error": brevo_result.get("message"),
+                        "brevo_response": brevo_result.get("brevo_response"),
+                        "updated_at": now
+                    }
+                }
+            )
+
+            print("[NEWSLETTER BREVO ERROR]", brevo_result)
+
+            return fail_response(
+                "Could not subscribe right now. Please try again.",
+                502
+            )
+
+        mongo.newsletter_subscribers.update_one(
+            {
+                "email": email
+            },
+            {
+                "$set": {
+                    "brevo_synced": True,
+                    "brevo_status": "synced",
+                    "brevo_status_code": brevo_result.get("status_code"),
+                    "brevo_response": brevo_result.get("brevo_response"),
+                    "updated_at": now
+                },
+                "$unset": {
+                    "brevo_error": ""
+                }
+            }
+        )
+
+        return success_response(
+            "Subscribed! You’ll receive fresh updates soon.",
+            201
+        )
+
+    except Exception as e:
+        print("[NEWSLETTER ERROR]", str(e))
+
+        return fail_response(
+            "Something went wrong. Please try again.",
+            500
+        )
 
 @app.route('/uploads/<path:fn>')
 def uploaded_file(fn):
