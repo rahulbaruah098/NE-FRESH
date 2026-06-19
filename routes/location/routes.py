@@ -29,6 +29,166 @@ def _float_or_none(value):
         return None
 
 
+def _location_store_id_values(store):
+    values = []
+
+    if not store:
+        return values
+
+    store_id = store.get("_id")
+
+    if store_id is None:
+        return values
+
+    values.append(store_id)
+    values.append(str(store_id))
+
+    try:
+        if ObjectId.is_valid(str(store_id)):
+            values.append(ObjectId(str(store_id)))
+    except Exception:
+        pass
+
+    clean = []
+
+    for value in values:
+        if value not in clean:
+            clean.append(value)
+
+    return clean
+
+
+def _location_active_product_count_for_store(store):
+    store_id_values = _location_store_id_values(store)
+
+    if not store_id_values:
+        return 0
+
+    return mongo.products.count_documents({
+        "$and": [
+            {
+                "store_id": {
+                    "$in": store_id_values
+                }
+            },
+            {
+                "$or": [
+                    {"is_active": 1},
+                    {"is_active": True},
+                    {"is_active": "1"}
+                ]
+            },
+            {
+                "$or": [
+                    {"stock_quantity": {"$gt": 0}},
+                    {"stock_quantity": {"$exists": False}},
+                    {"stock_quantity": None}
+                ]
+            }
+        ]
+    })
+
+
+def _location_products_serviceability(customer_lat, customer_lng, customer_pincode=None):
+    lat_f = _float_or_none(customer_lat)
+    lng_f = _float_or_none(customer_lng)
+    pincode = _clean_pin(customer_pincode or "")
+
+    if lat_f is None or lng_f is None:
+        return {
+            "serviceable": False,
+            "reason": "COORDINATES_MISSING",
+            "message": "Location saved, but exact product serviceability needs GPS coordinates.",
+            "serviceable_store_count": 0,
+            "serviceable_product_count": 0,
+            "nearest_store": None,
+            "stores": []
+        }
+
+    stores = list(mongo.stores.find({
+        "$and": [
+            {
+                "$or": [
+                    {"is_active": 1},
+                    {"is_active": True},
+                    {"is_active": "1"}
+                ]
+            },
+            {
+                "$or": [
+                    {"is_online": 1},
+                    {"is_online": True},
+                    {"is_online": "1"},
+                    {"is_open": 1},
+                    {"is_open": True},
+                    {"is_open": "1"},
+                    {"is_online": {"$exists": False}},
+                    {"is_open": {"$exists": False}}
+                ]
+            }
+        ]
+    }))
+
+    matched_stores = []
+    total_products = 0
+
+    for store in stores:
+        active_product_count = _location_active_product_count_for_store(store)
+
+        if active_product_count <= 0:
+            continue
+
+        try:
+            result = check_store_serviceability(
+                store=store,
+                customer_lat=lat_f,
+                customer_lng=lng_f,
+                customer_pincode=pincode,
+                items_total=None
+            )
+        except Exception:
+            continue
+
+        if not result.get("serviceable"):
+            continue
+
+        store_row = {
+            "store_id": str(store.get("_id")),
+            "store_name": store.get("store_name") or store.get("name") or "Store",
+            "product_count": int(active_product_count),
+            "distance_km": result.get("distance_km"),
+            "delivery_fee": result.get("delivery_fee"),
+            "message": result.get("message") or "Delivery is available."
+        }
+
+        matched_stores.append(store_row)
+        total_products += int(active_product_count)
+
+    matched_stores.sort(
+        key=lambda row: 999999 if row.get("distance_km") is None else float(row.get("distance_km") or 0)
+    )
+
+    if matched_stores:
+        return {
+            "serviceable": True,
+            "reason": "PRODUCTS_AVAILABLE",
+            "message": f"Products are available at your location from {len(matched_stores)} store(s).",
+            "serviceable_store_count": len(matched_stores),
+            "serviceable_product_count": total_products,
+            "nearest_store": matched_stores[0],
+            "stores": matched_stores[:6]
+        }
+
+    return {
+        "serviceable": False,
+        "reason": "NO_PRODUCT_STORE_SERVICEABLE",
+        "message": "Sorry, products are not serviceable at this location yet.",
+        "serviceable_store_count": 0,
+        "serviceable_product_count": 0,
+        "nearest_store": None,
+        "stores": []
+    }
+
 def _locationiq_reverse_geocode(lat, lng):
     """
     Convert GPS latitude/longitude into address details using LocationIQ.
@@ -171,8 +331,12 @@ def api_location_reverse():
             "country": country,
         }), 422
 
-    serviceable = is_serviceable_pincode(pincode)
     assam = is_assam_state(state)
+    product_serviceability = _location_products_serviceability(
+        customer_lat=lat,
+        customer_lng=lng,
+        customer_pincode=pincode
+    )
 
     return jsonify({
         "ok": True,
@@ -183,9 +347,13 @@ def api_location_reverse():
         "city": city,
         "state": state,
         "country": country,
-        "serviceable": serviceable,
+
+        "serviceable": bool(product_serviceability.get("serviceable")),
+        "products_serviceable": bool(product_serviceability.get("serviceable")),
+        "product_serviceability": product_serviceability,
+
         "assam": assam,
-        "message": "Location detected successfully."
+        "message": product_serviceability.get("message") or "Location detected successfully."
     })
 
 @app.route("/api/location/pincode/resolve", methods=["POST"])
@@ -259,6 +427,12 @@ def api_location_pincode_resolve():
 
     assam = is_assam_state(state)
 
+    product_serviceability = _location_products_serviceability(
+        customer_lat=lat,
+        customer_lng=lng,
+        customer_pincode=pincode
+    )
+
     return jsonify({
         "ok": True,
         "pincode": pincode,
@@ -269,9 +443,13 @@ def api_location_pincode_resolve():
         "state": state,
         "country": country,
         "assam": assam,
-        "serviceable": bool(assam and is_serviceable_pincode(pincode)),
+
+        "serviceable": bool(product_serviceability.get("serviceable")),
+        "products_serviceable": bool(product_serviceability.get("serviceable")),
+        "product_serviceability": product_serviceability,
+
         "message": (
-            "Location resolved. Store-wise delivery availability will be checked at checkout."
+            product_serviceability.get("message")
             if assam else
             "Location resolved, but this appears outside Assam."
         )
@@ -301,7 +479,13 @@ def api_location_set():
     lat_f = _float_or_none(lat)
     lng_f = _float_or_none(lng)
 
-    serviceable = is_serviceable_pincode(pincode)
+    product_serviceability = _location_products_serviceability(
+        customer_lat=lat_f,
+        customer_lng=lng_f,
+        customer_pincode=pincode
+    )
+
+    products_serviceable = bool(product_serviceability.get("serviceable"))
 
     session["service_area"] = {
         "address": address or f"Pincode {pincode}",
@@ -311,6 +495,9 @@ def api_location_set():
         "city": city,
         "state": state,
         "source": source,
+
+        "products_serviceable": products_serviceable,
+        "product_serviceability": product_serviceability
     }
 
     session["location_pincode"] = pincode
@@ -321,14 +508,22 @@ def api_location_set():
     session["location_state"] = state
     session["location_source"] = source
 
+    session["location_products_serviceable"] = products_serviceable
+    session["location_serviceable_store_count"] = int(product_serviceability.get("serviceable_store_count") or 0)
+    session["location_serviceable_product_count"] = int(product_serviceability.get("serviceable_product_count") or 0)
+    session["location_serviceability_message"] = product_serviceability.get("message") or ""
+
     session.modified = True
 
     return jsonify({
         "ok": True,
-        "serviceable": serviceable,
+        "serviceable": products_serviceable,
+        "products_serviceable": products_serviceable,
+        "product_serviceability": product_serviceability,
         "service_area": session["service_area"],
-        "message": "Location saved. Store-wise delivery availability will be checked at checkout."
+        "message": product_serviceability.get("message") or "Location saved."
     })
+   
 
 
 @app.route("/api/location/clear", methods=["POST"])
@@ -342,6 +537,11 @@ def api_location_clear():
     session.pop("location_city", None)
     session.pop("location_state", None)
     session.pop("location_source", None)
+
+    session.pop("location_products_serviceable", None)
+    session.pop("location_serviceable_store_count", None)
+    session.pop("location_serviceable_product_count", None)
+    session.pop("location_serviceability_message", None)
 
     session.modified = True
 
@@ -386,10 +586,25 @@ def detect_location():
 
     session.modified = True
 
-    if not is_serviceable_pincode(clean_pincode):
-        flash("Please enter a valid 6-digit pincode.", "warning")
+    product_serviceability = _location_products_serviceability(
+        customer_lat=lat_f,
+        customer_lng=lng_f,
+        customer_pincode=clean_pincode
+    )
+
+    session["service_area"]["products_serviceable"] = bool(product_serviceability.get("serviceable"))
+    session["service_area"]["product_serviceability"] = product_serviceability
+    session["location_products_serviceable"] = bool(product_serviceability.get("serviceable"))
+    session["location_serviceable_store_count"] = int(product_serviceability.get("serviceable_store_count") or 0)
+    session["location_serviceable_product_count"] = int(product_serviceability.get("serviceable_product_count") or 0)
+    session["location_serviceability_message"] = product_serviceability.get("message") or ""
+
+    session.modified = True
+
+    if product_serviceability.get("serviceable"):
+        flash(product_serviceability.get("message") or f"Products are available at {clean_pincode}.", "success")
     else:
-        flash(f"Location set to {clean_pincode}. Store-wise delivery availability will be checked at checkout.", "success")
+        flash(product_serviceability.get("message") or "Products are not serviceable at this location yet.", "warning")
 
     return redirect(request.referrer or url_for("index"))
 

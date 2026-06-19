@@ -112,12 +112,12 @@
     cursor:grabbing;
   }
 
-  .nf-hero-slides{
-    height:100%;
-    display:flex;
-    transition:transform .75s var(--nf-ease);
-    will-change:transform;
-  }
+ .nf-hero-slides{
+  height:100%;
+  display:flex;
+  transition:transform .75s var(--nf-ease);
+  will-change:transform;
+}
 
   .nf-hero-slide{
     flex:0 0 100%;
@@ -4102,7 +4102,7 @@ padding-right:clamp(42px,6vw,118px) !important;
       <div class="nf-hero-copy">
         <span>Easy Product Ordering</span>
 <h1>Order Fresh Products</h1>
-<p>Get daily essentials delivered from trusted NE-LOCALS stores with a simple ordering experience.</p>
+<p>Get daily essentials delivered from trusted NELOCALS stores with a simple ordering experience.</p>
 <a href="/products" class="nf-hero-btn">Order Products</a>
       </div>
 
@@ -4250,7 +4250,7 @@ padding-right:clamp(42px,6vw,118px) !important;
 <section class="nf-new-stores-section nf-home-products-section" id="new-on-nefresh">
   <div class="nf-wrap">
     <div class="nf-section-head nf-reveal">
-      <h2>New on NE-LOCALS</h2>
+      <h2>New on NELOCALS</h2>
       <a href="{{ url_for('products') }}" class="nf-see-all">See All</a>
     </div>
 
@@ -4493,7 +4493,7 @@ padding-right:clamp(42px,6vw,118px) !important;
 
       <div class="nf-special-banner-wrap nf-reveal">
   <img src="{{ url_for('static', filename='images/2.jpg') }}"
-       alt="NE-LOCALS Special Offer"
+       alt="NELOCALS Special Offer"
        class="nf-special-banner-img">
 </div>
     </div>
@@ -5089,7 +5089,7 @@ padding-right:clamp(42px,6vw,118px) !important;
         <div class="nf-app-device" aria-hidden="true">
           <img
             src="{{ url_for('static', filename='images/homebottomlogo.png') }}"
-            alt="NE-LOCALS grocery website mobile preview"
+            alt="NELOCALS grocery website mobile preview"
             class="nf-app-mockup-img"
             loading="lazy"
           >
@@ -5098,10 +5098,10 @@ padding-right:clamp(42px,6vw,118px) !important;
     </div>
   </section>
 
-  <a href="{{ url_for('about') }}" class="nf-about-floater" id="nfAboutFloater" aria-label="About NE-LOCALS">
+  <a href="{{ url_for('about') }}" class="nf-about-floater" id="nfAboutFloater" aria-label="About NELOCALS">
     <span class="nf-about-hand" aria-hidden="true">👉</span>
-    <span class="nf-about-text">NE-LOCALS</span>
-    <button type="button" class="nf-about-close" id="nfAboutClose" aria-label="Close about NE-LOCALS popup">×</button>
+    <span class="nf-about-text">NELOCALS</span>
+    <button type="button" class="nf-about-close" id="nfAboutClose" aria-label="Close about NELOCALS popup">×</button>
   </a>
 
 </main>
@@ -5247,46 +5247,32 @@ requestAnimationFrame(loadNotifications);
 
 if(hero){
   const track = hero.querySelector('.nf-hero-slides');
-  const originalSlides = Array.prototype.slice.call(hero.querySelectorAll('.nf-hero-slide'));
   const dots = Array.prototype.slice.call(hero.querySelectorAll('.nf-hero-dots button'));
 
-  if(track && originalSlides.length){
-    let currentIndex = 1;
+  if(track){
+    track.querySelectorAll('.nf-hero-clone, .nf-hero-loop-copy').forEach(function(clone){
+      clone.remove();
+    });
+
+    const slides = Array.prototype.slice.call(track.querySelectorAll('.nf-hero-slide'));
+    const slideCount = slides.length;
+
+    let currentIndex = 0;
     let heroTimer = null;
-    let isDragging = false;
     let isAnimating = false;
+    let isDragging = false;
     let startX = 0;
     let dragX = 0;
-    const slideCount = originalSlides.length;
 
-    if(slideCount > 1 && !track.dataset.loopReady){
-      const firstClone = originalSlides[0].cloneNode(true);
-      const lastClone = originalSlides[slideCount - 1].cloneNode(true);
-
-      firstClone.classList.add('nf-hero-clone');
-      lastClone.classList.add('nf-hero-clone');
-
-      track.insertBefore(lastClone, originalSlides[0]);
+    if(slideCount > 1){
+      const firstClone = slides[0].cloneNode(true);
+      firstClone.classList.add('nf-hero-loop-copy');
+      firstClone.setAttribute('aria-hidden', 'true');
       track.appendChild(firstClone);
-      track.dataset.loopReady = 'true';
-    }
-
-    const allSlides = Array.prototype.slice.call(track.querySelectorAll('.nf-hero-slide'));
-
-    function getRealIndex(){
-      if(currentIndex === 0){
-        return slideCount - 1;
-      }
-
-      if(currentIndex === slideCount + 1){
-        return 0;
-      }
-
-      return currentIndex - 1;
     }
 
     function updateDots(){
-      const realIndex = getRealIndex();
+      const realIndex = currentIndex >= slideCount ? 0 : currentIndex;
 
       dots.forEach(function(dot, dotIndex){
         dot.classList.toggle('active', dotIndex === realIndex);
@@ -5303,6 +5289,7 @@ if(hero){
       updateDots();
 
       if(!withTransition){
+        track.offsetHeight;
         requestAnimationFrame(function(){
           track.style.transition = 'transform .75s var(--nf-ease)';
           isAnimating = false;
@@ -5311,25 +5298,31 @@ if(hero){
     }
 
     function nextHeroSlide(){
-      if(isAnimating || isDragging) return;
+      if(isAnimating || isDragging || slideCount <= 1) return;
       moveHero(currentIndex + 1, true);
     }
 
     function prevHeroSlide(){
-      if(isAnimating || isDragging) return;
+      if(isAnimating || isDragging || slideCount <= 1) return;
+
+      if(currentIndex === 0){
+        currentIndex = slideCount;
+        track.style.transition = 'none';
+        track.style.transform = 'translate3d(' + (-currentIndex * 100) + '%,0,0)';
+        track.offsetHeight;
+      }
+
       moveHero(currentIndex - 1, true);
     }
 
     function startHeroAutoplay(){
       stopHeroAutoplay();
 
-      if(slideCount <= 1){
-        return;
-      }
+      if(slideCount <= 1) return;
 
       heroTimer = window.setInterval(function(){
         nextHeroSlide();
-      }, 3500);
+      }, 3800);
     }
 
     function stopHeroAutoplay(){
@@ -5342,13 +5335,18 @@ if(hero){
     track.addEventListener('transitionend', function(event){
       if(event.propertyName !== 'transform') return;
 
-      if(currentIndex === slideCount + 1){
-        moveHero(1, false);
-        return;
-      }
+      if(currentIndex === slideCount){
+        track.style.transition = 'none';
+        currentIndex = 0;
+        track.style.transform = 'translate3d(0,0,0)';
+        track.offsetHeight;
 
-      if(currentIndex === 0){
-        moveHero(slideCount, false);
+        requestAnimationFrame(function(){
+          track.style.transition = 'transform .75s var(--nf-ease)';
+          isAnimating = false;
+          updateDots();
+        });
+
         return;
       }
 
@@ -5359,7 +5357,7 @@ if(hero){
     dots.forEach(function(dot, dotIndex){
       dot.addEventListener('click', function(){
         stopHeroAutoplay();
-        moveHero(dotIndex + 1, true);
+        moveHero(dotIndex, true);
         startHeroAutoplay();
       });
     });
@@ -5369,9 +5367,7 @@ if(hero){
         'a, button, input, select, textarea, label'
       );
 
-      if(clickableTarget){
-        return;
-      }
+      if(clickableTarget) return;
 
       isDragging = true;
       isAnimating = false;
@@ -5408,7 +5404,7 @@ if(hero){
       if(dragX < -threshold){
         moveHero(currentIndex + 1, true);
       }else if(dragX > threshold){
-        moveHero(currentIndex - 1, true);
+        prevHeroSlide();
       }else{
         moveHero(currentIndex, true);
       }
@@ -5428,7 +5424,7 @@ if(hero){
     hero.addEventListener('pointercancel', endHeroDrag);
     hero.addEventListener('lostpointercapture', endHeroDrag);
 
-    moveHero(1, false);
+    moveHero(0, false);
     startHeroAutoplay();
   }
 }

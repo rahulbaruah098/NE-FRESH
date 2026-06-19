@@ -874,28 +874,34 @@
   }
 
   /* ✅ logo button (replaces heart) */
-  .mm-brand{
-    width:46px;
-    height:40px;
-    display:grid;
-    place-items:center;
-    border-radius: 14px;
-    border: 1px solid rgba(15,23,42,.10);
-    background: rgba(255,255,255,.88);
-    box-shadow: 0 10px 22px rgba(2,6,23,.08);
-    transition: transform .14s ease, box-shadow .18s ease;
-  }
-  .mm-brand:active{ transform: translateY(1px) scale(.98); }
+ .mm-brand{
+  width:64px;
+  height:64px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  transition:transform .14s ease;
+}
 
+.mm-brand:active{
+  transform:translateY(1px) scale(.98);
+}
 
- .mm-brand img.mm-brand-logo{
-  width: 34px !important;
-  height: 34px !important;
-  object-fit: contain !important;
-  display: block !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+.mm-brand img.mm-brand-logo{
+  width:58px !important;
+  height:auto !important;
+  max-height:58px !important;
+  object-fit:contain !important;
+  display:block !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
 }
 
   .mm-close{
@@ -1195,16 +1201,26 @@
   }
 
   /* icons scale down on small screens */
-  .mm-brand,
-  .mm-close{
-    width: clamp(40px, 12vw, 46px);
-    height: clamp(38px, 11vw, 40px);
-    border-radius: 14px;
-  }
-  .mm-brand-logo{
-    width: clamp(26px, 7.8vw, 32px);
-    height: clamp(26px, 7.8vw, 32px);
-  }
+.mm-brand{
+  width:64px;
+  height:64px;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+.mm-close{
+  width:clamp(40px, 12vw, 46px);
+  height:clamp(38px, 11vw, 40px);
+  border-radius:14px;
+}
+
+.mm-brand-logo{
+  width:58px;
+  height:auto;
+  max-height:58px;
+}
 
   /* searchbar shrinks safely and never pushes icons off-screen */
   .mm-searchbar{
@@ -2830,6 +2846,876 @@ body.cc-menu-open footer.nf-footer {
 
 </style>
 
+
+
+<style>
+/* =========================================================
+   FINAL MENU DIRECT + LOGO + RESPONSIVE POPUP PATCH
+   Scope: base/header/mobile menu/location + notification popups only.
+   Existing routes, IDs, Jinja, cart, location save and alert logic untouched.
+   ========================================================= */
+
+:root{
+  --ne-green:#00A859;
+  --ne-green-dark:#008A48;
+  --ne-green-soft:#E9FFF3;
+  --ne-green-pale:#F4FFF8;
+  --ne-ink:#10251B;
+  --ne-text:#2D3B34;
+  --ne-muted:#66756D;
+  --ne-line:#DCEFE5;
+  --ne-red:#B91C1C;
+  --ne-shadow:0 22px 60px rgba(17,64,38,.14);
+}
+
+html{
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+
+body{
+  min-width:0 !important;
+  overflow-x:clip !important;
+}
+
+img,svg,video,canvas{
+  max-width:100%;
+}
+
+.header-strip,
+.header-strip *{
+  box-sizing:border-box;
+}
+
+/* Desktop/tablet navbar safety */
+.header-strip .nav-bar{
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+}
+
+.header-strip .brand{
+  min-width:0 !important;
+}
+
+.header-strip .brand img.brand-logo{
+  flex:0 0 auto !important;
+}
+
+.header-strip .nav-right{
+  min-width:0 !important;
+}
+
+.header-strip .loc-chip,
+.header-strip .nav-search,
+.header-strip .auth-links,
+.header-strip .icon-links{
+  max-width:100% !important;
+}
+
+/* Direct menu: no intro/loader/delayed reveal */
+.mobile-menu-page .mm-loader{
+  display:none !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+.mobile-menu-page .mm-top,
+.mobile-menu-page .mm-center,
+.mobile-menu-page .mm-bottom,
+.mobile-menu-page .mm-title,
+.mobile-menu-page .mm-biglink,
+.mobile-menu-page .mm-legal-title,
+.mobile-menu-page .mm-smalllink{
+  opacity:1 !important;
+  transform:none !important;
+  transition:none !important;
+  transition-delay:0ms !important;
+  animation:none !important;
+}
+
+.mobile-menu-page.is-open .mm-top,
+.mobile-menu-page.is-open .mm-center,
+.mobile-menu-page.is-open .mm-bottom,
+.mobile-menu-page.is-open .mm-title,
+.mobile-menu-page.is-open .mm-biglink,
+.mobile-menu-page.is-open .mm-legal-title,
+.mobile-menu-page.is-open .mm-smalllink{
+  opacity:1 !important;
+  transform:none !important;
+}
+
+.mobile-menu-page .mm-content,
+.mobile-menu-page.is-loading .mm-content{
+  filter:none !important;
+  opacity:1 !important;
+  transform:none !important;
+  pointer-events:auto !important;
+}
+
+.mobile-menu-page{
+  width:100vw !important;
+  max-width:100vw !important;
+  height:100dvh !important;
+  min-height:100svh !important;
+  overflow:hidden !important;
+}
+
+.mobile-menu-page .mm-page{
+  width:100% !important;
+  max-width:100% !important;
+  height:100dvh !important;
+  min-height:100svh !important;
+  overflow:hidden !important;
+}
+
+.mobile-menu-page .mm-brand img.mm-brand-logo{
+  width:34px !important;
+  height:34px !important;
+  max-width:34px !important;
+  max-height:34px !important;
+  object-fit:contain !important;
+  display:block !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+}
+
+@media(max-width:1180px){
+  .header-strip .nav-links{ gap:14px !important; margin-left:10px !important; }
+  .header-strip .nav-links a{ font-size:.86rem !important; }
+  .header-strip .brand img.brand-logo{ width:86px !important; height:86px !important; }
+}
+
+@media(max-width:980px){
+  .header-strip .nav-links{ display:none !important; }
+  .header-strip .nav-search{ display:none !important; }
+}
+
+@media(max-width:900px){
+  body{
+    padding-top:var(--topbar-h,72px) !important;
+  }
+
+  body.cc-menu-open{
+    padding-top:0 !important;
+    overflow:hidden !important;
+    touch-action:none;
+  }
+
+  .header-strip{
+    height:auto !important;
+    min-height:var(--topbar-h,72px) !important;
+  }
+
+  .header-strip .nav-shell{
+    padding-left:10px !important;
+    padding-right:10px !important;
+  }
+
+  .header-strip .nav-bar{
+    min-height:var(--topbar-h,72px) !important;
+    height:auto !important;
+    gap:8px !important;
+  }
+
+  .header-strip .brand{
+    gap:8px !important;
+    flex:1 1 auto !important;
+    min-width:0 !important;
+  }
+
+  .header-strip .brand img.brand-logo{
+    width:clamp(54px,14vw,74px) !important;
+    height:clamp(54px,14vw,74px) !important;
+  }
+
+  .header-strip .brand .brand-name{
+    max-width:calc(100vw - 130px) !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    white-space:nowrap !important;
+    font-size:clamp(1.1rem,4.6vw,1.55rem) !important;
+  }
+
+  .hamburger{
+    flex:0 0 auto !important;
+    margin-left:auto !important;
+  }
+
+  .mobile-menu-page{
+    top:0 !important;
+    left:0 !important;
+    right:0 !important;
+    bottom:0 !important;
+    z-index:10000 !important;
+    background:
+      radial-gradient(820px 520px at 0% 0%, rgba(0,168,89,.14), transparent 55%),
+      radial-gradient(780px 520px at 100% 110%, rgba(0,168,89,.12), transparent 56%),
+      linear-gradient(180deg,#F4FFF8 0%,#FFFFFF 55%,#E9FFF3 100%) !important;
+  }
+
+  .mm-top{
+    position:sticky !important;
+    top:0 !important;
+    z-index:4 !important;
+    grid-template-columns:auto minmax(0,1fr) auto !important;
+    gap:clamp(7px,2.4vw,10px) !important;
+    padding:calc(10px + env(safe-area-inset-top,0px)) clamp(10px,3.6vw,14px) 10px !important;
+    background:rgba(255,255,255,.94) !important;
+    border-bottom:1px solid rgba(0,168,89,.13) !important;
+    box-shadow:0 10px 26px rgba(17,64,38,.08) !important;
+  }
+
+  .mm-brand,
+  .mm-close{
+    width:clamp(38px,11vw,46px) !important;
+    height:clamp(38px,11vw,42px) !important;
+    border-radius:14px !important;
+    border:1px solid rgba(0,168,89,.16) !important;
+    background:#fff !important;
+  }
+
+  .mm-searchbar{
+    min-width:0 !important;
+    width:100% !important;
+    gap:6px !important;
+    padding:6px !important;
+    border-radius:14px !important;
+    background:#fff !important;
+    border:1px solid rgba(0,168,89,.16) !important;
+  }
+
+  .mm-searchbar input{
+    height:36px !important;
+    font-size:clamp(12px,3.5vw,15px) !important;
+    padding:0 8px !important;
+  }
+
+  .mm-searchbtn{
+    height:36px !important;
+    padding:0 clamp(8px,2.6vw,13px) !important;
+    font-size:clamp(11px,3.2vw,14px) !important;
+    border-radius:12px !important;
+  }
+
+  .mm-center{
+    display:block !important;
+    place-items:unset !important;
+    width:100% !important;
+    max-width:100% !important;
+    padding:14px clamp(12px,4vw,20px) 10px !important;
+    overflow-y:auto !important;
+    overflow-x:hidden !important;
+    -webkit-overflow-scrolling:touch !important;
+  }
+
+  .mm-title,
+  .mm-big,
+  .mm-legal{
+    width:min(720px,100%) !important;
+    max-width:100% !important;
+  }
+
+  .mm-title{
+    margin:8px auto 10px !important;
+    font-size:clamp(11px,3vw,14px) !important;
+  }
+
+  .mm-big{
+    gap:6px !important;
+    padding:4px 0 12px !important;
+  }
+
+  .mm-biglink{
+    padding:12px 8px !important;
+    border-radius:14px !important;
+    font-size:clamp(1.72rem,8.4vw,4.1rem) !important;
+    line-height:1.02 !important;
+    min-height:auto !important;
+    align-items:center !important;
+    word-break:normal !important;
+    overflow-wrap:anywhere !important;
+  }
+
+  .mm-biglink em{
+    font-size:clamp(.58rem,2.7vw,.76rem) !important;
+    flex:0 0 auto !important;
+  }
+
+  .mm-legal{
+    margin-top:12px !important;
+    padding-top:12px !important;
+  }
+
+  .mm-legal-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+  }
+
+  .mm-smalllink{
+    min-width:0 !important;
+    padding:10px !important;
+    font-size:clamp(.74rem,3.4vw,.9rem) !important;
+    line-height:1.2 !important;
+  }
+
+  .mm-bottom{
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px)) !important;
+    background:rgba(255,255,255,.92) !important;
+  }
+}
+
+@media(max-width:390px){
+  .mm-top{
+    gap:6px !important;
+    padding-left:8px !important;
+    padding-right:8px !important;
+  }
+
+  .mm-searchbtn{
+    padding:0 8px !important;
+  }
+
+  .mm-biglink{
+    font-size:clamp(1.48rem,8vw,2.6rem) !important;
+    padding:10px 6px !important;
+  }
+
+  .mm-legal-grid{
+    grid-template-columns:1fr !important;
+  }
+}
+
+/* Website-matched popups/toasts */
+.flash-wrap{
+  position:fixed !important;
+  top:calc(var(--topbar-h,72px) + 14px) !important;
+  right:16px !important;
+  z-index:100000 !important;
+  width:min(430px,calc(100vw - 28px)) !important;
+  display:grid !important;
+  gap:10px !important;
+  pointer-events:none !important;
+}
+
+.flash{
+  pointer-events:auto !important;
+  border-radius:18px !important;
+  padding:14px 16px !important;
+  background:#fff !important;
+  border:1px solid var(--ne-line) !important;
+  color:var(--ne-ink) !important;
+  box-shadow:var(--ne-shadow) !important;
+  font-weight:850 !important;
+  line-height:1.35 !important;
+}
+
+.flash.success{ border-color:rgba(0,168,89,.24) !important; background:linear-gradient(135deg,#F4FFF8,#FFFFFF) !important; color:var(--ne-green-dark) !important; }
+.flash.error,.flash.danger{ border-color:rgba(185,28,28,.18) !important; background:linear-gradient(135deg,#FFF5F5,#FFFFFF) !important; color:#B91C1C !important; }
+.flash.warning{ border-color:rgba(245,158,11,.22) !important; background:linear-gradient(135deg,#FFFBEB,#FFFFFF) !important; color:#92400E !important; }
+.flash.info{ border-color:rgba(0,168,89,.18) !important; background:linear-gradient(135deg,#F4FFF8,#FFFFFF) !important; color:#166534 !important; }
+
+#locToastWrap{
+  top:calc(var(--topbar-h,72px) + 14px) !important;
+  right:16px !important;
+  width:min(410px,calc(100vw - 28px)) !important;
+  z-index:100001 !important;
+}
+
+.loc-toast{
+  width:100% !important;
+  min-width:0 !important;
+  max-width:100% !important;
+  border:1px solid var(--ne-line) !important;
+  border-radius:18px !important;
+  box-shadow:var(--ne-shadow) !important;
+  background:#fff !important;
+  color:var(--ne-ink) !important;
+  padding:14px 16px !important;
+  font-weight:850 !important;
+}
+
+.loc-toast .dot{
+  width:10px !important;
+  height:10px !important;
+  border:0 !important;
+  margin-top:5px !important;
+  box-shadow:0 0 0 5px rgba(0,168,89,.10) !important;
+}
+
+.loc-toast.success{ background:linear-gradient(135deg,#F4FFF8,#FFFFFF) !important; border-color:rgba(0,168,89,.22) !important; }
+.loc-toast.error{ background:linear-gradient(135deg,#FFF5F5,#FFFFFF) !important; border-color:rgba(185,28,28,.18) !important; }
+.loc-toast.info{ background:linear-gradient(135deg,#F8FFFB,#FFFFFF) !important; border-color:rgba(0,168,89,.16) !important; }
+
+.customer-alert-panel{
+  border:1px solid var(--ne-line) !important;
+  border-radius:20px !important;
+  background:#fff !important;
+  box-shadow:0 26px 70px rgba(17,64,38,.16) !important;
+  overflow:hidden !important;
+}
+
+.customer-alert-head{
+  background:linear-gradient(135deg,#F4FFF8,#FFFFFF) !important;
+  border-bottom:1px solid var(--ne-line) !important;
+  color:var(--ne-green-dark) !important;
+  font-weight:950 !important;
+}
+
+.customer-alert-item:hover{
+  background:#F4FFF8 !important;
+}
+
+.customer-alert-title{
+  color:var(--ne-ink) !important;
+}
+
+.customer-alert-message,
+.customer-alert-empty{
+  color:var(--ne-muted) !important;
+}
+
+.loc-modal{
+  padding:clamp(12px,3vw,24px) !important;
+  background:rgba(16,37,27,.48) !important;
+  backdrop-filter:blur(12px) saturate(140%) !important;
+  -webkit-backdrop-filter:blur(12px) saturate(140%) !important;
+}
+
+.nef-loc-card{
+  width:min(840px,calc(100vw - 28px)) !important;
+  max-height:calc(100dvh - 28px) !important;
+  border-radius:28px !important;
+  border:1px solid rgba(0,168,89,.18) !important;
+  box-shadow:0 34px 95px rgba(17,64,38,.24) !important;
+}
+
+.nef-loc-card::before{
+  background:linear-gradient(90deg,var(--ne-green),#88E0AE,#BFEED1) !important;
+}
+
+.nef-loc-head{
+  background:
+    radial-gradient(circle at 12% 0%,rgba(0,168,89,.14),transparent 38%),
+    linear-gradient(180deg,#F4FFF8 0%,#FFFFFF 100%) !important;
+}
+
+.nef-loc-kicker,
+.nef-loc-title,
+.nef-loc-info strong,
+#svcStatus{
+  color:var(--ne-green-dark) !important;
+}
+
+.nef-loc-close,
+.nef-loc-btn-soft,
+#navPinInput,
+#navAddrInput{
+  border-color:var(--ne-line) !important;
+}
+
+.nef-loc-btn-primary{
+  background:var(--ne-green) !important;
+  box-shadow:0 14px 30px rgba(0,168,89,.22) !important;
+}
+
+.nef-loc-btn-primary:hover{
+  background:var(--ne-green-dark) !important;
+}
+
+@media(max-width:760px){
+  .flash-wrap,
+  #locToastWrap{
+    left:14px !important;
+    right:14px !important;
+    top:calc(var(--topbar-h,72px) + 12px) !important;
+    width:auto !important;
+  }
+
+  .loc-modal{
+    align-items:end !important;
+    place-items:end center !important;
+    padding:10px !important;
+  }
+
+  .nef-loc-card{
+    width:100% !important;
+    max-height:calc(100dvh - 20px) !important;
+    border-radius:24px 24px 18px 18px !important;
+  }
+
+  .nef-loc-head{
+    padding:22px 16px 15px !important;
+  }
+
+  .nef-loc-body{
+    padding:0 16px 16px !important;
+    max-height:calc(100dvh - 238px) !important;
+  }
+
+  .nef-loc-foot{
+    padding:15px 16px calc(16px + env(safe-area-inset-bottom,0px)) !important;
+  }
+
+  .nef-loc-title{
+    font-size:1.05rem !important;
+  }
+
+  #navPinInput,
+  #navAddrInput{
+    font-size:.95rem !important;
+  }
+}
+</style>
+
+<!-- MENU DIRECT LOGO POPUP RESPONSIVE FINAL PATCH -->
+
+<style>
+/* =========================================================
+   GREEN NAV LOCATION LOGO FINAL ONLY PATCH
+   Scope: navbar color scheme + location popup/theme + navbar logo box only.
+   Existing HTML, routes, IDs, cart, auth, location JS and all functionality untouched.
+   ========================================================= */
+:root{
+  --nav-active:#00A859 !important;
+  --nav-pill:#00A859 !important;
+  --nav-pill-text:#FFFFFF !important;
+  --ok:#00A859 !important;
+  --warn:#008A48 !important;
+  --info:#008A48 !important;
+  --ne-green:#00A859 !important;
+  --ne-green-dark:#008A48 !important;
+  --ne-green-soft:#E9FFF3 !important;
+  --ne-green-pale:#F4FFF8 !important;
+  --ne-line:#DCEFE5 !important;
+  --ne-ink:#10251B !important;
+  --ne-muted:#66756D !important;
+}
+
+/* Navbar green website theme */
+.header-strip{
+  background:#FFFFFF !important;
+  border-bottom:1px solid rgba(0,168,89,.12) !important;
+  box-shadow:0 8px 28px rgba(17,64,38,.075) !important;
+}
+
+.header-strip .nav-links a,
+.header-strip .auth-links a{
+  color:#23332A !important;
+}
+
+.header-strip .nav-links a:hover,
+.header-strip .auth-links a:hover,
+.header-strip .nav-links a.active{
+  color:#00A859 !important;
+}
+
+.header-strip .nav-links a.active::after{
+  background:#00A859 !important;
+  box-shadow:0 7px 16px rgba(0,168,89,.22) !important;
+}
+
+.header-strip .nav-search{
+  background:#F7FFFB !important;
+  border:1px solid #DCEFE5 !important;
+  box-shadow:0 10px 24px rgba(17,64,38,.06) !important;
+}
+
+.header-strip .nav-search:focus-within{
+  border-color:rgba(0,168,89,.45) !important;
+  box-shadow:0 12px 30px rgba(17,64,38,.08),0 0 0 4px rgba(0,168,89,.10) !important;
+}
+
+.header-strip .nav-search button,
+.header-strip .loc-chip,
+.header-strip .cart-badge,
+.header-strip .customer-alert-badge{
+  background:#00A859 !important;
+  border-color:#00A859 !important;
+  color:#FFFFFF !important;
+  box-shadow:0 12px 26px rgba(0,168,89,.18) !important;
+}
+
+.header-strip .nav-search button:hover,
+.header-strip .loc-chip:hover{
+  background:#008A48 !important;
+  border-color:#008A48 !important;
+  box-shadow:0 15px 32px rgba(0,168,89,.24) !important;
+}
+
+.header-strip .nav-complaint-link{
+  color:#008A48 !important;
+  border-color:rgba(0,168,89,.22) !important;
+  background:#FFFFFF !important;
+  box-shadow:0 10px 22px rgba(17,64,38,.06) !important;
+}
+
+.header-strip .nav-complaint-icon{
+  background:rgba(0,168,89,.10) !important;
+}
+
+.header-strip .nav-complaint-link:hover{
+  background:#00A859 !important;
+  color:#FFFFFF !important;
+  border-color:#00A859 !important;
+  box-shadow:0 15px 32px rgba(0,168,89,.20) !important;
+}
+
+.header-strip .icon-btn{
+  border-color:#DCEFE5 !important;
+  background:#FFFFFF !important;
+  box-shadow:0 8px 22px rgba(17,64,38,.055) !important;
+}
+
+.header-strip .icon-btn:hover{
+  border-color:rgba(0,168,89,.28) !important;
+  color:#00A859 !important;
+  box-shadow:0 14px 30px rgba(17,64,38,.10) !important;
+}
+
+.header-strip .hamburger .bar{
+  background:#008A48 !important;
+}
+
+.header-strip .hamburger.active .bar:nth-child(2){
+  filter:drop-shadow(0 6px 10px rgba(0,168,89,.22)) !important;
+}
+
+/* Remove navbar logo box completely */
+.header-strip a.brand,
+.header-strip .brand{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  outline:0 !important;
+  border-radius:0 !important;
+  padding:0 !important;
+}
+
+.header-strip a.brand::before,
+.header-strip a.brand::after,
+.header-strip .brand::before,
+.header-strip .brand::after{
+  display:none !important;
+  content:none !important;
+}
+
+.header-strip .brand img.brand-logo{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  outline:0 !important;
+  border-radius:0 !important;
+  padding:0 !important;
+  filter:none !important;
+}
+
+/* Mobile location strip green theme */
+.loc-strip{
+  border-bottom:1px solid rgba(0,168,89,.12) !important;
+  background:#FFFFFF !important;
+}
+
+.loc-strip .loc-chip{
+  background:#00A859 !important;
+  color:#FFFFFF !important;
+  box-shadow:0 12px 26px rgba(0,168,89,.18) !important;
+}
+
+.loc-strip .loc-badge{
+  background:rgba(255,255,255,.18) !important;
+  border-color:rgba(255,255,255,.30) !important;
+  color:#FFFFFF !important;
+}
+
+.loc-toggle,
+.loc-panel .btn-small{
+  border-color:#DCEFE5 !important;
+  background:#FFFFFF !important;
+  color:#008A48 !important;
+  box-shadow:0 8px 18px rgba(17,64,38,.06) !important;
+}
+
+.loc-toggle:hover,
+.loc-panel .btn-small:hover{
+  background:#E9FFF3 !important;
+  border-color:rgba(0,168,89,.26) !important;
+}
+
+.loc-panel{
+  border-color:#DCEFE5 !important;
+  background:linear-gradient(180deg,#FFFFFF 0%,#F7FFFB 100%) !important;
+  box-shadow:0 14px 34px rgba(17,64,38,.08) !important;
+}
+
+.loc-pinrow{
+  color:#008A48 !important;
+}
+
+/* Location popup fully matched to green website theme */
+.loc-modal{
+  background:rgba(16,37,27,.46) !important;
+  backdrop-filter:blur(14px) saturate(145%) !important;
+  -webkit-backdrop-filter:blur(14px) saturate(145%) !important;
+}
+
+.nef-loc-card{
+  --loc-green:#00A859 !important;
+  --loc-green-dark:#008A48 !important;
+  --loc-ink:#10251B !important;
+  --loc-text:#2D3B34 !important;
+  --loc-muted:#66756D !important;
+  --loc-line:#DCEFE5 !important;
+  --loc-soft:#E9FFF3 !important;
+  border:1px solid rgba(0,168,89,.20) !important;
+  background:#FFFFFF !important;
+  box-shadow:0 34px 95px rgba(17,64,38,.24) !important;
+}
+
+.nef-loc-card::before{
+  background:linear-gradient(90deg,#00A859 0%,#7EDFAE 52%,#DDFBE9 100%) !important;
+}
+
+.nef-loc-head{
+  background:
+    radial-gradient(circle at 12% 0%,rgba(0,168,89,.16),transparent 38%),
+    linear-gradient(180deg,#F4FFF8 0%,#FFFFFF 100%) !important;
+  border-bottom:1px solid rgba(0,168,89,.08) !important;
+}
+
+.nef-loc-kicker{
+  background:#FFFFFF !important;
+  color:#008A48 !important;
+  border-color:rgba(0,168,89,.18) !important;
+  box-shadow:0 10px 24px rgba(17,64,38,.06) !important;
+}
+
+.nef-loc-kicker::before{
+  background:#00A859 !important;
+  box-shadow:0 0 0 5px rgba(0,168,89,.12) !important;
+}
+
+.nef-loc-title,
+.nef-loc-info strong,
+.nef-loc-label,
+#svcStatus{
+  color:#008A48 !important;
+}
+
+.nef-loc-info{
+  background:linear-gradient(105deg,#E9FFF3 0%,#FFFFFF 100%) !important;
+  border-color:#DCEFE5 !important;
+  box-shadow:0 16px 34px rgba(17,64,38,.06) !important;
+}
+
+.nef-loc-info-icon,
+.nef-loc-close{
+  background:#FFFFFF !important;
+  border-color:#DCEFE5 !important;
+  box-shadow:0 10px 24px rgba(17,64,38,.08) !important;
+}
+
+.nef-loc-input-icon{
+  color:#00A859 !important;
+}
+
+#navPinInput,
+#navAddrInput{
+  background:#F7FFFB !important;
+  border-color:#DCEFE5 !important;
+  color:#10251B !important;
+}
+
+#navPinInput:hover,
+#navAddrInput:hover,
+#navPinInput:focus,
+#navAddrInput:focus{
+  background:#FFFFFF !important;
+  border-color:#00A859 !important;
+  box-shadow:0 0 0 4px rgba(0,168,89,.11),0 12px 24px rgba(17,64,38,.06) !important;
+}
+
+.nef-loc-btn-primary{
+  background:#00A859 !important;
+  color:#FFFFFF !important;
+  box-shadow:0 14px 30px rgba(0,168,89,.22) !important;
+}
+
+.nef-loc-btn-primary:hover{
+  background:#008A48 !important;
+}
+
+.nef-loc-btn-soft{
+  background:#F7FFFB !important;
+  color:#008A48 !important;
+  border:1px solid #DCEFE5 !important;
+}
+
+.nef-loc-btn-soft:hover{
+  background:#E9FFF3 !important;
+  border-color:rgba(0,168,89,.28) !important;
+}
+
+/* Location toasts green theme */
+.loc-toast.success,
+.loc-toast.info{
+  background:linear-gradient(135deg,#F4FFF8,#FFFFFF) !important;
+  border-color:rgba(0,168,89,.22) !important;
+  color:#10251B !important;
+}
+
+.loc-toast.success .dot,
+.loc-toast.info .dot{
+  background:#00A859 !important;
+  box-shadow:0 0 0 5px rgba(0,168,89,.10) !important;
+}
+
+@media(max-width:900px){
+  .mobile-menu-page{
+    background:
+      radial-gradient(820px 520px at 0% 0%, rgba(0,168,89,.14), transparent 55%),
+      radial-gradient(780px 520px at 100% 110%, rgba(0,168,89,.12), transparent 56%),
+      linear-gradient(180deg,#F4FFF8 0%,#FFFFFF 55%,#E9FFF3 100%) !important;
+  }
+
+  .mm-top,
+  .mm-bottom{
+    border-color:rgba(0,168,89,.13) !important;
+    background:rgba(255,255,255,.94) !important;
+  }
+
+ .mm-searchbar,
+.mm-close,
+.mm-smalllink{
+  border-color:rgba(0,168,89,.16) !important;
+  background:#FFFFFF !important;
+  box-shadow:0 10px 22px rgba(17,64,38,.06) !important;
+}
+
+.mobile-menu-page .mm-top .mm-brand{
+  border:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+  .mm-searchbtn{
+    background:rgba(0,168,89,.10) !important;
+    border-color:rgba(0,168,89,.24) !important;
+    color:#008A48 !important;
+  }
+
+  .mm-biglink:hover,
+  .mm-smalllink:hover{
+    background:#F4FFF8 !important;
+    border-color:rgba(0,168,89,.18) !important;
+  }
+}
+</style>
+
+<!-- GREEN NAV LOCATION LOGO FINAL ONLY PATCH -->
 </head>
 
 <body
@@ -3041,21 +3927,13 @@ body.cc-menu-open footer.nf-footer {
 <!-- ✅ MOBILE MENU AS A FULL PAGE (REFERENCE STYLE) -->
 <section id="mobileMenuPage" class="mobile-menu-page" hidden aria-label="Mobile navigation">
   <div class="mm-page">
-  <!-- ✅ Menu loader overlay -->
-  <div class="mm-loader" id="mmLoader" aria-hidden="true">
-    <div class="mm-loader-card">
-      <div class="mm-loader-dot"></div>
-      <div class="mm-loader-text">Welcome in, Good to have you here </div>
-     
-    </div>
-  </div>
-
     <!-- Top strip (reference: small bar with icon + search + close) -->
     <div class="mm-top">
   <a class="mm-brand" href="{{ url_for('index') }}" aria-label="Go to Home">
   <img
-    src="{{ url_for('static', filename='nrefresh.png') }}"
-    alt="NE-Fresh Logo"
+    src="{{ url_for('static', filename='nelocal.png') }}"
+    onerror="this.onerror=null;this.src='{{ url_for('static', filename='logo.png') }}';"
+    alt="NE-Locals Logo"
     class="mm-brand-logo"
   >
 </a>
@@ -3230,7 +4108,6 @@ body.cc-menu-open footer.nf-footer {
               alt="NE-Locals Logo"
               class="nf-brand-logo"
             >
-            <h3 class="nf-brand-name">NE-Locals</h3>
           </div>
 
           <p class="nf-news-text">
@@ -3551,7 +4428,7 @@ body.cc-menu-open footer.nf-footer {
 
 
  <script>
-/* ===================== MOBILE MENU: LOADER FIRST, THEN REVEAL ANIMS ===================== */
+/* ===================== MOBILE MENU: DIRECT OPEN - NO INTRO ===================== */
 (function(){
   const hamburger = document.getElementById('hamburger');
   const menuPage  = document.getElementById('mobileMenuPage');
@@ -3561,58 +4438,32 @@ body.cc-menu-open footer.nf-footer {
   if(!hamburger || !menuPage) return;
 
   let isOpen = false;
-  let lock = false;
-
-  // ✅ tune this: longer so user can read, but not laggy
-  const LOADER_MS = 1100;
 
   function resetMenuScroll(){
     if(mmCenter) mmCenter.scrollTop = 0;
   }
 
-  function startRevealAnimations(){
-    // ✅ reveal animations start ONLY after loader ends
-    menuPage.classList.remove('is-open');
-    void menuPage.offsetHeight; // reflow
-    requestAnimationFrame(() => menuPage.classList.add('is-open'));
-  }
-
   function openMenu(){
-    if(lock) return;
-    lock = true;
+    if(isOpen) return;
     isOpen = true;
 
-    // show page immediately
     menuPage.hidden = false;
+    menuPage.classList.remove('is-loading');
+    menuPage.classList.add('is-open');
 
-    // lock page + button state
     document.body.classList.add('cc-menu-open');
     hamburger.classList.add('active');
     hamburger.setAttribute('aria-expanded','true');
 
-    // reset scroll
     resetMenuScroll();
 
-    // ✅ show loader first, hide reveal until after loader
-    menuPage.classList.add('is-loading');
-    menuPage.classList.remove('is-open');
-
-    // after loader ends -> hide loader -> start text reveal
-    setTimeout(() => {
-      menuPage.classList.remove('is-loading');
-      startRevealAnimations();
-
-      // focus shortly after reveal begins (feels snappy)
-      setTimeout(() => {
-        menuPage.querySelector('input')?.focus();
-        lock = false;
-      }, 120);
-    }, LOADER_MS);
+    window.setTimeout(function(){
+      menuPage.querySelector('input')?.focus();
+    }, 30);
   }
 
   function closeMenu(){
-    if(lock) return;
-    lock = true;
+    if(!isOpen) return;
     isOpen = false;
 
     hamburger.classList.remove('active');
@@ -3622,11 +4473,10 @@ body.cc-menu-open footer.nf-footer {
     menuPage.classList.remove('is-loading');
     document.body.classList.remove('cc-menu-open');
 
-    setTimeout(() => {
+    window.setTimeout(function(){
       menuPage.hidden = true;
       hamburger.focus();
-      lock = false;
-    }, 220);
+    }, 120);
   }
 
   function toggle(){
@@ -3634,7 +4484,6 @@ body.cc-menu-open footer.nf-footer {
     else openMenu();
   }
 
-  // Capture phase: beat any existing listeners in app.js
   hamburger.addEventListener('click', function(e){
     e.preventDefault();
     e.stopPropagation();
@@ -3648,15 +4497,17 @@ body.cc-menu-open footer.nf-footer {
     closeMenu();
   }, true);
 
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener('keydown', function(e){
     if(e.key === 'Escape' && isOpen) closeMenu();
   });
 
-  menuPage.querySelectorAll('a').forEach(a => {
-    a.addEventListener('click', () => closeMenu(), true);
+  menuPage.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click', function(){
+      if(isOpen) closeMenu();
+    }, true);
   });
 
-  // ------- India time (IST) -------
+  // India time (IST)
   const inEl = document.getElementById('mmTimeIN');
   function fmtIndiaTime(){
     try{
@@ -3667,7 +4518,8 @@ body.cc-menu-open footer.nf-footer {
     }catch(_){ return '--:--'; }
   }
   function tickIndia(){ if(inEl) inEl.textContent = fmtIndiaTime(); }
-  tickIndia(); setInterval(tickIndia, 1000);
+  tickIndia();
+  setInterval(tickIndia, 1000);
 })();
 </script>
 
@@ -3727,6 +4579,9 @@ if (sessionStorage.getItem(k) === 'pending'){
     const pinInput = document.getElementById('navPinInput');
     const addrInput = document.getElementById('navAddrInput');
     const svcStatus = document.getElementById('svcStatus');
+    let lastResolvedPin = "";
+let pincodeResolveTimer = null;
+let latestPincodeResolveToken = 0;
     let lastResolvedPinLocation = null;
 let pinResolveTimer = null;
 
@@ -3820,22 +4675,26 @@ let pinResolveTimer = null;
     }
 
     function loadFromStorage(){
-      const pin = localStorage.getItem('cc_pin');
-      const addr = localStorage.getItem('cc_addr');
-      const lat = localStorage.getItem('cc_lat');
-      const lng = localStorage.getItem('cc_lng');
-      const city = localStorage.getItem('cc_city');
-      const state = localStorage.getItem('cc_state');
+  const pin = localStorage.getItem('cc_pin');
+  const addr = localStorage.getItem('cc_addr');
+  const lat = localStorage.getItem('cc_lat');
+  const lng = localStorage.getItem('cc_lng');
+  const city = localStorage.getItem('cc_city');
+  const state = localStorage.getItem('cc_state');
 
-      return {
-        pin,
-        addr,
-        lat: lat ? parseFloat(lat) : null,
-        lng: lng ? parseFloat(lng) : null,
-        city: city || '',
-        state: state || ''
-      };
-    }
+  return {
+    pin,
+    addr,
+    lat: lat ? parseFloat(lat) : null,
+    lng: lng ? parseFloat(lng) : null,
+    city: city || '',
+    state: state || '',
+    productsServiceable: localStorage.getItem('cc_products_serviceable'),
+    serviceableProducts: localStorage.getItem('cc_serviceable_products') || '',
+    serviceableStores: localStorage.getItem('cc_serviceable_stores') || '',
+    serviceabilityMessage: localStorage.getItem('cc_serviceability_message') || ''
+  };
+}
 
     function saveToStorage(pin, addr, lat, lng, city = '', state = ''){
       if (pin !== undefined && pin !== null) {
@@ -3865,6 +4724,46 @@ let pinResolveTimer = null;
       toggleNavWidth();
     }
 
+function saveLocationServiceability(data){
+  const ps = data && data.product_serviceability ? data.product_serviceability : null;
+
+  if (!ps) {
+    localStorage.removeItem('cc_products_serviceable');
+    localStorage.removeItem('cc_serviceable_products');
+    localStorage.removeItem('cc_serviceable_stores');
+    localStorage.removeItem('cc_serviceability_message');
+    return;
+  }
+
+  localStorage.setItem('cc_products_serviceable', ps.serviceable ? '1' : '0');
+  localStorage.setItem('cc_serviceable_products', String(ps.serviceable_product_count || 0));
+  localStorage.setItem('cc_serviceable_stores', String(ps.serviceable_store_count || 0));
+  localStorage.setItem('cc_serviceability_message', ps.message || data.message || '');
+}
+
+function getLocationServiceabilityToast(data, fallbackMessage){
+  const ps = data && data.product_serviceability ? data.product_serviceability : null;
+
+  if (!ps) {
+    return {
+      message: fallbackMessage || "Location saved.",
+      type: "info"
+    };
+  }
+
+  if (ps.serviceable) {
+    return {
+      message: ps.message || "Products are available at your location.",
+      type: "success"
+    };
+  }
+
+  return {
+    message: ps.message || "Sorry, products are not serviceable at this location yet.",
+    type: "error"
+  };
+}
+
     function clearStorage(){
       localStorage.removeItem('cc_pin');
       localStorage.removeItem('cc_addr');
@@ -3872,6 +4771,10 @@ let pinResolveTimer = null;
       localStorage.removeItem('cc_lng');
       localStorage.removeItem('cc_city');
       localStorage.removeItem('cc_state');
+      localStorage.removeItem('cc_products_serviceable');
+localStorage.removeItem('cc_serviceable_products');
+localStorage.removeItem('cc_serviceable_stores');
+localStorage.removeItem('cc_serviceability_message');
       toggleNavWidth();
     }
 
@@ -3923,26 +4826,33 @@ let pinResolveTimer = null;
 }
 
     async function pushToBackend(pin, addr, lat, lng, city = '', state = '', source = 'navbar'){
-      try{
-        const res = await fetch('{{ url_for("api_location_set") }}', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            address: addr || '',
-            pincode: safeNormalizePin(pin || ''),
-            lat,
-            lng,
-            city,
-            state,
-            source
-          })
-        });
+  try{
+    const res = await fetch('{{ url_for("api_location_set") }}', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        address: addr || '',
+        pincode: safeNormalizePin(pin || ''),
+        lat,
+        lng,
+        city,
+        state,
+        source
+      })
+    });
 
-        return await res.json();
-      }catch(e){
-        return null;
-      }
+    const data = await res.json().catch(() => null);
+
+    if (data && data.ok) {
+      saveLocationServiceability(data);
+      renderAll();
     }
+
+    return data;
+  }catch(e){
+    return null;
+  }
+}
 
     function clearBackend(){
       fetch('{{ url_for("api_location_clear") }}', {
@@ -3959,24 +4869,36 @@ let pinResolveTimer = null;
           ? (addr.length > 40 ? addr.slice(0, 37) + '…' : addr)
           : 'Set your delivery location';
 
-        if (navBadge){
-          if (p){
-            navBadge.hidden = false;
+       if (navBadge){
+  if (p){
+    navBadge.hidden = false;
 
-            if (isPinAllowed(p)){
-  navBadge.textContent = 'Location set';
-  navBadge.classList.remove('no');
-  navBadge.classList.add('ok');
-} else {
-  navBadge.textContent = 'Invalid pin';
-  navBadge.classList.remove('ok');
-  navBadge.classList.add('no');
+    if (isPinAllowed(p)){
+      const serviceableFlag = localStorage.getItem('cc_products_serviceable');
+
+      if (serviceableFlag === '1') {
+        navBadge.textContent = 'Serviceable';
+        navBadge.classList.remove('no');
+        navBadge.classList.add('ok');
+      } else if (serviceableFlag === '0') {
+        navBadge.textContent = 'Not available';
+        navBadge.classList.remove('ok');
+        navBadge.classList.add('no');
+      } else {
+        navBadge.textContent = 'Location set';
+        navBadge.classList.remove('no');
+        navBadge.classList.add('ok');
+      }
+    } else {
+      navBadge.textContent = 'Invalid pin';
+      navBadge.classList.remove('ok');
+      navBadge.classList.add('no');
+    }
+  } else {
+    navBadge.hidden = true;
+    navBadge.classList.remove('ok','no');
+  }
 }
-          } else {
-            navBadge.hidden = true;
-            navBadge.classList.remove('ok','no');
-          }
-        }
       }
 
       if (stripAddr) {
@@ -3990,23 +4912,35 @@ let pinResolveTimer = null;
       }
 
       if (stripBadge){
-        if (p){
-          stripBadge.hidden = false;
+  if (p){
+    stripBadge.hidden = false;
 
-          if (isPinAllowed(p)){
-  stripBadge.textContent = 'Location set';
-  stripBadge.classList.remove('no');
-  stripBadge.classList.add('ok');
-} else {
-  stripBadge.textContent = 'Invalid pin';
-  stripBadge.classList.remove('ok');
-  stripBadge.classList.add('no');
-}
-        } else {
-          stripBadge.hidden = true;
-          stripBadge.classList.remove('ok','no');
-        }
+    if (isPinAllowed(p)){
+      const serviceableFlag = localStorage.getItem('cc_products_serviceable');
+
+      if (serviceableFlag === '1') {
+        stripBadge.textContent = 'Serviceable';
+        stripBadge.classList.remove('no');
+        stripBadge.classList.add('ok');
+      } else if (serviceableFlag === '0') {
+        stripBadge.textContent = 'Not available';
+        stripBadge.classList.remove('ok');
+        stripBadge.classList.add('no');
+      } else {
+        stripBadge.textContent = 'Location set';
+        stripBadge.classList.remove('no');
+        stripBadge.classList.add('ok');
       }
+    } else {
+      stripBadge.textContent = 'Invalid pin';
+      stripBadge.classList.remove('ok');
+      stripBadge.classList.add('no');
+    }
+  } else {
+    stripBadge.hidden = true;
+    stripBadge.classList.remove('ok','no');
+  }
+}
 
       toggleNavWidth();
     }
@@ -4037,26 +4971,59 @@ let pinResolveTimer = null;
 async function previewPincodeResolve(pin){
   if (!svcStatus) return;
 
-  const p = safeNormalizePin(pin);
+  const cleanPin = safeNormalizePin(pin || "");
 
-  lastResolvedPinLocation = null;
-
-  if (!/^\d{6}$/.test(p)) {
-    renderStatus(p);
+  if (!cleanPin || cleanPin.length !== 6) {
     return;
   }
 
-  svcStatus.textContent = 'Resolving pincode...';
-  svcStatus.classList.remove('no');
-  svcStatus.classList.add('ok');
+  const resolveToken = ++latestPincodeResolveToken;
+
+  if (svcStatus) {
+    svcStatus.textContent = 'Resolving pincode...';
+    svcStatus.classList.remove('no');
+    svcStatus.classList.add('ok');
+  }
 
   try {
-    const data = await resolvePincodeByBackend(p);
+    const res = await fetch('{{ url_for("api_location_pincode_resolve") }}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        pincode: cleanPin
+      })
+    });
 
-    lastResolvedPinLocation = data;
+    const data = await res.json().catch(() => ({}));
 
-    if (addrInput && data.address && !addrInput.value.trim()) {
-      addrInput.value = data.address;
+    if (resolveToken !== latestPincodeResolveToken) {
+      return;
+    }
+
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || 'Could not resolve this pincode.');
+    }
+
+    lastResolvedPin = cleanPin;
+
+    if (pinInput) {
+      pinInput.value = data.pincode || cleanPin;
+    }
+
+    /*
+      IMPORTANT:
+      This is what makes the NEW address reflect immediately
+      after entering the new 6-digit pincode, before saving.
+    */
+    if (addrInput) {
+      addrInput.value = data.address || '';
+      addrInput.dataset.resolvedPin = cleanPin;
+      addrInput.dataset.lat = data.lat || '';
+      addrInput.dataset.lng = data.lng || '';
+      addrInput.dataset.city = data.city || '';
+      addrInput.dataset.state = data.state || '';
     }
 
     if (!data.assam) {
@@ -4066,10 +5033,34 @@ async function previewPincodeResolve(pin){
       return;
     }
 
-    svcStatus.textContent = 'Location resolved. Store-wise delivery will be checked at checkout.';
-    svcStatus.classList.remove('no');
-    svcStatus.classList.add('ok');
+    if (data.product_serviceability && data.product_serviceability.serviceable) {
+      svcStatus.textContent = data.product_serviceability.message || 'Products are available at this location.';
+      svcStatus.classList.remove('no');
+      svcStatus.classList.add('ok');
+    } else if (data.product_serviceability) {
+      svcStatus.textContent = data.product_serviceability.message || 'Products are not serviceable at this location yet.';
+      svcStatus.classList.remove('ok');
+      svcStatus.classList.add('no');
+    } else {
+      svcStatus.textContent = 'Location resolved. Save location to check product availability.';
+      svcStatus.classList.remove('no');
+      svcStatus.classList.add('ok');
+    }
+
   } catch (e) {
+    if (resolveToken !== latestPincodeResolveToken) {
+      return;
+    }
+
+    if (addrInput) {
+      addrInput.value = '';
+      addrInput.dataset.resolvedPin = '';
+      addrInput.dataset.lat = '';
+      addrInput.dataset.lng = '';
+      addrInput.dataset.city = '';
+      addrInput.dataset.state = '';
+    }
+
     svcStatus.textContent = e.message || 'Could not resolve this pincode.';
     svcStatus.classList.remove('ok');
     svcStatus.classList.add('no');
@@ -4161,23 +5152,25 @@ async function previewPincodeResolve(pin){
             saveToStorage(pin || '', addr || '', latitude, longitude, city, state);
             renderAll();
 
-            await pushToBackend(
-              pin || '',
-              addr || '',
-              latitude,
-              longitude,
-              city,
-              state,
-              'navbar-gps'
-            );
+           const pushed = await pushToBackend(
+  pin || '',
+  addr || '',
+  latitude,
+  longitude,
+  city,
+  state,
+  'navbar-gps'
+);
 
-            sessionStorage.setItem(
-              'loc_pending_toast',
-              JSON.stringify({
-message: "Location detected and saved. Store-wise delivery will be checked at checkout.",
-                type: "success"
-              })
-            );
+const toast = getLocationServiceabilityToast(
+  pushed,
+  "Location detected and saved."
+);
+
+sessionStorage.setItem(
+  'loc_pending_toast',
+  JSON.stringify(toast)
+);
 
             refreshSiteAfterLocationChange();
             return;
@@ -4199,23 +5192,25 @@ message: "Location detected and saved. Store-wise delivery will be checked at ch
         saveToStorage(ip.pin || '', ip.addr || '', ip.lat, ip.lng, ip.city, ip.state);
         renderAll();
 
-        await pushToBackend(
-          ip.pin || '',
-          ip.addr || '',
-          ip.lat,
-          ip.lng,
-          ip.city,
-          ip.state,
-          'ip-fallback'
-        );
+       const pushed = await pushToBackend(
+  ip.pin || '',
+  ip.addr || '',
+  ip.lat,
+  ip.lng,
+  ip.city,
+  ip.state,
+  'ip-fallback'
+);
 
-        sessionStorage.setItem(
-          'loc_pending_toast',
-          JSON.stringify({
-           message: "Approximate location saved. Store-wise delivery will be checked at checkout.",
-            type: "info"
-          })
-        );
+const toast = getLocationServiceabilityToast(
+  pushed,
+  "Approximate location saved."
+);
+
+sessionStorage.setItem(
+  'loc_pending_toast',
+  JSON.stringify(toast)
+);
 
         refreshSiteAfterLocationChange();
       } else if(openModalOnFail){
@@ -4226,6 +5221,26 @@ message: "Location detected and saved. Store-wise delivery will be checked at ch
     async function saveAndClose(){
   const pin = safeNormalizePin(pinInput ? pinInput.value : '');
   let addr = (addrInput ? addrInput.value : '').trim();
+
+  const resolvedPin = addrInput?.dataset.resolvedPin || '';
+
+if (pin && resolvedPin && pin !== resolvedPin) {
+  addr = '';
+
+  if (addrInput) {
+    addrInput.value = '';
+    addrInput.dataset.resolvedPin = '';
+    addrInput.dataset.lat = '';
+    addrInput.dataset.lng = '';
+    addrInput.dataset.city = '';
+    addrInput.dataset.state = '';
+  }
+}
+
+if (pin && !addr) {
+  await previewPincodeResolve(pin);
+  addr = (addrInput ? addrInput.value : '').trim();
+}
 
   if (!pin && !addr){
     alert('Please provide at least a pincode or an address.');
@@ -4296,29 +5311,31 @@ message: "Location detected and saved. Store-wise delivery will be checked at ch
   }
 
   saveToStorage(pin, addr, lat, lng, city, state);
-  renderAll();
+renderAll();
 
-  await pushToBackend(
-    pin,
-    addr,
-    lat,
-    lng,
-    city,
-    state,
-    'navbar-manual'
-  );
+const pushed = await pushToBackend(
+  pin,
+  addr,
+  lat,
+  lng,
+  city,
+  state,
+  'navbar-manual'
+);
 
-  sessionStorage.setItem(
-    'loc_pending_toast',
-    JSON.stringify({
-      message: "Location saved. Final delivery availability will be checked at checkout.",
-      type: "success"
-    })
-  );
+const toast = getLocationServiceabilityToast(
+  pushed,
+  "Location saved."
+);
 
-  closeModal();
-  refreshSiteAfterLocationChange();
-}
+sessionStorage.setItem(
+  'loc_pending_toast',
+  JSON.stringify(toast)
+);
+
+closeModal();
+refreshSiteAfterLocationChange();
+    }
 
     navChip?.addEventListener('click', openModal);
     stripChip?.addEventListener('click', openModal);
@@ -4399,16 +5416,59 @@ message: "Location detected and saved. Store-wise delivery will be checked at ch
     pinInput.value = pin;
   }
 
-  renderStatus(pin);
-
   if (pinResolveTimer) {
     clearTimeout(pinResolveTimer);
   }
 
+  /*
+    When user starts typing a different pincode,
+    clear old address immediately.
+  */
+  if (addrInput && pin !== lastResolvedPin) {
+    addrInput.value = '';
+    addrInput.dataset.resolvedPin = '';
+    addrInput.dataset.lat = '';
+    addrInput.dataset.lng = '';
+    addrInput.dataset.city = '';
+    addrInput.dataset.state = '';
+  }
+
+  if (!pin) {
+    latestPincodeResolveToken++;
+
+    if (svcStatus) {
+      svcStatus.textContent = '';
+      svcStatus.classList.remove('ok','no');
+    }
+
+    return;
+  }
+
+  if (pin.length < 6) {
+    latestPincodeResolveToken++;
+
+    if (svcStatus) {
+      svcStatus.textContent = 'Enter 6-digit pincode.';
+      svcStatus.classList.remove('ok');
+      svcStatus.classList.add('no');
+    }
+
+    return;
+  }
+
+  /*
+    Immediate fetch:
+    As soon as the new pincode becomes 6 digits,
+    fetch and reflect new address instantly, before Save.
+  */
   if (/^\d{6}$/.test(pin)) {
-    pinResolveTimer = setTimeout(() => {
-      previewPincodeResolve(pin);
-    }, 450);
+    if (svcStatus) {
+      svcStatus.textContent = 'Resolving pincode...';
+      svcStatus.classList.remove('no');
+      svcStatus.classList.add('ok');
+    }
+
+    previewPincodeResolve(pin);
   }
 });
 
