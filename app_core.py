@@ -9,6 +9,7 @@ from random import randint
 import csv, zipfile, json
 from datetime import date,datetime
 import time
+import html
 from flask import Flask, render_template, request,Response, redirect, url_for, session, flash, jsonify, send_file, abort
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -5689,38 +5690,221 @@ def _sync_store_order_notifications(store):
 
 # ----------------EMAIL SETUP---------
 def send_email(to_email, subject, body):
-
-    smtp_host = os.getenv("SMTP_HOST")
+    smtp_host = (os.getenv("SMTP_HOST") or "").strip()
     smtp_port = int(os.getenv("SMTP_PORT", 587))
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_password = os.getenv("SMTP_PASSWORD")
-    smtp_from = os.getenv("SMTP_FROM")
+    smtp_user = (os.getenv("SMTP_USER") or "").strip()
+    smtp_password = (os.getenv("SMTP_PASSWORD") or "").strip()
+    smtp_from = (os.getenv("SMTP_FROM") or "").strip()
+    smtp_from_name = (os.getenv("SMTP_FROM_NAME") or "NELOCALS").strip()
 
-    msg = MIMEMultipart()
+    to_email = (to_email or "").strip()
+    subject = (subject or "").strip()
+    body = body or ""
 
-    msg["From"] = smtp_from
+    if not smtp_host:
+        raise RuntimeError("SMTP_HOST is missing in .env")
+
+    if not smtp_user:
+        raise RuntimeError("SMTP_USER is missing in .env")
+
+    if not smtp_password:
+        raise RuntimeError("SMTP_PASSWORD is missing in .env")
+
+    if not smtp_from:
+        raise RuntimeError("SMTP_FROM is missing in .env")
+
+    if not to_email:
+        raise RuntimeError("Recipient email is missing.")
+
+    msg = MIMEMultipart("alternative")
+    msg["From"] = f"{smtp_from_name} <{smtp_from}>"
     msg["To"] = to_email
     msg["Subject"] = subject
+    msg["Reply-To"] = smtp_from
 
-    msg.attach(
-        MIMEText(body, "html")
+    msg.attach(MIMEText(body, "html", "utf-8"))
+
+    server = None
+
+    try:
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(smtp_user, smtp_password)
+
+        failed_recipients = server.sendmail(
+            smtp_from,
+            [to_email],
+            msg.as_string()
+        )
+
+        if failed_recipients:
+            raise RuntimeError(f"SMTP rejected recipient(s): {failed_recipients}")
+
+        print(f"[EMAIL SENT] to={to_email} subject={subject}")
+
+        return {
+            "ok": True,
+            "to": to_email,
+            "subject": subject,
+            "error": ""
+        }
+
+    except Exception as exc:
+        print(f"[EMAIL ERROR] to={to_email} subject={subject} error={exc}")
+        raise
+
+    finally:
+        try:
+            if server:
+                server.quit()
+        except Exception:
+            pass
+
+
+CONTACT_AUTO_REPLY_SETTINGS_KEY = "contact_auto_reply_settings"
+
+
+def _default_contact_auto_reply_subject():
+    return "We received your message - NELOCALS"
+
+
+def _default_contact_auto_reply_body():
+    return (
+        "Dear {name},\n\n"
+        "Thank you for contacting NELOCALS.\n\n"
+        "We have received your message regarding: {subject}.\n\n"
+        "Our admin/contact team will review your message and contact you as soon as possible.\n\n"
+        "Thank you,\n"
+        "NELOCALS Admin Team"
     )
 
-    server = smtplib.SMTP(
-        smtp_host,
-        smtp_port
-    )
 
-    server.starttls()
+def get_contact_auto_reply_settings():
+    settings = mongo.platform_settings.find_one({
+        "key": CONTACT_AUTO_REPLY_SETTINGS_KEY
+    }) or {}
 
-    server.login(
-        smtp_user,
-        smtp_password
-    )
+    return {
+        # Latest requirement:
+        # automatic acknowledgement must be sent directly whenever user submits a query.
+        "enabled": True,
+        "subject": settings.get("subject") or _default_contact_auto_reply_subject(),
+        "body": settings.get("body") or _default_contact_auto_reply_body(),
+        "updated_at": settings.get("updated_at") or "",
+        "updated_by_name": settings.get("updated_by_name") or ""
+    }
 
-    server.send_message(msg)
 
-    server.quit()
+def build_contact_auto_reply_email(contact_doc):
+    contact_doc = contact_doc or {}
+    settings = get_contact_auto_reply_settings()
+
+    name = contact_doc.get("name") or "there"
+    subject_text = contact_doc.get("subject") or "your message"
+    message_text = contact_doc.get("message") or ""
+
+    email_subject = settings.get("subject") or _default_contact_auto_reply_subject()
+
+    raw_body = settings.get("body") or _default_contact_auto_reply_body()
+
+    try:
+        raw_body = raw_body.format(
+            name=name,
+            subject=subject_text,
+            message=message_text
+        )
+    except Exception:
+        # If admin accidentally writes invalid placeholders,
+        # still send the saved text instead of blocking the email.
+        pass
+
+    safe_body = html.escape(raw_body).replace("\n", "<br>")
+
+    email_body = f"""
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1F332A;">
+      <h2 style="color:#00A859;margin-bottom:8px;">NELOCALS</h2>
+
+      <div style="margin:16px 0;padding:14px;border-left:4px solid #00A859;background:#F3FFF8;">
+        {safe_body}
+      </div>
+    </div>
+    """
+
+    return email_subject, email_body
+
+
+def send_contact_auto_reply(contact_doc):
+    contact_doc = contact_doc or {}
+    to_email = (contact_doc.get("email") or "").strip()
+
+    if not to_email:
+        return {
+            "enabled": True,
+            "sent": False,
+            "error": "Missing recipient email.",
+            "subject": "",
+            "body": ""
+        }
+
+    try:
+        subject, body = build_contact_auto_reply_email(contact_doc)
+        send_email(to_email, subject, body)
+
+        return {
+            "enabled": True,
+            "sent": True,
+            "error": "",
+            "subject": subject,
+            "body": body
+        }
+
+    except Exception as exc:
+        return {
+            "enabled": True,
+            "sent": False,
+            "error": str(exc),
+            "subject": "",
+            "body": ""
+        }
+
+
+def send_contact_auto_reply(contact_doc):
+    settings = get_contact_auto_reply_settings()
+
+    if not settings.get("enabled"):
+        return {
+            "enabled": False,
+            "sent": False,
+            "error": ""
+        }
+
+    contact_doc = contact_doc or {}
+    to_email = (contact_doc.get("email") or "").strip()
+
+    if not to_email:
+        return {
+            "enabled": True,
+            "sent": False,
+            "error": "Missing recipient email."
+        }
+
+    try:
+        subject, body = build_contact_auto_reply_email(contact_doc)
+        send_email(to_email, subject, body)
+
+        return {
+            "enabled": True,
+            "sent": True,
+            "error": ""
+        }
+    except Exception as exc:
+        return {
+            "enabled": True,
+            "sent": False,
+            "error": str(exc)
+        }
 
 
 

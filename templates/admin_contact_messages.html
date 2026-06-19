@@ -1,395 +1,604 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
+{% set active_page = "contact_messages" %}
+
+{% block title %}Contact Messages | NE FRESH Admin{% endblock %}
+{% block page_title %}Contact Messages{% endblock %}
+{% block page_subtitle %}Manage contact form messages, call users, email users, and send acknowledgement replies.{% endblock %}
+
 {% block content %}
 
-<section class="admin-contact-page" data-page="admin-contact">
+<section class="nf-contact-admin-page">
   <style>
-    /* ========================================
-       ADMIN CONTACT REQUESTS — STORE DASHBOARD THEME
-       ✅ Keeps ALL existing Jinja/data/loops/forms/routes intact
-       ✅ Design swap only
-       ✅ Web + Mobile/App responsive
-       Scoped to .admin-contact-page
-       ======================================== */
-
-    /* Font imports (page-scoped) */
-    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
-
-    .admin-contact-page{
-      --crimson:#8B0000;
-      --black:#000000;
-      --off-white:#FAF9F6;
-      --light-crimson:#FFF5F5;
-      --border-standard:4px;
-      --transition-speed:.3s;
-
-      width:100vw;
-      margin-left:calc(50% - 50vw);
-      margin-right:calc(50% - 50vw);
-
-      background:var(--off-white);
-      color:var(--black);
-      font-family:'Cormorant Garamond', serif;
-      font-size:1.125rem;
-      font-weight:bold;
-      line-height:1.6;
-      min-height:100vh;
-      overflow-x:hidden;
-      position:relative;
-      isolation:isolate;
-    }
-    .admin-contact-page,
-    .admin-contact-page *{ box-sizing:border-box; }
-
-    /* Page-only reset */
-    .admin-contact-page *{
-      margin:0;
-      padding:0;
-      border-radius:0 !important;
+    .nf-contact-admin-page,
+    .nf-contact-admin-page *{
+      box-sizing:border-box;
+      font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
 
-    .admin-contact-page ::selection{ background:var(--crimson); color:#fff; }
-
-    /* Film grain overlay */
-    .admin-contact-page .grain-overlay{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:1;
-      opacity:.12;
-      background-image:url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
-    }
-
-    /* Top bar */
-    .admin-contact-page .top-bar{
-      position:relative;
-      z-index:2;
+    .nf-contact-admin-page{
       width:100%;
-      padding:1rem 2rem;
+      display:grid;
+      gap:18px;
+    }
+
+    .cm-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .cm-stat{
+      min-height:104px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid #DDECE4;
+      box-shadow:0 12px 28px rgba(17,64,38,.06);
+      padding:18px;
+      display:grid;
+      gap:8px;
+    }
+
+    .cm-stat span{
+      color:#66756D;
+      font-size:.82rem;
+      font-weight:850;
+    }
+
+    .cm-stat strong{
+      color:#1F332A;
+      font-size:2rem;
+      line-height:1;
+      font-weight:950;
+    }
+
+    .cm-card{
+      border-radius:20px;
+      background:#fff;
+      border:1px solid #DDECE4;
+      box-shadow:0 14px 36px rgba(17,64,38,.08);
+      overflow:hidden;
+    }
+
+    .cm-toolbar{
+      padding:16px;
       display:flex;
       justify-content:space-between;
-      align-items:center;
-      border-bottom:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      font-family:'Italiana', serif;
-      font-size:.875rem;
-      letter-spacing:.5em;
-      text-transform:uppercase;
-      font-variant:small-caps;
+      gap:12px;
+      flex-wrap:wrap;
+      border-bottom:1px solid #EAF4EF;
+      background:#F8FFFB;
     }
 
-    /* Hero */
-    .admin-contact-page .hero-section{
-      position:relative;
-      z-index:2;
-      text-align:center;
-      padding:5.25rem 2rem 4.25rem;
-      border-bottom:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-    }
-    .admin-contact-page .hero-title{
-      font-family:'Dancing Script', cursive;
-      font-size:clamp(3rem, 10vw, 6rem);
-      color:var(--crimson);
-      font-style:italic;
-      font-weight:700;
-      margin:0 0 .75rem 0;
-      line-height:1.15;
-      text-transform:uppercase;
-    }
-    .admin-contact-page .hero-subtitle{
-      font-family:'Italiana', serif;
-      font-size:.875rem;
-      letter-spacing:.5em;
-      text-transform:uppercase;
-      font-variant:small-caps;
-      margin-bottom:1.25rem;
-    }
-    .admin-contact-page .hero-divider{
-      width:6rem;
-      height:4px;
-      background:var(--crimson);
-      margin:0 auto;
-    }
-
-    /* Main container */
-    .admin-contact-page .main-container{
-      position:relative;
-      z-index:2;
-      max-width:1400px;
-      margin:0 auto;
-      padding:3rem 2rem;
-    }
-
-    /* Panels */
-    .admin-contact-page .panel{
-      border:var(--border-standard) solid var(--black);
-      padding:2rem;
-      margin-bottom:2.25rem;
-      background:var(--off-white);
-    }
-    .admin-contact-page .panel.soft{ background:var(--light-crimson); }
-
-    .admin-contact-page .section-header{
+    .cm-filter{
       display:flex;
-      align-items:start;
-      gap:1rem;
-      margin-bottom:1.25rem;
-    }
-    .admin-contact-page .icon-box{
-      width:48px;height:48px;
-      background:var(--crimson);
-      border:var(--border-standard) solid var(--black);
-      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
       align-items:center;
-      justify-content:center;
-      flex-shrink:0;
-      color:#fff;
-      font-family:'Italiana', serif;
-      font-weight:700;
-      letter-spacing:.08em;
-    }
-    .admin-contact-page h2{
-      font-family:'Playfair Display', serif;
-      font-size:1.8rem;
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-      margin:0;
-    }
-    .admin-contact-page .muted{ color:rgba(0,0,0,.65); }
-
-    /* Table shell */
-    .admin-contact-page .table-shell{
-      margin-top:1.25rem;
-      overflow-x:auto;
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
     }
 
-    /* Table */
-    .admin-contact-page table.table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:1100px; /* allow horizontal scroll on small screens */
-      background:transparent;
-    }
-    .admin-contact-page table.table thead{
-      background:var(--black);
-      color:#fff;
-    }
-    .admin-contact-page table.table th{
-      padding:1rem;
-      text-align:left;
-      font-family:'Italiana', serif;
-      font-size:.75rem;
-      letter-spacing:.3em;
-      text-transform:uppercase;
-      font-weight:900;
-      border-right:2px solid var(--crimson);
-      white-space:nowrap;
-    }
-    .admin-contact-page table.table th:last-child{ border-right:none; }
-
-    .admin-contact-page table.table td{
-      padding:1rem;
-      font-family:'Cormorant Garamond', serif;
-      font-size:1rem;
-      font-weight:800;
-      vertical-align:top;
-      border-bottom:2px solid var(--black);
+    .cm-filter input{
+      height:42px;
+      border:1px solid #DDECE4;
+      border-radius:14px;
+      padding:0 12px;
+      background:#fff;
+      color:#1F332A;
+      font-size:.9rem;
+      font-weight:750;
+      outline:none;
+      min-width:310px;
     }
 
-    .admin-contact-page tbody tr.data-row:nth-of-type(4n+1) td,
-    .admin-contact-page tbody tr.data-row:nth-of-type(4n+2) td{
-      background:var(--off-white);
-    }
-    .admin-contact-page tbody tr.data-row:nth-of-type(4n+3) td,
-    .admin-contact-page tbody tr.data-row:nth-of-type(4n+4) td{
-      background:var(--light-crimson);
-    }
-
-    /* Message row */
-    .admin-contact-page tbody tr.msg-row td{
-      background:transparent !important;
-      padding:0;
-      border-bottom:var(--border-standard) solid var(--black);
-    }
-    .admin-contact-page .msg-box{
-      border-top:2px solid var(--black);
-      padding:1.25rem 1rem 1.5rem;
-      background:linear-gradient(0deg, rgba(139,0,0,.06), transparent 55%);
-    }
-    .admin-contact-page .msg-title{
-      font-family:'Italiana', serif;
-      font-size:.75rem;
-      letter-spacing:.3em;
-      text-transform:uppercase;
-      font-weight:900;
-      display:block;
-      margin-bottom:.6rem;
-    }
-    .admin-contact-page .msg-text{
-      font-family:'Cormorant Garamond', serif;
-      font-size:1.05rem;
-      font-weight:800;
-      color:rgba(0,0,0,.85);
-      white-space:pre-wrap;
-      overflow-wrap:anywhere;
-      word-break:break-word;
-    }
-
-    /* Status badge (keep your badge classes, restyle here) */
-    .admin-contact-page .badge{
+    .cm-btn{
+      min-height:42px;
+      border:0;
+      border-radius:14px;
+      padding:0 14px;
       display:inline-flex;
       align-items:center;
-      padding:.25rem .75rem;
-      border:2px solid var(--black);
-      font-family:'Italiana', serif;
-      font-size:.625rem;
-      letter-spacing:.2em;
-      text-transform:uppercase;
+      justify-content:center;
+      gap:8px;
+      background:#00A859;
+      color:#fff;
+      font-size:.86rem;
       font-weight:900;
-      background:var(--off-white);
-      color:var(--black);
+      cursor:pointer;
+      text-decoration:none;
+      white-space:nowrap;
     }
-    .admin-contact-page .bg-danger{ background:var(--black); color:#fff; border-color:var(--black); }
-    .admin-contact-page .bg-warning{ background:var(--light-crimson); color:var(--black); border-color:var(--black); }
-    .admin-contact-page .bg-success{ background:var(--off-white); color:var(--black); border-color:var(--black); }
 
-    /* Select (status change) */
-    .admin-contact-page select{
+    .cm-btn.light{
+      background:#fff;
+      color:#008A48;
+      border:1px solid #CFF2DE;
+    }
+
+    .cm-btn.warn{
+      background:#FFF7E8;
+      color:#A84700;
+      border:1px solid #FED7AA;
+    }
+
+    .cm-btn.danger{
+      background:#FEF2F2;
+      color:#B91C1C;
+      border:1px solid #FECACA;
+    }
+
+    .cm-auto-box{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+
+    .cm-auto-settings{
+  width:100%;
+  margin-top:12px;
+  padding:14px;
+  border-radius:18px;
+  border:1px solid #DDECE4;
+  background:#FFFFFF;
+  display:grid;
+  gap:10px;
+}
+
+.cm-auto-settings-title{
+  color:#1F332A;
+  font-size:.9rem;
+  font-weight:950;
+}
+
+.cm-auto-settings small{
+  color:#66756D;
+  font-size:.78rem;
+  font-weight:750;
+  line-height:1.5;
+}
+
+.cm-auto-settings input,
+.cm-auto-settings textarea{
+  width:100%;
+  border:1px solid #DDECE4;
+  border-radius:14px;
+  padding:10px 12px;
+  background:#F8FFFB;
+  color:#1F332A;
+  font-size:.86rem;
+  font-weight:750;
+  outline:none;
+}
+
+.cm-auto-settings textarea{
+  min-height:150px;
+  resize:vertical;
+  line-height:1.5;
+}
+
+.cm-auto-settings-row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.cm-check{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  color:#1F332A;
+  font-size:.84rem;
+  font-weight:900;
+}
+
+.cm-check input{
+  width:auto;
+}
+    .cm-auto-pill{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 14px;
+      border-radius:14px;
+      font-size:.84rem;
+      font-weight:950;
+      background:#ECFDF5;
+      color:#047857;
+      border:1px solid #A7F3D0;
+    }
+
+    .cm-auto-pill.off{
+      background:#FEF2F2;
+      color:#B91C1C;
+      border-color:#FECACA;
+    }
+
+    .cm-table-wrap{
       width:100%;
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      color:var(--black);
-      padding:.7rem .85rem;
-      font-family:'Cormorant Garamond', serif;
-      font-size:1rem;
-      font-weight:900;
+      overflow:auto;
+    }
+
+    .cm-table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:1180px;
+    }
+
+    .cm-table th{
+      text-align:left;
+      padding:14px 16px;
+      color:#66756D;
+      font-size:.78rem;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      border-bottom:1px solid #EAF4EF;
+      background:#fff;
+      white-space:nowrap;
+    }
+
+    .cm-table td{
+      padding:15px 16px;
+      border-bottom:1px solid #F0F7F3;
+      color:#1F332A;
+      font-size:.9rem;
+      vertical-align:top;
+    }
+
+    .cm-main{
+      display:block;
+      font-weight:950;
+      color:#1F332A;
+      margin-bottom:4px;
+    }
+
+    .cm-sub{
+      display:block;
+      color:#66756D;
+      font-size:.78rem;
+      font-weight:700;
+      line-height:1.45;
+    }
+
+    .cm-message{
+      max-width:360px;
+      color:#40544A;
+      font-size:.84rem;
+      line-height:1.45;
+      font-weight:700;
+      white-space:normal;
+    }
+
+    .cm-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      font-size:.75rem;
+      font-weight:950;
+      background:#F3FFF8;
+      color:#008A48;
+      border:1px solid #CFF2DE;
+      white-space:nowrap;
+      margin:3px 4px 3px 0;
+    }
+
+    .cm-pill.no{
+      background:#FEF2F2;
+      color:#B91C1C;
+      border-color:#FECACA;
+    }
+
+    .cm-contact-actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .cm-small-action{
+      min-height:34px;
+      border-radius:12px;
+      padding:0 10px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      text-decoration:none;
+      font-size:.78rem;
+      font-weight:950;
+      border:1px solid #DDECE4;
+      background:#fff;
+      color:#008A48;
+      white-space:nowrap;
+    }
+
+    .cm-small-action.call{
+      color:#0284C7;
+      border-color:#BFDBFE;
+      background:#EFF6FF;
+    }
+
+    .cm-small-action.mail{
+      color:#008A48;
+      border-color:#CFF2DE;
+      background:#F3FFF8;
+    }
+
+    .cm-comm-box{
+      display:grid;
+      gap:10px;
+      min-width:320px;
+    }
+
+    .cm-auto-form{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .cm-manual-form{
+      display:grid;
+      gap:8px;
+      padding:10px;
+      border:1px solid #EAF4EF;
+      border-radius:16px;
+      background:#F8FFFB;
+    }
+
+    .cm-manual-form input,
+    .cm-manual-form textarea{
+      width:100%;
+      border:1px solid #DDECE4;
+      border-radius:12px;
+      padding:9px 10px;
       outline:none;
-      min-width:190px;
+      font-size:.82rem;
+      font-weight:750;
+      color:#1F332A;
+      background:#fff;
     }
 
-    /* Small helpers */
-    .admin-contact-page .small{ font-size:.95rem; font-weight:800; color:rgba(0,0,0,.75); }
-    .admin-contact-page strong{ font-weight:900; }
-
-    /* focus */
-    .admin-contact-page *:focus-visible{
-      outline:3px solid var(--crimson);
-      outline-offset:3px;
+    .cm-manual-form textarea{
+      min-height:92px;
+      resize:vertical;
+      line-height:1.45;
     }
 
-    @media (max-width: 900px){
-      .admin-contact-page .top-bar{ padding:1rem 1rem; letter-spacing:.35em; }
-      .admin-contact-page .hero-section{ padding:3.5rem 1rem 3rem; }
-      .admin-contact-page .main-container{ padding:2rem 1rem; }
-      .admin-contact-page .panel{ padding:1.5rem; }
-      .admin-contact-page table.table{ min-width:980px; }
-      .admin-contact-page select{ min-width:160px; }
+    .cm-manual-form button,
+    .cm-auto-form button{
+      min-height:36px;
+      border:0;
+      border-radius:12px;
+      background:#00A859;
+      color:#fff;
+      font-size:.8rem;
+      font-weight:950;
+      cursor:pointer;
+      padding:0 12px;
     }
 
-    @media (prefers-reduced-motion: reduce){
-      .admin-contact-page *,
-      .admin-contact-page *::before,
-      .admin-contact-page *::after{
-        animation-duration:0.01ms !important;
-        animation-iteration-count:1 !important;
-        transition-duration:0.01ms !important;
-        scroll-behavior:auto !important;
+    .cm-auto-form button.light{
+      background:#fff;
+      color:#008A48;
+      border:1px solid #CFF2DE;
+    }
+
+    .cm-empty{
+      padding:36px 18px;
+      text-align:center;
+      color:#66756D;
+      font-size:.95rem;
+      font-weight:800;
+    }
+
+    @media(max-width:900px){
+      .cm-stats{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .cm-toolbar,
+      .cm-filter,
+      .cm-auto-box{
+        display:grid;
+      }
+
+      .cm-filter input,
+      .cm-btn,
+      .cm-auto-box form,
+      .cm-auto-box button{
+        width:100%;
       }
     }
   </style>
 
-  <div class="grain-overlay" aria-hidden="true"></div>
+  <div class="cm-stats">
+    <div class="cm-stat">
+      <span>Total Messages</span>
+      <strong>{{ stats.total|default(0) }}</strong>
+    </div>
 
-  <div class="top-bar">
-    <span>EST. 2018</span>
-    <span>MIZORAM, INDIA</span>
+    <div class="cm-stat">
+      <span>Pending Email Reply</span>
+      <strong>{{ stats.pending_reply|default(0) }}</strong>
+    </div>
+
+    <div class="cm-stat">
+      <span>Auto Emails Sent</span>
+      <strong>{{ stats.auto_sent|default(0) }}</strong>
+    </div>
+
+    <div class="cm-stat">
+      <span>Manual Emails Sent</span>
+      <strong>{{ stats.manual_sent|default(0) }}</strong>
+    </div>
   </div>
 
-  <header class="hero-section">
-    <h1 class="hero-title">Get in Touch</h1>
-    <p class="hero-subtitle">Requests • Status • Follow-ups</p>
-    <div class="hero-divider"></div>
-  </header>
+  <div class="cm-card">
+    <div class="cm-toolbar">
+      <form method="GET" action="{{ url_for('admin_contact_messages') }}" class="cm-filter">
+        <input
+          type="search"
+          name="q"
+          value="{{ q or '' }}"
+          placeholder="Search name, email, phone, subject..."
+        >
 
-  <main class="main-container">
-    <section class="panel soft" aria-label="Contact requests list">
-      <div class="section-header">
-        <div class="icon-box" aria-hidden="true">📩</div>
-        <div>
-          <h2>Get in Touch Requests</h2>
-          <p class="muted">Track incoming contact messages and update status (NEW / READ / RESOLVED).</p>
-        </div>
-      </div>
+        <button type="submit" class="cm-btn">Apply</button>
+        <a href="{{ url_for('admin_contact_messages') }}" class="cm-btn light">Reset</a>
+      </form>
 
-      {% if messages %}
-        <div class="table-shell">
-          <table class="table">
-            <thead>
+      <div class="cm-auto-box">
+  <span class="cm-auto-pill">Auto acknowledgement: Always ON</span>
+
+  <form method="POST" action="{{ url_for('admin_contact_auto_reply_settings_update') }}" class="cm-auto-settings">
+    <div class="cm-auto-settings-title">Edit Automatic Email Message For Future Queries</div>
+
+    <small>
+      This message is sent automatically when a user submits a new contact query.
+      Editing this text will affect only upcoming/future messages.
+      It will not send email to old/current messages.
+      You can use:
+      <b>{name}</b>,
+      <b>{subject}</b>,
+      <b>{message}</b>
+    </small>
+
+    <input
+      type="text"
+      name="subject"
+      value="{{ auto_reply_settings.subject or 'We received your message - NELOCALS' }}"
+      placeholder="Automatic email subject"
+    >
+
+    <textarea
+      name="body"
+      placeholder="Automatic email body"
+    >{{ auto_reply_settings.body or '' }}</textarea>
+
+    <button type="submit" class="cm-btn">Save For Future Queries</button>
+  </form>
+</div>
+    </div>
+
+    {% if messages %}
+      <div class="cm-table-wrap">
+        <table class="cm-table">
+          <thead>
+            <tr>
+              <th>Sender</th>
+              <th>Subject</th>
+              <th>Message</th>
+              <th>Email State</th>
+              <th>Received</th>
+              <th>Communication</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for m in messages %}
               <tr>
-                <th>Date</th>
-                <th>Name</th>
-                <th>Contact</th>
-                <th>Subject</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for m in messages %}
-              <!-- Data row (unchanged content) -->
-              <tr class="data-row">
-                <td>{{ m.created_at[:16].replace("T"," ") }}</td>
-                <td><strong>{{ m.name }}</strong></td>
                 <td>
-                  {{ m.email }}<br>
-                  {% if m.phone %}📞 {{ m.phone }}{% endif %}
-                </td>
-                <td>{{ m.subject }}</td>
-                <td>
-                  <span class="badge
-                    {% if m.status=='NEW' %}bg-danger
-                    {% elif m.status=='READ' %}bg-warning
-                    {% else %}bg-success{% endif %}
-                  ">
-                    {{ m.status }}
-                  </span>
-                </td>
-                <td>
-                  <form method="post"
-                        action="{{ url_for('admin_contact_message_status', mid=m.id) }}">
-                    <select name="status" onchange="this.form.submit()">
-                      <option value="NEW" {% if m.status=='NEW' %}selected{% endif %}>NEW</option>
-                      <option value="READ" {% if m.status=='READ' %}selected{% endif %}>READ</option>
-                      <option value="RESOLVED" {% if m.status=='RESOLVED' %}selected{% endif %}>RESOLVED</option>
-                    </select>
-                  </form>
-                </td>
-              </tr>
+                  <span class="cm-main">{{ m.name or '-' }}</span>
+                  <span class="cm-sub">{{ m.email or '-' }}</span>
+                  <span class="cm-sub">{{ m.phone or '' }}</span>
 
-              <!-- Message row (unchanged message content) -->
-              <tr class="msg-row">
-                <td colspan="6">
-                  <div class="msg-box">
-                    <span class="msg-title">Message</span>
-                    <div class="msg-text">{{ m.message }}</div>
+                  <div class="cm-contact-actions">
+                    {% if m.phone %}
+                      <a href="tel:{{ m.phone }}" class="cm-small-action call">📞 Call</a>
+                    {% endif %}
+
+                    {% if m.email %}
+                      <a href="mailto:{{ m.email }}" class="cm-small-action mail">✉️ Email</a>
+                    {% endif %}
+                  </div>
+                </td>
+
+                <td>
+                  <span class="cm-main">{{ m.subject or '-' }}</span>
+                  <span class="cm-sub">{{ m.recipient_type or 'admin' }}</span>
+                </td>
+
+                <td>
+                  <div class="cm-message">{{ m.message or '-' }}</div>
+
+                  {% if m.admin_note %}
+                    <span class="cm-sub">Admin note: {{ m.admin_note }}</span>
+                  {% endif %}
+
+                  {% if m.last_manual_reply_message %}
+                    <span class="cm-sub">Last manual reply: {{ m.last_manual_reply_message }}</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  {% if m.auto_reply_sent %}
+                    <span class="cm-pill">Auto email sent</span>
+                    <span class="cm-sub">{{ m.auto_reply_sent_at or '' }}</span>
+                  {% else %}
+                    <span class="cm-pill no">Auto email not sent</span>
+                    {% if m.auto_reply_error %}
+                      <span class="cm-sub">{{ m.auto_reply_error }}</span>
+                    {% endif %}
+                  {% endif %}
+
+                  {% if m.manual_reply_sent %}
+                    <span class="cm-pill">Manual reply sent</span>
+                    <span class="cm-sub">{{ m.manual_reply_sent_at or '' }}</span>
+                  {% else %}
+                    <span class="cm-pill no">No manual reply</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <span class="cm-main">{{ m.created_at or '-' }}</span>
+                  {% if m.updated_at %}
+                    <span class="cm-sub">Updated: {{ m.updated_at }}</span>
+                  {% endif %}
+                  <span class="cm-sub">{{ m.source or 'Contact Page' }}</span>
+                  <span class="cm-sub">{{ m.user_role or 'guest' }}</span>
+                </td>
+
+                <td>
+                  <div class="cm-comm-box">
+                    <form method="POST" action="{{ url_for('admin_contact_auto_reply_send', mid=m.id) }}" class="cm-auto-form">
+                      <button type="submit" class="light">
+                        Send Auto Acknowledgement
+                      </button>
+                    </form>
+
+                    <form method="POST" action="{{ url_for('admin_contact_message_reply', mid=m.id) }}" class="cm-manual-form">
+                      <input
+                        type="text"
+                        name="reply_subject"
+                        value="Re: {{ m.subject or 'Your message to NELOCALS' }}"
+                        placeholder="Reply subject"
+                      >
+
+                      <textarea
+                        name="reply_message"
+                        placeholder="Write manual email reply to user..."
+                      ></textarea>
+
+                      <button type="submit">Send Manual Email Reply</button>
+                    </form>
                   </div>
                 </td>
               </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p class="muted">No contact requests yet.</p>
-      {% endif %}
-    </section>
-  </main>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="cm-empty">
+        No contact messages found.
+      </div>
+    {% endif %}
+  </div>
 </section>
 
 {% endblock %}

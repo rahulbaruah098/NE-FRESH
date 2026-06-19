@@ -718,28 +718,99 @@ def __routes():
 
 @app.route("/contact", methods=["GET", "POST"])
 def contact():
+    user = current_user()
+
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
-        email = (request.form.get("email") or "").strip()
-        phone = (request.form.get("phone") or "").strip() or None
+        email = (request.form.get("email") or "").strip().lower()
+        phone = (request.form.get("phone") or "").strip()
         subject = (request.form.get("subject") or "").strip()
         message = (request.form.get("message") or "").strip()
 
+        source = (request.form.get("source") or "Contact Page").strip()
+        recipient_type = (request.form.get("recipient_type") or "admin").strip().lower()
+        page_context = (request.form.get("page_context") or "").strip()
+
         if not name or not email or not subject or not message:
-            flash("Please fill all required fields.", "warning")
+            flash("Please fill all required contact form fields.", "warning")
             return redirect(url_for("contact"))
 
-        mongo.contact_messages.insert_one({
+        if "@" not in email or "." not in email:
+            flash("Please enter a valid email address.", "warning")
+            return redirect(url_for("contact"))
+
+        if len(message) < 10:
+            flash("Please enter a message with at least 10 characters.", "warning")
+            return redirect(url_for("contact"))
+
+        now = datetime.utcnow().isoformat()
+
+        contact_doc = {
             "name": name,
             "email": email,
             "phone": phone,
             "subject": subject,
             "message": message,
-            "status": "NEW",
-            "created_at": datetime.utcnow().isoformat()
-        })
 
-        flash("Message sent! We will contact you soon.", "success")
+            "source": source,
+            "recipient_type": recipient_type,
+            "page_context": page_context,
+
+            "status": "NEW",
+            "priority": "NORMAL",
+
+            "user_id": str(user.get("_id") or user.get("id") or "") if user else "",
+            "user_role": user.get("role") if user else "guest",
+
+            "ip_address": request.headers.get("X-Forwarded-For", request.remote_addr),
+            "user_agent": request.headers.get("User-Agent", ""),
+
+            "created_at": now,
+            "updated_at": now,
+            "read_at": "",
+            "resolved_at": "",
+            "admin_note": ""
+        }
+
+        insert_result = mongo.contact_messages.insert_one(contact_doc)
+
+        # Automatic acknowledgement email is sent immediately
+        # using the currently saved auto-message template.
+        auto_reply_result = send_contact_auto_reply(contact_doc)
+        auto_reply_now = datetime.utcnow().isoformat()
+
+        mongo.contact_messages.update_one(
+            {"_id": insert_result.inserted_id},
+            {
+                "$set": {
+                    "auto_reply_enabled_at_submit": True,
+                    "auto_reply_sent": bool(auto_reply_result.get("sent")),
+                    "auto_reply_error": auto_reply_result.get("error") or "",
+                    "auto_reply_sent_at": auto_reply_now if auto_reply_result.get("sent") else "",
+
+                    # Snapshot of the auto-template used at submit time.
+                    # Future admin edits will not change old message records.
+                    "auto_reply_subject_snapshot": auto_reply_result.get("subject") or "",
+                    "auto_reply_body_snapshot": auto_reply_result.get("body") or "",
+
+                    "manual_reply_sent": False,
+                    "manual_reply_sent_at": "",
+                    "last_manual_reply_subject": "",
+                    "last_manual_reply_message": "",
+                    "reply_logs": [
+                        {
+                            "type": "AUTO_ACKNOWLEDGEMENT_ON_SUBMIT",
+                            "sent": bool(auto_reply_result.get("sent")),
+                            "error": auto_reply_result.get("error") or "",
+                            "subject": auto_reply_result.get("subject") or "",
+                            "created_at": auto_reply_now
+                        }
+                    ]
+                }
+            }
+        )
+
+        flash("Message submitted successfully. NELOCALS admin will contact you soon.", "success")
         return redirect(url_for("contact"))
 
-    return render_template("contact.html", user=current_user())
+    return render_template("contact.html", user=user)
