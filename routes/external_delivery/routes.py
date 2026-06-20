@@ -110,6 +110,8 @@ def _decorate_external_order(order):
         except Exception:
             row[key] = 0.0
 
+    row = decorate_order_delivery_mode_display(row)
+
     return row
 
 

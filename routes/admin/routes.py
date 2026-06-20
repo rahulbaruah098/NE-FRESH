@@ -1375,6 +1375,11 @@ def admin_refund_processing():
         "refund_amount": round(sum(float(r.get("refund_amount") or 0) for r in rows), 2),
     }
 
+    try:
+        metrics.update(build_delivery_mode_order_metrics())
+    except Exception:
+        pass
+
     return render_template(
         "admin_refund_processing.html",
         user=current_user(),
@@ -3979,17 +3984,32 @@ def admin_dashboard():
     # -------------------------
     # Quick links
     # -------------------------
+    delivery_mode_settings = get_delivery_mode_settings()
+    delivery_mode_ui = get_delivery_mode_ui_context(delivery_mode_settings)
+
     quick_links = [
-        
         {"label": "Manage Users", "endpoint": "admin_users"},
         {"label": "Refund Processing", "endpoint": "admin_refund_processing"},
         {"label": "Returns & Refund Settlements", "endpoint": "admin_returns_settlements"},
         {"label": "Payment & Settlements", "endpoint": "admin_settlements"},
         {"label": "Complaints", "endpoint": "admin_complaints"},
         {"label": "Create Store", "endpoint": "admin_create_store"},
-        {"label": "Create Delivery Partner", "endpoint": "admin_create_delivery"},
-        {"label": "Export Transactions CSV", "endpoint": "admin_transactions_csv"},
     ]
+
+    if delivery_mode_ui.get("is_external"):
+        quick_links.extend([
+            {"label": "External Delivery Orders", "endpoint": "admin_external_delivery_orders"},
+            {"label": "External Provider Settings", "endpoint": "admin_external_delivery_settings"},
+            {"label": "Delivery Mode Settings", "endpoint": "admin_delivery_mode_settings"},
+        ])
+    else:
+        quick_links.extend([
+            {"label": "Create Delivery Partner", "endpoint": "admin_create_delivery"},
+            {"label": "Delivery Overview", "endpoint": "admin_delivery_overview"},
+            {"label": "Delivery Mode Settings", "endpoint": "admin_delivery_mode_settings"},
+        ])
+
+    quick_links.append({"label": "Export Transactions CSV", "endpoint": "admin_transactions_csv"})
 
     metrics = {
         "users": users_total,
@@ -6445,57 +6465,10 @@ def admin_contact_auto_reply_toggle():
 @app.route("/admin/contact-messages/auto-reply/settings", methods=["POST"], endpoint="admin_contact_auto_reply_settings_update")
 @login_required(role="admin")
 def admin_contact_auto_reply_settings_update():
-    admin_user = current_user() or {}
-    now = datetime.utcnow().isoformat()
-
-    subject = (request.form.get("subject") or "").strip()
-    body = (request.form.get("body") or "").strip()
-
-    if not subject:
-        subject = "We received your message - NELOCALS"
-
-    if not body:
-        body = (
-            "Dear {name},\n\n"
-            "Thank you for contacting NELOCALS.\n\n"
-            "We have received your message regarding: {subject}.\n\n"
-            "Our admin/contact team will review your message and contact you as soon as possible.\n\n"
-            "Thank you,\n"
-            "NELOCALS Admin Team"
-        )
-
-    if len(subject) > 180:
-        subject = subject[:180]
-
-    if len(body) > 3000:
-        body = body[:3000]
-
-    mongo.platform_settings.update_one(
-        {"key": CONTACT_AUTO_REPLY_SETTINGS_KEY},
-        {
-            "$set": {
-                "key": CONTACT_AUTO_REPLY_SETTINGS_KEY,
-
-                # Latest requirement:
-                # auto acknowledgement must remain active for future queries.
-                "enabled": True,
-
-                # This only affects upcoming/future query submissions.
-                "subject": subject,
-                "body": body,
-
-                "updated_at": now,
-                "updated_by": str(admin_user.get("_id") or admin_user.get("id") or ""),
-                "updated_by_name": admin_user.get("name") or admin_user.get("email") or "Admin"
-            },
-            "$setOnInsert": {
-                "created_at": now
-            }
-        },
-        upsert=True
-    )
-
-    flash("Automatic email message saved. It will be used for future contact queries only.", "success")
+    # Automatic message editing has intentionally been removed from the Admin UI.
+    # Keep this route harmless for old cached forms/bookmarks, but do not update
+    # the automatic acknowledgement subject/body from POST data anymore.
+    flash("Automatic acknowledgement message editing is disabled. Use the ON/OFF switch and manual reply box instead.", "info")
     return redirect(request.referrer or url_for("admin_contact_messages"))
 
 
@@ -6531,8 +6504,8 @@ def admin_contact_auto_reply_send(mid):
                     "type": "AUTO_ACKNOWLEDGEMENT",
                     "sent": bool(result.get("sent")),
                     "error": result.get("error") or "",
-                    "subject": "We received your message - NELOCALS",
-                    "message": "Automatic acknowledgement email sent to user.",
+                    "subject": result.get("subject") or "We received your message - NELOCALS",
+                    "message": "Automatic acknowledgement email sent to user." if result.get("sent") else "Automatic acknowledgement email was not sent.",
                     "created_at": now,
                     "created_by": str((current_user() or {}).get("_id") or (current_user() or {}).get("id") or ""),
                     "created_by_name": (current_user() or {}).get("name") or (current_user() or {}).get("email") or "Admin"
@@ -6543,6 +6516,8 @@ def admin_contact_auto_reply_send(mid):
 
     if result.get("sent"):
         flash("Automatic acknowledgement email sent to user.", "success")
+    elif not result.get("enabled", True):
+        flash("Automatic acknowledgement is OFF. Use the manual reply box to email this user.", "warning")
     else:
         flash(result.get("error") or "Could not send automatic email.", "danger")
 

@@ -1621,6 +1621,8 @@ def _decorate_store_delivery_order(order):
         or ""
     )
 
+    order = decorate_order_delivery_mode_display(order)
+
     return order
 
 

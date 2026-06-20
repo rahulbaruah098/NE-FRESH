@@ -774,22 +774,23 @@ def contact():
 
         insert_result = mongo.contact_messages.insert_one(contact_doc)
 
-        # Automatic acknowledgement email is sent immediately
-        # using the currently saved auto-message template.
+        # Automatic acknowledgement email is sent immediately only when
+        # Admin has enabled the contact auto-acknowledgement switch.
         auto_reply_result = send_contact_auto_reply(contact_doc)
         auto_reply_now = datetime.utcnow().isoformat()
+        auto_reply_enabled_now = bool(auto_reply_result.get("enabled"))
 
         mongo.contact_messages.update_one(
             {"_id": insert_result.inserted_id},
             {
                 "$set": {
-                    "auto_reply_enabled_at_submit": True,
+                    "auto_reply_enabled_at_submit": auto_reply_enabled_now,
                     "auto_reply_sent": bool(auto_reply_result.get("sent")),
                     "auto_reply_error": auto_reply_result.get("error") or "",
                     "auto_reply_sent_at": auto_reply_now if auto_reply_result.get("sent") else "",
 
                     # Snapshot of the auto-template used at submit time.
-                    # Future admin edits will not change old message records.
+                    # This is blank when auto acknowledgement is disabled.
                     "auto_reply_subject_snapshot": auto_reply_result.get("subject") or "",
                     "auto_reply_body_snapshot": auto_reply_result.get("body") or "",
 
@@ -799,7 +800,7 @@ def contact():
                     "last_manual_reply_message": "",
                     "reply_logs": [
                         {
-                            "type": "AUTO_ACKNOWLEDGEMENT_ON_SUBMIT",
+                            "type": "AUTO_ACKNOWLEDGEMENT_ON_SUBMIT" if auto_reply_enabled_now else "AUTO_ACKNOWLEDGEMENT_DISABLED_ON_SUBMIT",
                             "sent": bool(auto_reply_result.get("sent")),
                             "error": auto_reply_result.get("error") or "",
                             "subject": auto_reply_result.get("subject") or "",

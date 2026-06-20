@@ -2456,6 +2456,7 @@ def my_orders():
 
         o = normalize_order_money_fields(o)
         o = decorate_customer_payment_display(o)
+        o = decorate_order_delivery_mode_display(o)
 
         o["delivery_fee"] = float(o.get("delivery_fee") or 0)
         o["delivery_fee_amount"] = float(o.get("delivery_fee_amount") or o.get("delivery_fee") or 0)
@@ -2578,6 +2579,7 @@ def order_track(oid):
 
     order_doc = normalize_order_money_fields(order_doc)
     order_doc = decorate_customer_payment_display(order_doc)
+    order_doc = decorate_order_delivery_mode_display(order_doc)
 
     data["order"] = order_doc
 
@@ -2743,6 +2745,7 @@ def api_order_status(oid):
         }), 404
 
     o = normalize_order_money_fields(data["order"])
+    o = decorate_order_delivery_mode_display(o)
 
     events = []
     for e in data.get("events", []):
@@ -2766,6 +2769,24 @@ def api_order_status(oid):
         "delivery_fee_source": o.get("delivery_fee_source") or "",
         "delivery_fee_slab": o.get("delivery_fee_slab") or {},
         "delivery_fee_details": o.get("delivery_fee_details") or {},
+        "active_delivery_mode": o.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE,
+        "delivery_mode_label": o.get("delivery_mode_label") or "",
+        "delivery_mode_short_label": o.get("delivery_mode_short_label") or "",
+        "delivery_fee_label": o.get("delivery_fee_label") or "Delivery Charge",
+        "delivery_provider_label": o.get("delivery_provider_label") or "",
+        "external_delivery_enabled_at_order": bool(o.get("external_delivery_enabled_at_order", False)),
+        "external_delivery_provider": o.get("external_delivery_provider") or "",
+        "external_delivery_provider_type": o.get("external_delivery_provider_type") or "",
+        "external_delivery_status": o.get("external_delivery_status") or "",
+        "external_delivery_status_label": o.get("external_delivery_status_label") or "",
+        "external_delivery_booking_status": o.get("external_delivery_booking_status") or "",
+        "external_order_id": o.get("external_order_id") or "",
+        "external_shipment_id": o.get("external_shipment_id") or "",
+        "external_awb": o.get("external_awb") or "",
+        "external_tracking_url": o.get("external_tracking_url") or "",
+        "external_tracking_code": o.get("external_tracking_code") or "",
+        "external_tracking_available": bool(o.get("external_tracking_available")),
+        "external_delivery_eta_minutes": o.get("external_delivery_eta_minutes"),
         "free_delivery_above_applied": bool(o.get("free_delivery_above_applied")),
         "free_delivery_above": float(o.get("free_delivery_above") or 0),
         "original_delivery_fee": float(o.get("original_delivery_fee") or o.get("delivery_fee") or 0),
@@ -2815,6 +2836,7 @@ def api_orders_list(user_id):
 
     for o in orders:
         o = normalize_order_money_fields(o)
+        o = decorate_order_delivery_mode_display(o)
         result.append({
             "id": str(o["_id"]),
             "store_name": o.get("store_name", ""),

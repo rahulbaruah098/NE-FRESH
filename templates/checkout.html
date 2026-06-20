@@ -2051,6 +2051,96 @@
 
 
   /* NELOCALS EXTERNAL DELIVERY FULL LOGIC FINAL */
+
+/* ==========================================================
+   NELOCALS CHECKOUT DELIVERY MODE CONTENT FINAL
+   Displays active mode/provider/fee rule in checkout without changing logic.
+========================================================== */
+.checkout-page .checkout-delivery-mode-card{
+  display:grid;
+  gap:10px;
+  padding:12px;
+  border:1px solid rgba(0,168,89,.18);
+  border-radius:10px;
+  background:linear-gradient(135deg,#F3FFF8 0%,#FFFFFF 100%);
+  box-shadow:0 8px 24px rgba(17,64,38,.035);
+}
+.checkout-page .checkout-delivery-mode-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding-bottom:8px;
+  border-bottom:1px solid rgba(0,168,89,.12);
+}
+.checkout-page .checkout-delivery-mode-title{
+  color:#111714;
+  font-size:.82rem;
+  font-weight:950;
+  line-height:1.25;
+}
+.checkout-page .checkout-delivery-mode-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:28px;
+  max-width:100%;
+  padding:0 10px;
+  border-radius:999px;
+  background:var(--nf-green-soft);
+  border:1px solid rgba(0,168,89,.16);
+  color:var(--nf-green-dark);
+  font-size:.68rem;
+  font-weight:950;
+  text-align:center;
+  white-space:normal;
+}
+.checkout-page .checkout-delivery-mode-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.checkout-page .checkout-delivery-mode-item{
+  display:grid;
+  gap:3px;
+  border:1px solid var(--nf-line);
+  border-radius:9px;
+  background:#fff;
+  padding:9px 10px;
+}
+.checkout-page .checkout-delivery-mode-item span{
+  color:var(--nf-muted);
+  font-size:.62rem;
+  font-weight:950;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+.checkout-page .checkout-delivery-mode-item strong{
+  color:#111714;
+  font-size:.76rem;
+  line-height:1.3;
+  font-weight:950;
+  overflow-wrap:anywhere;
+}
+.checkout-page .checkout-delivery-mode-note{
+  color:var(--nf-muted);
+  font-size:.7rem;
+  line-height:1.45;
+  font-weight:800;
+}
+@media(max-width:560px){
+  .checkout-page .checkout-delivery-mode-head{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .checkout-page .checkout-delivery-mode-pill{
+    width:100%;
+  }
+  .checkout-page .checkout-delivery-mode-grid{
+    grid-template-columns:1fr;
+  }
+}
+
 </style>
 
 <section class="checkout-page" data-page="checkout"
@@ -2226,6 +2316,38 @@
                 {% else %}
                   COD is available now. Online payment will appear after Admin enables Razorpay.
                 {% endif %}
+              </div>
+            </div>
+
+            <div class="checkout-delivery-mode-card" id="checkoutDeliveryModeCard" aria-live="polite">
+              <div class="checkout-delivery-mode-head">
+                <div class="checkout-delivery-mode-title">Delivery mode</div>
+                <div class="checkout-delivery-mode-pill" id="checkoutDeliveryModePill">
+                  {{ delivery_mode_ui.icon }} {{ delivery_mode_ui.short_label }}
+                </div>
+              </div>
+
+              <div class="checkout-delivery-mode-grid">
+                <div class="checkout-delivery-mode-item">
+                  <span>Provider</span>
+                  <strong id="checkoutDeliveryProvider">{{ delivery_mode_ui.provider_label }}</strong>
+                </div>
+                <div class="checkout-delivery-mode-item">
+                  <span>Charge Label</span>
+                  <strong id="checkoutDeliveryChargeLabel">{{ delivery_mode_ui.fee_label }}</strong>
+                </div>
+                <div class="checkout-delivery-mode-item">
+                  <span>Payment Rule</span>
+                  <strong id="checkoutDeliveryPaymentRule">{{ delivery_mode_ui.payment_rule_label }}</strong>
+                </div>
+                <div class="checkout-delivery-mode-item">
+                  <span>ETA</span>
+                  <strong id="checkoutDeliveryEta">Calculated after location</strong>
+                </div>
+              </div>
+
+              <div class="checkout-delivery-mode-note" id="checkoutDeliveryModeNote">
+                {{ delivery_mode_ui.checkout_note }}
               </div>
             </div>
 
@@ -2475,6 +2597,13 @@ const payPlatformFee = document.getElementById('pay-platform-fee');
 const payPlatformFeeLabel = document.getElementById('pay-platform-fee-label');
 const payTipAmount = document.getElementById('pay-tip-amount');
 const payGrandTotal = document.getElementById('pay-grand-total');
+
+const checkoutDeliveryModePill = document.getElementById('checkoutDeliveryModePill');
+const checkoutDeliveryProvider = document.getElementById('checkoutDeliveryProvider');
+const checkoutDeliveryChargeLabel = document.getElementById('checkoutDeliveryChargeLabel');
+const checkoutDeliveryPaymentRule = document.getElementById('checkoutDeliveryPaymentRule');
+const checkoutDeliveryEta = document.getElementById('checkoutDeliveryEta');
+const checkoutDeliveryModeNote = document.getElementById('checkoutDeliveryModeNote');
 
   const btn = document.getElementById('place-order-btn');
     const paymentRadios = Array.from(document.querySelectorAll('input[name="payment_method"]'));
@@ -2826,7 +2955,51 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
     return null;
   }
 
- function updateUI(
+function formatDeliveryModeName(value){
+  const mode = String(value || "IN_HOUSE").toUpperCase();
+
+  if (mode === "THIRD_PARTY_SHIPPING") return "📦 Courier / Shiprocket";
+  if (mode === "EXTERNAL_LOCAL_DELIVERY") return "⚡ External Local Delivery";
+  return "🛵 NE FRESH In-house Delivery";
+}
+
+function formatPaymentRule(value){
+  const rule = String(value || "").toUpperCase();
+
+  if (rule === "ONLINE_ONLY") return "Online payment only";
+  if (rule === "COD_STORE_COLLECTION") return "COD by store/internal collection";
+  if (rule === "COD_PARTNER_COLLECTION") return "COD by partner/courier collection";
+  return "COD and online allowed";
+}
+
+function syncDeliveryModeCard(result){
+  if (!result) return;
+
+  const mode = result.active_delivery_mode || "IN_HOUSE";
+  const provider = result.external_delivery_provider || (mode === "IN_HOUSE" ? "NE FRESH Delivery" : "External Partner");
+  const providerType = result.external_delivery_provider_type || (mode === "IN_HOUSE" ? "In-house" : "External");
+  const paymentRule = result.external_payment_rule || (mode === "IN_HOUSE" ? "IN_HOUSE" : "");
+  const eta = result.eta_minutes ? `${result.eta_minutes} min approx.` : "Shown after partner quote";
+
+  if (checkoutDeliveryModePill) checkoutDeliveryModePill.textContent = formatDeliveryModeName(mode);
+  if (checkoutDeliveryProvider) checkoutDeliveryProvider.textContent = String(provider || "").replaceAll("_", " ");
+  if (checkoutDeliveryChargeLabel) {
+    checkoutDeliveryChargeLabel.textContent = mode === "THIRD_PARTY_SHIPPING"
+      ? "Courier Delivery Charge"
+      : (mode === "EXTERNAL_LOCAL_DELIVERY" ? "External Local Delivery Charge" : "Delivery Charge");
+  }
+  if (checkoutDeliveryPaymentRule) checkoutDeliveryPaymentRule.textContent = formatPaymentRule(paymentRule);
+  if (checkoutDeliveryEta) checkoutDeliveryEta.textContent = eta;
+  if (checkoutDeliveryModeNote) {
+    checkoutDeliveryModeNote.textContent = mode === "THIRD_PARTY_SHIPPING"
+      ? "Courier/Shiprocket fee is added separately from item subtotal. The final order amount is verified again by backend during order placement."
+      : (mode === "EXTERNAL_LOCAL_DELIVERY"
+        ? "External local delivery fee is added separately from item subtotal. COD is controlled by the selected external payment rule."
+        : "In-house delivery fee is calculated using NE FRESH serviceability and delivery fee settings.");
+  }
+}
+
+  function updateUI(
   deliveryFee,
   tip,
   metaLine,
@@ -3218,6 +3391,7 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
 
       lastServiceability = result;
       applyDeliveryPaymentRules(result);
+      syncDeliveryModeCard(result);
 
       deliveryFee = Number(result.delivery_fee || 0);
       const platformFee = Number(result.platform_fee || 0);

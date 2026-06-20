@@ -115,6 +115,7 @@ def inject_globals():
         "external_local_delivery_enabled": bool(delivery_mode_settings.get("external_local_delivery_enabled", False)),
         "third_party_shipping_enabled": bool(delivery_mode_settings.get("third_party_shipping_enabled", False)),
         "return_refund_enabled": bool(delivery_mode_settings.get("return_refund_enabled", True)),
+        "delivery_mode_ui": get_delivery_mode_ui_context(delivery_mode_settings),
     }
 
 
@@ -1233,6 +1234,284 @@ def get_order_delivery_mode_snapshot():
         "external_local_provider": settings.get("external_local_provider") or "MANUAL_HYPERLOCAL",
         "third_party_provider": settings.get("third_party_provider") or "SHIPROCKET",
     }
+
+
+
+
+# =========================================================
+# DELIVERY MODE UI HELPERS
+# =========================================================
+def get_delivery_mode_ui_context(settings=None):
+    """
+    Small template-safe dictionary used by dashboards / checkout / tracking.
+
+    This does not change delivery logic. It only describes the currently
+    active delivery mode so templates can show the correct wording, buttons
+    and guidance.
+    """
+    settings = settings or get_delivery_mode_settings()
+    active_mode = settings.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
+    external_rule = settings.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+
+    if active_mode == DELIVERY_MODE_THIRD_PARTY:
+        provider = settings.get("third_party_provider") or "SHIPROCKET"
+        return {
+            "active_mode": active_mode,
+            "mode": active_mode,
+            "is_in_house": False,
+            "is_external": True,
+            "is_external_local": False,
+            "is_third_party": True,
+            "label": "Third-party Shipping",
+            "short_label": "Courier / Shiprocket",
+            "icon": "📦",
+            "provider": provider,
+            "provider_label": str(provider).replace("_", " ").title(),
+            "provider_type": "Courier",
+            "fee_label": "Courier Delivery Charge",
+            "checkout_note": "Delivery charge is quoted from the courier/Shiprocket layer or from Admin fallback shipping settings.",
+            "customer_track_title": "Courier Tracking",
+            "customer_track_copy": "Your order will move through packed, courier booked, AWB generated, in transit, out for delivery and delivered stages.",
+            "store_dashboard_title": "Courier Shipping Mode",
+            "store_dashboard_copy": "Prepare the package and mark it ready for external courier booking. Delivery-boy assignment is hidden for this mode.",
+            "admin_dashboard_title": "Courier / Shiprocket Mode Active",
+            "admin_dashboard_copy": "Orders are routed to the external delivery dashboard for AWB/tracking updates.",
+            "cod_allowed": external_rule in [EXTERNAL_PAYMENT_RULE_COD_STORE, EXTERNAL_PAYMENT_RULE_COD_PARTNER],
+            "online_only": external_rule == EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+            "payment_rule": external_rule,
+            "payment_rule_label": {
+                EXTERNAL_PAYMENT_RULE_ONLINE_ONLY: "Online payment only",
+                EXTERNAL_PAYMENT_RULE_COD_STORE: "COD by store/internal collection",
+                EXTERNAL_PAYMENT_RULE_COD_PARTNER: "COD by courier/partner collection",
+            }.get(external_rule, "Online payment only"),
+            "primary_store_action": "External Delivery",
+            "primary_admin_action": "External Delivery Orders",
+            "view_all_label": "View All External Orders",
+        }
+
+    if active_mode == DELIVERY_MODE_EXTERNAL_LOCAL:
+        provider = settings.get("external_local_provider") or "MANUAL_HYPERLOCAL"
+        return {
+            "active_mode": active_mode,
+            "mode": active_mode,
+            "is_in_house": False,
+            "is_external": True,
+            "is_external_local": True,
+            "is_third_party": False,
+            "label": "External Local Delivery",
+            "short_label": "Rapido / Zomato Style",
+            "icon": "⚡",
+            "provider": provider,
+            "provider_label": str(provider).replace("_", " ").title(),
+            "provider_type": "Hyperlocal",
+            "fee_label": "External Local Delivery Charge",
+            "checkout_note": "Delivery charge is quoted from the hyperlocal partner layer or from Admin fallback distance settings.",
+            "customer_track_title": "External Local Delivery Tracking",
+            "customer_track_copy": "Your order will move through store preparing, ready for pickup, partner booked, picked up, out for delivery and delivered stages.",
+            "store_dashboard_title": "External Local Delivery Mode",
+            "store_dashboard_copy": "Prepare the order and mark it ready for partner pickup. Delivery-boy assignment is hidden for this mode.",
+            "admin_dashboard_title": "External Local Delivery Mode Active",
+            "admin_dashboard_copy": "Orders are routed to the external delivery dashboard for partner booking and status updates.",
+            "cod_allowed": external_rule in [EXTERNAL_PAYMENT_RULE_COD_STORE, EXTERNAL_PAYMENT_RULE_COD_PARTNER],
+            "online_only": external_rule == EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+            "payment_rule": external_rule,
+            "payment_rule_label": {
+                EXTERNAL_PAYMENT_RULE_ONLINE_ONLY: "Online payment only",
+                EXTERNAL_PAYMENT_RULE_COD_STORE: "COD by store/internal collection",
+                EXTERNAL_PAYMENT_RULE_COD_PARTNER: "COD by delivery partner collection",
+            }.get(external_rule, "Online payment only"),
+            "primary_store_action": "External Delivery",
+            "primary_admin_action": "External Delivery Orders",
+            "view_all_label": "View All External Orders",
+        }
+
+    return {
+        "active_mode": DELIVERY_MODE_IN_HOUSE,
+        "mode": DELIVERY_MODE_IN_HOUSE,
+        "is_in_house": True,
+        "is_external": False,
+        "is_external_local": False,
+        "is_third_party": False,
+        "label": "In-house Delivery",
+        "short_label": "NE FRESH Delivery Boys",
+        "icon": "🛵",
+        "provider": "IN_HOUSE",
+        "provider_label": "NE FRESH Delivery",
+        "provider_type": "In-house",
+        "fee_label": "Delivery Charge",
+        "checkout_note": "Delivery charge is calculated from the existing NE FRESH delivery fee/serviceability logic.",
+        "customer_track_title": "Live Delivery Tracking",
+        "customer_track_copy": "Your order will move through store confirmation, packaging, delivery assignment, pickup, out for delivery and delivered stages.",
+        "store_dashboard_title": "In-house Delivery Mode",
+        "store_dashboard_copy": "Use store order management to prepare orders, mark shipment ready and assign NE FRESH delivery boys.",
+        "admin_dashboard_title": "In-house Delivery Mode Active",
+        "admin_dashboard_copy": "Delivery boy dashboard, delivery assignment and rider cash settlement are active.",
+        "cod_allowed": True,
+        "online_only": False,
+        "payment_rule": "IN_HOUSE",
+        "payment_rule_label": "COD and online allowed",
+        "primary_store_action": "Delivery Control",
+        "primary_admin_action": "Delivery Overview",
+        "view_all_label": "View All Orders",
+    }
+
+
+def get_order_delivery_mode_ui(order_doc=None):
+    """Returns delivery-mode display data for a specific order snapshot."""
+    order_doc = order_doc or {}
+    settings = get_delivery_mode_settings()
+    settings = dict(settings)
+
+    order_mode = (
+        order_doc.get("active_delivery_mode")
+        or (DELIVERY_MODE_IN_HOUSE if order_doc.get("in_house_delivery_enabled_at_order", True) else DELIVERY_MODE_EXTERNAL_LOCAL)
+        or DELIVERY_MODE_IN_HOUSE
+    )
+    settings["active_delivery_mode"] = _delivery_mode_normalize(order_mode)
+
+    if settings["active_delivery_mode"] == DELIVERY_MODE_THIRD_PARTY:
+        settings["third_party_provider"] = (
+            order_doc.get("external_delivery_provider")
+            or order_doc.get("third_party_provider")
+            or settings.get("third_party_provider")
+            or "SHIPROCKET"
+        )
+    elif settings["active_delivery_mode"] == DELIVERY_MODE_EXTERNAL_LOCAL:
+        settings["external_local_provider"] = (
+            order_doc.get("external_delivery_provider")
+            or order_doc.get("external_local_provider")
+            or settings.get("external_local_provider")
+            or "MANUAL_HYPERLOCAL"
+        )
+
+    settings["external_payment_rule"] = (
+        order_doc.get("external_payment_rule")
+        or settings.get("external_payment_rule")
+        or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+    )
+
+    return get_delivery_mode_ui_context(settings)
+
+
+def decorate_order_delivery_mode_display(order_doc):
+    """
+    Adds customer/admin/store-friendly delivery mode fields to an order dict.
+    Existing database values are not changed.
+    """
+    if not order_doc:
+        return order_doc
+
+    ui = get_order_delivery_mode_ui(order_doc)
+    order_doc["delivery_mode_ui"] = ui
+    order_doc["delivery_mode_label"] = ui.get("label")
+    order_doc["delivery_mode_short_label"] = ui.get("short_label")
+    order_doc["delivery_mode_icon"] = ui.get("icon")
+    order_doc["delivery_fee_label"] = ui.get("fee_label")
+    order_doc["delivery_provider_label"] = (
+        order_doc.get("external_delivery_partner_name")
+        or order_doc.get("external_delivery_provider")
+        or ui.get("provider_label")
+    )
+    order_doc["external_tracking_code"] = (
+        order_doc.get("external_awb")
+        or order_doc.get("external_shipment_id")
+        or order_doc.get("external_order_id")
+        or ""
+    )
+    order_doc["external_tracking_available"] = bool(
+        order_doc.get("external_tracking_url")
+        or order_doc.get("external_awb")
+        or order_doc.get("external_order_id")
+        or order_doc.get("external_shipment_id")
+    )
+    order_doc["external_delivery_status_label"] = (
+        str(order_doc.get("external_delivery_status") or order_doc.get("external_delivery_booking_status") or "")
+        .replace("_", " ")
+        .title()
+    )
+    return order_doc
+
+
+def build_delivery_mode_order_metrics(store_id=None):
+    """
+    Lightweight mode-aware order counts for dashboards.
+
+    It supports both ObjectId and string store_id records and only reads orders.
+    """
+    query = {}
+
+    if store_id is not None:
+        store_values = [store_id, str(store_id)]
+        try:
+            store_values.append(ObjectId(str(store_id)))
+        except Exception:
+            pass
+        query["store_id"] = {"$in": store_values}
+
+    try:
+        docs = list(mongo.orders.find(query, {
+            "active_delivery_mode": 1,
+            "in_house_delivery_enabled_at_order": 1,
+            "external_delivery_enabled_at_order": 1,
+            "external_delivery_booking_status": 1,
+            "external_delivery_status": 1,
+            "status": 1,
+        }))
+    except Exception:
+        docs = []
+
+    output = {
+        "mode_in_house_orders": 0,
+        "mode_external_local_orders": 0,
+        "mode_third_party_orders": 0,
+        "mode_external_orders": 0,
+        "mode_external_pending_booking": 0,
+        "mode_external_ready_for_booking": 0,
+        "mode_external_booked": 0,
+        "mode_external_delivered": 0,
+        "mode_external_failed": 0,
+        "mode_active_orders": 0,
+        "mode_view_all_orders": len(docs),
+    }
+
+    active_mode = get_active_delivery_mode()
+
+    for doc in docs:
+        mode = _delivery_mode_normalize(
+            doc.get("active_delivery_mode")
+            or (DELIVERY_MODE_IN_HOUSE if doc.get("in_house_delivery_enabled_at_order", True) else DELIVERY_MODE_EXTERNAL_LOCAL)
+        )
+
+        if mode == DELIVERY_MODE_IN_HOUSE:
+            output["mode_in_house_orders"] += 1
+        elif mode == DELIVERY_MODE_THIRD_PARTY:
+            output["mode_third_party_orders"] += 1
+            output["mode_external_orders"] += 1
+        else:
+            output["mode_external_local_orders"] += 1
+            output["mode_external_orders"] += 1
+
+        if mode == active_mode:
+            output["mode_active_orders"] += 1
+
+        external_status = str(doc.get("external_delivery_status") or "").upper()
+        booking_status = str(doc.get("external_delivery_booking_status") or "").upper()
+        order_status = str(doc.get("status") or "").upper()
+
+        if mode != DELIVERY_MODE_IN_HOUSE:
+            if booking_status in ["", "PENDING_BOOKING", "NOT_BOOKED"] or external_status.startswith("PENDING"):
+                output["mode_external_pending_booking"] += 1
+            if booking_status in ["READY_FOR_BOOKING"] or external_status in ["READY_FOR_EXTERNAL_BOOKING"]:
+                output["mode_external_ready_for_booking"] += 1
+            if booking_status in ["BOOKED", "MANUAL_BOOKING_RECORDED"] or external_status in ["BOOKED", "AWB_GENERATED", "IN_TRANSIT", "OUT_FOR_DELIVERY"]:
+                output["mode_external_booked"] += 1
+            if order_status == "DELIVERED" or external_status in ["DELIVERED", "SHIPMENT_DELIVERED", "DELIVERY_DELIVERED"]:
+                output["mode_external_delivered"] += 1
+            if order_status in ["DELIVERY_FAILED", "CANCELLED"] or external_status in ["FAILED", "DELIVERY_FAILED", "CANCELLED", "RTO", "RETURNED"]:
+                output["mode_external_failed"] += 1
+
+    return output
+
 
 
 DELIVERY_FEE_SETTINGS_KEY = "delivery_fee_settings"
@@ -5970,6 +6249,11 @@ def _build_store_split_page_context(store):
         "delivered_orders": len(delivered_orders),
     }
 
+    try:
+        metrics.update(build_delivery_mode_order_metrics(sid))
+    except Exception:
+        pass
+
     return {
         "products": products,
         "orders": orders,
@@ -6357,10 +6641,11 @@ def get_contact_auto_reply_settings():
         "key": CONTACT_AUTO_REPLY_SETTINGS_KEY
     }) or {}
 
+    # Default remains ON for existing installations, but Admin can now turn it OFF.
+    enabled = bool(settings.get("enabled", True))
+
     return {
-        # Latest requirement:
-        # automatic acknowledgement must be sent directly whenever user submits a query.
-        "enabled": True,
+        "enabled": enabled,
         "subject": settings.get("subject") or _default_contact_auto_reply_subject(),
         "body": settings.get("body") or _default_contact_auto_reply_body(),
         "updated_at": settings.get("updated_at") or "",
@@ -6407,6 +6692,17 @@ def build_contact_auto_reply_email(contact_doc):
 
 
 def send_contact_auto_reply(contact_doc):
+    settings = get_contact_auto_reply_settings()
+
+    if not settings.get("enabled"):
+        return {
+            "enabled": False,
+            "sent": False,
+            "error": "",
+            "subject": "",
+            "body": ""
+        }
+
     contact_doc = contact_doc or {}
     to_email = (contact_doc.get("email") or "").strip()
 
@@ -6430,7 +6726,6 @@ def send_contact_auto_reply(contact_doc):
             "subject": subject,
             "body": body
         }
-
     except Exception as exc:
         return {
             "enabled": True,
@@ -6438,43 +6733,6 @@ def send_contact_auto_reply(contact_doc):
             "error": str(exc),
             "subject": "",
             "body": ""
-        }
-
-
-def send_contact_auto_reply(contact_doc):
-    settings = get_contact_auto_reply_settings()
-
-    if not settings.get("enabled"):
-        return {
-            "enabled": False,
-            "sent": False,
-            "error": ""
-        }
-
-    contact_doc = contact_doc or {}
-    to_email = (contact_doc.get("email") or "").strip()
-
-    if not to_email:
-        return {
-            "enabled": True,
-            "sent": False,
-            "error": "Missing recipient email."
-        }
-
-    try:
-        subject, body = build_contact_auto_reply_email(contact_doc)
-        send_email(to_email, subject, body)
-
-        return {
-            "enabled": True,
-            "sent": True,
-            "error": ""
-        }
-    except Exception as exc:
-        return {
-            "enabled": True,
-            "sent": False,
-            "error": str(exc)
         }
 
 

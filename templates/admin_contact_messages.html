@@ -414,7 +414,14 @@
         width:100%;
       }
     }
-  </style>
+  
+/* ==========================================================
+   NELOCALS CONTACT AUTO ACKNOWLEDGEMENT TOGGLE ONLY FINAL
+   Automatic message edit fields removed. ON/OFF switch and
+   manual reply workflow preserved.
+========================================================== */
+
+</style>
 
   <div class="cm-stats">
     <div class="cm-stat">
@@ -453,36 +460,22 @@
       </form>
 
       <div class="cm-auto-box">
-  <span class="cm-auto-pill">Auto acknowledgement: Always ON</span>
-
-  <form method="POST" action="{{ url_for('admin_contact_auto_reply_settings_update') }}" class="cm-auto-settings">
-    <div class="cm-auto-settings-title">Edit Automatic Email Message For Future Queries</div>
-
-    <small>
-      This message is sent automatically when a user submits a new contact query.
-      Editing this text will affect only upcoming/future messages.
-      It will not send email to old/current messages.
-      You can use:
-      <b>{name}</b>,
-      <b>{subject}</b>,
-      <b>{message}</b>
-    </small>
-
-    <input
-      type="text"
-      name="subject"
-      value="{{ auto_reply_settings.subject or 'We received your message - NELOCALS' }}"
-      placeholder="Automatic email subject"
-    >
-
-    <textarea
-      name="body"
-      placeholder="Automatic email body"
-    >{{ auto_reply_settings.body or '' }}</textarea>
-
-    <button type="submit" class="cm-btn">Save For Future Queries</button>
-  </form>
-</div>
+        {% if auto_reply_enabled %}
+          <span class="cm-auto-pill">Auto acknowledgement: ON</span>
+          <form method="POST" action="{{ url_for('admin_contact_auto_reply_toggle') }}" class="cm-auto-form">
+            <input type="hidden" name="enabled" value="0">
+            <button type="submit" class="light">Turn OFF Auto Acknowledgement</button>
+          </form>
+          <span class="cm-sub">When ON, the fixed acknowledgement email is sent directly when a user submits a new contact query.</span>
+        {% else %}
+          <span class="cm-auto-pill off">Auto acknowledgement: OFF</span>
+          <form method="POST" action="{{ url_for('admin_contact_auto_reply_toggle') }}" class="cm-auto-form">
+            <input type="hidden" name="enabled" value="1">
+            <button type="submit">Turn ON Auto Acknowledgement</button>
+          </form>
+          <span class="cm-sub">When OFF, no automatic email is sent. Use the manual reply field inside each message.</span>
+        {% endif %}
+      </div>
     </div>
 
     {% if messages %}
@@ -565,11 +558,15 @@
 
                 <td>
                   <div class="cm-comm-box">
-                    <form method="POST" action="{{ url_for('admin_contact_auto_reply_send', mid=m.id) }}" class="cm-auto-form">
-                      <button type="submit" class="light">
-                        Send Auto Acknowledgement
-                      </button>
-                    </form>
+                    {% if auto_reply_enabled and not m.auto_reply_sent %}
+                      <form method="POST" action="{{ url_for('admin_contact_auto_reply_send', mid=m.id) }}" class="cm-auto-form">
+                        <button type="submit" class="light">
+                          Send Auto Acknowledgement
+                        </button>
+                      </form>
+                    {% elif not auto_reply_enabled %}
+                      <span class="cm-sub">Auto acknowledgement is OFF. Send a manual reply below.</span>
+                    {% endif %}
 
                     <form method="POST" action="{{ url_for('admin_contact_message_reply', mid=m.id) }}" class="cm-manual-form">
                       <input

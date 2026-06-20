@@ -2987,7 +2987,45 @@
       }
     }
 
-  </style>
+  
+/* ==========================================================
+   NELOCALS CUSTOMER ORDERS DELIVERY MODE DISPLAY FINAL
+========================================================== */
+.my-orders-page .delivery-mode-chip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  max-width:100%;
+  min-height:28px;
+  border-radius:999px;
+  background:var(--nf-green-soft);
+  border:1px solid rgba(0,168,89,.16);
+  color:var(--nf-green-dark);
+  padding:0 10px;
+  font-size:.7rem;
+  line-height:1.25;
+  font-weight:950;
+  text-align:center;
+}
+.my-orders-page .delivery-mode-chip.external-local{
+  background:#FFF8E8;
+  border-color:rgba(255,184,77,.30);
+  color:#A96800;
+}
+.my-orders-page .delivery-mode-chip.third-party{
+  background:#E0F2FE;
+  border-color:rgba(2,132,199,.22);
+  color:#0369A1;
+}
+.my-orders-page .delivery-mode-note{
+  margin-top:5px;
+  color:var(--nf-muted);
+  font-size:.72rem;
+  line-height:1.35;
+  font-weight:760;
+}
+
+</style>
 
   <div class="grain-overlay" aria-hidden="true"></div>
 
@@ -3072,6 +3110,7 @@
               <th scope="col">Total</th>
               <th scope="col">Status</th>
               <th scope="col">Payment</th>
+              <th scope="col">Delivery Mode</th>
               <th scope="col">Placed</th>
               <th scope="col">Actions</th>
             </tr>
@@ -3083,7 +3122,7 @@
                 data-order-item
                 data-order-index="{{ loop.index }}"
                 data-order-status="{{ (o.status or '')|lower|replace(' ', '-')|replace('_','-') }}"
-                data-order-search="#{{ o.id }} {{ o.store_name|e }} {{ o.status|e }} {{ o.payment_status|e }} {{ o.payment_method|e }} {{ o.created_at|e }}">
+                data-order-search="#{{ o.id }} {{ o.store_name|e }} {{ o.status|e }} {{ o.payment_status|e }} {{ o.payment_method|e }} {{ o.delivery_mode_label|default('')|e }} {{ o.external_delivery_provider|default('')|e }} {{ o.created_at|e }}">
               <td class="order-slno" data-sl-no>{{ loop.index }}</td>
               <td class="order-id">#{{ o.id }}</td>
               <td class="store-name">{{ o.store_name }}</td>
@@ -3220,6 +3259,16 @@
                 </div>
               </td>
 
+              <td class="delivery-mode-cell">
+                {% set order_mode = (o.active_delivery_mode|default('IN_HOUSE'))|upper %}
+                <span class="delivery-mode-chip {% if order_mode == 'THIRD_PARTY_SHIPPING' %}third-party{% elif order_mode == 'EXTERNAL_LOCAL_DELIVERY' %}external-local{% endif %}">
+                  {{ o.delivery_mode_short_label|default(o.delivery_mode_label|default('In-house Delivery')) }}
+                </span>
+                <div class="delivery-mode-note">
+                  {{ o.delivery_provider_label|default('NE FRESH Delivery') }}
+                </div>
+              </td>
+
               <td class="order-date" data-placed-value>{{ o.created_at }}</td>
 
                             <td class="order-actions">
@@ -3307,7 +3356,7 @@
                  data-order-card
                  data-order-index="{{ loop.index }}"
                  data-order-status="{{ (o.status or '')|lower|replace(' ', '-')|replace('_','-') }}"
-                 data-order-search="#{{ o.id }} {{ o.store_name|e }} {{ o.status|e }} {{ o.payment_status|e }} {{ o.payment_method|e }} {{ o.created_at|e }}">
+                 data-order-search="#{{ o.id }} {{ o.store_name|e }} {{ o.status|e }} {{ o.payment_status|e }} {{ o.payment_method|e }} {{ o.delivery_mode_label|default('')|e }} {{ o.external_delivery_provider|default('')|e }} {{ o.created_at|e }}">
           <div class="card-head">
             <div class="left">
               <div class="oid-line"><span class="mobile-order-index" data-mobile-sl-no>{{ loop.index }}</span><div class="oid">#{{ o.id }}</div></div>
