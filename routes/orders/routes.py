@@ -1181,12 +1181,18 @@ def checkout():
         else:
             location_source = "missing_coordinates"
 
-        serviceability = check_store_serviceability(
+        requested_payment_method = (request.form.get("payment_method") or "COD").strip().upper()
+
+        if requested_payment_method not in ["COD", "ONLINE"]:
+            requested_payment_method = "COD"
+
+        serviceability = check_checkout_delivery_quote(
             store=store,
             customer_lat=final_lat,
             customer_lng=final_lng,
             customer_pincode=sel_pin,
-            items_total=items_total
+            items_total=items_total,
+            payment_method=requested_payment_method
         )
 
         if not serviceability.get("serviceable"):
@@ -1239,11 +1245,6 @@ def checkout():
         tip_amount = round(tip_amount, 2)
 
         now = datetime.utcnow().isoformat()
-
-        requested_payment_method = (request.form.get("payment_method") or "COD").strip().upper()
-
-        if requested_payment_method not in ["COD", "ONLINE"]:
-            requested_payment_method = "COD"
 
         delivery_mode_snapshot = get_order_delivery_mode_snapshot()
         active_delivery_mode = delivery_mode_snapshot.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
@@ -1430,6 +1431,11 @@ def checkout():
             "external_cod_remittance_status": "PENDING" if (not is_online_order and external_payment_rule == EXTERNAL_PAYMENT_RULE_COD_PARTNER) else "NOT_REQUIRED",
             "external_delivery_payload": {},
             "external_delivery_response": {},
+            "external_delivery_quote": serviceability.get("external_delivery_quote") or {},
+            "external_delivery_quote_status": (serviceability.get("external_delivery_quote") or {}).get("quote_status") or "",
+            "external_delivery_quote_message": (serviceability.get("external_delivery_quote") or {}).get("message") or "",
+            "external_delivery_quote_source": serviceability.get("delivery_fee_source") or "",
+            "external_delivery_eta_minutes": serviceability.get("eta_minutes"),
             "external_status_history": [],
 
             # At order creation, COD money is not collected yet.
@@ -2369,12 +2375,13 @@ def api_checkout_serviceability():
             "message": "Store not found."
         }), 404
 
-    serviceability = check_store_serviceability(
+    serviceability = check_checkout_delivery_quote(
         store=store,
         customer_lat=customer_lat,
         customer_lng=customer_lng,
         customer_pincode=customer_pincode,
-        items_total=items_total
+        items_total=items_total,
+        payment_method=(data.get("payment_method") or "")
     )
 
     delivery_fee = float(serviceability.get("delivery_fee") or 0)
@@ -2413,6 +2420,17 @@ def api_checkout_serviceability():
         "platform_fee_description": platform_settings.get("description") or "",
         "platform_fee_source": platform_result.get("platform_fee_source") or "disabled",
         "total_payable": total_payable,
+
+        "active_delivery_mode": serviceability.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE,
+        "delivery_type": serviceability.get("delivery_type") or "OWN_DELIVERY",
+        "external_delivery_enabled": bool(serviceability.get("external_delivery_enabled", False)),
+        "external_delivery_provider": serviceability.get("external_delivery_provider") or "IN_HOUSE",
+        "external_delivery_provider_type": serviceability.get("external_delivery_provider_type") or "IN_HOUSE",
+        "external_payment_rule": serviceability.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+        "cod_allowed": bool(serviceability.get("cod_allowed", True)),
+        "online_allowed": bool(serviceability.get("online_allowed", True)),
+        "eta_minutes": serviceability.get("eta_minutes"),
+        "external_delivery_quote": serviceability.get("external_delivery_quote") or {},
 
         "store": {
             "id": str(store.get("_id")),

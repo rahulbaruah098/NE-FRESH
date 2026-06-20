@@ -1039,6 +1039,17 @@ DEFAULT_EXTERNAL_DELIVERY_SETTINGS = {
     "hyperlocal_webhook_token": "",
 
     "manual_external_enabled": True,
+
+    # Manual quote fallback values used until partner quote APIs are connected.
+    "external_local_base_fee": 40.0,
+    "external_local_per_km_fee": 8.0,
+    "external_local_min_fee": 40.0,
+    "external_local_max_distance_km": 25.0,
+    "third_party_base_fee": 65.0,
+    "third_party_per_km_fee": 0.0,
+    "third_party_min_fee": 65.0,
+    "third_party_max_distance_km": 9999.0,
+
     "default_package_weight_kg": 1.0,
     "default_package_length_cm": 10.0,
     "default_package_breadth_cm": 10.0,
@@ -1139,6 +1150,14 @@ def get_external_delivery_settings():
     settings["manual_external_enabled"] = bool(settings.get("manual_external_enabled", True))
 
     for money_key in [
+        "external_local_base_fee",
+        "external_local_per_km_fee",
+        "external_local_min_fee",
+        "external_local_max_distance_km",
+        "third_party_base_fee",
+        "third_party_per_km_fee",
+        "third_party_min_fee",
+        "third_party_max_distance_km",
         "default_package_weight_kg",
         "default_package_length_cm",
         "default_package_breadth_cm",
@@ -1813,6 +1832,307 @@ def check_store_serviceability(store, customer_lat, customer_lng, customer_pinco
         "delivery_fee_slab": delivery_fee_details.get("delivery_fee_slab"),
         "delivery_base_fee": float(delivery_fee_details.get("delivery_base_fee") or 0),
         "delivery_fee_details": delivery_fee_details
+    }
+
+
+
+def _checkout_common_delivery_block(store, customer_lat, customer_lng, customer_pincode=None, items_total=None):
+    """Common checkout delivery validation shared by in-house and external modes."""
+    store = store or {}
+    status = normalize_store_delivery_status(store)
+
+    if status["is_active"] != 1:
+        return None, {
+            "ok": True,
+            "serviceable": False,
+            "reason": "STORE_INACTIVE",
+            "message": "This store is currently unavailable.",
+            "distance_km": None,
+            "delivery_fee": 0,
+        }
+
+    if status["is_online"] != 1:
+        return None, {
+            "ok": True,
+            "serviceable": False,
+            "reason": "STORE_OFFLINE",
+            "message": "This store is currently offline and not accepting orders.",
+            "distance_km": None,
+            "delivery_fee": 0,
+        }
+
+    if status["delivery_enabled"] != 1:
+        return None, {
+            "ok": True,
+            "serviceable": False,
+            "reason": "DELIVERY_DISABLED",
+            "message": "Delivery is currently unavailable for this store.",
+            "distance_km": None,
+            "delivery_fee": 0,
+        }
+
+    delivery_min_order_amount = _delivery_float_or_none(status.get("delivery_min_order_amount"))
+    items_total_for_check = _delivery_float_or_none(items_total)
+
+    if (
+        delivery_min_order_amount is not None
+        and delivery_min_order_amount > 0
+        and items_total_for_check is not None
+        and items_total_for_check < delivery_min_order_amount
+    ):
+        return None, {
+            "ok": True,
+            "serviceable": False,
+            "reason": "DELIVERY_MIN_ORDER_NOT_MET",
+            "message": f"Minimum order amount for delivery is ₹{delivery_min_order_amount:g}.",
+            "distance_km": None,
+            "delivery_fee": 0,
+            "delivery_min_order_amount": round(float(delivery_min_order_amount), 2),
+        }
+
+    if customer_pincode and not is_serviceable_pincode(customer_pincode):
+        return None, {
+            "ok": True,
+            "serviceable": False,
+            "reason": "INVALID_PINCODE",
+            "message": "Please enter a valid 6-digit pincode.",
+            "distance_km": None,
+            "delivery_fee": 0,
+        }
+
+    store_lat = status["store_lat"]
+    store_lng = status["store_lng"]
+
+    if store_lat is None or store_lng is None:
+        return None, {
+            "ok": True,
+            "serviceable": False,
+            "reason": "STORE_COORDINATES_MISSING",
+            "message": "Store pickup location is not configured.",
+            "distance_km": None,
+            "delivery_fee": 0,
+        }
+
+    customer_lat = _delivery_float_or_none(customer_lat)
+    customer_lng = _delivery_float_or_none(customer_lng)
+
+    if customer_lat is None or customer_lng is None:
+        return None, {
+            "ok": True,
+            "serviceable": False,
+            "reason": "CUSTOMER_COORDINATES_MISSING",
+            "message": "Please select or detect your delivery location before checkout.",
+            "distance_km": None,
+            "delivery_fee": 0,
+        }
+
+    distance_km = haversine_km(store_lat, store_lng, customer_lat, customer_lng)
+
+    return {
+        "status": status,
+        "store_lat": store_lat,
+        "store_lng": store_lng,
+        "customer_lat": customer_lat,
+        "customer_lng": customer_lng,
+        "distance_km": distance_km,
+    }, None
+
+
+def check_checkout_delivery_quote(store, customer_lat, customer_lng, customer_pincode=None, items_total=None, payment_method=None):
+    """Checkout delivery fee and availability for all delivery modes.
+
+    In-house mode delegates to the existing polygon/serviceability logic.
+    External modes keep item subtotal untouched and replace only delivery_fee
+    with the configured/live external delivery quote.
+    """
+    delivery_mode_snapshot = get_order_delivery_mode_snapshot()
+    active_mode = delivery_mode_snapshot.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
+    external_enabled = active_mode in [DELIVERY_MODE_EXTERNAL_LOCAL, DELIVERY_MODE_THIRD_PARTY]
+    payment_rule = delivery_mode_snapshot.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+
+    if not external_enabled:
+        result = check_store_serviceability(
+            store=store,
+            customer_lat=customer_lat,
+            customer_lng=customer_lng,
+            customer_pincode=customer_pincode,
+            items_total=items_total,
+        )
+        result.update({
+            "active_delivery_mode": DELIVERY_MODE_IN_HOUSE,
+            "delivery_type": "OWN_DELIVERY",
+            "external_delivery_enabled": False,
+            "external_delivery_provider": "IN_HOUSE",
+            "external_delivery_provider_type": "IN_HOUSE",
+            "external_delivery_quote": {},
+            "cod_allowed": True,
+            "online_allowed": True,
+            "external_payment_rule": payment_rule,
+        })
+        return result
+
+    common, error = _checkout_common_delivery_block(
+        store=store,
+        customer_lat=customer_lat,
+        customer_lng=customer_lng,
+        customer_pincode=customer_pincode,
+        items_total=items_total,
+    )
+
+    provider = (
+        delivery_mode_snapshot.get("third_party_provider")
+        if active_mode == DELIVERY_MODE_THIRD_PARTY
+        else delivery_mode_snapshot.get("external_local_provider")
+    ) or "MANUAL_HYPERLOCAL"
+
+    provider_type = delivery_mode_snapshot.get("external_delivery_provider_type") or (
+        "COURIER" if active_mode == DELIVERY_MODE_THIRD_PARTY else "HYPERLOCAL"
+    )
+
+    if error:
+        error.update({
+            "active_delivery_mode": active_mode,
+            "delivery_type": delivery_mode_snapshot.get("delivery_type"),
+            "external_delivery_enabled": True,
+            "external_delivery_provider": provider,
+            "external_delivery_provider_type": provider_type,
+            "external_delivery_quote": {},
+            "cod_allowed": payment_rule in [EXTERNAL_PAYMENT_RULE_COD_STORE, EXTERNAL_PAYMENT_RULE_COD_PARTNER],
+            "online_allowed": True,
+            "external_payment_rule": payment_rule,
+        })
+        return error
+
+    distance_km = common.get("distance_km")
+    external_settings = get_external_delivery_settings()
+
+    max_distance_key = "third_party_max_distance_km" if active_mode == DELIVERY_MODE_THIRD_PARTY else "external_local_max_distance_km"
+    max_distance = _delivery_float_or_none(external_settings.get(max_distance_key))
+
+    if max_distance is not None and max_distance > 0 and distance_km is not None and float(distance_km) > max_distance:
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "EXTERNAL_DELIVERY_DISTANCE_LIMIT",
+            "message": f"This external delivery mode supports up to {max_distance:g} km from the store.",
+            "distance_km": round(float(distance_km or 0), 2),
+            "delivery_fee": 0,
+            "active_delivery_mode": active_mode,
+            "delivery_type": delivery_mode_snapshot.get("delivery_type"),
+            "external_delivery_enabled": True,
+            "external_delivery_provider": provider,
+            "external_delivery_provider_type": provider_type,
+            "external_delivery_quote": {},
+            "cod_allowed": payment_rule in [EXTERNAL_PAYMENT_RULE_COD_STORE, EXTERNAL_PAYMENT_RULE_COD_PARTNER],
+            "online_allowed": True,
+            "external_payment_rule": payment_rule,
+        }
+
+    # Existing in-house fee is used as an additional safe fallback reference.
+    fallback_details = calculate_store_delivery_fee_details(
+        store,
+        distance_km,
+        items_total=items_total,
+    )
+    fallback_fee = float(fallback_details.get("delivery_fee") or 0)
+
+    if active_mode == DELIVERY_MODE_THIRD_PARTY:
+        configured_min = _delivery_float_or_none(external_settings.get("third_party_min_fee")) or 0
+        configured_base = _delivery_float_or_none(external_settings.get("third_party_base_fee")) or configured_min
+        configured_per_km = _delivery_float_or_none(external_settings.get("third_party_per_km_fee")) or 0
+    else:
+        configured_min = _delivery_float_or_none(external_settings.get("external_local_min_fee")) or 0
+        configured_base = _delivery_float_or_none(external_settings.get("external_local_base_fee")) or configured_min
+        configured_per_km = _delivery_float_or_none(external_settings.get("external_local_per_km_fee")) or 0
+
+    manual_fee = max(
+        float(configured_min or 0),
+        float(configured_base or 0) + max(float(distance_km or 0), 0) * float(configured_per_km or 0),
+        float(fallback_fee or 0),
+    )
+
+    payload = {
+        "provider": provider,
+        "provider_type": provider_type,
+        "mode": active_mode,
+        "payment_method": (payment_method or "").upper(),
+        "payment_rule": payment_rule,
+        "cod_amount": 0.0,
+        "order_amount": float(items_total or 0),
+        "distance_km": round(float(distance_km or 0), 3),
+        "fallback_delivery_fee": round(float(manual_fee or 0), 2),
+        "pickup": {
+            "store_id": str(store.get("_id") or ""),
+            "store_name": store.get("store_name") or store.get("name") or "NE FRESH Store",
+            "latitude": common.get("store_lat"),
+            "longitude": common.get("store_lng"),
+            "pincode": store.get("pincode") or store.get("pickup_pincode") or "",
+        },
+        "drop": {
+            "pincode": customer_pincode or "",
+            "latitude": common.get("customer_lat"),
+            "longitude": common.get("customer_lng"),
+        },
+        "package": {
+            "weight_kg": _delivery_float_or_none(external_settings.get("default_package_weight_kg")) or 1.0,
+            "length_cm": _delivery_float_or_none(external_settings.get("default_package_length_cm")) or 10.0,
+            "breadth_cm": _delivery_float_or_none(external_settings.get("default_package_breadth_cm")) or 10.0,
+            "height_cm": _delivery_float_or_none(external_settings.get("default_package_height_cm")) or 10.0,
+        },
+    }
+
+    try:
+        from services.delivery_integrations.quote_service import quote_external_delivery
+        quote = quote_external_delivery(payload, external_settings, active_mode, payment_rule=payment_rule)
+    except Exception as exc:
+        quote = {
+            "ok": True,
+            "serviceable": True,
+            "provider": provider,
+            "provider_type": provider_type,
+            "delivery_fee": round(float(manual_fee or 0), 2),
+            "delivery_fee_source": "external_manual_quote_exception_fallback",
+            "quote_status": "EXCEPTION_FALLBACK",
+            "message": f"External quote fallback applied. {exc}",
+            "raw_response": {},
+        }
+
+    delivery_fee = round(float(quote.get("delivery_fee") or manual_fee or 0), 2)
+    cod_allowed = payment_rule in [EXTERNAL_PAYMENT_RULE_COD_STORE, EXTERNAL_PAYMENT_RULE_COD_PARTNER]
+
+    fee_details = {
+        "delivery_fee_settings_source": "external_delivery_settings",
+        "delivery_mode": active_mode,
+        "external_provider": quote.get("provider") or provider,
+        "external_provider_type": quote.get("provider_type") or provider_type,
+        "external_quote_status": quote.get("quote_status") or "QUOTE",
+        "external_quote_message": quote.get("message") or "External delivery quote applied.",
+        "external_quote_raw": quote.get("raw_response") or {},
+        "distance_km": round(float(distance_km or 0), 3),
+        "manual_fallback_fee": round(float(manual_fee or 0), 2),
+    }
+
+    return {
+        "ok": True,
+        "serviceable": bool(quote.get("serviceable", True)),
+        "reason": "SERVICEABLE" if quote.get("serviceable", True) else "EXTERNAL_DELIVERY_UNAVAILABLE",
+        "message": quote.get("message") or "External delivery is available.",
+        "distance_km": round(float(distance_km or 0), 2),
+        "delivery_fee": delivery_fee,
+        "delivery_fee_source": quote.get("delivery_fee_source") or "external_delivery_quote",
+        "delivery_fee_slab": quote.get("delivery_fee_slab"),
+        "delivery_base_fee": float(configured_base or 0),
+        "delivery_fee_details": fee_details,
+        "active_delivery_mode": active_mode,
+        "delivery_type": delivery_mode_snapshot.get("delivery_type"),
+        "external_delivery_enabled": True,
+        "external_delivery_provider": quote.get("provider") or provider,
+        "external_delivery_provider_type": quote.get("provider_type") or provider_type,
+        "external_delivery_quote": quote,
+        "external_payment_rule": payment_rule,
+        "cod_allowed": bool(cod_allowed),
+        "online_allowed": True,
+        "eta_minutes": quote.get("eta_minutes"),
     }
 
 

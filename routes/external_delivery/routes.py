@@ -231,6 +231,15 @@ def admin_external_delivery_settings():
             "hyperlocal_webhook_token": _external_safe_text(request.form.get("hyperlocal_webhook_token")),
             "manual_external_enabled": _bool("manual_external_enabled", True),
 
+            "external_local_base_fee": _money("external_local_base_fee", 40.0),
+            "external_local_per_km_fee": _money("external_local_per_km_fee", 8.0),
+            "external_local_min_fee": _money("external_local_min_fee", 40.0),
+            "external_local_max_distance_km": _money("external_local_max_distance_km", 25.0),
+            "third_party_base_fee": _money("third_party_base_fee", 65.0),
+            "third_party_per_km_fee": _money("third_party_per_km_fee", 0.0),
+            "third_party_min_fee": _money("third_party_min_fee", 65.0),
+            "third_party_max_distance_km": _money("third_party_max_distance_km", 9999.0),
+
             "default_package_weight_kg": _money("default_package_weight_kg", 1.0),
             "default_package_length_cm": _money("default_package_length_cm", 10.0),
             "default_package_breadth_cm": _money("default_package_breadth_cm", 10.0),

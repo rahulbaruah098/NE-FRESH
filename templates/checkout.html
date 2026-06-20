@@ -2048,6 +2048,9 @@
     }
   }
 
+
+
+  /* NELOCALS EXTERNAL DELIVERY FULL LOGIC FINAL */
 </style>
 
 <section class="checkout-page" data-page="checkout"
@@ -2214,7 +2217,7 @@
 
               <div class="secure-row">
                 <span id="payment-secure-label">Secure order confirmation</span>
-                <span id="payment-mode-label">Cash on Delivery</span>
+                <span id="payment-mode-label">{% if external_online_only %}Online Payment{% else %}Cash on Delivery{% endif %}</span>
               </div>
 
               <div class="payment-method-note">
@@ -2229,7 +2232,7 @@
             <div class="field-grid" aria-label="Customer details preview">
               <label class="field-label readonly-card-number">
                                 Payment method
-                <input type="text" id="payment-method-preview" value="Cash on Delivery" readonly aria-readonly="true">
+                <input type="text" id="payment-method-preview" value="{% if external_online_only %}Online Payment{% else %}Cash on Delivery{% endif %}" readonly aria-readonly="true">
                 <span class="card-brand-row" aria-hidden="true">
                   <span class="card-brand">COD</span>
                   <span class="card-brand">₹</span>
@@ -2731,6 +2734,40 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
     }
   }
 
+
+
+  function applyDeliveryPaymentRules(result){
+    const codAllowed = result && Object.prototype.hasOwnProperty.call(result, "cod_allowed")
+      ? Boolean(result.cod_allowed)
+      : !EXTERNAL_ONLINE_ONLY;
+    const onlineAllowed = result && Object.prototype.hasOwnProperty.call(result, "online_allowed")
+      ? Boolean(result.online_allowed)
+      : true;
+
+    const codRadio = paymentRadios.find(r => r.value === "COD");
+    const onlineRadio = paymentRadios.find(r => r.value === "ONLINE");
+
+    if (codRadio) {
+      codRadio.disabled = !codAllowed;
+      codRadio.closest('.payment-method-option')?.classList.toggle('disabled', !codAllowed);
+    }
+
+    if (onlineRadio) {
+      onlineRadio.disabled = !onlineAllowed || !ONLINE_PAYMENT_ENABLED;
+      onlineRadio.closest('.payment-method-option')?.classList.toggle('disabled', !onlineAllowed || !ONLINE_PAYMENT_ENABLED);
+    }
+
+    if (codRadio && codRadio.checked && codRadio.disabled && onlineRadio && !onlineRadio.disabled) {
+      onlineRadio.checked = true;
+    }
+
+    if (onlineRadio && onlineRadio.checked && onlineRadio.disabled && codRadio && !codRadio.disabled) {
+      codRadio.checked = true;
+    }
+
+    syncPaymentUI();
+  }
+
   function setButtonEnabled(ok){
     if (!btn) return;
 
@@ -2892,6 +2929,15 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
       );
     }
 
+    if (!deliveryDisplay.freeApplied && info.external_delivery_enabled) {
+      const modeText = String(info.active_delivery_mode || "External Delivery").replaceAll("_", " ");
+      const providerText = String(info.external_delivery_provider || "External Partner").replaceAll("_", " ");
+      metaParts.push(`<span class="fee-slab-badge">${escapeHtml(providerText)} • ${escapeHtml(modeText)}</span>`);
+      if (info.eta_minutes) {
+        metaParts.push(`<div class="fee-meta-line">Estimated delivery time: ${escapeHtml(info.eta_minutes)} minutes.</div>`);
+      }
+    }
+
     feeMeta.innerHTML = metaParts.length
       ? `<div class="fee-meta-stack">${metaParts.join("")}</div>`
       : "";
@@ -2995,7 +3041,8 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
       body: JSON.stringify({
         lat,
         lng,
-        pincode: cleanPin(pincode || "")
+        pincode: cleanPin(pincode || ""),
+        payment_method: selectedPaymentMethod()
       })
     });
 
@@ -3170,6 +3217,7 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
       });
 
       lastServiceability = result;
+      applyDeliveryPaymentRules(result);
 
       deliveryFee = Number(result.delivery_fee || 0);
       const platformFee = Number(result.platform_fee || 0);
@@ -3654,6 +3702,7 @@ async function usePincode(){
     });
 
     lastServiceability = result;
+    applyDeliveryPaymentRules(result);
 
     const tip = clampTip(tipInput ? tipInput.value : 0);
     const deliveryFee = Number(result.delivery_fee || 0);
