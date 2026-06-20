@@ -102,10 +102,15 @@ def _parse_since_to_sqlite(since_raw: str):
 # ---------------------------
 @app.context_processor
 def inject_globals():
+    delivery_mode_settings = get_delivery_mode_settings()
+
     return {
         "datetime": datetime,
         "service_area": session.get("service_area"),
-        "order_status_label": order_status_label
+        "order_status_label": order_status_label,
+        "delivery_mode_settings": delivery_mode_settings,
+        "in_house_delivery_enabled": bool(delivery_mode_settings.get("in_house_delivery_enabled", True)),
+        "return_refund_enabled": bool(delivery_mode_settings.get("return_refund_enabled", True)),
     }
 
 
@@ -963,6 +968,84 @@ def _delivery_float_or_none(value):
         return float(value)
     except Exception:
         return None
+
+
+DELIVERY_MODE_SETTINGS_KEY = "delivery_mode_settings"
+
+DEFAULT_DELIVERY_MODE_SETTINGS = {
+    "key": DELIVERY_MODE_SETTINGS_KEY,
+    "active_delivery_mode": "IN_HOUSE",
+
+    # Master switch
+    "in_house_delivery_enabled": True,
+
+    # Related in-house modules
+    "delivery_boy_panel_enabled": True,
+    "delivery_assignment_enabled": True,
+    "delivery_tracking_enabled": True,
+    "cod_rider_collection_enabled": True,
+
+    # Related return/refund module
+    "return_refund_enabled": True,
+}
+
+
+def get_delivery_mode_settings():
+    """
+    Global delivery mode settings controlled from Admin Panel.
+
+    Step 1 only reads/saves this setting.
+    Step 2 will use this setting to block/hide delivery-boy, store assignment,
+    return/refund and tracking logic.
+    """
+    settings = dict(DEFAULT_DELIVERY_MODE_SETTINGS)
+
+    try:
+        row = mongo.platform_settings.find_one({
+            "key": DELIVERY_MODE_SETTINGS_KEY
+        }) or {}
+
+        if row:
+            settings.update(row)
+    except Exception:
+        pass
+
+    in_house_enabled = bool(settings.get("in_house_delivery_enabled", True))
+
+    if in_house_enabled:
+        settings["active_delivery_mode"] = "IN_HOUSE"
+    else:
+        settings["active_delivery_mode"] = settings.get("active_delivery_mode") or "EXTERNAL_LOCAL_DELIVERY"
+
+    settings["in_house_delivery_enabled"] = in_house_enabled
+    settings["delivery_boy_panel_enabled"] = bool(settings.get("delivery_boy_panel_enabled", in_house_enabled))
+    settings["delivery_assignment_enabled"] = bool(settings.get("delivery_assignment_enabled", in_house_enabled))
+    settings["delivery_tracking_enabled"] = bool(settings.get("delivery_tracking_enabled", in_house_enabled))
+    settings["cod_rider_collection_enabled"] = bool(settings.get("cod_rider_collection_enabled", in_house_enabled))
+    settings["return_refund_enabled"] = bool(settings.get("return_refund_enabled", in_house_enabled))
+
+    return settings
+
+
+def is_delivery_feature_enabled(feature_key="in_house_delivery_enabled", default=True):
+    """
+    Reads delivery-mode feature flags from Admin Delivery Mode Settings.
+    Used by delivery/store/order/admin routes to block in-house delivery logic.
+    """
+    settings = get_delivery_mode_settings()
+    return bool(settings.get(feature_key, default))
+
+
+def is_return_refund_enabled():
+    settings = get_delivery_mode_settings()
+    return bool(settings.get("return_refund_enabled", True))
+
+
+def is_in_house_delivery_enabled():
+    settings = get_delivery_mode_settings()
+    return bool(settings.get("in_house_delivery_enabled", True))
+
+
 
 
 DELIVERY_FEE_SETTINGS_KEY = "delivery_fee_settings"

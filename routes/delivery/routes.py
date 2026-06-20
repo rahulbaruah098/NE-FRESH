@@ -7,6 +7,107 @@ Only the file location changed.
 from app_core import *
 
 
+def _delivery_disabled_response():
+    wants_json = (
+        request.path.startswith("/api/")
+        or request.path.startswith("/delivery/api/")
+        or request.is_json
+        or "application/json" in (request.headers.get("Accept") or "")
+    )
+
+    if wants_json:
+        return jsonify({
+            "ok": False,
+            "disabled": True,
+            "error": "In-house delivery is currently disabled by Admin."
+        }), 403
+
+    html = """
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Delivery Disabled | NE FRESH</title>
+        <style>
+          body{
+            margin:0;
+            min-height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:#f8fafc;
+            font-family:Arial,sans-serif;
+            color:#0f172a;
+            padding:20px;
+          }
+          .box{
+            width:min(560px,100%);
+            background:#fff;
+            border:1px solid #e2e8f0;
+            border-radius:22px;
+            box-shadow:0 18px 50px rgba(15,23,42,.08);
+            padding:26px;
+            text-align:center;
+          }
+          h1{
+            margin:0 0 10px;
+            font-size:1.5rem;
+          }
+          p{
+            margin:0;
+            color:#64748b;
+            line-height:1.6;
+            font-weight:600;
+          }
+          a{
+            display:inline-flex;
+            margin-top:18px;
+            min-height:42px;
+            align-items:center;
+            justify-content:center;
+            padding:0 16px;
+            border-radius:12px;
+            background:#00a859;
+            color:#fff;
+            text-decoration:none;
+            font-weight:800;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="box">
+          <h1>In-house delivery is disabled</h1>
+          <p>
+            Admin has turned off NE FRESH in-house delivery-boy operations.
+            Delivery-boy panel, live tracking, COD rider collection and delivery actions are currently unavailable.
+          </p>
+          <a href="/logout">Logout</a>
+        </div>
+      </body>
+    </html>
+    """
+
+    return Response(html, status=403, mimetype="text/html")
+
+
+@app.before_request
+def _block_delivery_panel_when_in_house_disabled():
+    endpoint = request.endpoint or ""
+
+    is_delivery_endpoint = (
+        endpoint.startswith("delivery_")
+        or endpoint == "api_delivery_availability"
+    )
+
+    if not is_delivery_endpoint:
+        return None
+
+    if is_delivery_feature_enabled("delivery_boy_panel_enabled", True):
+        return None
+
+    return _delivery_disabled_response()
+
 def _delivery_notification_user_values(user_id):
     values = [str(user_id)]
 

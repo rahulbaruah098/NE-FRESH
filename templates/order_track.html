@@ -3080,7 +3080,7 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
             {% set track_return_status = (order.return_status or '')|upper %}
       {% set track_refund_status = (order.refund_status or '')|upper %}
 
-            {% if return_allowed %}
+            {% if return_refund_enabled and return_allowed %}
         <section class="card fade-in" id="return-request">
           <div class="card-head">
             <h3>Request Return / Refund</h3>
@@ -3117,7 +3117,7 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
           </div>
         </section>
 
-              {% elif (order.status or '')|upper == 'DELIVERED' and not track_return_status and return_policy_enabled %}
+              {% elif return_refund_enabled and (order.status or '')|upper == 'DELIVERED' and not track_return_status and return_policy_enabled %}
         <section class="card fade-in" id="return-request">
           <div class="card-head">
             <h3>Return / Refund</h3>
@@ -3134,7 +3134,7 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
           </div>
         </section>
 
-            {% elif track_return_status or track_refund_status %}
+{% elif return_refund_enabled and (track_return_status or track_refund_status) %}
         {% set refund_card_class = 'processed' if track_refund_status in ['PROCESSED', 'ADJUSTED'] else 'rejected' if track_refund_status in ['REJECTED', 'VOID', 'NOT_REQUIRED'] else 'pending' %}
 
         <section class="card fade-in" id="return-request">
@@ -3230,7 +3230,7 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
         </section>
       {% endif %}
 
-            {% if not track_return_status and track_refund_status in ['READY_FOR_REFUND', 'PROCESSED', 'ADJUSTED', 'REJECTED'] %}
+{% if return_refund_enabled and not track_return_status and track_refund_status in ['READY_FOR_REFUND', 'PROCESSED', 'ADJUSTED', 'REJECTED'] %}
         {% set refund_card_class = 'processed' if track_refund_status in ['PROCESSED', 'ADJUSTED'] else 'rejected' if track_refund_status == 'REJECTED' else 'pending' %}
 
         <section class="card fade-in" id="refund-status">

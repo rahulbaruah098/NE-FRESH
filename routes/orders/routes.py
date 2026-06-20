@@ -773,6 +773,10 @@ def order_return_request(oid):
     """
     u = current_user()
 
+    if not is_delivery_feature_enabled("return_refund_enabled", True):
+        flash("Return/refund is currently disabled by NE FRESH.", "warning")
+        return redirect(url_for("order_track", oid=oid))
+
     try:
         oid_obj = ObjectId(oid)
     except Exception:
@@ -1273,6 +1277,23 @@ def checkout():
         # ------------------------------------------------------------
         is_online_order = payment_method == "ONLINE"
 
+        delivery_mode_settings = get_delivery_mode_settings()
+        in_house_delivery_enabled_at_order = bool(
+            delivery_mode_settings.get("in_house_delivery_enabled", True)
+        )
+
+        active_delivery_mode = (
+            "IN_HOUSE"
+            if in_house_delivery_enabled_at_order
+            else "EXTERNAL_LOCAL_DELIVERY"
+        )
+
+        delivery_type = (
+            "OWN_DELIVERY"
+            if in_house_delivery_enabled_at_order
+            else "EXTERNAL_DELIVERY_PENDING"
+        )
+
         if is_online_order:
             platform_payment_flow = "ONLINE_PLATFORM"
             initial_payment_status = "PENDING_PAYMENT"
@@ -1284,15 +1305,21 @@ def checkout():
             rider_cash_to_submit = 0.0
             flash_message = "Order created. Please complete online payment in the next step."
         else:
-            platform_payment_flow = "COD_RIDER_COLLECTION"
-            initial_payment_status = "PENDING"
-            payment_collection_status = "PENDING"
-            cod_collection_status = "PENDING"
-            platform_fee_status = "PENDING_COLLECTION"
-            rider_cash_settlement_status = "NOT_COLLECTED_YET"
-            flash_message = "Order placed! (COD)"
+            if in_house_delivery_enabled_at_order:
+                platform_payment_flow = "COD_RIDER_COLLECTION"
+                payment_collection_status = "PENDING"
+                cod_collection_status = "PENDING"
+                platform_fee_status = "PENDING_COLLECTION"
+                rider_cash_settlement_status = "NOT_COLLECTED_YET"
+            else:
+                platform_payment_flow = "COD_STORE_COLLECTION"
+                payment_collection_status = "PENDING_STORE_COLLECTION"
+                cod_collection_status = "PENDING_STORE_COLLECTION"
+                platform_fee_status = "DUE_FROM_STORE"
+                rider_cash_settlement_status = "NOT_APPLICABLE"
 
-        delivery_type = "OWN_DELIVERY"
+            initial_payment_status = "PENDING"
+            flash_message = "Order placed! (COD)"
 
         items_subtotal_amount = round(float(money_breakdown.get("items_subtotal") or items_total or 0), 2)
         delivery_fee_amount_final = round(float(money_breakdown.get("delivery_fee") or delivery_fee or 0), 2)
@@ -1300,18 +1327,31 @@ def checkout():
         tip_amount_final = round(float(money_breakdown.get("tip_amount") or tip_amount or 0), 2)
 
         store_earning_amount = round(float(money_breakdown.get("store_earning") or items_subtotal_amount or 0), 2)
-        delivery_boy_earning_amount = round(delivery_fee_amount_final + tip_amount_final, 2)
+        delivery_boy_earning_amount = (
+            round(delivery_fee_amount_final + tip_amount_final, 2)
+            if in_house_delivery_enabled_at_order
+            else 0.0
+        )
+
+        external_delivery_fee_amount = (
+            0.0
+            if in_house_delivery_enabled_at_order
+            else round(delivery_fee_amount_final + tip_amount_final, 2)
+        )
         admin_platform_earning_amount = round(
             float(money_breakdown.get("admin_platform_earning") or platform_fee_amount or 0),
             2
         )
 
-        if not is_online_order:
+        if not is_online_order and in_house_delivery_enabled_at_order:
             expected_rider_cash_to_submit = round(
                 max(float(total_payable or 0) - float(delivery_boy_earning_amount or 0), 0),
                 2
             )
             rider_cash_to_submit = expected_rider_cash_to_submit
+        elif not is_online_order:
+            expected_rider_cash_to_submit = 0.0
+            rider_cash_to_submit = 0.0
 
         order_items_docs = []
 
@@ -1356,6 +1396,22 @@ def checkout():
             "payment_flow": platform_payment_flow,
             "official_payment_mode": platform_payment_flow,
             "delivery_type": delivery_type,
+
+                        "active_delivery_mode": active_delivery_mode,
+            "in_house_delivery_enabled_at_order": bool(in_house_delivery_enabled_at_order),
+
+            "external_delivery_status": (
+                "NOT_APPLICABLE"
+                if in_house_delivery_enabled_at_order
+                else "PENDING_EXTERNAL_DELIVERY_SETUP"
+            ),
+            "external_delivery_partner_type": (
+                ""
+                if in_house_delivery_enabled_at_order
+                else "PENDING"
+            ),
+            "external_delivery_partner_name": "",
+            "external_delivery_fee_amount": external_delivery_fee_amount,
 
             # At order creation, COD money is not collected yet.
             # It will be collected by delivery boy at delivery time.
@@ -1506,6 +1562,12 @@ def checkout():
             "payment_method": payment_method,
             "payment_flow": platform_payment_flow,
             "official_payment_mode": platform_payment_flow,
+
+            "delivery_type": delivery_type,
+            "active_delivery_mode": active_delivery_mode,
+            "in_house_delivery_enabled_at_order": bool(in_house_delivery_enabled_at_order),
+            "external_delivery_fee_amount": external_delivery_fee_amount,
+
             "payment_received_by": None,
             "payment_collection_status": payment_collection_status,
 
@@ -2419,10 +2481,24 @@ def my_orders():
         o["delivery_rescheduled_for"] = o.get("delivery_rescheduled_for") or ""
         o["delivery_rescheduled_note"] = o.get("delivery_rescheduled_note") or ""
 
+    return_refund_enabled_now = is_delivery_feature_enabled("return_refund_enabled", True)
     return_policy_settings = get_return_refund_policy_settings()
 
+    if not return_refund_enabled_now:
+        return_policy_settings["enabled"] = False
+
     for o in orders:
-        return_eligibility = get_order_return_eligibility(o, return_policy_settings)
+        if return_refund_enabled_now:
+            return_eligibility = get_order_return_eligibility(o, return_policy_settings)
+        else:
+            return_eligibility = {
+                "allowed": False,
+                "reason": "Return/refund is currently disabled by NE FRESH.",
+                "policy_enabled": False,
+                "return_window_hours": None,
+                "deadline": ""
+            }
+
         o["return_allowed"] = bool(return_eligibility.get("allowed"))
         o["return_not_allowed_reason"] = return_eligibility.get("reason") or ""
         o["return_policy_enabled"] = bool(return_eligibility.get("policy_enabled"))
@@ -2434,7 +2510,7 @@ def my_orders():
         orders=orders,
         user=u,
         return_policy_settings=return_policy_settings,
-        return_policy_enabled=bool(return_policy_settings.get("enabled")),
+        return_policy_enabled=bool(return_refund_enabled_now and return_policy_settings.get("enabled")),
         return_window_hours=return_policy_settings.get("return_window_hours")
     )
 
@@ -2452,7 +2528,12 @@ def order_track(oid):
         flash("Order not found.", "danger")
         return redirect(url_for("orders"))
 
+    return_refund_enabled_now = is_delivery_feature_enabled("return_refund_enabled", True)
     return_policy_settings = get_return_refund_policy_settings()
+
+    if not return_refund_enabled_now:
+        return_policy_settings["enabled"] = False
+
     order_doc = data.get("order") or {}
 
     order_doc = normalize_order_money_fields(order_doc)
@@ -2460,13 +2541,22 @@ def order_track(oid):
 
     data["order"] = order_doc
 
-    return_eligibility = get_order_return_eligibility(order_doc, return_policy_settings)
+    if return_refund_enabled_now:
+        return_eligibility = get_order_return_eligibility(order_doc, return_policy_settings)
+    else:
+        return_eligibility = {
+            "allowed": False,
+            "reason": "Return/refund is currently disabled by NE FRESH.",
+            "policy_enabled": False,
+            "return_window_hours": None,
+            "deadline": ""
+        }
 
     return render_template(
         "order_track.html",
         user=u,
         return_policy_settings=return_policy_settings,
-        return_policy_enabled=bool(return_policy_settings.get("enabled")),
+        return_policy_enabled=bool(return_refund_enabled_now and return_policy_settings.get("enabled")),
         return_window_hours=return_policy_settings.get("return_window_hours"),
         return_allowed=bool(return_eligibility.get("allowed")),
         return_not_allowed_reason=return_eligibility.get("reason") or "",

@@ -7,6 +7,52 @@ Only the file location changed.
 from app_core import *
 
 
+STORE_IN_HOUSE_DELIVERY_ENDPOINTS = {
+    "store_delivery_toggle",
+    "store_delivery",
+    "store_delivery_history",
+    "store_order_ready_for_pickup",
+    "store_order_assign_delivery",
+    "store_order_reassign_delivery",
+    "store_order_reschedule_failed_delivery",
+    "store_order_cancel_failed_delivery",
+    "store_order_clear_delivery",
+    "store_order_delivery_options",
+}
+
+STORE_RETURN_REFUND_ENDPOINTS = {
+    "store_returns",
+    "store_return_review",
+}
+
+
+@app.before_request
+def _block_store_delivery_and_returns_when_disabled():
+    endpoint = request.endpoint or ""
+
+    if endpoint in STORE_IN_HOUSE_DELIVERY_ENDPOINTS:
+        if is_delivery_feature_enabled("delivery_assignment_enabled", True):
+            return None
+
+        if endpoint == "store_order_delivery_options" or request.is_json:
+            return jsonify({
+                "ok": False,
+                "disabled": True,
+                "error": "In-house delivery is currently disabled by Admin."
+            }), 403
+
+        flash("In-house delivery is currently disabled by Admin.", "warning")
+        return redirect(url_for("store_orders"))
+
+    if endpoint in STORE_RETURN_REFUND_ENDPOINTS:
+        if is_delivery_feature_enabled("return_refund_enabled", True):
+            return None
+
+        flash("Return/refund module is currently disabled by Admin.", "warning")
+        return redirect(url_for("store_orders"))
+
+    return None
+
 def _store_bool_from_form(name, default=False):
     values = request.form.getlist(name)
 

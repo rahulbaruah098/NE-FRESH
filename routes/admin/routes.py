@@ -6,6 +6,55 @@ Only the file location changed.
 
 from app_core import *
 
+ADMIN_IN_HOUSE_DELIVERY_ENDPOINTS = {
+    "admin_delivery_overview",
+    "admin_delivery_history",
+    "admin_create_delivery",
+    "admin_delivery_list",
+    "admin_delivery_reviews",
+    "admin_delivery_export_csv",
+    "admin_delivery_reviews_export_csv",
+    "admin_delivery_users",
+    "admin_store_delivery_toggle",
+}
+
+ADMIN_RETURN_REFUND_ENDPOINTS = {
+    "admin_return_refund_policy",
+    "admin_refund_processing",
+    "admin_refund_admin_review",
+    "admin_refund_process",
+    "admin_returns_settlements",
+    "admin_returns_settlements_export_csv",
+}
+
+
+@app.before_request
+def _block_admin_delivery_and_return_pages_when_disabled():
+    endpoint = request.endpoint or ""
+
+    if endpoint in ADMIN_IN_HOUSE_DELIVERY_ENDPOINTS:
+        if is_delivery_feature_enabled("in_house_delivery_enabled", True):
+            return None
+
+        flash("In-house delivery-boy system is currently disabled.", "warning")
+        return redirect(url_for("admin_delivery_mode_settings"))
+
+    if endpoint == "admin_settlement_rider_cash_received":
+        if is_delivery_feature_enabled("cod_rider_collection_enabled", True):
+            return None
+
+        flash("COD rider cash collection is currently disabled.", "warning")
+        return redirect(url_for("admin_settlements"))
+
+    if endpoint in ADMIN_RETURN_REFUND_ENDPOINTS:
+        if is_delivery_feature_enabled("return_refund_enabled", True):
+            return None
+
+        flash("Return/refund module is currently disabled.", "warning")
+        return redirect(url_for("admin_delivery_mode_settings"))
+
+    return None
+
 
 def _admin_bool_from_form(name, default=False):
     value = request.form.get(name)
@@ -436,6 +485,68 @@ def _admin_clean_delivery_fee_slabs_from_form():
     cleaned.sort(key=lambda row: float(row.get("min_km") or 0))
 
     return cleaned
+
+
+
+@app.route("/admin/delivery-mode-settings", methods=["GET", "POST"], endpoint="admin_delivery_mode_settings")
+@login_required(role="admin")
+def admin_delivery_mode_settings():
+    admin_user = current_user() or {}
+
+    existing = mongo.platform_settings.find_one({
+        "key": DELIVERY_MODE_SETTINGS_KEY
+    }) or {}
+
+    if request.method == "POST":
+        in_house_enabled = _admin_bool_from_form("in_house_delivery_enabled", False)
+
+        active_delivery_mode = "IN_HOUSE" if in_house_enabled else "EXTERNAL_LOCAL_DELIVERY"
+
+        now = datetime.utcnow().isoformat()
+
+        update_data = {
+            "key": DELIVERY_MODE_SETTINGS_KEY,
+            "active_delivery_mode": active_delivery_mode,
+
+            "in_house_delivery_enabled": bool(in_house_enabled),
+            "delivery_boy_panel_enabled": bool(in_house_enabled),
+            "delivery_assignment_enabled": bool(in_house_enabled),
+            "delivery_tracking_enabled": bool(in_house_enabled),
+            "cod_rider_collection_enabled": bool(in_house_enabled),
+            "return_refund_enabled": bool(in_house_enabled),
+
+            "updated_at": now,
+            "updated_by": str(admin_user.get("_id") or admin_user.get("id") or ""),
+            "updated_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+        }
+
+        mongo.platform_settings.update_one(
+            {"key": DELIVERY_MODE_SETTINGS_KEY},
+            {
+                "$set": update_data,
+                "$setOnInsert": {
+                    "created_at": now,
+                }
+            },
+            upsert=True
+        )
+
+        if in_house_enabled:
+            flash("In-house delivery system enabled successfully.", "success")
+        else:
+            flash("In-house delivery system disabled successfully. External delivery mode can now be configured in the next step.", "success")
+
+        return redirect(url_for("admin_delivery_mode_settings"))
+
+    settings = get_delivery_mode_settings()
+
+    return render_template(
+        "admin_delivery_mode_settings.html",
+        user=admin_user,
+        settings=settings,
+        active_group="delivery",
+        active_page="delivery_mode_settings"
+    )
 
 
 @app.route("/admin/delivery-fee-settings", methods=["GET", "POST"], endpoint="admin_delivery_fee_settings")

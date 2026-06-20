@@ -881,12 +881,18 @@
 {% endif %}
    {% set order_status = (o.status or '')|upper %}
 {% set has_rider = o.delivery_partner_id or o.delivery_partner_id_str %}
-{% set can_mark_ready = order_status in ['CONFIRMED', 'PREPARING', 'PACKAGING'] and not has_rider %}
-{% set can_assign_delivery = order_status in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] and not has_rider %}
-{% set can_reassign_delivery = has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
-{% set can_clear_delivery = has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'ACCEPTED_BY_DELIVERY_MAN', 'REACHED_STORE'] %}
+{% set in_house_delivery_ui_enabled = in_house_delivery_enabled if in_house_delivery_enabled is defined else true %}
+{% set can_mark_ready = in_house_delivery_ui_enabled and order_status in ['CONFIRMED', 'PREPARING', 'PACKAGING'] and not has_rider %}
+{% set can_assign_delivery = in_house_delivery_ui_enabled and order_status in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] and not has_rider %}
+{% set can_reassign_delivery = in_house_delivery_ui_enabled and has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
+{% set can_clear_delivery = in_house_delivery_ui_enabled and has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'ACCEPTED_BY_DELIVERY_MAN', 'REACHED_STORE'] %}
 
 <div class="sd-delivery-control">
+  {% if not in_house_delivery_ui_enabled %}
+  <div class="sd-delivery-empty">
+    In-house delivery is disabled by Admin. This order will wait for external delivery mode setup.
+  </div>
+{% endif %}
    <div class="sd-delivery-title">
     <span>Delivery Assignment</span>
     {% if has_rider %}
