@@ -1,900 +1,840 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "admin_base.html" %}
+{% set active_page = "complaints" %}
+{% set active_group = "operations" %}
 
+{% block title %}Complaints | NE FRESH Admin{% endblock %}
+{% block page_title %}Complaint Management{% endblock %}
+{% block page_subtitle %}Review customer complaints, take over store issues when required, and update complaint progress.{% endblock %}
+
+{% block content %}
 <section class="admin-complaints-page" data-page="admin-complaints">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Italiana&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&display=swap');
-
-    .admin-complaints-page{
-      --crimson:#8B0000;
-      --black:#000000;
-      --off-white:#FAF9F6;
-      --light-crimson:#FFF5F5;
-      --green:#10B981;
-      --orange:#F59E0B;
-      --red:#EF4444;
-      --blue:#0284C7;
-      --border-standard:4px;
-      --transition-speed:.3s;
-
-      width:100vw;
-      margin-left:calc(50% - 50vw);
-      margin-right:calc(50% - 50vw);
-      background:var(--off-white);
-      color:var(--black);
-      font-family:'Cormorant Garamond', serif;
-      font-size:1.125rem;
-      font-weight:bold;
-      line-height:1.6;
-      min-height:100vh;
-      overflow-x:hidden;
-      position:relative;
-      isolation:isolate;
-    }
-
     .admin-complaints-page,
     .admin-complaints-page *{
       box-sizing:border-box;
+      font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     }
 
-    .admin-complaints-page *{
-      border-radius:0 !important;
-    }
-
-    .admin-complaints-page ::selection{
-      background:var(--crimson);
-      color:#fff;
-    }
-
-    .admin-complaints-page .grain-overlay{
-      position:fixed;
-      inset:0;
-      pointer-events:none;
-      z-index:1;
-      opacity:.12;
-      background-image:url('data:image/svg+xml;utf8,<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"><filter id="noiseFilter"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noiseFilter)"/></svg>');
-    }
-
-    .admin-complaints-page .top-bar{
-      position:relative;
-      z-index:2;
+    .admin-complaints-page{
+      --ac-green:#00A859;
+      --ac-green-dark:#008A48;
+      --ac-green-soft:#E9FFF3;
+      --ac-bg:#F8FFFB;
+      --ac-card:#FFFFFF;
+      --ac-ink:#1F332A;
+      --ac-text:#40534A;
+      --ac-muted:#66756D;
+      --ac-line:#DDECE4;
+      --ac-line-2:#EAF4EF;
+      --ac-orange:#FFB84D;
+      --ac-orange-soft:#FFF7E8;
+      --ac-red:#EF4444;
+      --ac-red-soft:#FEF2F2;
+      --ac-blue:#0284C7;
+      --ac-blue-soft:#E0F2FE;
+      --ac-shadow:0 14px 36px rgba(17,64,38,.08);
+      --ac-shadow-soft:0 10px 26px rgba(17,64,38,.055);
+      display:grid;
+      gap:18px;
       width:100%;
-      padding:1rem 2rem;
+      color:var(--ac-text);
+      -webkit-text-size-adjust:100%;
+      text-size-adjust:100%;
+    }
+
+    .ac-hero{
+      position:relative;
+      overflow:hidden;
+      border:1px solid var(--ac-line);
+      border-radius:24px;
+      background:
+        radial-gradient(circle at 10% 0%,rgba(0,168,89,.12),transparent 34%),
+        radial-gradient(circle at 88% 10%,rgba(255,184,77,.12),transparent 30%),
+        linear-gradient(135deg,#FFFFFF 0%,#F3FFF8 100%);
+      box-shadow:var(--ac-shadow);
+      padding:22px;
+      display:grid;
+      gap:18px;
+    }
+
+    .ac-hero-top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+
+    .ac-kicker{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      background:#fff;
+      color:var(--ac-green-dark);
+      border:1px solid rgba(0,168,89,.18);
+      padding:0 12px;
+      font-size:.74rem;
+      font-weight:950;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+    }
+
+    .ac-title{
+      margin:10px 0 6px;
+      color:var(--ac-ink);
+      font-size:clamp(1.6rem,3vw,2.35rem);
+      line-height:1.05;
+      font-weight:950;
+      letter-spacing:-.045em;
+    }
+
+    .ac-subtitle{
+      max-width:780px;
+      margin:0;
+      color:var(--ac-muted);
+      font-size:.95rem;
+      line-height:1.55;
+      font-weight:700;
+    }
+
+    .ac-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:flex-end;
+    }
+
+    .ac-btn,
+    .admin-complaints-page button,
+    .admin-complaints-page select,
+    .admin-complaints-page textarea,
+    .admin-complaints-page input{
+      font:inherit;
+    }
+
+    .ac-btn,
+    .admin-complaints-page button{
+      min-height:40px;
+      border:1px solid var(--ac-line);
+      border-radius:13px;
+      background:#fff;
+      color:var(--ac-green-dark);
+      padding:0 13px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      text-decoration:none;
+      cursor:pointer;
+      font-size:.82rem;
+      font-weight:950;
+      transition:.2s ease;
+      white-space:nowrap;
+    }
+
+    .ac-btn.primary,
+    .admin-complaints-page button.primary,
+    .admin-complaints-page form.ac-admin-form button[type="submit"]{
+      background:var(--ac-green);
+      border-color:var(--ac-green);
+      color:#fff;
+      box-shadow:0 10px 22px rgba(0,168,89,.18);
+    }
+
+    .ac-btn:hover,
+    .admin-complaints-page button:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.28);
+      box-shadow:0 12px 24px rgba(17,64,38,.08);
+    }
+
+    .ac-kpi-grid{
+      display:grid;
+      grid-template-columns:repeat(6,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .ac-kpi{
+      min-height:94px;
+      border:1px solid var(--ac-line);
+      border-radius:18px;
+      background:#fff;
+      box-shadow:var(--ac-shadow-soft);
+      padding:15px;
+      display:grid;
+      align-content:space-between;
+      gap:10px;
+    }
+
+    .ac-kpi span{
+      color:var(--ac-muted);
+      font-size:.72rem;
+      line-height:1.25;
+      font-weight:950;
+      letter-spacing:.055em;
+      text-transform:uppercase;
+    }
+
+    .ac-kpi strong{
+      color:var(--ac-ink);
+      font-size:1.8rem;
+      line-height:1;
+      font-weight:950;
+      letter-spacing:-.04em;
+    }
+
+    .ac-kpi.green strong{color:var(--ac-green-dark);}
+    .ac-kpi.orange strong{color:#A66A00;}
+    .ac-kpi.red strong{color:#B91C1C;}
+    .ac-kpi.blue strong{color:#0369A1;}
+
+    .ac-card{
+      border:1px solid var(--ac-line);
+      border-radius:22px;
+      background:#fff;
+      box-shadow:var(--ac-shadow);
+      overflow:hidden;
+    }
+
+    .ac-toolbar{
+      display:grid;
+      grid-template-columns:minmax(260px,1fr) 180px 180px auto;
+      gap:10px;
+      align-items:center;
+      padding:16px;
+      border-bottom:1px solid var(--ac-line-2);
+      background:#fff;
+    }
+
+    .ac-search,
+    .ac-select,
+    .ac-page-size{
+      width:100%;
+      height:42px;
+      border:1px solid var(--ac-line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--ac-ink);
+      padding:0 12px;
+      outline:none;
+      font-size:.86rem;
+      font-weight:850;
+    }
+
+    .ac-search:focus,
+    .ac-select:focus,
+    .ac-page-size:focus,
+    .ac-admin-form textarea:focus,
+    .ac-admin-form select:focus,
+    .ac-takeover-form textarea:focus{
+      border-color:rgba(0,168,89,.42);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .ac-count-line{
+      grid-column:1 / -1;
       display:flex;
       justify-content:space-between;
       align-items:center;
-      border-bottom:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      font-family:'Italiana', serif;
-      font-size:.875rem;
-      letter-spacing:.5em;
-      text-transform:uppercase;
-      font-variant:small-caps;
+      gap:12px;
+      flex-wrap:wrap;
+      color:var(--ac-muted);
+      font-size:.82rem;
+      font-weight:850;
     }
 
-    .admin-complaints-page .hero-section{
-      position:relative;
-      z-index:2;
-      text-align:center;
-      padding:5.25rem 2rem 4.25rem;
-      border-bottom:var(--border-standard) solid var(--black);
-      background:var(--off-white);
+    .ac-count-line strong{
+      color:var(--ac-green-dark);
+      font-weight:950;
     }
 
-    .admin-complaints-page .hero-title{
-      font-family:'Dancing Script', cursive;
-      font-size:clamp(3rem, 10vw, 6rem);
-      color:var(--crimson);
-      font-style:italic;
-      font-weight:700;
-      margin:0 0 .75rem 0;
-      line-height:1.15;
-      text-transform:uppercase;
+    .ac-list{
+      padding:16px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:16px;
     }
 
-    .admin-complaints-page .hero-subtitle{
-      font-family:'Italiana', serif;
-      font-size:.875rem;
-      letter-spacing:.5em;
-      text-transform:uppercase;
-      font-variant:small-caps;
-      margin-bottom:1.25rem;
+    .ac-complaint-card{
+      border:1px solid var(--ac-line);
+      border-radius:20px;
+      background:#fff;
+      box-shadow:0 10px 26px rgba(17,64,38,.045);
+      overflow:hidden;
+      display:grid;
+      align-content:start;
     }
 
-    .admin-complaints-page .hero-divider{
-      width:6rem;
-      height:4px;
-      background:var(--crimson);
-      margin:0 auto;
-    }
+    .ac-complaint-card[hidden]{display:none !important;}
 
-    .admin-complaints-page .main-container{
-      position:relative;
-      z-index:2;
-      max-width:1500px;
-      margin:0 auto;
-      padding:3rem 2rem;
-    }
-
-    .admin-complaints-page .panel{
-      border:var(--border-standard) solid var(--black);
-      padding:2rem;
-      margin-bottom:2.25rem;
-      background:var(--off-white);
-    }
-
-    .admin-complaints-page .panel.soft{
-      background:var(--light-crimson);
-    }
-
-    .admin-complaints-page .section-header{
+    .ac-complaint-head{
+      padding:15px;
       display:flex;
-      align-items:start;
-      gap:1rem;
-      margin-bottom:1.25rem;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      border-bottom:1px solid var(--ac-line-2);
+      background:linear-gradient(180deg,#FFFFFF 0%,#F8FFFB 100%);
     }
 
-    .admin-complaints-page .icon-box{
-      width:48px;
-      height:48px;
-      background:var(--crimson);
-      border:var(--border-standard) solid var(--black);
+    .ac-id{
+      color:var(--ac-green-dark);
+      font-size:.78rem;
+      font-weight:950;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+    }
+
+    .ac-date{
+      display:block;
+      margin-top:4px;
+      color:var(--ac-muted);
+      font-size:.76rem;
+      font-weight:800;
+    }
+
+    .ac-status-stack{
       display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .ac-pill{
+      min-height:26px;
+      display:inline-flex;
       align-items:center;
       justify-content:center;
-      flex-shrink:0;
-      color:#fff;
-      font-family:'Italiana', serif;
-      font-weight:700;
-      letter-spacing:.08em;
-    }
-
-    .admin-complaints-page h2{
-      font-family:'Playfair Display', serif;
-      font-size:1.8rem;
-      font-weight:900;
+      border-radius:999px;
+      padding:0 9px;
+      font-size:.68rem;
+      font-weight:950;
+      letter-spacing:.035em;
       text-transform:uppercase;
-      letter-spacing:.05em;
-      margin:0;
+      border:1px solid rgba(0,168,89,.16);
+      background:var(--ac-green-soft);
+      color:var(--ac-green-dark);
     }
 
-    .admin-complaints-page .muted{
-      color:rgba(0,0,0,.65);
-    }
+    .ac-pill.store{background:var(--ac-orange-soft);color:#A66A00;border-color:rgba(255,184,77,.32);}
+    .ac-pill.open{background:#FFF1F2;color:#B91C1C;border-color:#FECACA;}
+    .ac-pill.in_progress{background:#FFF7E8;color:#A66A00;border-color:#FED7AA;}
+    .ac-pill.resolved{background:var(--ac-green-soft);color:var(--ac-green-dark);}
+    .ac-pill.rejected{background:#FEF2F2;color:#B91C1C;border-color:#FECACA;}
+    .ac-pill.takeover{background:var(--ac-blue-soft);color:#0369A1;border-color:rgba(2,132,199,.18);}
 
-    .admin-complaints-page .kpis{
+    .ac-complaint-body{
+      padding:15px;
       display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-      gap:14px;
-      margin:0;
+      gap:13px;
     }
 
-    .admin-complaints-page .kpi{
-      border:var(--border-standard) solid var(--black);
-      padding:1.5rem;
-      background:var(--off-white);
+    .ac-info-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
     }
 
-    .admin-complaints-page .kpi:nth-child(even){
-      background:var(--light-crimson);
+    .ac-info{
+      border:1px solid var(--ac-line-2);
+      border-radius:14px;
+      background:#FBFFFD;
+      padding:10px;
+      display:grid;
+      gap:4px;
+      min-width:0;
     }
 
-    .admin-complaints-page .kpi .label{
-      font-family:'Italiana', serif;
-      font-size:.75rem;
-      letter-spacing:.3em;
+    .ac-info span{
+      color:var(--ac-muted);
+      font-size:.68rem;
+      font-weight:950;
       text-transform:uppercase;
+      letter-spacing:.045em;
+    }
+
+    .ac-info strong,
+    .ac-info a{
+      color:var(--ac-ink);
+      font-size:.84rem;
       font-weight:900;
-      color:var(--crimson);
-    }
-
-    .admin-complaints-page .kpi .value{
-      font-family:'Playfair Display', serif;
-      font-size:clamp(1.4rem, 3vw, 2.2rem);
-      font-weight:900;
-      margin-top:.35rem;
-      line-height:1.15;
-    }
-
-    .admin-complaints-page .tnum{
-      font-variant-numeric:tabular-nums;
-    }
-
-    .admin-complaints-page .toolbar{
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px;
-      align-items:end;
-      margin:0;
-    }
-
-    .admin-complaints-page .toolbar input,
-    .admin-complaints-page .toolbar select{
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      color:var(--black);
-      padding:.75rem .9rem;
-      font-family:'Cormorant Garamond', serif;
-      font-size:1rem;
-      font-weight:900;
-      outline:none;
-      min-width:220px;
-    }
-
-    .admin-complaints-page .toolbar input::placeholder{
-      color:rgba(0,0,0,.55);
-      font-weight:900;
-    }
-
-    .admin-complaints-page .filter-note{
-      margin-left:auto;
-      font-family:'Italiana', serif;
-      font-size:.75rem;
-      letter-spacing:.3em;
-      text-transform:uppercase;
-      font-weight:900;
-      color:rgba(0,0,0,.7);
-      padding:.1rem 0;
-      min-width:140px;
-      text-align:right;
-    }
-
-    .admin-complaints-page .table-shell{
-      margin-top:1.25rem;
-      overflow-x:auto;
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-    }
-
-    .admin-complaints-page table.table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:1250px;
-      background:transparent;
-      border:0;
-    }
-
-    .admin-complaints-page table.table thead{
-      background:var(--black);
-      color:#fff;
-    }
-
-    .admin-complaints-page table.table th{
-      padding:1rem;
-      text-align:left;
-      font-family:'Italiana', serif;
-      font-size:.75rem;
-      letter-spacing:.3em;
-      text-transform:uppercase;
-      font-weight:900;
-      border-right:2px solid var(--crimson);
-      white-space:nowrap;
-    }
-
-    .admin-complaints-page table.table th:last-child{
-      border-right:none;
-    }
-
-    .admin-complaints-page table.table td{
-      padding:1rem;
-      font-family:'Cormorant Garamond', serif;
-      font-size:1rem;
-      font-weight:800;
-      vertical-align:top;
-      border-bottom:2px solid var(--black);
-    }
-
-    .admin-complaints-page table.table tbody tr:nth-child(even){
-      background:var(--light-crimson);
-    }
-
-    .admin-complaints-page .small{
-      font-size:.95rem;
-      color:rgba(0,0,0,.75);
-      font-weight:800;
-    }
-
-    .admin-complaints-page .wrap{
-      white-space:normal;
-      word-break:break-word;
+      text-decoration:none;
       overflow-wrap:anywhere;
     }
 
-    .admin-complaints-page .nowrap{
-      white-space:nowrap;
+    .ac-message-box{
+      display:grid;
+      gap:8px;
+      color:var(--ac-text);
+      font-size:.86rem;
+      line-height:1.55;
+      font-weight:750;
     }
 
-    .admin-complaints-page .badge{
-      display:inline-flex;
-      align-items:center;
-      padding:.25rem .75rem;
-      border:2px solid var(--black);
-      font-family:'Italiana', serif;
-      font-size:.625rem;
-      letter-spacing:.2em;
-      text-transform:uppercase;
-      font-weight:900;
-      background:var(--off-white);
-      color:var(--black);
-    }
-
-    .admin-complaints-page .status-dot{
-      display:inline-block;
-      width:10px;
-      height:10px;
-      border:2px solid var(--black);
-      margin-right:8px;
-      vertical-align:middle;
-      background:#fff;
-    }
-
-    .admin-complaints-page .dot-open{
-      background:var(--red);
-    }
-
-    .admin-complaints-page .dot-review{
-      background:var(--orange);
-    }
-
-    .admin-complaints-page .dot-resolved{
-      background:var(--green);
-    }
-
-    .admin-complaints-page .dot-rejected{
-      background:#9ca3af;
-    }
-
-    .admin-complaints-page .actions{
-      display:flex;
-      gap:10px;
-      align-items:flex-start;
-      flex-wrap:wrap;
-      min-width:260px;
-    }
-
-    .admin-complaints-page select.status,
-    .admin-complaints-page textarea.admin-textarea,
-    .admin-complaints-page textarea.takeover-reason{
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      color:var(--black);
-      padding:.65rem .8rem;
-      font-family:'Cormorant Garamond', serif;
+    .ac-message-box h3{
+      margin:0;
+      color:var(--ac-ink);
       font-size:1rem;
-      font-weight:900;
-      outline:none;
-      min-width:210px;
+      line-height:1.25;
+      font-weight:950;
+      overflow-wrap:anywhere;
     }
 
-    .admin-complaints-page textarea.admin-textarea,
-    .admin-complaints-page textarea.takeover-reason{
-      min-height:76px;
-      resize:vertical;
-      line-height:1.35;
-    }
-
-    .admin-complaints-page button{
-      border:var(--border-standard) solid var(--black);
-      background:var(--off-white);
-      color:var(--black);
-      padding:.65rem 1rem;
-      font-family:'Italiana', serif;
-      font-size:.7rem;
-      letter-spacing:.25em;
-      text-transform:uppercase;
-      font-weight:900;
-      cursor:pointer;
-      transition:all var(--transition-speed);
-      white-space:nowrap;
-    }
-
-    .admin-complaints-page button:hover{
-      background:var(--black);
-      color:#fff;
-    }
-
-    .admin-complaints-page .view-only-box{
-      border:var(--border-standard) solid var(--black);
-      background:#fff;
-      padding:1rem;
+    .ac-note{
       display:grid;
-      gap:.75rem;
-      max-width:360px;
+      gap:4px;
+      border-radius:14px;
+      background:#F8FAFC;
+      border:1px solid #E2E8F0;
+      padding:10px;
+      color:#475569;
+      font-size:.8rem;
+      line-height:1.45;
+      font-weight:780;
+      overflow-wrap:anywhere;
     }
 
-    .admin-complaints-page .view-only-box strong{
-      font-family:'Italiana', serif;
-      font-size:.72rem;
-      letter-spacing:.25em;
-      text-transform:uppercase;
-      font-weight:900;
-      color:var(--crimson);
-    }
-
-    .admin-complaints-page .view-only-box span{
-      color:rgba(0,0,0,.75);
-      font-size:.95rem;
-      font-weight:800;
-      line-height:1.35;
-    }
-
-    .admin-complaints-page .takeover-form{
-      display:grid;
-      gap:.75rem;
-      margin-top:.35rem;
-    }
-
-    .admin-complaints-page .takeover-btn{
-      background:var(--black);
-      color:#fff;
-    }
-
-    .admin-complaints-page .takeover-btn:hover{
-      background:var(--crimson);
-      color:#fff;
-    }
-
-    .admin-complaints-page .taken-over-note{
-      margin-top:.4rem;
-      color:var(--crimson);
-      font-weight:900;
-    }
-
-    .admin-complaints-page .thumb{
-      width:70px;
-      height:70px;
+    .ac-evidence{
+      width:82px;
+      height:82px;
+      border-radius:14px;
+      border:1px solid var(--ac-line);
       object-fit:cover;
-      border:2px solid var(--black);
-      display:block;
-      margin-top:.5rem;
+      background:#fff;
+      box-shadow:0 8px 20px rgba(17,64,38,.06);
     }
 
-    .admin-complaints-page a{
-      color:inherit;
-      text-decoration:none;
-      border-bottom:2px solid rgba(0,0,0,.25);
+    .ac-complaint-actions{
+      padding:15px;
+      border-top:1px solid var(--ac-line-2);
+      background:#FBFFFD;
     }
 
-    .admin-complaints-page a:hover{
-      border-bottom-color:var(--black);
+    .ac-admin-form,
+    .ac-takeover-form{
+      display:grid;
+      gap:10px;
     }
 
-    .admin-complaints-page *:focus-visible{
-      outline:3px solid var(--crimson);
-      outline-offset:3px;
+    .ac-admin-form .ac-form-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
     }
 
-    @media (max-width: 900px){
-      .admin-complaints-page .top-bar{
-        padding:1rem;
-        letter-spacing:.35em;
-      }
-
-      .admin-complaints-page .hero-section{
-        padding:3.5rem 1rem 3rem;
-      }
-
-      .admin-complaints-page .main-container{
-        padding:2rem 1rem;
-      }
-
-      .admin-complaints-page .panel{
-        padding:1.5rem;
-      }
-
-      .admin-complaints-page .toolbar input,
-      .admin-complaints-page .toolbar select{
-        min-width:100%;
-      }
-
-      .admin-complaints-page .filter-note{
-        margin-left:0;
-        text-align:left;
-        width:100%;
-      }
-
-      .admin-complaints-page table.table{
-        min-width:980px;
-      }
-
-      .admin-complaints-page select.status,
-      .admin-complaints-page textarea.admin-textarea,
-      .admin-complaints-page textarea.takeover-reason{
-        min-width:100%;
-      }
-
-      .admin-complaints-page button{
-        width:100%;
-        justify-content:center;
-      }
-
-      .admin-complaints-page .actions{
-        flex-direction:column;
-        align-items:stretch;
-      }
+    .ac-admin-form select,
+    .ac-admin-form textarea,
+    .ac-takeover-form textarea{
+      width:100%;
+      border:1px solid var(--ac-line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--ac-ink);
+      outline:none;
+      font-size:.84rem;
+      font-weight:800;
     }
 
-    @media (prefers-reduced-motion: reduce){
-      .admin-complaints-page *,
-      .admin-complaints-page *::before,
-      .admin-complaints-page *::after{
-        animation-duration:0.01ms !important;
-        animation-iteration-count:1 !important;
-        transition-duration:0.01ms !important;
-        scroll-behavior:auto !important;
-      }
+    .ac-admin-form select{
+      height:42px;
+      padding:0 11px;
+    }
+
+    .ac-admin-form textarea,
+    .ac-takeover-form textarea{
+      min-height:84px;
+      padding:10px 11px;
+      resize:vertical;
+      line-height:1.45;
+    }
+
+    .ac-view-only{
+      display:grid;
+      gap:10px;
+      border:1px solid rgba(255,184,77,.34);
+      border-radius:16px;
+      background:#FFF8E8;
+      color:#7C4A03;
+      padding:12px;
+      font-size:.82rem;
+      line-height:1.45;
+      font-weight:800;
+    }
+
+    .ac-view-only strong{
+      color:#A66A00;
+      font-weight:950;
+    }
+
+    .ac-empty{
+      margin:16px;
+      border:1px dashed rgba(0,168,89,.28);
+      border-radius:18px;
+      background:#fff;
+      padding:28px 16px;
+      text-align:center;
+      color:var(--ac-muted);
+      font-size:.9rem;
+      font-weight:850;
+    }
+
+    .ac-pagination{
+      margin:0 16px 16px;
+      border:1px solid var(--ac-line);
+      border-radius:18px;
+      background:#fff;
+      padding:12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .ac-page-info{
+      color:var(--ac-muted);
+      font-size:.82rem;
+      font-weight:850;
+    }
+
+    .ac-page-buttons{
+      display:flex;
+      gap:7px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .ac-page-btn{
+      min-width:38px;
+      min-height:38px;
+      border-radius:12px;
+      border:1px solid var(--ac-line);
+      background:#fff;
+      color:var(--ac-ink);
+      font-size:.78rem;
+      font-weight:950;
+      cursor:pointer;
+    }
+
+    .ac-page-btn.active,
+    .ac-page-btn:hover:not(:disabled){
+      background:var(--ac-green);
+      border-color:var(--ac-green);
+      color:#fff;
+    }
+
+    .ac-page-btn:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+    }
+
+    @media(max-width:1280px){
+      .ac-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+      .ac-list{grid-template-columns:1fr;}
+    }
+
+    @media(max-width:900px){
+      .ac-toolbar{grid-template-columns:1fr 1fr;}
+      .ac-count-line{align-items:flex-start;flex-direction:column;}
+      .ac-info-grid{grid-template-columns:1fr;}
+    }
+
+    @media(max-width:640px){
+      .ac-hero{padding:16px;border-radius:20px;}
+      .ac-hero-top{display:grid;grid-template-columns:1fr;}
+      .ac-actions{justify-content:stretch;}
+      .ac-actions .ac-btn{width:100%;}
+      .ac-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+      .ac-kpi{min-height:86px;padding:13px;}
+      .ac-kpi strong{font-size:1.45rem;}
+      .ac-toolbar{grid-template-columns:1fr;padding:12px;}
+      .ac-list{padding:12px;gap:12px;}
+      .ac-complaint-head{display:grid;grid-template-columns:1fr;}
+      .ac-status-stack{justify-content:flex-start;}
+      .ac-admin-form .ac-form-row{grid-template-columns:1fr;}
+      .ac-pagination{justify-content:center;text-align:center;}
+      .ac-page-info,.ac-page-buttons{width:100%;justify-content:center;}
+    }
+
+    @media(max-width:420px){
+      .ac-kpi-grid{grid-template-columns:1fr;}
+    }
+
+    @media(hover:none) and (pointer:coarse){
+      .ac-btn:hover,
+      .admin-complaints-page button:hover{transform:none;}
     }
   </style>
 
-  <div class="grain-overlay" aria-hidden="true"></div>
+  <div class="ac-hero">
+    <div class="ac-hero-top">
+      <div>
+        <span class="ac-kicker">Admin Complaints</span>
+        <h1 class="ac-title">Complaint Management</h1>
+        <p class="ac-subtitle">
+          Admin can update direct NE FRESH complaints. Store complaints remain view-only unless Admin takes over the case for escalation.
+        </p>
+      </div>
+      <div class="ac-actions">
+        <a class="ac-btn" href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+        <a class="ac-btn primary" href="{{ url_for('admin_complaints') }}">Refresh</a>
+      </div>
+    </div>
 
-  <div class="top-bar">
-    <span>EST. 2018</span>
-    <span>MIZORAM, INDIA</span>
+    <div class="ac-kpi-grid" aria-label="Complaint metrics">
+      <div class="ac-kpi"><span>Total</span><strong id="acKpiTotal">{{ complaint_metrics.total|default(complaints|length) }}</strong></div>
+      <div class="ac-kpi blue"><span>Admin Cases</span><strong>{{ complaint_metrics.admin|default(0) }}</strong></div>
+      <div class="ac-kpi orange"><span>Store Cases</span><strong>{{ complaint_metrics.store|default(0) }}</strong></div>
+      <div class="ac-kpi red"><span>Open</span><strong id="acKpiOpen">{{ complaint_metrics.open|default(0) }}</strong></div>
+      <div class="ac-kpi orange"><span>In Progress</span><strong id="acKpiProgress">{{ complaint_metrics.in_progress|default(0) }}</strong></div>
+      <div class="ac-kpi green"><span>Resolved</span><strong id="acKpiResolved">{{ complaint_metrics.resolved|default(0) }}</strong></div>
+    </div>
   </div>
 
-  <header class="hero-section">
-    <h1 class="hero-title">Complaints</h1>
-    <p class="hero-subtitle">Review • Filter • Take Over • Resolve</p>
-    <div class="hero-divider"></div>
-  </header>
-
-  <main class="main-container">
-    <section class="panel soft" aria-label="Complaints intro">
-      <div class="section-header">
-        <div class="icon-box" aria-hidden="true">⚠</div>
-        <div>
-          <h2>Complaints</h2>
-          <p class="muted">
-            Admin can update only complaints sent directly to NE FRESH Admin.
-            Store complaints are view-only unless Admin takes over.
-          </p>
-        </div>
+  <div class="ac-card">
+    <div class="ac-toolbar">
+      <input id="acSearch" class="ac-search" type="search" placeholder="Search complaint, customer, order, store, message...">
+      <select id="acTarget" class="ac-select" aria-label="Filter by target">
+        <option value="">All targets</option>
+        <option value="admin">NE FRESH Admin</option>
+        <option value="store">Store</option>
+      </select>
+      <select id="acStatus" class="ac-select" aria-label="Filter by status">
+        <option value="">All status</option>
+        <option value="open">Open</option>
+        <option value="in_progress">In Progress</option>
+        <option value="resolved">Resolved</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <select id="acPageSize" class="ac-page-size" aria-label="Complaints per page">
+        <option value="10">10 / page</option>
+        <option value="25">25 / page</option>
+        <option value="50">50 / page</option>
+        <option value="0">Show all</option>
+      </select>
+      <div class="ac-count-line">
+        <span id="acResultText">Showing complaints</span>
+        <button type="button" id="acClear" class="ac-btn">Clear filters</button>
       </div>
+    </div>
 
-      <div class="kpis" id="kpiRow" hidden>
-        <div class="kpi">
-          <div class="label">Total Complaints</div>
-          <div class="value tnum" id="kpiTotal">0</div>
-        </div>
-        <div class="kpi">
-          <div class="label">Open</div>
-          <div class="value tnum" id="kpiOpen">0</div>
-        </div>
-        <div class="kpi">
-          <div class="label">In Progress</div>
-          <div class="value tnum" id="kpiProgress">0</div>
-        </div>
-        <div class="kpi">
-          <div class="label">Resolved</div>
-          <div class="value tnum" id="kpiResolved">0</div>
-        </div>
-        <div class="kpi">
-          <div class="label">Rejected</div>
-          <div class="value tnum" id="kpiRejected">0</div>
-        </div>
-      </div>
-    </section>
+    {% if complaints %}
+      <div class="ac-list" id="acList">
+        {% for c in complaints %}
+          {% set status_value = (c.status or 'open')|lower %}
+          {% set progress_value = (c.progress_status or 'received')|lower %}
+          {% set kind = (c.target_type or c.assigned_to or 'admin')|lower %}
+          {% set admin_can_update = c.admin_can_update is sameas true %}
+          {% set img_path = c.complaint_image_path or c.image_path or '' %}
+          {% set search_text = (c.id ~ ' ' ~ (c.customer_name or c.reporter_name or '') ~ ' ' ~ (c.customer_phone or '') ~ ' ' ~ (c.customer_email or '') ~ ' ' ~ (c.subject or c.title or '') ~ ' ' ~ (c.message or c.description or '') ~ ' ' ~ (c.store_name or '') ~ ' ' ~ (c.order_id or '') ~ ' ' ~ status_value ~ ' ' ~ kind)|lower %}
 
-    <section class="panel" aria-label="Complaints table">
-      <div class="toolbar">
-        <input id="q" type="search" placeholder="Search complaint, customer, order, store, message..." />
+          <article class="ac-complaint-card" data-complaint-card data-target="{{ kind }}" data-status="{{ status_value }}" data-search="{{ search_text|e }}">
+            <div class="ac-complaint-head">
+              <div>
+                <div class="ac-id">C{{ c.id[-6:] if c.id else '-' }}</div>
+                <span class="ac-date">{{ c.created_at_display or c.created_at or '-' }}</span>
+                {% if c.updated_at_display %}<span class="ac-date">Updated: {{ c.updated_at_display }}</span>{% endif %}
+              </div>
+              <div class="ac-status-stack">
+                <span class="ac-pill {{ kind }}">{{ kind|upper }}</span>
+                <span class="ac-pill {{ status_value }}">{{ status_value|replace('_',' ')|title }}</span>
+                {% if c.admin_takeover_status == 'TAKEN_OVER' %}<span class="ac-pill takeover">Taken Over</span>{% endif %}
+              </div>
+            </div>
 
-        <select id="fTarget">
-          <option value="">All targets</option>
-          <option value="admin">NE FRESH Admin</option>
-          <option value="store">Store</option>
-        </select>
+            <div class="ac-complaint-body">
+              <div class="ac-info-grid">
+                <div class="ac-info"><span>Customer</span><strong>{{ c.customer_name or c.reporter_name or 'Customer' }}</strong>{% if c.customer_phone %}<a href="tel:{{ c.customer_phone }}">{{ c.customer_phone }}</a>{% endif %}{% if c.customer_email %}<a href="mailto:{{ c.customer_email }}">{{ c.customer_email }}</a>{% endif %}</div>
+                <div class="ac-info"><span>Target</span><strong>{{ c.assigned_label or c.store_name or 'NE FRESH Admin' }}</strong>{% if c.original_store_name %}<strong>Original: {{ c.original_store_name }}</strong>{% endif %}</div>
+                <div class="ac-info"><span>Order / Product</span><strong>{% if c.order_id %}#{{ c.order_id }}{% else %}No order linked{% endif %}</strong>{% if c.product_name %}<strong>{{ c.product_name }}</strong>{% endif %}</div>
+                <div class="ac-info"><span>Progress</span><strong>{{ progress_value|replace('_',' ')|title }}</strong>{% if c.complaint_type %}<strong>{{ c.complaint_type|replace('_',' ')|title }}</strong>{% endif %}</div>
+              </div>
 
-        <select id="fStatus">
-          <option value="">All status</option>
-          <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
-          <option value="resolved">Resolved</option>
-          <option value="rejected">Rejected</option>
-        </select>
+              <div class="ac-message-box">
+                <h3>{{ c.subject or c.title or 'Complaint details' }}</h3>
+                <div>{{ c.message or c.description or '-' }}</div>
+                {% if img_path %}
+                  <a href="{% if img_path[:1] == '/' %}{{ img_path }}{% else %}/{{ img_path }}{% endif %}" target="_blank" rel="noopener">
+                    <img class="ac-evidence" src="{% if img_path[:1] == '/' %}{{ img_path }}{% else %}/{{ img_path }}{% endif %}" alt="Complaint evidence">
+                  </a>
+                {% endif %}
+              </div>
 
-        <span class="filter-note" id="rowCount"></span>
-      </div>
+              {% if c.admin_reply %}<div class="ac-note"><strong>Admin Reply</strong>{{ c.admin_reply }}</div>{% endif %}
+              {% if c.admin_progress_note %}<div class="ac-note"><strong>Admin Note</strong>{{ c.admin_progress_note }}</div>{% endif %}
+              {% if c.store_reply %}<div class="ac-note"><strong>Store Reply</strong>{{ c.store_reply }}</div>{% endif %}
+              {% if c.store_progress_note %}<div class="ac-note"><strong>Store Note</strong>{{ c.store_progress_note }}</div>{% endif %}
+            </div>
 
-      <div class="table-shell">
-        <table class="table" id="complaintsTable">
-          <thead>
-            <tr>
-              <th class="nowrap">#</th>
-              <th>When</th>
-              <th>Order / Target</th>
-              <th>Customer</th>
-              <th>Message & Evidence</th>
-              <th>Status</th>
-              <th class="nowrap">Action</th>
-            </tr>
-          </thead>
+            <div class="ac-complaint-actions">
+              {% if admin_can_update is sameas true %}
+                <form class="ac-admin-form" method="post" action="{{ url_for('admin_complaint_set_status', cid=c.id) }}">
+                  {{ csrf_field()|safe }}
+                  <div class="ac-form-row">
+                    <select name="status" required>
+                      <option value="open" {% if status_value == 'open' %}selected{% endif %}>Open</option>
+                      <option value="in_progress" {% if status_value == 'in_progress' %}selected{% endif %}>In Progress</option>
+                      <option value="resolved" {% if status_value == 'resolved' %}selected{% endif %}>Resolved</option>
+                      <option value="rejected" {% if status_value == 'rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
 
-          <tbody>
-            {% for c in complaints %}
-              {% set kind = (c.target_type or c.assigned_to or c.target_kind or 'admin')|lower %}
-              {% set status_value = (c.status or 'open')|lower %}
-              {% set progress_value = (c.progress_status or 'received')|lower %}
-              {% set admin_can_update = c.admin_can_update is sameas true %}
-
-              <tr data-target="{{ kind }}" data-status="{{ status_value }}">
-                <td class="tnum nowrap">
-                  C{{ c.id[-6:] if c.id else '-' }}
-                </td>
-
-                <td class="small">
-                  {{ c.created_at_display or c.created_at or '-' }}
-                  {% if c.updated_at_display %}
-                    <div class="muted">Updated: {{ c.updated_at_display }}</div>
-                  {% endif %}
-                </td>
-
-                <td class="small">
-                  {% if c.order_id %}
-                    <div>
-                      Order:
-                      <strong>#{{ c.order_id }}</strong>
-                    </div>
-                  {% endif %}
-
-                  {% if c.product_name %}
-                    <div>
-                      Product:
-                      <strong>{{ c.product_name }}</strong>
-                    </div>
-                  {% endif %}
-
-                  <div>
-                    Target:
-                    <span class="badge">{{ kind|upper }}</span>
-                    →
-                    <strong>{{ c.assigned_label or c.store_name or 'NE FRESH Admin' }}</strong>
+                    <select name="progress_status" required>
+                      <option value="received" {% if progress_value == 'received' %}selected{% endif %}>Received</option>
+                      <option value="in_progress" {% if progress_value == 'in_progress' %}selected{% endif %}>In Progress</option>
+                      <option value="resolved" {% if progress_value == 'resolved' %}selected{% endif %}>Resolved</option>
+                      <option value="rejected" {% if progress_value == 'rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
                   </div>
 
-                  {% if c.admin_takeover_status == 'TAKEN_OVER' and c.original_store_name %}
-                    <div class="muted small">
-                      Original Store: {{ c.original_store_name }}
-                    </div>
-                  {% endif %}
-                </td>
+                  <textarea name="admin_reply" placeholder="Reply to customer">{{ c.admin_reply or '' }}</textarea>
+                  <textarea name="admin_progress_note" placeholder="Internal admin note">{{ c.admin_progress_note or '' }}</textarea>
+                  <button type="submit" class="primary">Update Complaint</button>
+                </form>
+              {% else %}
+                <div class="ac-view-only">
+                  <strong>Store complaint</strong>
+                  <span>This complaint is assigned to the store. Admin can only view it unless it is taken over.</span>
 
-                <td class="small">
-                  <div>{{ c.customer_name or c.reporter_name or 'Customer' }}</div>
-                  {% if c.customer_phone %}
-                    <div class="muted">{{ c.customer_phone }}</div>
-                  {% endif %}
-                  {% if c.customer_email %}
-                    <div class="muted">{{ c.customer_email }}</div>
-                  {% endif %}
-                </td>
-
-                <td class="wrap">
-                  {% if c.subject or c.title %}
-                    <div><strong>{{ c.subject or c.title }}</strong></div>
-                  {% endif %}
-
-                  <div>{{ c.message or c.description or '-' }}</div>
-
-                  {% if c.complaint_type %}
-                    <div class="small">
-                      Type: {{ c.complaint_type|replace('_', ' ')|title }}
-                    </div>
-                  {% endif %}
-
-                  {% if c.admin_reply %}
-                    <div class="small" style="margin-top:6px;">
-                      <strong>Admin Reply:</strong> {{ c.admin_reply }}
-                    </div>
-                  {% endif %}
-
-                  {% if c.admin_progress_note %}
-                    <div class="small" style="margin-top:6px;">
-                      <strong>Admin Note:</strong> {{ c.admin_progress_note }}
-                    </div>
-                  {% endif %}
-
-                  {% if c.store_reply %}
-                    <div class="small" style="margin-top:6px;">
-                      <strong>Store Reply:</strong> {{ c.store_reply }}
-                    </div>
-                  {% endif %}
-
-                  {% if c.store_progress_note %}
-                    <div class="small" style="margin-top:6px;">
-                      <strong>Store Note:</strong> {{ c.store_progress_note }}
-                    </div>
-                  {% endif %}
-
-                  {% set img_path = c.complaint_image_path or c.image_path %}
-                  {% if img_path %}
-                    <a href="{{ '/' + img_path }}" target="_blank" rel="noopener">
-                      <img class="thumb" src="{{ '/' + img_path }}" alt="Complaint evidence">
-                    </a>
-                  {% endif %}
-                </td>
-
-                <td class="nowrap">
-                  {% if status_value == 'open' %}
-                    <span class="status-dot dot-open"></span><strong>Open</strong>
-                  {% elif status_value == 'in_progress' %}
-                    <span class="status-dot dot-review"></span><strong>In Progress</strong>
-                  {% elif status_value == 'resolved' %}
-                    <span class="status-dot dot-resolved"></span><strong>Resolved</strong>
-                  {% elif status_value == 'rejected' %}
-                    <span class="status-dot dot-rejected"></span><strong>Rejected</strong>
-                  {% else %}
-                    <strong>{{ status_value|replace('_', ' ')|title }}</strong>
-                  {% endif %}
-
-                  <div class="small">
-                    Progress: {{ progress_value|replace('_', ' ')|title }}
-                  </div>
-
-                  {% if c.admin_takeover_status == 'TAKEN_OVER' %}
-                    <div class="taken-over-note">
-                      Taken over by Admin
-                    </div>
-                  {% endif %}
-                </td>
-
-                <td>
-                  {% if admin_can_update is sameas true %}
-                    <form class="actions" method="post" action="{{ url_for('admin_complaint_set_status', cid=c.id) }}">
-                      <select name="status" class="status" required>
-                        <option value="open" {% if status_value == 'open' %}selected{% endif %}>Open</option>
-                        <option value="in_progress" {% if status_value == 'in_progress' %}selected{% endif %}>In Progress</option>
-                        <option value="resolved" {% if status_value == 'resolved' %}selected{% endif %}>Resolved</option>
-                        <option value="rejected" {% if status_value == 'rejected' %}selected{% endif %}>Rejected</option>
-                      </select>
-
-                      <select name="progress_status" class="status" required>
-                        <option value="received" {% if progress_value == 'received' %}selected{% endif %}>Received</option>
-                        <option value="in_progress" {% if progress_value == 'in_progress' %}selected{% endif %}>In Progress</option>
-                        <option value="resolved" {% if progress_value == 'resolved' %}selected{% endif %}>Resolved</option>
-                        <option value="rejected" {% if progress_value == 'rejected' %}selected{% endif %}>Rejected</option>
-                      </select>
-
-                      <textarea class="admin-textarea" name="admin_reply" placeholder="Reply to customer">{{ c.admin_reply or '' }}</textarea>
-
-                      <textarea class="admin-textarea" name="admin_progress_note" placeholder="Internal admin note">{{ c.admin_progress_note or '' }}</textarea>
-
-                      <button type="submit">Update</button>
-                    </form>
-                  {% else %}
-                    <div class="view-only-box">
-                      <strong>Store Complaint</strong>
-                      <span>
-                        This complaint is assigned to the store. Admin can only view it unless it is taken over.
-                      </span>
-
-                      {% if c.store_reply %}
-                        <span><b>Store Reply:</b> {{ c.store_reply }}</span>
-                      {% endif %}
-
-                      {% if c.store_progress_note %}
-                        <span><b>Store Note:</b> {{ c.store_progress_note }}</span>
-                      {% endif %}
-
-                      <form class="takeover-form" method="post" action="{{ url_for('admin_complaint_takeover', cid=c.id) }}">
-                        <textarea class="takeover-reason" name="takeover_reason" placeholder="Reason for Admin takeover / escalation"></textarea>
-                        <button type="submit" class="takeover-btn">Take Over</button>
-                      </form>
-                    </div>
-                  {% endif %}
-                </td>
-              </tr>
-            {% else %}
-              <tr>
-                <td colspan="7" class="small">No complaints found.</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+                  <form class="ac-takeover-form" method="post" action="{{ url_for('admin_complaint_takeover', cid=c.id) }}">
+                    {{ csrf_field()|safe }}
+                    <textarea name="takeover_reason" placeholder="Reason for Admin takeover / escalation"></textarea>
+                    <button type="submit" class="primary">Take Over Complaint</button>
+                  </form>
+                </div>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
       </div>
-    </section>
-  </main>
+
+      <div class="ac-empty" id="acNoResults" hidden>No complaints found for the selected filters.</div>
+
+      <div class="ac-pagination" id="acPagination" hidden>
+        <div class="ac-page-info" id="acPageInfo">Showing complaints</div>
+        <div class="ac-page-buttons" id="acPageButtons"></div>
+      </div>
+    {% else %}
+      <div class="ac-empty">No complaints found yet.</div>
+    {% endif %}
+  </div>
 
   <script>
     (function(){
-      const q = document.getElementById('q');
-      const fTarget = document.getElementById('fTarget');
-      const fStatus = document.getElementById('fStatus');
-      const table = document.getElementById('complaintsTable');
-      const rows = Array.from(table.querySelectorAll('tbody tr[data-target]'));
-      const rowCount = document.getElementById('rowCount');
+      const search = document.getElementById('acSearch');
+      const target = document.getElementById('acTarget');
+      const status = document.getElementById('acStatus');
+      const pageSize = document.getElementById('acPageSize');
+      const clearBtn = document.getElementById('acClear');
+      const cards = Array.from(document.querySelectorAll('[data-complaint-card]'));
+      const resultText = document.getElementById('acResultText');
+      const noResults = document.getElementById('acNoResults');
+      const pagination = document.getElementById('acPagination');
+      const pageInfo = document.getElementById('acPageInfo');
+      const pageButtons = document.getElementById('acPageButtons');
+      const kpiTotal = document.getElementById('acKpiTotal');
+      const kpiOpen = document.getElementById('acKpiOpen');
+      const kpiProgress = document.getElementById('acKpiProgress');
+      const kpiResolved = document.getElementById('acKpiResolved');
+      let currentPage = 1;
 
-      const kpi = {
-        wrap: document.getElementById('kpiRow'),
-        total: document.getElementById('kpiTotal'),
-        open: document.getElementById('kpiOpen'),
-        progress: document.getElementById('kpiProgress'),
-        resolved: document.getElementById('kpiResolved'),
-        rejected: document.getElementById('kpiRejected')
-      };
+      function norm(v){ return String(v || '').trim().toLowerCase(); }
 
-      function normalize(value){
-        return String(value || '').trim().toLowerCase();
+      function filteredCards(){
+        const q = norm(search && search.value);
+        const t = norm(target && target.value);
+        const s = norm(status && status.value);
+
+        return cards.filter(function(card){
+          const okQ = !q || norm(card.getAttribute('data-search')).includes(q);
+          const okT = !t || norm(card.getAttribute('data-target')) === t;
+          const okS = !s || norm(card.getAttribute('data-status')) === s;
+          return okQ && okT && okS;
+        });
       }
 
-      function computeKPIs(visibleRows){
-        let open = 0;
-        let progress = 0;
-        let resolved = 0;
-        let rejected = 0;
-
-        visibleRows.forEach(function(row){
-          const status = normalize(row.getAttribute('data-status'));
-
-          if(status === 'open'){
-            open += 1;
-          } else if(status === 'in_progress'){
-            progress += 1;
-          } else if(status === 'resolved'){
-            resolved += 1;
-          } else if(status === 'rejected'){
-            rejected += 1;
-          }
-        });
-
-        kpi.total.textContent = String(visibleRows.length);
-        kpi.open.textContent = String(open);
-        kpi.progress.textContent = String(progress);
-        kpi.resolved.textContent = String(resolved);
-        kpi.rejected.textContent = String(rejected);
-        kpi.wrap.hidden = false;
+      function updateKpis(list){
+        const open = list.filter(c => norm(c.getAttribute('data-status')) === 'open').length;
+        const progress = list.filter(c => norm(c.getAttribute('data-status')) === 'in_progress').length;
+        const resolved = list.filter(c => norm(c.getAttribute('data-status')) === 'resolved').length;
+        if(kpiTotal) kpiTotal.textContent = String(list.length);
+        if(kpiOpen) kpiOpen.textContent = String(open);
+        if(kpiProgress) kpiProgress.textContent = String(progress);
+        if(kpiResolved) kpiResolved.textContent = String(resolved);
       }
 
-      function applyFilters(){
-        const qv = normalize(q ? q.value : '');
-        const target = normalize(fTarget ? fTarget.value : '');
-        const status = normalize(fStatus ? fStatus.value : '');
+      function render(){
+        const list = filteredCards();
+        const size = Number(pageSize && pageSize.value || 10);
+        const total = list.length;
+        const totalPages = size > 0 ? Math.max(1, Math.ceil(total / size)) : 1;
+        if(currentPage > totalPages) currentPage = totalPages;
 
-        const visibleRows = [];
+        cards.forEach(c => c.hidden = true);
 
-        rows.forEach(function(row){
-          const rowText = normalize(row.innerText);
-          const rowTarget = normalize(row.getAttribute('data-target'));
-          const rowStatus = normalize(row.getAttribute('data-status'));
-
-          const hitSearch = !qv || rowText.indexOf(qv) !== -1;
-          const hitTarget = !target || rowTarget === target;
-          const hitStatus = !status || rowStatus === status;
-
-          const show = hitSearch && hitTarget && hitStatus;
-
-          row.style.display = show ? '' : 'none';
-
-          if(show){
-            visibleRows.push(row);
-          }
-        });
-
-        if(rowCount){
-          rowCount.textContent = visibleRows.length + ' shown';
+        let visible = list;
+        if(size > 0){
+          const start = (currentPage - 1) * size;
+          visible = list.slice(start, start + size);
         }
 
-        computeKPIs(visibleRows);
+        visible.forEach(c => c.hidden = false);
+
+        if(resultText){
+          resultText.innerHTML = 'Showing <strong>' + visible.length + '</strong> of <strong>' + total + '</strong> complaints';
+        }
+
+        if(noResults){ noResults.hidden = total !== 0; }
+        updateKpis(list);
+
+        if(!pagination || !pageInfo || !pageButtons) return;
+        pagination.hidden = !(total > 0 && size > 0 && totalPages > 1);
+        pageInfo.textContent = size > 0
+          ? 'Page ' + currentPage + ' of ' + totalPages
+          : 'Showing all complaints';
+
+        pageButtons.innerHTML = '';
+        if(size <= 0 || totalPages <= 1) return;
+
+        function addButton(label, page, disabled, active){
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ac-page-btn' + (active ? ' active' : '');
+          btn.textContent = label;
+          btn.disabled = !!disabled;
+          btn.addEventListener('click', function(){ currentPage = page; render(); });
+          pageButtons.appendChild(btn);
+        }
+
+        addButton('Prev', Math.max(1, currentPage - 1), currentPage === 1, false);
+        for(let i=1;i<=totalPages;i++){
+          if(i === 1 || i === totalPages || Math.abs(i-currentPage) <= 1){
+            addButton(String(i), i, false, i === currentPage);
+          }
+        }
+        addButton('Next', Math.min(totalPages, currentPage + 1), currentPage === totalPages, false);
       }
 
-      if(q){
-        q.addEventListener('input', applyFilters);
+      [search, target, status, pageSize].forEach(function(el){
+        if(!el) return;
+        el.addEventListener('input', function(){ currentPage = 1; render(); });
+        el.addEventListener('change', function(){ currentPage = 1; render(); });
+      });
+
+      if(clearBtn){
+        clearBtn.addEventListener('click', function(){
+          if(search) search.value = '';
+          if(target) target.value = '';
+          if(status) status.value = '';
+          if(pageSize) pageSize.value = '10';
+          currentPage = 1;
+          render();
+        });
       }
 
-      if(fTarget){
-        fTarget.addEventListener('change', applyFilters);
-      }
-
-      if(fStatus){
-        fStatus.addEventListener('change', applyFilters);
-      }
-
-      applyFilters();
+      render();
     })();
   </script>
 </section>
-
 {% endblock %}

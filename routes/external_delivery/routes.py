@@ -261,6 +261,19 @@ def admin_external_delivery_settings():
         if hyperlocal_api_key:
             update_data["hyperlocal_api_key"] = hyperlocal_api_key
 
+        # Security: live external providers require a webhook token before they can be enabled.
+        # Manual/fallback mode stays available without partner credentials.
+        effective_shiprocket_token = update_data.get("shiprocket_webhook_token") or existing.get("shiprocket_webhook_token") or ""
+        effective_hyperlocal_token = update_data.get("hyperlocal_webhook_token") or existing.get("hyperlocal_webhook_token") or ""
+
+        if update_data.get("shiprocket_enabled") and not effective_shiprocket_token:
+            flash("Shiprocket live mode requires a webhook token before it can be enabled.", "danger")
+            return redirect(url_for("admin_external_delivery_settings"))
+
+        if update_data.get("hyperlocal_enabled") and not effective_hyperlocal_token:
+            flash("Hyperlocal live mode requires a webhook token before it can be enabled.", "danger")
+            return redirect(url_for("admin_external_delivery_settings"))
+
         mongo.platform_settings.update_one(
             {"key": EXTERNAL_DELIVERY_SETTINGS_KEY},
             {"$set": update_data, "$setOnInsert": {"created_at": now}},
@@ -502,13 +515,16 @@ def api_external_delivery_webhook(provider):
     settings = get_external_delivery_settings()
 
     token = request.headers.get("x-api-key") or request.headers.get("X-API-Key") or request.args.get("token") or ""
-    expected_tokens = [
-        settings.get("shiprocket_webhook_token") if provider == "SHIPROCKET" else "",
-        settings.get("hyperlocal_webhook_token") if provider != "SHIPROCKET" else "",
-    ]
-    expected_tokens = [t for t in expected_tokens if t]
+    expected_token = (
+        settings.get("shiprocket_webhook_token")
+        if provider == "SHIPROCKET"
+        else settings.get("hyperlocal_webhook_token")
+    ) or ""
 
-    if expected_tokens and token not in expected_tokens:
+    if not expected_token:
+        return jsonify({"ok": False, "error": "Webhook token is not configured for this provider."}), 403
+
+    if not token or not secrets.compare_digest(str(token), str(expected_token)):
         return jsonify({"ok": False, "error": "Invalid webhook token."}), 403
 
     external_order_id = _external_safe_text(payload.get("external_order_id") or payload.get("order_id"))

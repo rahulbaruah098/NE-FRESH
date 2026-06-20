@@ -133,6 +133,100 @@
     }
 
 
+    /* NELOCALS CONTACT AUTO ACKNOWLEDGEMENT VISIBLE TOGGLE FINAL */
+    .cm-auto-box{
+      min-width:min(100%,460px);
+      justify-content:flex-end;
+    }
+
+    .cm-auto-panel{
+      width:min(100%,520px);
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:12px;
+      padding:12px;
+      border:1px solid #DDECE4;
+      border-radius:18px;
+      background:#fff;
+      box-shadow:0 10px 24px rgba(17,64,38,.045);
+    }
+
+    .cm-auto-title{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:#1F332A;
+      font-size:.9rem;
+      font-weight:950;
+    }
+
+    .cm-auto-help{
+      display:block;
+      margin-top:4px;
+      color:#66756D;
+      font-size:.76rem;
+      line-height:1.35;
+      font-weight:750;
+    }
+
+    .cm-auto-form{
+      margin:0;
+    }
+
+    .cm-toggle-btn{
+      min-width:116px;
+      min-height:42px;
+      border:0;
+      border-radius:999px;
+      padding:0 16px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      cursor:pointer;
+      background:#00A859;
+      color:#fff;
+      font-size:.82rem;
+      line-height:1;
+      font-weight:950;
+      box-shadow:0 12px 24px rgba(0,168,89,.18);
+    }
+
+    .cm-toggle-btn.off{
+      background:#FEF2F2;
+      color:#B91C1C;
+      border:1px solid #FECACA;
+      box-shadow:none;
+    }
+
+    .cm-toggle-dot{
+      width:12px;
+      height:12px;
+      border-radius:50%;
+      background:currentColor;
+      box-shadow:0 0 0 4px rgba(255,255,255,.22);
+    }
+
+    @media(max-width:760px){
+      .cm-toolbar{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+      .cm-filter,
+      .cm-filter input,
+      .cm-filter .cm-btn,
+      .cm-auto-panel,
+      .cm-toggle-btn{
+        width:100%;
+        min-width:0;
+      }
+      .cm-auto-panel{
+        grid-template-columns:1fr;
+      }
+    }
+
+
     .cm-auto-settings{
   width:100%;
   margin-top:12px;
@@ -460,21 +554,28 @@
       </form>
 
       <div class="cm-auto-box">
-        {% if auto_reply_enabled %}
-          <span class="cm-auto-pill">Auto acknowledgement: ON</span>
+        <div class="cm-auto-panel">
+          <div>
+            {% if auto_reply_enabled %}
+              <div class="cm-auto-title"><span class="cm-auto-pill">Auto acknowledgement: ON</span></div>
+              <span class="cm-auto-help">New contact queries receive the fixed acknowledgement email immediately. Message editing is removed.</span>
+            {% else %}
+              <div class="cm-auto-title"><span class="cm-auto-pill off">Auto acknowledgement: OFF</span></div>
+              <span class="cm-auto-help">No automatic email will be sent. Admin can still send manual replies from each message.</span>
+            {% endif %}
+          </div>
+
           <form method="POST" action="{{ url_for('admin_contact_auto_reply_toggle') }}" class="cm-auto-form">
-            <input type="hidden" name="enabled" value="0">
-            <button type="submit" class="light">Turn OFF Auto Acknowledgement</button>
+            {{ csrf_field()|safe }}
+            {% if auto_reply_enabled %}
+              <input type="hidden" name="enabled" value="0">
+              <button type="submit" class="cm-toggle-btn off"><span class="cm-toggle-dot"></span>Turn OFF</button>
+            {% else %}
+              <input type="hidden" name="enabled" value="1">
+              <button type="submit" class="cm-toggle-btn"><span class="cm-toggle-dot"></span>Turn ON</button>
+            {% endif %}
           </form>
-          <span class="cm-sub">When ON, the fixed acknowledgement email is sent directly when a user submits a new contact query.</span>
-        {% else %}
-          <span class="cm-auto-pill off">Auto acknowledgement: OFF</span>
-          <form method="POST" action="{{ url_for('admin_contact_auto_reply_toggle') }}" class="cm-auto-form">
-            <input type="hidden" name="enabled" value="1">
-            <button type="submit">Turn ON Auto Acknowledgement</button>
-          </form>
-          <span class="cm-sub">When OFF, no automatic email is sent. Use the manual reply field inside each message.</span>
-        {% endif %}
+        </div>
       </div>
     </div>
 
@@ -560,6 +661,7 @@
                   <div class="cm-comm-box">
                     {% if auto_reply_enabled and not m.auto_reply_sent %}
                       <form method="POST" action="{{ url_for('admin_contact_auto_reply_send', mid=m.id) }}" class="cm-auto-form">
+                        {{ csrf_field()|safe }}
                         <button type="submit" class="light">
                           Send Auto Acknowledgement
                         </button>
@@ -569,6 +671,7 @@
                     {% endif %}
 
                     <form method="POST" action="{{ url_for('admin_contact_message_reply', mid=m.id) }}" class="cm-manual-form">
+                      {{ csrf_field()|safe }}
                       <input
                         type="text"
                         name="reply_subject"

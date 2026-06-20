@@ -554,9 +554,11 @@ def customer_complaints():
         metrics=metrics
     )
 
-@app.route('/complaints', methods=['POST'])
+# Legacy duplicate /complaints POST route disabled to avoid conflicting with customer_complaints().
+# The current complaint submission flow is handled by customer_complaints().
+@app.route('/complaints/legacy-submit-disabled', methods=['POST'])
 @login_required()
-def complaints_create():
+def complaints_create_legacy_disabled():
     u = current_user()
     target_type = (request.form.get('target_type','') or '').lower()
     target_id = int(request.form.get('target_id','0') or 0)

@@ -21,6 +21,8 @@ import routes.delivery.routes  # noqa: F401
 import routes.external_delivery.routes  # noqa: F401
 import routes.api.routes  # noqa: F401
 
+import os
+
 
 print("\n=== ROUTES LOADED FROM app.py ===")
 print(app.url_map)
@@ -29,7 +31,7 @@ print("=================================\n")
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
-        port=5000,
-        debug=True,
+        port=int(os.getenv("PORT", "5000")),
+        debug=os.getenv("FLASK_DEBUG", "0").strip().lower() in ["1", "true", "yes", "on"],
         use_reloader=False
     )

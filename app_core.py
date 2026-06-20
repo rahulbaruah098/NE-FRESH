@@ -16,6 +16,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
 from flask import make_response
+from markupsafe import Markup
 from collections import defaultdict
 import smtplib
 
@@ -34,15 +35,46 @@ load_dotenv()  # reads .env
 
 
 app = Flask(__name__)
-app.secret_key = os.getenv("APP_SECRET_KEY", "dev-only-change-this")  # set real secret in production
+
+# Production-safe secret handling.
+# In production, set APP_SECRET_KEY or SECRET_KEY in .env / server environment.
+# A random runtime key is used only as a last-resort fallback so the old hardcoded
+# development key is never reused.
+_app_secret = (os.getenv("APP_SECRET_KEY") or os.getenv("SECRET_KEY") or "").strip()
+if not _app_secret:
+    _app_secret = secrets.token_urlsafe(48)
+    print("[SECURITY WARNING] APP_SECRET_KEY/SECRET_KEY is not set. Using a temporary runtime key; sessions will reset on restart.")
+app.secret_key = _app_secret
+
+
+def _env_bool(name, default=False):
+    raw = os.getenv(name)
+    if raw is None:
+        return bool(default)
+    return str(raw).strip().lower() in ["1", "true", "yes", "on"]
+
 
 # WebView Session Configuration
 from datetime import timedelta
-app.config['SESSION_COOKIE_HTTPONLY'] = False  # Allow WebView to use cookies
-app.config['SESSION_COOKIE_SECURE'] = False    # Set to True in production with HTTPS
-app.config['SESSION_COOKIE_SAMESITE'] = None   # Allow cross-origin cookies for mobile
+app.config['SESSION_COOKIE_HTTPONLY'] = False  # kept for existing WebView compatibility
+_session_cookie_secure = _env_bool("SESSION_COOKIE_SECURE", False)  # set true on HTTPS production
+_session_cookie_samesite = (os.getenv("SESSION_COOKIE_SAMESITE") or "").strip()
+
+# CSRF needs the browser session cookie to survive from GET /login to POST /login.
+# Chrome/Safari reject SameSite=None cookies unless Secure=True; on localhost/http this
+# made the CSRF token disappear and caused login to fail with "Security token expired".
+# Use Lax for local/http by default, and allow None only when HTTPS/Secure is enabled.
+if not _session_cookie_samesite:
+    _session_cookie_samesite = "None" if _session_cookie_secure else "Lax"
+elif _session_cookie_samesite.lower() == "none" and not _session_cookie_secure:
+    print("[SECURITY WARNING] SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true. Falling back to Lax for local/http login compatibility.")
+    _session_cookie_samesite = "Lax"
+
+app.config['SESSION_COOKIE_SECURE'] = _session_cookie_secure
+app.config['SESSION_COOKIE_SAMESITE'] = _session_cookie_samesite
 app.config['SESSION_COOKIE_NAME'] = 'session'  # Consistent cookie name
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+app.config['ENABLE_CSRF_PROTECTION'] = _env_bool("ENABLE_CSRF_PROTECTION", True)
 
 
 # Your existing CORS setup should cover this, but verify:
@@ -56,6 +88,73 @@ CORS(app, resources={
 })
 
 print("[RUNNING]", __file__)
+
+
+# =========================================================
+# BASIC CSRF PROTECTION FOR HTML FORMS
+# =========================================================
+# API endpoints remain exempt because the mobile app and third-party callbacks use
+# token/header based flows. HTML forms automatically receive the token through the
+# base templates and this validator checks unsafe same-origin form posts.
+CSRF_EXEMPT_PATH_PREFIXES = (
+    "/api/",
+    "/static/",
+)
+
+
+def _get_csrf_token():
+    token = session.get("_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+
+@app.context_processor
+def _inject_csrf_helpers():
+    def csrf_field():
+        token = html.escape(_get_csrf_token(), quote=True)
+        return Markup(f'<input type="hidden" name="csrf_token" value="{token}">')
+
+    return {
+        "csrf_token": _get_csrf_token(),
+        "csrf_field": csrf_field,
+    }
+
+
+@app.before_request
+def _protect_html_form_posts():
+    if not app.config.get("ENABLE_CSRF_PROTECTION", True):
+        return None
+
+    if request.method in ["GET", "HEAD", "OPTIONS", "TRACE"]:
+        return None
+
+    path = request.path or ""
+    if any(path.startswith(prefix) for prefix in CSRF_EXEMPT_PATH_PREFIXES):
+        return None
+
+    # Keep JSON API-style calls outside /api usable when they send an Authorization
+    # header, but still protect normal browser form submissions.
+    if request.is_json and request.headers.get("Authorization"):
+        return None
+
+    expected = session.get("_csrf_token")
+    received = (
+        request.form.get("csrf_token")
+        or request.form.get("_csrf_token")
+        or request.headers.get("X-CSRFToken")
+        or request.headers.get("X-CSRF-Token")
+        or ""
+    )
+
+    if not expected or not received or not secrets.compare_digest(str(expected), str(received)):
+        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
+            return jsonify({"ok": False, "error": "Security token expired. Please refresh and try again."}), 400
+        abort(400, description="Security token expired. Please refresh and try again.")
+
+    return None
+
 
 
 def _parse_since_to_sqlite(since_raw: str):
@@ -3221,14 +3320,32 @@ def order_total_payable(order_row):
            float(_row_get(order_row, 'tip_amount', 0))
 
 def ensure_admin_seed_password():
-    admin = mongo.users.find_one({"email": "admin@chhimphei.local"})
+    """
+    Security-safe admin seeding.
+    The old hardcoded admin@chhimphei.local / admin123 fallback has been removed.
+    To seed an admin on a fresh database, set ADMIN_SEED_EMAIL and
+    ADMIN_SEED_PASSWORD in the environment before first run.
+    """
+    admin_email = (os.getenv("ADMIN_SEED_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip().lower()
+    admin_password = (os.getenv("ADMIN_SEED_PASSWORD") or os.getenv("ADMIN_PASSWORD") or "").strip()
+    admin_name = (os.getenv("ADMIN_SEED_NAME") or "Administrator").strip() or "Administrator"
+    admin_phone = (os.getenv("ADMIN_SEED_PHONE") or "").strip()
+
+    if not admin_email:
+        return
+
+    admin = mongo.users.find_one({"email": admin_email})
 
     if not admin:
+        if not admin_password or len(admin_password) < 10:
+            print("[SECURITY WARNING] ADMIN_SEED_PASSWORD is missing/too short. Admin seed skipped.")
+            return
+
         mongo.users.insert_one({
-            "name": "Administrator",
-            "email": "admin@chhimphei.local",
-            "phone": "+911234567890",
-            "password_hash": generate_password_hash("admin123"),
+            "name": admin_name,
+            "email": admin_email,
+            "phone": admin_phone,
+            "password_hash": generate_password_hash(admin_password),
             "role": "admin",
             "phone_verified": 1,
             "is_active": 1,
@@ -3237,9 +3354,13 @@ def ensure_admin_seed_password():
         return
 
     if admin.get("password_hash") == "!!set_in_app!!":
+        if not admin_password or len(admin_password) < 10:
+            print("[SECURITY WARNING] Existing admin placeholder password found, but ADMIN_SEED_PASSWORD is missing/too short.")
+            return
+
         mongo.users.update_one(
             {"_id": admin["_id"]},
-            {"$set": {"password_hash": generate_password_hash("admin123")}}
+            {"$set": {"password_hash": generate_password_hash(admin_password)}}
         )
 
 def send_sms(phone: str, message: str) -> bool:
@@ -6843,8 +6964,8 @@ print("=====================\n")
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0",
-        port=5000,
-        debug=True,
+        port=int(os.getenv("PORT", "5000")),
+        debug=os.getenv("FLASK_DEBUG", "0").strip().lower() in ["1", "true", "yes", "on"],
         use_reloader=False)
 
 # Export all shared globals/helpers, including underscore-prefixed legacy helpers,

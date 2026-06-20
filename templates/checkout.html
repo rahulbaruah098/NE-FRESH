@@ -1026,6 +1026,37 @@
   #place-order-btn:hover{ background:var(--nf-green-dark) !important; transform:translateY(-1px); }
   #place-order-btn[disabled]{ opacity:.5; cursor:not-allowed; transform:none !important; box-shadow:none; }
 
+  .checkout-disabled-reason{
+    display:none;
+    width:100%;
+    margin:0 0 2px;
+    padding:10px 12px;
+    border-radius:12px;
+    background:#FFF7F7;
+    border:1px solid rgba(239,68,68,.24);
+    color:var(--nf-red);
+    font-size:.74rem;
+    line-height:1.45;
+    font-weight:850;
+    text-align:left;
+  }
+
+  .checkout-disabled-reason.show{
+    display:block;
+  }
+
+  .checkout-disabled-reason.ok{
+    background:var(--nf-green-soft);
+    border-color:rgba(0,168,89,.18);
+    color:var(--nf-green-dark);
+  }
+
+  .checkout-disabled-reason.warning{
+    background:#FFF8E8;
+    border-color:rgba(255,184,77,.30);
+    color:#9A6500;
+  }
+
   .powered-row{
     display:flex;
     align-items:center;
@@ -2141,6 +2172,14 @@
   }
 }
 
+
+
+    /* ==========================================================
+       NELOCALS CHECKOUT DISABLED REASON + SERVICEABILITY FIX FINAL
+       Shows exact checkout blocking reason beside Place Order button
+       and fixes delivery-fee UI recalculation when serviceability passes.
+    ========================================================== */
+
 </style>
 
 <section class="checkout-page" data-page="checkout"
@@ -2485,6 +2524,7 @@
   {% if not items or (cart_store_count and cart_store_count > 1) %}disabled{% endif %}>
                 Place Order ₹0.00
               </button>
+              <div id="checkoutDisabledReason" class="checkout-disabled-reason" role="alert" aria-live="polite"></div>
               <div class="powered-row">
                 <span>Powered by NE FRESH</span>
                 <span>Terms</span>
@@ -2606,6 +2646,7 @@ const checkoutDeliveryEta = document.getElementById('checkoutDeliveryEta');
 const checkoutDeliveryModeNote = document.getElementById('checkoutDeliveryModeNote');
 
   const btn = document.getElementById('place-order-btn');
+  const checkoutDisabledReason = document.getElementById('checkoutDisabledReason');
     const paymentRadios = Array.from(document.querySelectorAll('input[name="payment_method"]'));
   const paymentMethodPreview = document.getElementById('payment-method-preview');
   const paymentModeLabel = document.getElementById('payment-mode-label');
@@ -2807,17 +2848,46 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
     return /^\d{6}$/.test(p);
   }
 
-  function setWarn(msg){
-    if (!feeWarn) return;
+  function setCheckoutBlockReason(message, type){
+    if (!checkoutDisabledReason) return;
 
-    if (!msg){
-      feeWarn.style.display = "none";
-      feeWarn.textContent = "";
+    const text = String(message || "").trim();
+
+    checkoutDisabledReason.classList.remove("show", "ok", "warning");
+
+    if (!text){
+      checkoutDisabledReason.textContent = "";
       return;
     }
 
-    feeWarn.style.display = "block";
-    feeWarn.textContent = msg;
+    checkoutDisabledReason.textContent = text;
+    checkoutDisabledReason.classList.add("show");
+
+    if (type === "ok"){
+      checkoutDisabledReason.classList.add("ok");
+    }
+
+    if (type === "warning"){
+      checkoutDisabledReason.classList.add("warning");
+    }
+  }
+
+  function setWarn(msg){
+    if (!msg){
+      if (feeWarn) {
+        feeWarn.style.display = "none";
+        feeWarn.textContent = "";
+      }
+      setCheckoutBlockReason("");
+      return;
+    }
+
+    if (feeWarn) {
+      feeWarn.style.display = "block";
+      feeWarn.textContent = msg;
+    }
+
+    setCheckoutBlockReason(msg, "warning");
   }
 
   function setLocMsg(text, ok){
@@ -2897,15 +2967,19 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
     syncPaymentUI();
   }
 
-  function setButtonEnabled(ok){
+  function setButtonEnabled(ok, reason){
     if (!btn) return;
 
     btn.disabled = !ok;
 
     if (!ok) {
       btn.setAttribute('aria-disabled', 'true');
+      if (reason) {
+        setCheckoutBlockReason(reason, "warning");
+      }
     } else {
       btn.removeAttribute('aria-disabled');
+      setCheckoutBlockReason("");
     }
   }
 
@@ -3010,6 +3084,7 @@ function syncDeliveryModeCard(result){
   deliveryFee = Number(deliveryFee || 0);
   tip = Number(tip || 0);
   platformFee = Number(platformFee || 0);
+  const info = feeInfo || {};
 
   const payable = ITEMS_TOTAL + deliveryFee + platformFee + tip;
   const deliveryDisplay = buildDeliveryDisplayInfo(deliveryFee, feeInfo);
