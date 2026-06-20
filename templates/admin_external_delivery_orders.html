@@ -1,0 +1,91 @@
+{% extends "admin_base.html" %}
+{% set active_group = "delivery" %}
+{% set active_page = "external_delivery_orders" %}
+{% block title %}External Delivery Orders | NE FRESH Admin{% endblock %}
+{% block page_title %}External Delivery Orders{% endblock %}
+{% block page_subtitle %}Manage Rapido/Shiprocket/BlueDart style external delivery bookings and status updates.{% endblock %}
+{% block content %}
+<section class="edo-page">
+<style>
+  .edo-page{display:grid;gap:18px}.edo-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.edo-metric{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:18px;padding:16px;box-shadow:var(--nf-shadow)}.edo-metric span{display:block;font-size:.72rem;color:var(--nf-muted);font-weight:900;text-transform:uppercase;letter-spacing:.05em}.edo-metric strong{display:block;margin-top:8px;font-size:1.4rem;font-weight:950}.edo-card{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:22px;box-shadow:var(--nf-shadow);overflow:hidden}.edo-filter{display:flex;gap:10px;flex-wrap:wrap;padding:16px;border-bottom:1px solid var(--nf-line)}.edo-filter input,.edo-filter select{height:42px;border:1px solid var(--nf-line);border-radius:13px;padding:0 12px;font-weight:750}.edo-btn,.edo-link{min-height:40px;border:0;border-radius:13px;background:var(--nf-green);color:#fff;padding:0 14px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.edo-link{background:#fff;color:var(--nf-green-dark);border:1px solid var(--nf-line)}.edo-table-wrap{overflow:auto}.edo-table{width:100%;border-collapse:collapse;min-width:1200px}.edo-table th,.edo-table td{padding:12px;border-bottom:1px solid var(--nf-line);text-align:left;vertical-align:top;font-size:.86rem}.edo-table th{background:var(--nf-surface-2);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--nf-muted);font-weight:950}.edo-pill{display:inline-flex;min-height:28px;align-items:center;border-radius:999px;padding:0 10px;background:var(--nf-green-soft);color:var(--nf-green-dark);font-weight:900;font-size:.76rem}.edo-mini-form{display:grid;gap:8px;min-width:170px}.edo-mini-form select,.edo-mini-form input{height:36px;border:1px solid var(--nf-line);border-radius:11px;padding:0 10px;font-size:.82rem}.edo-empty{padding:28px;color:var(--nf-muted);font-weight:750;text-align:center}@media(max-width:900px){.edo-metrics{grid-template-columns:1fr}.edo-filter input,.edo-filter select,.edo-btn,.edo-link{width:100%}}
+</style>
+
+<div class="edo-metrics">
+  <div class="edo-metric"><span>Total</span><strong>{{ metrics.total }}</strong></div>
+  <div class="edo-metric"><span>Pending</span><strong>{{ metrics.pending }}</strong></div>
+  <div class="edo-metric"><span>Booked</span><strong>{{ metrics.booked }}</strong></div>
+  <div class="edo-metric"><span>Delivered</span><strong>{{ metrics.delivered }}</strong></div>
+</div>
+
+<div class="edo-card">
+  <form class="edo-filter" method="get">
+    <input name="q" value="{{ q }}" placeholder="Search order/customer/store/AWB">
+    <select name="mode">
+      <option value="">All Modes</option>
+      <option value="EXTERNAL_LOCAL_DELIVERY" {% if mode_filter == 'EXTERNAL_LOCAL_DELIVERY' %}selected{% endif %}>External Local</option>
+      <option value="THIRD_PARTY_SHIPPING" {% if mode_filter == 'THIRD_PARTY_SHIPPING' %}selected{% endif %}>Third-party Shipping</option>
+    </select>
+    <input name="status" value="{{ status_filter }}" placeholder="Status filter">
+    <button class="edo-btn" type="submit">Filter</button>
+    <a class="edo-link" href="{{ url_for('admin_external_delivery_settings') }}">Provider Settings</a>
+  </form>
+
+  {% if orders %}
+  <div class="edo-table-wrap">
+    <table class="edo-table">
+      <thead><tr><th>Order</th><th>Customer</th><th>Store</th><th>Mode</th><th>Provider</th><th>Payment</th><th>External IDs</th><th>Status</th><th>Book</th><th>Manual Update</th></tr></thead>
+      <tbody>
+      {% for order in orders %}
+        <tr>
+          <td><strong>#{{ order.short_id }}</strong><br><small>{{ order.created_at|default('') }}</small></td>
+          <td>{{ order.customer_name|default('Customer') }}<br><small>{{ order.customer_phone|default('') }}</small></td>
+          <td>{{ order.store_name|default('Store') }}</td>
+          <td><span class="edo-pill">{{ order.active_delivery_mode }}</span></td>
+          <td>{{ order.external_delivery_provider }}<br><small>{{ order.external_delivery_provider_type }}</small></td>
+          <td>{{ order.payment_method }}<br><small>Total ₹{{ '%.2f'|format(order.total_payable) }}</small><br><small>External ₹{{ '%.2f'|format(order.external_delivery_fee_amount or order.external_delivery_charge) }}</small></td>
+          <td>
+            {% if order.external_order_id %}<div>Order: {{ order.external_order_id }}</div>{% endif %}
+            {% if order.external_shipment_id %}<div>Shipment: {{ order.external_shipment_id }}</div>{% endif %}
+            {% if order.external_awb %}<div>AWB: {{ order.external_awb }}</div>{% endif %}
+            {% if order.external_tracking_url %}<a href="{{ order.external_tracking_url }}" target="_blank" rel="noopener">Track</a>{% endif %}
+          </td>
+          <td>{{ order.external_delivery_status }}</td>
+          <td>
+            <form class="edo-mini-form" method="post" action="{{ url_for('admin_external_delivery_book_order', oid=order.id) }}">
+              <select name="provider">
+                <option value="SHIPROCKET" {% if order.external_delivery_provider == 'SHIPROCKET' %}selected{% endif %}>Shiprocket</option>
+                <option value="MANUAL_HYPERLOCAL" {% if order.external_delivery_provider == 'MANUAL_HYPERLOCAL' %}selected{% endif %}>Manual Hyperlocal</option>
+                <option value="RAPIDO" {% if order.external_delivery_provider == 'RAPIDO' %}selected{% endif %}>Rapido</option>
+                <option value="BLUEDART" {% if order.external_delivery_provider == 'BLUEDART' %}selected{% endif %}>BlueDart</option>
+              </select>
+              <button class="edo-btn" type="submit">Book / Record</button>
+            </form>
+          </td>
+          <td>
+            <form class="edo-mini-form" method="post" action="{{ url_for('admin_external_delivery_update_status', oid=order.id) }}">
+              <select name="external_delivery_status">
+                <option value="READY_FOR_EXTERNAL_BOOKING">Ready</option>
+                <option value="BOOKED">Booked</option>
+                <option value="PICKED_UP">Picked Up</option>
+                <option value="IN_TRANSIT">In Transit</option>
+                <option value="OUT_FOR_DELIVERY">Out For Delivery</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="FAILED">Failed</option>
+                <option value="RTO">RTO</option>
+                <option value="RETURNED">Returned</option>
+              </select>
+              <input name="external_delivery_note" placeholder="Optional note">
+              <button class="edo-link" type="submit">Update</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="edo-empty">No external delivery orders found yet.</div>
+  {% endif %}
+</div>
+</section>
+{% endblock %}

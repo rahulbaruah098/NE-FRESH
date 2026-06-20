@@ -1245,7 +1245,21 @@ def checkout():
         if requested_payment_method not in ["COD", "ONLINE"]:
             requested_payment_method = "COD"
 
+        delivery_mode_snapshot = get_order_delivery_mode_snapshot()
+        active_delivery_mode = delivery_mode_snapshot.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
+        in_house_delivery_enabled_at_order = bool(delivery_mode_snapshot.get("in_house_delivery_enabled_at_order", True))
+        external_delivery_enabled_at_order = bool(delivery_mode_snapshot.get("external_delivery_enabled_at_order", False))
+        external_payment_rule = delivery_mode_snapshot.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+        delivery_type = delivery_mode_snapshot.get("delivery_type") or "OWN_DELIVERY"
+        external_delivery_provider_type = delivery_mode_snapshot.get("external_delivery_provider_type") or "IN_HOUSE"
+        external_delivery_status_initial = delivery_mode_snapshot.get("external_delivery_status") or "NOT_APPLICABLE"
+
         store_allows_online = bool(store.get("allow_online_payment", True))
+
+        if external_delivery_enabled_at_order and external_payment_rule == EXTERNAL_PAYMENT_RULE_ONLINE_ONLY:
+            if requested_payment_method != "ONLINE":
+                flash("This delivery mode currently accepts online payment only. Please choose Online Payment.", "warning")
+                return redirect(url_for("checkout"))
 
         if requested_payment_method == "ONLINE":
             if not online_payment_enabled:
@@ -1277,22 +1291,8 @@ def checkout():
         # ------------------------------------------------------------
         is_online_order = payment_method == "ONLINE"
 
-        delivery_mode_settings = get_delivery_mode_settings()
-        in_house_delivery_enabled_at_order = bool(
-            delivery_mode_settings.get("in_house_delivery_enabled", True)
-        )
-
-        active_delivery_mode = (
-            "IN_HOUSE"
-            if in_house_delivery_enabled_at_order
-            else "EXTERNAL_LOCAL_DELIVERY"
-        )
-
-        delivery_type = (
-            "OWN_DELIVERY"
-            if in_house_delivery_enabled_at_order
-            else "EXTERNAL_DELIVERY_PENDING"
-        )
+        # delivery_mode_snapshot was frozen before payment calculation.
+        # It lets old orders keep their original delivery mode even if Admin changes the global mode later.
 
         if is_online_order:
             platform_payment_flow = "ONLINE_PLATFORM"
@@ -1312,10 +1312,17 @@ def checkout():
                 platform_fee_status = "PENDING_COLLECTION"
                 rider_cash_settlement_status = "NOT_COLLECTED_YET"
             else:
-                platform_payment_flow = "COD_STORE_COLLECTION"
-                payment_collection_status = "PENDING_STORE_COLLECTION"
-                cod_collection_status = "PENDING_STORE_COLLECTION"
-                platform_fee_status = "DUE_FROM_STORE"
+                if external_payment_rule == EXTERNAL_PAYMENT_RULE_COD_PARTNER:
+                    platform_payment_flow = "COD_PARTNER_COLLECTION"
+                    payment_collection_status = "PENDING_PARTNER_COLLECTION"
+                    cod_collection_status = "PENDING_PARTNER_COLLECTION"
+                    platform_fee_status = "PENDING_PARTNER_REMITTANCE"
+                else:
+                    platform_payment_flow = "COD_STORE_COLLECTION"
+                    payment_collection_status = "PENDING_STORE_COLLECTION"
+                    cod_collection_status = "PENDING_STORE_COLLECTION"
+                    platform_fee_status = "DUE_FROM_STORE"
+
                 rider_cash_settlement_status = "NOT_APPLICABLE"
 
             initial_payment_status = "PENDING"
@@ -1396,22 +1403,34 @@ def checkout():
             "payment_flow": platform_payment_flow,
             "official_payment_mode": platform_payment_flow,
             "delivery_type": delivery_type,
-
-                        "active_delivery_mode": active_delivery_mode,
+            "active_delivery_mode": active_delivery_mode,
             "in_house_delivery_enabled_at_order": bool(in_house_delivery_enabled_at_order),
+            "external_delivery_enabled_at_order": bool(external_delivery_enabled_at_order),
+            "external_payment_rule": external_payment_rule,
 
-            "external_delivery_status": (
-                "NOT_APPLICABLE"
-                if in_house_delivery_enabled_at_order
-                else "PENDING_EXTERNAL_DELIVERY_SETUP"
-            ),
-            "external_delivery_partner_type": (
-                ""
-                if in_house_delivery_enabled_at_order
-                else "PENDING"
-            ),
+            "external_delivery_status": external_delivery_status_initial,
+            "external_delivery_provider_type": external_delivery_provider_type,
+            "external_delivery_partner_type": external_delivery_provider_type,
             "external_delivery_partner_name": "",
+            "external_delivery_provider": (
+                delivery_mode_snapshot.get("third_party_provider")
+                if active_delivery_mode == DELIVERY_MODE_THIRD_PARTY
+                else delivery_mode_snapshot.get("external_local_provider")
+            ) if external_delivery_enabled_at_order else "",
             "external_delivery_fee_amount": external_delivery_fee_amount,
+            "external_delivery_charge": external_delivery_fee_amount,
+            "external_delivery_booking_status": "NOT_REQUIRED" if in_house_delivery_enabled_at_order else "PENDING_BOOKING",
+            "external_order_id": "",
+            "external_shipment_id": "",
+            "external_awb": "",
+            "external_tracking_url": "",
+            "external_label_url": "",
+            "external_manifest_url": "",
+            "external_cod_amount": float(total_payable) if (not is_online_order and external_delivery_enabled_at_order) else 0.0,
+            "external_cod_remittance_status": "PENDING" if (not is_online_order and external_payment_rule == EXTERNAL_PAYMENT_RULE_COD_PARTNER) else "NOT_REQUIRED",
+            "external_delivery_payload": {},
+            "external_delivery_response": {},
+            "external_status_history": [],
 
             # At order creation, COD money is not collected yet.
             # It will be collected by delivery boy at delivery time.
@@ -1566,6 +1585,9 @@ def checkout():
             "delivery_type": delivery_type,
             "active_delivery_mode": active_delivery_mode,
             "in_house_delivery_enabled_at_order": bool(in_house_delivery_enabled_at_order),
+            "external_delivery_enabled_at_order": bool(external_delivery_enabled_at_order),
+            "external_payment_rule": external_payment_rule,
+            "external_delivery_provider_type": external_delivery_provider_type,
             "external_delivery_fee_amount": external_delivery_fee_amount,
 
             "payment_received_by": None,

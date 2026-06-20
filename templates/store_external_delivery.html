@@ -1,0 +1,49 @@
+{% extends "store_base.html" %}
+{% set active_page = "external_delivery" %}
+{% block title %}External Delivery | Store{% endblock %}
+{% block page_title %}External Delivery{% endblock %}
+{% block page_subtitle %}Orders waiting for external local delivery or third-party shipping booking.{% endblock %}
+{% block content %}
+<section class="sed-page">
+<style>
+  .sed-page{display:grid;gap:16px}.sed-card{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:22px;box-shadow:var(--nf-shadow);overflow:hidden}.sed-table-wrap{overflow:auto}.sed-table{width:100%;min-width:980px;border-collapse:collapse}.sed-table th,.sed-table td{padding:13px;border-bottom:1px solid var(--nf-line);text-align:left;vertical-align:top;font-size:.88rem}.sed-table th{background:var(--nf-surface-2);color:var(--nf-muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;font-weight:950}.sed-pill{display:inline-flex;align-items:center;min-height:28px;border-radius:999px;background:var(--nf-green-soft);color:var(--nf-green-dark);padding:0 10px;font-size:.76rem;font-weight:900}.sed-btn{min-height:40px;border:0;border-radius:13px;background:var(--nf-green);color:#fff;padding:0 14px;font-weight:900;cursor:pointer}.sed-empty{padding:28px;color:var(--nf-muted);font-weight:750;text-align:center}
+</style>
+<div class="sed-card">
+{% if orders %}
+  <div class="sed-table-wrap">
+    <table class="sed-table">
+      <thead><tr><th>Order</th><th>Customer</th><th>Mode</th><th>Provider</th><th>Payment</th><th>Status</th><th>External IDs</th><th>Action</th></tr></thead>
+      <tbody>
+      {% for order in orders %}
+        <tr>
+          <td><strong>#{{ order.short_id }}</strong><br><small>{{ order.created_at|default('') }}</small></td>
+          <td>{{ order.customer_name|default('Customer') }}<br><small>{{ order.customer_phone|default('') }}</small></td>
+          <td><span class="sed-pill">{{ order.active_delivery_mode }}</span></td>
+          <td>{{ order.external_delivery_provider }}<br><small>{{ order.external_delivery_provider_type }}</small></td>
+          <td>{{ order.payment_method }}<br><small>₹{{ '%.2f'|format(order.total_payable) }}</small></td>
+          <td>{{ order.external_delivery_status }}</td>
+          <td>
+            {% if order.external_order_id %}<div>Order: {{ order.external_order_id }}</div>{% endif %}
+            {% if order.external_awb %}<div>AWB: {{ order.external_awb }}</div>{% endif %}
+            {% if order.external_tracking_url %}<a href="{{ order.external_tracking_url }}" target="_blank" rel="noopener">Track</a>{% endif %}
+          </td>
+          <td>
+            {% if order.external_delivery_status in ['PENDING_EXTERNAL_LOCAL_BOOKING','PENDING_THIRD_PARTY_SHIPMENT','PENDING_EXTERNAL_DELIVERY_SETUP','PENDING','READY_FOR_EXTERNAL_BOOKING'] %}
+              <form method="post" action="{{ url_for('store_external_delivery_ready', oid=order.id) }}">
+                <button class="sed-btn" type="submit">Mark Ready</button>
+              </form>
+            {% else %}
+              <small>No store action</small>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="sed-empty">No external delivery orders for your store yet.</div>
+{% endif %}
+</div>
+</section>
+{% endblock %}

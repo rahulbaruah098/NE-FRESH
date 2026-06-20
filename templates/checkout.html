@@ -2178,19 +2178,28 @@
         <div class="checkout-form-card">
           <form method="post" id="checkout-form">
                        <div class="payment-method-box">
+              {% set external_online_only = external_delivery_enabled and delivery_mode_settings.external_payment_rule == 'ONLINE_ONLY' %}
               <p class="payment-method-title">Select payment method</p>
 
+              {% if external_delivery_enabled %}
+                <div class="payment-method-note">
+                  External delivery mode is active: {{ active_delivery_mode }}.
+                  {% if external_online_only %}COD is disabled for this mode until partner COD settlement is configured.{% endif %}
+                </div>
+              {% endif %}
+
               <div class="payment-method-grid">
-                <label class="payment-method-option">
-                  <input type="radio" name="payment_method" value="COD" checked>
+                <label class="payment-method-option {% if external_online_only %}disabled{% endif %}">
+                  <input type="radio" name="payment_method" value="COD" {% if not external_online_only %}checked{% endif %} {% if external_online_only %}disabled{% endif %}>
                   <strong>💵 Cash on Delivery</strong>
-                  <span>Pay the delivery partner when your order arrives.</span>
+                  <span>{% if external_online_only %}Unavailable for the current external delivery mode.{% else %}Pay the delivery partner when your order arrives.{% endif %}</span>
                 </label>
 
                 <label class="payment-method-option {% if not online_payment_enabled %}disabled{% endif %}">
                   <input type="radio"
                          name="payment_method"
                          value="ONLINE"
+                         {% if external_online_only %}checked{% endif %}
                          {% if not online_payment_enabled %}disabled{% endif %}>
                   <strong>💳 Pay Online</strong>
                   <span>
@@ -2440,6 +2449,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const SLABS_RAW         = {{ (slabs|default([(0,2,0),(2,5,15),(5,7,25),(7,10,35)]))|tojson }};
   const ITEMS_TOTAL       = Number({{ (total|default(0))|tojson }}) || 0;
   const ONLINE_PAYMENT_ENABLED = Boolean({{ (online_payment_enabled|default(false))|tojson }});
+  const EXTERNAL_ONLINE_ONLY = Boolean({{ (external_delivery_enabled and delivery_mode_settings.external_payment_rule == 'ONLINE_ONLY')|tojson }});
 
   const SLAB_LIST = Array.isArray(SLABS_RAW)
     ? SLABS_RAW.map(s => ({ low: Number(s[0]), high: Number(s[1]), fee: Number(s[2]) }))
@@ -2687,14 +2697,20 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
 
     function selectedPaymentMethod(){
     const selected = paymentRadios.find(r => r.checked);
-    return selected ? selected.value : "COD";
+    return selected ? selected.value : (EXTERNAL_ONLINE_ONLY ? "ONLINE" : "COD");
   }
 
   function syncPaymentUI(){
     const method = selectedPaymentMethod();
 
+    if (EXTERNAL_ONLINE_ONLY && method !== "ONLINE") {
+      const onlineRadio = paymentRadios.find(r => r.value === "ONLINE" && !r.disabled);
+      if (onlineRadio) onlineRadio.checked = true;
+      return syncPaymentUI();
+    }
+
     if (method === "ONLINE" && !ONLINE_PAYMENT_ENABLED) {
-      const codRadio = paymentRadios.find(r => r.value === "COD");
+      const codRadio = paymentRadios.find(r => r.value === "COD" && !r.disabled);
       if (codRadio) codRadio.checked = true;
       return syncPaymentUI();
     }

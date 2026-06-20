@@ -109,7 +109,11 @@ def inject_globals():
         "service_area": session.get("service_area"),
         "order_status_label": order_status_label,
         "delivery_mode_settings": delivery_mode_settings,
+        "active_delivery_mode": delivery_mode_settings.get("active_delivery_mode", "IN_HOUSE"),
         "in_house_delivery_enabled": bool(delivery_mode_settings.get("in_house_delivery_enabled", True)),
+        "external_delivery_enabled": bool(delivery_mode_settings.get("external_delivery_enabled", False)),
+        "external_local_delivery_enabled": bool(delivery_mode_settings.get("external_local_delivery_enabled", False)),
+        "third_party_shipping_enabled": bool(delivery_mode_settings.get("third_party_shipping_enabled", False)),
         "return_refund_enabled": bool(delivery_mode_settings.get("return_refund_enabled", True)),
     }
 
@@ -971,13 +975,37 @@ def _delivery_float_or_none(value):
 
 
 DELIVERY_MODE_SETTINGS_KEY = "delivery_mode_settings"
+EXTERNAL_DELIVERY_SETTINGS_KEY = "external_delivery_settings"
+
+DELIVERY_MODE_IN_HOUSE = "IN_HOUSE"
+DELIVERY_MODE_EXTERNAL_LOCAL = "EXTERNAL_LOCAL_DELIVERY"
+DELIVERY_MODE_THIRD_PARTY = "THIRD_PARTY_SHIPPING"
+
+VALID_DELIVERY_MODES = {
+    DELIVERY_MODE_IN_HOUSE,
+    DELIVERY_MODE_EXTERNAL_LOCAL,
+    DELIVERY_MODE_THIRD_PARTY,
+}
+
+EXTERNAL_PAYMENT_RULE_ONLINE_ONLY = "ONLINE_ONLY"
+EXTERNAL_PAYMENT_RULE_COD_STORE = "COD_STORE_COLLECTION"
+EXTERNAL_PAYMENT_RULE_COD_PARTNER = "COD_PARTNER_COLLECTION"
+
+VALID_EXTERNAL_PAYMENT_RULES = {
+    EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+    EXTERNAL_PAYMENT_RULE_COD_STORE,
+    EXTERNAL_PAYMENT_RULE_COD_PARTNER,
+}
 
 DEFAULT_DELIVERY_MODE_SETTINGS = {
     "key": DELIVERY_MODE_SETTINGS_KEY,
-    "active_delivery_mode": "IN_HOUSE",
+    "active_delivery_mode": DELIVERY_MODE_IN_HOUSE,
 
-    # Master switch
+    # Master mode flags
     "in_house_delivery_enabled": True,
+    "external_local_delivery_enabled": False,
+    "third_party_shipping_enabled": False,
+    "external_delivery_enabled": False,
 
     # Related in-house modules
     "delivery_boy_panel_enabled": True,
@@ -987,16 +1015,59 @@ DEFAULT_DELIVERY_MODE_SETTINGS = {
 
     # Related return/refund module
     "return_refund_enabled": True,
+
+    # External delivery payment behavior
+    # ONLINE_ONLY is the safest first phase for Rapido/Shiprocket-style delivery.
+    "external_payment_rule": EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+    "external_local_provider": "MANUAL_HYPERLOCAL",
+    "third_party_provider": "SHIPROCKET",
 }
+
+DEFAULT_EXTERNAL_DELIVERY_SETTINGS = {
+    "key": EXTERNAL_DELIVERY_SETTINGS_KEY,
+    "shiprocket_enabled": False,
+    "shiprocket_email": "",
+    "shiprocket_password": "",
+    "shiprocket_pickup_location": "",
+    "shiprocket_channel_id": "",
+    "shiprocket_webhook_token": "",
+
+    "hyperlocal_enabled": False,
+    "hyperlocal_provider": "MANUAL_HYPERLOCAL",
+    "hyperlocal_api_base_url": "",
+    "hyperlocal_api_key": "",
+    "hyperlocal_webhook_token": "",
+
+    "manual_external_enabled": True,
+    "default_package_weight_kg": 1.0,
+    "default_package_length_cm": 10.0,
+    "default_package_breadth_cm": 10.0,
+    "default_package_height_cm": 10.0,
+}
+
+
+def _delivery_mode_normalize(value):
+    mode = (value or DELIVERY_MODE_IN_HOUSE).strip().upper()
+    if mode not in VALID_DELIVERY_MODES:
+        mode = DELIVERY_MODE_IN_HOUSE
+    return mode
+
+
+def _external_payment_rule_normalize(value):
+    rule = (value or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY).strip().upper()
+    if rule not in VALID_EXTERNAL_PAYMENT_RULES:
+        rule = EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+    return rule
 
 
 def get_delivery_mode_settings():
     """
     Global delivery mode settings controlled from Admin Panel.
 
-    Step 1 only reads/saves this setting.
-    Step 2 will use this setting to block/hide delivery-boy, store assignment,
-    return/refund and tracking logic.
+    Supported modes:
+    - IN_HOUSE: current NE FRESH delivery-boy system.
+    - EXTERNAL_LOCAL_DELIVERY: Rapido/Ola/Uber/Shiprocket Quick style hyperlocal mode.
+    - THIRD_PARTY_SHIPPING: Shiprocket/BlueDart/Delhivery courier-style mode.
     """
     settings = dict(DEFAULT_DELIVERY_MODE_SETTINGS)
 
@@ -1010,19 +1081,73 @@ def get_delivery_mode_settings():
     except Exception:
         pass
 
-    in_house_enabled = bool(settings.get("in_house_delivery_enabled", True))
+    active_mode = _delivery_mode_normalize(settings.get("active_delivery_mode"))
 
-    if in_house_enabled:
-        settings["active_delivery_mode"] = "IN_HOUSE"
-    else:
-        settings["active_delivery_mode"] = settings.get("active_delivery_mode") or "EXTERNAL_LOCAL_DELIVERY"
+    # Backward compatibility for the previous ON/OFF switch.
+    # If an older record only has in_house_delivery_enabled=False, treat it as external local.
+    if "active_delivery_mode" not in settings:
+        active_mode = (
+            DELIVERY_MODE_IN_HOUSE
+            if bool(settings.get("in_house_delivery_enabled", True))
+            else DELIVERY_MODE_EXTERNAL_LOCAL
+        )
 
+    in_house_enabled = active_mode == DELIVERY_MODE_IN_HOUSE
+    external_local_enabled = active_mode == DELIVERY_MODE_EXTERNAL_LOCAL
+    third_party_enabled = active_mode == DELIVERY_MODE_THIRD_PARTY
+    external_enabled = external_local_enabled or third_party_enabled
+
+    settings["active_delivery_mode"] = active_mode
     settings["in_house_delivery_enabled"] = in_house_enabled
-    settings["delivery_boy_panel_enabled"] = bool(settings.get("delivery_boy_panel_enabled", in_house_enabled))
-    settings["delivery_assignment_enabled"] = bool(settings.get("delivery_assignment_enabled", in_house_enabled))
-    settings["delivery_tracking_enabled"] = bool(settings.get("delivery_tracking_enabled", in_house_enabled))
-    settings["cod_rider_collection_enabled"] = bool(settings.get("cod_rider_collection_enabled", in_house_enabled))
-    settings["return_refund_enabled"] = bool(settings.get("return_refund_enabled", in_house_enabled))
+    settings["external_local_delivery_enabled"] = external_local_enabled
+    settings["third_party_shipping_enabled"] = third_party_enabled
+    settings["external_delivery_enabled"] = external_enabled
+
+    settings["delivery_boy_panel_enabled"] = in_house_enabled
+    settings["delivery_assignment_enabled"] = in_house_enabled
+    settings["delivery_tracking_enabled"] = in_house_enabled
+    settings["cod_rider_collection_enabled"] = in_house_enabled
+
+    # Keep return/refund ON only for in-house mode in the first safe phase,
+    # unless Admin explicitly enables it later from policy pages.
+    settings["return_refund_enabled"] = bool(settings.get("return_refund_enabled", in_house_enabled)) and in_house_enabled
+
+    settings["external_payment_rule"] = _external_payment_rule_normalize(
+        settings.get("external_payment_rule")
+    )
+    settings["external_local_provider"] = (settings.get("external_local_provider") or "MANUAL_HYPERLOCAL").strip().upper()
+    settings["third_party_provider"] = (settings.get("third_party_provider") or "SHIPROCKET").strip().upper()
+
+    return settings
+
+
+def get_external_delivery_settings():
+    settings = dict(DEFAULT_EXTERNAL_DELIVERY_SETTINGS)
+
+    try:
+        row = mongo.platform_settings.find_one({
+            "key": EXTERNAL_DELIVERY_SETTINGS_KEY
+        }) or {}
+
+        if row:
+            settings.update(row)
+    except Exception:
+        pass
+
+    settings["shiprocket_enabled"] = bool(settings.get("shiprocket_enabled", False))
+    settings["hyperlocal_enabled"] = bool(settings.get("hyperlocal_enabled", False))
+    settings["manual_external_enabled"] = bool(settings.get("manual_external_enabled", True))
+
+    for money_key in [
+        "default_package_weight_kg",
+        "default_package_length_cm",
+        "default_package_breadth_cm",
+        "default_package_height_cm",
+    ]:
+        try:
+            settings[money_key] = round(float(settings.get(money_key) or DEFAULT_EXTERNAL_DELIVERY_SETTINGS[money_key]), 2)
+        except Exception:
+            settings[money_key] = DEFAULT_EXTERNAL_DELIVERY_SETTINGS[money_key]
 
     return settings
 
@@ -1046,6 +1171,49 @@ def is_in_house_delivery_enabled():
     return bool(settings.get("in_house_delivery_enabled", True))
 
 
+def is_external_delivery_enabled():
+    settings = get_delivery_mode_settings()
+    return bool(settings.get("external_delivery_enabled", False))
+
+
+def get_active_delivery_mode():
+    settings = get_delivery_mode_settings()
+    return settings.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
+
+
+def get_order_delivery_mode_snapshot():
+    """
+    Snapshot used when creating new orders so old orders do not change if Admin later changes mode.
+    """
+    settings = get_delivery_mode_settings()
+    active_mode = settings.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
+    in_house = active_mode == DELIVERY_MODE_IN_HOUSE
+    external_enabled = active_mode in [DELIVERY_MODE_EXTERNAL_LOCAL, DELIVERY_MODE_THIRD_PARTY]
+
+    if active_mode == DELIVERY_MODE_IN_HOUSE:
+        delivery_type = "OWN_DELIVERY"
+        provider_type = "IN_HOUSE"
+        default_status = "NOT_APPLICABLE"
+    elif active_mode == DELIVERY_MODE_THIRD_PARTY:
+        delivery_type = "THIRD_PARTY_SHIPPING_PENDING"
+        provider_type = "COURIER"
+        default_status = "PENDING_THIRD_PARTY_SHIPMENT"
+    else:
+        delivery_type = "EXTERNAL_LOCAL_DELIVERY_PENDING"
+        provider_type = "HYPERLOCAL"
+        default_status = "PENDING_EXTERNAL_LOCAL_BOOKING"
+
+    return {
+        "active_delivery_mode": active_mode,
+        "in_house_delivery_enabled_at_order": bool(in_house),
+        "external_delivery_enabled_at_order": bool(external_enabled),
+        "delivery_type": delivery_type,
+        "external_delivery_provider_type": provider_type,
+        "external_delivery_status": default_status,
+        "external_payment_rule": settings.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+        "external_local_provider": settings.get("external_local_provider") or "MANUAL_HYPERLOCAL",
+        "third_party_provider": settings.get("third_party_provider") or "SHIPROCKET",
+    }
 
 
 DELIVERY_FEE_SETTINGS_KEY = "delivery_fee_settings"

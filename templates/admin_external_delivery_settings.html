@@ -1,0 +1,57 @@
+{% extends "admin_base.html" %}
+{% set active_group = "delivery" %}
+{% set active_page = "external_delivery_settings" %}
+{% block title %}External Delivery Settings | NE FRESH Admin{% endblock %}
+{% block page_title %}External Delivery Settings{% endblock %}
+{% block page_subtitle %}Configure Shiprocket/courier and hyperlocal delivery credentials. Blank secret fields keep the previous saved value.{% endblock %}
+{% block content %}
+<section class="ed-page">
+  <style>
+    .ed-page{display:grid;gap:18px}.ed-card{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:22px;box-shadow:var(--nf-shadow);padding:20px}.ed-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.ed-card h3{margin:0 0 12px;font-size:1.05rem;font-weight:950}.ed-field{display:grid;gap:7px}.ed-field label{font-size:.76rem;font-weight:900;color:var(--nf-muted);text-transform:uppercase;letter-spacing:.05em}.ed-field input,.ed-field select{height:44px;border:1px solid var(--nf-line);border-radius:14px;padding:0 12px;font-weight:750;outline:none;background:#fff}.ed-field input:focus,.ed-field select:focus{border-color:rgba(0,168,89,.5);box-shadow:0 0 0 4px rgba(0,168,89,.10)}.ed-check{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:900}.ed-check input{width:18px;height:18px;accent-color:var(--nf-green)}.ed-help{color:var(--nf-muted);font-size:.86rem;line-height:1.55;font-weight:650}.ed-actions{display:flex;gap:12px;flex-wrap:wrap}.ed-btn{min-height:44px;border:0;border-radius:14px;background:var(--nf-green);color:#fff;padding:0 16px;font-weight:950;cursor:pointer}.ed-link{min-height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:14px;border:1px solid var(--nf-line);background:#fff;color:var(--nf-green-dark);padding:0 16px;font-weight:900;text-decoration:none}@media(max-width:900px){.ed-grid{grid-template-columns:1fr}.ed-btn,.ed-link{width:100%}}
+  </style>
+
+  <form method="post" action="{{ url_for('admin_external_delivery_settings') }}" class="ed-page">
+    <div class="ed-card">
+      <h3>Shiprocket / Courier Settings</h3>
+      <p class="ed-help">Use this for THIRD_PARTY_SHIPPING mode. Shiprocket can be automated after live API credentials are added. Until then, orders can still be recorded manually.</p>
+      <div class="ed-grid">
+        <label class="ed-check"><input type="checkbox" name="shiprocket_enabled" value="1" {% if settings.shiprocket_enabled %}checked{% endif %}> Enable Shiprocket API</label>
+        <div class="ed-field"><label>Shiprocket Email</label><input name="shiprocket_email" value="{{ settings.shiprocket_email|default('') }}" autocomplete="off"></div>
+        <div class="ed-field"><label>Shiprocket Password</label><input type="password" name="shiprocket_password" placeholder="Leave blank to keep saved password" autocomplete="new-password"></div>
+        <div class="ed-field"><label>Pickup Location</label><input name="shiprocket_pickup_location" value="{{ settings.shiprocket_pickup_location|default('') }}" placeholder="Primary"></div>
+        <div class="ed-field"><label>Channel ID</label><input name="shiprocket_channel_id" value="{{ settings.shiprocket_channel_id|default('') }}"></div>
+        <div class="ed-field"><label>Webhook Token</label><input name="shiprocket_webhook_token" value="{{ settings.shiprocket_webhook_token|default('') }}" placeholder="Used for x-api-key validation"></div>
+      </div>
+    </div>
+
+    <div class="ed-card">
+      <h3>Hyperlocal / Rapido Type Settings</h3>
+      <p class="ed-help">Use this for EXTERNAL_LOCAL_DELIVERY mode. Rapido/Ola/Uber-style integrations normally need business onboarding and private API credentials.</p>
+      <div class="ed-grid">
+        <label class="ed-check"><input type="checkbox" name="hyperlocal_enabled" value="1" {% if settings.hyperlocal_enabled %}checked{% endif %}> Enable Hyperlocal API</label>
+        <div class="ed-field"><label>Provider</label><input name="hyperlocal_provider" value="{{ settings.hyperlocal_provider|default('MANUAL_HYPERLOCAL') }}" placeholder="RAPIDO"></div>
+        <div class="ed-field"><label>API Base URL</label><input name="hyperlocal_api_base_url" value="{{ settings.hyperlocal_api_base_url|default('') }}" placeholder="Provided by partner"></div>
+        <div class="ed-field"><label>API Key</label><input type="password" name="hyperlocal_api_key" placeholder="Leave blank to keep saved key" autocomplete="new-password"></div>
+        <div class="ed-field"><label>Webhook Token</label><input name="hyperlocal_webhook_token" value="{{ settings.hyperlocal_webhook_token|default('') }}"></div>
+        <label class="ed-check"><input type="checkbox" name="manual_external_enabled" value="1" {% if settings.manual_external_enabled %}checked{% endif %}> Allow manual external booking records</label>
+      </div>
+    </div>
+
+    <div class="ed-card">
+      <h3>Default Package Dimensions</h3>
+      <div class="ed-grid">
+        <div class="ed-field"><label>Weight KG</label><input type="number" step="0.01" min="0" name="default_package_weight_kg" value="{{ settings.default_package_weight_kg|default(1.0) }}"></div>
+        <div class="ed-field"><label>Length CM</label><input type="number" step="0.01" min="0" name="default_package_length_cm" value="{{ settings.default_package_length_cm|default(10.0) }}"></div>
+        <div class="ed-field"><label>Breadth CM</label><input type="number" step="0.01" min="0" name="default_package_breadth_cm" value="{{ settings.default_package_breadth_cm|default(10.0) }}"></div>
+        <div class="ed-field"><label>Height CM</label><input type="number" step="0.01" min="0" name="default_package_height_cm" value="{{ settings.default_package_height_cm|default(10.0) }}"></div>
+      </div>
+    </div>
+
+    <div class="ed-actions">
+      <button class="ed-btn" type="submit">Save External Delivery Settings</button>
+      <a class="ed-link" href="{{ url_for('admin_delivery_mode_settings') }}">Delivery Mode Settings</a>
+      <a class="ed-link" href="{{ url_for('admin_external_delivery_orders') }}">External Delivery Orders</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

@@ -18,6 +18,7 @@ import routes.orders.routes  # noqa: F401
 import routes.admin.routes  # noqa: F401
 import routes.store.routes  # noqa: F401
 import routes.delivery.routes  # noqa: F401
+import routes.external_delivery.routes  # noqa: F401
 import routes.api.routes  # noqa: F401
 
 

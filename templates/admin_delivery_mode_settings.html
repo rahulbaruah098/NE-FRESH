@@ -5,328 +5,127 @@
 
 {% block title %}Delivery Mode Settings | NE FRESH Admin{% endblock %}
 {% block page_title %}Delivery Mode Settings{% endblock %}
-{% block page_subtitle %}Control whether NE FRESH uses its own in-house delivery-boy system or prepares orders for external delivery mode.{% endblock %}
+{% block page_subtitle %}Choose how NE FRESH handles deliveries: in-house riders, hyperlocal external delivery, or third-party courier shipping.{% endblock %}
 
 {% block content %}
 <section class="nf-delivery-mode-page">
   <style>
-    .nf-delivery-mode-page{
-      display:grid;
-      gap:20px;
-      color:var(--nf-text);
-    }
-
-    .dm-card{
-      background:var(--nf-surface);
-      border:1px solid var(--nf-line);
-      border-radius:24px;
-      box-shadow:var(--nf-shadow);
-      overflow:hidden;
-    }
-
-    .dm-hero{
-      padding:24px;
-      border-radius:26px;
-      background:
-        radial-gradient(circle at 12% 12%, rgba(2,132,199,.13), transparent 32%),
-        radial-gradient(circle at 88% 18%, rgba(0,168,89,.16), transparent 30%),
-        linear-gradient(135deg,var(--nf-surface),var(--nf-surface-2));
-      border:1px solid var(--nf-line);
-      box-shadow:var(--nf-shadow);
-    }
-
-    .dm-kicker{
-      width:max-content;
-      display:inline-flex;
-      align-items:center;
-      min-height:32px;
-      padding:0 12px;
-      border-radius:999px;
-      background:var(--nf-green-soft);
-      color:var(--nf-green-dark);
-      font-size:.76rem;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-
-    .dm-hero h2{
-      margin:14px 0 8px;
-      font-size:clamp(1.6rem,3vw,2.5rem);
-      line-height:1.05;
-      font-weight:950;
-      letter-spacing:-.045em;
-    }
-
-    .dm-hero p{
-      margin:0;
-      max-width:900px;
-      color:var(--nf-muted);
-      font-size:.95rem;
-      line-height:1.6;
-      font-weight:650;
-    }
-
-    .dm-form{
-      display:grid;
-      gap:18px;
-      padding:22px;
-    }
-
-    .dm-status-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:14px;
-    }
-
-    .dm-status{
-      border:1px solid var(--nf-line);
-      border-radius:18px;
-      background:var(--nf-surface-2);
-      padding:16px;
-    }
-
-    .dm-status span{
-      display:block;
-      color:var(--nf-muted);
-      font-size:.74rem;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-
-    .dm-status strong{
-      display:block;
-      margin-top:8px;
-      font-size:1rem;
-      font-weight:950;
-    }
-
-    .dm-status.is-on strong{
-      color:var(--nf-green-dark);
-    }
-
-    .dm-status.is-off strong{
-      color:#B91C1C;
-    }
-
-    .dm-toggle{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:18px;
-      border:1px solid var(--nf-line);
-      border-radius:22px;
-      background:var(--nf-green-soft-2);
-      padding:18px;
-    }
-
-    .dm-toggle-text strong{
-      display:block;
-      font-size:1rem;
-      font-weight:950;
-    }
-
-    .dm-toggle-text span{
-      display:block;
-      margin-top:5px;
-      color:var(--nf-muted);
-      font-size:.86rem;
-      line-height:1.45;
-      font-weight:650;
-    }
-
-    .dm-switch{
-      position:relative;
-      flex:0 0 auto;
-      width:62px;
-      height:34px;
-      display:inline-block;
-    }
-
-    .dm-switch input{
-      opacity:0;
-      width:0;
-      height:0;
-    }
-
-    .dm-slider{
-      position:absolute;
-      inset:0;
-      cursor:pointer;
-      border-radius:999px;
-      background:#CBD5E1;
-      transition:.2s ease;
-      box-shadow:inset 0 0 0 1px rgba(15,23,42,.08);
-    }
-
-    .dm-slider:before{
-      content:"";
-      position:absolute;
-      width:28px;
-      height:28px;
-      left:3px;
-      top:3px;
-      border-radius:50%;
-      background:#fff;
-      transition:.2s ease;
-      box-shadow:0 6px 14px rgba(15,23,42,.16);
-    }
-
-    .dm-switch input:checked + .dm-slider{
-      background:var(--nf-green);
-    }
-
-    .dm-switch input:checked + .dm-slider:before{
-      transform:translateX(28px);
-    }
-
-    .dm-info{
-      border:1px solid var(--nf-line);
-      border-radius:20px;
-      background:var(--nf-surface-2);
-      padding:16px;
-      color:var(--nf-muted);
-      font-size:.9rem;
-      font-weight:650;
-      line-height:1.6;
-    }
-
-    .dm-info ul{
-      margin:10px 0 0;
-      padding-left:20px;
-    }
-
-    .dm-info li{
-      margin:5px 0;
-    }
-
-    .dm-actions{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
-      flex-wrap:wrap;
-    }
-
-    .dm-submit{
-      min-height:46px;
-      border:0;
-      border-radius:15px;
-      background:var(--nf-green);
-      color:#fff;
-      padding:0 18px;
-      font-weight:950;
-      cursor:pointer;
-      box-shadow:0 12px 26px rgba(0,168,89,.18);
-    }
-
-    .dm-note{
-      color:var(--nf-muted);
-      font-size:.84rem;
-      font-weight:650;
-    }
-
-    @media(max-width:900px){
-      .dm-status-grid{
-        grid-template-columns:1fr;
-      }
-
-      .dm-toggle{
-        align-items:flex-start;
-      }
-    }
-
-    @media(max-width:640px){
-      .dm-toggle{
-        flex-direction:column;
-      }
-
-      .dm-switch{
-        width:100%;
-        max-width:72px;
-      }
-
-      .dm-submit{
-        width:100%;
-      }
-    }
+    .nf-delivery-mode-page{display:grid;gap:20px;color:var(--nf-text)}
+    .dm-card{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:24px;box-shadow:var(--nf-shadow);overflow:hidden}
+    .dm-hero{padding:24px;border-radius:26px;background:radial-gradient(circle at 12% 12%,rgba(2,132,199,.13),transparent 32%),radial-gradient(circle at 88% 18%,rgba(0,168,89,.16),transparent 30%),linear-gradient(135deg,var(--nf-surface),var(--nf-surface-2));border:1px solid var(--nf-line);box-shadow:var(--nf-shadow)}
+    .dm-kicker{width:max-content;display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;background:var(--nf-green-soft);color:var(--nf-green-dark);font-size:.76rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+    .dm-hero h2{margin:14px 0 8px;font-size:clamp(1.6rem,3vw,2.5rem);line-height:1.05;font-weight:950;letter-spacing:-.045em}
+    .dm-hero p{margin:0;max-width:960px;color:var(--nf-muted);font-size:.95rem;line-height:1.6;font-weight:650}
+    .dm-form{display:grid;gap:18px;padding:22px}
+    .dm-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+    .dm-status{border:1px solid var(--nf-line);border-radius:18px;background:var(--nf-surface-2);padding:16px;min-height:92px}
+    .dm-status span{display:block;color:var(--nf-muted);font-size:.74rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+    .dm-status strong{display:block;margin-top:8px;font-size:1rem;font-weight:950;word-break:break-word}.dm-status.is-on strong{color:var(--nf-green-dark)}.dm-status.is-off strong{color:#B91C1C}
+    .dm-section-title{margin:4px 0 -4px;font-size:1rem;font-weight:950;color:var(--nf-text)}
+    .dm-radio-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.dm-radio-grid.two{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .dm-option{position:relative;display:flex;gap:12px;border:1px solid var(--nf-line);border-radius:20px;background:var(--nf-surface-2);padding:16px;cursor:pointer;transition:.18s ease;min-height:124px}
+    .dm-option input{margin-top:3px;accent-color:var(--nf-green);width:18px;height:18px;flex:0 0 auto}.dm-option strong{display:block;font-size:.96rem;font-weight:950}.dm-option span{display:block;margin-top:5px;color:var(--nf-muted);font-size:.84rem;line-height:1.45;font-weight:650}.dm-option:has(input:checked){border-color:rgba(0,168,89,.5);background:var(--nf-green-soft);box-shadow:0 12px 26px rgba(0,168,89,.09)}
+    .dm-provider-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.dm-field{display:grid;gap:8px}.dm-field label{font-size:.78rem;font-weight:900;color:var(--nf-muted);letter-spacing:.04em;text-transform:uppercase}.dm-field input,.dm-field select{height:46px;border:1px solid var(--nf-line);border-radius:14px;background:#fff;padding:0 12px;color:var(--nf-text);font-weight:750;outline:none}.dm-field input:focus,.dm-field select:focus{border-color:rgba(0,168,89,.5);box-shadow:0 0 0 4px rgba(0,168,89,.10)}
+    .dm-info{border:1px solid var(--nf-line);border-radius:20px;background:var(--nf-surface-2);padding:16px;color:var(--nf-muted);font-size:.9rem;font-weight:650;line-height:1.6}.dm-info ul{margin:10px 0 0;padding-left:20px}.dm-info li{margin:5px 0}
+    .dm-actions{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.dm-submit{min-height:46px;border:0;border-radius:15px;background:var(--nf-green);color:#fff;padding:0 18px;font-weight:950;cursor:pointer;box-shadow:0 12px 26px rgba(0,168,89,.18)}.dm-link{min-height:46px;display:inline-flex;align-items:center;justify-content:center;border-radius:15px;border:1px solid var(--nf-line);padding:0 16px;color:var(--nf-green-dark);font-weight:900;text-decoration:none;background:#fff}.dm-note{color:var(--nf-muted);font-size:.84rem;font-weight:650}
+    @media(max-width:1000px){.dm-status-grid,.dm-radio-grid,.dm-radio-grid.two,.dm-provider-grid{grid-template-columns:1fr}}
+    @media(max-width:640px){.dm-submit,.dm-link{width:100%}.dm-actions{align-items:stretch}}
   </style>
 
   <div class="dm-hero">
     <span class="dm-kicker">Master Delivery Control</span>
     <h2>Delivery Mode Settings</h2>
     <p>
-      Use this switch to control NE FRESH in-house delivery-boy operations.
-      This is the first step before adding Ola/Uber/Rapido style local delivery or Shiprocket/BlueDart style third-party shipping.
+      Select one active delivery mode for new orders. Old orders keep their saved mode snapshot, so changing this setting will not delete or corrupt previous in-house delivery data.
     </p>
   </div>
 
   <form class="dm-card dm-form" method="post" action="{{ url_for('admin_delivery_mode_settings') }}">
     <div class="dm-status-grid">
-      <div class="dm-status {% if settings.in_house_delivery_enabled %}is-on{% else %}is-off{% endif %}">
+      <div class="dm-status is-on">
         <span>Current Mode</span>
         <strong>{{ settings.active_delivery_mode|default("IN_HOUSE") }}</strong>
       </div>
-
       <div class="dm-status {% if settings.in_house_delivery_enabled %}is-on{% else %}is-off{% endif %}">
-        <span>In-house Delivery</span>
+        <span>In-house</span>
         <strong>{% if settings.in_house_delivery_enabled %}Enabled{% else %}Disabled{% endif %}</strong>
       </div>
-
+      <div class="dm-status {% if settings.external_delivery_enabled %}is-on{% else %}is-off{% endif %}">
+        <span>External Delivery</span>
+        <strong>{% if settings.external_delivery_enabled %}Enabled{% else %}Disabled{% endif %}</strong>
+      </div>
       <div class="dm-status {% if settings.return_refund_enabled %}is-on{% else %}is-off{% endif %}">
         <span>Return / Refund</span>
         <strong>{% if settings.return_refund_enabled %}Enabled{% else %}Disabled{% endif %}</strong>
       </div>
     </div>
 
-    <label class="dm-toggle">
-      <div class="dm-toggle-text">
-        <strong>Enable In-house Delivery System</strong>
-        <span>
-          When enabled, NE FRESH will use its own delivery-boy panel, store assignment, live tracking,
-          COD rider collection, and existing return/refund workflow.
-        </span>
+    <h3 class="dm-section-title">1. Choose active delivery mode</h3>
+    <div class="dm-radio-grid">
+      {% for mode in delivery_modes %}
+        <label class="dm-option">
+          <input type="radio" name="active_delivery_mode" value="{{ mode.value }}" {% if settings.active_delivery_mode == mode.value %}checked{% endif %}>
+          <span>
+            <strong>{{ mode.title }}</strong>
+            <span>{{ mode.subtitle }}</span>
+          </span>
+        </label>
+      {% endfor %}
+    </div>
+
+    <h3 class="dm-section-title">2. External delivery payment rule</h3>
+    <div class="dm-radio-grid two">
+      {% for rule in external_payment_rules %}
+        <label class="dm-option">
+          <input type="radio" name="external_payment_rule" value="{{ rule.value }}" {% if settings.external_payment_rule == rule.value %}checked{% endif %}>
+          <span>
+            <strong>{{ rule.title }}</strong>
+            <span>{{ rule.subtitle }}</span>
+          </span>
+        </label>
+      {% endfor %}
+    </div>
+
+    <h3 class="dm-section-title">3. Default external providers</h3>
+    <div class="dm-provider-grid">
+      <div class="dm-field">
+        <label>External Local Provider</label>
+        <select name="external_local_provider">
+          {% set local_provider = settings.external_local_provider|default('MANUAL_HYPERLOCAL') %}
+          <option value="MANUAL_HYPERLOCAL" {% if local_provider == 'MANUAL_HYPERLOCAL' %}selected{% endif %}>Manual Hyperlocal</option>
+          <option value="RAPIDO" {% if local_provider == 'RAPIDO' %}selected{% endif %}>Rapido</option>
+          <option value="SHIPROCKET_QUICK" {% if local_provider == 'SHIPROCKET_QUICK' %}selected{% endif %}>Shiprocket Quick</option>
+          <option value="OLA_UBER" {% if local_provider == 'OLA_UBER' %}selected{% endif %}>Ola / Uber Type</option>
+        </select>
       </div>
-
-      <span class="dm-switch">
-        <input
-          type="checkbox"
-          name="in_house_delivery_enabled"
-          value="1"
-          {% if settings.in_house_delivery_enabled %}checked{% endif %}
-        >
-        <span class="dm-slider"></span>
-      </span>
-    </label>
-
-    <div class="dm-info">
-      <strong>What this switch will control after Step 2:</strong>
-      <ul>
-        <li>Delivery-boy login panel and delivery order actions.</li>
-        <li>Store-side ready for pickup, assign delivery, reassign delivery, and failed delivery actions.</li>
-        <li>Live delivery tracking APIs.</li>
-        <li>COD rider cash collection and rider settlement logic.</li>
-        <li>Customer return button, return request route, store returns, and admin refund processing.</li>
-      </ul>
+      <div class="dm-field">
+        <label>Third-party Shipping Provider</label>
+        <select name="third_party_provider">
+          {% set courier_provider = settings.third_party_provider|default('SHIPROCKET') %}
+          <option value="SHIPROCKET" {% if courier_provider == 'SHIPROCKET' %}selected{% endif %}>Shiprocket</option>
+          <option value="BLUEDART" {% if courier_provider == 'BLUEDART' %}selected{% endif %}>BlueDart</option>
+          <option value="DELHIVERY" {% if courier_provider == 'DELHIVERY' %}selected{% endif %}>Delhivery</option>
+          <option value="MANUAL_COURIER" {% if courier_provider == 'MANUAL_COURIER' %}selected{% endif %}>Manual Courier</option>
+        </select>
+      </div>
     </div>
 
     <div class="dm-info">
-      <strong>Current Step 1 behavior:</strong>
+      <strong>Current safe behavior:</strong>
       <ul>
-        <li>This page only saves the master delivery mode setting.</li>
-        <li>Existing delivery-boy/store/order logic is not blocked yet.</li>
-        <li>Actual route blocking and template hiding will be connected in Step 2.</li>
+        <li><b>IN_HOUSE</b>: current delivery-boy panel, store assignment, COD rider settlement and return/refund work as before.</li>
+        <li><b>EXTERNAL_LOCAL_DELIVERY</b>: new orders go to the external delivery dashboard for Rapido/Shiprocket Quick style booking.</li>
+        <li><b>THIRD_PARTY_SHIPPING</b>: new orders go to the external delivery dashboard for Shiprocket/BlueDart courier shipment creation.</li>
+        <li><b>ONLINE_ONLY</b> is recommended for external modes until real partner COD remittance is reconciled.</li>
       </ul>
     </div>
 
     <div class="dm-actions">
       <button class="dm-submit" type="submit">Save Delivery Mode Settings</button>
-
+      <a class="dm-link" href="{{ url_for('admin_external_delivery_settings') }}">External Provider Settings</a>
+      <a class="dm-link" href="{{ url_for('admin_external_delivery_orders') }}">External Delivery Orders</a>
       {% if settings.updated_at %}
-        <div class="dm-note">
-          Last updated by {{ settings.updated_by_name|default("Admin") }} on {{ settings.updated_at }}
-        </div>
+        <div class="dm-note">Last updated by {{ settings.updated_by_name|default("Admin") }} on {{ settings.updated_at }}</div>
       {% endif %}
     </div>
   </form>
