@@ -1992,7 +1992,7 @@ def store_delivery_page():
     recent_delivered_orders = recent_delivered_orders[:10]
     attention_orders = attention_orders[:10]
 
-    print(
+    log_debug(
         "[STORE DELIVERY PAGE DEBUG]",
         "store_id=", store_id_str,
         "store_name=", store_name,

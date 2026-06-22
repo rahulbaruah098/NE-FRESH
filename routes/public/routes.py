@@ -711,6 +711,9 @@ def uploaded_file(fn):
 
 @app.route('/__routes')
 def __routes():
+    if not is_debug_logging_enabled():
+        abort(404)
+
     return "<pre>" + "\n".join(
         f"{r.endpoint:30} {r.methods} {r}"
         for r in app.url_map.iter_rules()

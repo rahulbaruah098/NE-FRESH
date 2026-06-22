@@ -24,9 +24,10 @@ import routes.api.routes  # noqa: F401
 import os
 
 
-print("\n=== ROUTES LOADED FROM app.py ===")
-print(app.url_map)
-print("=================================\n")
+if os.getenv("NEFRESH_DEBUG_LOGS", "0").strip().lower() in ["1", "true", "yes", "on"]:
+    print("\n=== ROUTES LOADED FROM app.py ===")
+    print(app.url_map)
+    print("=================================\n")
 
 if __name__ == "__main__":
     app.run(

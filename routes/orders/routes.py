@@ -16,6 +16,63 @@ def _money_float(value, default=0.0):
         return default
 
 
+def _reserve_order_stock_items(order_items):
+    """Atomically reserve product stock for an order.
+
+    This prevents two simultaneous checkouts/payment confirmations from pushing
+    stock below zero. If any product cannot be reserved, already reserved items
+    are rolled back immediately.
+    """
+    reserved_items = []
+
+    for item in order_items or []:
+        product_id = item.get("product_id")
+        qty = _money_float(item.get("quantity") if item.get("quantity") is not None else item.get("cart_quantity"), 0.0)
+
+        if not product_id or qty <= 0:
+            continue
+
+        result = mongo.products.update_one(
+            {
+                "_id": product_id,
+                "is_active": 1,
+                "stock_quantity": {"$gte": qty},
+            },
+            {"$inc": {"stock_quantity": -qty}}
+        )
+
+        if result.modified_count != 1:
+            _release_order_stock_items(reserved_items)
+            return False, f"{item.get('product_name') or 'One product'} is out of stock or quantity is no longer available."
+
+        reserved_items.append({"product_id": product_id, "quantity": qty})
+
+        updated_product = mongo.products.find_one({"_id": product_id})
+        if updated_product and float(updated_product.get("stock_quantity") or 0) <= 0:
+            mongo.products.update_one(
+                {"_id": product_id},
+                {"$set": {"stock_quantity": 0, "is_active": 0}}
+            )
+
+    return True, ""
+
+
+def _release_order_stock_items(order_items):
+    """Return stock for a cancelled/expired/rolled-back order attempt."""
+    for item in order_items or []:
+        product_id = item.get("product_id")
+        qty = _money_float(item.get("quantity") if item.get("quantity") is not None else item.get("cart_quantity"), 0.0)
+
+        if product_id and qty > 0:
+            mongo.products.update_one(
+                {"_id": product_id},
+                {
+                    "$inc": {"stock_quantity": qty},
+                    "$set": {"is_active": 1},
+                }
+            )
+
+
 def normalize_order_money_fields(order_doc):
     """
     Normalizes money fields for old and new orders.
@@ -1600,36 +1657,17 @@ def checkout():
                 }
             )
 
+        stock_reserved, stock_message = _reserve_order_stock_items(order_items_docs)
+
+        if not stock_reserved:
+            mongo.orders.delete_one({"_id": oid})
+            mongo.order_events.delete_many({"order_id": oid})
+            flash(stock_message or "Requested stock is no longer available. Please update your cart.", "danger")
+            return redirect(url_for("cart_page"))
+
         for order_item in order_items_docs:
             order_item["order_id"] = oid
             mongo.order_items.insert_one(order_item)
-
-            deduct_qty = float(order_item.get("quantity") or 0)
-
-            mongo.products.update_one(
-                {"_id": order_item["product_id"]},
-                {
-                    "$inc": {
-                        "stock_quantity": -deduct_qty
-                    }
-                }
-            )
-
-            updated_product = mongo.products.find_one({"_id": order_item["product_id"]})
-
-            if updated_product:
-                updated_stock = float(updated_product.get("stock_quantity") or 0)
-
-                if updated_stock <= 0:
-                    mongo.products.update_one(
-                        {"_id": order_item["product_id"]},
-                        {
-                            "$set": {
-                                "stock_quantity": 0,
-                                "is_active": 0
-                            }
-                        }
-                    )
 
         mongo.transactions.insert_one({
             "order_id": oid,
@@ -1775,21 +1813,7 @@ def checkout():
             )
 
             # Restore stock because this is not a real order yet.
-            for order_item in order_items_snapshot:
-                restore_qty = float(order_item.get("quantity") or order_item.get("cart_quantity") or 0)
-
-                if order_item.get("product_id") and restore_qty > 0:
-                    mongo.products.update_one(
-                        {"_id": order_item["product_id"]},
-                        {
-                            "$inc": {
-                                "stock_quantity": restore_qty
-                            },
-                            "$set": {
-                                "is_active": 1
-                            }
-                        }
-                    )
+            _release_order_stock_items(order_items_snapshot)
 
             # Remove temporary real-order records.
             mongo.orders.delete_one({"_id": oid})
@@ -2176,27 +2200,14 @@ def api_verify_razorpay_payment(oid):
             "message": "Payment attempt data is incomplete. Please contact NE FRESH support."
         }), 400
 
-    # Re-check stock at final payment success before creating real order.
-    for item in order_items:
-        product_id = item.get("product_id")
-        requested_qty = float(item.get("quantity") or item.get("cart_quantity") or 0)
+    # Atomically reserve stock at final payment success before creating the real order.
+    stock_reserved, stock_message = _reserve_order_stock_items(order_items)
 
-        product = mongo.products.find_one({"_id": product_id}) if product_id else None
-
-        if not product:
-            return jsonify({
-                "ok": False,
-                "message": f"{item.get('product_name') or 'One product'} is no longer available."
-            }), 409
-
-        current_stock = float(product.get("stock_quantity") or 0)
-        is_active = int(product.get("is_active") or 0)
-
-        if is_active != 1 or current_stock < requested_qty:
-            return jsonify({
-                "ok": False,
-                "message": f"{item.get('product_name') or 'One product'} is out of stock or quantity is no longer available."
-            }), 409
+    if not stock_reserved:
+        return jsonify({
+            "ok": False,
+            "message": stock_message or "One product is out of stock or quantity is no longer available."
+        }), 409
 
     paid_event = {
         "action": "RAZORPAY_PAYMENT_VERIFIED",
@@ -2240,7 +2251,12 @@ def api_verify_razorpay_payment(oid):
     try:
         mongo.orders.insert_one(order_doc)
     except DuplicateKeyError:
-        pass
+        _release_order_stock_items(order_items)
+        return jsonify({
+            "ok": True,
+            "message": "Payment is already verified.",
+            "redirect_url": url_for("order_track", oid=str(oid_obj))
+        })
 
     for item in order_items:
         item_doc = dict(item)
@@ -2250,34 +2266,6 @@ def api_verify_razorpay_payment(oid):
             mongo.order_items.insert_one(item_doc)
         except DuplicateKeyError:
             pass
-
-        deduct_qty = float(item_doc.get("quantity") or item_doc.get("cart_quantity") or 0)
-
-        if item_doc.get("product_id") and deduct_qty > 0:
-            mongo.products.update_one(
-                {"_id": item_doc["product_id"]},
-                {
-                    "$inc": {
-                        "stock_quantity": -deduct_qty
-                    }
-                }
-            )
-
-            updated_product = mongo.products.find_one({"_id": item_doc["product_id"]})
-
-            if updated_product:
-                updated_stock = float(updated_product.get("stock_quantity") or 0)
-
-                if updated_stock <= 0:
-                    mongo.products.update_one(
-                        {"_id": item_doc["product_id"]},
-                        {
-                            "$set": {
-                                "stock_quantity": 0,
-                                "is_active": 0
-                            }
-                        }
-                    )
 
     for tx in transactions:
         tx_doc = dict(tx)

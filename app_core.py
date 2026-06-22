@@ -36,6 +36,26 @@ load_dotenv()  # reads .env
 
 app = Flask(__name__)
 
+def _env_bool(name, default=False):
+    raw = os.getenv(name)
+    if raw is None:
+        return bool(default)
+    return str(raw).strip().lower() in ["1", "true", "yes", "on"]
+
+
+def is_debug_logging_enabled():
+    return _env_bool("NEFRESH_DEBUG_LOGS", False) or _env_bool("FLASK_DEBUG", False)
+
+
+def log_debug(*args):
+    if is_debug_logging_enabled():
+        print(*args)
+
+
+def log_warning(*args):
+    print(*args)
+
+
 # Production-safe secret handling.
 # In production, set APP_SECRET_KEY or SECRET_KEY in .env / server environment.
 # A random runtime key is used only as a last-resort fallback so the old hardcoded
@@ -43,15 +63,8 @@ app = Flask(__name__)
 _app_secret = (os.getenv("APP_SECRET_KEY") or os.getenv("SECRET_KEY") or "").strip()
 if not _app_secret:
     _app_secret = secrets.token_urlsafe(48)
-    print("[SECURITY WARNING] APP_SECRET_KEY/SECRET_KEY is not set. Using a temporary runtime key; sessions will reset on restart.")
+    log_warning("[SECURITY WARNING] APP_SECRET_KEY/SECRET_KEY is not set. Using a temporary runtime key; sessions will reset on restart.")
 app.secret_key = _app_secret
-
-
-def _env_bool(name, default=False):
-    raw = os.getenv(name)
-    if raw is None:
-        return bool(default)
-    return str(raw).strip().lower() in ["1", "true", "yes", "on"]
 
 
 # WebView Session Configuration
@@ -67,7 +80,7 @@ _session_cookie_samesite = (os.getenv("SESSION_COOKIE_SAMESITE") or "").strip()
 if not _session_cookie_samesite:
     _session_cookie_samesite = "None" if _session_cookie_secure else "Lax"
 elif _session_cookie_samesite.lower() == "none" and not _session_cookie_secure:
-    print("[SECURITY WARNING] SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true. Falling back to Lax for local/http login compatibility.")
+    log_warning("[SECURITY WARNING] SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true. Falling back to Lax for local/http login compatibility.")
     _session_cookie_samesite = "Lax"
 
 app.config['SESSION_COOKIE_SECURE'] = _session_cookie_secure
@@ -77,17 +90,34 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 app.config['ENABLE_CSRF_PROTECTION'] = _env_bool("ENABLE_CSRF_PROTECTION", True)
 
 
-# Your existing CORS setup should cover this, but verify:
+# API CORS is restricted by default for production safety.
+# Set CORS_ORIGINS in production, for example:
+# CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+def _get_api_cors_origins():
+    raw = (os.getenv("CORS_ORIGINS") or "").strip()
+    if raw:
+        if raw == "*":
+            return "*"
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return [
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
+
+
+_api_cors_origins = _get_api_cors_origins()
 CORS(app, resources={
     r"/api/*": {
-        "origins": "*",
+        "origins": _api_cors_origins,
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True
+        "supports_credentials": bool(_api_cors_origins != "*"),
     }
 })
 
-print("[RUNNING]", __file__)
+log_debug("[RUNNING]", __file__)
 
 
 # =========================================================
@@ -3967,7 +3997,7 @@ def ensure_admin_seed_password():
 
     if not admin:
         if not admin_password or len(admin_password) < 10:
-            print("[SECURITY WARNING] ADMIN_SEED_PASSWORD is missing/too short. Admin seed skipped.")
+            log_warning("[SECURITY WARNING] ADMIN_SEED_PASSWORD is missing/too short. Admin seed skipped.")
             return
 
         mongo.users.insert_one({
@@ -3984,7 +4014,7 @@ def ensure_admin_seed_password():
 
     if admin.get("password_hash") == "!!set_in_app!!":
         if not admin_password or len(admin_password) < 10:
-            print("[SECURITY WARNING] Existing admin placeholder password found, but ADMIN_SEED_PASSWORD is missing/too short.")
+            log_warning("[SECURITY WARNING] Existing admin placeholder password found, but ADMIN_SEED_PASSWORD is missing/too short.")
             return
 
         mongo.users.update_one(
@@ -3993,7 +4023,7 @@ def ensure_admin_seed_password():
         )
 
 def send_sms(phone: str, message: str) -> bool:
-    print(f"[DEV SMS] to={phone} :: {message}")
+    log_debug(f"[DEV SMS] to={phone} :: {message}")
     return True
 
 with app.app_context():
@@ -7347,7 +7377,7 @@ def send_email(to_email, subject, body):
         if failed_recipients:
             raise RuntimeError(f"SMTP rejected recipient(s): {failed_recipients}")
 
-        print(f"[EMAIL SENT] to={to_email} subject={subject}")
+        log_debug(f"[EMAIL SENT] to={to_email} subject={subject}")
 
         return {
             "ok": True,
@@ -7357,7 +7387,7 @@ def send_email(to_email, subject, body):
         }
 
     except Exception as exc:
-        print(f"[EMAIL ERROR] to={to_email} subject={subject} error={exc}")
+        log_warning(f"[EMAIL ERROR] to={to_email} subject={subject} error={exc}")
         raise
 
     finally:
@@ -7585,9 +7615,9 @@ def add_no_cache_headers(resp):
 
 
 
-print("\n=== ROUTES LOADED ===")
-print(app.url_map)
-print("=====================\n")
+log_debug("\n=== ROUTES LOADED ===")
+log_debug(app.url_map)
+log_debug("=====================\n")
 
 
 

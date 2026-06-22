@@ -83,13 +83,13 @@ def send_registration_otp_email(email, otp, name=""):
         mail_sender = globals().get("send_email")
         if callable(mail_sender):
             mail_sender(email, subject, html)
-            print(f"[OTP SENT] {email}")
+            log_debug(f"[OTP SENT] {email}")
             return
     except Exception as e:
-        print(f"[OTP EMAIL ERROR] {str(e)}")
+        log_warning(f"[OTP EMAIL ERROR] {str(e)}")
         raise
 
-    print(f"[DEV OTP EMAIL] To: {email} | Subject: {subject} | OTP: {otp}")
+    log_debug(f"[DEV OTP EMAIL] To: {email} | Subject: {subject} | OTP: {otp}")
 
 
 
@@ -209,7 +209,7 @@ def send_password_reset_email(email, name, reset_link):
         mail_sender(email, subject, html)
         return
 
-    print(f"[DEV RESET LINK] Send this to the user: {reset_link}")
+    log_debug(f"[DEV RESET LINK] Send this to the user: {reset_link}")
 
 
 
@@ -265,7 +265,7 @@ def forgot_password():
                     daemon=True
                 ).start()
             else:
-                print(f"[DEV RESET LINK] Send this to the user: {reset_link}")
+                log_debug(f"[DEV RESET LINK] Send this to the user: {reset_link}")
 
         flash("If the account exists, a reset link has been sent.", "info")
         return redirect(url_for('login'))
