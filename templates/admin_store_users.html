@@ -1,0 +1,667 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "users" %}
+{% set active_page = "store_users" %}
+
+{% block title %}Store Login Accounts | NE FRESH Admin{% endblock %}
+{% block page_title %}Store Login Accounts{% endblock %}
+{% block page_subtitle %}View and manage store-panel login accounts, linked store profiles, products, order activity and safe account actions.{% endblock %}
+
+{% block extra_css %}
+<style>
+  .nf-store-users-page {
+    --su-green: var(--nf-green, #00A859);
+    --su-green-dark: var(--nf-green-dark, #008A48);
+    --su-green-deep: var(--nf-green-deep, #075C3B);
+    --su-green-soft: var(--nf-green-soft, #E9FFF3);
+    --su-orange: var(--nf-orange, #FFB84D);
+    --su-orange-soft: var(--nf-orange-soft, #FFF7E8);
+    --su-red: var(--nf-red, #EF4444);
+    --su-red-soft: #FFF1F2;
+    --su-blue: var(--nf-blue, #0284C7);
+    --su-blue-soft: #E0F2FE;
+    --su-card: var(--nf-surface, #FFFFFF);
+    --su-card-2: var(--nf-surface-2, #F2FBF6);
+    --su-text: var(--nf-text, #1F332A);
+    --su-muted: var(--nf-muted, #66756D);
+    --su-line: var(--nf-line, #DDECE4);
+    --su-shadow: var(--nf-shadow, 0 14px 36px rgba(17, 64, 38, .08));
+    display: grid;
+    gap: 20px;
+    animation: suFadeIn .45s ease both;
+  }
+
+  .nf-store-users-page,
+  .nf-store-users-page * { box-sizing: border-box; }
+
+  @keyframes suFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .su-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid var(--su-line);
+    background:
+      radial-gradient(circle at 14% 12%, rgba(0, 168, 89, .16), transparent 32%),
+      radial-gradient(circle at 88% 22%, rgba(255, 184, 77, .16), transparent 30%),
+      linear-gradient(135deg, var(--su-card), var(--su-card-2));
+    box-shadow: var(--su-shadow);
+    padding: clamp(18px, 3vw, 28px);
+  }
+
+  .su-hero::before {
+    content: "";
+    position: absolute;
+    width: 260px;
+    height: 260px;
+    right: -100px;
+    bottom: -120px;
+    border-radius: 999px;
+    background: rgba(0, 168, 89, .10);
+  }
+
+  .su-hero-inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .su-kicker {
+    width: fit-content;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    background: var(--su-green-soft);
+    border: 1px solid rgba(0, 168, 89, .18);
+    color: var(--su-green-deep);
+    padding: 6px 12px;
+    font-size: .76rem;
+    font-weight: 950;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  .su-hero h2 {
+    margin: 12px 0 8px;
+    color: var(--su-text);
+    font-size: clamp(1.45rem, 3vw, 2.25rem);
+    line-height: 1.08;
+    font-weight: 950;
+    letter-spacing: -.045em;
+  }
+
+  .su-hero p {
+    margin: 0;
+    max-width: 920px;
+    color: var(--su-muted);
+    font-size: .96rem;
+    font-weight: 650;
+    line-height: 1.65;
+  }
+
+  .su-hero-actions,
+  .su-table-actions,
+  .su-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .su-hero-actions { margin-top: 18px; }
+
+  .su-hero-visual {
+    width: 132px;
+    height: 132px;
+    border-radius: 32px;
+    background: #fff;
+    border: 1px solid var(--su-line);
+    box-shadow: 0 18px 36px rgba(17, 64, 38, .08);
+    display: grid;
+    place-items: center;
+    text-align: center;
+    font-weight: 950;
+    color: var(--su-green-deep);
+  }
+
+  .su-hero-visual span { font-size: 2.6rem; line-height: 1; }
+  .su-hero-visual small { display: block; color: var(--su-muted); font-weight: 900; }
+
+  .su-btn,
+  .su-icon-btn {
+    border: 1px solid var(--su-line);
+    background: var(--su-card);
+    color: var(--su-text);
+    text-decoration: none;
+    font-weight: 950;
+    cursor: pointer;
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+  }
+
+  .su-btn {
+    min-height: 40px;
+    border-radius: 14px;
+    padding: 9px 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .su-btn:hover,
+  .su-icon-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(17, 64, 38, .08); }
+
+  .su-btn-primary { background: linear-gradient(135deg, var(--su-green), var(--su-green-dark)); border-color: transparent; color: #fff; }
+  .su-btn-soft { background: var(--su-green-soft); color: var(--su-green-deep); border-color: rgba(0,168,89,.2); }
+  .su-btn-blue { background: var(--su-blue-soft); color: #0369A1; border-color: rgba(2,132,199,.18); }
+
+  .su-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .su-kpi,
+  .su-filter-card,
+  .su-table-card,
+  .su-info-card {
+    background: var(--su-card);
+    border: 1px solid var(--su-line);
+    border-radius: 22px;
+    box-shadow: var(--su-shadow);
+  }
+
+  .su-kpi {
+    min-height: 110px;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .su-kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    background: var(--su-green-soft);
+    font-size: 1.4rem;
+  }
+
+  .su-kpi.orange .su-kpi-icon { background: var(--su-orange-soft); }
+  .su-kpi.blue .su-kpi-icon { background: var(--su-blue-soft); }
+  .su-kpi.red .su-kpi-icon { background: var(--su-red-soft); }
+
+  .su-kpi strong {
+    display: block;
+    color: var(--su-text);
+    font-size: 1.45rem;
+    font-weight: 950;
+    line-height: 1;
+  }
+
+  .su-kpi span {
+    display: block;
+    margin-top: 6px;
+    color: var(--su-muted);
+    font-size: .82rem;
+    font-weight: 850;
+  }
+
+  .su-info-card {
+    padding: 16px 18px;
+    display: grid;
+    gap: 6px;
+    background: linear-gradient(135deg, #F0FDF4, #FFFFFF);
+  }
+
+  .su-info-card strong { color: var(--su-green-deep); font-size: .96rem; }
+  .su-info-card p { margin: 0; color: var(--su-muted); font-weight: 700; line-height: 1.55; }
+
+  .su-filter-card,
+  .su-table-card { padding: 18px; }
+
+  .su-filter-head,
+  .su-table-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+
+  .su-filter-title,
+  .su-table-title {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .su-head-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    display: grid;
+    place-items: center;
+    background: var(--su-green-soft);
+    font-size: 1.2rem;
+  }
+
+  .su-filter-title h3,
+  .su-table-title h3 { margin: 0; color: var(--su-text); font-size: 1.02rem; font-weight: 950; }
+  .su-filter-title p,
+  .su-table-title p { margin: 4px 0 0; color: var(--su-muted); font-weight: 650; line-height: 1.5; }
+
+  .su-filter-form {
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) 190px auto auto;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .su-field { display: grid; gap: 7px; }
+  .su-field label { color: var(--su-muted); font-size: .76rem; font-weight: 950; letter-spacing: .05em; text-transform: uppercase; }
+  .su-field input,
+  .su-field select {
+    min-height: 42px;
+    width: 100%;
+    border: 1px solid var(--su-line);
+    border-radius: 14px;
+    background: #fff;
+    color: var(--su-text);
+    padding: 8px 12px;
+    font-weight: 800;
+    outline: none;
+  }
+
+  .su-field input:focus,
+  .su-field select:focus { border-color: rgba(0,168,89,.45); box-shadow: 0 0 0 4px rgba(0,168,89,.10); }
+
+  .su-count-pill,
+  .su-chip,
+  .su-status-pill {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: .76rem;
+    font-weight: 950;
+    white-space: nowrap;
+  }
+
+  .su-count-pill { background: var(--su-green-soft); color: var(--su-green-deep); }
+  .su-chip { background: #F8FAFC; color: var(--su-muted); border: 1px solid var(--su-line); }
+  .su-chip.blue { background: var(--su-blue-soft); color: #0369A1; border-color: rgba(2,132,199,.15); }
+  .su-chip.orange { background: var(--su-orange-soft); color: #9A5B00; border-color: rgba(255,184,77,.28); }
+  .su-chip.red { background: var(--su-red-soft); color: #B91C1C; border-color: rgba(239,68,68,.18); }
+
+  .su-status-pill.active { background: var(--su-green-soft); color: var(--su-green-deep); }
+  .su-status-pill.disabled { background: var(--su-red-soft); color: #B91C1C; }
+  .su-status-pill.pending { background: var(--su-orange-soft); color: #9A5B00; }
+
+  .su-table-shell { overflow: auto; border: 1px solid var(--su-line); border-radius: 18px; }
+  .su-table { width: 100%; border-collapse: collapse; min-width: 1080px; background: #fff; }
+  .su-table th,
+  .su-table td { padding: 14px 12px; border-bottom: 1px solid var(--su-line); vertical-align: middle; text-align: left; }
+  .su-table th { background: #F8FFFB; color: var(--su-muted); font-size: .76rem; font-weight: 950; text-transform: uppercase; letter-spacing: .04em; }
+  .su-table tr:last-child td { border-bottom: 0; }
+
+  .su-person { display: flex; align-items: center; gap: 10px; min-width: 210px; }
+  .su-avatar { width: 42px; height: 42px; border-radius: 15px; display: grid; place-items: center; background: var(--su-green-soft); font-size: 1.18rem; flex: 0 0 auto; }
+  .su-person strong,
+  .su-contact strong { display: block; color: var(--su-text); font-weight: 950; }
+  .su-person span,
+  .su-contact span,
+  .su-muted-line { display: block; margin-top: 4px; color: var(--su-muted); font-size: .82rem; font-weight: 700; }
+
+  .su-metric-inline { display: flex; flex-wrap: wrap; gap: 6px; }
+  .su-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+  }
+  .su-icon-btn.green { background: var(--su-green-soft); color: var(--su-green-deep); }
+  .su-icon-btn.blue { background: var(--su-blue-soft); color: #0369A1; }
+  .su-icon-btn.orange { background: var(--su-orange-soft); color: #9A5B00; }
+  .su-icon-btn.red { background: var(--su-red-soft); color: #B91C1C; }
+  .su-actions form { margin: 0; }
+
+  .su-empty { padding: 28px 16px; text-align: center; color: var(--su-muted); font-weight: 850; }
+
+  .su-mobile-list { display: none; gap: 12px; }
+  .su-mobile-card { border: 1px solid var(--su-line); border-radius: 18px; background: #fff; padding: 14px; display: grid; gap: 12px; }
+  .su-mobile-head { display: flex; align-items: flex-start; gap: 10px; }
+  .su-mobile-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  @media (max-width: 1100px) {
+    .su-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .su-filter-form { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 760px) {
+    .su-hero-inner { grid-template-columns: 1fr; }
+    .su-hero-visual { width: 100%; height: 96px; grid-auto-flow: column; gap: 10px; }
+    .su-kpi-grid,
+    .su-filter-form { grid-template-columns: 1fr; }
+    .su-filter-head,
+    .su-table-head { flex-direction: column; }
+    .su-table-shell { display: none; }
+    .su-mobile-list { display: grid; }
+    .su-btn { width: 100%; }
+    .su-table-actions,
+    .su-actions { width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="nf-store-users-page">
+
+  <div class="su-hero">
+    <div class="su-hero-inner">
+      <div>
+        <span class="su-kicker">🏪 Store panel access</span>
+        <h2>Store Login Accounts</h2>
+        <p>
+          This page is for store owners/managers who can log in to the Store Panel. It shows which login account is linked to which store profile, plus product count, order count, revenue summary and safe account actions.
+        </p>
+
+        <div class="su-hero-actions">
+          <a href="{{ url_for('admin_create_store') }}" class="su-btn su-btn-primary">➕ Create Store + Login</a>
+          <a href="{{ url_for('admin_users_export_csv', role='store') }}" class="su-btn su-btn-soft">⬇ Export Store Accounts</a>
+          <a href="{{ url_for('admin_store_list') }}" class="su-btn su-btn-blue">🏪 All Store Profiles</a>
+          <a href="{{ url_for('admin_users') }}" class="su-btn">📊 Users Overview</a>
+        </div>
+      </div>
+
+      <div class="su-hero-visual" aria-hidden="true">
+        <span>🏪</span>
+        <small>{{ metrics.total|default(0) }} Accounts</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="su-info-card">
+    <strong>What this page controls</strong>
+    <p>
+      Use this page to manage Store Panel login accounts only. Store business/profile settings like service area, online status, delivery toggle and product management remain in Store Management pages.
+    </p>
+  </div>
+
+  <div class="su-kpi-grid">
+    <div class="su-kpi">
+      <div class="su-kpi-icon">🏪</div>
+      <div>
+        <strong>{{ metrics.total|default(0) }}</strong>
+        <span>Total Store Login Accounts</span>
+      </div>
+    </div>
+
+    <div class="su-kpi">
+      <div class="su-kpi-icon">✅</div>
+      <div>
+        <strong>{{ metrics.active|default(0) }}</strong>
+        <span>Active Login Accounts</span>
+      </div>
+    </div>
+
+    <div class="su-kpi red">
+      <div class="su-kpi-icon">🚫</div>
+      <div>
+        <strong>{{ metrics.disabled|default(0) }}</strong>
+        <span>Disabled Login Accounts</span>
+      </div>
+    </div>
+
+    <div class="su-kpi blue">
+      <div class="su-kpi-icon">📦</div>
+      <div>
+        <strong>{{ metrics.total_orders|default(0) }}</strong>
+        <span>Total Store Orders</span>
+      </div>
+    </div>
+
+    <div class="su-kpi orange">
+      <div class="su-kpi-icon">🥬</div>
+      <div>
+        <strong>{{ metrics.total_products|default(0) }}</strong>
+        <span>Total Products</span>
+      </div>
+    </div>
+
+    <div class="su-kpi">
+      <div class="su-kpi-icon">₹</div>
+      <div>
+        <strong>{{ metrics.total_revenue|default('₹0.00') }}</strong>
+        <span>Delivered Order Value</span>
+      </div>
+    </div>
+  </div>
+
+  <section class="su-filter-card" aria-label="Store user filters">
+    <div class="su-filter-head">
+      <div class="su-filter-title">
+        <div class="su-head-icon">🔎</div>
+        <div>
+          <h3>Search & Filter</h3>
+          <p>Filter store login accounts by name, store, email, phone, address or account status.</p>
+        </div>
+      </div>
+    </div>
+
+    <form method="get" action="{{ url_for('admin_store_users') }}" class="su-filter-form">
+      <div class="su-field">
+        <label for="search">Search Store Accounts</label>
+        <input
+          type="search"
+          id="search"
+          name="search"
+          value="{{ search or '' }}"
+          placeholder="Search by store name, owner name, email, phone or address..."
+        >
+      </div>
+
+      <div class="su-field">
+        <label for="status">Login Account Status</label>
+        <select id="status" name="status">
+          <option value="" {% if not status %}selected{% endif %}>All Status</option>
+          <option value="active" {% if status == 'active' %}selected{% endif %}>Active</option>
+          <option value="inactive" {% if status in ['inactive','disabled'] %}selected{% endif %}>Disabled</option>
+        </select>
+      </div>
+
+      <button type="submit" class="su-btn su-btn-primary">Filter</button>
+      <a href="{{ url_for('admin_store_users') }}" class="su-btn">Reset</a>
+    </form>
+  </section>
+
+  <section class="su-table-card" aria-label="Store login accounts table">
+    <div class="su-table-head">
+      <div class="su-table-title">
+        <div class="su-head-icon">📋</div>
+        <div>
+          <h3>Store Login Account List</h3>
+          <p>Review Store Panel access, linked store profile, products, orders, revenue and safe actions.</p>
+        </div>
+      </div>
+
+      <div class="su-table-actions">
+        <span class="su-count-pill">Total: {{ store_users|length }}</span>
+        <a href="{{ url_for('admin_users_export_csv', role='store') }}" class="su-btn su-btn-soft">⬇ Export</a>
+        <a href="{{ url_for('admin_create_store') }}" class="su-btn su-btn-primary">➕ Add Store</a>
+      </div>
+    </div>
+
+    <div class="su-table-shell">
+      <table class="su-table">
+        <thead>
+          <tr>
+            <th>SL</th>
+            <th>Store / Login Owner</th>
+            <th>Contact Info</th>
+            <th>Linked Store Profile</th>
+            <th>Products</th>
+            <th>Orders</th>
+            <th>Revenue</th>
+            <th>Ratings</th>
+            <th>Account Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in store_users %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>
+                <div class="su-person">
+                  <div class="su-avatar">🏪</div>
+                  <div>
+                    <strong>{{ s.store_name or s.name }}</strong>
+                    <span>Login owner: {{ s.name }}</span>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <div class="su-contact">
+                  <strong>{{ s.email or 'No email' }}</strong>
+                  <span>{{ s.phone or 'No phone' }}</span>
+                </div>
+              </td>
+              <td>
+                {% if s.store_id %}
+                  <span class="su-chip blue">Linked</span>
+                  <span class="su-muted-line">{{ s.address or 'No address saved' }}</span>
+                {% else %}
+                  <span class="su-chip red">Not linked</span>
+                  <span class="su-muted-line">Create or link store profile</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="su-metric-inline">
+                  <span class="su-chip">{{ s.products|default(0) }} Total</span>
+                  <span class="su-chip blue">{{ s.active_products|default(0) }} Active</span>
+                </div>
+              </td>
+              <td>
+                <div class="su-metric-inline">
+                  <span class="su-chip">{{ s.orders|default(0) }} Total</span>
+                  <span class="su-chip blue">{{ s.delivered_orders|default(0) }} Delivered</span>
+                </div>
+              </td>
+              <td><strong>{{ s.revenue|default('₹0.00') }}</strong></td>
+              <td>
+                <div class="su-metric-inline">
+                  <span class="su-chip orange">⭐ {{ s.rating|default(0) }}</span>
+                  <span class="su-chip">{{ s.rating_count|default(0) }} Reviews</span>
+                </div>
+              </td>
+              <td>
+                {% if s.is_active %}
+                  <span class="su-status-pill active">Login Active</span>
+                {% else %}
+                  <span class="su-status-pill disabled">Login Disabled</span>
+                {% endif %}
+                {% if s.store_id %}
+                  {% if s.store_is_active %}
+                    <span class="su-status-pill active">Store Active</span>
+                  {% else %}
+                    <span class="su-status-pill disabled">Store Disabled</span>
+                  {% endif %}
+                {% else %}
+                  <span class="su-status-pill pending">Profile Missing</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="su-actions">
+                  <a href="{{ url_for('admin_user_transactions_csv', uid=s.id) }}" class="su-icon-btn blue" title="Download store transactions CSV" target="_blank">📄</a>
+                  <a href="{{ url_for('admin_user_export_zip', uid=s.id) }}" class="su-icon-btn green" title="Download full account export ZIP">📦</a>
+
+                  {% if s.is_active %}
+                    <form method="post" action="{{ url_for('admin_user_disable', uid=s.id) }}">
+                      <button type="submit" class="su-icon-btn orange" title="Disable store login">⏸</button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="{{ url_for('admin_user_enable', uid=s.id) }}">
+                      <button type="submit" class="su-icon-btn green" title="Activate store login">▶</button>
+                    </form>
+                  {% endif %}
+
+                  <form method="post" action="{{ url_for('admin_user_delete', uid=s.id) }}" onsubmit="return confirmStoreUserDelete('{{ (s.store_name or s.name)|e }}')">
+                    <button type="submit" class="su-icon-btn red" title="Safe delete store login">🗑</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="10" class="su-empty">No store login accounts found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="su-mobile-list">
+      {% for s in store_users %}
+        <article class="su-mobile-card">
+          <div class="su-mobile-head">
+            <div class="su-avatar">🏪</div>
+            <div>
+              <strong>{{ s.store_name or s.name }}</strong>
+              <span class="su-muted-line">Login owner: {{ s.name }}</span>
+              <span class="su-muted-line">{{ s.email or s.phone or 'No contact saved' }}</span>
+            </div>
+          </div>
+
+          <div class="su-mobile-meta">
+            {% if s.is_active %}<span class="su-status-pill active">Login Active</span>{% else %}<span class="su-status-pill disabled">Login Disabled</span>{% endif %}
+            {% if s.store_id %}<span class="su-chip blue">Profile Linked</span>{% else %}<span class="su-chip red">Profile Missing</span>{% endif %}
+            <span class="su-chip">{{ s.products|default(0) }} Products</span>
+            <span class="su-chip">{{ s.orders|default(0) }} Orders</span>
+            <span class="su-chip orange">⭐ {{ s.rating|default(0) }}</span>
+          </div>
+
+          <div class="su-actions">
+            <a href="{{ url_for('admin_user_transactions_csv', uid=s.id) }}" class="su-btn su-btn-blue" target="_blank">CSV</a>
+            <a href="{{ url_for('admin_user_export_zip', uid=s.id) }}" class="su-btn su-btn-soft">ZIP</a>
+            {% if s.is_active %}
+              <form method="post" action="{{ url_for('admin_user_disable', uid=s.id) }}">
+                <button type="submit" class="su-btn">Disable</button>
+              </form>
+            {% else %}
+              <form method="post" action="{{ url_for('admin_user_enable', uid=s.id) }}">
+                <button type="submit" class="su-btn su-btn-primary">Activate</button>
+              </form>
+            {% endif %}
+          </div>
+        </article>
+      {% else %}
+        <div class="su-empty">No store login accounts found.</div>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+
+<script>
+  function confirmStoreUserDelete(name) {
+    return window.confirm(
+      "Delete store login account for " + name + "?\n\n" +
+      "If this store has orders, the backend will disable the login instead of hard deleting it."
+    );
+  }
+</script>
+{% endblock %}

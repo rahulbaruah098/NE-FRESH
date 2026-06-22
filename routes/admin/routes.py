@@ -14,7 +14,6 @@ ADMIN_IN_HOUSE_DELIVERY_ENDPOINTS = {
     "admin_delivery_reviews",
     "admin_delivery_export_csv",
     "admin_delivery_reviews_export_csv",
-    "admin_delivery_users",
     "admin_store_delivery_toggle",
 }
 
@@ -389,7 +388,7 @@ def admin_exports():
     """
     export_cards = [
         {
-            "title": "Payment & Settlements",
+            "title": "Store Payouts & In-house Collection",
             "description": "Rider COD cash, store payout pending, refund deduction, adjusted payout and settlement impact.",
             "icon": "💳",
             "page_endpoint": "admin_settlements",
@@ -407,7 +406,7 @@ def admin_exports():
             "tag": "Earnings"
         },
         {
-            "title": "Returns & Refund Settlements",
+            "title": "Return / Refund Settlement Impact",
             "description": "Cancelled, returned and refunded orders with refund amount, store deduction and payout impact.",
             "icon": "↩️",
             "page_endpoint": "admin_returns_settlements",
@@ -4026,24 +4025,24 @@ def admin_dashboard():
 
     quick_links = [
         {"label": "Manage Users", "endpoint": "admin_users"},
-        {"label": "Refund Processing", "endpoint": "admin_refund_processing"},
-        {"label": "Returns & Refund Settlements", "endpoint": "admin_returns_settlements"},
-        {"label": "Payment & Settlements", "endpoint": "admin_settlements"},
-        {"label": "Complaints", "endpoint": "admin_complaints"},
+        {"label": "Customer Refund Processing", "endpoint": "admin_refund_processing"},
+        {"label": "Return / Refund Settlement Impact", "endpoint": "admin_returns_settlements"},
+        {"label": "Store Payouts & In-house Collection", "endpoint": "admin_settlements"},
+        {"label": "Customer Complaints", "endpoint": "admin_complaints"},
         {"label": "Create Store", "endpoint": "admin_create_store"},
     ]
 
     if delivery_mode_ui.get("is_external"):
         quick_links.extend([
-            {"label": "Shiprocket Shipments", "endpoint": "admin_external_delivery_orders"},
-            {"label": "External Fare & Shiprocket Settings", "endpoint": "admin_external_delivery_settings"},
-            {"label": "Delivery Operation Settings", "endpoint": "admin_delivery_mode_settings"},
+            {"label": "Shiprocket / Courier Orders", "endpoint": "admin_external_delivery_orders"},
+            {"label": "External Local Fare & Shiprocket Setup", "endpoint": "admin_external_delivery_settings"},
+            {"label": "Delivery Routing & Channel Availability", "endpoint": "admin_delivery_mode_settings"},
         ])
     else:
         quick_links.extend([
-            {"label": "Create Delivery Partner", "endpoint": "admin_create_delivery"},
-            {"label": "Delivery Overview", "endpoint": "admin_delivery_overview"},
-            {"label": "Delivery Operation Settings", "endpoint": "admin_delivery_mode_settings"},
+            {"label": "Create In-house Delivery Boy", "endpoint": "admin_create_delivery"},
+            {"label": "In-house Delivery Overview", "endpoint": "admin_delivery_overview"},
+            {"label": "Delivery Routing & Channel Availability", "endpoint": "admin_delivery_mode_settings"},
         ])
 
     quick_links.append({"label": "Export Transactions CSV", "endpoint": "admin_transactions_csv"})

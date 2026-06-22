@@ -1809,9 +1809,9 @@ def get_delivery_mode_ui_context(settings=None):
             "provider_label": f"External route selected at checkout ({enabled_text})",
             "provider_type": "External Routing",
             "fee_label": "External Route Delivery Charge",
-            "checkout_note": "When Connected External Delivery is active, checkout chooses External Local or Shiprocket and calculates the correct fee before payment.",
+            "checkout_note": "Checkout chooses External Local or Shiprocket before payment, calculates the delivery fee first, and saves that route inside the order.",
             "customer_track_title": "Delivery Tracking",
-            "customer_track_copy": "Tracking details depend on the delivery route selected for this order.",
+            "customer_track_copy": "In-house shows delivery-boy tracking after assignment. External local uses the NE FRESH order ID. Shiprocket shows AWB/courier tracking after booking.",
             "store_dashboard_title": "Connected External Delivery Routing",
             "store_dashboard_copy": "External Local orders use hard-coded fare, and outside-local orders use Shiprocket.",
             "admin_dashboard_title": "Connected External Delivery Routing",
@@ -1822,7 +1822,7 @@ def get_delivery_mode_ui_context(settings=None):
             "payment_rule": external_rule,
             "payment_rule_label": payment_rule_label,
             "primary_store_action": "Store Orders",
-            "primary_admin_action": "Delivery Operation Settings",
+            "primary_admin_action": "Delivery Routing Settings",
             "view_all_label": "View Orders",
         }
 
@@ -1855,8 +1855,8 @@ def get_delivery_mode_ui_context(settings=None):
             "payment_rule": external_rule,
             "payment_rule_label": payment_rule_label,
             "primary_store_action": "Shiprocket Shipments",
-            "primary_admin_action": "Shiprocket Shipments",
-            "view_all_label": "View Shiprocket Shipments",
+            "primary_admin_action": "Shiprocket Orders",
+            "view_all_label": "View Shiprocket / Courier Orders",
         }
 
     if active_mode == DELIVERY_MODE_EXTERNAL_LOCAL:
@@ -1888,7 +1888,7 @@ def get_delivery_mode_ui_context(settings=None):
             "payment_rule": external_rule,
             "payment_rule_label": payment_rule_label,
             "primary_store_action": "Normal Orders",
-            "primary_admin_action": "Delivery Operation Settings",
+            "primary_admin_action": "Delivery Routing Settings",
             "view_all_label": "View Normal Orders",
         }
 

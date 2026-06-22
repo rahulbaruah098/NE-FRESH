@@ -3,10 +3,10 @@
 {% set active_group = "users" %}
 {% set active_page = "delivery_users" %}
 
-{% block title %}Delivery Users | NE FRESH Admin{% endblock %}
+{% block title %}In-house Delivery Boy Accounts | NE FRESH Admin{% endblock %}
 
-{% block page_title %}Delivery Users{% endblock %}
-{% block page_subtitle %}Track delivery partners, availability, completed orders and account actions.{% endblock %}
+{% block page_title %}In-house Delivery Boy Accounts{% endblock %}
+{% block page_subtitle %}Manage login accounts for NE FRESH in-house delivery boys, including availability, assignments, completed orders and safe account actions.{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -840,6 +840,20 @@
       scroll-behavior: auto !important;
     }
   }
+
+  .du-info-card {
+    padding: 16px 18px;
+    border: 1px solid var(--du-line);
+    border-radius: 20px;
+    background: linear-gradient(135deg, #FFF7E8, #FFFFFF);
+    box-shadow: var(--du-shadow-soft);
+    display: grid;
+    gap: 6px;
+  }
+
+  .du-info-card strong { color: #9A5B00; font-weight: 950; }
+  .du-info-card p { margin: 0; color: var(--du-muted); font-weight: 700; line-height: 1.55; }
+
 </style>
 {% endblock %}
 
@@ -849,33 +863,41 @@
   <div class="du-hero">
     <div class="du-hero-inner">
       <div>
-        <span class="du-kicker">🛵 Delivery User Management</span>
-        <h2>Delivery Users</h2>
+        <span class="du-kicker">🛵 In-house Delivery Boy Account Management</span>
+        <h2>In-house Delivery Boy Accounts</h2>
         <p>
-          Monitor delivery partners, account status, online availability, assigned orders, completed deliveries and exports.
-          Backend safe-delete protection remains active for delivery users with order history.
+          Monitor in-house delivery-boy login accounts, account status, online availability, assigned orders, completed deliveries and exports.
+          Backend safe-delete protection remains active for delivery-boy accounts with order history.
         </p>
 
         <div class="du-hero-actions">
-          <a href="{{ url_for('admin_create_delivery') }}" class="du-btn du-btn-primary">➕ Create Delivery Person</a>
-          <a href="{{ url_for('admin_users_export_csv', role='delivery') }}" class="du-btn du-btn-soft">⬇ Export Delivery Users</a>
+          <a href="{{ url_for('admin_create_delivery') }}" class="du-btn du-btn-primary">➕ Create In-house Delivery Boy</a>
+          <a href="{{ url_for('admin_users_export_csv', role='delivery') }}" class="du-btn du-btn-soft">⬇ Export Delivery Boy Accounts</a>
           <a href="{{ url_for('admin_users') }}" class="du-btn du-btn-blue">📊 Users Overview</a>
         </div>
       </div>
 
       <div class="du-hero-visual" aria-hidden="true">
         <span>🛵</span>
-        <small>{{ metrics.total|default(0) }} Delivery</small>
+        <small>{{ metrics.total|default(0) }} Accounts</small>
       </div>
     </div>
   </div>
+
+  {% if not in_house_delivery_enabled %}
+    <div class="du-info-card">
+      <strong>In-house delivery mode is currently disabled.</strong>
+      <p>You can still manage delivery-boy login accounts here. Operational pages like assignment, delivery overview and rider cash collection stay disabled until Admin enables In-house Delivery again.</p>
+    </div>
+  {% endif %}
+
 
   <div class="du-kpi-grid">
     <div class="du-kpi">
       <div class="du-kpi-icon">🛵</div>
       <div>
         <strong>{{ metrics.total|default(0) }}</strong>
-        <span>Total Delivery Users</span>
+        <span>Total In-house Delivery Boy Accounts</span>
       </div>
     </div>
 
@@ -883,7 +905,7 @@
       <div class="du-kpi-icon">✅</div>
       <div>
         <strong>{{ metrics.active|default(0) }}</strong>
-        <span>Active Delivery Users</span>
+        <span>Active Delivery Boy Accounts</span>
       </div>
     </div>
 
@@ -891,7 +913,7 @@
       <div class="du-kpi-icon">🚫</div>
       <div>
         <strong>{{ metrics.disabled|default(0) }}</strong>
-        <span>Disabled Delivery Users</span>
+        <span>Disabled Delivery Boy Accounts</span>
       </div>
     </div>
 
@@ -926,14 +948,14 @@
         <div class="du-head-icon">🔎</div>
         <div>
           <h3>Search & Filter</h3>
-          <p>Filter delivery users by account status and live availability.</p>
+          <p>Filter in-house delivery-boy accounts by login status and live availability.</p>
         </div>
       </div>
     </div>
 
     <form method="get" action="{{ url_for('admin_delivery_users') }}" class="du-filter-form">
       <div class="du-field">
-        <label for="search">Search Delivery Users</label>
+        <label for="search">Search Delivery Boy Accounts</label>
         <input
           type="search"
           id="search"
@@ -971,8 +993,8 @@
       <div class="du-table-title">
         <div class="du-head-icon">📋</div>
         <div>
-          <h3>Deliveryman List</h3>
-          <p>Review contact info, zone, completed orders, availability, status and actions.</p>
+          <h3>In-house Delivery Boy Account List</h3>
+          <p>Review contact info, delivery zone, completed orders, live availability, login status and account actions.</p>
         </div>
       </div>
 
@@ -1094,7 +1116,7 @@
             </tr>
           {% else %}
             <tr>
-              <td colspan="9" class="du-empty">No delivery users found.</td>
+              <td colspan="9" class="du-empty">No in-house delivery-boy accounts found.</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -1170,7 +1192,7 @@
           </div>
         </article>
       {% else %}
-        <div class="du-empty">No delivery users found.</div>
+        <div class="du-empty">No in-house delivery-boy accounts found.</div>
       {% endfor %}
     </div>
   </section>
