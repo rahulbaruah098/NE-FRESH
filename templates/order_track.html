@@ -2806,7 +2806,7 @@
 
                   {% if order.cod_collection_required %}
                   <div class="payment-info-row">
-                    <span>Amount to Pay on Delivery</span>
+                    <span>Amount to Pay Online on Delivery</span>
                     <strong>₹{{ '%.2f'|format(order.amount_to_collect_from_customer or 0) }}</strong>
                   </div>
                   {% endif %}
@@ -2935,7 +2935,7 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
   {% set track_mode_label = 'External Local Delivery' %}
   {% set track_mode_class = 'external' %}
 {% elif track_delivery_mode in ['THIRD_PARTY_SHIPPING', 'SHIPROCKET', 'COURIER', 'COURIER_SHIPPING'] %}
-  {% set track_mode_label = 'Third Party Shipping / Courier' %}
+  {% set track_mode_label = 'Shiprocket / Courier Shipping' %}
   {% set track_mode_class = 'shipping' %}
 {% else %}
   {% set track_mode_label = 'NE FRESH In-house Delivery' %}
@@ -2960,9 +2960,15 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
   </div>
 
   {% if track_is_external %}
-    <p class="track-mode-copy">
-      This order uses an external delivery layer. Product price is unchanged; the delivery partner/courier charge is shown separately in the order total.
-    </p>
+    {% if track_delivery_mode in ['EXTERNAL_LOCAL_DELIVERY', 'HYPERLOCAL', 'RAPIDO', 'ZOMATO'] %}
+      <p class="track-mode-copy">
+        This order uses external local delivery. NE FRESH does not store a Rapido/Ola/Uber booking record; use your NE FRESH order reference for support/tracking with the store.
+      </p>
+    {% else %}
+      <p class="track-mode-copy">
+        This order uses Shiprocket/courier shipping. AWB and partner tracking details will appear after shipment booking.
+      </p>
+    {% endif %}
   {% else %}
     <p class="track-mode-copy">
       This order uses NE FRESH in-house delivery. Once the store assigns a delivery boy, live rider details and map tracking will appear here.
@@ -2996,14 +3002,14 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
 
     {% if track_is_external and track_external_order_id %}
     <div class="track-mode-row">
-      <span>Partner Order ID</span>
+      <span>{% if track_delivery_mode in ['EXTERNAL_LOCAL_DELIVERY', 'HYPERLOCAL', 'RAPIDO', 'ZOMATO'] %}NE FRESH Delivery Reference{% else %}Shiprocket Order ID{% endif %}</span>
       <strong>{{ track_external_order_id }}</strong>
     </div>
     {% endif %}
 
     {% if track_is_external and track_external_shipment_id %}
     <div class="track-mode-row">
-      <span>Shipment / Task ID</span>
+      <span>Shipment ID</span>
       <strong>{{ track_external_shipment_id }}</strong>
     </div>
     {% endif %}
@@ -3017,14 +3023,14 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
 
     {% if track_is_external and track_external_cod_amount != '' %}
     <div class="track-mode-row">
-      <span>External COD Amount</span>
+      <span>Pay Online on Delivery Amount</span>
       <strong>₹{{ '%.2f'|format(track_external_cod_amount or 0) }}</strong>
     </div>
     {% endif %}
 
     {% if track_is_external and track_external_cod_status %}
     <div class="track-mode-row">
-      <span>COD Remittance</span>
+      <span>Payment Settlement</span>
       <strong>{{ track_external_cod_status|replace('_',' ')|title }}</strong>
     </div>
     {% endif %}
@@ -3036,7 +3042,11 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
         <a class="track-external-btn" href="{{ track_external_url }}" target="_blank" rel="noopener">Track with Delivery Partner</a>
       {% else %}
         <div class="track-mode-note warning">
-          Partner tracking link will appear here after the store/admin books the external delivery and the partner returns tracking details.
+          {% if track_delivery_mode in ['EXTERNAL_LOCAL_DELIVERY', 'HYPERLOCAL', 'RAPIDO', 'ZOMATO'] %}
+            External local delivery uses the NE FRESH order reference only. No live rider tracking link is stored.
+          {% else %}
+            Shiprocket tracking link will appear here after the store/admin books the shipment and the courier returns tracking details.
+          {% endif %}
         </div>
       {% endif %}
     </div>

@@ -1074,6 +1074,123 @@ def _delivery_float_or_none(value):
         return None
 
 
+def _delivery_float_or_default(value, default=0.0, minimum=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            value = default
+        value = float(value)
+    except Exception:
+        value = float(default)
+
+    try:
+        minimum = float(minimum)
+    except Exception:
+        minimum = 0.0
+
+    if value < minimum:
+        value = minimum
+
+    return round(value, 3)
+
+
+def parse_product_shipping_package_from_form(form, existing=None):
+    """Return product-wise shipping/parcel dimensions from a store form.
+
+    Values are optional; if blank, existing values are kept on edit or 0 is saved
+    on create. Shiprocket quote/booking later falls back to global defaults when
+    product values are missing.
+    """
+    existing = existing or {}
+
+    def pick(name, default=0.0):
+        raw = form.get(name)
+        if raw is None or str(raw).strip() == "":
+            raw = existing.get(name)
+        return _delivery_float_or_default(raw, default, 0.0)
+
+    weight = pick("shipping_weight_kg", existing.get("shipping_weight_kg") or 0.0)
+    length = pick("shipping_length_cm", existing.get("shipping_length_cm") or 0.0)
+    breadth = pick("shipping_breadth_cm", existing.get("shipping_breadth_cm") or 0.0)
+    height = pick("shipping_height_cm", existing.get("shipping_height_cm") or 0.0)
+
+    return {
+        "shipping_weight_kg": weight,
+        "shipping_length_cm": length,
+        "shipping_breadth_cm": breadth,
+        "shipping_height_cm": height,
+    }
+
+
+def build_checkout_package_snapshot(cart_items, external_settings=None):
+    """Build one package snapshot for Shiprocket quote/booking.
+
+    Each product can carry per-selling-unit shipping weight and dimensions.
+    Checkout sums weight by cart quantity and uses the largest length/breadth/
+    height as the parcel-box fallback. Missing product values safely fall back to
+    Admin -> External Fare & Shiprocket Settings defaults.
+    """
+    external_settings = external_settings or {}
+    cart_items = cart_items or []
+
+    default_weight = _delivery_float_or_default(external_settings.get("default_package_weight_kg"), 1.0, 0.1)
+    default_length = _delivery_float_or_default(external_settings.get("default_package_length_cm"), 10.0, 1.0)
+    default_breadth = _delivery_float_or_default(external_settings.get("default_package_breadth_cm"), 10.0, 1.0)
+    default_height = _delivery_float_or_default(external_settings.get("default_package_height_cm"), 10.0, 1.0)
+
+    total_weight = 0.0
+    max_length = 0.0
+    max_breadth = 0.0
+    max_height = 0.0
+    product_count = 0
+    used_product_dimensions = False
+
+    for item in cart_items:
+        if not item:
+            continue
+
+        try:
+            quantity = float(item.get("quantity") or item.get("cart_quantity") or 1)
+        except Exception:
+            quantity = 1.0
+        quantity = max(quantity, 1.0)
+
+        weight = _delivery_float_or_none(item.get("shipping_weight_kg"))
+        length = _delivery_float_or_none(item.get("shipping_length_cm"))
+        breadth = _delivery_float_or_none(item.get("shipping_breadth_cm"))
+        height = _delivery_float_or_none(item.get("shipping_height_cm"))
+
+        if weight is not None and weight > 0:
+            total_weight += float(weight) * quantity
+            used_product_dimensions = True
+        else:
+            total_weight += default_weight * quantity
+
+        if length is not None and length > 0:
+            max_length = max(max_length, float(length))
+            used_product_dimensions = True
+        if breadth is not None and breadth > 0:
+            max_breadth = max(max_breadth, float(breadth))
+            used_product_dimensions = True
+        if height is not None and height > 0:
+            max_height = max(max_height, float(height))
+            used_product_dimensions = True
+
+        product_count += 1
+
+    if product_count <= 0:
+        total_weight = default_weight
+
+    package = {
+        "weight_kg": round(max(total_weight, 0.1), 3),
+        "length_cm": round(max(max_length, default_length, 1.0), 2),
+        "breadth_cm": round(max(max_breadth, default_breadth, 1.0), 2),
+        "height_cm": round(max(max_height, default_height, 1.0), 2),
+        "source": "product_dimensions" if used_product_dimensions else "admin_default_package",
+        "product_count": int(product_count),
+    }
+    return package
+
+
 DELIVERY_MODE_SETTINGS_KEY = "delivery_mode_settings"
 EXTERNAL_DELIVERY_SETTINGS_KEY = "external_delivery_settings"
 
@@ -1087,6 +1204,22 @@ VALID_DELIVERY_MODES = {
     DELIVERY_MODE_THIRD_PARTY,
 }
 
+DELIVERY_ROUTING_MODE_AUTO = "AUTO_HYBRID"
+DELIVERY_ROUTING_MODE_MANUAL = "MANUAL_SINGLE_MODE"
+
+VALID_DELIVERY_ROUTING_MODES = {
+    DELIVERY_ROUTING_MODE_AUTO,
+    DELIVERY_ROUTING_MODE_MANUAL,
+}
+
+DELIVERY_OPERATION_IN_HOUSE_ONLY = "IN_HOUSE_ONLY"
+DELIVERY_OPERATION_EXTERNAL_CONNECTED = "EXTERNAL_CONNECTED"
+
+VALID_DELIVERY_OPERATION_MODES = {
+    DELIVERY_OPERATION_IN_HOUSE_ONLY,
+    DELIVERY_OPERATION_EXTERNAL_CONNECTED,
+}
+
 EXTERNAL_PAYMENT_RULE_ONLINE_ONLY = "ONLINE_ONLY"
 EXTERNAL_PAYMENT_RULE_COD_STORE = "COD_STORE_COLLECTION"
 EXTERNAL_PAYMENT_RULE_COD_PARTNER = "COD_PARTNER_COLLECTION"
@@ -1097,29 +1230,67 @@ VALID_EXTERNAL_PAYMENT_RULES = {
     EXTERNAL_PAYMENT_RULE_COD_PARTNER,
 }
 
+DELIVERY_PAYMENT_ONLINE_ONLY = "ONLINE_ONLY"
+DELIVERY_PAYMENT_COD_ONLY = "COD_ONLY"
+DELIVERY_PAYMENT_ONLINE_AND_COD = "ONLINE_AND_COD"
+
+VALID_DELIVERY_PAYMENT_METHODS = {
+    DELIVERY_PAYMENT_ONLINE_ONLY,
+    DELIVERY_PAYMENT_COD_ONLY,
+    DELIVERY_PAYMENT_ONLINE_AND_COD,
+}
+
+COD_COLLECTION_DELIVERY_BOY = "DELIVERY_BOY"
+COD_COLLECTION_STORE = "STORE"
+COD_COLLECTION_EXTERNAL_PARTNER = "EXTERNAL_PARTNER"
+
+VALID_COD_COLLECTION_METHODS = {
+    COD_COLLECTION_DELIVERY_BOY,
+    COD_COLLECTION_STORE,
+    COD_COLLECTION_EXTERNAL_PARTNER,
+}
+
 DEFAULT_DELIVERY_MODE_SETTINGS = {
     "key": DELIVERY_MODE_SETTINGS_KEY,
+
+    # New simplified model:
+    # Multiple delivery channels can be ON together and checkout selects the
+    # correct channel per order. active_delivery_mode is kept only for old saved
+    # records and manual fallback compatibility.
+    "delivery_routing_mode": DELIVERY_ROUTING_MODE_MANUAL,
+    "delivery_operation_mode": DELIVERY_OPERATION_IN_HOUSE_ONLY,
     "active_delivery_mode": DELIVERY_MODE_IN_HOUSE,
 
-    # Master mode flags
+    # Channel availability switches shown on Admin -> Delivery Operation Settings.
+    # In-house is a standalone operation mode. It cannot run together with the
+    # connected external flow. External Local + Shiprocket can run together.
     "in_house_delivery_enabled": True,
     "external_local_delivery_enabled": False,
     "third_party_shipping_enabled": False,
     "external_delivery_enabled": False,
 
-    # Related in-house modules
+    # Related in-house modules.
     "delivery_boy_panel_enabled": True,
     "delivery_assignment_enabled": True,
     "delivery_tracking_enabled": True,
     "cod_rider_collection_enabled": True,
 
-    # Related return/refund module
+    # Related return/refund module.
     "return_refund_enabled": True,
 
-    # External delivery payment behavior
-    # ONLINE_ONLY is the safest first phase for Rapido/Shiprocket-style delivery.
-    "external_payment_rule": EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
-    "external_local_provider": "MANUAL_HYPERLOCAL",
+    # Customer payment methods. Backend value COD is retained for compatibility,
+    # but UI now displays it as Pay Online on Delivery.
+    "delivery_payment_methods": DELIVERY_PAYMENT_ONLINE_AND_COD,
+    "allow_online_payment": True,
+    "allow_cod_payment": True,
+    "cod_collection_method": COD_COLLECTION_DELIVERY_BOY,
+
+    # Backward-compatible field used internally by older external-delivery code.
+    "external_payment_rule": EXTERNAL_PAYMENT_RULE_COD_STORE,
+
+    # Provider defaults. External local is deliberately manual/reference-only.
+    # Shiprocket is used for third-party shipping when enabled and credentials exist.
+    "external_local_provider": "LOCAL_DELIVERY_PARTNER",
     "third_party_provider": "SHIPROCKET",
 }
 
@@ -1129,18 +1300,22 @@ DEFAULT_EXTERNAL_DELIVERY_SETTINGS = {
     "shiprocket_email": "",
     "shiprocket_password": "",
     "shiprocket_pickup_location": "",
+    "shiprocket_pickup_pincode": "",
     "shiprocket_channel_id": "",
     "shiprocket_webhook_token": "",
 
+    # Hyperlocal API fields are kept only for backward compatibility. The new
+    # business rule keeps external local delivery simple: no live Rapido/Ola API
+    # booking and no external local booking dashboard.
     "hyperlocal_enabled": False,
-    "hyperlocal_provider": "MANUAL_HYPERLOCAL",
+    "hyperlocal_provider": "LOCAL_DELIVERY_PARTNER",
     "hyperlocal_api_base_url": "",
     "hyperlocal_api_key": "",
     "hyperlocal_webhook_token": "",
+    "manual_external_enabled": False,
 
-    "manual_external_enabled": True,
-
-    # Manual quote fallback values used until partner quote APIs are connected.
+    # Hard-coded assumed fare values for external local delivery and fallback
+    # values for courier/Shiprocket if live quote is unavailable.
     "external_local_base_fee": 40.0,
     "external_local_per_km_fee": 8.0,
     "external_local_min_fee": 40.0,
@@ -1154,8 +1329,13 @@ DEFAULT_EXTERNAL_DELIVERY_SETTINGS = {
     "default_package_length_cm": 10.0,
     "default_package_breadth_cm": 10.0,
     "default_package_height_cm": 10.0,
-}
 
+    # Optional local external delivery pickup/map settings.
+    "external_default_pickup_latitude": None,
+    "external_default_pickup_longitude": None,
+    "external_service_zone_enabled": False,
+    "external_service_zone_polygon": [],
+}
 
 def _delivery_mode_normalize(value):
     mode = (value or DELIVERY_MODE_IN_HOUSE).strip().upper()
@@ -1171,66 +1351,234 @@ def _external_payment_rule_normalize(value):
     return rule
 
 
+def _delivery_payment_methods_normalize(value):
+    value = (value or "").strip().upper()
+    if value not in VALID_DELIVERY_PAYMENT_METHODS:
+        value = DELIVERY_PAYMENT_ONLINE_AND_COD
+    return value
+
+
+def _cod_collection_method_normalize(value, active_mode=None):
+    value = (value or "").strip().upper()
+
+    if active_mode == DELIVERY_MODE_IN_HOUSE:
+        return COD_COLLECTION_DELIVERY_BOY
+
+    if value not in VALID_COD_COLLECTION_METHODS or value == COD_COLLECTION_DELIVERY_BOY:
+        value = COD_COLLECTION_STORE
+
+    return value
+
+
+def _payment_methods_from_legacy_external_rule(rule, active_mode):
+    """
+    Converts the older external_payment_rule setting into the clearer
+    delivery_payment_methods + cod_collection_method fields.
+    """
+    rule = _external_payment_rule_normalize(rule)
+
+    if active_mode == DELIVERY_MODE_IN_HOUSE:
+        return DELIVERY_PAYMENT_ONLINE_AND_COD, COD_COLLECTION_DELIVERY_BOY
+
+    if rule == EXTERNAL_PAYMENT_RULE_ONLINE_ONLY:
+        return DELIVERY_PAYMENT_ONLINE_ONLY, COD_COLLECTION_STORE
+
+    if rule == EXTERNAL_PAYMENT_RULE_COD_PARTNER:
+        return DELIVERY_PAYMENT_ONLINE_AND_COD, COD_COLLECTION_EXTERNAL_PARTNER
+
+    return DELIVERY_PAYMENT_ONLINE_AND_COD, COD_COLLECTION_STORE
+
+
+def _external_payment_rule_from_methods(active_mode, allow_cod, cod_collection_method):
+    """
+    Keeps old external-delivery code compatible while the Admin UI now exposes
+    clearer controls: Online, COD, or Online + COD.
+    """
+    if active_mode == DELIVERY_MODE_IN_HOUSE:
+        return EXTERNAL_PAYMENT_RULE_COD_STORE
+
+    if not allow_cod:
+        return EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+
+    if cod_collection_method == COD_COLLECTION_EXTERNAL_PARTNER:
+        return EXTERNAL_PAYMENT_RULE_COD_PARTNER
+
+    return EXTERNAL_PAYMENT_RULE_COD_STORE
+
+
+def normalize_cod_collection_method(value, active_mode=None):
+    return _cod_collection_method_normalize(value, active_mode)
+
+
+def external_payment_rule_from_methods(active_mode, allow_cod, cod_collection_method):
+    return _external_payment_rule_from_methods(active_mode, allow_cod, cod_collection_method)
+
+
+def _delivery_routing_mode_normalize(value):
+    value = (value or DELIVERY_ROUTING_MODE_AUTO).strip().upper()
+    if value not in VALID_DELIVERY_ROUTING_MODES:
+        value = DELIVERY_ROUTING_MODE_AUTO
+    return value
+
+def _delivery_operation_mode_normalize(value):
+    value = (value or DELIVERY_OPERATION_IN_HOUSE_ONLY).strip().upper()
+    if value not in VALID_DELIVERY_OPERATION_MODES:
+        value = DELIVERY_OPERATION_IN_HOUSE_ONLY
+    return value
+
+
+def _delivery_payment_methods_from_flags(allow_online, allow_cod):
+    allow_online = bool(allow_online)
+    allow_cod = bool(allow_cod)
+
+    if allow_online and allow_cod:
+        return DELIVERY_PAYMENT_ONLINE_AND_COD
+
+    if allow_cod:
+        return DELIVERY_PAYMENT_COD_ONLY
+
+    return DELIVERY_PAYMENT_ONLINE_ONLY
+
+
+def _first_enabled_delivery_mode(settings):
+    settings = settings or {}
+
+    if settings.get("in_house_delivery_enabled"):
+        return DELIVERY_MODE_IN_HOUSE
+
+    if settings.get("external_local_delivery_enabled"):
+        return DELIVERY_MODE_EXTERNAL_LOCAL
+
+    if settings.get("third_party_shipping_enabled"):
+        return DELIVERY_MODE_THIRD_PARTY
+
+    return DELIVERY_MODE_IN_HOUSE
+
+
 def get_delivery_mode_settings():
     """
-    Global delivery mode settings controlled from Admin Panel.
+    Delivery settings controlled from Admin Panel.
 
-    Supported modes:
-    - IN_HOUSE: current NE FRESH delivery-boy system.
-    - EXTERNAL_LOCAL_DELIVERY: Rapido/Ola/Uber/Shiprocket Quick style hyperlocal mode.
-    - THIRD_PARTY_SHIPPING: Shiprocket/BlueDart/Delhivery courier-style mode.
+    Final simplified business rule:
+    - In-house Delivery is standalone. When it is active, external local and
+      Shiprocket delivery are disabled for checkout and existing in-house
+      delivery-boy logic works exactly as before.
+    - Connected External Delivery is separate. In that mode, in-house delivery
+      is disabled and checkout automatically chooses External Local or
+      Shiprocket according to distance/zone/serviceability.
     """
     settings = dict(DEFAULT_DELIVERY_MODE_SETTINGS)
+    stored_row = {}
 
     try:
-        row = mongo.platform_settings.find_one({
+        stored_row = mongo.platform_settings.find_one({
             "key": DELIVERY_MODE_SETTINGS_KEY
         }) or {}
 
-        if row:
-            settings.update(row)
+        if stored_row:
+            settings.update(stored_row)
     except Exception:
-        pass
+        stored_row = {}
 
-    active_mode = _delivery_mode_normalize(settings.get("active_delivery_mode"))
+    legacy_active_mode = _delivery_mode_normalize(settings.get("active_delivery_mode"))
 
-    # Backward compatibility for the previous ON/OFF switch.
-    # If an older record only has in_house_delivery_enabled=False, treat it as external local.
-    if "active_delivery_mode" not in settings:
-        active_mode = (
-            DELIVERY_MODE_IN_HOUSE
-            if bool(settings.get("in_house_delivery_enabled", True))
-            else DELIVERY_MODE_EXTERNAL_LOCAL
+    if "delivery_operation_mode" in stored_row:
+        operation_mode = _delivery_operation_mode_normalize(settings.get("delivery_operation_mode"))
+    else:
+        # Backward compatibility: older saves had only active_delivery_mode / channel
+        # booleans. If in-house was active, treat it as standalone in-house.
+        if legacy_active_mode == DELIVERY_MODE_IN_HOUSE or bool(settings.get("in_house_delivery_enabled", True)):
+            operation_mode = DELIVERY_OPERATION_IN_HOUSE_ONLY
+        else:
+            operation_mode = DELIVERY_OPERATION_EXTERNAL_CONNECTED
+
+    if operation_mode == DELIVERY_OPERATION_IN_HOUSE_ONLY:
+        routing_mode = DELIVERY_ROUTING_MODE_MANUAL
+        active_delivery_mode = DELIVERY_MODE_IN_HOUSE
+        in_house_enabled = True
+        external_local_enabled = False
+        third_party_enabled = False
+    else:
+        routing_mode = DELIVERY_ROUTING_MODE_AUTO
+        in_house_enabled = False
+        external_local_enabled = bool(settings.get("external_local_delivery_enabled", True))
+        third_party_enabled = bool(settings.get("third_party_shipping_enabled", True))
+
+        if not external_local_enabled and not third_party_enabled:
+            # External operation mode must have at least one external route.
+            external_local_enabled = True
+
+        active_delivery_mode = (
+            DELIVERY_MODE_EXTERNAL_LOCAL
+            if external_local_enabled
+            else DELIVERY_MODE_THIRD_PARTY
         )
 
-    in_house_enabled = active_mode == DELIVERY_MODE_IN_HOUSE
-    external_local_enabled = active_mode == DELIVERY_MODE_EXTERNAL_LOCAL
-    third_party_enabled = active_mode == DELIVERY_MODE_THIRD_PARTY
-    external_enabled = external_local_enabled or third_party_enabled
+    external_enabled = bool(external_local_enabled or third_party_enabled)
 
-    settings["active_delivery_mode"] = active_mode
-    settings["in_house_delivery_enabled"] = in_house_enabled
-    settings["external_local_delivery_enabled"] = external_local_enabled
-    settings["third_party_shipping_enabled"] = third_party_enabled
-    settings["external_delivery_enabled"] = external_enabled
+    settings["delivery_operation_mode"] = operation_mode
+    settings["delivery_routing_mode"] = routing_mode
+    settings["active_delivery_mode"] = active_delivery_mode
+    settings["in_house_delivery_enabled"] = bool(in_house_enabled)
+    settings["external_local_delivery_enabled"] = bool(external_local_enabled)
+    settings["third_party_shipping_enabled"] = bool(third_party_enabled)
+    settings["external_delivery_enabled"] = bool(external_enabled)
+    settings["shiprocket_shipping_enabled"] = bool(third_party_enabled)
 
-    settings["delivery_boy_panel_enabled"] = in_house_enabled
-    settings["delivery_assignment_enabled"] = in_house_enabled
-    settings["delivery_tracking_enabled"] = in_house_enabled
-    settings["cod_rider_collection_enabled"] = in_house_enabled
+    settings["delivery_boy_panel_enabled"] = bool(in_house_enabled)
+    settings["delivery_assignment_enabled"] = bool(in_house_enabled)
+    settings["delivery_tracking_enabled"] = bool(in_house_enabled)
+    settings["cod_rider_collection_enabled"] = bool(in_house_enabled)
 
-    # Keep return/refund ON only for in-house mode in the first safe phase,
-    # unless Admin explicitly enables it later from policy pages.
-    settings["return_refund_enabled"] = bool(settings.get("return_refund_enabled", in_house_enabled)) and in_house_enabled
+    settings["return_refund_enabled"] = bool(settings.get("return_refund_enabled", in_house_enabled))
 
-    settings["external_payment_rule"] = _external_payment_rule_normalize(
-        settings.get("external_payment_rule")
+    legacy_rule = _external_payment_rule_normalize(settings.get("external_payment_rule"))
+
+    if "delivery_payment_methods" in stored_row:
+        delivery_payment_methods = _delivery_payment_methods_normalize(settings.get("delivery_payment_methods"))
+    else:
+        delivery_payment_methods, _legacy_cod_method = _payment_methods_from_legacy_external_rule(
+            legacy_rule,
+            legacy_active_mode,
+        )
+
+    allow_online_payment = delivery_payment_methods in [
+        DELIVERY_PAYMENT_ONLINE_ONLY,
+        DELIVERY_PAYMENT_ONLINE_AND_COD,
+    ]
+    allow_cod_payment = delivery_payment_methods in [
+        DELIVERY_PAYMENT_COD_ONLY,
+        DELIVERY_PAYMENT_ONLINE_AND_COD,
+    ]
+
+    if not allow_online_payment and not allow_cod_payment:
+        allow_online_payment = True
+        delivery_payment_methods = DELIVERY_PAYMENT_ONLINE_ONLY
+
+    # Backend keeps COD internally for compatibility. UI/business wording is
+    # "Pay Online on Delivery". In-house keeps old rider collection flow.
+    # External Local means customer pays Store/NE FRESH by UPI/online at handover;
+    # Shiprocket is forced Online-only per order to avoid courier COD conflicts.
+    cod_collection_method = (
+        COD_COLLECTION_DELIVERY_BOY
+        if in_house_enabled
+        else COD_COLLECTION_STORE
+    ) if allow_cod_payment else ""
+
+    settings["delivery_payment_methods"] = delivery_payment_methods
+    settings["allow_online_payment"] = bool(allow_online_payment)
+    settings["allow_cod_payment"] = bool(allow_cod_payment)
+    settings["cod_collection_method"] = cod_collection_method
+    settings["external_payment_rule"] = _external_payment_rule_from_methods(
+        DELIVERY_MODE_EXTERNAL_LOCAL,
+        allow_cod_payment,
+        COD_COLLECTION_STORE if allow_cod_payment else "",
     )
-    settings["external_local_provider"] = (settings.get("external_local_provider") or "MANUAL_HYPERLOCAL").strip().upper()
-    settings["third_party_provider"] = (settings.get("third_party_provider") or "SHIPROCKET").strip().upper()
+
+    settings["external_local_provider"] = "LOCAL_DELIVERY_PARTNER"
+    settings["third_party_provider"] = "SHIPROCKET"
 
     return settings
-
 
 def get_external_delivery_settings():
     settings = dict(DEFAULT_EXTERNAL_DELIVERY_SETTINGS)
@@ -1268,6 +1616,27 @@ def get_external_delivery_settings():
         except Exception:
             settings[money_key] = DEFAULT_EXTERNAL_DELIVERY_SETTINGS[money_key]
 
+    for coord_key in ["external_default_pickup_latitude", "external_default_pickup_longitude"]:
+        try:
+            raw_coord = settings.get(coord_key)
+            settings[coord_key] = float(raw_coord) if raw_coord not in [None, ""] else None
+        except Exception:
+            settings[coord_key] = None
+
+    settings["external_service_zone_enabled"] = bool(settings.get("external_service_zone_enabled", False))
+
+    raw_polygon = settings.get("external_service_zone_polygon") or []
+    if isinstance(raw_polygon, str):
+        try:
+            raw_polygon = json.loads(raw_polygon)
+        except Exception:
+            raw_polygon = []
+
+    try:
+        settings["external_service_zone_polygon"] = _clean_delivery_polygon(raw_polygon)
+    except Exception:
+        settings["external_service_zone_polygon"] = []
+
     return settings
 
 
@@ -1300,12 +1669,20 @@ def get_active_delivery_mode():
     return settings.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
 
 
-def get_order_delivery_mode_snapshot():
+def get_order_delivery_mode_snapshot(selected_mode=None):
     """
-    Snapshot used when creating new orders so old orders do not change if Admin later changes mode.
+    Snapshot used when creating new orders so old orders do not change if Admin later changes routing settings.
+    selected_mode should be the mode chosen by checkout routing for this specific order.
     """
     settings = get_delivery_mode_settings()
-    active_mode = settings.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
+
+    if selected_mode:
+        active_mode = _delivery_mode_normalize(selected_mode)
+    elif settings.get("delivery_routing_mode") == DELIVERY_ROUTING_MODE_AUTO:
+        active_mode = _first_enabled_delivery_mode(settings)
+    else:
+        active_mode = _delivery_mode_normalize(settings.get("active_delivery_mode"))
+
     in_house = active_mode == DELIVERY_MODE_IN_HOUSE
     external_enabled = active_mode in [DELIVERY_MODE_EXTERNAL_LOCAL, DELIVERY_MODE_THIRD_PARTY]
 
@@ -1313,14 +1690,39 @@ def get_order_delivery_mode_snapshot():
         delivery_type = "OWN_DELIVERY"
         provider_type = "IN_HOUSE"
         default_status = "NOT_APPLICABLE"
+        allow_online_payment = bool(settings.get("allow_online_payment", True))
+        allow_cod_payment = bool(settings.get("allow_cod_payment", True))
+        cod_collection_method = COD_COLLECTION_DELIVERY_BOY if allow_cod_payment else ""
+        external_payment_rule = EXTERNAL_PAYMENT_RULE_COD_STORE
+        provider = "IN_HOUSE"
     elif active_mode == DELIVERY_MODE_THIRD_PARTY:
         delivery_type = "THIRD_PARTY_SHIPPING_PENDING"
         provider_type = "COURIER"
-        default_status = "PENDING_THIRD_PARTY_SHIPMENT"
+        default_status = "PENDING_SHIPROCKET_SHIPMENT"
+        # Shiprocket/courier is online-only in this simplified business model.
+        allow_online_payment = True
+        allow_cod_payment = False
+        cod_collection_method = ""
+        external_payment_rule = EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+        provider = "SHIPROCKET"
     else:
-        delivery_type = "EXTERNAL_LOCAL_DELIVERY_PENDING"
-        provider_type = "HYPERLOCAL"
-        default_status = "PENDING_EXTERNAL_LOCAL_BOOKING"
+        delivery_type = "EXTERNAL_LOCAL_DELIVERY_REFERENCE_ONLY"
+        provider_type = "LOCAL_DELIVERY"
+        default_status = "ORDER_PLACED_EXTERNAL_LOCAL"
+        allow_online_payment = bool(settings.get("allow_online_payment", True))
+        allow_cod_payment = bool(settings.get("allow_cod_payment", True))
+        cod_collection_method = COD_COLLECTION_STORE if allow_cod_payment else ""
+        external_payment_rule = _external_payment_rule_from_methods(
+            DELIVERY_MODE_EXTERNAL_LOCAL,
+            allow_cod_payment,
+            COD_COLLECTION_STORE if allow_cod_payment else "",
+        )
+        provider = "LOCAL_DELIVERY_PARTNER"
+
+    delivery_payment_methods = _delivery_payment_methods_from_flags(
+        allow_online_payment,
+        allow_cod_payment,
+    )
 
     return {
         "active_delivery_mode": active_mode,
@@ -1329,9 +1731,14 @@ def get_order_delivery_mode_snapshot():
         "delivery_type": delivery_type,
         "external_delivery_provider_type": provider_type,
         "external_delivery_status": default_status,
-        "external_payment_rule": settings.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
-        "external_local_provider": settings.get("external_local_provider") or "MANUAL_HYPERLOCAL",
-        "third_party_provider": settings.get("third_party_provider") or "SHIPROCKET",
+        "external_payment_rule": external_payment_rule,
+        "delivery_payment_methods": delivery_payment_methods,
+        "allow_online_payment": bool(allow_online_payment),
+        "allow_cod_payment": bool(allow_cod_payment),
+        "cod_collection_method": cod_collection_method,
+        "external_local_provider": "LOCAL_DELIVERY_PARTNER",
+        "third_party_provider": "SHIPROCKET",
+        "external_delivery_provider": provider,
     }
 
 
@@ -1340,6 +1747,28 @@ def get_order_delivery_mode_snapshot():
 # =========================================================
 # DELIVERY MODE UI HELPERS
 # =========================================================
+def _delivery_payment_rule_label(settings):
+    settings = settings or {}
+    methods = settings.get("delivery_payment_methods") or DELIVERY_PAYMENT_ONLINE_AND_COD
+    cod_method = settings.get("cod_collection_method") or ""
+
+    if methods == DELIVERY_PAYMENT_ONLINE_ONLY:
+        return "Online payment only"
+
+    if methods == DELIVERY_PAYMENT_COD_ONLY:
+        if cod_method == COD_COLLECTION_EXTERNAL_PARTNER:
+            return "Pay Online on Delivery - partner collection"
+        if cod_method == COD_COLLECTION_STORE:
+            return "Pay Online on Delivery - store/NE FRESH collection"
+        return "Pay Online on Delivery - delivery boy collection"
+
+    if cod_method == COD_COLLECTION_EXTERNAL_PARTNER:
+        return "Online + Pay Online on Delivery - partner collection"
+    if cod_method == COD_COLLECTION_STORE:
+        return "Online + Pay Online on Delivery - store/NE FRESH collection"
+    return "Online + Pay Online on Delivery - delivery boy collection"
+
+
 def get_delivery_mode_ui_context(settings=None):
     """
     Small template-safe dictionary used by dashboards / checkout / tracking.
@@ -1350,7 +1779,52 @@ def get_delivery_mode_ui_context(settings=None):
     """
     settings = settings or get_delivery_mode_settings()
     active_mode = settings.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
-    external_rule = settings.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+    external_rule = settings.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_COD_STORE
+    allow_cod_payment = bool(settings.get("allow_cod_payment", True))
+    allow_online_payment = bool(settings.get("allow_online_payment", True))
+    payment_rule_label = _delivery_payment_rule_label(settings)
+
+    if settings.get("delivery_routing_mode") == DELIVERY_ROUTING_MODE_AUTO and not settings.get("_force_single_mode_ui"):
+        enabled_labels = []
+        if settings.get("in_house_delivery_enabled"):
+            enabled_labels.append("In-house")
+        if settings.get("external_local_delivery_enabled"):
+            enabled_labels.append("External Local")
+        if settings.get("third_party_shipping_enabled"):
+            enabled_labels.append("Shiprocket")
+
+        enabled_text = " + ".join(enabled_labels) if enabled_labels else "In-house"
+
+        return {
+            "active_mode": DELIVERY_ROUTING_MODE_AUTO,
+            "mode": DELIVERY_ROUTING_MODE_AUTO,
+            "is_in_house": bool(settings.get("in_house_delivery_enabled", True)),
+            "is_external": True,
+            "is_external_local": bool(settings.get("external_local_delivery_enabled", False)),
+            "is_third_party": bool(settings.get("third_party_shipping_enabled", False)),
+            "label": "Connected External Delivery Routing",
+            "short_label": "External Routing",
+            "icon": "🚚",
+            "provider": "AUTO",
+            "provider_label": f"External route selected at checkout ({enabled_text})",
+            "provider_type": "External Routing",
+            "fee_label": "External Route Delivery Charge",
+            "checkout_note": "When Connected External Delivery is active, checkout chooses External Local or Shiprocket and calculates the correct fee before payment.",
+            "customer_track_title": "Delivery Tracking",
+            "customer_track_copy": "Tracking details depend on the delivery route selected for this order.",
+            "store_dashboard_title": "Connected External Delivery Routing",
+            "store_dashboard_copy": "External Local orders use hard-coded fare, and outside-local orders use Shiprocket.",
+            "admin_dashboard_title": "Connected External Delivery Routing",
+            "admin_dashboard_copy": "Checkout chooses the external route per order based on local distance/zone and Shiprocket availability.",
+            "cod_allowed": allow_cod_payment,
+            "online_allowed": allow_online_payment,
+            "online_only": allow_online_payment and not allow_cod_payment,
+            "payment_rule": external_rule,
+            "payment_rule_label": payment_rule_label,
+            "primary_store_action": "Store Orders",
+            "primary_admin_action": "Delivery Operation Settings",
+            "view_all_label": "View Orders",
+        }
 
     if active_mode == DELIVERY_MODE_THIRD_PARTY:
         provider = settings.get("third_party_provider") or "SHIPROCKET"
@@ -1374,18 +1848,15 @@ def get_delivery_mode_ui_context(settings=None):
             "store_dashboard_title": "Courier Shipping Mode",
             "store_dashboard_copy": "Prepare the package and mark it ready for external courier booking. Delivery-boy assignment is hidden for this mode.",
             "admin_dashboard_title": "Courier / Shiprocket Mode Active",
-            "admin_dashboard_copy": "Orders are routed to the external delivery dashboard for AWB/tracking updates.",
-            "cod_allowed": external_rule in [EXTERNAL_PAYMENT_RULE_COD_STORE, EXTERNAL_PAYMENT_RULE_COD_PARTNER],
-            "online_only": external_rule == EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+            "admin_dashboard_copy": "Orders are routed to the Shiprocket shipments page for AWB/tracking updates.",
+            "cod_allowed": allow_cod_payment,
+            "online_allowed": allow_online_payment,
+            "online_only": allow_online_payment and not allow_cod_payment,
             "payment_rule": external_rule,
-            "payment_rule_label": {
-                EXTERNAL_PAYMENT_RULE_ONLINE_ONLY: "Online payment only",
-                EXTERNAL_PAYMENT_RULE_COD_STORE: "COD by store/internal collection",
-                EXTERNAL_PAYMENT_RULE_COD_PARTNER: "COD by courier/partner collection",
-            }.get(external_rule, "Online payment only"),
-            "primary_store_action": "External Delivery",
-            "primary_admin_action": "External Delivery Orders",
-            "view_all_label": "View All External Orders",
+            "payment_rule_label": payment_rule_label,
+            "primary_store_action": "Shiprocket Shipments",
+            "primary_admin_action": "Shiprocket Shipments",
+            "view_all_label": "View Shiprocket Shipments",
         }
 
     if active_mode == DELIVERY_MODE_EXTERNAL_LOCAL:
@@ -1398,30 +1869,27 @@ def get_delivery_mode_ui_context(settings=None):
             "is_external_local": True,
             "is_third_party": False,
             "label": "External Local Delivery",
-            "short_label": "Rapido / Zomato Style",
+            "short_label": "External Local",
             "icon": "⚡",
             "provider": provider,
             "provider_label": str(provider).replace("_", " ").title(),
             "provider_type": "Hyperlocal",
             "fee_label": "External Local Delivery Charge",
-            "checkout_note": "Delivery charge is quoted from the hyperlocal partner layer or from Admin fallback distance settings.",
+            "checkout_note": "Delivery charge is calculated from Admin hard-coded local fare rules. No live Rapido/Ola/Uber booking is stored.",
             "customer_track_title": "External Local Delivery Tracking",
-            "customer_track_copy": "Your order will move through store preparing, ready for pickup, partner booked, picked up, out for delivery and delivered stages.",
+            "customer_track_copy": "Use your NE FRESH order reference for local delivery support. No live Rapido/Ola/Uber tracking record is stored in NE FRESH.",
             "store_dashboard_title": "External Local Delivery Mode",
-            "store_dashboard_copy": "Prepare the order and mark it ready for partner pickup. Delivery-boy assignment is hidden for this mode.",
+            "store_dashboard_copy": "Handle this order normally and use the NE FRESH order reference. No external local booking dashboard is created.",
             "admin_dashboard_title": "External Local Delivery Mode Active",
-            "admin_dashboard_copy": "Orders are routed to the external delivery dashboard for partner booking and status updates.",
-            "cod_allowed": external_rule in [EXTERNAL_PAYMENT_RULE_COD_STORE, EXTERNAL_PAYMENT_RULE_COD_PARTNER],
-            "online_only": external_rule == EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+            "admin_dashboard_copy": "External local orders use hard-coded fare and the NE FRESH order reference only. Shiprocket shipments are managed separately.",
+            "cod_allowed": allow_cod_payment,
+            "online_allowed": allow_online_payment,
+            "online_only": allow_online_payment and not allow_cod_payment,
             "payment_rule": external_rule,
-            "payment_rule_label": {
-                EXTERNAL_PAYMENT_RULE_ONLINE_ONLY: "Online payment only",
-                EXTERNAL_PAYMENT_RULE_COD_STORE: "COD by store/internal collection",
-                EXTERNAL_PAYMENT_RULE_COD_PARTNER: "COD by delivery partner collection",
-            }.get(external_rule, "Online payment only"),
-            "primary_store_action": "External Delivery",
-            "primary_admin_action": "External Delivery Orders",
-            "view_all_label": "View All External Orders",
+            "payment_rule_label": payment_rule_label,
+            "primary_store_action": "Normal Orders",
+            "primary_admin_action": "Delivery Operation Settings",
+            "view_all_label": "View Normal Orders",
         }
 
     return {
@@ -1445,10 +1913,11 @@ def get_delivery_mode_ui_context(settings=None):
         "store_dashboard_copy": "Use store order management to prepare orders, mark shipment ready and assign NE FRESH delivery boys.",
         "admin_dashboard_title": "In-house Delivery Mode Active",
         "admin_dashboard_copy": "Delivery boy dashboard, delivery assignment and rider cash settlement are active.",
-        "cod_allowed": True,
-        "online_only": False,
+        "cod_allowed": allow_cod_payment,
+        "online_allowed": allow_online_payment,
+        "online_only": allow_online_payment and not allow_cod_payment,
         "payment_rule": "IN_HOUSE",
-        "payment_rule_label": "COD and online allowed",
+        "payment_rule_label": payment_rule_label,
         "primary_store_action": "Delivery Control",
         "primary_admin_action": "Delivery Overview",
         "view_all_label": "View All Orders",
@@ -1467,6 +1936,7 @@ def get_order_delivery_mode_ui(order_doc=None):
         or DELIVERY_MODE_IN_HOUSE
     )
     settings["active_delivery_mode"] = _delivery_mode_normalize(order_mode)
+    settings["_force_single_mode_ui"] = True
 
     if settings["active_delivery_mode"] == DELIVERY_MODE_THIRD_PARTY:
         settings["third_party_provider"] = (
@@ -1486,7 +1956,27 @@ def get_order_delivery_mode_ui(order_doc=None):
     settings["external_payment_rule"] = (
         order_doc.get("external_payment_rule")
         or settings.get("external_payment_rule")
-        or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+        or EXTERNAL_PAYMENT_RULE_COD_STORE
+    )
+    settings["delivery_payment_methods"] = (
+        order_doc.get("delivery_payment_methods")
+        or settings.get("delivery_payment_methods")
+        or DELIVERY_PAYMENT_ONLINE_AND_COD
+    )
+    settings["allow_online_payment"] = bool(
+        order_doc.get("allow_online_payment")
+        if order_doc.get("allow_online_payment") is not None
+        else settings.get("allow_online_payment", True)
+    )
+    settings["allow_cod_payment"] = bool(
+        order_doc.get("allow_cod_payment")
+        if order_doc.get("allow_cod_payment") is not None
+        else settings.get("allow_cod_payment", True)
+    )
+    settings["cod_collection_method"] = (
+        order_doc.get("cod_collection_method")
+        or settings.get("cod_collection_method")
+        or COD_COLLECTION_DELIVERY_BOY
     )
 
     return get_delivery_mode_ui_context(settings)
@@ -2316,40 +2806,261 @@ def _checkout_common_delivery_block(store, customer_lat, customer_lng, customer_
     }, None
 
 
-def check_checkout_delivery_quote(store, customer_lat, customer_lng, customer_pincode=None, items_total=None, payment_method=None):
-    """Checkout delivery fee and availability for all delivery modes.
+def _checkout_common_error_for_mode(error, mode, settings=None):
+    error = dict(error or {})
+    snapshot = get_order_delivery_mode_snapshot(mode)
+    error.update({
+        "active_delivery_mode": mode,
+        "delivery_type": snapshot.get("delivery_type"),
+        "external_delivery_enabled": mode in [DELIVERY_MODE_EXTERNAL_LOCAL, DELIVERY_MODE_THIRD_PARTY],
+        "external_delivery_provider": snapshot.get("external_delivery_provider") or snapshot.get("third_party_provider") or snapshot.get("external_local_provider"),
+        "external_delivery_provider_type": snapshot.get("external_delivery_provider_type"),
+        "external_delivery_quote": {},
+        "cod_allowed": bool(snapshot.get("allow_cod_payment")),
+        "online_allowed": bool(snapshot.get("allow_online_payment")),
+        "external_payment_rule": snapshot.get("external_payment_rule"),
+    })
+    return error
 
-    In-house mode delegates to the existing polygon/serviceability logic.
-    External modes keep item subtotal untouched and replace only delivery_fee
-    with the configured/live external delivery quote.
+
+def _quote_external_local_delivery_for_checkout(store, common, items_total, payment_method=None):
+    """Hard-coded assumed fare logic for local/Rapido-type delivery.
+
+    No Rapido/Ola/Uber booking or payment record is created. The order itself
+    remains the customer reference/tracking id.
     """
-    delivery_mode_snapshot = get_order_delivery_mode_snapshot()
-    active_mode = delivery_mode_snapshot.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
-    external_enabled = active_mode in [DELIVERY_MODE_EXTERNAL_LOCAL, DELIVERY_MODE_THIRD_PARTY]
-    payment_rule = delivery_mode_snapshot.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+    external_settings = get_external_delivery_settings()
+    settings = get_delivery_mode_settings()
+    distance_km = float(common.get("distance_km") or 0)
 
-    if not external_enabled:
-        result = check_store_serviceability(
-            store=store,
-            customer_lat=customer_lat,
-            customer_lng=customer_lng,
-            customer_pincode=customer_pincode,
-            items_total=items_total,
+    external_service_zone = external_settings.get("external_service_zone_polygon") or []
+    if external_settings.get("external_service_zone_enabled") and len(external_service_zone) >= 3:
+        inside_external_zone = point_in_polygon(
+            common.get("customer_lat"),
+            common.get("customer_lng"),
+            external_service_zone,
         )
-        result.update({
-            "active_delivery_mode": DELIVERY_MODE_IN_HOUSE,
-            "delivery_type": "OWN_DELIVERY",
-            "external_delivery_enabled": False,
-            "external_delivery_provider": "IN_HOUSE",
-            "external_delivery_provider_type": "IN_HOUSE",
-            "external_delivery_quote": {},
-            "cod_allowed": True,
-            "online_allowed": True,
-            "external_payment_rule": payment_rule,
-        })
-        return result
 
-    common, error = _checkout_common_delivery_block(
+        if not inside_external_zone:
+            return {
+                "ok": True,
+                "serviceable": False,
+                "reason": "OUTSIDE_EXTERNAL_LOCAL_ZONE",
+                "message": "This address is outside the local external delivery zone.",
+                "distance_km": round(distance_km, 2),
+                "delivery_fee": 0,
+            }
+
+    max_distance = _delivery_float_or_none(external_settings.get("external_local_max_distance_km"))
+    if max_distance is not None and max_distance > 0 and distance_km > float(max_distance):
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "OUTSIDE_EXTERNAL_LOCAL_DISTANCE",
+            "message": f"Local external delivery supports up to {max_distance:g} km. Shiprocket shipping may be used if enabled.",
+            "distance_km": round(distance_km, 2),
+            "delivery_fee": 0,
+        }
+
+    configured_min = _delivery_float_or_none(external_settings.get("external_local_min_fee")) or 0
+    configured_base = _delivery_float_or_none(external_settings.get("external_local_base_fee")) or configured_min
+    configured_per_km = _delivery_float_or_none(external_settings.get("external_local_per_km_fee")) or 0
+    delivery_fee = round(max(
+        float(configured_min or 0),
+        float(configured_base or 0) + max(distance_km, 0) * float(configured_per_km or 0),
+    ), 2)
+
+    allow_online_payment = bool(settings.get("allow_online_payment", True))
+    allow_cod_payment = bool(settings.get("allow_cod_payment", True))
+    payment_rule = _external_payment_rule_from_methods(
+        DELIVERY_MODE_EXTERNAL_LOCAL,
+        allow_cod_payment,
+        COD_COLLECTION_STORE if allow_cod_payment else "",
+    )
+
+    return {
+        "ok": True,
+        "serviceable": True,
+        "reason": "EXTERNAL_LOCAL_SELECTED",
+        "message": "Local external delivery selected. Customer order ID will be used as the delivery reference.",
+        "distance_km": round(distance_km, 2),
+        "delivery_fee": delivery_fee,
+        "delivery_fee_source": "external_local_hardcoded_fare",
+        "delivery_fee_slab": None,
+        "delivery_base_fee": float(configured_base or 0),
+        "delivery_fee_details": {
+            "delivery_fee_settings_source": "external_local_hardcoded_fare",
+            "delivery_mode": DELIVERY_MODE_EXTERNAL_LOCAL,
+            "distance_km": round(distance_km, 3),
+            "external_local_base_fee": float(configured_base or 0),
+            "external_local_per_km_fee": float(configured_per_km or 0),
+            "external_local_min_fee": float(configured_min or 0),
+            "external_local_max_distance_km": float(max_distance or 0),
+            "external_service_zone_enabled": bool(external_settings.get("external_service_zone_enabled")),
+        },
+        "active_delivery_mode": DELIVERY_MODE_EXTERNAL_LOCAL,
+        "delivery_type": "EXTERNAL_LOCAL_DELIVERY_REFERENCE_ONLY",
+        "external_delivery_enabled": True,
+        "external_delivery_provider": "LOCAL_DELIVERY_PARTNER",
+        "external_delivery_provider_type": "LOCAL_DELIVERY",
+        "external_delivery_quote": {
+            "ok": True,
+            "serviceable": True,
+            "provider": "LOCAL_DELIVERY_PARTNER",
+            "provider_type": "LOCAL_DELIVERY",
+            "delivery_fee": delivery_fee,
+            "delivery_fee_source": "external_local_hardcoded_fare",
+            "quote_status": "HARDCODED_LOCAL_FARE",
+            "message": "Assumed local delivery fare applied. No live Rapido/Ola/Uber API booking is created.",
+            "raw_response": {},
+        },
+        "external_payment_rule": payment_rule,
+        "cod_allowed": bool(allow_cod_payment),
+        "online_allowed": bool(allow_online_payment),
+        "eta_minutes": int(max(20, min(120, 20 + distance_km * 5))) if distance_km else None,
+    }
+
+
+def _quote_shiprocket_delivery_for_checkout(store, common, customer_pincode=None, items_total=None, payment_method=None, cart_items=None):
+    """Courier/Shiprocket quote logic for outside-local-range shipping."""
+    external_settings = get_external_delivery_settings()
+    distance_km = float(common.get("distance_km") or 0)
+
+    max_distance = _delivery_float_or_none(external_settings.get("third_party_max_distance_km"))
+    if max_distance is not None and max_distance > 0 and distance_km > float(max_distance):
+        return {
+            "ok": True,
+            "serviceable": False,
+            "reason": "SHIPROCKET_DISTANCE_LIMIT",
+            "message": f"Courier shipping supports up to {max_distance:g} km from the store.",
+            "distance_km": round(distance_km, 2),
+            "delivery_fee": 0,
+        }
+
+    configured_min = _delivery_float_or_none(external_settings.get("third_party_min_fee")) or 0
+    configured_base = _delivery_float_or_none(external_settings.get("third_party_base_fee")) or configured_min
+    configured_per_km = _delivery_float_or_none(external_settings.get("third_party_per_km_fee")) or 0
+    manual_fee = round(max(
+        float(configured_min or 0),
+        float(configured_base or 0) + max(distance_km, 0) * float(configured_per_km or 0),
+    ), 2)
+
+    payload = {
+        "provider": "SHIPROCKET",
+        "provider_type": "COURIER",
+        "mode": DELIVERY_MODE_THIRD_PARTY,
+        "payment_method": "ONLINE",
+        "payment_rule": EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+        "cod_amount": 0.0,
+        "order_amount": float(items_total or 0),
+        "distance_km": round(distance_km, 3),
+        "fallback_delivery_fee": manual_fee,
+        "pickup": {
+            "store_id": str(store.get("_id") or ""),
+            "store_name": store.get("store_name") or store.get("name") or "NE FRESH Store",
+            "latitude": common.get("store_lat"),
+            "longitude": common.get("store_lng"),
+            "pincode": store.get("pincode") or store.get("pickup_pincode") or external_settings.get("shiprocket_pickup_pincode") or "",
+        },
+        "drop": {
+            "pincode": customer_pincode or "",
+            "latitude": common.get("customer_lat"),
+            "longitude": common.get("customer_lng"),
+        },
+        "package": build_checkout_package_snapshot(cart_items, external_settings),
+    }
+
+    try:
+        from services.delivery_integrations.quote_service import quote_external_delivery
+        quote = quote_external_delivery(payload, external_settings, DELIVERY_MODE_THIRD_PARTY, payment_rule=EXTERNAL_PAYMENT_RULE_ONLINE_ONLY)
+    except Exception as exc:
+        quote = {
+            "ok": True,
+            "serviceable": True,
+            "provider": "SHIPROCKET",
+            "provider_type": "COURIER",
+            "delivery_fee": manual_fee,
+            "delivery_fee_source": "shiprocket_exception_fallback",
+            "quote_status": "EXCEPTION_FALLBACK",
+            "message": f"Shiprocket quote fallback applied. {exc}",
+            "raw_response": {},
+        }
+
+    delivery_fee = round(float(quote.get("delivery_fee") or manual_fee or 0), 2)
+
+    return {
+        "ok": True,
+        "serviceable": bool(quote.get("serviceable", True)),
+        "reason": "SHIPROCKET_SELECTED" if quote.get("serviceable", True) else "SHIPROCKET_UNAVAILABLE",
+        "message": quote.get("message") or "Shiprocket/courier shipping selected.",
+        "distance_km": round(distance_km, 2),
+        "delivery_fee": delivery_fee,
+        "delivery_fee_source": quote.get("delivery_fee_source") or "shiprocket_quote",
+        "delivery_fee_slab": quote.get("delivery_fee_slab"),
+        "delivery_base_fee": float(configured_base or 0),
+        "delivery_fee_details": {
+            "delivery_fee_settings_source": "shiprocket_quote_or_fallback",
+            "delivery_mode": DELIVERY_MODE_THIRD_PARTY,
+            "external_provider": quote.get("provider") or "SHIPROCKET",
+            "external_provider_type": "COURIER",
+            "external_quote_status": quote.get("quote_status") or "QUOTE",
+            "external_quote_message": quote.get("message") or "Shiprocket/courier quote applied.",
+            "external_quote_raw": quote.get("raw_response") or {},
+            "distance_km": round(distance_km, 3),
+            "manual_fallback_fee": manual_fee,
+            "package_snapshot": payload.get("package") or {},
+        },
+        "external_package_snapshot": payload.get("package") or {},
+        "active_delivery_mode": DELIVERY_MODE_THIRD_PARTY,
+        "delivery_type": "THIRD_PARTY_SHIPPING_PENDING",
+        "external_delivery_enabled": True,
+        "external_delivery_provider": "SHIPROCKET",
+        "external_delivery_provider_type": "COURIER",
+        "external_delivery_quote": quote,
+        "external_payment_rule": EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+        "cod_allowed": False,
+        "online_allowed": True,
+        "eta_minutes": quote.get("eta_minutes"),
+    }
+
+
+def check_checkout_delivery_quote(store, customer_lat, customer_lng, customer_pincode=None, items_total=None, payment_method=None, cart_items=None):
+    """Checkout delivery fee and availability.
+
+    Operation rules:
+    1. In-house operation mode checks only the existing in-house/store zone flow.
+    2. Connected external operation mode disables in-house and routes orders to
+       External Local first, then Shiprocket/Courier for outside-local range.
+    """
+    settings = get_delivery_mode_settings()
+    routing_mode = settings.get("delivery_routing_mode") or DELIVERY_ROUTING_MODE_AUTO
+
+    # Manual legacy fallback is still supported, but Admin UI now uses the simplified operation mode.
+    if routing_mode == DELIVERY_ROUTING_MODE_MANUAL:
+        manual_mode = _delivery_mode_normalize(settings.get("active_delivery_mode"))
+        if manual_mode == DELIVERY_MODE_IN_HOUSE:
+            result = check_store_serviceability(
+                store=store,
+                customer_lat=customer_lat,
+                customer_lng=customer_lng,
+                customer_pincode=customer_pincode,
+                items_total=items_total,
+            )
+            snapshot = get_order_delivery_mode_snapshot(DELIVERY_MODE_IN_HOUSE)
+            result.update({
+                "active_delivery_mode": DELIVERY_MODE_IN_HOUSE,
+                "delivery_type": "OWN_DELIVERY",
+                "external_delivery_enabled": False,
+                "external_delivery_provider": "IN_HOUSE",
+                "external_delivery_provider_type": "IN_HOUSE",
+                "external_delivery_quote": {},
+                "cod_allowed": bool(snapshot.get("allow_cod_payment")),
+                "online_allowed": bool(snapshot.get("allow_online_payment")),
+                "external_payment_rule": snapshot.get("external_payment_rule"),
+            })
+            return result
+
+    common, common_error = _checkout_common_delivery_block(
         store=store,
         customer_lat=customer_lat,
         customer_lng=customer_lng,
@@ -2357,160 +3068,78 @@ def check_checkout_delivery_quote(store, customer_lat, customer_lng, customer_pi
         items_total=items_total,
     )
 
-    provider = (
-        delivery_mode_snapshot.get("third_party_provider")
-        if active_mode == DELIVERY_MODE_THIRD_PARTY
-        else delivery_mode_snapshot.get("external_local_provider")
-    ) or "MANUAL_HYPERLOCAL"
+    if common_error:
+        return _checkout_common_error_for_mode(common_error, _first_enabled_delivery_mode(settings), settings)
 
-    provider_type = delivery_mode_snapshot.get("external_delivery_provider_type") or (
-        "COURIER" if active_mode == DELIVERY_MODE_THIRD_PARTY else "HYPERLOCAL"
-    )
+    attempted_messages = []
 
-    if error:
-        error.update({
-            "active_delivery_mode": active_mode,
-            "delivery_type": delivery_mode_snapshot.get("delivery_type"),
-            "external_delivery_enabled": True,
-            "external_delivery_provider": provider,
-            "external_delivery_provider_type": provider_type,
-            "external_delivery_quote": {},
-            "cod_allowed": payment_rule in [EXTERNAL_PAYMENT_RULE_COD_STORE, EXTERNAL_PAYMENT_RULE_COD_PARTNER],
-            "online_allowed": True,
-            "external_payment_rule": payment_rule,
-        })
-        return error
+    if settings.get("in_house_delivery_enabled"):
+        in_house_result = check_store_serviceability(
+            store=store,
+            customer_lat=customer_lat,
+            customer_lng=customer_lng,
+            customer_pincode=customer_pincode,
+            items_total=items_total,
+        )
+        if in_house_result.get("serviceable"):
+            snapshot = get_order_delivery_mode_snapshot(DELIVERY_MODE_IN_HOUSE)
+            in_house_result.update({
+                "active_delivery_mode": DELIVERY_MODE_IN_HOUSE,
+                "delivery_type": "OWN_DELIVERY",
+                "external_delivery_enabled": False,
+                "external_delivery_provider": "IN_HOUSE",
+                "external_delivery_provider_type": "IN_HOUSE",
+                "external_delivery_quote": {},
+                "cod_allowed": bool(snapshot.get("allow_cod_payment")),
+                "online_allowed": bool(snapshot.get("allow_online_payment")),
+                "external_payment_rule": snapshot.get("external_payment_rule"),
+                "routing_reason": "IN_HOUSE_SERVICEABLE",
+            })
+            return in_house_result
+        attempted_messages.append(in_house_result.get("message") or "In-house delivery is not available for this address.")
 
-    distance_km = common.get("distance_km")
-    external_settings = get_external_delivery_settings()
+    if settings.get("external_local_delivery_enabled"):
+        local_result = _quote_external_local_delivery_for_checkout(
+            store=store,
+            common=common,
+            items_total=items_total,
+            payment_method=payment_method,
+        )
+        if local_result.get("serviceable"):
+            local_result["routing_reason"] = "EXTERNAL_LOCAL_DISTANCE_MATCHED"
+            return local_result
+        attempted_messages.append(local_result.get("message") or "External local delivery is not available for this address.")
 
-    max_distance_key = "third_party_max_distance_km" if active_mode == DELIVERY_MODE_THIRD_PARTY else "external_local_max_distance_km"
-    max_distance = _delivery_float_or_none(external_settings.get(max_distance_key))
-
-    if max_distance is not None and max_distance > 0 and distance_km is not None and float(distance_km) > max_distance:
-        return {
-            "ok": True,
-            "serviceable": False,
-            "reason": "EXTERNAL_DELIVERY_DISTANCE_LIMIT",
-            "message": f"This external delivery mode supports up to {max_distance:g} km from the store.",
-            "distance_km": round(float(distance_km or 0), 2),
-            "delivery_fee": 0,
-            "active_delivery_mode": active_mode,
-            "delivery_type": delivery_mode_snapshot.get("delivery_type"),
-            "external_delivery_enabled": True,
-            "external_delivery_provider": provider,
-            "external_delivery_provider_type": provider_type,
-            "external_delivery_quote": {},
-            "cod_allowed": payment_rule in [EXTERNAL_PAYMENT_RULE_COD_STORE, EXTERNAL_PAYMENT_RULE_COD_PARTNER],
-            "online_allowed": True,
-            "external_payment_rule": payment_rule,
-        }
-
-    # Existing in-house fee is used as an additional safe fallback reference.
-    fallback_details = calculate_store_delivery_fee_details(
-        store,
-        distance_km,
-        items_total=items_total,
-    )
-    fallback_fee = float(fallback_details.get("delivery_fee") or 0)
-
-    if active_mode == DELIVERY_MODE_THIRD_PARTY:
-        configured_min = _delivery_float_or_none(external_settings.get("third_party_min_fee")) or 0
-        configured_base = _delivery_float_or_none(external_settings.get("third_party_base_fee")) or configured_min
-        configured_per_km = _delivery_float_or_none(external_settings.get("third_party_per_km_fee")) or 0
-    else:
-        configured_min = _delivery_float_or_none(external_settings.get("external_local_min_fee")) or 0
-        configured_base = _delivery_float_or_none(external_settings.get("external_local_base_fee")) or configured_min
-        configured_per_km = _delivery_float_or_none(external_settings.get("external_local_per_km_fee")) or 0
-
-    manual_fee = max(
-        float(configured_min or 0),
-        float(configured_base or 0) + max(float(distance_km or 0), 0) * float(configured_per_km or 0),
-        float(fallback_fee or 0),
-    )
-
-    payload = {
-        "provider": provider,
-        "provider_type": provider_type,
-        "mode": active_mode,
-        "payment_method": (payment_method or "").upper(),
-        "payment_rule": payment_rule,
-        "cod_amount": 0.0,
-        "order_amount": float(items_total or 0),
-        "distance_km": round(float(distance_km or 0), 3),
-        "fallback_delivery_fee": round(float(manual_fee or 0), 2),
-        "pickup": {
-            "store_id": str(store.get("_id") or ""),
-            "store_name": store.get("store_name") or store.get("name") or "NE FRESH Store",
-            "latitude": common.get("store_lat"),
-            "longitude": common.get("store_lng"),
-            "pincode": store.get("pincode") or store.get("pickup_pincode") or "",
-        },
-        "drop": {
-            "pincode": customer_pincode or "",
-            "latitude": common.get("customer_lat"),
-            "longitude": common.get("customer_lng"),
-        },
-        "package": {
-            "weight_kg": _delivery_float_or_none(external_settings.get("default_package_weight_kg")) or 1.0,
-            "length_cm": _delivery_float_or_none(external_settings.get("default_package_length_cm")) or 10.0,
-            "breadth_cm": _delivery_float_or_none(external_settings.get("default_package_breadth_cm")) or 10.0,
-            "height_cm": _delivery_float_or_none(external_settings.get("default_package_height_cm")) or 10.0,
-        },
-    }
-
-    try:
-        from services.delivery_integrations.quote_service import quote_external_delivery
-        quote = quote_external_delivery(payload, external_settings, active_mode, payment_rule=payment_rule)
-    except Exception as exc:
-        quote = {
-            "ok": True,
-            "serviceable": True,
-            "provider": provider,
-            "provider_type": provider_type,
-            "delivery_fee": round(float(manual_fee or 0), 2),
-            "delivery_fee_source": "external_manual_quote_exception_fallback",
-            "quote_status": "EXCEPTION_FALLBACK",
-            "message": f"External quote fallback applied. {exc}",
-            "raw_response": {},
-        }
-
-    delivery_fee = round(float(quote.get("delivery_fee") or manual_fee or 0), 2)
-    cod_allowed = payment_rule in [EXTERNAL_PAYMENT_RULE_COD_STORE, EXTERNAL_PAYMENT_RULE_COD_PARTNER]
-
-    fee_details = {
-        "delivery_fee_settings_source": "external_delivery_settings",
-        "delivery_mode": active_mode,
-        "external_provider": quote.get("provider") or provider,
-        "external_provider_type": quote.get("provider_type") or provider_type,
-        "external_quote_status": quote.get("quote_status") or "QUOTE",
-        "external_quote_message": quote.get("message") or "External delivery quote applied.",
-        "external_quote_raw": quote.get("raw_response") or {},
-        "distance_km": round(float(distance_km or 0), 3),
-        "manual_fallback_fee": round(float(manual_fee or 0), 2),
-    }
+    if settings.get("third_party_shipping_enabled"):
+        shiprocket_result = _quote_shiprocket_delivery_for_checkout(
+            store=store,
+            common=common,
+            customer_pincode=customer_pincode,
+            items_total=items_total,
+            payment_method=payment_method,
+            cart_items=cart_items,
+        )
+        if shiprocket_result.get("serviceable"):
+            shiprocket_result["routing_reason"] = "SHIPROCKET_OUTSIDE_LOCAL_RANGE"
+            return shiprocket_result
+        attempted_messages.append(shiprocket_result.get("message") or "Shiprocket/courier shipping is not available for this address.")
 
     return {
         "ok": True,
-        "serviceable": bool(quote.get("serviceable", True)),
-        "reason": "SERVICEABLE" if quote.get("serviceable", True) else "EXTERNAL_DELIVERY_UNAVAILABLE",
-        "message": quote.get("message") or "External delivery is available.",
-        "distance_km": round(float(distance_km or 0), 2),
-        "delivery_fee": delivery_fee,
-        "delivery_fee_source": quote.get("delivery_fee_source") or "external_delivery_quote",
-        "delivery_fee_slab": quote.get("delivery_fee_slab"),
-        "delivery_base_fee": float(configured_base or 0),
-        "delivery_fee_details": fee_details,
-        "active_delivery_mode": active_mode,
-        "delivery_type": delivery_mode_snapshot.get("delivery_type"),
-        "external_delivery_enabled": True,
-        "external_delivery_provider": quote.get("provider") or provider,
-        "external_delivery_provider_type": quote.get("provider_type") or provider_type,
-        "external_delivery_quote": quote,
-        "external_payment_rule": payment_rule,
-        "cod_allowed": bool(cod_allowed),
-        "online_allowed": True,
-        "eta_minutes": quote.get("eta_minutes"),
+        "serviceable": False,
+        "reason": "NO_DELIVERY_CHANNEL_AVAILABLE",
+        "message": "Delivery is not available for this address. " + " ".join([m for m in attempted_messages if m]),
+        "distance_km": round(float(common.get("distance_km") or 0), 2),
+        "delivery_fee": 0,
+        "active_delivery_mode": _first_enabled_delivery_mode(settings),
+        "delivery_type": get_order_delivery_mode_snapshot(_first_enabled_delivery_mode(settings)).get("delivery_type"),
+        "external_delivery_enabled": False,
+        "external_delivery_provider": "",
+        "external_delivery_provider_type": "",
+        "external_delivery_quote": {},
+        "cod_allowed": False,
+        "online_allowed": False,
+        "external_payment_rule": EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
     }
 
 

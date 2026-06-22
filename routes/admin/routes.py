@@ -494,45 +494,105 @@ def admin_delivery_mode_settings():
     admin_user = current_user() or {}
 
     if request.method == "POST":
-        active_delivery_mode = (request.form.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE).strip().upper()
-        if active_delivery_mode not in VALID_DELIVERY_MODES:
+        existing_settings = get_delivery_mode_settings()
+
+        operation_mode = (
+            request.form.get("delivery_operation_mode")
+            or existing_settings.get("delivery_operation_mode")
+            or DELIVERY_OPERATION_IN_HOUSE_ONLY
+        ).strip().upper()
+
+        if operation_mode not in VALID_DELIVERY_OPERATION_MODES:
+            operation_mode = DELIVERY_OPERATION_IN_HOUSE_ONLY
+
+        if operation_mode == DELIVERY_OPERATION_IN_HOUSE_ONLY:
+            in_house_enabled = True
+            external_local_enabled = False
+            third_party_enabled = False
+            routing_mode = DELIVERY_ROUTING_MODE_MANUAL
             active_delivery_mode = DELIVERY_MODE_IN_HOUSE
+        else:
+            in_house_enabled = False
+            external_local_enabled = _admin_bool_from_form(
+                "external_local_delivery_enabled",
+                existing_settings.get("external_local_delivery_enabled", True),
+            )
+            third_party_enabled = _admin_bool_from_form(
+                "third_party_shipping_enabled",
+                existing_settings.get("third_party_shipping_enabled", True),
+            )
 
-        external_payment_rule = (request.form.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY).strip().upper()
-        if external_payment_rule not in VALID_EXTERNAL_PAYMENT_RULES:
-            external_payment_rule = EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+            if not external_local_enabled and not third_party_enabled:
+                external_local_enabled = True
+                flash("At least one external delivery channel is required in Connected External Delivery mode. External Local Delivery has been enabled automatically.", "warning")
 
-        external_local_provider = (request.form.get("external_local_provider") or "MANUAL_HYPERLOCAL").strip().upper()
-        third_party_provider = (request.form.get("third_party_provider") or "SHIPROCKET").strip().upper()
+            routing_mode = DELIVERY_ROUTING_MODE_AUTO
+            active_delivery_mode = (
+                DELIVERY_MODE_EXTERNAL_LOCAL
+                if external_local_enabled
+                else DELIVERY_MODE_THIRD_PARTY
+            )
 
-        in_house_enabled = active_delivery_mode == DELIVERY_MODE_IN_HOUSE
-        external_local_enabled = active_delivery_mode == DELIVERY_MODE_EXTERNAL_LOCAL
-        third_party_enabled = active_delivery_mode == DELIVERY_MODE_THIRD_PARTY
-        external_enabled = external_local_enabled or third_party_enabled
+        allow_online_payment = _admin_bool_from_form("allow_online_payment", False)
+        allow_pay_online_on_delivery = _admin_bool_from_form("allow_cod_payment", False)
+
+        if not allow_online_payment and not allow_pay_online_on_delivery:
+            allow_online_payment = True
+            flash("At least one customer payment method is required. Online Payment has been enabled automatically.", "warning")
+
+        if allow_online_payment and allow_pay_online_on_delivery:
+            delivery_payment_methods = DELIVERY_PAYMENT_ONLINE_AND_COD
+        elif allow_pay_online_on_delivery:
+            delivery_payment_methods = DELIVERY_PAYMENT_COD_ONLY
+        else:
+            delivery_payment_methods = DELIVERY_PAYMENT_ONLINE_ONLY
+
+        # Backend keeps COD fields for compatibility. Customer-facing wording is
+        # Pay Online on Delivery.
+        cod_collection_method = (
+            COD_COLLECTION_DELIVERY_BOY
+            if in_house_enabled and allow_pay_online_on_delivery
+            else (COD_COLLECTION_STORE if allow_pay_online_on_delivery else "")
+        )
+        external_payment_rule = external_payment_rule_from_methods(
+            DELIVERY_MODE_EXTERNAL_LOCAL,
+            allow_pay_online_on_delivery,
+            COD_COLLECTION_STORE if allow_pay_online_on_delivery else "",
+        )
+
+        return_refund_enabled = _admin_bool_from_form(
+            "return_refund_enabled",
+            bool(existing_settings.get("return_refund_enabled", in_house_enabled))
+        )
 
         now = datetime.utcnow().isoformat()
-
         update_data = {
             "key": DELIVERY_MODE_SETTINGS_KEY,
+            "delivery_operation_mode": operation_mode,
+            "delivery_routing_mode": routing_mode,
             "active_delivery_mode": active_delivery_mode,
 
             "in_house_delivery_enabled": bool(in_house_enabled),
             "external_local_delivery_enabled": bool(external_local_enabled),
             "third_party_shipping_enabled": bool(third_party_enabled),
-            "external_delivery_enabled": bool(external_enabled),
+            "external_delivery_enabled": bool(external_local_enabled or third_party_enabled),
+            "shiprocket_shipping_enabled": bool(third_party_enabled),
 
             "delivery_boy_panel_enabled": bool(in_house_enabled),
             "delivery_assignment_enabled": bool(in_house_enabled),
             "delivery_tracking_enabled": bool(in_house_enabled),
             "cod_rider_collection_enabled": bool(in_house_enabled),
 
-            # First safe phase: return/refund remains tied to in-house delivery.
-            # External return/RTO flows will be added after partner tracking is stable.
-            "return_refund_enabled": bool(in_house_enabled),
+            "return_refund_enabled": bool(return_refund_enabled),
 
+            "delivery_payment_methods": delivery_payment_methods,
+            "allow_online_payment": bool(allow_online_payment),
+            "allow_cod_payment": bool(allow_pay_online_on_delivery),
+            "cod_collection_method": cod_collection_method,
             "external_payment_rule": external_payment_rule,
-            "external_local_provider": external_local_provider,
-            "third_party_provider": third_party_provider,
+
+            "external_local_provider": "LOCAL_DELIVERY_PARTNER",
+            "third_party_provider": "SHIPROCKET",
 
             "updated_at": now,
             "updated_by": str(admin_user.get("_id") or admin_user.get("id") or ""),
@@ -543,66 +603,43 @@ def admin_delivery_mode_settings():
             {"key": DELIVERY_MODE_SETTINGS_KEY},
             {
                 "$set": update_data,
-                "$setOnInsert": {
-                    "created_at": now,
-                }
+                "$setOnInsert": {"created_at": now}
             },
             upsert=True
         )
 
-        if active_delivery_mode == DELIVERY_MODE_IN_HOUSE:
-            flash("In-house delivery system enabled successfully.", "success")
-        elif active_delivery_mode == DELIVERY_MODE_EXTERNAL_LOCAL:
-            flash("External local delivery mode enabled. Orders will be prepared for hyperlocal partner booking.", "success")
+        if operation_mode == DELIVERY_OPERATION_IN_HOUSE_ONLY:
+            flash("In-house Delivery mode saved. External delivery channels are disabled while in-house is active.", "success")
         else:
-            flash("Third-party shipping mode enabled. Orders will be prepared for courier shipment booking.", "success")
-
+            flash("Connected External Delivery mode saved. Checkout will route orders to External Local or Shiprocket only.", "success")
         return redirect(url_for("admin_delivery_mode_settings"))
 
     settings = get_delivery_mode_settings()
     external_settings = get_external_delivery_settings()
 
     return render_template(
-        "admin_delivery_mode_settings.html",
+        "admin_delivery_routing_settings.html",
         user=admin_user,
         settings=settings,
         external_settings=external_settings,
-        delivery_modes=[
+        delivery_channels=[
             {
-                "value": DELIVERY_MODE_IN_HOUSE,
-                "title": "In-house Delivery",
-                "subtitle": "Current NE FRESH delivery-boy panel, store assignment, tracking and rider COD settlement.",
-            },
-            {
-                "value": DELIVERY_MODE_EXTERNAL_LOCAL,
+                "field": "external_local_delivery_enabled",
                 "title": "External Local Delivery",
-                "subtitle": "Rapido/Ola/Uber/Shiprocket Quick style hyperlocal pickup and drop delivery.",
+                "subtitle": "For Rapido/Ola/Uber-style local delivery. NE FRESH stores only the order reference and charges the hard-coded local fare; rider payment/tracking stays outside NE FRESH.",
+                "badge": f"Up to {external_settings.get('external_local_max_distance_km', 25)} km",
+                "icon": "⚡",
             },
             {
-                "value": DELIVERY_MODE_THIRD_PARTY,
-                "title": "Third-party Shipping",
-                "subtitle": "Shiprocket/BlueDart/Delhivery style courier shipment, AWB and tracking flow.",
-            },
-        ],
-        external_payment_rules=[
-            {
-                "value": EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
-                "title": "Online only",
-                "subtitle": "Recommended first phase. Customer pays NE FRESH online; Admin settles store and partner.",
-            },
-            {
-                "value": EXTERNAL_PAYMENT_RULE_COD_STORE,
-                "title": "COD via store",
-                "subtitle": "Store collects/holds COD and owes platform fee and delivery charges to Admin.",
-            },
-            {
-                "value": EXTERNAL_PAYMENT_RULE_COD_PARTNER,
-                "title": "COD via external partner",
-                "subtitle": "Courier/rider collects COD and remits to Admin after delivery. Settlement page required.",
+                "field": "third_party_shipping_enabled",
+                "title": "Shiprocket / Courier Shipping",
+                "subtitle": "Used for outside-local/inter-city orders. Shiprocket booking uses real API credentials when configured and requires Online Payment before shipment creation.",
+                "badge": "Outside local zone",
+                "icon": "📦",
             },
         ],
         active_group="delivery",
-        active_page="delivery_mode_settings"
+        active_page="delivery_mode_settings",
     )
 
 
@@ -3998,15 +4035,15 @@ def admin_dashboard():
 
     if delivery_mode_ui.get("is_external"):
         quick_links.extend([
-            {"label": "External Delivery Orders", "endpoint": "admin_external_delivery_orders"},
-            {"label": "External Provider Settings", "endpoint": "admin_external_delivery_settings"},
-            {"label": "Delivery Mode Settings", "endpoint": "admin_delivery_mode_settings"},
+            {"label": "Shiprocket Shipments", "endpoint": "admin_external_delivery_orders"},
+            {"label": "External Fare & Shiprocket Settings", "endpoint": "admin_external_delivery_settings"},
+            {"label": "Delivery Operation Settings", "endpoint": "admin_delivery_mode_settings"},
         ])
     else:
         quick_links.extend([
             {"label": "Create Delivery Partner", "endpoint": "admin_create_delivery"},
             {"label": "Delivery Overview", "endpoint": "admin_delivery_overview"},
-            {"label": "Delivery Mode Settings", "endpoint": "admin_delivery_mode_settings"},
+            {"label": "Delivery Operation Settings", "endpoint": "admin_delivery_mode_settings"},
         ])
 
     quick_links.append({"label": "Export Transactions CSV", "endpoint": "admin_transactions_csv"})

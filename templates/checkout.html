@@ -2310,32 +2310,36 @@
         <div class="checkout-form-card">
           <form method="post" id="checkout-form">
                        <div class="payment-method-box">
-              {% set external_online_only = external_delivery_enabled and delivery_mode_settings.external_payment_rule == 'ONLINE_ONLY' %}
+              {% set mode_cod_allowed = delivery_mode_settings.allow_cod_payment if delivery_mode_settings.allow_cod_payment is defined else true %}
+              {% set mode_online_allowed = delivery_mode_settings.allow_online_payment if delivery_mode_settings.allow_online_payment is defined else true %}
+              {% set online_option_available = online_payment_enabled and mode_online_allowed %}
+              {% set default_payment_method = 'COD' if mode_cod_allowed else 'ONLINE' %}
               <p class="payment-method-title">Select payment method</p>
 
               {% if external_delivery_enabled %}
                 <div class="payment-method-note">
-                  External delivery mode is active: {{ active_delivery_mode }}.
-                  {% if external_online_only %}COD is disabled for this mode until partner COD settlement is configured.{% endif %}
+                  Delivery route is selected automatically after location check. Payment setting: {{ delivery_mode_ui.payment_rule_label }}.
                 </div>
               {% endif %}
 
               <div class="payment-method-grid">
-                <label class="payment-method-option {% if external_online_only %}disabled{% endif %}">
-                  <input type="radio" name="payment_method" value="COD" {% if not external_online_only %}checked{% endif %} {% if external_online_only %}disabled{% endif %}>
-                  <strong>💵 Cash on Delivery</strong>
-                  <span>{% if external_online_only %}Unavailable for the current external delivery mode.{% else %}Pay the delivery partner when your order arrives.{% endif %}</span>
+                <label class="payment-method-option {% if not mode_cod_allowed %}disabled{% endif %}">
+                  <input type="radio" name="payment_method" value="COD" {% if default_payment_method == 'COD' %}checked{% endif %} {% if not mode_cod_allowed %}disabled{% endif %}>
+                  <strong>📲 Pay Online on Delivery</strong>
+                  <span>{% if mode_cod_allowed %}Pay online/UPI at delivery according to the selected route. For external local delivery, do not pay cash to Rapido/Ola/Uber rider unless your business separately instructs it.{% else %}Pay Online on Delivery is currently disabled for this delivery route.{% endif %}</span>
                 </label>
 
-                <label class="payment-method-option {% if not online_payment_enabled %}disabled{% endif %}">
+                <label class="payment-method-option {% if not online_option_available %}disabled{% endif %}">
                   <input type="radio"
                          name="payment_method"
                          value="ONLINE"
-                         {% if external_online_only %}checked{% endif %}
-                         {% if not online_payment_enabled %}disabled{% endif %}>
+                         {% if default_payment_method == 'ONLINE' %}checked{% endif %}
+                         {% if not online_option_available %}disabled{% endif %}>
                   <strong>💳 Pay Online</strong>
                   <span>
-                    {% if online_payment_enabled %}
+                    {% if not mode_online_allowed %}
+                      Online payment is currently disabled for this delivery mode.
+                    {% elif online_payment_enabled %}
                       Pay securely through {{ payment_gateway_settings.gateway|default("RAZORPAY") }}.
                     {% else %}
                       Online payment is currently disabled by Admin.
@@ -2346,14 +2350,14 @@
 
               <div class="secure-row">
                 <span id="payment-secure-label">Secure order confirmation</span>
-                <span id="payment-mode-label">{% if external_online_only %}Online Payment{% else %}Cash on Delivery{% endif %}</span>
+                <span id="payment-mode-label">{% if default_payment_method == 'ONLINE' %}Online Payment{% else %}Pay Online on Delivery{% endif %}</span>
               </div>
 
               <div class="payment-method-note">
                 {% if online_payment_enabled %}
                   Online payment order will be prepared for Razorpay payment in the next step.
                 {% else %}
-                  COD is available now. Online payment will appear after Admin enables Razorpay.
+                  Pay Online on Delivery is available now. Online payment will appear after Admin enables Razorpay.
                 {% endif %}
               </div>
             </div>
@@ -2393,9 +2397,9 @@
             <div class="field-grid" aria-label="Customer details preview">
               <label class="field-label readonly-card-number">
                                 Payment method
-                <input type="text" id="payment-method-preview" value="{% if external_online_only %}Online Payment{% else %}Cash on Delivery{% endif %}" readonly aria-readonly="true">
+                <input type="text" id="payment-method-preview" value="{% if default_payment_method == 'ONLINE' %}Online Payment{% else %}Pay Online on Delivery{% endif %}" readonly aria-readonly="true">
                 <span class="card-brand-row" aria-hidden="true">
-                  <span class="card-brand">COD</span>
+                  <span class="card-brand">POD</span>
                   <span class="card-brand">₹</span>
                 </span>
               </label>
@@ -2614,7 +2618,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const SLABS_RAW         = {{ (slabs|default([(0,2,0),(2,5,15),(5,7,25),(7,10,35)]))|tojson }};
   const ITEMS_TOTAL       = Number({{ (total|default(0))|tojson }}) || 0;
   const ONLINE_PAYMENT_ENABLED = Boolean({{ (online_payment_enabled|default(false))|tojson }});
-  const EXTERNAL_ONLINE_ONLY = Boolean({{ (external_delivery_enabled and delivery_mode_settings.external_payment_rule == 'ONLINE_ONLY')|tojson }});
+  const DELIVERY_MODE_COD_ALLOWED = Boolean({{ (mode_cod_allowed|default(true))|tojson }});
+  const DELIVERY_MODE_ONLINE_ALLOWED = Boolean({{ (mode_online_allowed|default(true))|tojson }});
+  const EXTERNAL_ONLINE_ONLY = Boolean({{ ((not mode_cod_allowed) and mode_online_allowed)|tojson }});
 
   const SLAB_LIST = Array.isArray(SLABS_RAW)
     ? SLABS_RAW.map(s => ({ low: Number(s[0]), high: Number(s[1]), fee: Number(s[2]) }))
@@ -2899,26 +2905,26 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
 
     function selectedPaymentMethod(){
     const selected = paymentRadios.find(r => r.checked);
-    return selected ? selected.value : (EXTERNAL_ONLINE_ONLY ? "ONLINE" : "COD");
+    return selected ? selected.value : (DELIVERY_MODE_COD_ALLOWED ? "COD" : "ONLINE");
   }
 
   function syncPaymentUI(){
     const method = selectedPaymentMethod();
 
-    if (EXTERNAL_ONLINE_ONLY && method !== "ONLINE") {
+    if (method === "COD" && !DELIVERY_MODE_COD_ALLOWED) {
       const onlineRadio = paymentRadios.find(r => r.value === "ONLINE" && !r.disabled);
       if (onlineRadio) onlineRadio.checked = true;
       return syncPaymentUI();
     }
 
-    if (method === "ONLINE" && !ONLINE_PAYMENT_ENABLED) {
+    if (method === "ONLINE" && (!DELIVERY_MODE_ONLINE_ALLOWED || !ONLINE_PAYMENT_ENABLED)) {
       const codRadio = paymentRadios.find(r => r.value === "COD" && !r.disabled);
       if (codRadio) codRadio.checked = true;
       return syncPaymentUI();
     }
 
     const isOnline = method === "ONLINE";
-    const label = isOnline ? "Online Payment" : "Cash on Delivery";
+    const label = isOnline ? "Online Payment" : "Pay Online on Delivery";
 
     if (paymentMethodPreview) {
       paymentMethodPreview.value = label;
@@ -2938,10 +2944,10 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
   function applyDeliveryPaymentRules(result){
     const codAllowed = result && Object.prototype.hasOwnProperty.call(result, "cod_allowed")
       ? Boolean(result.cod_allowed)
-      : !EXTERNAL_ONLINE_ONLY;
+      : DELIVERY_MODE_COD_ALLOWED;
     const onlineAllowed = result && Object.prototype.hasOwnProperty.call(result, "online_allowed")
       ? Boolean(result.online_allowed)
-      : true;
+      : DELIVERY_MODE_ONLINE_ALLOWED;
 
     const codRadio = paymentRadios.find(r => r.value === "COD");
     const onlineRadio = paymentRadios.find(r => r.value === "ONLINE");
@@ -3032,7 +3038,7 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
 function formatDeliveryModeName(value){
   const mode = String(value || "IN_HOUSE").toUpperCase();
 
-  if (mode === "THIRD_PARTY_SHIPPING") return "📦 Courier / Shiprocket";
+  if (mode === "THIRD_PARTY_SHIPPING") return "📦 Shiprocket / Courier";
   if (mode === "EXTERNAL_LOCAL_DELIVERY") return "⚡ External Local Delivery";
   return "🛵 NE FRESH In-house Delivery";
 }
@@ -3041,9 +3047,9 @@ function formatPaymentRule(value){
   const rule = String(value || "").toUpperCase();
 
   if (rule === "ONLINE_ONLY") return "Online payment only";
-  if (rule === "COD_STORE_COLLECTION") return "COD by store/internal collection";
-  if (rule === "COD_PARTNER_COLLECTION") return "COD by partner/courier collection";
-  return "COD and online allowed";
+  if (rule === "COD_STORE_COLLECTION") return "Pay Online on Delivery by store/NE FRESH";
+  if (rule === "COD_PARTNER_COLLECTION") return "Partner collection";
+  return "Online + Pay Online on Delivery allowed";
 }
 
 function syncDeliveryModeCard(result){
@@ -3053,7 +3059,7 @@ function syncDeliveryModeCard(result){
   const provider = result.external_delivery_provider || (mode === "IN_HOUSE" ? "NE FRESH Delivery" : "External Partner");
   const providerType = result.external_delivery_provider_type || (mode === "IN_HOUSE" ? "In-house" : "External");
   const paymentRule = result.external_payment_rule || (mode === "IN_HOUSE" ? "IN_HOUSE" : "");
-  const eta = result.eta_minutes ? `${result.eta_minutes} min approx.` : "Shown after partner quote";
+  const eta = result.eta_minutes ? `${result.eta_minutes} min approx.` : "Calculated after location";
 
   if (checkoutDeliveryModePill) checkoutDeliveryModePill.textContent = formatDeliveryModeName(mode);
   if (checkoutDeliveryProvider) checkoutDeliveryProvider.textContent = String(provider || "").replaceAll("_", " ");
@@ -3066,9 +3072,9 @@ function syncDeliveryModeCard(result){
   if (checkoutDeliveryEta) checkoutDeliveryEta.textContent = eta;
   if (checkoutDeliveryModeNote) {
     checkoutDeliveryModeNote.textContent = mode === "THIRD_PARTY_SHIPPING"
-      ? "Courier/Shiprocket fee is added separately from item subtotal. The final order amount is verified again by backend during order placement."
+      ? "Shiprocket/courier fee is added separately from item subtotal. Shiprocket shipping requires online payment."
       : (mode === "EXTERNAL_LOCAL_DELIVERY"
-        ? "External local delivery fee is added separately from item subtotal. COD is controlled by the selected external payment rule."
+        ? "External local delivery fee is hard-coded from Admin fare rules. Customer receives the NE FRESH order ID as delivery reference; no Rapido/Ola/Uber booking is stored."
         : "In-house delivery fee is calculated using NE FRESH serviceability and delivery fee settings.");
   }
 }

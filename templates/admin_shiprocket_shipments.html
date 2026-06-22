@@ -1,0 +1,85 @@
+{% extends "admin_base.html" %}
+{% set active_group = "delivery" %}
+{% set active_page = "external_delivery_orders" %}
+{% block title %}Shiprocket Shipments | NE FRESH Admin{% endblock %}
+{% block page_title %}Shiprocket Shipments{% endblock %}
+{% block page_subtitle %}Manage orders routed to Shiprocket / courier shipping. External local delivery is not tracked here.{% endblock %}
+{% block content %}
+<section class="ss-page">
+<style>
+  .ss-page{display:grid;gap:18px}.ss-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.ss-metric{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:18px;padding:16px;box-shadow:var(--nf-shadow)}.ss-metric span{display:block;font-size:.72rem;color:var(--nf-muted);font-weight:900;text-transform:uppercase;letter-spacing:.05em}.ss-metric strong{display:block;margin-top:8px;font-size:1.4rem;font-weight:950}.ss-card{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:22px;box-shadow:var(--nf-shadow);overflow:hidden}.ss-info{padding:16px;border:1px solid rgba(2,132,199,.16);background:#eff6ff;color:#075985;border-radius:18px;font-weight:750;line-height:1.6}.ss-filter{display:flex;gap:10px;flex-wrap:wrap;padding:16px;border-bottom:1px solid var(--nf-line)}.ss-filter input{height:42px;border:1px solid var(--nf-line);border-radius:13px;padding:0 12px;font-weight:750}.ss-btn,.ss-link{min-height:40px;border:0;border-radius:13px;background:var(--nf-green);color:#fff;padding:0 14px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.ss-link{background:#fff;color:var(--nf-green-dark);border:1px solid var(--nf-line)}.ss-table-wrap{overflow:auto}.ss-table{width:100%;border-collapse:collapse;min-width:1180px}.ss-table th,.ss-table td{padding:12px;border-bottom:1px solid var(--nf-line);text-align:left;vertical-align:top;font-size:.86rem}.ss-table th{background:var(--nf-surface-2);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--nf-muted);font-weight:950}.ss-pill{display:inline-flex;min-height:28px;align-items:center;border-radius:999px;padding:0 10px;background:#E0F2FE;color:#0369A1;font-weight:900;font-size:.76rem}.ss-mini-form{display:grid;gap:8px;min-width:170px}.ss-mini-form select,.ss-mini-form input{height:36px;border:1px solid var(--nf-line);border-radius:11px;padding:0 10px;font-size:.82rem}.ss-empty{padding:28px;color:var(--nf-muted);font-weight:750;text-align:center}@media(max-width:900px){.ss-metrics{grid-template-columns:1fr}.ss-filter input,.ss-btn,.ss-link{width:100%}}
+</style>
+
+<div class="ss-info">
+  <strong>Important:</strong> External local/Rapido-style orders are not tracked here by design. They only use the NE FRESH order reference. This page is only for Shiprocket/courier shipments, AWB, label, tracking and webhook/manual status updates.
+</div>
+
+<div class="ss-metrics">
+  <div class="ss-metric"><span>Total Shipments</span><strong>{{ metrics.total }}</strong></div>
+  <div class="ss-metric"><span>Pending</span><strong>{{ metrics.pending }}</strong></div>
+  <div class="ss-metric"><span>Booked</span><strong>{{ metrics.booked }}</strong></div>
+  <div class="ss-metric"><span>Delivered</span><strong>{{ metrics.delivered }}</strong></div>
+</div>
+
+<div class="ss-card">
+  <form class="ss-filter" method="get">
+    <input name="q" value="{{ q }}" placeholder="Search order/customer/store/AWB">
+    <input name="status" value="{{ status_filter }}" placeholder="Status filter">
+    <button class="ss-btn" type="submit">Filter</button>
+    <a class="ss-link" href="{{ url_for('admin_external_delivery_settings') }}">External Fare & Shiprocket Settings</a>
+  </form>
+
+  {% if orders %}
+  <div class="ss-table-wrap">
+    <table class="ss-table">
+      <thead><tr><th>Order</th><th>Customer</th><th>Store</th><th>Mode</th><th>Payment</th><th>Shiprocket IDs</th><th>Status</th><th>Book / Retry</th><th>Manual Status</th></tr></thead>
+      <tbody>
+      {% for order in orders %}
+        <tr>
+          <td><strong>#{{ order.short_id }}</strong><br><small>{{ order.created_at|default('') }}</small></td>
+          <td>{{ order.customer_name|default('Customer') }}<br><small>{{ order.customer_phone|default('') }}</small></td>
+          <td>{{ order.store_name|default('Store') }}</td>
+          <td><span class="ss-pill">Shiprocket / Courier</span></td>
+          <td>{{ order.payment_method }}<br><small>Total ₹{{ '%.2f'|format(order.total_payable) }}</small><br><small>Shipping ₹{{ '%.2f'|format(order.external_delivery_fee_amount or order.external_delivery_charge) }}</small></td>
+          <td>
+            {% if order.external_order_id %}<div>Order: {{ order.external_order_id }}</div>{% endif %}
+            {% if order.external_shipment_id %}<div>Shipment: {{ order.external_shipment_id }}</div>{% endif %}
+            {% if order.external_awb %}<div>AWB: {{ order.external_awb }}</div>{% endif %}
+            {% if order.external_tracking_url %}<a href="{{ order.external_tracking_url }}" target="_blank" rel="noopener">Track</a>{% endif %}
+            {% if not order.external_order_id and not order.external_shipment_id and not order.external_awb %}<small>Not generated yet</small>{% endif %}
+          </td>
+          <td>{{ order.external_delivery_status|replace('_',' ')|title }}</td>
+          <td>
+            <form class="ss-mini-form" method="post" action="{{ url_for('admin_external_delivery_book_order', oid=order.id) }}">
+              <button class="ss-btn" type="submit">Create / Retry Shiprocket</button>
+            </form>
+          </td>
+          <td>
+            <form class="ss-mini-form" method="post" action="{{ url_for('admin_external_delivery_update_status', oid=order.id) }}">
+              <select name="external_delivery_status">
+                <option value="READY_FOR_SHIPROCKET_BOOKING">Ready</option>
+                <option value="BOOKED">Booked</option>
+                <option value="PICKUP_SCHEDULED">Pickup Scheduled</option>
+                <option value="PICKED_UP">Picked Up</option>
+                <option value="IN_TRANSIT">In Transit</option>
+                <option value="OUT_FOR_DELIVERY">Out For Delivery</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="FAILED">Failed</option>
+                <option value="RTO">RTO</option>
+                <option value="RETURNED">Returned</option>
+              </select>
+              <input name="external_delivery_note" placeholder="Optional note">
+              <button class="ss-link" type="submit">Update</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="ss-empty">No Shiprocket/courier shipment orders found yet.</div>
+  {% endif %}
+</div>
+</section>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "admin_base.html" %}
+{% set active_group = "delivery" %}
+{% set active_page = "external_delivery_settings" %}
+{% block title %}External Fare & Shiprocket Settings | NE FRESH Admin{% endblock %}
+{% block page_title %}External Fare & Shiprocket Settings{% endblock %}
+{% block page_subtitle %}Set external local fare rules, Shiprocket credentials, map zone and fallback package defaults.{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<section class="dcs-page">
+  <style>
+    .dcs-page{display:grid;gap:18px;color:var(--nf-text)}
+    .dcs-card,.dcs-hero{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:24px;box-shadow:var(--nf-shadow);overflow:hidden}.dcs-card{padding:20px}.dcs-hero{padding:22px;background:linear-gradient(135deg,var(--nf-surface),var(--nf-surface-2))}
+    .dcs-kicker{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border-radius:999px;background:var(--nf-green-soft);color:var(--nf-green-dark);font-size:.74rem;font-weight:950;text-transform:uppercase;letter-spacing:.08em}.dcs-hero h2,.dcs-card h3{margin:0;font-weight:950;letter-spacing:-.025em}.dcs-hero h2{margin-top:12px;font-size:clamp(1.35rem,2.4vw,2rem)}.dcs-card h3{font-size:1.08rem;margin-bottom:8px}.dcs-help{color:var(--nf-muted);font-size:.88rem;line-height:1.6;font-weight:650;margin:0}.dcs-note{margin-top:12px;border:1px solid rgba(2,132,199,.16);background:#eff6ff;color:#075985;border-radius:16px;padding:12px;font-size:.86rem;line-height:1.55;font-weight:750}
+    .dcs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.dcs-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.dcs-grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}.dcs-field{display:grid;gap:7px}.dcs-field label{font-size:.73rem;font-weight:950;color:var(--nf-muted);text-transform:uppercase;letter-spacing:.055em}.dcs-field input{height:44px;border:1px solid var(--nf-line);border-radius:14px;padding:0 12px;font-weight:750;outline:none;background:#fff;color:var(--nf-text)}.dcs-field input:focus{border-color:rgba(0,168,89,.5);box-shadow:0 0 0 4px rgba(0,168,89,.10)}.dcs-check{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:900;background:#fff;border:1px solid var(--nf-line);border-radius:14px;padding:0 12px}.dcs-check input{width:18px;height:18px;accent-color:var(--nf-green)}
+    .dcs-split{display:grid;grid-template-columns:1fr 1fr;gap:16px}.dcs-box{border:1px solid var(--nf-line);border-radius:18px;background:var(--nf-surface-2);padding:16px;display:grid;gap:12px}.dcs-box h4{margin:0;font-size:.98rem;font-weight:950}.dcs-box p{margin:0;color:var(--nf-muted);font-size:.84rem;line-height:1.55;font-weight:650}.dcs-list{margin:10px 0 0;padding-left:18px;color:var(--nf-muted);font-size:.84rem;font-weight:650;line-height:1.55}.dcs-list li{margin:4px 0}
+    .dcs-map-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:16px;align-items:start}.dcs-map-box{border:1px solid var(--nf-line);border-radius:20px;overflow:hidden;background:#fff}.dcs-map{height:430px;width:100%}.dcs-map-tools{display:flex;gap:10px;flex-wrap:wrap;padding:12px;border-bottom:1px solid var(--nf-line);background:var(--nf-surface-2)}.dcs-tool{min-height:38px;border:1px solid var(--nf-line);border-radius:12px;background:#fff;color:var(--nf-text);font-weight:900;padding:0 12px;cursor:pointer}.dcs-tool.active,.dcs-tool.primary{background:var(--nf-green);border-color:var(--nf-green);color:#fff}.dcs-tool.danger{color:#b91c1c}.dcs-tool:disabled{opacity:.55;cursor:not-allowed}.dcs-status{margin-top:10px;border:1px dashed rgba(15,23,42,.16);border-radius:14px;background:#fff;padding:11px;color:var(--nf-muted);font-size:.84rem;font-weight:700;line-height:1.5}
+    .dcs-actions{display:flex;gap:12px;flex-wrap:wrap;position:sticky;bottom:14px;z-index:5;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border:1px solid var(--nf-line);border-radius:18px;padding:12px;box-shadow:var(--nf-shadow)}.dcs-btn{min-height:44px;border:0;border-radius:14px;background:var(--nf-green);color:#fff;padding:0 16px;font-weight:950;cursor:pointer}.dcs-link{min-height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:14px;border:1px solid var(--nf-line);background:#fff;color:var(--nf-green-dark);padding:0 16px;font-weight:900;text-decoration:none}
+    @media(max-width:1100px){.dcs-split,.dcs-map-layout{grid-template-columns:1fr}.dcs-grid.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:720px){.dcs-grid,.dcs-grid.three,.dcs-grid.four{grid-template-columns:1fr}.dcs-actions{position:static}.dcs-btn,.dcs-link{width:100%}.dcs-map{height:360px}}
+  </style>
+
+  <form method="post" action="{{ url_for('admin_external_delivery_settings') }}" class="dcs-page" id="deliveryChannelSettingsForm">
+    <div class="dcs-hero">
+      <span class="dcs-kicker">Channel Settings</span>
+      <h2>External local is simple. Shiprocket is real API-ready.</h2>
+      <p class="dcs-help">
+        External local delivery does not create Rapido/Ola/Uber booking records. Checkout only charges an assumed local fare and the customer receives the NE FRESH order reference. Shiprocket settings are used for courier shipping orders when Store marks the package ready.
+      </p>
+      <div class="dcs-note">
+        Enable/disable the channels from <strong>Delivery Operation Settings</strong>. This page only stores fare, zone, package and Shiprocket credential settings.
+      </div>
+    </div>
+
+    <div class="dcs-card">
+      <h3>1. External local fare rules</h3>
+      <p class="dcs-help">Used for Rapido-style local delivery without API integration. Fee = base fee + distance × per-km fee, with minimum fee applied.</p>
+      <div class="dcs-grid four" style="margin-top:14px">
+        <div class="dcs-field"><label>Local Base Fee ₹</label><input type="number" step="0.01" min="0" name="external_local_base_fee" value="{{ settings.external_local_base_fee|default(40.0) }}"></div>
+        <div class="dcs-field"><label>Local Per KM ₹</label><input type="number" step="0.01" min="0" name="external_local_per_km_fee" value="{{ settings.external_local_per_km_fee|default(8.0) }}"></div>
+        <div class="dcs-field"><label>Local Minimum Fee ₹</label><input type="number" step="0.01" min="0" name="external_local_min_fee" value="{{ settings.external_local_min_fee|default(40.0) }}"></div>
+        <div class="dcs-field"><label>Local Max Distance KM</label><input type="number" step="0.01" min="0" name="external_local_max_distance_km" value="{{ settings.external_local_max_distance_km|default(25.0) }}"></div>
+      </div>
+      <ul class="dcs-list">
+        <li>No rider payment, Rapido fare settlement, or external local booking status is tracked in NE FRESH.</li>
+        <li>The delivery charge collected from customer is your assumed local delivery charge.</li>
+        <li>For Pay Online on Delivery, customer pays Store/NE FRESH by UPI/online at handover, not the external rider in cash.</li>
+      </ul>
+    </div>
+
+    <div class="dcs-card">
+      <h3>2. External local pickup and zone map</h3>
+      <p class="dcs-help">Draw the local external delivery zone if you want checkout to restrict external local delivery to a map boundary. If disabled, distance limit controls local eligibility.</p>
+      <input type="hidden" id="externalServiceZonePolygon" name="external_service_zone_polygon" value='{{ settings.external_service_zone_polygon|default([])|tojson }}'>
+      <div class="dcs-map-layout" style="margin-top:14px">
+        <div class="dcs-map-box">
+          <div class="dcs-map-tools">
+            <button type="button" class="dcs-tool active" id="btnPickupMode">Set Pickup Pin</button>
+            <button type="button" class="dcs-tool" id="btnZoneMode">Draw Local Zone</button>
+            <button type="button" class="dcs-tool" id="btnUseBrowserLocation">Use My Location</button>
+            <button type="button" class="dcs-tool" id="btnUndoZonePoint">Undo Point</button>
+            <button type="button" class="dcs-tool danger" id="btnClearZone">Clear Zone</button>
+          </div>
+          <div id="externalDeliveryMap" class="dcs-map"></div>
+        </div>
+
+        <div class="dcs-box">
+          <h4>Map saved values</h4>
+          <p>Pickup point helps future courier/local planning. Local zone applies only to external local delivery, not Shiprocket.</p>
+          <div class="dcs-grid">
+            <div class="dcs-field"><label>Pickup Latitude</label><input type="number" step="0.000001" name="external_default_pickup_latitude" id="externalPickupLat" value="{{ settings.external_default_pickup_latitude if settings.external_default_pickup_latitude is not none else '' }}" placeholder="Click map"></div>
+            <div class="dcs-field"><label>Pickup Longitude</label><input type="number" step="0.000001" name="external_default_pickup_longitude" id="externalPickupLng" value="{{ settings.external_default_pickup_longitude if settings.external_default_pickup_longitude is not none else '' }}" placeholder="Click map"></div>
+          </div>
+          <label class="dcs-check"><input type="checkbox" name="external_service_zone_enabled" value="1" id="externalZoneEnabled" {% if settings.external_service_zone_enabled %}checked{% endif %}> Enforce this local zone at checkout</label>
+          <div class="dcs-status" id="externalMapStatus">Map loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dcs-card">
+      <h3>3. Shiprocket courier API settings</h3>
+      <p class="dcs-help">Used only when checkout routes the order to Shiprocket/Courier shipping. Keep Shiprocket OFF until API user email/password and pickup details are ready.</p>
+      <div class="dcs-split" style="margin-top:14px">
+        <div class="dcs-box">
+          <h4>Shiprocket credentials</h4>
+          <label class="dcs-check"><input type="checkbox" name="shiprocket_enabled" value="1" {% if settings.shiprocket_enabled %}checked{% endif %}> Enable Shiprocket API</label>
+          <div class="dcs-field"><label>Shiprocket API User Email</label><input name="shiprocket_email" value="{{ settings.shiprocket_email|default('') }}" autocomplete="off" placeholder="API user email"></div>
+          <div class="dcs-field"><label>Shiprocket API Password</label><input type="password" name="shiprocket_password" placeholder="Leave blank to keep saved password" autocomplete="new-password"></div>
+          <div class="dcs-field"><label>Webhook Token</label><input name="shiprocket_webhook_token" value="{{ settings.shiprocket_webhook_token|default('') }}" placeholder="Optional but recommended for tracking webhooks"></div>
+        </div>
+        <div class="dcs-box">
+          <h4>Pickup and fallback courier fee</h4>
+          <div class="dcs-field"><label>Pickup Location Name</label><input name="shiprocket_pickup_location" value="{{ settings.shiprocket_pickup_location|default('') }}" placeholder="Same as Shiprocket panel"></div>
+          <div class="dcs-field"><label>Pickup Pincode</label><input name="shiprocket_pickup_pincode" value="{{ settings.shiprocket_pickup_pincode|default('') }}" placeholder="Used for live rate/serviceability"></div>
+          <div class="dcs-field"><label>Channel ID</label><input name="shiprocket_channel_id" value="{{ settings.shiprocket_channel_id|default('') }}" placeholder="Optional / account-specific"></div>
+          <div class="dcs-grid three">
+            <div class="dcs-field"><label>Courier Base ₹</label><input type="number" step="0.01" min="0" name="third_party_base_fee" value="{{ settings.third_party_base_fee|default(65.0) }}"></div>
+            <div class="dcs-field"><label>Courier Per KM ₹</label><input type="number" step="0.01" min="0" name="third_party_per_km_fee" value="{{ settings.third_party_per_km_fee|default(0.0) }}"></div>
+            <div class="dcs-field"><label>Courier Min ₹</label><input type="number" step="0.01" min="0" name="third_party_min_fee" value="{{ settings.third_party_min_fee|default(65.0) }}"></div>
+          </div>
+          <div class="dcs-field"><label>Courier Max Distance KM</label><input type="number" step="0.01" min="0" name="third_party_max_distance_km" value="{{ settings.third_party_max_distance_km|default(9999.0) }}"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dcs-card">
+      <h3>4. Fallback package dimensions</h3>
+      <p class="dcs-help">Used only when a product does not have its own shipping weight/dimensions. Product-wise parcel fields are available in Store → Add/Edit Product.</p>
+      <div class="dcs-grid four" style="margin-top:14px">
+        <div class="dcs-field"><label>Weight KG</label><input type="number" step="0.01" min="0" name="default_package_weight_kg" value="{{ settings.default_package_weight_kg|default(1.0) }}"></div>
+        <div class="dcs-field"><label>Length CM</label><input type="number" step="0.01" min="0" name="default_package_length_cm" value="{{ settings.default_package_length_cm|default(10.0) }}"></div>
+        <div class="dcs-field"><label>Breadth CM</label><input type="number" step="0.01" min="0" name="default_package_breadth_cm" value="{{ settings.default_package_breadth_cm|default(10.0) }}"></div>
+        <div class="dcs-field"><label>Height CM</label><input type="number" step="0.01" min="0" name="default_package_height_cm" value="{{ settings.default_package_height_cm|default(10.0) }}"></div>
+      </div>
+    </div>
+
+    <div class="dcs-actions">
+      <button class="dcs-btn" type="submit">Save External Fare & Shiprocket Settings</button>
+      <a class="dcs-link" href="{{ url_for('admin_delivery_mode_settings') }}">Delivery Operation Settings</a>
+      <a class="dcs-link" href="{{ url_for('admin_external_delivery_orders') }}">Shiprocket Shipments</a>
+    </div>
+  </form>
+</section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+  const mapEl = document.getElementById('externalDeliveryMap');
+  if (!mapEl || typeof L === 'undefined') return;
+  const latInput = document.getElementById('externalPickupLat');
+  const lngInput = document.getElementById('externalPickupLng');
+  const polygonInput = document.getElementById('externalServiceZonePolygon');
+  const statusEl = document.getElementById('externalMapStatus');
+  const btnPickup = document.getElementById('btnPickupMode');
+  const btnZone = document.getElementById('btnZoneMode');
+  const btnLocation = document.getElementById('btnUseBrowserLocation');
+  const btnUndo = document.getElementById('btnUndoZonePoint');
+  const btnClear = document.getElementById('btnClearZone');
+  let mode = 'pickup';
+  let pickupMarker = null;
+  let zoneMarkers = [];
+  let zonePolygon = null;
+  let zonePoints = [];
+  function numberOrNull(value){ const n = Number(value); return Number.isFinite(n) ? n : null; }
+  function readInitialZone(){
+    try {
+      const parsed = JSON.parse(polygonInput.value || '[]');
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(p => Array.isArray(p) && p.length === 2).map(p => [Number(p[0]), Number(p[1])]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+    } catch(e) { return []; }
+  }
+  function setStatus(){
+    const pickupSet = numberOrNull(latInput.value) !== null && numberOrNull(lngInput.value) !== null;
+    const zoneCount = zonePoints.length;
+    statusEl.textContent = `${pickupSet ? 'Pickup pin saved' : 'Pickup pin not set'} · ${zoneCount} local zone point${zoneCount === 1 ? '' : 's'} saved${zoneCount >= 3 ? ' · zone ready' : ' · minimum 3 needed for zone'}`;
+    btnUndo.disabled = zonePoints.length < 1;
+    btnClear.disabled = zonePoints.length < 1;
+  }
+  function setMode(nextMode){ mode = nextMode; btnPickup.classList.toggle('active', mode === 'pickup'); btnZone.classList.toggle('active', mode === 'zone'); setStatus(); }
+  function updateHiddenPolygon(){ polygonInput.value = JSON.stringify(zonePoints.map(p => [Number(p[0].toFixed(6)), Number(p[1].toFixed(6))])); }
+  function redrawZone(){
+    zoneMarkers.forEach(m => m.remove()); zoneMarkers = [];
+    if (zonePolygon) { zonePolygon.remove(); zonePolygon = null; }
+    zonePoints.forEach((point, index) => { zoneMarkers.push(L.circleMarker(point, {radius:6, weight:2, fillOpacity:.9}).addTo(map).bindTooltip(String(index + 1), {permanent:false})); });
+    if (zonePoints.length >= 3) zonePolygon = L.polygon(zonePoints, {weight:3, fillOpacity:.14}).addTo(map);
+    updateHiddenPolygon(); setStatus();
+  }
+  function setPickup(lat, lng, recenter){
+    lat = Number(lat); lng = Number(lng); if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    latInput.value = lat.toFixed(6); lngInput.value = lng.toFixed(6);
+    if (pickupMarker) pickupMarker.remove();
+    pickupMarker = L.marker([lat, lng]).addTo(map).bindPopup('Default pickup point');
+    if (recenter) map.setView([lat, lng], 15); setStatus();
+  }
+  const savedLat = numberOrNull(latInput.value), savedLng = numberOrNull(lngInput.value);
+  const defaultCenter = savedLat !== null && savedLng !== null ? [savedLat, savedLng] : [26.1445, 91.7362];
+  const map = L.map('externalDeliveryMap', {scrollWheelZoom:true}).setView(defaultCenter, savedLat !== null ? 14 : 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+  if (savedLat !== null && savedLng !== null) setPickup(savedLat, savedLng, false);
+  zonePoints = readInitialZone(); redrawZone();
+  if (zonePoints.length >= 3) { try { map.fitBounds(L.polygon(zonePoints).getBounds(), {padding:[20,20]}); } catch(e) {} }
+  map.on('click', function(e){ if (mode === 'pickup') { setPickup(e.latlng.lat, e.latlng.lng, false); return; } zonePoints.push([e.latlng.lat, e.latlng.lng]); redrawZone(); });
+  btnPickup.addEventListener('click', () => setMode('pickup'));
+  btnZone.addEventListener('click', () => setMode('zone'));
+  btnUndo.addEventListener('click', function(){ zonePoints.pop(); redrawZone(); });
+  btnClear.addEventListener('click', function(){ zonePoints = []; redrawZone(); });
+  btnLocation.addEventListener('click', function(){
+    if (!navigator.geolocation) { statusEl.textContent = 'Browser location is not supported. Click the map to set pickup manually.'; return; }
+    statusEl.textContent = 'Detecting your current location...';
+    navigator.geolocation.getCurrentPosition(function(pos){ setPickup(pos.coords.latitude, pos.coords.longitude, true); }, function(){ statusEl.textContent = 'Could not detect location. Click the map to set pickup manually.'; }, {enableHighAccuracy:true, timeout:10000});
+  });
+  document.getElementById('deliveryChannelSettingsForm').addEventListener('submit', function(e){
+    const zoneEnabled = document.getElementById('externalZoneEnabled');
+    if (zoneEnabled && zoneEnabled.checked && zonePoints.length < 3) { e.preventDefault(); statusEl.textContent = 'Please draw at least 3 local zone points before enabling the local zone.'; setMode('zone'); }
+  });
+  setMode('pickup'); setTimeout(() => map.invalidateSize(), 300);
+})();
+</script>
+{% endblock %}

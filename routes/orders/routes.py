@@ -157,7 +157,7 @@ def decorate_customer_payment_display(order_doc):
     if is_online_order:
         payment_method_label = "Online Payment"
     elif is_cod_order:
-        payment_method_label = "Cash on Delivery"
+        payment_method_label = "Pay Online on Delivery"
     else:
         payment_method_label = payment_method.replace("_", " ").title() if payment_method else "Payment"
 
@@ -170,9 +170,9 @@ def decorate_customer_payment_display(order_doc):
         payment_badge_class = "pending"
         payment_notice = "Please complete online payment to confirm this order."
     elif is_cod_order:
-        payment_status_label = "Pay on Delivery"
+        payment_status_label = "Pay Online on Delivery"
         payment_badge_class = "cod"
-        payment_notice = "Please pay the delivery boy at delivery time."
+        payment_notice = "Please complete payment at delivery as per the selected route. External Local should be paid online/UPI to Store/NE FRESH, not cash to the external rider."
     elif payment_status:
         payment_status_label = payment_status.replace("_", " ").title()
         payment_badge_class = "pending"
@@ -1015,7 +1015,11 @@ def checkout():
             "store_id": product.get("store_id"),
             "is_active": int(product.get("is_active") or 0),
             "name": product.get("name", ""),
-            "image_path": product.get("image_path", "")
+            "image_path": product.get("image_path", ""),
+            "shipping_weight_kg": product.get("shipping_weight_kg"),
+            "shipping_length_cm": product.get("shipping_length_cm"),
+            "shipping_breadth_cm": product.get("shipping_breadth_cm"),
+            "shipping_height_cm": product.get("shipping_height_cm")
         }
 
         items.append(item)
@@ -1192,7 +1196,8 @@ def checkout():
             customer_lng=final_lng,
             customer_pincode=sel_pin,
             items_total=items_total,
-            payment_method=requested_payment_method
+            payment_method=requested_payment_method,
+            cart_items=items
         )
 
         if not serviceability.get("serviceable"):
@@ -1246,29 +1251,41 @@ def checkout():
 
         now = datetime.utcnow().isoformat()
 
-        delivery_mode_snapshot = get_order_delivery_mode_snapshot()
+        delivery_mode_snapshot = get_order_delivery_mode_snapshot(serviceability.get("active_delivery_mode"))
         active_delivery_mode = delivery_mode_snapshot.get("active_delivery_mode") or DELIVERY_MODE_IN_HOUSE
         in_house_delivery_enabled_at_order = bool(delivery_mode_snapshot.get("in_house_delivery_enabled_at_order", True))
         external_delivery_enabled_at_order = bool(delivery_mode_snapshot.get("external_delivery_enabled_at_order", False))
-        external_payment_rule = delivery_mode_snapshot.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY
+        external_payment_rule = delivery_mode_snapshot.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_COD_STORE
+        delivery_payment_methods = delivery_mode_snapshot.get("delivery_payment_methods") or DELIVERY_PAYMENT_ONLINE_AND_COD
+        allow_online_payment_for_mode = bool(delivery_mode_snapshot.get("allow_online_payment", True))
+        allow_cod_payment_for_mode = bool(delivery_mode_snapshot.get("allow_cod_payment", True))
+        cod_collection_method = delivery_mode_snapshot.get("cod_collection_method") or COD_COLLECTION_DELIVERY_BOY
         delivery_type = delivery_mode_snapshot.get("delivery_type") or "OWN_DELIVERY"
         external_delivery_provider_type = delivery_mode_snapshot.get("external_delivery_provider_type") or "IN_HOUSE"
         external_delivery_status_initial = delivery_mode_snapshot.get("external_delivery_status") or "NOT_APPLICABLE"
 
-        store_allows_online = bool(store.get("allow_online_payment", True))
+        # Use the latest serviceability response for payment availability because it
+        # also reflects the selected active delivery mode and external quote path.
+        allow_online_payment_for_mode = bool(serviceability.get("online_allowed", allow_online_payment_for_mode))
+        allow_cod_payment_for_mode = bool(serviceability.get("cod_allowed", allow_cod_payment_for_mode))
 
-        if external_delivery_enabled_at_order and external_payment_rule == EXTERNAL_PAYMENT_RULE_ONLINE_ONLY:
-            if requested_payment_method != "ONLINE":
-                flash("This delivery mode currently accepts online payment only. Please choose Online Payment.", "warning")
-                return redirect(url_for("checkout"))
+        if requested_payment_method == "COD" and not allow_cod_payment_for_mode:
+            flash("Pay Online on Delivery is currently disabled for this delivery route. Please choose Online Payment.", "warning")
+            return redirect(url_for("checkout"))
+
+        if requested_payment_method == "ONLINE" and not allow_online_payment_for_mode:
+            flash("Online payment is currently disabled for this delivery route. Please choose Pay Online on Delivery.", "warning")
+            return redirect(url_for("checkout"))
+
+        store_allows_online = bool(store.get("allow_online_payment", True))
 
         if requested_payment_method == "ONLINE":
             if not online_payment_enabled:
-                flash("Online payment is currently not enabled by Admin. Please use Cash on Delivery.", "warning")
+                flash("Online payment is currently not enabled by Admin. Please use Pay Online on Delivery.", "warning")
                 return redirect(url_for("checkout"))
 
             if not store_allows_online:
-                flash("Online payment is currently not enabled for this store. Please use Cash on Delivery.", "warning")
+                flash("Online payment is currently not enabled for this store. Please use Pay Online on Delivery.", "warning")
                 return redirect(url_for("checkout"))
 
             payment_method = "ONLINE"
@@ -1319,15 +1336,20 @@ def checkout():
                     cod_collection_status = "PENDING_PARTNER_COLLECTION"
                     platform_fee_status = "PENDING_PARTNER_REMITTANCE"
                 else:
-                    platform_payment_flow = "COD_STORE_COLLECTION"
-                    payment_collection_status = "PENDING_STORE_COLLECTION"
-                    cod_collection_status = "PENDING_STORE_COLLECTION"
+                    if active_delivery_mode == DELIVERY_MODE_EXTERNAL_LOCAL:
+                        platform_payment_flow = "PAY_ON_DELIVERY_STORE_ONLINE"
+                        payment_collection_status = "PENDING_PAY_ON_DELIVERY"
+                        cod_collection_status = "PENDING_PAY_ON_DELIVERY"
+                    else:
+                        platform_payment_flow = "COD_STORE_COLLECTION"
+                        payment_collection_status = "PENDING_STORE_COLLECTION"
+                        cod_collection_status = "PENDING_STORE_COLLECTION"
                     platform_fee_status = "DUE_FROM_STORE"
 
                 rider_cash_settlement_status = "NOT_APPLICABLE"
 
             initial_payment_status = "PENDING"
-            flash_message = "Order placed! (COD)"
+            flash_message = "Order placed! Pay Online on Delivery selected."
 
         items_subtotal_amount = round(float(money_breakdown.get("items_subtotal") or items_total or 0), 2)
         delivery_fee_amount_final = round(float(money_breakdown.get("delivery_fee") or delivery_fee or 0), 2)
@@ -1378,7 +1400,11 @@ def checkout():
                 "price_per_unit": float(it["price_per_unit"]),
                 "unit_price": float(it["price_per_unit"]),
                 "line_total": line_total,
-                "image_path": it.get("image_path", "")
+                "image_path": it.get("image_path", ""),
+                "shipping_weight_kg": it.get("shipping_weight_kg"),
+                "shipping_length_cm": it.get("shipping_length_cm"),
+                "shipping_breadth_cm": it.get("shipping_breadth_cm"),
+                "shipping_height_cm": it.get("shipping_height_cm")
             })
 
         order_result = mongo.orders.insert_one({
@@ -1408,19 +1434,26 @@ def checkout():
             "in_house_delivery_enabled_at_order": bool(in_house_delivery_enabled_at_order),
             "external_delivery_enabled_at_order": bool(external_delivery_enabled_at_order),
             "external_payment_rule": external_payment_rule,
+            "delivery_payment_methods": delivery_payment_methods,
+            "allow_online_payment": bool(allow_online_payment_for_mode),
+            "allow_cod_payment": bool(allow_cod_payment_for_mode),
+            "cod_collection_method": cod_collection_method,
 
             "external_delivery_status": external_delivery_status_initial,
             "external_delivery_provider_type": external_delivery_provider_type,
             "external_delivery_partner_type": external_delivery_provider_type,
             "external_delivery_partner_name": "",
             "external_delivery_provider": (
-                delivery_mode_snapshot.get("third_party_provider")
-                if active_delivery_mode == DELIVERY_MODE_THIRD_PARTY
-                else delivery_mode_snapshot.get("external_local_provider")
+                serviceability.get("external_delivery_provider")
+                or delivery_mode_snapshot.get("external_delivery_provider")
+                or (delivery_mode_snapshot.get("third_party_provider") if active_delivery_mode == DELIVERY_MODE_THIRD_PARTY else delivery_mode_snapshot.get("external_local_provider"))
             ) if external_delivery_enabled_at_order else "",
             "external_delivery_fee_amount": external_delivery_fee_amount,
             "external_delivery_charge": external_delivery_fee_amount,
-            "external_delivery_booking_status": "NOT_REQUIRED" if in_house_delivery_enabled_at_order else "PENDING_BOOKING",
+            "external_delivery_booking_status": (
+                "NOT_REQUIRED" if in_house_delivery_enabled_at_order
+                else ("ORDER_REFERENCE_ONLY" if active_delivery_mode == DELIVERY_MODE_EXTERNAL_LOCAL else "PENDING_SHIPROCKET_BOOKING")
+            ),
             "external_order_id": "",
             "external_shipment_id": "",
             "external_awb": "",
@@ -1428,10 +1461,11 @@ def checkout():
             "external_label_url": "",
             "external_manifest_url": "",
             "external_cod_amount": float(total_payable) if (not is_online_order and external_delivery_enabled_at_order) else 0.0,
-            "external_cod_remittance_status": "PENDING" if (not is_online_order and external_payment_rule == EXTERNAL_PAYMENT_RULE_COD_PARTNER) else "NOT_REQUIRED",
+            "external_cod_remittance_status": "NOT_REQUIRED",
             "external_delivery_payload": {},
             "external_delivery_response": {},
             "external_delivery_quote": serviceability.get("external_delivery_quote") or {},
+            "external_package_snapshot": serviceability.get("external_package_snapshot") or (serviceability.get("external_delivery_quote") or {}).get("package") or {},
             "external_delivery_quote_status": (serviceability.get("external_delivery_quote") or {}).get("quote_status") or "",
             "external_delivery_quote_message": (serviceability.get("external_delivery_quote") or {}).get("message") or "",
             "external_delivery_quote_source": serviceability.get("delivery_fee_source") or "",
@@ -1517,6 +1551,7 @@ def checkout():
             "delivery_zone_matched": True,
             "delivery_serviceability_reason": serviceability.get("reason"),
             "delivery_serviceability_message": serviceability.get("message"),
+            "delivery_routing_reason": serviceability.get("routing_reason") or serviceability.get("reason"),
 
             "store_latitude": store.get("latitude"),
             "store_longitude": store.get("longitude"),
@@ -1541,6 +1576,29 @@ def checkout():
         })
 
         oid = order_result.inserted_id
+
+        if active_delivery_mode == DELIVERY_MODE_EXTERNAL_LOCAL:
+            local_reference = f"NEF-{str(oid)[-8:].upper()}"
+            mongo.orders.update_one(
+                {"_id": oid},
+                {
+                    "$set": {
+                        "external_order_id": local_reference,
+                        "external_delivery_tracking_code": local_reference,
+                        "customer_delivery_reference": local_reference,
+                        "external_delivery_booking_status": "ORDER_REFERENCE_ONLY",
+                        "external_delivery_status": "ORDER_PLACED_EXTERNAL_LOCAL",
+                    },
+                    "$push": {
+                        "external_status_history": {
+                            "status": "ORDER_REFERENCE_ONLY",
+                            "note": "External local delivery uses the NE FRESH order reference only. No Rapido/Ola/Uber API booking record is created.",
+                            "at": now,
+                            "payload": {},
+                        }
+                    }
+                }
+            )
 
         for order_item in order_items_docs:
             order_item["order_id"] = oid
@@ -1593,6 +1651,10 @@ def checkout():
             "in_house_delivery_enabled_at_order": bool(in_house_delivery_enabled_at_order),
             "external_delivery_enabled_at_order": bool(external_delivery_enabled_at_order),
             "external_payment_rule": external_payment_rule,
+            "delivery_payment_methods": delivery_payment_methods,
+            "allow_online_payment": bool(allow_online_payment_for_mode),
+            "allow_cod_payment": bool(allow_cod_payment_for_mode),
+            "cod_collection_method": cod_collection_method,
             "external_delivery_provider_type": external_delivery_provider_type,
             "external_delivery_fee_amount": external_delivery_fee_amount,
 
@@ -2311,6 +2373,7 @@ def api_checkout_serviceability():
 
     store_ids = []
     items_total = 0.0
+    quote_items = []
 
     for ci in cart_items:
         product = mongo.products.find_one({"_id": ci.get("product_id")})
@@ -2334,6 +2397,16 @@ def api_checkout_serviceability():
         )
 
         items_total += float(quantity or 0) * float(price_per_unit or 0)
+
+        quote_items.append({
+            "product_id": product.get("_id"),
+            "quantity": quantity,
+            "cart_quantity": quantity,
+            "shipping_weight_kg": product.get("shipping_weight_kg"),
+            "shipping_length_cm": product.get("shipping_length_cm"),
+            "shipping_breadth_cm": product.get("shipping_breadth_cm"),
+            "shipping_height_cm": product.get("shipping_height_cm"),
+        })
 
     unique_store_ids = sorted(set(store_ids))
 
@@ -2381,7 +2454,8 @@ def api_checkout_serviceability():
         customer_lng=customer_lng,
         customer_pincode=customer_pincode,
         items_total=items_total,
-        payment_method=(data.get("payment_method") or "")
+        payment_method=(data.get("payment_method") or ""),
+        cart_items=quote_items
     )
 
     delivery_fee = float(serviceability.get("delivery_fee") or 0)
@@ -2426,7 +2500,7 @@ def api_checkout_serviceability():
         "external_delivery_enabled": bool(serviceability.get("external_delivery_enabled", False)),
         "external_delivery_provider": serviceability.get("external_delivery_provider") or "IN_HOUSE",
         "external_delivery_provider_type": serviceability.get("external_delivery_provider_type") or "IN_HOUSE",
-        "external_payment_rule": serviceability.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_ONLINE_ONLY,
+        "external_payment_rule": serviceability.get("external_payment_rule") or EXTERNAL_PAYMENT_RULE_COD_STORE,
         "cod_allowed": bool(serviceability.get("cod_allowed", True)),
         "online_allowed": bool(serviceability.get("online_allowed", True)),
         "eta_minutes": serviceability.get("eta_minutes"),

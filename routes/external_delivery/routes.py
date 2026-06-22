@@ -11,7 +11,6 @@ from services.delivery_integrations.hyperlocal_service import create_hyperlocal_
 
 
 EXTERNAL_ORDER_MODES = [
-    DELIVERY_MODE_EXTERNAL_LOCAL,
     DELIVERY_MODE_THIRD_PARTY,
 ]
 
@@ -219,19 +218,63 @@ def admin_external_delivery_settings():
             except Exception:
                 return default
 
+        def _float_or_none(name):
+            try:
+                raw_value = request.form.get(name)
+                if raw_value is None or str(raw_value).strip() == "":
+                    return None
+                return round(float(raw_value), 6)
+            except Exception:
+                return None
+
+        def _polygon_from_form(name):
+            raw_value = request.form.get(name) or "[]"
+            try:
+                parsed = json.loads(raw_value)
+            except Exception:
+                parsed = []
+
+            if not isinstance(parsed, list):
+                return []
+
+            cleaned = []
+            for point in parsed:
+                if not isinstance(point, (list, tuple)) or len(point) != 2:
+                    continue
+
+                try:
+                    lat = round(float(point[0]), 6)
+                    lng = round(float(point[1]), 6)
+                except Exception:
+                    continue
+
+                if lat < -90 or lat > 90 or lng < -180 or lng > 180:
+                    continue
+
+                cleaned.append([lat, lng])
+
+            return cleaned if len(cleaned) >= 3 else []
+
+        external_service_zone_enabled = _bool(
+            "external_service_zone_enabled",
+            existing.get("external_service_zone_enabled", False),
+        )
+        external_service_zone_polygon = _polygon_from_form("external_service_zone_polygon")
+
         update_data = {
             "key": EXTERNAL_DELIVERY_SETTINGS_KEY,
             "shiprocket_enabled": _bool("shiprocket_enabled", existing.get("shiprocket_enabled", False)),
             "shiprocket_email": _external_safe_text(request.form.get("shiprocket_email")),
             "shiprocket_pickup_location": _external_safe_text(request.form.get("shiprocket_pickup_location")),
+            "shiprocket_pickup_pincode": _external_safe_text(request.form.get("shiprocket_pickup_pincode")),
             "shiprocket_channel_id": _external_safe_text(request.form.get("shiprocket_channel_id")),
             "shiprocket_webhook_token": _external_safe_text(request.form.get("shiprocket_webhook_token")),
 
-            "hyperlocal_enabled": _bool("hyperlocal_enabled", existing.get("hyperlocal_enabled", False)),
-            "hyperlocal_provider": _external_safe_text(request.form.get("hyperlocal_provider"), "MANUAL_HYPERLOCAL").upper(),
-            "hyperlocal_api_base_url": _external_safe_text(request.form.get("hyperlocal_api_base_url")),
-            "hyperlocal_webhook_token": _external_safe_text(request.form.get("hyperlocal_webhook_token")),
-            "manual_external_enabled": _bool("manual_external_enabled", True),
+            "hyperlocal_enabled": False,
+            "hyperlocal_provider": "LOCAL_DELIVERY_PARTNER",
+            "hyperlocal_api_base_url": existing.get("hyperlocal_api_base_url") or "",
+            "hyperlocal_webhook_token": existing.get("hyperlocal_webhook_token") or "",
+            "manual_external_enabled": False,
 
             "external_local_base_fee": _money("external_local_base_fee", 40.0),
             "external_local_per_km_fee": _money("external_local_per_km_fee", 8.0),
@@ -247,6 +290,11 @@ def admin_external_delivery_settings():
             "default_package_breadth_cm": _money("default_package_breadth_cm", 10.0),
             "default_package_height_cm": _money("default_package_height_cm", 10.0),
 
+            "external_default_pickup_latitude": _float_or_none("external_default_pickup_latitude"),
+            "external_default_pickup_longitude": _float_or_none("external_default_pickup_longitude"),
+            "external_service_zone_enabled": bool(external_service_zone_enabled),
+            "external_service_zone_polygon": external_service_zone_polygon,
+
             "updated_at": now,
             "updated_by": str(admin_user.get("_id") or admin_user.get("id") or ""),
             "updated_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
@@ -257,21 +305,17 @@ def admin_external_delivery_settings():
         if shiprocket_password:
             update_data["shiprocket_password"] = shiprocket_password
 
-        hyperlocal_api_key = _external_safe_text(request.form.get("hyperlocal_api_key"))
-        if hyperlocal_api_key:
-            update_data["hyperlocal_api_key"] = hyperlocal_api_key
+        if update_data.get("shiprocket_enabled"):
+            effective_shiprocket_password = update_data.get("shiprocket_password") or existing.get("shiprocket_password") or ""
+            if not update_data.get("shiprocket_email") or not effective_shiprocket_password:
+                flash("Shiprocket API needs API user email and password before it can be enabled.", "danger")
+                return redirect(url_for("admin_external_delivery_settings"))
+            if not update_data.get("shiprocket_pickup_location") or not update_data.get("shiprocket_pickup_pincode"):
+                flash("Shiprocket API needs pickup location name and pickup pincode before it can be enabled.", "danger")
+                return redirect(url_for("admin_external_delivery_settings"))
 
-        # Security: live external providers require a webhook token before they can be enabled.
-        # Manual/fallback mode stays available without partner credentials.
-        effective_shiprocket_token = update_data.get("shiprocket_webhook_token") or existing.get("shiprocket_webhook_token") or ""
-        effective_hyperlocal_token = update_data.get("hyperlocal_webhook_token") or existing.get("hyperlocal_webhook_token") or ""
-
-        if update_data.get("shiprocket_enabled") and not effective_shiprocket_token:
-            flash("Shiprocket live mode requires a webhook token before it can be enabled.", "danger")
-            return redirect(url_for("admin_external_delivery_settings"))
-
-        if update_data.get("hyperlocal_enabled") and not effective_hyperlocal_token:
-            flash("Hyperlocal live mode requires a webhook token before it can be enabled.", "danger")
+        if update_data.get("external_service_zone_enabled") and len(update_data.get("external_service_zone_polygon") or []) < 3:
+            flash("Please draw at least 3 map points before enabling the external service zone.", "danger")
             return redirect(url_for("admin_external_delivery_settings"))
 
         mongo.platform_settings.update_one(
@@ -280,11 +324,11 @@ def admin_external_delivery_settings():
             upsert=True,
         )
 
-        flash("External delivery provider settings saved successfully.", "success")
+        flash("Local fare and Shiprocket settings saved successfully.", "success")
         return redirect(url_for("admin_external_delivery_settings"))
 
     return render_template(
-        "admin_external_delivery_settings.html",
+        "admin_delivery_channel_settings.html",
         user=admin_user,
         settings=get_external_delivery_settings(),
         delivery_mode_settings=get_delivery_mode_settings(),
@@ -297,12 +341,10 @@ def admin_external_delivery_settings():
 @login_required(role="admin")
 def admin_external_delivery_orders():
     status_filter = _external_safe_text(request.args.get("status")).upper()
-    mode_filter = _external_safe_text(request.args.get("mode")).upper()
     q = _external_safe_text(request.args.get("q")).lower()
 
-    query = {"active_delivery_mode": {"$in": EXTERNAL_ORDER_MODES}}
-    if mode_filter in EXTERNAL_ORDER_MODES:
-        query["active_delivery_mode"] = mode_filter
+    query = {"active_delivery_mode": DELIVERY_MODE_THIRD_PARTY}
+    mode_filter = DELIVERY_MODE_THIRD_PARTY
     if status_filter:
         query["external_delivery_status"] = status_filter
 
@@ -327,7 +369,7 @@ def admin_external_delivery_orders():
     }
 
     return render_template(
-        "admin_external_delivery_orders.html",
+        "admin_shiprocket_shipments.html",
         user=current_user(),
         orders=orders,
         metrics=metrics,
@@ -347,21 +389,18 @@ def admin_external_delivery_book_order(oid):
         flash("External delivery order not found.", "danger")
         return redirect(url_for("admin_external_delivery_orders"))
 
-    provider = _external_safe_text(
-        request.form.get("provider")
-        or order.get("external_delivery_provider")
-        or ("SHIPROCKET" if order.get("active_delivery_mode") == DELIVERY_MODE_THIRD_PARTY else "MANUAL_HYPERLOCAL")
-    ).upper()
+    if (order.get("payment_method") or "").upper() == "ONLINE" and (order.get("payment_status") or "").upper() not in ["PAID", "SUCCESS", "COMPLETED", "CAPTURED"]:
+        flash("Online payment is not completed yet. Shiprocket shipment should be created only after payment success.", "warning")
+        return redirect(url_for("admin_external_delivery_orders"))
+
+    provider = "SHIPROCKET"
 
     payload = _load_external_order_payload(order)
     payload["provider"] = provider
 
     settings = get_external_delivery_settings()
 
-    if provider == "SHIPROCKET" or order.get("active_delivery_mode") == DELIVERY_MODE_THIRD_PARTY:
-        result = create_shiprocket_booking(payload, settings)
-    else:
-        result = create_hyperlocal_booking(payload, settings)
+    result = create_shiprocket_booking(payload, settings)
 
     now = _external_now()
     update_data = {
@@ -437,7 +476,7 @@ def store_external_delivery():
 
     docs = list(mongo.orders.find({
         "$and": [
-            {"active_delivery_mode": {"$in": EXTERNAL_ORDER_MODES}},
+            {"active_delivery_mode": DELIVERY_MODE_THIRD_PARTY},
             _external_store_filter(store),
         ]
     }).sort("created_at", -1).limit(200))
@@ -445,7 +484,7 @@ def store_external_delivery():
     orders = [_decorate_external_order(doc) for doc in docs]
 
     return render_template(
-        "store_external_delivery.html",
+        "store_shiprocket_shipments.html",
         user=user,
         store=store,
         orders=orders,
@@ -468,12 +507,16 @@ def store_external_delivery_ready(oid):
 
     order = mongo.orders.find_one({
         "_id": oid_obj,
-        "active_delivery_mode": {"$in": EXTERNAL_ORDER_MODES},
+        "active_delivery_mode": DELIVERY_MODE_THIRD_PARTY,
         **_external_store_filter(store),
     })
 
     if not order:
         flash("External delivery order not found for your store.", "danger")
+        return redirect(url_for("store_external_delivery"))
+
+    if (order.get("payment_method") or "").upper() == "ONLINE" and (order.get("payment_status") or "").upper() not in ["PAID", "SUCCESS", "COMPLETED", "CAPTURED"]:
+        flash("Online payment is not completed yet. Shiprocket shipment should be created only after payment success.", "warning")
         return redirect(url_for("store_external_delivery"))
 
     now = _external_now()
@@ -484,14 +527,14 @@ def store_external_delivery_ready(oid):
                 "status": "SHIPMENT_READY",
                 "shipment_ready_at": now,
                 "ready_for_pickup_at": now,
-                "external_delivery_status": "READY_FOR_EXTERNAL_BOOKING",
+                "external_delivery_status": "READY_FOR_SHIPROCKET_BOOKING",
                 "external_delivery_booking_status": "READY_FOR_BOOKING",
                 "updated_at": now,
             },
             "$push": {
                 "external_status_history": {
-                    "status": "READY_FOR_EXTERNAL_BOOKING",
-                    "note": "Store marked order ready for external delivery booking.",
+                    "status": "READY_FOR_SHIPROCKET_BOOKING",
+                    "note": "Store marked package ready for Shiprocket booking.",
                     "at": now,
                     "payload": {},
                 }
@@ -500,11 +543,60 @@ def store_external_delivery_ready(oid):
     )
 
     try:
-        add_order_event(oid_obj, "READY_FOR_EXTERNAL_BOOKING", "Store marked order ready for external delivery booking.", user)
+        add_order_event(oid_obj, "READY_FOR_SHIPROCKET_BOOKING", "Store marked package ready for Shiprocket booking.", user)
     except Exception:
         pass
 
-    flash("Order marked ready for external delivery booking.", "success")
+    order_for_booking = mongo.orders.find_one({"_id": oid_obj}) or order
+    payload = _load_external_order_payload(order_for_booking)
+    payload["provider"] = "SHIPROCKET"
+    settings = get_external_delivery_settings()
+    result = create_shiprocket_booking(payload, settings)
+
+    booking_update = {
+        "external_delivery_provider": "SHIPROCKET",
+        "external_delivery_partner_name": "SHIPROCKET",
+        "external_delivery_payload": payload,
+        "external_delivery_response": result.get("raw_response") or result,
+        "external_booking_attempted_at": _external_now(),
+        "updated_at": _external_now(),
+    }
+
+    if result.get("ok"):
+        booking_update.update({
+            "external_delivery_status": result.get("status") or "BOOKED",
+            "external_delivery_booking_status": "BOOKED",
+            "external_order_id": result.get("external_order_id") or order.get("external_order_id") or "",
+            "external_shipment_id": result.get("external_shipment_id") or order.get("external_shipment_id") or "",
+            "external_awb": result.get("external_awb") or order.get("external_awb") or "",
+            "external_tracking_url": result.get("external_tracking_url") or order.get("external_tracking_url") or "",
+            "external_label_url": result.get("external_label_url") or order.get("external_label_url") or "",
+            "external_manifest_url": result.get("external_manifest_url") or order.get("external_manifest_url") or "",
+        })
+        flash(result.get("message") or "Package marked ready and Shiprocket booking recorded.", "success")
+    else:
+        booking_update.update({
+            "external_delivery_status": result.get("status") or "BOOKING_FAILED",
+            "external_delivery_booking_status": "BOOKING_FAILED",
+            "external_booking_error": result.get("message") or "Shiprocket booking failed.",
+        })
+        flash(result.get("message") or "Package marked ready, but Shiprocket booking failed. Admin can retry from Shiprocket Shipments.", "warning")
+
+    mongo.orders.update_one(
+        {"_id": oid_obj},
+        {
+            "$set": booking_update,
+            "$push": {
+                "external_status_history": {
+                    "status": booking_update.get("external_delivery_status"),
+                    "note": result.get("message") or "Shiprocket booking attempted after store marked package ready.",
+                    "at": _external_now(),
+                    "payload": result,
+                }
+            }
+        }
+    )
+
     return redirect(url_for("store_external_delivery"))
 
 

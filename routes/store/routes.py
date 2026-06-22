@@ -4685,6 +4685,7 @@ def store_product_new():
             return redirect(url_for("store_add_product"))
 
     now = datetime.utcnow().isoformat()
+    shipping_package = parse_product_shipping_package_from_form(request.form)
 
     mongo.products.insert_one({
         "store_id": sid,
@@ -4714,6 +4715,11 @@ def store_product_new():
         "quantity_min": pricing["quantity_min"],
         "quantity_step": pricing["quantity_step"],
         "quantity_message": pricing["quantity_message"],
+
+        "shipping_weight_kg": shipping_package["shipping_weight_kg"],
+        "shipping_length_cm": shipping_package["shipping_length_cm"],
+        "shipping_breadth_cm": shipping_package["shipping_breadth_cm"],
+        "shipping_height_cm": shipping_package["shipping_height_cm"],
 
         "category_id": category_id,
         "category": category,
@@ -4992,6 +4998,8 @@ def store_product_update(pid):
     else:
         sub_category = None
 
+    shipping_package = parse_product_shipping_package_from_form(request.form, product)
+
     update_data = {
         "name": name,
 
@@ -5017,6 +5025,11 @@ def store_product_update(pid):
         "quantity_min": pricing["quantity_min"],
         "quantity_step": pricing["quantity_step"],
         "quantity_message": pricing["quantity_message"],
+
+        "shipping_weight_kg": shipping_package["shipping_weight_kg"],
+        "shipping_length_cm": shipping_package["shipping_length_cm"],
+        "shipping_breadth_cm": shipping_package["shipping_breadth_cm"],
+        "shipping_height_cm": shipping_package["shipping_height_cm"],
 
         "category_id": category_id,
         "category": category,

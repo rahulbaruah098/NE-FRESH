@@ -20,7 +20,13 @@ def _has_shiprocket_credentials(settings):
 
 def create_shiprocket_booking(payload, settings):
     if not _has_shiprocket_credentials(settings):
-        return manual_booking_response(payload, provider="SHIPROCKET")
+        return {
+            "ok": False,
+            "provider": "SHIPROCKET",
+            "status": "SHIPROCKET_CREDENTIALS_MISSING",
+            "message": "Shiprocket API is not enabled or credentials are missing. Add API user email/password in Local Fare & Shiprocket Settings, then retry.",
+            "raw_response": {},
+        }
 
     try:
         login_res = requests.post(
@@ -50,6 +56,7 @@ def create_shiprocket_booking(payload, settings):
             "order_id": payload.get("order_id"),
             "order_date": payload.get("created_at"),
             "pickup_location": settings.get("shiprocket_pickup_location") or "Primary",
+            **({"channel_id": settings.get("shiprocket_channel_id")} if settings.get("shiprocket_channel_id") else {}),
             "billing_customer_name": payload.get("customer", {}).get("name"),
             "billing_phone": payload.get("customer", {}).get("phone"),
             "billing_address": payload.get("drop", {}).get("line1"),

@@ -26,6 +26,58 @@ def safe_text(value, fallback=""):
     return value if value else fallback
 
 
+def build_package_from_order_items(order=None, items=None, settings=None):
+    order = order or {}
+    items = items or []
+    settings = settings or {}
+
+    saved_package = order.get("external_package_snapshot") or {}
+    if isinstance(saved_package, dict) and saved_package.get("weight_kg"):
+        return {
+            "weight_kg": safe_float(saved_package.get("weight_kg"), settings.get("default_package_weight_kg") or 1.0),
+            "length_cm": safe_float(saved_package.get("length_cm"), settings.get("default_package_length_cm") or 10.0),
+            "breadth_cm": safe_float(saved_package.get("breadth_cm"), settings.get("default_package_breadth_cm") or 10.0),
+            "height_cm": safe_float(saved_package.get("height_cm"), settings.get("default_package_height_cm") or 10.0),
+            "source": saved_package.get("source") or "order_saved_package",
+        }
+
+    default_weight = safe_float(settings.get("default_package_weight_kg"), 1.0)
+    default_length = safe_float(settings.get("default_package_length_cm"), 10.0)
+    default_breadth = safe_float(settings.get("default_package_breadth_cm"), 10.0)
+    default_height = safe_float(settings.get("default_package_height_cm"), 10.0)
+
+    total_weight = 0.0
+    max_length = 0.0
+    max_breadth = 0.0
+    max_height = 0.0
+    used_product_dimensions = False
+
+    for item in items:
+        qty = max(safe_float(item.get("quantity"), 1.0), 1.0)
+        weight = safe_float(item.get("shipping_weight_kg"), 0.0)
+        length = safe_float(item.get("shipping_length_cm"), 0.0)
+        breadth = safe_float(item.get("shipping_breadth_cm"), 0.0)
+        height = safe_float(item.get("shipping_height_cm"), 0.0)
+
+        total_weight += (weight if weight > 0 else default_weight) * qty
+        if weight > 0 or length > 0 or breadth > 0 or height > 0:
+            used_product_dimensions = True
+        max_length = max(max_length, length)
+        max_breadth = max(max_breadth, breadth)
+        max_height = max(max_height, height)
+
+    if total_weight <= 0:
+        total_weight = default_weight
+
+    return {
+        "weight_kg": round(max(total_weight, 0.1), 3),
+        "length_cm": round(max(max_length, default_length, 1.0), 2),
+        "breadth_cm": round(max(max_breadth, default_breadth, 1.0), 2),
+        "height_cm": round(max(max_height, default_height, 1.0), 2),
+        "source": "product_dimensions" if used_product_dimensions else "admin_default_package",
+    }
+
+
 def build_external_delivery_payload(order, address=None, items=None, settings=None):
     """Builds a provider-neutral payload from an NE FRESH order."""
     order = order or {}
@@ -65,12 +117,7 @@ def build_external_delivery_payload(order, address=None, items=None, settings=No
             "latitude": order.get("delivery_latitude"),
             "longitude": order.get("delivery_longitude"),
         },
-        "package": {
-            "weight_kg": safe_float(settings.get("default_package_weight_kg"), 1.0),
-            "length_cm": safe_float(settings.get("default_package_length_cm"), 10.0),
-            "breadth_cm": safe_float(settings.get("default_package_breadth_cm"), 10.0),
-            "height_cm": safe_float(settings.get("default_package_height_cm"), 10.0),
-        },
+        "package": build_package_from_order_items(order=order, items=items, settings=settings),
         "items": [
             {
                 "name": safe_text(item.get("product_name") or item.get("name"), "Item"),
