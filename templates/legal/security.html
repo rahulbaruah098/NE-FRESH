@@ -3,585 +3,1059 @@
 
 <section class="security-page" data-page="security">
   <style>
-    /* =========================================================
-       SECURITY (Single-file: HTML + CSS + JS) — Scoped inside base.html
-       UPDATED:
-       ✅ Footer stars + footer title match Privacy page
-       ✅ TOC sidebar sticky behavior matches Privacy page
-       ✅ Fully responsive (web + mobile) improvements
-       ========================================================= */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-    /* Google Fonts Import (scoped) */
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Dancing+Script:wght@400;500;600;700&family=Italiana&family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
-
-    /* Color Variables */
     .security-page{
-      --crimson: #8B0000;
-      --black: #000000;
-      --off-white: #FAF9F6;
-      --light-crimson: #FFF5F5;
-      --crimson-hover: #a00000;
+      --ne-green:#00A859;
+      --ne-green-dark:#008A48;
+      --ne-green-deep:#063E25;
+      --ne-green-soft:#E9FFF3;
+      --ne-green-soft-2:#F3FFF8;
+      --ne-mint:#DDFBE9;
+      --ne-cream:#FFF8EA;
+      --ne-amber:#FFB84D;
+      --ne-red:#E54848;
+      --ne-red-soft:#FFF1F1;
+      --ne-ink:#1E2D25;
+      --ne-text:#5E6F65;
+      --ne-muted:#8A9890;
+      --ne-line:#DDEFE6;
+      --ne-card:#FFFFFF;
+      --ne-bg:#F8FFFB;
+      --ne-shadow:0 18px 48px rgba(17,64,38,.09);
+      --ne-shadow-soft:0 10px 28px rgba(17,64,38,.06);
+      --ne-shadow-hover:0 26px 64px rgba(17,64,38,.14);
+      --ne-radius:24px;
+      --ne-ease:cubic-bezier(.2,.75,.25,1);
 
-      min-height: 100vh;
-      background-color: var(--off-white);
-      font-family: 'Cormorant Garamond', serif;
-      color: var(--black);
-      line-height: 1.6;
-      font-size: 1.125rem;
-
-      /* Full-bleed inside base.html container */
-      width: 100vw;
-      margin-left: calc(50% - 50vw);
-      margin-right: calc(50% - 50vw);
-      position: relative;
-      overflow: visible; /* allow sticky + shadows safely */
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+      min-height:100vh;
+      position:relative;
+      overflow-x:clip;
+      overflow-y:visible;
+      background:
+        radial-gradient(circle at 8% 0%,rgba(0,168,89,.09),transparent 30%),
+        radial-gradient(circle at 92% 12%,rgba(255,184,77,.12),transparent 28%),
+        linear-gradient(180deg,#F7FFFB 0%,#FFFFFF 45%,#F8FFFB 100%);
+      color:var(--ne-text);
+      font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      font-size:16px;
+      line-height:1.65;
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
     }
 
-    /* Custom Chicken Cursor (scoped) */
+    @supports not (overflow:clip){
+      .security-page{overflow-x:hidden;}
+    }
+
+    .security-page,
     .security-page *{
-      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M12 4c-2 0-3 1-3 3v2c-2 0-3 1-3 3v3c0 2 1 3 3 3h1v8c0 1 1 2 2 2h4c1 0 2-1 2-2v-8h1c2 0 3-1 3-3v-3c0-2-1-3-3-3V7c0-2-1-3-3-3h-4zm2 3h2v2h-2V7zm-4 4h8v2h-8v-2z" fill="%238B0000" stroke="%23000" stroke-width="1"/></svg>'), auto !important;
+      box-sizing:border-box;
     }
+
+    .security-page *{
+      margin:0;
+      padding:0;
+    }
+
+    .security-page a{
+      color:inherit;
+      text-decoration:none;
+    }
+
+    .security-page img,
+    .security-page svg{
+      max-width:100%;
+      display:block;
+    }
+
     .security-page button,
     .security-page a{
-      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M12 4c-2 0-3 1-3 3v2c-2 0-3 1-3 3v3c0 2 1 3 3 3h1v8c0 1 1 2 2 2h4c1 0 2-1 2-2v-8h1c2 0 3-1 3-3v-3c0-2-1-3-3-3V7c0-2-1-3-3-3h-4zm2 3h2v2h-2V7zm-4 4h8v2h-8v-2z" fill="%238B0000" stroke="%23000" stroke-width="1"/></svg>'), pointer !important;
+      -webkit-tap-highlight-color:transparent;
     }
 
-    /* Film Grain Overlay (scoped) */
-    .security-page::before{
-      content:'';
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 9999;
-      background-image:
-        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px),
-        repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,.03) 2px, rgba(0,0,0,.03) 4px);
-      opacity: 0.5;
-      animation: securityGrain 8s steps(10) infinite;
-    }
-    @keyframes securityGrain{
-      0%, 100% { transform: translate(0, 0); }
-      10% { transform: translate(-5%, -10%); }
-      20% { transform: translate(-15%, 5%); }
-      30% { transform: translate(7%, -25%); }
-      40% { transform: translate(-5%, 25%); }
-      50% { transform: translate(-15%, 10%); }
-      60% { transform: translate(15%, 0%); }
-      70% { transform: translate(0%, 15%); }
-      80% { transform: translate(3%, 35%); }
-      90% { transform: translate(-10%, 10%); }
+    .security-page .page-shell{
+      width:min(1180px,calc(100% - 36px));
+      margin:0 auto;
     }
 
-    /* Reset-ish (scoped) */
-    .security-page *{ margin:0; padding:0; box-sizing:border-box; }
-    .security-page img{ max-width:100%; display:block; }
-    .security-page a{ text-decoration:none; color:inherit; }
-    .security-page ul{ margin:0; padding:0; }
-
-    /* Top Bar */
     .security-page .top-bar{
-      display:flex;
-      justify-content: space-between;
-      padding: 1.5rem 2rem;
-      border-bottom: 4px solid var(--black);
-      background-color: var(--off-white);
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      position:sticky;
+      top:0;
+      z-index:90;
+      width:100%;
+      backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
+      background:rgba(248,255,251,.88);
+      border-bottom:1px solid rgba(221,239,230,.82);
+      box-shadow:0 10px 28px rgba(17,64,38,.045);
     }
+
+    .security-page .top-bar-inner{
+      width:min(1180px,calc(100% - 36px));
+      margin:0 auto;
+      min-height:58px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+    }
+
     .security-page .top-bar-text{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      font-weight: 400;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      color:var(--ne-green-dark);
+      font-size:.78rem;
+      line-height:1.2;
+      font-weight:900;
+      letter-spacing:.11em;
+      text-transform:uppercase;
+      white-space:nowrap;
     }
 
-    /* Hero Section */
+    .security-page .top-bar-text::before{
+      content:"";
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:var(--ne-green);
+      box-shadow:0 0 0 5px rgba(0,168,89,.12);
+    }
+
     .security-page .hero-section{
-      text-align: center;
-      padding: 5rem 2rem 4rem;
-      border-bottom: 4px solid var(--black);
-      background-color: var(--off-white);
+      position:relative;
+      overflow:hidden;
+      padding:clamp(48px,7vw,86px) 0 clamp(34px,5vw,58px);
+      border-bottom:1px solid rgba(221,239,230,.72);
     }
+
+    .security-page .hero-section::before,
+    .security-page .hero-section::after{
+      content:"";
+      position:absolute;
+      border-radius:999px;
+      pointer-events:none;
+      z-index:0;
+    }
+
+    .security-page .hero-section::before{
+      width:360px;
+      height:360px;
+      right:-120px;
+      top:-150px;
+      background:rgba(0,168,89,.08);
+    }
+
+    .security-page .hero-section::after{
+      width:220px;
+      height:220px;
+      left:-90px;
+      bottom:-110px;
+      background:rgba(255,184,77,.12);
+    }
+
+    .security-page .hero-grid{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:minmax(0,1.12fr) minmax(300px,.88fr);
+      gap:clamp(24px,4vw,52px);
+      align-items:center;
+    }
+
+    .security-page .hero-kicker{
+      width:max-content;
+      max-width:100%;
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      min-height:34px;
+      padding:0 13px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid rgba(0,168,89,.17);
+      color:var(--ne-green-dark);
+      font-size:.8rem;
+      font-weight:900;
+      box-shadow:var(--ne-shadow-soft);
+      margin-bottom:16px;
+    }
+
+    .security-page .hero-kicker span{
+      width:9px;
+      height:9px;
+      border-radius:50%;
+      background:var(--ne-green);
+    }
+
     .security-page .hero-title{
-      font-family: 'Dancing Script', cursive;
-      font-size: clamp(3rem, 8vw, 6rem);
-      font-weight: 700;
-      color: var(--crimson);
-      margin-bottom: 1rem;
-      font-style: italic;
+      margin:0;
+      max-width:760px;
+      color:var(--ne-ink);
+      font-size:clamp(2.05rem,5.2vw,4.75rem);
+      line-height:1.03;
+      letter-spacing:-.06em;
+      font-weight:950;
     }
+
+    .security-page .hero-title strong{
+      color:var(--ne-green-dark);
+      font-weight:950;
+    }
+
     .security-page .hero-subtitle{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(1rem, 2vw, 1.5rem);
-      color: var(--black);
-      margin-bottom: 2rem;
-      font-weight: 400;
-    }
-    .security-page .hero-divider{
-      width: 6rem;
-      height: 4px;
-      background-color: var(--crimson);
-      margin: 2rem auto;
-    }
-    .security-page .hero-date{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--black);
-      margin-top: 1.5rem;
+      margin:18px 0 0;
+      max-width:720px;
+      color:var(--ne-text);
+      font-size:clamp(.98rem,1.45vw,1.14rem);
+      line-height:1.78;
+      font-weight:550;
     }
 
-    /* Main Content Layout */
-    .security-page .content-wrapper{
-      max-width: 1400px;
-      margin: 0 auto;
+    .security-page .hero-actions{
+      margin-top:24px;
       display:flex;
-      gap: 5%;
-      padding: 3rem 2rem;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
     }
 
-    /* TOC Sidebar — UPDATED to match Privacy sticky behavior */
+    .security-page .hero-btn,
+    .security-page .contact-button{
+      min-height:48px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      padding:0 18px;
+      border-radius:14px;
+      border:1px solid rgba(0,168,89,.22);
+      background:var(--ne-green);
+      color:#fff;
+      font-size:.92rem;
+      font-weight:900;
+      line-height:1;
+      box-shadow:0 14px 28px rgba(0,168,89,.20);
+      transition:transform .22s var(--ne-ease),background .22s var(--ne-ease),box-shadow .22s var(--ne-ease),border-color .22s var(--ne-ease);
+      cursor:pointer;
+      appearance:none;
+      -webkit-appearance:none;
+    }
+
+    .security-page .hero-btn:hover,
+    .security-page .contact-button:hover{
+      transform:translateY(-2px);
+      background:var(--ne-green-dark);
+      box-shadow:0 18px 36px rgba(0,138,72,.24);
+    }
+
+    .security-page .hero-btn.secondary{
+      background:#fff;
+      color:var(--ne-green-dark);
+      box-shadow:var(--ne-shadow-soft);
+    }
+
+    .security-page .hero-btn.secondary:hover{
+      background:var(--ne-green-soft);
+      color:var(--ne-green-deep);
+    }
+
+    .security-page .hero-card{
+      position:relative;
+      min-height:310px;
+      border-radius:34px;
+      padding:24px;
+      background:
+        linear-gradient(145deg,rgba(255,255,255,.95),rgba(255,255,255,.72)),
+        linear-gradient(135deg,#E6FFF0,#FFF8E8);
+      border:1px solid rgba(221,239,230,.88);
+      box-shadow:var(--ne-shadow);
+      overflow:hidden;
+      isolation:isolate;
+    }
+
+    .security-page .hero-card::before{
+      content:"";
+      position:absolute;
+      inset:auto -58px -72px auto;
+      width:210px;
+      height:210px;
+      border-radius:50%;
+      background:rgba(0,168,89,.10);
+      z-index:-1;
+    }
+
+    .security-page .hero-card-icon{
+      width:74px;
+      height:74px;
+      display:grid;
+      place-items:center;
+      border-radius:26px;
+      background:linear-gradient(145deg,#E9FFF3,#FFFFFF);
+      border:1px solid rgba(0,168,89,.14);
+      box-shadow:0 16px 34px rgba(17,64,38,.10);
+      font-size:2.3rem;
+      margin-bottom:18px;
+    }
+
+    .security-page .hero-card h2{
+      margin:0;
+      color:var(--ne-ink);
+      font-size:1.35rem;
+      line-height:1.25;
+      letter-spacing:-.025em;
+      font-weight:950;
+    }
+
+    .security-page .hero-card p{
+      margin:10px 0 0;
+      color:var(--ne-text);
+      font-size:.94rem;
+      line-height:1.66;
+      font-weight:600;
+    }
+
+    .security-page .trust-list{
+      margin-top:18px;
+      display:grid;
+      gap:10px;
+    }
+
+    .security-page .trust-list span{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:42px;
+      padding:9px 12px;
+      border-radius:14px;
+      background:rgba(255,255,255,.78);
+      border:1px solid rgba(221,239,230,.82);
+      color:var(--ne-ink);
+      font-size:.86rem;
+      font-weight:850;
+    }
+
+    .security-page .trust-list span::before{
+      content:"✓";
+      width:22px;
+      height:22px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      border-radius:50%;
+      background:var(--ne-green);
+      color:#fff;
+      font-size:.72rem;
+      font-weight:950;
+    }
+
+    .security-page .content-wrapper{
+      width:min(1180px,calc(100% - 36px));
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:minmax(220px,280px) minmax(0,1fr);
+      gap:clamp(22px,3.2vw,42px);
+      padding:clamp(32px,5vw,62px) 0;
+      align-items:start;
+      overflow:visible;
+    }
+
     .security-page .toc-sidebar{
-      width: 25%;
-      position: sticky;
-      top: 120px;                  /* stick below top-bar */
-      align-self: flex-start;
-      height: fit-content;         /* prevents stretching */
-      max-height: calc(100vh - 140px);
-      overflow-y: auto;
-
-      border: 4px solid var(--black);
-      background-color: var(--off-white);
-      padding: 2rem;
-
-      z-index: 50;                 /* keeps it above sections */
+      position:sticky;
+      top:82px;
+      align-self:start;
+      max-height:calc(100vh - 104px);
+      overflow:auto;
+      border-radius:24px;
+      padding:18px;
+      background:rgba(255,255,255,.88);
+      border:1px solid rgba(221,239,230,.95);
+      box-shadow:var(--ne-shadow-soft);
+      backdrop-filter:blur(14px);
+      -webkit-backdrop-filter:blur(14px);
+      z-index:20;
     }
+
+    .security-page .toc-mobile-toggle{
+      display:none;
+      width:100%;
+      min-height:46px;
+      border:0;
+      border-radius:14px;
+      background:var(--ne-green);
+      color:#fff;
+      font-size:.84rem;
+      font-weight:950;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      cursor:pointer;
+      box-shadow:0 12px 26px rgba(0,168,89,.18);
+      appearance:none;
+      -webkit-appearance:none;
+    }
+
     .security-page .toc-title{
-      font-family: 'Playfair Display', serif;
-      font-size: 1.5rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 1.5rem;
-      color: var(--black);
+      margin:0 0 14px;
+      color:var(--ne-ink);
+      font-size:.92rem;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      font-weight:950;
     }
-    .security-page .toc-list{ list-style:none; }
-    .security-page .toc-item{ margin-bottom: 0.5rem; }
+
+    .security-page .toc-list{
+      list-style:none;
+      display:grid;
+      gap:8px;
+    }
+
+    .security-page .toc-item{
+      list-style:none;
+    }
+
     .security-page .toc-link{
-      display:block;
-      padding: 0.75rem 1rem;
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--black);
-      border: 2px solid transparent;
-      transition: all 0.3s ease;
-      word-break: break-word;
+      width:100%;
+      min-height:46px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:9px 10px;
+      border-radius:14px;
+      color:var(--ne-text);
+      border:1px solid transparent;
+      background:transparent;
+      transition:background .2s var(--ne-ease),color .2s var(--ne-ease),border-color .2s var(--ne-ease),transform .2s var(--ne-ease);
+      font-size:.86rem;
+      font-weight:850;
     }
+
     .security-page .toc-link:hover,
     .security-page .toc-link.active{
-      background-color: var(--crimson);
-      color: var(--off-white);
-      border-color: var(--black);
+      color:var(--ne-green-dark);
+      background:var(--ne-green-soft);
+      border-color:rgba(0,168,89,.14);
+      transform:translateX(2px);
     }
+
     .security-page .toc-number{
-      font-family: 'Playfair Display', serif;
-      font-weight: 900;
-      font-size: 1rem;
-      margin-right: 0.5rem;
+      width:30px;
+      height:30px;
+      flex:0 0 auto;
+      display:grid;
+      place-items:center;
+      border-radius:11px;
+      background:#fff;
+      color:var(--ne-green-dark);
+      border:1px solid rgba(0,168,89,.12);
+      font-size:.75rem;
+      font-weight:950;
     }
 
-    /* Main */
-    .security-page .main-content{ width: 70%; }
+    .security-page .main-content{
+      min-width:0;
+    }
 
-    /* Sections */
     .security-page .content-section{
-      position: relative;
-      padding: 3rem 2rem;
-      border: 4px solid var(--black);
-      margin-bottom: 2rem;
-      background-color: var(--off-white);
-      border-left: 8px solid var(--crimson);
-      opacity: 0;
-      transform: translateY(50px);
-      transition: all 0.6s ease;
+      position:relative;
+      overflow:hidden;
+      border-radius:28px;
+      padding:clamp(22px,3vw,36px);
+      margin-bottom:18px;
+      background:#fff;
+      border:1px solid rgba(221,239,230,.95);
+      box-shadow:var(--ne-shadow-soft);
+      opacity:0;
+      transform:translateY(24px);
+      transition:opacity .58s var(--ne-ease),transform .58s var(--ne-ease),box-shadow .22s var(--ne-ease),border-color .22s var(--ne-ease);
     }
+
     .security-page .content-section.visible{
-      opacity: 1;
-      transform: translateY(0);
+      opacity:1;
+      transform:none;
     }
-    .security-page .content-section:nth-child(even){
-      background-color: var(--light-crimson);
-    }
+
     .security-page .content-section:hover{
-      background-color: #fff0f0;
+      border-color:rgba(0,168,89,.20);
+      box-shadow:var(--ne-shadow);
+    }
+
+    .security-page .content-section::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:0;
+      width:7px;
+      height:100%;
+      background:linear-gradient(180deg,var(--ne-green),#9BE7BF);
     }
 
     .security-page .section-number{
       position:absolute;
-      top: 2rem;
-      left: -1rem;
-      font-family: 'Playfair Display', serif;
-      font-size: 4rem;
-      font-weight: 900;
-      color: var(--crimson);
-      opacity: 0.2;
-      line-height: 1;
+      right:22px;
+      top:14px;
+      color:rgba(0,168,89,.08);
+      font-size:clamp(3.2rem,8vw,6rem);
+      line-height:.8;
+      font-weight:950;
+      letter-spacing:-.08em;
+      pointer-events:none;
     }
-    .security-page .section-heading{
-      font-family: 'Playfair Display', serif;
-      font-size: 2rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 1.5rem;
-      color: var(--black);
-      padding-left: 3rem;
-    }
-    .security-page .section-content{
-      font-size: 1.125rem;
-      line-height: 1.8;
-      color: var(--black);
-    }
-    .security-page .section-content p{ margin-bottom: 1.5rem; }
-    .security-page .section-content strong{ font-weight: 600; color: var(--crimson); }
 
-    /* Lists */
+    .security-page .section-heading{
+      position:relative;
+      z-index:1;
+      max-width:760px;
+      margin:0 0 14px;
+      color:var(--ne-ink);
+      font-size:clamp(1.28rem,2.1vw,1.9rem);
+      line-height:1.2;
+      letter-spacing:-.035em;
+      font-weight:950;
+    }
+
+    .security-page .section-content{
+      position:relative;
+      z-index:1;
+      color:var(--ne-text);
+      font-size:clamp(.94rem,1.2vw,1rem);
+      line-height:1.78;
+      font-weight:550;
+    }
+
+    .security-page .section-content p{
+      margin-bottom:16px;
+    }
+
+    .security-page .section-content p:last-child{
+      margin-bottom:0;
+    }
+
+    .security-page .section-content strong{
+      color:var(--ne-green-dark);
+      font-weight:900;
+    }
+
+    .security-page .section-content a{
+      color:var(--ne-green-dark);
+      font-weight:900;
+      text-decoration:underline;
+      text-decoration-thickness:2px;
+      text-underline-offset:4px;
+    }
+
     .security-page .section-content ul{
       list-style:none;
-      padding-left: 1.5rem;
-      margin-bottom: 1.5rem;
+      display:grid;
+      gap:10px;
+      margin:16px 0;
+      padding:0;
     }
+
     .security-page .section-content li{
-      position: relative;
-      margin-bottom: 0.75rem;
-      padding-left: 1.5rem;
+      position:relative;
+      padding:12px 14px 12px 42px;
+      border-radius:15px;
+      background:var(--ne-green-soft-2);
+      border:1px solid rgba(0,168,89,.10);
+      color:var(--ne-ink);
+      font-weight:760;
     }
+
     .security-page .section-content li::before{
-      content:'';
+      content:"";
       position:absolute;
-      left:0;
-      top: 0.6em;
-      width: 8px;
-      height: 8px;
-      background-color: var(--crimson);
+      left:14px;
+      top:50%;
+      width:16px;
+      height:16px;
+      transform:translateY(-50%);
+      border-radius:50%;
+      background:var(--ne-green);
+      box-shadow:inset 0 0 0 5px #fff;
     }
 
-    /* Info Box */
     .security-page .info-box{
-      background-color: var(--crimson);
-      color: var(--off-white);
-      padding: 2rem;
-      border: 4px solid var(--black);
-      margin: 2rem 0;
-      display:flex;
-      gap: 1.5rem;
-      align-items:flex-start;
-      transition: all 0.4s ease;
+      display:grid;
+      grid-template-columns:auto minmax(0,1fr);
+      gap:14px;
+      margin:20px 0;
+      padding:18px;
+      border-radius:22px;
+      background:linear-gradient(135deg,#E9FFF3 0%,#FFFFFF 70%);
+      border:1px solid rgba(0,168,89,.16);
+      box-shadow:0 12px 28px rgba(17,64,38,.06);
     }
-    .security-page .info-box:hover{ background-color: var(--black); }
-    .security-page .info-box-icon{ font-size: 2.5rem; flex-shrink: 0; }
-    .security-page .info-box-content{ flex:1; }
+
+    .security-page .info-box-icon{
+      width:48px;
+      height:48px;
+      display:grid;
+      place-items:center;
+      border-radius:18px;
+      background:#fff;
+      color:var(--ne-green-dark);
+      border:1px solid rgba(0,168,89,.16);
+      box-shadow:0 10px 24px rgba(17,64,38,.08);
+      flex:0 0 auto;
+    }
+
+    .security-page .info-box-icon svg{
+      width:26px;
+      height:26px;
+    }
+
     .security-page .info-box-title{
-      font-family: 'Italiana', serif;
-      font-size: 1.125rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      margin-bottom: 0.75rem;
-      font-weight: 400;
+      margin:0 0 5px;
+      color:var(--ne-ink);
+      font-size:.95rem;
+      line-height:1.25;
+      font-weight:950;
+      letter-spacing:-.01em;
     }
+
     .security-page .info-box-text{
-      font-size: 1.125rem;
-      line-height: 1.6;
-    }
-    .security-page .info-box-text a{
-      color: var(--off-white);
-      text-decoration: underline;
-      text-underline-offset: 4px;
-    }
-    .security-page .info-box:hover .info-box-text a{
-      color: var(--off-white);
+      margin:0;
+      color:var(--ne-text);
+      font-size:.92rem;
+      line-height:1.6;
+      font-weight:620;
     }
 
-    /* Contact */
     .security-page .contact-section{
-      border: 4px solid var(--black);
-      padding: 3rem;
-      background-color: var(--off-white);
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-    .security-page .contact-title{
-      font-family: 'Playfair Display', serif;
-      font-size: 2rem;
-      font-weight: 700;
-      margin-bottom: 1rem;
-      color: var(--black);
-    }
-    .security-page .contact-email{
-      font-size: 1.25rem;
-      color: var(--crimson);
-      display:inline-block;
-      margin-bottom: 2rem;
-      border-bottom: 2px solid transparent;
-      transition: border-color 0.3s ease;
-      word-break: break-word;
-    }
-    .security-page .contact-email:hover{ border-bottom-color: var(--crimson); }
-    .security-page .contact-button{
-      font-family: 'Italiana', serif;
-      font-size: 1rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      background-color: var(--crimson);
-      color: var(--off-white);
-      border: 4px solid var(--black);
-      padding: 1rem 2.5rem;
-      display:inline-block;
-      transition: all 0.4s ease;
-    }
-    .security-page .contact-button:hover{
-      background-color: var(--black);
-      color: var(--off-white);
+      position:relative;
+      overflow:hidden;
+      margin-top:18px;
+      padding:clamp(24px,3.4vw,40px);
+      border-radius:30px;
+      background:linear-gradient(135deg,#063E25 0%,#008A48 64%,#00A859 100%);
+      color:#fff;
+      box-shadow:0 24px 64px rgba(0,138,72,.22);
     }
 
-    /* Back to Top */
+    .security-page .contact-section::after{
+      content:"";
+      position:absolute;
+      right:-80px;
+      bottom:-110px;
+      width:260px;
+      height:260px;
+      border-radius:50%;
+      background:rgba(255,255,255,.12);
+    }
+
+    .security-page .contact-title{
+      position:relative;
+      z-index:1;
+      margin:0;
+      font-size:clamp(1.35rem,2.5vw,2rem);
+      line-height:1.18;
+      letter-spacing:-.04em;
+      font-weight:950;
+    }
+
+    .security-page .contact-section p{
+      position:relative;
+      z-index:1;
+      margin:12px 0 18px;
+      color:rgba(255,255,255,.84);
+      font-size:.98rem;
+      line-height:1.65;
+      font-weight:600;
+    }
+
+    .security-page .contact-email{
+      color:#fff;
+      font-weight:950;
+      text-decoration:underline;
+      text-underline-offset:4px;
+      word-break:break-word;
+    }
+
+    .security-page .contact-button{
+      position:relative;
+      z-index:1;
+      background:#fff;
+      color:var(--ne-green-dark);
+      border-color:rgba(255,255,255,.65);
+      box-shadow:0 16px 34px rgba(0,0,0,.16);
+    }
+
+    .security-page .contact-button:hover{
+      background:var(--ne-cream);
+      color:var(--ne-green-deep);
+    }
+
     .security-page .back-to-top{
-      position: fixed;
-      bottom: 2rem;
-      right: 2rem;
-      width: 60px;
-      height: 60px;
-      background-color: var(--crimson);
-      border: 4px solid var(--black);
-      border-radius: 50%;
+      position:fixed;
+      right:clamp(14px,2.2vw,28px);
+      bottom:clamp(14px,2.2vw,28px);
+      z-index:1000;
+      width:52px;
+      height:52px;
+      display:grid;
+      place-items:center;
+      border:0;
+      border-radius:18px;
+      background:var(--ne-green);
+      color:#fff;
+      box-shadow:0 16px 34px rgba(0,168,89,.24);
+      opacity:0;
+      visibility:hidden;
+      transform:translateY(10px);
+      transition:opacity .22s var(--ne-ease),visibility .22s var(--ne-ease),transform .22s var(--ne-ease),background .22s var(--ne-ease);
+      cursor:pointer;
+      appearance:none;
+      -webkit-appearance:none;
+    }
+
+    .security-page .back-to-top.visible{
+      opacity:1;
+      visibility:visible;
+      transform:none;
+    }
+
+    .security-page .back-to-top:hover{
+      background:var(--ne-green-dark);
+      transform:translateY(-2px);
+    }
+
+    .security-page .footer{
+      margin-top:clamp(30px,5vw,56px);
+      padding:clamp(34px,5vw,54px) 18px;
+      text-align:center;
+      background:#fff;
+      border-top:1px solid rgba(221,239,230,.9);
+    }
+
+    .security-page .footer-stars{
       display:flex;
       align-items:center;
       justify-content:center;
-      color: var(--off-white);
-      transition: all 0.4s ease;
-      opacity: 0;
-      visibility: hidden;
-      z-index: 999;
-    }
-    .security-page .back-to-top.visible{
-      opacity: 1;
-      visibility: visible;
-    }
-    .security-page .back-to-top:hover{
-      transform: scale(1.1);
-      background-color: var(--black);
-    }
-    .security-page .back-to-top svg{
-      transform: rotate(0deg);
-      transition: transform 0.3s ease;
-    }
-    .security-page .back-to-top:hover svg{
-      transform: rotate(-15deg);
-    }
-
-    /* Footer — UPDATED to match Privacy page (stars + title styling) */
-    .security-page .footer{
-      border-top: 4px solid var(--black);
-      padding: 4rem 2rem;
-      text-align: center;
-      background-color: var(--off-white);
-    }
-    .security-page .footer-stars{
-      display:flex;
-      justify-content:center;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-      font-size: 1.5rem;
-      color: var(--crimson);
+      gap:8px;
+      margin-bottom:12px;
+      color:var(--ne-amber);
+      font-size:1.05rem;
     }
 
     .security-page .footer-title{
-      font-family: 'Dancing Script', cursive !important;
-      font-weight: 700;
-      font-style: italic;
-      color: var(--black);
-      margin-bottom: 1rem;
-      line-height: 1.15;
-      font-size: clamp(2.0rem, 3.4vw, 3.1rem);
-    }
-    .security-page .footer-fullname{
-      max-width: 1200px;
-      margin-left: auto;
-      margin-right: auto;
+      margin:0 auto 8px;
+      max-width:900px;
+      color:var(--ne-ink);
+      font-size:clamp(1.5rem,3.6vw,2.5rem);
+      line-height:1.1;
+      letter-spacing:-.05em;
+      font-weight:950;
     }
 
     .security-page .footer-subtitle{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      color: var(--black);
-      margin-bottom: 2rem;
+      margin:0 0 18px;
+      color:var(--ne-green-dark);
+      font-size:.78rem;
+      line-height:1.5;
+      font-weight:900;
+      letter-spacing:.12em;
+      text-transform:uppercase;
     }
+
     .security-page .footer-nav{
       display:flex;
+      align-items:center;
       justify-content:center;
-      gap: 2rem;
-      flex-wrap: wrap;
+      flex-wrap:wrap;
+      gap:10px;
     }
+
     .security-page .footer-link{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--black);
-      position: relative;
-      transition: color 0.3s ease;
+      min-height:36px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 13px;
+      border-radius:999px;
+      background:var(--ne-green-soft-2);
+      border:1px solid rgba(0,168,89,.12);
+      color:var(--ne-text);
+      font-size:.82rem;
+      font-weight:850;
+      transition:background .2s var(--ne-ease),color .2s var(--ne-ease),transform .2s var(--ne-ease),border-color .2s var(--ne-ease);
     }
-    .security-page .footer-link::after{
-      content:'';
-      position:absolute;
-      bottom:-4px;
-      left:0;
-      width:0;
-      height:2px;
-      background-color: var(--crimson);
-      transition: width 0.3s ease;
-    }
-    .security-page .footer-link:hover{ color: var(--crimson); }
-    .security-page .footer-link:hover::after{ width:100%; }
 
-    /* Mobile TOC Toggle */
-    .security-page .toc-mobile-toggle{
-      display:none;
-      width:100%;
-      padding: 1rem;
-      background-color: var(--crimson);
-      color: var(--off-white);
-      border: 4px solid var(--black);
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      margin-bottom: 2rem;
-      transition: all 0.3s ease;
+    .security-page .footer-link:hover{
+      transform:translateY(-2px);
+      color:var(--ne-green-dark);
+      background:var(--ne-green-soft);
+      border-color:rgba(0,168,89,.18);
     }
-    .security-page .toc-mobile-toggle:hover{ background-color: var(--black); }
 
-    /* Responsive (Web + Mobile) */
-    @media (max-width: 1024px){
+    @media(max-width:1024px){
+      .security-page .hero-grid{
+        grid-template-columns:1fr;
+      }
+
+      .security-page .hero-card{
+        min-height:auto;
+      }
+
       .security-page .content-wrapper{
-        flex-direction: column;
-        gap: 2rem;
+        grid-template-columns:1fr;
       }
+
       .security-page .toc-sidebar{
-        width:100%;
-        position: static;
-        max-height: none;
+        position:relative;
+        top:auto;
+        max-height:none;
+        overflow:visible;
       }
-      .security-page .main-content{ width:100%; }
-      .security-page .section-heading{ font-size: 1.75rem; }
+
+      .security-page .toc-list{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
     }
 
-    @media (max-width: 768px){
-      .security-page .top-bar{
-        flex-direction: column;
-        gap: 0.5rem;
-        text-align: center;
-        padding: 1rem;
+    @media(max-width:768px){
+      .security-page .page-shell,
+      .security-page .top-bar-inner,
+      .security-page .content-wrapper{
+        width:min(100% - 28px,1180px);
       }
+
+      .security-page .top-bar-inner{
+        min-height:56px;
+        justify-content:center;
+        flex-wrap:wrap;
+        gap:8px 16px;
+        padding:8px 0;
+      }
+
+      .security-page .top-bar-text{
+        font-size:.68rem;
+        letter-spacing:.08em;
+      }
+
       .security-page .hero-section{
-        padding: 3rem 1rem 2rem;
-      }
-      .security-page .content-wrapper{
-        padding: 2rem 1rem;
+        padding-top:36px;
       }
 
-      .security-page .toc-sidebar{
-        padding: 1.5rem;
+      .security-page .hero-actions{
+        align-items:stretch;
       }
-      .security-page .toc-mobile-toggle{ display:block; }
-      .security-page .toc-list{ display:none; }
-      .security-page .toc-sidebar.open .toc-list{ display:block; }
 
-      .security-page .content-section{ padding: 2rem 1.5rem; }
-      .security-page .section-number{
-        font-size: 3rem;
-        left: 0;
+      .security-page .hero-btn{
+        flex:1 1 180px;
       }
-      .security-page .section-heading{
-        font-size: 1.5rem;
-        padding-left: 2rem;
+
+      .security-page .toc-mobile-toggle{
+        display:flex;
+        align-items:center;
+        justify-content:center;
       }
-      .security-page .section-content{ font-size: 1rem; }
+
+      .security-page .toc-title{
+        margin-top:14px;
+      }
+
+      .security-page .toc-list{
+        display:none;
+        grid-template-columns:1fr;
+      }
+
+      .security-page .toc-sidebar.open .toc-list{
+        display:grid;
+      }
+
+      .security-page .content-section{
+        border-radius:22px;
+      }
 
       .security-page .info-box{
-        flex-direction: column;
-        padding: 1.5rem;
+        grid-template-columns:1fr;
+      }
+
+      .security-page .info-box-icon{
+        width:44px;
+        height:44px;
+      }
+    }
+
+    @media(max-width:520px){
+      .security-page .page-shell,
+      .security-page .top-bar-inner,
+      .security-page .content-wrapper{
+        width:min(100% - 22px,1180px);
+      }
+
+      .security-page .hero-card{
+        padding:18px;
+        border-radius:26px;
+      }
+
+      .security-page .hero-card-icon{
+        width:62px;
+        height:62px;
+        border-radius:22px;
+        font-size:2rem;
+      }
+
+      .security-page .hero-btn,
+      .security-page .contact-button{
+        width:100%;
+      }
+
+      .security-page .content-wrapper{
+        padding-top:24px;
+      }
+
+      .security-page .toc-sidebar{
+        padding:14px;
+        border-radius:20px;
+      }
+
+      .security-page .content-section{
+        padding:22px 18px 22px 20px;
+      }
+
+      .security-page .section-number{
+        right:14px;
+        top:10px;
+      }
+
+      .security-page .section-content li{
+        padding-left:38px;
+      }
+
+      .security-page .contact-section{
+        border-radius:24px;
       }
 
       .security-page .back-to-top{
-        width: 50px;
-        height: 50px;
-        bottom: 1rem;
-        right: 1rem;
+        width:46px;
+        height:46px;
+        border-radius:16px;
       }
 
       .security-page .footer-nav{
-        flex-direction: column;
-        gap: 1rem;
+        gap:8px;
+      }
+
+      .security-page .footer-link{
+        width:100%;
       }
     }
 
-    /* Print */
+    @media(max-width:360px){
+      .security-page .top-bar-inner,
+      .security-page .page-shell,
+      .security-page .content-wrapper{
+        width:min(100% - 18px,1180px);
+      }
+
+      .security-page .top-bar-text{
+        font-size:.62rem;
+      }
+
+      .security-page .hero-title{
+        font-size:1.85rem;
+      }
+    }
+
+    @supports(-webkit-touch-callout:none){
+      .security-page .top-bar,
+      .security-page .toc-sidebar{
+        -webkit-transform:translateZ(0);
+        transform:translateZ(0);
+      }
+    }
+
     @media print{
-      .security-page::before{ display:none !important; }
+      .security-page .top-bar,
+      .security-page .toc-sidebar,
       .security-page .back-to-top,
-      .security-page .toc-sidebar{ display:none !important; }
-      .security-page .main-content{ width:100% !important; }
-      .security-page .content-section{
-        page-break-inside: avoid;
-        border-left-width: 4px !important;
+      .security-page .hero-actions,
+      .security-page .footer-nav{
+        display:none !important;
       }
-      .security-page *{ cursor: default !important; }
+
+      .security-page,
+      .security-page .content-section,
+      .security-page .footer{
+        background:#fff !important;
+        color:#000 !important;
+        box-shadow:none !important;
+      }
+
+      .security-page .content-wrapper,
+      .security-page .page-shell{
+        width:100% !important;
+        max-width:none !important;
+      }
+
+      .security-page .content-section{
+        page-break-inside:avoid;
+        border:1px solid #ddd !important;
+      }
     }
 
-    /* Reduced motion */
-    @media (prefers-reduced-motion: reduce){
-      .security-page::before{ animation: none !important; }
-      .security-page .content-section{
-        transition: none !important;
-        transform: none !important;
-        opacity: 1 !important;
+    @media(prefers-reduced-motion:reduce){
+      .security-page *,
+      .security-page *::before,
+      .security-page *::after{
+        animation:none !important;
+        scroll-behavior:auto !important;
+        transition:none !important;
       }
-      .security-page .back-to-top,
-      .security-page .toc-link,
-      .security-page .info-box,
-      .security-page .footer-link::after,
-      .security-page .contact-button,
-      .security-page .toc-mobile-toggle{
-        transition: none !important;
+
+      .security-page .content-section{
+        opacity:1 !important;
+        transform:none !important;
       }
     }
   </style>
 
-  <!-- Top Bar -->
   <div class="top-bar">
-    <div class="top-bar-text">EST. 2018</div>
-    <div class="top-bar-text">MIZORAM, INDIA</div>
+    <div class="top-bar-inner">
+      <div class="top-bar-text">NELOCALS Security</div>
+      <div class="top-bar-text">Safe Grocery Shopping</div>
+    </div>
   </div>
 
-  <!-- Hero Section -->
   <header class="hero-section">
-    <h1 class="hero-title">Security</h1>
-    <p class="hero-subtitle">Your trust matters. Here's how we protect your data.</p>
-    <div class="hero-divider"></div>
-    <p class="hero-date">Last Updated: January 2026</p>
+    <div class="page-shell">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="hero-kicker"><span></span> Trust & Safety</div>
+          <h1 class="hero-title">Shop fresh, pay safely, and stay protected with <strong>NELOCALS.</strong></h1>
+          <p class="hero-subtitle">
+            This page explains how NELOCALS protects customer accounts, orders, payments,
+            store interactions, and delivery-related information across our website and app experience.
+          </p>
+          <div class="hero-actions">
+            <a href="mailto:info@ayanant.com" class="hero-btn">Report a Security Concern</a>
+            <a href="/help" class="hero-btn secondary">Visit Help Centre</a>
+          </div>
+        </div>
+
+        <div class="hero-card" aria-label="Security summary">
+          <div class="hero-card-icon" aria-hidden="true">🛡️</div>
+          <h2>Designed for trusted local commerce</h2>
+          <p>
+            From OTP login to order verification and delivery support, our platform uses simple,
+            practical safeguards for everyday grocery shopping.
+          </p>
+          <div class="trust-list">
+            <span>OTP and account safety checks</span>
+            <span>Secure payment and COD support</span>
+            <span>Fraud reporting and support review</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </header>
 
-  <!-- Content Wrapper -->
   <div class="content-wrapper">
-    <!-- Table of Contents Sidebar -->
     <aside class="toc-sidebar" id="tocSidebar">
       <button class="toc-mobile-toggle" id="tocToggle" type="button">
         Navigation Menu
@@ -592,35 +1066,32 @@
         <li class="toc-item">
           <a href="#practices" class="toc-link" data-section="practices">
             <span class="toc-number">01</span>
-            Practices
+            Security Practices
           </a>
         </li>
         <li class="toc-item">
           <a href="#payments" class="toc-link" data-section="payments">
             <span class="toc-number">02</span>
-            Payments
+            Payments & COD
           </a>
         </li>
         <li class="toc-item">
           <a href="#disclosure" class="toc-link" data-section="disclosure">
             <span class="toc-number">03</span>
-            Disclosure
+            Report Fraud
           </a>
         </li>
       </ul>
     </aside>
 
-    <!-- Main Content -->
     <main class="main-content">
-      <!-- Section 1: Practices -->
       <section id="practices" class="content-section">
         <div class="section-number">01</div>
-        <h2 class="section-heading">Practices</h2>
+        <h2 class="section-heading">Security Practices</h2>
         <div class="section-content">
           <p>
-            At Chhimphei WPPCL, we implement industry-leading security measures to ensure
-            your data remains protected at all times. Our comprehensive approach to security
-            encompasses multiple layers of protection and continuous monitoring.
+            NELOCALS keeps customer accounts, store activity, cart actions, orders, and delivery
+            data protected through practical access control and secure platform practices.
           </p>
 
           <div class="info-box">
@@ -630,38 +1101,35 @@
               </svg>
             </div>
             <div class="info-box-content">
-              <h3 class="info-box-title">Core Security Principles</h3>
+              <h3 class="info-box-title">Account Protection</h3>
               <p class="info-box-text">
-                We follow the principle of least privilege, ensuring that systems and users
-                only have access to the resources they absolutely need.
+                We recommend keeping your phone number, OTPs, and login details private. NELOCALS support will never ask you to share your OTP or password.
               </p>
             </div>
           </div>
 
-          <p><strong>Our security practices include:</strong></p>
-
+          <p><strong>Our safety practices include:</strong></p>
           <ul>
-            <li>Least-privilege access for internal tools</li>
-            <li>Regular dependency updates and vulnerability scanning</li>
-            <li>Encrypted transport (HTTPS)</li>
+            <li>Secure customer sessions and controlled access to account areas</li>
+            <li>Order and delivery checks to reduce misuse and wrong handovers</li>
+            <li>Regular review of suspicious activity, abuse, and fraud reports</li>
+            <li>Use of HTTPS and secure handling of form submissions wherever applicable</li>
           </ul>
 
           <p>
-            We continuously monitor our infrastructure for potential threats and apply
-            security patches promptly to maintain the highest level of protection for your data.
+            Always use official NELOCALS pages and avoid sharing account information through unknown links,
+            unknown phone calls, or unofficial messages.
           </p>
         </div>
       </section>
 
-      <!-- Section 2: Payments -->
       <section id="payments" class="content-section">
         <div class="section-number">02</div>
-        <h2 class="section-heading">Payments</h2>
+        <h2 class="section-heading">Payments & COD Safety</h2>
         <div class="section-content">
           <p>
-            Your financial security is paramount to us. We've designed our payment systems
-            with multiple safeguards to protect your sensitive information throughout every
-            transaction.
+            NELOCALS supports a trusted grocery ordering workflow where customers can see delivery charges,
+            order totals, and payment choices before placing an order.
           </p>
 
           <div class="info-box">
@@ -672,42 +1140,34 @@
               </svg>
             </div>
             <div class="info-box-content">
-              <h3 class="info-box-title">Payment Security</h3>
+              <h3 class="info-box-title">Safe Checkout</h3>
               <p class="info-box-text">
-                We never store full card details on our servers. All payment processing
-                is handled by compliant third-party providers.
+                Cash on Delivery is available where enabled. Online payment, if available, should only be completed through the official checkout flow.
               </p>
             </div>
           </div>
 
-          <p>
-            <strong>Cash-on-delivery by default;</strong> any online processing is handled
-            by compliant providers. We don't store full card details.
-          </p>
+          <p><strong>Payment safety tips:</strong></p>
+          <ul>
+            <li>Do not pay through links sent by unknown numbers or unofficial accounts</li>
+            <li>Check the final amount on checkout before confirming an order</li>
+            <li>For COD, pay only after confirming the order and delivery details</li>
+            <li>Contact support immediately if payment is requested outside the platform</li>
+          </ul>
 
           <p>
-            For online transactions, we partner with PCI-DSS compliant payment processors
-            who specialize in secure payment handling. This means your card information is
-            encrypted and processed through secure channels that meet the highest industry standards.
-          </p>
-
-          <p>
-            Our cash-on-delivery option provides an additional layer of security for customers
-            who prefer not to share payment information online, giving you complete control
-            over how and when you make your payment.
+            NELOCALS does not need your banking password, card PIN, UPI PIN, or OTP for customer support.
           </p>
         </div>
       </section>
 
-      <!-- Section 3: Responsible Disclosure -->
       <section id="disclosure" class="content-section">
         <div class="section-number">03</div>
-        <h2 class="section-heading">Responsible Disclosure</h2>
+        <h2 class="section-heading">Report Fraud or Security Concerns</h2>
         <div class="section-content">
           <p>
-            We take security vulnerabilities seriously and appreciate the efforts of security
-            researchers and ethical hackers who help us maintain a secure platform. If you
-            discover a potential security issue, we encourage you to report it responsibly.
+            If you notice suspicious calls, fake payment requests, wrong order activity, fake delivery claims,
+            account access issues, or any security concern, report it to our team with clear details.
           </p>
 
           <div class="info-box">
@@ -718,54 +1178,40 @@
               </svg>
             </div>
             <div class="info-box-content">
-              <h3 class="info-box-title">How to Report</h3>
+              <h3 class="info-box-title">Security Contact</h3>
               <p class="info-box-text">
-                Report vulnerabilities to <strong><a href="mailto:security@chhimphei.local">security@chhimphei.local</a></strong>.
-                Please include steps to reproduce.
+                Email <a href="mailto:ites@sdsindia.in">ites@sdsindia.in</a> with screenshots, order ID if available, time of incident, and a short explanation.
               </p>
             </div>
           </div>
 
-          <p><strong>When reporting a vulnerability, please include:</strong></p>
-
+          <p><strong>Please include:</strong></p>
           <ul>
-            <li>A detailed description of the vulnerability</li>
-            <li>Steps to reproduce the issue</li>
-            <li>Potential impact of the vulnerability</li>
-            <li>Any proof-of-concept code (if applicable)</li>
-            <li>Your contact information for follow-up</li>
+            <li>Your registered phone number or email used on NELOCALS</li>
+            <li>Order ID, product/store details, or delivery details if related to an order</li>
+            <li>Screenshots, call/message details, and approximate time of incident</li>
+            <li>A clear description of what happened and what action you need</li>
           </ul>
 
           <p>
-            We commit to acknowledging your report within 48 hours and will work diligently
-            to address valid security concerns. We ask that you give us reasonable time to
-            investigate and resolve the issue before public disclosure.
-          </p>
-
-          <p>
-            Please refrain from accessing or modifying user data, executing denial-of-service
-            attacks, or engaging in any activity that could harm our users or services during
-            your security research.
+            We will review reports and take reasonable steps to protect customers, stores, delivery partners,
+            and platform operations.
           </p>
         </div>
       </section>
 
-      <!-- Contact Section -->
       <section class="contact-section">
-        <h2 class="contact-title">Questions About Security?</h2>
+        <h2 class="contact-title">Need help with account or payment safety?</h2>
         <p>
-          <a href="mailto:security@chhimphei.local" class="contact-email">
-            security@chhimphei.local
-          </a>
+          Send your concern to
+          <a href="mailto:ites@sdsindia.in" class="contact-email">ites@sdsindia.in</a>
+          with the required details, and our support/security team will review it.
         </p>
-        <a href="mailto:security@chhimphei.local" class="contact-button">
-          Contact Us
-        </a>
+        <a href="mailto:ites@sdsindia.in" class="contact-button">Contact Security Team</a>
       </section>
     </main>
   </div>
 
-  <!-- Back to Top Button -->
   <button class="back-to-top" id="backToTop" aria-label="Back to top" type="button">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="12" y1="19" x2="12" y2="5"></line>
@@ -773,31 +1219,27 @@
     </svg>
   </button>
 
-  <!-- Footer (UPDATED to match Privacy page) -->
   <footer class="footer">
     <div class="footer-stars" aria-hidden="true">
       <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
     </div>
 
     <h3 class="footer-title footer-fullname">
-      Chhimphei Women Poultry Producer Company Limited
+      NELOCALS
     </h3>
 
-    <p class="footer-subtitle">MIZORAM • 2018 • INDIA</p>
+    <p class="footer-subtitle">Fresh Northeast Goodness • Secure Local Shopping</p>
 
     <nav class="footer-nav" aria-label="Footer navigation">
-      <a href="#" class="footer-link">Home</a>
-      <a href="#" class="footer-link">About</a>
-      <a href="#" class="footer-link">Shop</a>
-      <a href="#" class="footer-link">Contact</a>
-      <a href="#" class="footer-link">Security</a>
+      <a href="/" class="footer-link">Home</a>
+      <a href="/about" class="footer-link">About</a>
+      <a href="/catalog" class="footer-link">Catalog</a>
+      <a href="/help" class="footer-link">Help</a>
+      <a href="/privacy" class="footer-link">Privacy</a>
     </nav>
   </footer>
 
   <script>
-    // =========================================================
-    // SECURITY (Single-file JS) — same behavior as your Security page
-    // =========================================================
     document.addEventListener('DOMContentLoaded', function() {
       initScrollReveal();
       initActiveSection();
@@ -871,7 +1313,6 @@
 
               window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
 
-              // Close mobile menu if open
               const tocSidebar = document.getElementById('tocSidebar');
               if (tocSidebar && tocSidebar.classList.contains('open')) {
                 tocSidebar.classList.remove('open');
@@ -927,7 +1368,6 @@
       }
     });
 
-    // Smooth scroll polyfill (optional enhancement, kept same)
     if (!('scrollBehavior' in document.documentElement.style)) {
       const originalScrollTo = window.scrollTo;
       window.scrollTo = function(x, y) {
@@ -961,7 +1401,6 @@
       }
     }
 
-    // Export helpers (kept same)
     window.SecurityPage = {
       scrollToSection: function(sectionId) {
         const targetSection = document.getElementById(sectionId);

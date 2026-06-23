@@ -4,526 +4,1140 @@
 <section class="terms-page" data-page="terms">
   <style>
     /* =========================================================
-       TERMS (Single-file: HTML + CSS + JS) — Scoped inside base.html
-       UPDATED (same fixes as Privacy/Security):
-       ✅ Footer stars + footer title match Privacy page
-       ✅ TOC sidebar sticky behavior matches Privacy page (top:120px, fit-content, max-height, z-index)
-       ✅ Full-bleed + overflow safe for sticky (overflow: visible)
-       ✅ Responsive: mobile TOC toggle + better small-screen behavior
-       ✅ Reduced motion + print safe
+       NELOCALS TERMS OF SERVICE
+       Single-file scoped page for base.html
+       Responsive for desktop, tablet, mobile, app-style webview,
+       iOS/Safari/Mac and cross-device layouts.
+       Existing section navigation, reveal, back-to-top and TermsPage helper preserved.
        ========================================================= */
 
-    /* Google Fonts Import (scoped) */
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=Dancing+Script:wght@400;500;600;700&family=Italiana&family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
     .terms-page{
-      --crimson: #8B0000;
-      --black: #000000;
-      --off-white: #FAF9F6;
-      --crimson-light: #FFF5F5;
-      --border-standard: 4px solid var(--black);
-      --border-accent: 8px solid var(--crimson);
+      --nl-green:#00A859;
+      --nl-green-dark:#008A48;
+      --nl-green-deep:#063E25;
+      --nl-green-soft:#E9FFF3;
+      --nl-green-soft-2:#F5FFF9;
+      --nl-mint:#DDFBE9;
+      --nl-ink:#1E3026;
+      --nl-text:#607066;
+      --nl-muted:#8A9890;
+      --nl-line:#DDEFE6;
+      --nl-card:#FFFFFF;
+      --nl-bg:#F8FFFB;
+      --nl-yellow:#FFB84D;
+      --nl-orange:#F59E0B;
+      --nl-red:#EF4444;
+      --nl-shadow:0 16px 42px rgba(17,64,38,.08);
+      --nl-shadow-soft:0 10px 28px rgba(17,64,38,.055);
+      --nl-shadow-hover:0 22px 58px rgba(17,64,38,.13);
+      --nl-radius:22px;
+      --nl-radius-sm:14px;
+      --nl-ease:cubic-bezier(.2,.75,.25,1);
 
-      /* Full-bleed inside base.html container */
-      width: 100vw;
-      margin-left: calc(50% - 50vw);
-      margin-right: calc(50% - 50vw);
-
-      background-color: var(--off-white);
-      color: var(--black);
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1.125rem;
-      line-height: 1.6;
-
-      overflow-x: hidden;
-      overflow: visible; /* sticky safe */
-      position: relative;
-      min-height: 100vh;
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+      min-height:100vh;
+      position:relative;
+      overflow-x:clip;
+      background:
+        radial-gradient(circle at top left,rgba(0,168,89,.08),transparent 34rem),
+        linear-gradient(180deg,#F7FFFB 0%,#FFFFFF 36%,#F8FFFB 100%);
+      color:var(--nl-text);
+      font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
     }
 
-    .terms-page,
-    .terms-page *{ box-sizing: border-box; }
-    .terms-page *{ margin: 0; padding: 0; }
+    @supports not (overflow:clip){
+      .terms-page{ overflow-x:hidden; }
+    }
 
-    /* Custom Cursor */
     .terms-page,
     .terms-page *{
-      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 4c-2 0-4 1-5 3-1-1-3-1-4 0-2 2-2 5 0 7l9 9 9-9c2-2 2-5 0-7-1-1-3-1-4 0-1-2-3-3-5-3z" fill="%238B0000"/><circle cx="12" cy="10" r="1" fill="white"/><circle cx="20" cy="10" r="1" fill="white"/><path d="M14 14h4v2h-4z" fill="%23FFA500"/></svg>'), auto;
+      box-sizing:border-box;
     }
-    .terms-page button,
+
+    .terms-page *{
+      margin:0;
+      padding:0;
+    }
+
     .terms-page a{
-      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M16 4c-2 0-4 1-5 3-1-1-3-1-4 0-2 2-2 5 0 7l9 9 9-9c2-2 2-5 0-7-1-1-3-1-4 0-1-2-3-3-5-3z" fill="%238B0000"/><circle cx="12" cy="10" r="1" fill="white"/><circle cx="20" cy="10" r="1" fill="white"/><path d="M14 14h4v2h-4z" fill="%23FFA500"/></svg>'), pointer !important;
+      color:inherit;
+      text-decoration:none;
     }
 
-    /* Grain Overlay */
+    .terms-page button,
+    .terms-page input,
+    .terms-page textarea,
+    .terms-page select{
+      font:inherit;
+    }
+
+    .terms-page img,
+    .terms-page svg{
+      max-width:100%;
+    }
+
     .terms-page .grain-overlay{
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      pointer-events: none;
-      z-index: 9999;
-      opacity: 0.03;
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)"/></svg>');
-      animation: termsGrain 0.5s steps(6) infinite;
-    }
-    @keyframes termsGrain{
-      0%, 100% { transform: translate(0, 0); }
-      10% { transform: translate(-5%, -10%); }
-      20% { transform: translate(-15%, 5%); }
-      30% { transform: translate(7%, -25%); }
-      40% { transform: translate(-5%, 25%); }
-      50% { transform: translate(-15%, 10%); }
-      60% { transform: translate(15%, 0%); }
-      70% { transform: translate(0%, 15%); }
-      80% { transform: translate(3%, 25%); }
-      90% { transform: translate(-10%, 10%); }
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:0;
+      opacity:.32;
+      background-image:
+        radial-gradient(circle at 1px 1px,rgba(0,168,89,.10) 1px,transparent 0);
+      background-size:22px 22px;
+      mask-image:linear-gradient(180deg,#000 0%,transparent 72%);
+      -webkit-mask-image:linear-gradient(180deg,#000 0%,transparent 72%);
     }
 
-    /* Hero */
+    .terms-page .nl-wrap{
+      width:100%;
+      max-width:1440px;
+      margin:0 auto;
+      padding-left:clamp(18px,4vw,72px);
+      padding-right:clamp(18px,4vw,72px);
+      position:relative;
+      z-index:1;
+    }
+
     .terms-page .hero-section{
-      text-align: center;
-      padding: 4rem 2rem 6rem;
-      background-color: var(--off-white);
-      border-bottom: var(--border-standard);
-      position: relative;
+      position:relative;
+      overflow:hidden;
+      padding:0 0 clamp(34px,5vw,72px);
+      background:
+        linear-gradient(135deg,rgba(233,255,243,.92),rgba(255,255,255,.98) 52%,rgba(255,247,232,.70));
+      border-bottom:1px solid rgba(221,239,230,.95);
     }
 
-    /* Top Bar (sticky like other pages) */
     .terms-page .top-bar{
-      display: flex;
-      justify-content: space-between;
-      max-width: 1400px;
-      margin: 0 auto 3rem;
-      padding-bottom: 1rem;
-      border-bottom: 2px solid var(--black);
-
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: var(--off-white);
-      padding-top: 1rem;
+      min-height:64px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      padding-top:14px;
+      padding-bottom:14px;
+      color:var(--nl-green-deep);
+      position:relative;
+      z-index:3;
     }
+
     .terms-page .top-bar-text{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      font-weight: 400;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:34px;
+      padding:0 13px;
+      border-radius:999px;
+      background:rgba(255,255,255,.78);
+      border:1px solid rgba(0,168,89,.16);
+      box-shadow:0 8px 18px rgba(17,64,38,.045);
+      color:var(--nl-green-dark);
+      font-size:.77rem;
+      line-height:1;
+      font-weight:850;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+
+    .terms-page .top-bar-text::before{
+      content:"";
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      background:var(--nl-green);
+      box-shadow:0 0 0 4px rgba(0,168,89,.10);
+    }
+
+    .terms-page .hero-grid{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(260px,420px);
+      gap:clamp(24px,5vw,74px);
+      align-items:center;
+      padding-top:clamp(20px,4vw,54px);
+    }
+
+    .terms-page .hero-kicker{
+      width:max-content;
+      max-width:100%;
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      min-height:38px;
+      padding:0 14px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid rgba(0,168,89,.18);
+      color:var(--nl-green-dark);
+      font-size:.8rem;
+      font-weight:900;
+      box-shadow:var(--nl-shadow-soft);
+      margin-bottom:16px;
+    }
+
+    .terms-page .hero-kicker span{
+      display:grid;
+      place-items:center;
+      width:22px;
+      height:22px;
+      border-radius:50%;
+      background:var(--nl-green-soft);
     }
 
     .terms-page .page-title{
-      font-family: 'Dancing Script', cursive;
-      font-size: clamp(3rem, 8vw, 6rem);
-      font-weight: 700;
-      color: var(--crimson);
-      margin-bottom: 1rem;
-      line-height: 1.2;
-      font-style: italic;
+      max-width:780px;
+      color:var(--nl-ink);
+      font-size:clamp(2.15rem,6vw,5.15rem);
+      line-height:1.02;
+      letter-spacing:-.06em;
+      font-weight:900;
     }
+
+    .terms-page .page-title strong{
+      color:var(--nl-green);
+      font-weight:900;
+    }
+
     .terms-page .page-subtitle{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      color: var(--black);
-      margin-bottom: 2rem;
-    }
-    .terms-page .title-divider{
-      width: 6rem;
-      height: 4px;
-      background-color: var(--crimson);
-      margin: 0 auto;
+      max-width:720px;
+      margin-top:18px;
+      color:#53645A;
+      font-size:clamp(.98rem,1.55vw,1.18rem);
+      line-height:1.75;
+      font-weight:550;
     }
 
-    /* Layout */
+    .terms-page .hero-actions{
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:24px;
+    }
+
+    .terms-page .hero-pill{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:9px;
+      padding:0 15px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid var(--nl-line);
+      color:var(--nl-green-deep);
+      font-size:.84rem;
+      font-weight:850;
+      box-shadow:0 10px 24px rgba(17,64,38,.055);
+    }
+
+    .terms-page .hero-pill.is-main{
+      background:var(--nl-green);
+      color:#fff;
+      border-color:var(--nl-green);
+      box-shadow:0 14px 28px rgba(0,168,89,.22);
+    }
+
+    .terms-page .hero-card{
+      position:relative;
+      min-height:300px;
+      border-radius:34px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 22% 18%,rgba(255,255,255,.95),transparent 28%),
+        linear-gradient(145deg,#DDFBE9,#FFFFFF 52%,#FFF7E8);
+      border:1px solid rgba(0,168,89,.16);
+      box-shadow:var(--nl-shadow);
+      display:grid;
+      place-items:center;
+      padding:28px;
+      isolation:isolate;
+    }
+
+    .terms-page .hero-card::before{
+      content:"";
+      position:absolute;
+      width:210px;
+      height:210px;
+      right:-54px;
+      bottom:-60px;
+      border-radius:50%;
+      background:rgba(0,168,89,.10);
+      z-index:-1;
+    }
+
+    .terms-page .terms-doc{
+      width:min(260px,82%);
+      min-height:230px;
+      border-radius:24px;
+      background:#fff;
+      border:1px solid rgba(221,239,230,.95);
+      box-shadow:0 22px 48px rgba(17,64,38,.12);
+      padding:22px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      transform:rotate(-2deg);
+    }
+
+    .terms-page .terms-doc-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding-bottom:12px;
+      border-bottom:1px solid var(--nl-line);
+    }
+
+    .terms-page .terms-doc-logo{
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      color:var(--nl-green-deep);
+      font-size:.95rem;
+      font-weight:950;
+    }
+
+    .terms-page .terms-doc-logo span{
+      display:grid;
+      place-items:center;
+      width:32px;
+      height:32px;
+      border-radius:11px;
+      background:var(--nl-green-soft);
+      font-size:1.2rem;
+    }
+
+    .terms-page .terms-doc-badge{
+      min-height:26px;
+      display:inline-flex;
+      align-items:center;
+      padding:0 10px;
+      border-radius:999px;
+      background:#FFF7E8;
+      color:#9A5B00;
+      font-size:.68rem;
+      font-weight:900;
+    }
+
+    .terms-page .terms-doc-line{
+      height:10px;
+      border-radius:999px;
+      background:#EAF4EE;
+    }
+
+    .terms-page .terms-doc-line:nth-child(3){ width:82%; }
+    .terms-page .terms-doc-line:nth-child(4){ width:94%; }
+    .terms-page .terms-doc-line:nth-child(5){ width:68%; }
+
+    .terms-page .terms-checks{
+      margin-top:auto;
+      display:grid;
+      gap:9px;
+    }
+
+    .terms-page .terms-check{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      color:#53645A;
+      font-size:.76rem;
+      font-weight:800;
+    }
+
+    .terms-page .terms-check i{
+      width:18px;
+      height:18px;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      background:var(--nl-green);
+      color:#fff;
+      font-style:normal;
+      font-size:.7rem;
+      line-height:1;
+    }
+
     .terms-page .content-container{
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 4rem 2rem;
-      display: grid;
-      grid-template-columns: 25% 1fr;
-      gap: 5%;
-      position: relative;
+      width:100%;
+      max-width:1440px;
+      margin:0 auto;
+      display:grid;
+      grid-template-columns:minmax(245px,315px) minmax(0,1fr);
+      gap:clamp(22px,4vw,56px);
+      align-items:start;
+      padding:clamp(26px,4vw,56px) clamp(18px,4vw,72px) clamp(42px,6vw,86px);
+      position:relative;
+      z-index:2;
     }
 
-    /* TOC Sidebar — UPDATED to match Privacy sticky behavior */
     .terms-page .toc-sidebar{
-      width: 100%;
-      position: sticky;
-      top: 120px;                  /* below sticky top-bar */
-      align-self: flex-start;
-      height: fit-content;
-      max-height: calc(100vh - 140px);
-      overflow-y: auto;
-
-      background-color: var(--off-white);
-      border: var(--border-standard);
-      padding: 2rem;
-
-      z-index: 50;
+      position:sticky;
+      top:92px;
+      align-self:start;
+      width:100%;
+      max-height:calc(100vh - 116px);
+      overflow:auto;
+      border-radius:24px;
+      background:rgba(255,255,255,.94);
+      border:1px solid var(--nl-line);
+      box-shadow:var(--nl-shadow-soft);
+      padding:18px;
+      -webkit-overflow-scrolling:touch;
     }
 
     .terms-page .toc-title{
-      font-family: 'Playfair Display', serif;
-      font-size: 1.5rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 1.5rem;
-      color: var(--black);
-      border-bottom: 2px solid var(--black);
-      padding-bottom: 0.75rem;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:var(--nl-ink);
+      font-size:1rem;
+      font-weight:900;
+      letter-spacing:-.01em;
+      margin-bottom:14px;
+      padding:5px 4px 13px;
+      border-bottom:1px solid var(--nl-line);
     }
 
-    /* Mobile TOC Toggle (same idea as Privacy/Security) */
+    .terms-page .toc-title::before{
+      content:"📋";
+      width:32px;
+      height:32px;
+      display:grid;
+      place-items:center;
+      border-radius:12px;
+      background:var(--nl-green-soft);
+      font-size:1rem;
+    }
+
     .terms-page .toc-mobile-toggle{
-      display: none;
-      width: 100%;
-      padding: 1rem;
-      background-color: var(--crimson);
-      color: var(--off-white);
-      border: var(--border-standard);
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      margin-bottom: 1.25rem;
-      transition: all 0.3s ease;
+      display:none;
+      width:100%;
+      min-height:44px;
+      align-items:center;
+      justify-content:center;
+      border:0;
+      border-radius:14px;
+      background:var(--nl-green);
+      color:#fff;
+      font-size:.83rem;
+      font-weight:900;
+      letter-spacing:.02em;
+      cursor:pointer;
+      box-shadow:0 12px 24px rgba(0,168,89,.18);
+      margin-bottom:12px;
+      transition:transform .2s var(--nl-ease), background .2s var(--nl-ease);
     }
-    .terms-page .toc-mobile-toggle:hover{ background-color: var(--black); }
 
-    .terms-page .toc-list{ list-style: none; }
-    .terms-page .toc-list li{ margin-bottom: 0.5rem; }
+    .terms-page .toc-mobile-toggle:hover{
+      background:var(--nl-green-dark);
+      transform:translateY(-1px);
+    }
+
+    .terms-page .toc-list{
+      list-style:none;
+      display:grid;
+      gap:9px;
+    }
 
     .terms-page .toc-link{
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.75rem 1rem;
-      background: none;
-      border: 2px solid transparent;
-      width: 100%;
-      text-align: left;
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--black);
-      transition: all 0.3s ease;
-      position: relative;
-      cursor: pointer;
-      word-break: break-word;
+      width:100%;
+      border:0;
+      background:transparent;
+      display:grid;
+      grid-template-columns:38px minmax(0,1fr);
+      align-items:center;
+      gap:10px;
+      min-height:50px;
+      padding:7px;
+      border-radius:16px;
+      color:#5E7066;
+      text-align:left;
+      cursor:pointer;
+      transition:background .2s var(--nl-ease), color .2s var(--nl-ease), transform .2s var(--nl-ease), box-shadow .2s var(--nl-ease);
     }
-
-    .terms-page .toc-number{
-      font-family: 'Playfair Display', serif;
-      font-weight: 900;
-      font-size: 1rem;
-      color: var(--black);
-      min-width: 2.2rem;
-      letter-spacing: 0;
-      text-transform: none;
-    }
-    .terms-page .toc-text{ flex: 1; letter-spacing: 0.25em; }
 
     .terms-page .toc-link:hover,
     .terms-page .toc-link.active{
-      background-color: var(--crimson);
-      color: var(--off-white);
-      border-color: var(--black);
+      background:var(--nl-green-soft);
+      color:var(--nl-green-deep);
+      transform:translateX(3px);
+      box-shadow:inset 0 0 0 1px rgba(0,168,89,.10);
     }
-    .terms-page .toc-link:hover .toc-number,
-    .terms-page .toc-link.active .toc-number{ color: var(--off-white); }
 
-    /* Main */
-    .terms-page .main-content{ min-height: 100vh; }
+    .terms-page .toc-number{
+      width:38px;
+      height:38px;
+      display:grid;
+      place-items:center;
+      border-radius:13px;
+      background:#F4FBF7;
+      color:var(--nl-green);
+      font-size:.78rem;
+      font-weight:950;
+      border:1px solid rgba(0,168,89,.12);
+    }
 
-    /* Sections */
+    .terms-page .toc-link.active .toc-number{
+      background:var(--nl-green);
+      color:#fff;
+      border-color:var(--nl-green);
+    }
+
+    .terms-page .toc-text{
+      min-width:0;
+      font-size:.83rem;
+      font-weight:850;
+      line-height:1.25;
+    }
+
+    .terms-page .main-content{
+      min-width:0;
+      display:grid;
+      gap:18px;
+    }
+
     .terms-page .content-section{
-      position: relative;
-      padding: 3rem 2rem;
-      margin-bottom: 2rem;
-      border: var(--border-standard);
-      background-color: var(--off-white);
-      transition: background-color 0.3s ease;
-      overflow: hidden;
+      position:relative;
+      overflow:hidden;
+      border-radius:28px;
+      background:#fff;
+      border:1px solid var(--nl-line);
+      box-shadow:var(--nl-shadow-soft);
+      padding:clamp(20px,3vw,34px);
+      opacity:0;
+      transform:translateY(24px);
+      transition:opacity .58s var(--nl-ease), transform .58s var(--nl-ease), box-shadow .24s var(--nl-ease), border-color .24s var(--nl-ease);
+      scroll-margin-top:112px;
     }
-    .terms-page .content-section:nth-child(even){ background-color: var(--crimson-light); }
-    .terms-page .content-section:hover{ background-color: #fff0f0; }
+
+    .terms-page .content-section.revealed{
+      opacity:1;
+      transform:none;
+    }
+
+    .terms-page .content-section:hover{
+      box-shadow:var(--nl-shadow-hover);
+      border-color:rgba(0,168,89,.22);
+    }
 
     .terms-page .content-section::before{
-      content: '';
-      position: absolute;
-      left: 0; top: 0;
-      height: 100%;
-      width: 8px;
-      background-color: var(--crimson);
+      content:"";
+      position:absolute;
+      inset:0 0 auto 0;
+      height:5px;
+      background:linear-gradient(90deg,var(--nl-green),#9CE7BF,#FFF0BF);
     }
 
     .terms-page .section-number{
-      font-family: 'Playfair Display', serif;
-      font-size: 4rem;
-      font-weight: 900;
-      color: var(--crimson);
-      opacity: 0.2;
-      position: absolute;
-      left: 2rem;
-      top: 1rem;
-      line-height: 1;
-      pointer-events: none;
+      position:absolute;
+      right:clamp(18px,3vw,30px);
+      top:clamp(16px,3vw,26px);
+      color:rgba(0,168,89,.10);
+      font-size:clamp(3.2rem,8vw,5.7rem);
+      line-height:.82;
+      font-weight:950;
+      letter-spacing:-.08em;
+      pointer-events:none;
     }
 
     .terms-page .section-content{
-      position: relative;
-      z-index: 1;
-      margin-left: 4rem;
+      position:relative;
+      z-index:1;
+      max-width:940px;
     }
 
     .terms-page .section-heading{
-      font-family: 'Playfair Display', serif;
-      font-size: 2rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 1.5rem;
-      color: var(--black);
-      line-height: 1.3;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin:0 0 14px;
+      color:var(--nl-ink);
+      font-size:clamp(1.25rem,2.3vw,2rem);
+      line-height:1.18;
+      letter-spacing:-.04em;
+      font-weight:900;
+      padding-right:70px;
+    }
+
+    .terms-page .section-heading::before{
+      content:"";
+      width:12px;
+      height:36px;
+      flex:0 0 12px;
+      border-radius:999px;
+      background:linear-gradient(180deg,var(--nl-green),#96E8B7);
     }
 
     .terms-page .section-body{
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 1.125rem;
-      line-height: 1.8;
-      color: var(--black);
+      color:#5E7066;
+      font-size:1rem;
+      line-height:1.78;
+      font-weight:520;
     }
 
-    .terms-page .section-body p{ margin-bottom: 1.5rem; }
-    .terms-page .section-body p:last-child{ margin-bottom: 0; }
+    .terms-page .section-body p{
+      margin-bottom:14px;
+    }
+
+    .terms-page .section-body p:last-child{
+      margin-bottom:0;
+    }
+
+    .terms-page .section-body strong{
+      color:var(--nl-green-deep);
+      font-weight:900;
+    }
 
     .terms-page .custom-list{
-      list-style: none;
-      margin: 1.5rem 0;
-      padding-left: 0;
+      list-style:none;
+      display:grid;
+      gap:10px;
+      margin:15px 0;
     }
+
     .terms-page .custom-list li{
-      position: relative;
-      padding-left: 2rem;
-      margin-bottom: 0.75rem;
+      position:relative;
+      min-height:42px;
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      padding:11px 12px 11px 44px;
+      border-radius:15px;
+      background:var(--nl-green-soft-2);
+      border:1px solid rgba(0,168,89,.10);
+      color:#52645A;
+      font-weight:650;
     }
+
     .terms-page .custom-list li::before{
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0.6em;
-      width: 8px;
-      height: 8px;
-      background-color: var(--crimson);
+      content:"✓";
+      position:absolute;
+      left:12px;
+      top:10px;
+      width:22px;
+      height:22px;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      background:var(--nl-green);
+      color:#fff;
+      font-size:.74rem;
+      line-height:1;
+      font-weight:950;
     }
 
-    /* Back to top */
+    .terms-page .terms-note{
+      margin-top:18px;
+      border-radius:20px;
+      padding:18px;
+      background:linear-gradient(135deg,#E9FFF3,#FFFFFF);
+      border:1px solid rgba(0,168,89,.16);
+      box-shadow:0 12px 28px rgba(17,64,38,.055);
+      display:grid;
+      grid-template-columns:44px minmax(0,1fr);
+      gap:14px;
+      align-items:flex-start;
+    }
+
+    .terms-page .terms-note-icon{
+      width:44px;
+      height:44px;
+      display:grid;
+      place-items:center;
+      border-radius:16px;
+      background:var(--nl-green);
+      color:#fff;
+      box-shadow:0 10px 22px rgba(0,168,89,.20);
+      font-size:1.25rem;
+    }
+
+    .terms-page .terms-note h3{
+      margin-bottom:5px;
+      color:var(--nl-green-deep);
+      font-size:.98rem;
+      font-weight:950;
+    }
+
+    .terms-page .terms-note p{
+      margin:0;
+      color:#5E7066;
+      font-size:.94rem;
+      line-height:1.62;
+    }
+
+    .terms-page .contact-section{
+      border-radius:30px;
+      background:
+        radial-gradient(circle at top left,rgba(255,255,255,.85),transparent 26rem),
+        linear-gradient(135deg,var(--nl-green),var(--nl-green-dark));
+      color:#fff;
+      padding:clamp(24px,4vw,42px);
+      box-shadow:0 18px 46px rgba(0,168,89,.22);
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:20px;
+      align-items:center;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .terms-page .contact-section::after{
+      content:"";
+      position:absolute;
+      right:-70px;
+      bottom:-100px;
+      width:230px;
+      height:230px;
+      border-radius:50%;
+      background:rgba(255,255,255,.13);
+    }
+
+    .terms-page .contact-title{
+      position:relative;
+      z-index:1;
+      margin-bottom:7px;
+      font-size:clamp(1.35rem,2.6vw,2rem);
+      line-height:1.18;
+      letter-spacing:-.04em;
+      font-weight:950;
+    }
+
+    .terms-page .contact-copy{
+      position:relative;
+      z-index:1;
+      max-width:720px;
+      color:rgba(255,255,255,.88);
+      font-size:.98rem;
+      line-height:1.65;
+      font-weight:550;
+    }
+
+    .terms-page .contact-actions{
+      position:relative;
+      z-index:1;
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      gap:10px;
+    }
+
+    .terms-page .contact-button,
+    .terms-page .contact-email{
+      min-height:46px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:14px;
+      padding:0 16px;
+      font-size:.86rem;
+      font-weight:900;
+      white-space:nowrap;
+      transition:transform .2s var(--nl-ease), background .2s var(--nl-ease), color .2s var(--nl-ease), border-color .2s var(--nl-ease);
+    }
+
+    .terms-page .contact-button{
+      background:#fff;
+      color:var(--nl-green-dark);
+      box-shadow:0 14px 28px rgba(17,64,38,.18);
+    }
+
+    .terms-page .contact-email{
+      color:#fff;
+      border:1px solid rgba(255,255,255,.34);
+      background:rgba(255,255,255,.12);
+      backdrop-filter:blur(8px);
+      -webkit-backdrop-filter:blur(8px);
+    }
+
+    .terms-page .contact-button:hover,
+    .terms-page .contact-email:hover{
+      transform:translateY(-2px);
+    }
+
     .terms-page .back-to-top{
-      position: fixed;
-      bottom: 2rem;
-      right: 2rem;
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background-color: var(--crimson);
-      color: var(--off-white);
-      border: var(--border-standard);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.3s ease;
-      z-index: 1000;
-    }
-    .terms-page .back-to-top.visible{ opacity: 1; visibility: visible; }
-    .terms-page .back-to-top:hover{
-      transform: scale(1.1);
-      background-color: var(--black);
-    }
-    .terms-page .back-to-top:hover svg{ transform: rotate(-15deg); }
-    .terms-page .back-to-top svg{
-      width: 24px;
-      height: 24px;
-      transition: transform 0.3s ease;
+      position:fixed;
+      right:clamp(14px,2.6vw,30px);
+      bottom:clamp(14px,2.6vw,30px);
+      width:54px;
+      height:54px;
+      border:0;
+      border-radius:50%;
+      background:var(--nl-green);
+      color:#fff;
+      display:grid;
+      place-items:center;
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+      box-shadow:0 16px 34px rgba(0,168,89,.28);
+      z-index:1000;
+      transition:opacity .22s var(--nl-ease), visibility .22s var(--nl-ease), transform .22s var(--nl-ease), background .22s var(--nl-ease);
+      cursor:pointer;
     }
 
-    /* Footer — UPDATED to match Privacy page */
+    .terms-page .back-to-top.visible{
+      opacity:1;
+      visibility:visible;
+      pointer-events:auto;
+    }
+
+    .terms-page .back-to-top:hover{
+      transform:translateY(-3px);
+      background:var(--nl-green-dark);
+    }
+
     .terms-page .footer{
-      border-top: var(--border-standard);
-      padding: 4rem 2rem;
-      text-align: center;
-      background-color: var(--off-white);
-      margin-top: 4rem;
+      position:relative;
+      z-index:1;
+      padding:clamp(34px,5vw,58px) clamp(18px,4vw,72px);
+      background:#FFFFFF;
+      border-top:1px solid var(--nl-line);
+      text-align:center;
     }
 
     .terms-page .footer-stars{
       display:flex;
       justify-content:center;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-      font-size: 1.5rem;
-      color: var(--crimson);
+      gap:8px;
+      margin-bottom:14px;
+      color:var(--nl-yellow);
+      font-size:1.05rem;
     }
 
     .terms-page .footer-title{
-      font-family: 'Dancing Script', cursive !important;
-      font-weight: 700;
-      font-style: italic;
-      color: var(--black);
-      margin-bottom: 1rem;
-      line-height: 1.15;
-      font-size: clamp(2.0rem, 3.4vw, 3.1rem);
-    }
-    .terms-page .footer-fullname{
-      max-width: 1200px;
-      margin-left: auto;
-      margin-right: auto;
+      max-width:900px;
+      margin:0 auto 8px;
+      color:var(--nl-ink);
+      font-size:clamp(1.35rem,3vw,2.35rem);
+      line-height:1.15;
+      letter-spacing:-.045em;
+      font-weight:950;
     }
 
     .terms-page .footer-subtitle{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.5em;
-      text-transform: uppercase;
-      margin-bottom: 2rem;
-      color: var(--black);
+      color:var(--nl-green-dark);
+      font-size:.82rem;
+      font-weight:900;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      margin-bottom:20px;
     }
+
     .terms-page .footer-nav{
       display:flex;
+      align-items:center;
       justify-content:center;
-      gap: 2rem;
-      flex-wrap: wrap;
-      align-items: center;
+      flex-wrap:wrap;
+      gap:10px;
     }
+
     .terms-page .footer-link{
-      font-family: 'Italiana', serif;
-      font-size: 0.875rem;
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
-      color: var(--black);
-      position: relative;
-      transition: color 0.3s ease;
-    }
-    .terms-page .footer-link::after{
-      content:'';
-      position:absolute;
-      bottom:-4px;
-      left:0;
-      width:0;
-      height:2px;
-      background-color: var(--crimson);
-      transition: width 0.3s ease;
-    }
-    .terms-page .footer-link:hover{ color: var(--crimson); }
-    .terms-page .footer-link:hover::after{ width:100%; }
-
-    /* Reveal */
-    .terms-page .reveal{
-      opacity: 0;
-      transform: translateY(50px);
-      transition: opacity 0.6s ease, transform 0.6s ease;
-    }
-    .terms-page .reveal.revealed{
-      opacity: 1;
-      transform: translateY(0);
+      min-height:38px;
+      display:inline-flex;
+      align-items:center;
+      padding:0 13px;
+      border-radius:999px;
+      background:var(--nl-green-soft);
+      color:var(--nl-green-dark);
+      font-size:.78rem;
+      font-weight:900;
+      transition:background .2s var(--nl-ease), color .2s var(--nl-ease), transform .2s var(--nl-ease);
     }
 
-    /* Responsive */
-    @media (max-width: 1024px){
+    .terms-page .footer-link:hover{
+      background:var(--nl-green);
+      color:#fff;
+      transform:translateY(-2px);
+    }
+
+    @media(max-width:1100px){
+      .terms-page .hero-grid{
+        grid-template-columns:1fr;
+      }
+
+      .terms-page .hero-card{
+        min-height:250px;
+      }
+
       .terms-page .content-container{
-        grid-template-columns: 1fr;
-        gap: 2rem;
+        grid-template-columns:1fr;
       }
+
       .terms-page .toc-sidebar{
-        position: static;
-        max-height: none;
+        position:relative;
+        top:auto;
+        max-height:none;
       }
-      .terms-page .section-content{ margin-left: 2rem; }
-      .terms-page .section-number{ font-size: 3rem; left: 1rem; }
+
+      .terms-page .toc-list{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .terms-page .toc-link{
+        min-height:58px;
+      }
     }
 
-    @media (max-width: 768px){
-      .terms-page .hero-section{ padding: 2rem 1rem 4rem; }
+    @media(max-width:760px){
       .terms-page .top-bar{
-        flex-direction: column;
-        gap: 0.5rem;
-        text-align: center;
+        justify-content:center;
+        flex-wrap:wrap;
       }
-      .terms-page .content-container{ padding: 2rem 1rem; }
-      .terms-page .toc-sidebar{ padding: 1.25rem; }
 
-      /* Mobile TOC collapsible */
-      .terms-page .toc-mobile-toggle{ display:block; }
-      .terms-page .toc-list{ display:none; }
-      .terms-page .toc-sidebar.open .toc-list{ display:block; }
+      .terms-page .hero-section{
+        padding-bottom:34px;
+      }
 
-      .terms-page .content-section{ padding: 2rem 1rem; }
+      .terms-page .hero-grid{
+        gap:26px;
+      }
+
+      .terms-page .hero-actions{
+        gap:9px;
+      }
+
+      .terms-page .hero-pill{
+        width:100%;
+      }
+
+      .terms-page .hero-card{
+        border-radius:26px;
+        min-height:238px;
+      }
+
+      .terms-page .terms-doc{
+        width:min(250px,92%);
+      }
+
+      .terms-page .content-container{
+        padding-left:14px;
+        padding-right:14px;
+      }
+
+      .terms-page .toc-sidebar{
+        border-radius:20px;
+        padding:14px;
+      }
+
+      .terms-page .toc-mobile-toggle{
+        display:flex;
+      }
+
+      .terms-page .toc-list{
+        display:none;
+        grid-template-columns:1fr;
+      }
+
+      .terms-page .toc-sidebar.open .toc-list{
+        display:grid;
+      }
+
+      .terms-page .toc-title{
+        margin-bottom:0;
+        border-bottom:0;
+        padding-bottom:4px;
+      }
+
+      .terms-page .toc-sidebar.open .toc-title{
+        margin-bottom:12px;
+        border-bottom:1px solid var(--nl-line);
+        padding-bottom:12px;
+      }
+
+      .terms-page .content-section{
+        border-radius:22px;
+        padding:20px 16px;
+      }
+
       .terms-page .section-number{
-        font-size: 2.5rem;
-        left: 0.5rem;
-        top: 0.5rem;
+        top:16px;
+        right:18px;
+        font-size:3.1rem;
       }
-      .terms-page .section-content{
-        margin-left: 0;
-        margin-top: 2rem;
+
+      .terms-page .section-heading{
+        padding-right:54px;
+        gap:10px;
       }
-      .terms-page .section-heading{ font-size: 1.5rem; }
-      .terms-page .section-body{ font-size: 1rem; }
+
+      .terms-page .section-heading::before{
+        width:9px;
+        flex-basis:9px;
+        height:30px;
+      }
+
+      .terms-page .section-body{
+        font-size:.95rem;
+        line-height:1.72;
+      }
+
+      .terms-page .custom-list li{
+        padding:10px 10px 10px 40px;
+        font-size:.94rem;
+      }
+
+      .terms-page .terms-note{
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+
+      .terms-page .contact-section{
+        grid-template-columns:1fr;
+        border-radius:24px;
+      }
+
+      .terms-page .contact-actions{
+        justify-content:flex-start;
+      }
+
+      .terms-page .contact-button,
+      .terms-page .contact-email{
+        width:100%;
+      }
 
       .terms-page .back-to-top{
-        width: 50px; height: 50px;
-        bottom: 1rem; right: 1rem;
+        width:48px;
+        height:48px;
+      }
+    }
+
+    @media(max-width:430px){
+      .terms-page .nl-wrap{
+        padding-left:14px;
+        padding-right:14px;
       }
 
-      .terms-page .footer{ padding: 3rem 1rem; }
+      .terms-page .top-bar-text{
+        width:100%;
+        justify-content:center;
+      }
+
+      .terms-page .page-title{
+        font-size:2.15rem;
+      }
+
+      .terms-page .page-subtitle{
+        font-size:.92rem;
+      }
+
+      .terms-page .content-container{
+        padding-top:20px;
+      }
+
       .terms-page .footer-nav{
-        flex-direction: column;
-        gap: 1rem;
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      .terms-page .footer-link{
+        justify-content:center;
       }
     }
 
-    /* Reduced motion */
-    @media (prefers-reduced-motion: reduce){
-      .terms-page .grain-overlay{ animation: none !important; }
-      .terms-page .reveal{
-        opacity: 1 !important;
-        transform: none !important;
-        transition: none !important;
-      }
-      .terms-page .back-to-top,
+    @media(prefers-reduced-motion:reduce){
+      .terms-page .content-section,
       .terms-page .toc-link,
-      .terms-page .footer-link::after{
-        transition: none !important;
+      .terms-page .back-to-top,
+      .terms-page .footer-link,
+      .terms-page .contact-button,
+      .terms-page .contact-email,
+      .terms-page .toc-mobile-toggle{
+        transition:none !important;
+      }
+
+      .terms-page .content-section{
+        opacity:1 !important;
+        transform:none !important;
       }
     }
 
-    /* Print */
     @media print{
+      .terms-page{
+        width:100%;
+        margin:0;
+        background:#fff;
+        color:#000;
+      }
+
       .terms-page .grain-overlay,
       .terms-page .toc-sidebar,
       .terms-page .back-to-top,
-      .terms-page .footer-nav{ display:none !important; }
-      .terms-page .content-container{ grid-template-columns: 1fr; }
-      .terms-page .content-section{ page-break-inside: avoid; border: 1px solid #000; }
-      .terms-page .section-number{ opacity: 0.5; }
-      .terms-page{ background: white; color: black; }
+      .terms-page .footer-nav,
+      .terms-page .hero-card,
+      .terms-page .hero-actions{
+        display:none !important;
+      }
+
+      .terms-page .hero-section,
+      .terms-page .content-section,
+      .terms-page .footer{
+        box-shadow:none !important;
+        border:1px solid #000 !important;
+      }
+
+      .terms-page .content-container{
+        display:block;
+        padding:20px;
+      }
+
+      .terms-page .content-section{
+        opacity:1 !important;
+        transform:none !important;
+        page-break-inside:avoid;
+      }
     }
   </style>
 
   <div class="grain-overlay" aria-hidden="true"></div>
 
   <header class="hero-section reveal">
-    <div class="top-bar">
-      <span class="top-bar-text">EST. 2018</span>
-      <span class="top-bar-text">MIZORAM, INDIA</span>
+    <div class="nl-wrap">
+      <div class="top-bar">
+        <span class="top-bar-text">NELOCALS Policy Center</span>
+        <span class="top-bar-text">Terms of Service</span>
+      </div>
+
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="hero-kicker"><span>📄</span> Customer Terms</div>
+          <h1 class="page-title">Terms for using <strong>NELOCALS</strong></h1>
+          <p class="page-subtitle">
+            These terms explain how customers can use NELOCALS to browse local products,
+            place grocery orders, choose delivery or pickup options, and use our website or
+            upcoming mobile app responsibly.
+          </p>
+
+          <div class="hero-actions">
+            <span class="hero-pill is-main">Effective: January 2026</span>
+            <span class="hero-pill">Applies to website, store orders & app services</span>
+          </div>
+        </div>
+
+        <div class="hero-card" aria-hidden="true">
+          <div class="terms-doc">
+            <div class="terms-doc-head">
+              <div class="terms-doc-logo"><span>🌿</span> NELOCALS</div>
+              <div class="terms-doc-badge">Terms</div>
+            </div>
+            <div class="terms-doc-line"></div>
+            <div class="terms-doc-line"></div>
+            <div class="terms-doc-line"></div>
+            <div class="terms-checks">
+              <div class="terms-check"><i>✓</i> Clear checkout rules</div>
+              <div class="terms-check"><i>✓</i> Local store support</div>
+              <div class="terms-check"><i>✓</i> Safe delivery guidance</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <h1 class="page-title">Terms of Service</h1>
-    <p class="page-subtitle">Last Updated: January 29, 2025</p>
-    <div class="title-divider"></div>
   </header>
 
   <div class="content-container">
@@ -537,10 +1151,11 @@
         <ul class="toc-list" id="termsTocList">
           <li><button class="toc-link active" data-section="overview" type="button"><span class="toc-number">01</span><span class="toc-text">Overview</span></button></li>
           <li><button class="toc-link" data-section="accounts" type="button"><span class="toc-number">02</span><span class="toc-text">Accounts</span></button></li>
-          <li><button class="toc-link" data-section="orders" type="button"><span class="toc-number">03</span><span class="toc-text">Orders &amp; Delivery</span></button></li>
-          <li><button class="toc-link" data-section="returns" type="button"><span class="toc-number">04</span><span class="toc-text">Returns &amp; Issues</span></button></li>
-          <li><button class="toc-link" data-section="liability" type="button"><span class="toc-number">05</span><span class="toc-text">Liability</span></button></li>
-          <li><button class="toc-link" data-section="changes" type="button"><span class="toc-number">06</span><span class="toc-text">Changes</span></button></li>
+          <li><button class="toc-link" data-section="orders" type="button"><span class="toc-number">03</span><span class="toc-text">Orders & Delivery</span></button></li>
+          <li><button class="toc-link" data-section="payments" type="button"><span class="toc-number">04</span><span class="toc-text">Payments & COD</span></button></li>
+          <li><button class="toc-link" data-section="returns" type="button"><span class="toc-number">05</span><span class="toc-text">Issues & Refunds</span></button></li>
+          <li><button class="toc-link" data-section="liability" type="button"><span class="toc-number">06</span><span class="toc-text">Responsibility</span></button></li>
+          <li><button class="toc-link" data-section="changes" type="button"><span class="toc-number">07</span><span class="toc-text">Changes</span></button></li>
         </ul>
       </div>
     </nav>
@@ -551,7 +1166,26 @@
         <div class="section-content">
           <h2 class="section-heading">Overview</h2>
           <div class="section-body">
-            <p>By using Chhimphei Chicken, you agree to these Terms and our Privacy Policy.</p>
+            <p>
+              By using NELOCALS, you agree to these Terms of Service, our Privacy Policy,
+              and the checkout rules shown before you place an order.
+            </p>
+            <p>
+              NELOCALS connects customers with local and Northeast-focused products, stores,
+              food essentials, groceries, hampers, and related services. Availability may vary
+              by location, stock, delivery zone, store timing, and operational conditions.
+            </p>
+
+            <div class="terms-note">
+              <div class="terms-note-icon">🌿</div>
+              <div>
+                <h3>Simple rule</h3>
+                <p>
+                  Use the platform honestly, enter correct delivery/contact details, and review
+                  your order summary before confirming checkout.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -561,9 +1195,15 @@
         <div class="section-content">
           <h2 class="section-heading">Accounts</h2>
           <div class="section-body">
+            <p>
+              Some features may require login, phone verification, or profile details so we can
+              identify your order, delivery address, and customer support history.
+            </p>
             <ul class="custom-list">
-              <li>Provide accurate information and safeguard your credentials</li>
-              <li>We may disable accounts that violate policies or applicable law</li>
+              <li>Provide accurate name, phone number, email, and delivery address.</li>
+              <li>Keep your login details and OTPs private. Do not share OTPs with anyone.</li>
+              <li>NELOCALS may restrict accounts that misuse coupons, create fake orders, or violate platform policies.</li>
+              <li>You are responsible for activity performed through your account or verified phone number.</li>
             </ul>
           </div>
         </div>
@@ -572,43 +1212,132 @@
       <section id="orders" class="content-section reveal">
         <div class="section-number">03</div>
         <div class="section-content">
-          <h2 class="section-heading">Orders &amp; Delivery</h2>
+          <h2 class="section-heading">Orders & Delivery</h2>
           <div class="section-body">
+            <p>
+              Product price, quantity, delivery fee, availability, and final payable amount will
+              be displayed during checkout. An order is considered placed only after the checkout
+              flow is successfully completed.
+            </p>
             <ul class="custom-list">
-              <li>Order details and fees are shown at checkout</li>
-              <li>Delivery availability depends on distance and stock</li>
+              <li>Delivery availability depends on store service area, distance, product stock, and delivery capacity.</li>
+              <li>Fresh items, grocery items, hampers, and local products may have different handling and availability rules.</li>
+              <li>If an item becomes unavailable after order placement, we may contact you for replacement, partial delivery, refund adjustment, or cancellation.</li>
+              <li>Delivery time is an estimate and may change due to weather, traffic, store delay, location access, or operational conditions.</li>
             </ul>
           </div>
         </div>
       </section>
 
-      <section id="returns" class="content-section reveal">
+      <section id="payments" class="content-section reveal">
         <div class="section-number">04</div>
         <div class="section-content">
-          <h2 class="section-heading">Returns &amp; Issues</h2>
+          <h2 class="section-heading">Payments & COD</h2>
           <div class="section-body">
-            <p>Contact support for order issues. We'll work with the store to resolve them promptly.</p>
+            <p>
+              NELOCALS may support multiple payment methods depending on order type, store,
+              location, and checkout configuration.
+            </p>
+            <ul class="custom-list">
+              <li>Cash on Delivery may be available where enabled by the store or platform.</li>
+              <li>Online/UPI/store-held payments may be treated as store-collected payment where applicable.</li>
+              <li>Payment confirmation, refunds, and settlement can depend on the selected payment method and store process.</li>
+              <li>Never make payments to unknown numbers or links outside official NELOCALS/store instructions.</li>
+            </ul>
+
+            <div class="terms-note">
+              <div class="terms-note-icon">💳</div>
+              <div>
+                <h3>Payment safety</h3>
+                <p>
+                  NELOCALS will never ask you to share your OTP, password, card PIN, or banking
+                  credentials over phone, WhatsApp, email, or chat.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="returns" class="content-section reveal">
+        <div class="section-number">05</div>
+        <div class="section-content">
+          <h2 class="section-heading">Issues, Refunds & Cancellations</h2>
+          <div class="section-body">
+            <p>
+              If you face an issue with your order, contact support with the order ID, product
+              details, photos if applicable, and a short description of the concern.
+            </p>
+            <ul class="custom-list">
+              <li>Issues must be reported as soon as possible after delivery or pickup.</li>
+              <li>Fresh, perishable, opened, used, or damaged-after-delivery items may not qualify for return unless a clear store/platform issue is found.</li>
+              <li>Refunds, replacements, or adjustments are reviewed based on product type, store policy, delivery proof, and issue evidence.</li>
+              <li>Cancelled orders may be subject to store preparation status, delivery assignment, and payment status.</li>
+            </ul>
           </div>
         </div>
       </section>
 
       <section id="liability" class="content-section reveal">
-        <div class="section-number">05</div>
+        <div class="section-number">06</div>
         <div class="section-content">
-          <h2 class="section-heading">Liability</h2>
+          <h2 class="section-heading">Responsibility</h2>
           <div class="section-body">
-            <p>Services are provided “as is” to the fullest extent permitted by law.</p>
+            <p>
+              NELOCALS works to keep product information, pricing, offers, and availability
+              accurate, but store-side updates and operational changes may occasionally cause
+              differences.
+            </p>
+            <ul class="custom-list">
+              <li>Customers should review product details, cart quantity, address, and payable amount before placing an order.</li>
+              <li>Stores are responsible for product preparation, packaging, quality, and stock accuracy where they manage the product directly.</li>
+              <li>NELOCALS is not responsible for delays caused by incorrect address, unreachable phone number, weather, road restrictions, or events beyond reasonable control.</li>
+              <li>Services are provided on an “as available” basis, subject to operational feasibility.</li>
+            </ul>
           </div>
         </div>
       </section>
 
       <section id="changes" class="content-section reveal">
-        <div class="section-number">06</div>
+        <div class="section-number">07</div>
         <div class="section-content">
-          <h2 class="section-heading">Changes</h2>
+          <h2 class="section-heading">Changes to These Terms</h2>
           <div class="section-body">
-            <p>We may update these Terms; continued use means acceptance.</p>
+            <p>
+              We may update these Terms when we add new services, change checkout flows, update
+              delivery or payment handling, or improve safety and compliance processes.
+            </p>
+            <p>
+              Continued use of NELOCALS after updates means you accept the revised Terms.
+              The latest version will be available on this page.
+            </p>
+
+            <div class="terms-note">
+              <div class="terms-note-icon">📩</div>
+              <div>
+                <h3>Need help?</h3>
+                <p>
+                  For questions about orders, payments, delivery, or these Terms, contact
+                  NELOCALS support through the official website support channel.
+                </p>
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section class="contact-section reveal">
+        <div>
+          <h2 class="contact-title">Questions About These Terms?</h2>
+          <p class="contact-copy">
+            Contact NELOCALS support for order disputes, account questions, payment concerns,
+            or clarification about platform policies.
+          </p>
+        </div>
+
+        <div class="contact-actions">
+          <a href="/support" class="contact-button">Contact Support</a>
+          <a href="mailto:info@ayanant.com" class="contact-email">info@ayanant.com</a>
         </div>
       </section>
     </main>
@@ -627,17 +1356,18 @@
     </div>
 
     <h2 class="footer-title footer-fullname">
-      Chhimphei Women Poultry Producer Company Limited
+      NELOCALS — Fresh Local Essentials from the Northeast
     </h2>
 
-    <p class="footer-subtitle">MIZORAM • 2018 • INDIA</p>
+    <p class="footer-subtitle">Grocery • Local Products • Trusted Delivery</p>
 
     <nav class="footer-nav" aria-label="Footer navigation">
       <a href="/" class="footer-link">Home</a>
       <a href="/about" class="footer-link">About</a>
-      <a href="/shop" class="footer-link">Shop</a>
-      <a href="/contact" class="footer-link">Contact</a>
+      <a href="/catalog" class="footer-link">Catalog</a>
       <a href="/privacy" class="footer-link">Privacy</a>
+      <a href="/security" class="footer-link">Security</a>
+      <a href="/support" class="footer-link">Support</a>
     </nav>
   </footer>
 
@@ -677,8 +1407,8 @@
           revealElements.forEach(el => el.classList.add('revealed'));
         }
 
-        // Active TOC + smooth scroll (offset like other pages)
-        const contentSections = root.querySelectorAll('.content-section');
+        // Active TOC + smooth scroll
+        const contentSections = root.querySelectorAll('.content-section[id]');
         const tocLinks = root.querySelectorAll('.toc-link');
 
         function setActive(id){
@@ -687,11 +1417,17 @@
           if(active) active.classList.add('active');
         }
 
+        function getByIdSafe(id){
+          if(!id) return null;
+          if(window.CSS && CSS.escape) return root.querySelector('#' + CSS.escape(id));
+          return document.getElementById(id);
+        }
+
         function scrollToSection(sectionId){
-          const target = root.querySelector('#' + CSS.escape(sectionId));
+          const target = getByIdSafe(sectionId);
           if(!target) return;
 
-          const offset = 120;
+          const offset = 110;
           const elementPosition = target.getBoundingClientRect().top;
           const offsetPosition = elementPosition + window.pageYOffset - offset;
 
@@ -710,9 +1446,29 @@
             entries.forEach((entry) => {
               if(entry.isIntersecting) setActive(entry.target.id);
             });
-          }, { threshold: 0.35, rootMargin: '-120px 0px -55% 0px' });
+          }, { threshold: 0.35, rootMargin: '-110px 0px -55% 0px' });
 
           contentSections.forEach(s => sectionObserver.observe(s));
+        } else {
+          let scrollTicking = false;
+          function updateActiveOnScroll(){
+            let current = contentSections[0] ? contentSections[0].id : '';
+            contentSections.forEach(section => {
+              const rect = section.getBoundingClientRect();
+              if(rect.top <= 140 && rect.bottom >= 140) current = section.id;
+            });
+            if(current) setActive(current);
+            scrollTicking = false;
+          }
+
+          window.addEventListener('scroll', function(){
+            if(!scrollTicking){
+              scrollTicking = true;
+              requestAnimationFrame(updateActiveOnScroll);
+            }
+          });
+
+          updateActiveOnScroll();
         }
 
         tocLinks.forEach((link) => {
@@ -760,7 +1516,7 @@
           });
         }
 
-        // Export helpers (optional)
+        // Export helpers
         window.TermsPage = {
           scrollToSection: scrollToSection,
           scrollToTop: function(){ window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }); }

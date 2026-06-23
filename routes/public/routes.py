@@ -818,3 +818,34 @@ def contact():
         return redirect(url_for("contact"))
 
     return render_template("contact.html", user=user)
+
+
+
+@app.route("/help")
+def help_page():
+    return render_template("legal/help.html")
+
+
+@app.route("/privacy")
+def privacy_page():
+    return render_template("legal/privacy.html")
+
+
+@app.route("/report-fraud")
+def report_fraud_page():
+    return render_template("legal/report_fraud.html")
+
+
+@app.route("/security")
+def security_page():
+    return render_template("legal/security.html")
+
+
+@app.route("/support")
+def support_page():
+    return render_template("legal/support.html")
+
+
+@app.route("/terms")
+def terms_page():
+    return render_template("legal/terms.html")

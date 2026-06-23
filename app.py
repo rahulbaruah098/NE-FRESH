@@ -30,18 +30,40 @@ if os.getenv("NEFRESH_DEBUG_LOGS", "0").strip().lower() in ["1", "true", "yes", 
     print("=================================\n")
 
 if __name__ == "__main__":
-    debug_enabled = os.getenv("FLASK_DEBUG", "0").strip().lower() in ["1", "true", "yes", "on"]
+    debug_enabled = os.getenv("FLASK_DEBUG", "1").strip().lower() in ["1", "true", "yes", "on"]
 
-    app.config["TEMPLATES_AUTO_RELOAD"] = debug_enabled
-    app.jinja_env.auto_reload = debug_enabled
+    app.config["DEBUG"] = debug_enabled
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
+    app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+    app.jinja_env.auto_reload = True
+
+    extra_files = [
+        "app.py",
+        "app_core.py",
+    ]
+
+    watch_dirs = [
+        "routes",
+        "templates",
+        "static",
+    ]
+
+    for watch_dir in watch_dirs:
+        if os.path.exists(watch_dir):
+            for root, dirs, files in os.walk(watch_dir):
+                dirs[:] = [
+                    d for d in dirs
+                    if d not in ["__pycache__", ".git", "venv", "env", "node_modules"]
+                ]
+
+                for file in files:
+                    if file.endswith((".py", ".html", ".css", ".js")):
+                        extra_files.append(os.path.join(root, file))
 
     app.run(
         host="0.0.0.0",
         port=int(os.getenv("PORT", "5000")),
         debug=debug_enabled,
         use_reloader=debug_enabled,
-        extra_files=[
-            "app_core.py",
-            "app.py",
-        ]
+        extra_files=extra_files,
     )
