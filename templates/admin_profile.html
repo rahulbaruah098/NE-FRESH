@@ -1,0 +1,96 @@
+{% extends "admin_base.html" %}
+{% set active_group = "account" %}
+{% set active_page = "admin_profile" %}
+{% block title %}Admin Profile | NE FRESH Admin{% endblock %}
+{% block page_title %}Admin Profile{% endblock %}
+{% block page_subtitle %}Manage your admin account details, login email and password securely.{% endblock %}
+
+{% block content %}
+<section class="ap-page">
+  <style>
+    .ap-page{display:grid;gap:18px}.ap-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.ap-card{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:24px;box-shadow:var(--nf-shadow);padding:22px}.ap-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}.ap-avatar{width:62px;height:62px;border-radius:20px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(0,168,89,.14),rgba(255,255,255,.9));border:1px solid rgba(0,168,89,.18);color:var(--nf-green-dark);font-size:1.5rem;font-weight:950}.ap-title h2{margin:0;color:var(--nf-ink);font-size:1.15rem;font-weight:950}.ap-title p{margin:4px 0 0;color:var(--nf-muted);font-size:.9rem;line-height:1.5;font-weight:650}.ap-form{display:grid;gap:13px}.ap-field{display:grid;gap:7px}.ap-field label{font-size:.76rem;font-weight:950;color:var(--nf-muted);text-transform:uppercase;letter-spacing:.05em}.ap-field input{width:100%;height:46px;border:1px solid var(--nf-line);border-radius:15px;background:#fff;padding:0 13px;color:var(--nf-ink);font-weight:750;outline:none}.ap-field input:focus{border-color:rgba(0,168,89,.5);box-shadow:0 0 0 4px rgba(0,168,89,.1)}.ap-note{margin:0;color:var(--nf-muted);line-height:1.6;font-size:.9rem;font-weight:650}.ap-btn{min-height:46px;border:0;border-radius:15px;background:var(--nf-green);color:#fff;padding:0 16px;font-weight:950;cursor:pointer;box-shadow:0 14px 26px rgba(0,168,89,.18)}.ap-btn.secondary{background:#fff;color:var(--nf-green-dark);border:1px solid var(--nf-line);box-shadow:none}.ap-muted-box{padding:14px;border-radius:18px;background:rgba(0,168,89,.06);border:1px solid rgba(0,168,89,.14);color:var(--nf-muted);font-weight:700;line-height:1.55}.ap-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:980px){.ap-grid,.ap-row{grid-template-columns:1fr}.ap-card{padding:18px}}
+  </style>
+
+  <div class="ap-card">
+    <div class="ap-head">
+      <div class="ap-avatar">{{ (user.name[0] if user and user.name else 'A')|upper }}</div>
+      <div class="ap-title">
+        <h2>{{ user.name or 'Admin' }}</h2>
+        <p>{{ user.email or 'No email found' }} · Administrator Account</p>
+      </div>
+    </div>
+    <div class="ap-muted-box">
+      Use this page only for your own Admin login account. Store, delivery-boy and customer accounts are managed from User Management.
+    </div>
+  </div>
+
+  <div class="ap-grid">
+    <div class="ap-card">
+      <div class="ap-title" style="margin-bottom:14px;">
+        <h2>Profile Details</h2>
+        <p>Update display name and contact phone shown inside Admin panel.</p>
+      </div>
+      <form method="post" class="ap-form">
+        <input type="hidden" name="action" value="profile_details">
+        <div class="ap-field">
+          <label>Name</label>
+          <input type="text" name="name" value="{{ user.name or '' }}" required>
+        </div>
+        <div class="ap-field">
+          <label>Phone</label>
+          <input type="text" name="phone" value="{{ user.phone or '' }}" placeholder="Optional admin phone">
+        </div>
+        <button class="ap-btn" type="submit">Save Profile Details</button>
+      </form>
+    </div>
+
+    <div class="ap-card">
+      <div class="ap-title" style="margin-bottom:14px;">
+        <h2>Change Login Email</h2>
+        <p>Current password is required before changing the Admin login email.</p>
+      </div>
+      <form method="post" class="ap-form">
+        <input type="hidden" name="action" value="change_email">
+        <div class="ap-field">
+          <label>Current Email</label>
+          <input type="email" value="{{ user.email or '' }}" disabled>
+        </div>
+        <div class="ap-field">
+          <label>New Email</label>
+          <input type="email" name="new_email" placeholder="admin@example.com" required>
+        </div>
+        <div class="ap-field">
+          <label>Current Password</label>
+          <input type="password" name="current_password" autocomplete="current-password" required>
+        </div>
+        <button class="ap-btn" type="submit">Change Admin Email</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="ap-card" id="change-password">
+    <div class="ap-title" style="margin-bottom:14px;">
+      <h2>Change Password</h2>
+      <p>Use a strong password. This changes only your current Admin account password.</p>
+    </div>
+    <form method="post" class="ap-form">
+      <input type="hidden" name="action" value="change_password">
+      <div class="ap-row">
+        <div class="ap-field">
+          <label>Current Password</label>
+          <input type="password" name="current_password" autocomplete="current-password" required>
+        </div>
+        <div class="ap-field">
+          <label>New Password</label>
+          <input type="password" name="new_password" minlength="8" autocomplete="new-password" required>
+        </div>
+      </div>
+      <div class="ap-field">
+        <label>Confirm New Password</label>
+        <input type="password" name="confirm_password" minlength="8" autocomplete="new-password" required>
+      </div>
+      <button class="ap-btn" type="submit">Change Password</button>
+    </form>
+  </div>
+</section>
+{% endblock %}

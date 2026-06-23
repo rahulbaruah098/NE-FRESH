@@ -235,6 +235,7 @@ def inject_globals():
 
     return {
         "datetime": datetime,
+        "current_user": current_user(),
         "service_area": session.get("service_area"),
         "order_status_label": order_status_label,
         "delivery_mode_settings": delivery_mode_settings,

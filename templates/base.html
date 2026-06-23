@@ -82,6 +82,43 @@
 
   <script src="https://cdn.lordicon.com/lordicon.js"></script>
   <script defer src="{{ url_for('static', filename='js/cart-global.js') }}"></script>
+
+  {% if request.endpoint == 'index' %}
+<script>
+  /*
+    NELOCALS splash session logic
+
+    Shows only:
+    - first time this browser tab/session opens the website
+    - after the tab is closed and opened again
+
+    Does not show:
+    - homepage refresh
+    - clicking logo/home again
+    - browser back to homepage
+    - returning from another page in same tab
+  */
+  (function(){
+    var root = document.documentElement;
+    var key = "nelocals_splash_seen";
+
+    try {
+      if (window.sessionStorage && sessionStorage.getItem(key) === "1") {
+        root.classList.add("nf-splash-skip");
+      } else {
+        if (window.sessionStorage) {
+          sessionStorage.setItem(key, "1");
+        }
+        root.classList.add("nf-splash-allowed");
+        root.classList.add("nf-splash-locked");
+      }
+    } catch (e) {
+      root.classList.add("nf-splash-allowed");
+      root.classList.add("nf-splash-locked");
+    }
+  })();
+</script>
+{% endif %}
   <style>
   /* ===================== BASE + NAV + LOCATION + MOBILE MENU ===================== */
   @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&family=Righteous&family=Lilita+One&family=Fredoka:wght@300..700&display=swap');
@@ -2524,24 +2561,20 @@
     text-decoration: underline !important;
   }
 
-  /* reveal animation */
-  .nf-reveal{
-    opacity: 0;
-    transform: translateY(24px);
-    transition:
-      opacity .65s ease,
-      transform .65s cubic-bezier(.2, .8, .2, 1);
-  }
-
-  .nf-reveal.is-visible{
+  /* reveal animation removed - footer displays normally */
+  .nf-reveal,
+  .nf-reveal.is-visible,
+  .nf-reveal-delay-1,
+  .nf-reveal-delay-2,
+  .nf-reveal-delay-3,
+  .nf-reveal-delay-4{
     opacity: 1;
-    transform: translateY(0);
+    visibility: visible;
+    transform: none;
+    transition: none;
+    animation: none;
+    transition-delay: 0s;
   }
-
-  .nf-reveal-delay-1{ transition-delay: .06s; }
-  .nf-reveal-delay-2{ transition-delay: .12s; }
-  .nf-reveal-delay-3{ transition-delay: .18s; }
-  .nf-reveal-delay-4{ transition-delay: .24s; }
 
   /* responsive */
   @media (max-width: 1280px){
@@ -3666,49 +3699,54 @@
   <!-- GREEN NAV LOCATION LOGO FINAL ONLY PATCH -->
 
 
-  <style>
+ <style>
   /* ==============================
     NELOCALS SPLASH SCREEN
   ============================== */
+
+  html.nf-splash-skip #splash-screen{
+      display:none !important;
+  }
+
+  html.nf-splash-locked,
+  html.nf-splash-locked body,
+  body.splash-active{
+      overflow:hidden !important;
+      height:100% !important;
+      overscroll-behavior:none !important;
+      touch-action:none !important;
+  }
 
   #splash-screen{
       position:fixed;
       inset:0;
       width:100vw;
       height:100vh;
+      height:100dvh;
       background:#ffffff;
       z-index:9999999;
       display:flex;
       justify-content:center;
       align-items:center;
       overflow:hidden;
-      transition:opacity .8s ease;
+      transition:opacity .8s ease, visibility .8s ease;
   }
 
   #splash-screen.hide{
       opacity:0;
+      visibility:hidden;
       pointer-events:none;
   }
 
-  /* Desktop & Tablet */
   #splash-video{
       width:100%;
       height:100%;
       object-fit:cover;
       display:block;
+      background:#ffffff;
   }
-
-  /* Prevent page scrolling during splash */
-  body.splash-active{
-      overflow:hidden !important;
-  }
-
-  /* ==============================
-    MOBILE FIX
-  ============================== */
 
   @media screen and (max-width:768px){
-
       #splash-screen{
           background:#ffffff;
       }
@@ -3719,21 +3757,440 @@
           object-fit:contain;
           background:#ffffff;
       }
-
   }
 
-  /* Small Phones */
   @media screen and (max-width:480px){
-
       #splash-video{
           width:100%;
           height:100%;
           object-fit:contain;
           background:#ffffff;
       }
-
   }
-  </style>
+</style>
+
+
+
+<style>
+/* ==========================================================
+   NELOCALS FOOTER RESPONSIVE NO REVEAL FINAL
+   Footer-only update: removes slow reveal animations and improves
+   cross-device responsiveness without changing routes, IDs or logic.
+========================================================== */
+
+.nf-footer,
+.nf-footer *,
+.nf-footer *::before,
+.nf-footer *::after{
+  box-sizing:border-box !important;
+}
+
+.nf-footer{
+  width:100% !important;
+  max-width:100vw !important;
+  overflow:hidden !important;
+  padding:0 !important;
+  margin:0 !important;
+  padding-bottom:env(safe-area-inset-bottom,0px) !important;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+
+.nf-footer img,
+.nf-footer svg{
+  max-width:100% !important;
+}
+
+/* Remove footer reveal animations completely */
+.nf-footer .nf-reveal,
+.nf-footer .nf-reveal.is-visible,
+.nf-footer .nf-reveal-delay-1,
+.nf-footer .nf-reveal-delay-2,
+.nf-footer .nf-reveal-delay-3,
+.nf-footer .nf-reveal-delay-4,
+.nf-footer .nf-powered-bar.nf-reveal{
+  opacity:1 !important;
+  visibility:visible !important;
+  transform:none !important;
+  transition:none !important;
+  animation:none !important;
+  transition-delay:0s !important;
+}
+
+/* Stable responsive footer shell */
+.nf-footer .nf-footer-wrap,
+.nf-footer .nf-footer-card{
+  width:100% !important;
+  max-width:100% !important;
+  margin:0 !important;
+}
+
+.nf-footer .nf-footer-card{
+  border-radius:0 !important;
+  overflow:hidden !important;
+}
+
+.nf-footer .nf-footer-grid{
+  width:100% !important;
+  max-width:1440px !important;
+  margin:0 auto !important;
+  display:grid !important;
+  grid-template-columns:minmax(260px,1.12fr) minmax(160px,.72fr) minmax(160px,.72fr) minmax(240px,.92fr) !important;
+  gap:clamp(22px,3vw,44px) !important;
+  padding:clamp(30px,4.5vw,56px) clamp(18px,5vw,72px) 0 !important;
+  align-items:start !important;
+}
+
+.nf-footer .nf-footer-brand,
+.nf-footer .nf-footer-col,
+.nf-footer .nf-contact-col{
+  min-width:0 !important;
+  min-height:0 !important;
+}
+
+.nf-footer .nf-footer-brand{
+  padding-right:clamp(0px,2vw,44px) !important;
+}
+
+.nf-footer .nf-footer-col{
+  padding:0 clamp(0px,2vw,28px) !important;
+  border-left:1px solid rgba(47,129,72,.14) !important;
+}
+
+.nf-footer .nf-contact-col{
+  padding-left:clamp(0px,2.2vw,40px) !important;
+}
+
+.nf-footer .nf-brand-row{
+  height:auto !important;
+  max-height:none !important;
+  min-height:clamp(70px,8vw,112px) !important;
+  margin:0 0 14px !important;
+}
+
+.nf-footer .nf-brand-mark{
+  width:min(100%,370px) !important;
+  height:auto !important;
+  max-height:none !important;
+}
+
+.nf-footer .nf-brand-logo{
+  width:min(100%,370px) !important;
+  height:auto !important;
+  max-height:112px !important;
+  object-fit:contain !important;
+  object-position:left center !important;
+}
+
+.nf-footer .nf-news-text{
+  max-width:420px !important;
+  margin-bottom:18px !important;
+  overflow-wrap:anywhere !important;
+}
+
+.nf-footer .nf-newsletter{
+  width:100% !important;
+  max-width:520px !important;
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) auto !important;
+  gap:10px !important;
+  align-items:center !important;
+}
+
+.nf-footer .nf-newsletter input,
+.nf-footer .nf-newsletter button{
+  width:100% !important;
+  min-width:0 !important;
+}
+
+.nf-footer .nf-newsletter button{
+  width:auto !important;
+  white-space:nowrap !important;
+}
+
+.nf-footer .nf-socials{
+  flex-wrap:wrap !important;
+  gap:12px !important;
+}
+
+.nf-footer .nf-store-row{
+  flex-wrap:wrap !important;
+}
+
+.nf-footer .nf-store-btn{
+  max-width:100% !important;
+}
+
+.nf-footer .nf-col-title{
+  gap:12px !important;
+  margin-bottom:clamp(16px,2.5vw,28px) !important;
+}
+
+.nf-footer .nf-link-list a,
+.nf-footer .nf-contact-item,
+.nf-footer .nf-contact-item p,
+.nf-footer .nf-contact-item h5,
+.nf-footer .nf-news-text{
+  overflow-wrap:anywhere !important;
+  word-break:normal !important;
+}
+
+.nf-footer .nf-link-list li{
+  margin-bottom:clamp(12px,1.7vw,18px) !important;
+}
+
+.nf-footer .nf-contact-list{
+  gap:clamp(16px,2.4vw,26px) !important;
+}
+
+.nf-footer .nf-contact-item{
+  grid-template-columns:50px minmax(0,1fr) !important;
+  gap:14px !important;
+}
+
+.nf-footer .nf-contact-icon,
+.nf-footer .nf-title-icon{
+  width:clamp(46px,4.5vw,54px) !important;
+  height:clamp(46px,4.5vw,54px) !important;
+  min-width:clamp(46px,4.5vw,54px) !important;
+}
+
+.nf-footer .nf-big-word{
+  max-width:1440px !important;
+  margin:clamp(18px,3vw,34px) auto 6px !important;
+  padding:0 clamp(16px,4vw,42px) !important;
+  font-size:clamp(3.4rem,10.6vw,11.8rem) !important;
+  line-height:.82 !important;
+  overflow:hidden !important;
+  white-space:nowrap !important;
+}
+
+.nf-footer .nf-footer-legal{
+  max-width:1440px !important;
+  margin:0 auto !important;
+  padding:clamp(14px,2vw,20px) clamp(18px,5vw,72px) !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:18px !important;
+  flex-wrap:wrap !important;
+}
+
+.nf-footer .nf-legal-left{
+  min-width:0 !important;
+  flex:1 1 360px !important;
+}
+
+.nf-footer .nf-copy{
+  white-space:normal !important;
+  text-align:right !important;
+}
+
+.nf-footer .nf-powered-bar,
+.nf-footer .nf-powered-bar.nf-reveal{
+  max-width:1440px !important;
+  margin:0 auto !important;
+  padding:12px clamp(18px,5vw,72px) calc(16px + env(safe-area-inset-bottom,0px)) !important;
+  flex-wrap:wrap !important;
+  text-align:center !important;
+}
+
+/* Desktop/tablet refinement */
+@media(max-width:1180px){
+  .nf-footer .nf-footer-grid{
+    grid-template-columns:1.1fr .9fr !important;
+    gap:34px 28px !important;
+  }
+
+  .nf-footer .nf-footer-col,
+  .nf-footer .nf-contact-col{
+    border-left:0 !important;
+    padding:0 !important;
+  }
+
+  .nf-footer .nf-footer-brand{
+    padding-right:0 !important;
+  }
+
+  .nf-footer .nf-newsletter{
+    max-width:100% !important;
+  }
+}
+
+/* Tablet/mobile one-column flow */
+@media(max-width:767px){
+  .nf-footer{
+    overflow-x:hidden !important;
+  }
+
+  .nf-footer .nf-footer-grid{
+    grid-template-columns:1fr !important;
+    gap:28px !important;
+    padding:30px 18px 0 !important;
+  }
+
+  .nf-footer .nf-footer-brand,
+  .nf-footer .nf-footer-col,
+  .nf-footer .nf-contact-col{
+    width:100% !important;
+    padding:0 !important;
+    border-left:0 !important;
+  }
+
+  .nf-footer .nf-brand-row{
+    justify-content:center !important;
+    min-height:auto !important;
+    margin-bottom:12px !important;
+  }
+
+  .nf-footer .nf-brand-mark{
+    justify-content:center !important;
+    width:100% !important;
+  }
+
+  .nf-footer .nf-brand-logo{
+    width:min(260px,82vw) !important;
+    max-height:88px !important;
+    object-position:center center !important;
+    margin:0 auto !important;
+  }
+
+  .nf-footer .nf-news-text{
+    max-width:100% !important;
+    text-align:center !important;
+    font-size:.96rem !important;
+    line-height:1.55 !important;
+  }
+
+  .nf-footer .nf-newsletter{
+    grid-template-columns:1fr !important;
+    max-width:100% !important;
+  }
+
+  .nf-footer .nf-newsletter input,
+  .nf-footer .nf-newsletter button{
+    min-height:52px !important;
+    width:100% !important;
+  }
+
+  .nf-footer .nf-socials,
+  .nf-footer .nf-store-row{
+    justify-content:center !important;
+  }
+
+  .nf-footer .nf-store-btn{
+    width:min(100%,240px) !important;
+    margin:0 auto !important;
+  }
+
+  .nf-footer .nf-col-title{
+    justify-content:flex-start !important;
+  }
+
+  .nf-footer .nf-link-list a{
+    width:100% !important;
+    min-height:38px !important;
+  }
+
+  .nf-footer .nf-contact-item{
+    grid-template-columns:46px minmax(0,1fr) !important;
+  }
+
+  .nf-footer .nf-big-word{
+    padding:0 14px !important;
+    font-size:clamp(3.05rem,19vw,6.4rem) !important;
+    justify-content:center !important;
+    text-align:center !important;
+  }
+
+  .nf-footer .nf-footer-legal{
+    padding:18px !important;
+    align-items:flex-start !important;
+    flex-direction:column !important;
+    text-align:left !important;
+  }
+
+  .nf-footer .nf-legal-left{
+    flex:1 1 auto !important;
+    width:100% !important;
+    align-items:flex-start !important;
+  }
+
+  .nf-footer .nf-copy{
+    width:100% !important;
+    text-align:left !important;
+  }
+
+  .nf-footer .nf-powered-bar,
+  .nf-footer .nf-powered-bar.nf-reveal{
+    padding:14px 18px calc(18px + env(safe-area-inset-bottom,0px)) !important;
+    gap:6px !important;
+  }
+}
+
+/* Small phones */
+@media(max-width:420px){
+  .nf-footer .nf-footer-grid{
+    padding:26px 14px 0 !important;
+    gap:24px !important;
+  }
+
+  .nf-footer .nf-brand-logo{
+    width:min(230px,84vw) !important;
+    max-height:76px !important;
+  }
+
+  .nf-footer .nf-news-text{
+    font-size:.9rem !important;
+  }
+
+  .nf-footer .nf-socials a{
+    width:40px !important;
+    height:40px !important;
+  }
+
+  .nf-footer .nf-contact-item{
+    grid-template-columns:42px minmax(0,1fr) !important;
+    gap:12px !important;
+  }
+
+  .nf-footer .nf-contact-icon,
+  .nf-footer .nf-title-icon{
+    width:42px !important;
+    height:42px !important;
+    min-width:42px !important;
+  }
+
+  .nf-footer .nf-contact-icon svg,
+  .nf-footer .nf-title-icon svg{
+    width:21px !important;
+    height:21px !important;
+  }
+
+  .nf-footer .nf-big-word{
+    font-size:clamp(2.75rem,18vw,4.9rem) !important;
+    letter-spacing:-.045em !important;
+  }
+}
+
+/* Landscape / short viewport safety */
+@media(max-height:560px) and (orientation:landscape){
+  .nf-footer .nf-footer-grid{
+    padding-top:24px !important;
+    gap:22px !important;
+  }
+
+  .nf-footer .nf-big-word{
+    margin-top:18px !important;
+  }
+}
+
+@supports (-webkit-touch-callout:none){
+  .nf-footer{
+    overflow-x:hidden !important;
+  }
+}
+</style>
 
 </head>
 
@@ -3746,12 +4203,12 @@
 {% if request.endpoint == 'index' %}
 <div id="splash-screen">
     <video
-        id="splash-video"
-        autoplay
-        muted
-        playsinline
-        webkit-playsinline
-        preload="auto">
+    id="splash-video"
+    autoplay
+    muted
+    playsinline
+    webkit-playsinline
+    preload="auto">
 
         <source
             src="{{ url_for('static', filename='videos/final-splash-nelocals.mp4') }}"
@@ -5549,30 +6006,10 @@ refreshSiteAfterLocationChange();
 (function(){
   document.addEventListener('DOMContentLoaded', function(){
 
-    /* Scroll reveal animation */
-    const revealItems = document.querySelectorAll('.nf-reveal');
-
-    if ('IntersectionObserver' in window) {
-      const footerObserver = new IntersectionObserver(function(entries){
-        entries.forEach(function(entry){
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            footerObserver.unobserve(entry.target);
-          }
-        });
-      }, {
-        threshold: 0.14,
-        rootMargin: '0px 0px -60px 0px'
-      });
-
-      revealItems.forEach(function(item){
-        footerObserver.observe(item);
-      });
-    } else {
-      revealItems.forEach(function(item){
-        item.classList.add('is-visible');
-      });
-    }
+    /* Footer reveal removed: show footer content immediately */
+    document.querySelectorAll('.nf-reveal').forEach(function(item){
+      item.classList.add('is-visible');
+    });
 
     /* Newsletter inline message */
     const input = document.getElementById('nfNewsletterInput');
@@ -5816,47 +6253,123 @@ refreshSiteAfterLocationChange();
 
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
+(function(){
+    var SPLASH_KEY = "nelocals_splash_seen";
+    var root = document.documentElement;
 
-    const splash = document.getElementById("splash-screen");
-
-    // Not homepage
-    if (!splash) return;
-
-    // Already shown this session
-    if (sessionStorage.getItem("nelocals_splash_seen")) {
-        splash.remove();
-        return;
+    function unlockSplashScroll(){
+        root.classList.remove("nf-splash-locked");
+        root.classList.remove("nf-splash-allowed");
+        document.body.classList.remove("splash-active");
     }
 
-    sessionStorage.setItem("nelocals_splash_seen", "true");
-
-    const video = document.getElementById("splash-video");
-
-    document.body.classList.add("splash-active");
-
-    function removeSplash() {
-
-        splash.classList.add("hide");
-
-        setTimeout(() => {
-
-            splash.remove();
-
-            document.body.classList.remove("splash-active");
-
-        }, 800);
-
+    function removeSplashImmediately(){
+        var splash = document.getElementById("splash-screen");
+        if (splash) splash.remove();
+        unlockSplashScroll();
     }
 
-    if (video) {
-        video.addEventListener("ended", removeSplash);
-        setTimeout(removeSplash, 5500);
-    } else {
-        removeSplash();
+    function hasSeenSplash(){
+        try {
+            return window.sessionStorage && sessionStorage.getItem(SPLASH_KEY) === "1";
+        } catch (e) {
+            return false;
+        }
     }
 
-});
+    function markSplashSeen(){
+        try {
+            if (window.sessionStorage) {
+                sessionStorage.setItem(SPLASH_KEY, "1");
+            }
+        } catch (e) {}
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var splash = document.getElementById("splash-screen");
+
+        if (!splash) {
+            unlockSplashScroll();
+            return;
+        }
+
+        var shouldSkip = root.classList.contains("nf-splash-skip");
+        var wasAllowedEarly = root.classList.contains("nf-splash-allowed");
+
+        /*
+          If this is refresh/home/back in same tab, remove instantly.
+          If this is first page open in this tab, early head script marks nf-splash-allowed.
+        */
+        if (shouldSkip || (!wasAllowedEarly && hasSeenSplash())) {
+            removeSplashImmediately();
+            return;
+        }
+
+        markSplashSeen();
+
+        var video = document.getElementById("splash-video");
+        var removed = false;
+
+        document.body.classList.add("splash-active");
+        root.classList.add("nf-splash-locked");
+
+        function removeSplash(){
+            if (removed) return;
+            removed = true;
+
+            splash.classList.add("hide");
+
+            window.setTimeout(function(){
+                if (splash && splash.parentNode) {
+                    splash.remove();
+                }
+
+                unlockSplashScroll();
+            }, 800);
+        }
+
+        if (video) {
+            video.muted = true;
+            video.setAttribute("playsinline", "");
+            video.setAttribute("webkit-playsinline", "");
+
+            video.addEventListener("ended", removeSplash, { once:true });
+            video.addEventListener("error", function(){
+                window.setTimeout(removeSplash, 500);
+            }, { once:true });
+
+            try {
+                var playPromise = video.play();
+
+                if (playPromise && typeof playPromise.catch === "function") {
+                    playPromise.catch(function(){
+                        window.setTimeout(removeSplash, 2500);
+                    });
+                }
+            } catch (e) {
+                window.setTimeout(removeSplash, 2500);
+            }
+
+            window.setTimeout(removeSplash, 5500);
+        } else {
+            removeSplash();
+        }
+    });
+
+    /*
+      Browser back/forward cache safety:
+      If user comes back to homepage in same tab, splash must not reappear.
+    */
+    window.addEventListener("pageshow", function(){
+        if (root.classList.contains("nf-splash-allowed")) {
+            return;
+        }
+
+        if (hasSeenSplash()) {
+            removeSplashImmediately();
+        }
+    });
+})();
 </script>
 
 </body>

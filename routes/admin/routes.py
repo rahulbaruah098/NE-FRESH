@@ -6659,3 +6659,111 @@ def admin_contact_message_reply(mid):
     return redirect(request.referrer or url_for("admin_contact_messages"))
 
 
+
+
+@app.route('/admin/profile', methods=['GET', 'POST'])
+@login_required(role='admin')
+def admin_profile():
+    admin_user = current_user() or {}
+    if not admin_user:
+        flash("Please log in first.", "warning")
+        return redirect(url_for("login"))
+
+    action = (request.form.get("action") or "").strip()
+    now = datetime.utcnow().isoformat()
+
+    if request.method == 'POST':
+        user_oid = ObjectId(str(admin_user["id"]))
+
+        if action == "profile_details":
+            name = (request.form.get("name") or "").strip()
+            phone = normalize_phone(request.form.get("phone") or "")
+
+            update_data = {
+                "updated_at": now,
+                "profile_updated_at": now,
+            }
+            if name:
+                update_data["name"] = name
+            if phone:
+                update_data["phone"] = phone
+
+            mongo.users.update_one({"_id": user_oid, "role": "admin"}, {"$set": update_data})
+            flash("Admin profile updated successfully.", "success")
+            return redirect(url_for("admin_profile"))
+
+        if action == "change_email":
+            current_password = request.form.get("current_password") or ""
+            new_email = (request.form.get("new_email") or "").lower().strip()
+
+            if not check_password_hash(admin_user.get("password_hash", ""), current_password):
+                flash("Current password is incorrect. Email was not changed.", "danger")
+                return redirect(url_for("admin_profile"))
+
+            if not new_email or "@" not in new_email:
+                flash("Please enter a valid new email address.", "warning")
+                return redirect(url_for("admin_profile"))
+
+            if new_email == (admin_user.get("email") or "").lower().strip():
+                flash("This email is already linked to your admin account.", "info")
+                return redirect(url_for("admin_profile"))
+
+            existing = mongo.users.find_one({
+                "email": new_email,
+                "_id": {"$ne": user_oid}
+            })
+            if existing:
+                flash("This email is already used by another account.", "danger")
+                return redirect(url_for("admin_profile"))
+
+            mongo.users.update_one(
+                {"_id": user_oid, "role": "admin"},
+                {"$set": {
+                    "email": new_email,
+                    "email_verified": 1,
+                    "previous_email": admin_user.get("email", ""),
+                    "email_changed_at": now,
+                    "updated_at": now,
+                }}
+            )
+            flash("Admin email changed successfully. Use the new email on your next login.", "success")
+            return redirect(url_for("admin_profile"))
+
+        if action == "change_password":
+            current_password = request.form.get("current_password") or ""
+            new_password = request.form.get("new_password") or ""
+            confirm_password = request.form.get("confirm_password") or ""
+
+            if not check_password_hash(admin_user.get("password_hash", ""), current_password):
+                flash("Current password is incorrect. Password was not changed.", "danger")
+                return redirect(url_for("admin_profile"))
+
+            if len(new_password) < 8:
+                flash("New password must be at least 8 characters long.", "warning")
+                return redirect(url_for("admin_profile"))
+
+            if new_password != confirm_password:
+                flash("New password and confirm password do not match.", "warning")
+                return redirect(url_for("admin_profile"))
+
+            mongo.users.update_one(
+                {"_id": user_oid, "role": "admin"},
+                {"$set": {
+                    "password_hash": generate_password_hash(new_password),
+                    "password_changed_at": now,
+                    "updated_at": now,
+                }}
+            )
+            flash("Admin password changed successfully.", "success")
+            return redirect(url_for("admin_profile"))
+
+        flash("Invalid profile action.", "warning")
+        return redirect(url_for("admin_profile"))
+
+    return render_template(
+        "admin_profile.html",
+        user=admin_user,
+        active_group="account",
+        active_page="admin_profile",
+    )
+

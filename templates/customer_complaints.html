@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 
-<section class="nf-complaints-page">
+<section class="nf-complaints-page" data-page="customer-complaints">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
     main.container{
       max-width:none !important;
       width:100% !important;
@@ -11,34 +13,70 @@
     }
 
     .nf-complaints-page{
-      --green:#00A859;
-      --green-dark:#008A48;
-      --green-deep:#075C3B;
-      --green-soft:#E9FFF3;
+      --green:#3F9858;
+      --green-dark:#2F8148;
+      --green-deep:#2F6F46;
+      --green-soft:#EFFAF3;
       --orange:#FFB84D;
       --orange-soft:#FFF7E8;
       --red:#EF4444;
       --red-soft:#FFF1F2;
       --blue:#0284C7;
       --blue-soft:#E0F2FE;
-      --bg:#F8FFFB;
+      --purple:#7C3AED;
+      --purple-soft:#F3E8FF;
+      --bg:#FBFFFC;
       --card:#FFFFFF;
-      --text:#1F332A;
+      --text:#1F2F28;
+      --text-soft:#485A50;
       --muted:#66756D;
-      --line:#DDECE4;
-      --shadow:0 14px 36px rgba(17,64,38,.08);
+      --muted-2:#8A9890;
+      --line:#E2EFE8;
+      --line-2:#EEF6F2;
+      --shadow:0 12px 32px rgba(17,64,38,.06);
+      --shadow-soft:0 8px 22px rgba(17,64,38,.045);
+      --radius-xl:28px;
+      --radius-lg:22px;
+      --radius-md:16px;
+      --ease:cubic-bezier(.2,.75,.25,1);
+
       width:100vw;
       margin-left:calc(50% - 50vw);
-      background:linear-gradient(180deg,#F8FFFB 0%,#FFFFFF 54%,#F8FFFB 100%);
+      margin-right:calc(50% - 50vw);
+      background:
+        radial-gradient(circle at 0% 0%, rgba(0,168,89,.08), transparent 30%),
+        radial-gradient(circle at 100% 8%, rgba(255,184,77,.14), transparent 28%),
+        linear-gradient(180deg,#F8FFFB 0%,#FFFFFF 54%,#F8FFFB 100%);
       color:var(--text);
-      padding:clamp(16px,3vw,42px);
+      padding:clamp(14px,3vw,42px);
       min-height:100vh;
       font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
+      overflow-x:hidden;
+    }
+
+    .nf-complaints-page,
+    .nf-complaints-page *{
+      box-sizing:border-box;
+    }
+
+    .nf-complaints-page a,
+    .nf-complaints-page button,
+    .nf-complaints-page input,
+    .nf-complaints-page select,
+    .nf-complaints-page textarea{
+      font-family:inherit;
+    }
+
+    .nf-complaints-page img,
+    .nf-complaints-page svg{
+      max-width:100%;
     }
 
     .nf-comp-wrap{
       width:100%;
-      max-width:1380px;
+      max-width:1480px;
       margin:0 auto;
       display:grid;
       gap:22px;
@@ -56,7 +94,21 @@
       position:relative;
     }
 
+    .nf-comp-hero::after{
+      content:"";
+      position:absolute;
+      right:-70px;
+      top:-70px;
+      width:220px;
+      height:220px;
+      border-radius:50%;
+      background:rgba(255,255,255,.13);
+      pointer-events:none;
+    }
+
     .nf-comp-hero h1{
+      position:relative;
+      z-index:1;
       margin:10px 0 0;
       font-size:clamp(2rem,5vw,4rem);
       line-height:1.02;
@@ -65,6 +117,8 @@
     }
 
     .nf-comp-hero p{
+      position:relative;
+      z-index:1;
       margin:12px 0 0;
       max-width:780px;
       color:rgba(255,255,255,.88);
@@ -72,20 +126,17 @@
       font-weight:650;
     }
 
-    .nf-comp-kicker{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:0 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.16);
-      border:1px solid rgba(255,255,255,.25);
-      font-size:.74rem;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-
+   .nf-comp-kicker{
+  position:relative;
+  z-index:1;
+  display:inline-flex;
+  align-items:center;
+  color:#fff;
+  font-size:.74rem;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
     .nf-comp-kpis{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
@@ -97,11 +148,17 @@
       border-radius:22px;
       background:#fff;
       padding:18px;
-      box-shadow:0 10px 26px rgba(17,64,38,.06);
+      box-shadow:var(--shadow-soft);
       display:flex;
       align-items:center;
       gap:14px;
       min-height:104px;
+      transition:transform .22s var(--ease), box-shadow .22s var(--ease);
+    }
+
+    .nf-comp-kpi:hover{
+      transform:translateY(-2px);
+      box-shadow:0 16px 38px rgba(17,64,38,.09);
     }
 
     .nf-comp-kpi-icon{
@@ -150,9 +207,15 @@
       min-width:0;
     }
 
+    .nf-comp-submit-card{
+      position:sticky;
+      top:18px;
+    }
+
     .nf-comp-card-head{
       padding:20px;
-      border-bottom:1px solid #EAF4EF;
+      border-bottom:1px solid var(--line-2);
+      background:linear-gradient(180deg,#FFFFFF,#FBFFFD);
     }
 
     .nf-comp-card-head h2{
@@ -204,6 +267,8 @@
       font:inherit;
       font-size:.92rem;
       font-weight:650;
+      appearance:auto;
+      -webkit-appearance:auto;
     }
 
     .nf-field textarea{
@@ -215,10 +280,19 @@
 
     .nf-field input:focus,
     .nf-field select:focus,
-    .nf-field textarea:focus{
+    .nf-field textarea:focus,
+    .nf-comp-search:focus,
+    .nf-comp-filter:focus,
+    .nf-comp-page-size:focus{
       border-color:rgba(0,168,89,.45);
       background:#fff;
       box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .nf-field small{
+      color:var(--muted);
+      font-weight:650;
+      line-height:1.4;
     }
 
     .nf-comp-submit{
@@ -232,7 +306,7 @@
       font-weight:950;
       cursor:pointer;
       box-shadow:0 14px 28px rgba(0,168,89,.18);
-      transition:.2s ease;
+      transition:.2s var(--ease);
     }
 
     .nf-comp-submit:hover{
@@ -240,19 +314,370 @@
       transform:translateY(-2px);
     }
 
-    .nf-complaint-list{
-      padding:18px;
+    .nf-comp-list-card{
+      min-width:0;
+    }
+
+    .nf-comp-toolbar{
+      padding:16px 18px;
+      border-bottom:1px solid var(--line-2);
+      background:#fff;
       display:grid;
+      grid-template-columns:minmax(240px,1fr) 160px 170px 140px auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .nf-comp-search-wrap{
+      position:relative;
+      min-width:0;
+    }
+
+    .nf-comp-search-wrap::before{
+      content:"⌕";
+      position:absolute;
+      left:14px;
+      top:50%;
+      transform:translateY(-50%);
+      color:var(--muted-2);
+      font-weight:900;
+      z-index:1;
+    }
+
+    .nf-comp-search,
+    .nf-comp-filter,
+    .nf-comp-page-size{
+      width:100%;
+      height:44px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#F8FFFB;
+      color:var(--text);
+      outline:none;
+      font-size:.88rem;
+      font-weight:800;
+    }
+
+    .nf-comp-search{
+      padding:0 13px 0 38px;
+    }
+
+    .nf-comp-filter,
+    .nf-comp-page-size{
+      padding:0 12px;
+    }
+
+    .nf-comp-clear{
+      height:44px;
+      border:1px solid rgba(0,168,89,.22);
+      border-radius:14px;
+      background:#fff;
+      color:var(--green-dark);
+      padding:0 14px;
+      font-size:.86rem;
+      font-weight:950;
+      cursor:pointer;
+      white-space:nowrap;
+      transition:.2s var(--ease);
+    }
+
+    .nf-comp-clear:hover{
+      background:var(--green-soft);
+      border-color:rgba(0,168,89,.34);
+    }
+
+    .nf-comp-list-meta{
+      grid-column:1 / -1;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      color:var(--muted);
+      font-size:.82rem;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .nf-comp-list-meta strong{
+      color:var(--green-dark);
+      font-weight:950;
+    }
+
+    .nf-comp-view-hint{
+      display:inline-flex;
+      align-items:center;
+      min-height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      background:var(--green-soft);
+      border:1px solid rgba(0,168,89,.16);
+      color:var(--green-dark);
+      font-size:.76rem;
+      font-weight:950;
+    }
+
+    .nf-comp-table-wrap{
+      padding:18px;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:thin;
+      scrollbar-color:rgba(0,168,89,.45) transparent;
+    }
+
+    .nf-comp-table-wrap::-webkit-scrollbar{
+      height:10px;
+    }
+
+    .nf-comp-table-wrap::-webkit-scrollbar-track{
+      background:#F1F8F4;
+      border-radius:999px;
+    }
+
+    .nf-comp-table-wrap::-webkit-scrollbar-thumb{
+      background:rgba(0,168,89,.45);
+      border-radius:999px;
+      border:2px solid #F1F8F4;
+    }
+
+    .nf-comp-table{
+      width:100%;
+      min-width:1120px;
+      border-collapse:separate;
+      border-spacing:0;
+      border:1px solid var(--line);
+      border-radius:18px;
+      overflow:hidden;
+      background:#fff;
+    }
+
+    .nf-comp-table thead{
+      background:var(--green-deep);
+      color:#fff;
+    }
+
+    .nf-comp-table th{
+      padding:14px 13px;
+      text-align:left;
+      font-size:.74rem;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.055em;
+      white-space:nowrap;
+    }
+
+    .nf-comp-table td{
+      padding:14px 13px;
+      border-bottom:1px solid var(--line-2);
+      color:var(--text-soft);
+      font-size:.86rem;
+      font-weight:700;
+      vertical-align:top;
+      line-height:1.45;
+    }
+
+    .nf-comp-table tbody tr:last-child td{
+      border-bottom:0;
+    }
+
+    .nf-comp-table tbody tr:nth-child(even){
+      background:#FCFFFD;
+    }
+
+    .nf-comp-table tbody tr:hover{
+      background:#F8FFFB;
+    }
+
+    .nf-comp-slno{
+      color:var(--muted);
+      font-weight:950 !important;
+      text-align:center;
+    }
+
+    .nf-comp-subject{
+      color:var(--text);
+      font-size:.92rem;
+      font-weight:950;
+      letter-spacing:-.015em;
+    }
+
+    .nf-comp-message-short{
+      margin-top:5px;
+      color:var(--muted);
+      font-size:.8rem;
+      line-height:1.45;
+      font-weight:700;
+      display:-webkit-box;
+      -webkit-line-clamp:3;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+      white-space:normal;
+    }
+
+    .nf-comp-detail-list{
+      display:grid;
+      gap:4px;
+    }
+
+    .nf-comp-detail-list span{
+      color:var(--muted);
+      font-size:.78rem;
+      font-weight:750;
+      overflow-wrap:anywhere;
+    }
+
+    .nf-comp-detail-list b{
+      color:var(--text);
+      font-weight:900;
+    }
+
+    .nf-status{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      padding:0 11px;
+      background:var(--orange-soft);
+      color:#A66A00;
+      border:1px solid rgba(255,184,77,.30);
+      font-size:.76rem;
+      font-weight:950;
+      white-space:nowrap;
+      text-transform:capitalize;
+    }
+
+    .nf-status.resolved{
+      background:var(--green-soft);
+      color:var(--green-dark);
+      border-color:rgba(0,168,89,.18);
+    }
+
+    .nf-status.in_progress{
+      background:var(--blue-soft);
+      color:var(--blue);
+      border-color:rgba(2,132,199,.18);
+    }
+
+    .nf-status.rejected,
+    .nf-status.closed{
+      background:var(--red-soft);
+      color:#B91C1C;
+      border-color:#FECACA;
+    }
+
+    .nf-comp-progress{
+      display:block;
+      margin-top:8px;
+      color:var(--muted);
+      font-size:.78rem;
+      font-weight:800;
+    }
+
+    .nf-complaint-proof{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      padding:12px;
+      display:grid;
+      gap:10px;
+    }
+
+    .nf-complaint-proof b{
+      color:var(--green-dark);
+      font-size:.82rem;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .nf-complaint-proof img{
+      width:100%;
+      max-height:260px;
+      object-fit:contain;
+      border-radius:14px;
+      background:#F8FFFB;
+      border:1px solid var(--line);
+    }
+
+    .nf-proof-link{
+      width:max-content;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:34px;
+      padding:0 12px;
+      border-radius:999px;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      font-size:.8rem;
+      font-weight:900;
+      text-decoration:none;
+    }
+
+    .nf-reply-stack{
+      display:grid;
+      gap:8px;
+    }
+
+    .nf-reply-box{
+      border-radius:16px;
+      background:#fff;
+      border:1px solid var(--line);
+      padding:12px;
+      color:var(--muted);
+      font-size:.84rem;
+      line-height:1.55;
+      font-weight:650;
+      overflow-wrap:anywhere;
+    }
+
+    .nf-reply-box b{
+      color:var(--green-dark);
+    }
+
+    .nf-empty,
+    .nf-no-results{
+      border:1px dashed rgba(0,168,89,.35);
+      border-radius:22px;
+      background:#F3FFF8;
+      padding:34px 18px;
+      text-align:center;
+      color:var(--muted);
+      font-weight:750;
+      line-height:1.55;
+    }
+
+    .nf-empty b,
+    .nf-no-results b{
+      display:block;
+      color:var(--green-dark);
+      margin-bottom:5px;
+      font-size:1rem;
+    }
+
+    .nf-no-results{
+      margin:0 18px 18px;
+    }
+
+    .nf-no-results[hidden]{
+      display:none !important;
+    }
+
+    .nf-complaint-mobile-list{
+      display:none;
+      padding:16px;
       gap:14px;
     }
 
     .nf-complaint-item{
       border:1px solid var(--line);
-      border-radius:20px;
-      background:#F8FFFB;
-      padding:16px;
+      border-radius:22px;
+      background:#fff;
+      padding:15px;
       display:grid;
-      gap:10px;
+      gap:12px;
+      box-shadow:0 10px 26px rgba(17,64,38,.06);
     }
 
     .nf-complaint-top{
@@ -276,30 +701,7 @@
       font-size:.8rem;
       line-height:1.45;
       font-weight:650;
-    }
-
-    .nf-status{
-      min-height:30px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      border-radius:999px;
-      padding:0 11px;
-      background:var(--orange-soft);
-      color:#A66A00;
-      font-size:.76rem;
-      font-weight:950;
-      white-space:nowrap;
-    }
-
-    .nf-status.resolved{
-      background:var(--green-soft);
-      color:var(--green-dark);
-    }
-
-    .nf-status.in_progress{
-      background:var(--blue-soft);
-      color:var(--blue);
+      overflow-wrap:anywhere;
     }
 
     .nf-complaint-message{
@@ -309,79 +711,108 @@
       font-size:.92rem;
       font-weight:650;
       white-space:pre-wrap;
+      overflow-wrap:anywhere;
     }
 
-    .nf-complaint-proof{
-  border:1px solid var(--line);
-  border-radius:18px;
-  background:#fff;
-  padding:12px;
-  display:grid;
-  gap:10px;
-}
+    .nf-mobile-detail-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+    }
 
-.nf-complaint-proof b{
-  color:var(--green-dark);
-  font-size:.82rem;
-  font-weight:950;
-  text-transform:uppercase;
-  letter-spacing:.06em;
-}
+    .nf-mobile-detail{
+      border:1px solid var(--line-2);
+      border-radius:14px;
+      background:#F8FFFB;
+      padding:10px;
+      display:grid;
+      gap:3px;
+    }
 
-.nf-complaint-proof img{
-  width:100%;
-  max-height:260px;
-  object-fit:contain;
-  border-radius:14px;
-  background:#F8FFFB;
-  border:1px solid var(--line);
-}
+    .nf-mobile-detail small{
+      color:var(--muted);
+      font-size:.68rem;
+      line-height:1.2;
+      font-weight:950;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+    }
 
-.nf-proof-link{
-  width:max-content;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  min-height:34px;
-  padding:0 12px;
-  border-radius:999px;
-  background:var(--green-soft);
-  color:var(--green-dark);
-  font-size:.8rem;
-  font-weight:900;
-  text-decoration:none;
-}
+    .nf-mobile-detail strong{
+      color:var(--text);
+      font-size:.82rem;
+      line-height:1.35;
+      font-weight:900;
+      overflow-wrap:anywhere;
+    }
 
-    .nf-reply-box{
-      border-radius:16px;
-      background:#fff;
+    .nf-comp-pagination{
+      margin:0 18px 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
       border:1px solid var(--line);
-      padding:12px;
+      border-radius:18px;
+      background:#fff;
+      padding:12px 14px;
+      box-shadow:0 10px 26px rgba(17,64,38,.045);
+    }
+
+    .nf-comp-pagination[hidden]{
+      display:none !important;
+    }
+
+    .nf-comp-page-info{
       color:var(--muted);
-      font-size:.86rem;
-      line-height:1.55;
-      font-weight:650;
+      font-size:.82rem;
+      font-weight:850;
     }
 
-    .nf-reply-box b{
-      color:var(--green-dark);
+    .nf-comp-page-buttons{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:7px;
+      flex-wrap:wrap;
     }
 
-    .nf-empty{
-      border:1px dashed rgba(0,168,89,.35);
-      border-radius:22px;
-      background:#F3FFF8;
-      padding:34px 18px;
-      text-align:center;
-      color:var(--muted);
-      font-weight:750;
-      line-height:1.55;
+    .nf-comp-page-btn{
+      min-width:38px;
+      min-height:38px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      font:inherit;
+      font-size:.78rem;
+      font-weight:950;
+      cursor:pointer;
+      transition:.2s var(--ease);
     }
 
-    .nf-empty b{
-      display:block;
-      color:var(--green-dark);
-      margin-bottom:5px;
+    .nf-comp-page-btn:hover:not(:disabled),
+    .nf-comp-page-btn.active{
+      background:var(--green);
+      border-color:var(--green);
+      color:#fff;
+      box-shadow:0 10px 20px rgba(0,168,89,.18);
+    }
+
+    .nf-comp-page-btn:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+    }
+
+    @media(max-width:1240px){
+      .nf-comp-toolbar{
+        grid-template-columns:minmax(0,1fr) 150px 150px;
+      }
+
+      .nf-comp-clear{
+        width:100%;
+      }
     }
 
     @media(max-width:1100px){
@@ -389,18 +820,69 @@
         grid-template-columns:1fr;
       }
 
+      .nf-comp-submit-card{
+        position:static;
+      }
+
       .nf-comp-kpis{
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
     }
 
+    @media(max-width:900px){
+      .nf-complaints-page{
+        padding:14px;
+      }
+
+      .nf-comp-toolbar{
+        grid-template-columns:1fr;
+        padding:14px;
+      }
+
+      .nf-comp-list-meta{
+        align-items:flex-start;
+        flex-direction:column;
+      }
+
+      .nf-comp-table-wrap{
+        display:none;
+      }
+
+      .nf-complaint-mobile-list{
+        display:grid;
+      }
+
+      .nf-comp-pagination{
+        justify-content:center;
+        text-align:center;
+      }
+
+      .nf-comp-page-info,
+      .nf-comp-page-buttons{
+        width:100%;
+      }
+
+      .nf-comp-page-buttons{
+        justify-content:center;
+      }
+    }
+
     @media(max-width:640px){
       .nf-complaints-page{
-        padding:12px;
+        padding:10px;
+      }
+
+      .nf-comp-wrap{
+        gap:16px;
       }
 
       .nf-comp-hero{
         border-radius:22px;
+        padding:22px 18px;
+      }
+
+      .nf-comp-hero h1{
+        font-size:1.9rem;
       }
 
       .nf-comp-kpis{
@@ -412,24 +894,472 @@
         border-radius:20px;
       }
 
+      .nf-comp-card-head,
+      .nf-comp-form{
+        padding:16px;
+      }
+
+      .nf-comp-search,
+      .nf-comp-filter,
+      .nf-comp-page-size,
+      .nf-comp-clear{
+        height:46px;
+        border-radius:15px;
+        font-size:16px;
+      }
+
+      .nf-field input,
+      .nf-field select,
+      .nf-field textarea{
+        font-size:16px;
+      }
+
       .nf-complaint-top{
         display:grid;
       }
 
       .nf-status{
         width:max-content;
+        max-width:100%;
+      }
+
+      .nf-mobile-detail-grid{
+        grid-template-columns:1fr;
+      }
+
+      .nf-comp-pagination{
+        margin:0 14px 16px;
+      }
+
+      .nf-complaint-mobile-list{
+        padding:14px;
       }
     }
+
+    @media(max-width:420px){
+      .nf-complaints-page{
+        padding:8px;
+      }
+
+      .nf-comp-hero{
+        padding:20px 14px;
+      }
+
+      .nf-comp-hero h1{
+        font-size:1.65rem;
+      }
+
+      .nf-comp-kpi{
+        padding:14px;
+        border-radius:18px;
+      }
+
+      .nf-comp-kpi-icon{
+        width:46px;
+        height:46px;
+        min-width:46px;
+      }
+
+      .nf-complaint-item{
+        border-radius:18px;
+        padding:13px;
+      }
+    }
+
+    @media(hover:none) and (pointer:coarse){
+      .nf-comp-kpi:hover,
+      .nf-comp-submit:hover{
+        transform:none;
+      }
+    }
+
+    @supports (-webkit-touch-callout:none){
+      .nf-comp-table-wrap{
+        -webkit-overflow-scrolling:touch;
+      }
+    }
+
+    /* ==========================================================
+       NELOCALS CUSTOMER COMPLAINTS SEARCH PAGINATION RESPONSIVE FINAL
+       UI-only layer: web table + mobile/app cards + search/filter/pagination.
+       Existing routes, form fields, upload field and complaint data remain unchanged.
+    ========================================================== */
+
+    /* ==========================================================
+       NELOCALS CUSTOMER COMPLAINTS TOGGLE + FULL BLEED HERO + SWIPE FINAL
+       UI-only layer:
+       - Hero is full width directly below navbar with no side gap.
+       - Circle decoration removed.
+       - New Complaint and Sent Complaints are separate toggle sections.
+       - Web table supports drag/swipe without selecting text.
+       Existing routes, form fields, upload field, complaint data and backend logic remain unchanged.
+    ========================================================== */
+
+    .nf-complaints-page{
+      padding:0 !important;
+      max-width:100vw !important;
+      overflow-x:hidden !important;
+    }
+
+    .nf-comp-wrap{
+      width:100% !important;
+      max-width:none !important;
+      margin:0 !important;
+      gap:22px !important;
+    }
+
+    .nf-comp-hero{
+      width:100% !important;
+      margin:0 !important;
+      border-radius:0 !important;
+      min-height:clamp(210px,24vw,320px);
+      display:grid;
+      align-content:center;
+      padding:clamp(28px,4.5vw,60px) clamp(18px,7vw,108px) !important;
+      box-shadow:0 12px 36px rgba(17,64,38,.08) !important;
+      background:linear-gradient(135deg,#F3FFF8 0%,#FFFFFF 58%,#ECF8F1 100%) !important;
+      color:var(--text) !important;
+      border-bottom:1px solid var(--line) !important;
+    }
+
+    .nf-comp-hero::after{
+      content:none !important;
+      display:none !important;
+    }
+
+    .nf-comp-kpis,
+    .nf-comp-tabs,
+    .nf-comp-panels{
+      width:min(1480px,calc(100% - clamp(20px,4vw,64px))) !important;
+      max-width:1480px !important;
+      margin-left:auto !important;
+      margin-right:auto !important;
+    }
+
+    .nf-comp-tabs{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      padding:4px;
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .nf-comp-tab-btn{
+      min-height:52px;
+      border:0;
+      border-radius:18px;
+      background:transparent;
+      color:var(--muted);
+      font:inherit;
+      font-size:.94rem;
+      line-height:1.2;
+      font-weight:950;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:9px;
+      transition:background .22s var(--ease), color .22s var(--ease), transform .22s var(--ease), box-shadow .22s var(--ease);
+      text-align:center;
+    }
+
+    .nf-comp-tab-btn:hover{
+      color:var(--green-dark);
+      background:var(--green-soft);
+    }
+
+    .nf-comp-tab-btn.is-active{
+      background:linear-gradient(135deg,var(--green),var(--green-dark));
+      color:#fff;
+      box-shadow:0 12px 26px rgba(0,168,89,.20);
+    }
+
+    .nf-comp-tab-count{
+      min-width:26px;
+      min-height:26px;
+      padding:0 8px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,.22);
+      border:1px solid rgba(255,255,255,.28);
+      font-size:.76rem;
+      font-weight:950;
+    }
+
+    .nf-comp-tab-btn:not(.is-active) .nf-comp-tab-count{
+      background:var(--green-soft);
+      border-color:rgba(0,168,89,.18);
+      color:var(--green-dark);
+    }
+
+    .nf-comp-panels{
+      display:block !important;
+    }
+
+    .nf-comp-panel[hidden]{
+      display:none !important;
+    }
+
+    .nf-comp-panel{
+      animation:nfCompPanelIn .22s ease both;
+    }
+
+    @keyframes nfCompPanelIn{
+      from{opacity:0; transform:translateY(8px);}
+      to{opacity:1; transform:none;}
+    }
+
+    .nf-comp-submit-card{
+      position:static !important;
+      width:min(880px,100%) !important;
+      margin:0 auto !important;
+    }
+
+    .nf-comp-list-card{
+      width:100% !important;
+    }
+
+    .nf-comp-table-wrap{
+      cursor:grab;
+      user-select:none;
+      -webkit-user-select:none;
+      -ms-user-select:none;
+      touch-action:pan-x pan-y;
+      overscroll-behavior-x:contain;
+    }
+
+    .nf-comp-table-wrap.is-dragging{
+      cursor:grabbing;
+      scroll-behavior:auto !important;
+    }
+
+    .nf-comp-table-wrap.is-dragging,
+    .nf-comp-table-wrap.is-dragging *{
+      user-select:none !important;
+      -webkit-user-select:none !important;
+      -ms-user-select:none !important;
+    }
+
+    .nf-comp-table-wrap.is-dragging a,
+    .nf-comp-table-wrap.is-dragging button{
+      pointer-events:none;
+    }
+
+    .nf-comp-table-wrap::before{
+      content:"Swipe / drag horizontally to view full complaint table";
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:0 11px;
+      border-radius:999px;
+      background:var(--green-soft);
+      border:1px solid rgba(0,168,89,.18);
+      color:var(--green-dark);
+      font-size:.76rem;
+      font-weight:950;
+      margin:0 0 10px;
+    }
+
+    @media(max-width:900px){
+      .nf-comp-kpis,
+      .nf-comp-tabs,
+      .nf-comp-panels{
+        width:min(100% - 28px,1480px) !important;
+      }
+
+      .nf-comp-hero{
+        min-height:190px;
+        padding:30px 18px !important;
+      }
+
+      .nf-comp-tabs{
+        grid-template-columns:1fr;
+        border-radius:20px;
+      }
+
+      .nf-comp-tab-btn{
+        min-height:48px;
+      }
+    }
+
+    @media(max-width:640px){
+      .nf-comp-kpis,
+      .nf-comp-tabs,
+      .nf-comp-panels{
+        width:min(100% - 20px,1480px) !important;
+      }
+
+      .nf-comp-hero{
+        min-height:176px;
+        padding:26px 14px !important;
+      }
+    }
+
+    @media(max-width:420px){
+      .nf-comp-kpis,
+      .nf-comp-tabs,
+      .nf-comp-panels{
+        width:min(100% - 16px,1480px) !important;
+      }
+    }
+
+
+    /* ==========================================================
+       NELOCALS CUSTOMER COMPLAINTS KPI + SOFT BRAND FINAL PATCH
+       UI-only fix:
+       - KPI cards become 2 x 2 in app/mobile view.
+       - Dark green tones are reduced to match the softer NE FRESH website pages.
+       - Existing form, filters, table, pagination and complaint logic remain unchanged.
+    ========================================================== */
+
+    .nf-comp-hero{
+      color:var(--text) !important;
+      background:
+        radial-gradient(circle at 12% 12%,rgba(63,152,88,.12),transparent 30%),
+        radial-gradient(circle at 88% 8%,rgba(255,184,77,.12),transparent 28%),
+        linear-gradient(135deg,#F3FFF8 0%,#FFFFFF 58%,#ECF8F1 100%) !important;
+      border-bottom:1px solid var(--line) !important;
+      box-shadow:0 10px 28px rgba(17,64,38,.055) !important;
+    }
+
+    .nf-comp-hero h1{
+      color:var(--text) !important;
+    }
+
+    .nf-comp-hero p,
+    .nf-comp-kicker{
+      color:var(--muted) !important;
+    }
+
+    .nf-comp-kpis{
+      gap:14px !important;
+    }
+
+    .nf-comp-kpi{
+      min-height:94px !important;
+      border-color:var(--line) !important;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FDFFFE 100%) !important;
+      box-shadow:0 8px 24px rgba(17,64,38,.045) !important;
+    }
+
+    .nf-comp-kpi:hover{
+      box-shadow:0 12px 30px rgba(17,64,38,.065) !important;
+    }
+
+    .nf-comp-kpi-icon{
+      background:#EFFAF3 !important;
+      color:var(--green-dark) !important;
+      box-shadow:none !important;
+    }
+
+    .nf-comp-table thead{
+      background:linear-gradient(135deg,#3F9858,#2F8148) !important;
+    }
+
+    .nf-comp-tab-btn.is-active,
+    .nf-comp-page-btn:hover:not(:disabled),
+    .nf-comp-page-btn.active,
+    .nf-comp-submit{
+      background:linear-gradient(135deg,#3F9858,#2F8148) !important;
+    }
+
+    @media(max-width:640px){
+      .nf-comp-kpis{
+        grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+        gap:10px !important;
+      }
+
+      .nf-comp-kpi{
+        min-height:112px !important;
+        padding:13px !important;
+        border-radius:18px !important;
+        align-items:flex-start !important;
+        flex-direction:column !important;
+        justify-content:space-between !important;
+        gap:10px !important;
+      }
+
+      .nf-comp-kpi-icon{
+        width:42px !important;
+        height:42px !important;
+        min-width:42px !important;
+        border-radius:15px !important;
+        font-size:1.05rem !important;
+      }
+
+      .nf-comp-kpi small{
+        font-size:.62rem !important;
+        line-height:1.15 !important;
+        letter-spacing:.06em !important;
+      }
+
+      .nf-comp-kpi b{
+        margin-top:5px !important;
+        font-size:1.34rem !important;
+      }
+    }
+
+    @media(max-width:420px){
+      .nf-comp-kpis{
+        grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+        gap:8px !important;
+      }
+
+      .nf-comp-kpi{
+        min-height:104px !important;
+        padding:11px !important;
+        border-radius:16px !important;
+      }
+
+      .nf-comp-kpi-icon{
+        width:38px !important;
+        height:38px !important;
+        min-width:38px !important;
+        border-radius:14px !important;
+        font-size:.96rem !important;
+      }
+
+      .nf-comp-kpi small{
+        font-size:.58rem !important;
+      }
+
+      .nf-comp-kpi b{
+        font-size:1.22rem !important;
+      }
+    }
+
+    @media(max-width:340px){
+      .nf-comp-kpi{
+        min-height:98px !important;
+        padding:10px !important;
+      }
+
+      .nf-comp-kpi-icon{
+        width:34px !important;
+        height:34px !important;
+        min-width:34px !important;
+      }
+
+      .nf-comp-kpi small{
+        font-size:.54rem !important;
+      }
+
+      .nf-comp-kpi b{
+        font-size:1.12rem !important;
+      }
+    }
+
   </style>
 
   <div class="nf-comp-wrap">
     <header class="nf-comp-hero">
       <span class="nf-comp-kicker">Help & Support</span>
       <h1>Raise Complaint</h1>
-      <p>
-        Submit issues related to orders, products, stores, delivery, payment or refunds.
-        Your complaint will be tracked and updated by the NE FRESH support team.
-      </p>
     </header>
 
     <section class="nf-comp-kpis">
@@ -466,8 +1396,26 @@
       </div>
     </section>
 
-    <section class="nf-comp-grid">
-      <aside class="nf-comp-card">
+    <nav class="nf-comp-tabs" role="tablist" aria-label="Complaint sections">
+      <button class="nf-comp-tab-btn is-active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              data-complaint-tab="new">
+        📝 New Complaint
+      </button>
+      <button class="nf-comp-tab-btn"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-complaint-tab="sent">
+        📋 Sent Complaints
+        <span class="nf-comp-tab-count">{{ complaints|length if complaints else 0 }}</span>
+      </button>
+    </nav>
+
+    <section class="nf-comp-panels" data-complaint-panels>
+      <section class="nf-comp-card nf-comp-submit-card nf-comp-panel is-active" data-complaint-panel="new">
         <div class="nf-comp-card-head">
           <h2>Submit New Complaint</h2>
           <p>Fill the details below. Add order/store/product information if available.</p>
@@ -503,7 +1451,7 @@
             <input id="orderId" name="order_id" placeholder="Optional">
           </div>
 
-              <div class="nf-field">
+          <div class="nf-field">
             <label for="storeId">Send Complaint To</label>
             <select id="storeId" name="store_id">
               <option value="">NE FRESH Admin / Website Owner</option>
@@ -511,53 +1459,171 @@
                 <option value="{{ s.id }}">{{ s.store_name }}</option>
               {% endfor %}
             </select>
-            <small style="color:var(--muted);font-weight:650;line-height:1.4;">
+            <small>
               Select a store only if the complaint is related to a specific store.
               Leave it as NE FRESH Admin for website, payment, refund, account, or general complaints.
             </small>
           </div>
 
-        <div class="nf-field">
-  <label for="productName">Product Name</label>
-  <input id="productName" name="product_name" placeholder="Optional">
-</div>
+          <div class="nf-field">
+            <label for="productName">Product Name</label>
+            <input id="productName" name="product_name" placeholder="Optional">
+          </div>
 
-<div class="nf-field">
-  <label for="complaintImage">Upload Image Proof</label>
-  <input id="complaintImage"
-         name="complaint_image"
-         type="file"
-         accept="image/png,image/jpeg,image/jpg,image/webp">
-  <small style="color:var(--muted);font-weight:650;line-height:1.4;">
-    Optional. Upload JPG, PNG or WEBP image proof, such as damaged item, wrong item, payment issue screenshot, etc.
-  </small>
-</div>
+          <div class="nf-field">
+            <label for="complaintImage">Upload Image Proof</label>
+            <input id="complaintImage"
+                   name="complaint_image"
+                   type="file"
+                   accept="image/png,image/jpeg,image/jpg,image/webp">
+            <small>
+              Optional. Upload JPG, PNG or WEBP image proof, such as damaged item, wrong item, payment issue screenshot, etc.
+            </small>
+          </div>
 
-<button class="nf-comp-submit" type="submit">
+          <button class="nf-comp-submit" type="submit">
             Submit Complaint
           </button>
         </form>
-      </aside>
+      </section>
 
-      <main class="nf-comp-card">
+      <section class="nf-comp-card nf-comp-list-card nf-comp-panel" data-complaint-panel="sent" hidden>
         <div class="nf-comp-card-head">
           <h2>My Complaints</h2>
-          <p>Track complaints submitted by your customer account.</p>
+          <p>Search, filter and track complaints submitted by your customer account.</p>
         </div>
 
-        <div class="nf-complaint-list">
-          {% if complaints %}
+        {% if complaints %}
+          <div class="nf-comp-toolbar" data-complaint-toolbar>
+            <div class="nf-comp-search-wrap">
+              <input class="nf-comp-search" type="search" data-complaint-search placeholder="Search subject, message, order, store, product...">
+            </div>
+
+            <select class="nf-comp-filter" data-complaint-status-filter aria-label="Filter complaint status">
+              <option value="">All Status</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+              <option value="rejected">Rejected</option>
+            </select>
+
+            <select class="nf-comp-filter" data-complaint-type-filter aria-label="Filter complaint type">
+              <option value="">All Types</option>
+              <option value="order">Order</option>
+              <option value="product">Product</option>
+              <option value="store">Store</option>
+              <option value="delivery">Delivery</option>
+              <option value="payment">Payment</option>
+              <option value="refund">Refund</option>
+              <option value="other">Other</option>
+            </select>
+
+            <select class="nf-comp-page-size" data-complaint-page-size aria-label="Complaints per page">
+              <option value="10">10 / page</option>
+              <option value="25">25 / page</option>
+              <option value="50">50 / page</option>
+              <option value="0">View All</option>
+            </select>
+
+            <button class="nf-comp-clear" type="button" data-complaint-clear>Clear</button>
+
+            <div class="nf-comp-list-meta">
+              <span data-complaint-result-text>Showing <strong>{{ complaints|length }}</strong> complaints</span>
+              <span class="nf-comp-view-hint">Web table · App/mobile cards</span>
+            </div>
+          </div>
+
+          <div class="nf-comp-table-wrap">
+            <table class="nf-comp-table" data-complaint-table>
+              <thead>
+                <tr>
+                  <th style="width:72px;text-align:center;">Sl No</th>
+                  <th style="width:285px;">Complaint</th>
+                  <th style="width:260px;">Details</th>
+                  <th style="width:160px;">Status</th>
+                  <th style="width:150px;">Proof</th>
+                  <th style="width:260px;">Replies</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in complaints %}
+                  <tr class="nf-comp-row"
+                      data-complaint-item
+                      data-status="{{ c.status or '' }}"
+                      data-type="{{ c.complaint_type or '' }}"
+                      data-search="{{ (c.subject|string) }} {{ (c.message|string) }} {{ (c.complaint_type|string) }} {{ (c.order_id|string) }} {{ (c.store_name|string) }} {{ (c.product_name|string) }} {{ (c.status_label|string) }} {{ (c.progress_status_label|string) }}">
+                    <td class="nf-comp-slno" data-visible-sl-no>{{ loop.index }}</td>
+
+                    <td>
+                      <div class="nf-comp-subject">{{ c.subject }}</div>
+                      <div class="nf-comp-message-short">{{ c.message }}</div>
+                    </td>
+
+                    <td>
+                      <div class="nf-comp-detail-list">
+                        <span><b>Type:</b> {{ c.complaint_type|replace('_',' ')|title }}</span>
+                        {% if c.order_id %}<span><b>Order:</b> {{ c.order_id }}</span>{% endif %}
+                        {% if c.store_name %}<span><b>Store:</b> {{ c.store_name }}</span>{% endif %}
+                        {% if c.product_name %}<span><b>Product:</b> {{ c.product_name }}</span>{% endif %}
+                        {% if c.created_at_display %}<span><b>Date:</b> {{ c.created_at_display }}</span>{% endif %}
+                      </div>
+                    </td>
+
+                    <td>
+                      <span class="nf-status {{ c.status }}">{{ c.status_label }}</span>
+                      {% if c.progress_status_label %}
+                        <span class="nf-comp-progress">Progress: {{ c.progress_status_label }}</span>
+                      {% endif %}
+                    </td>
+
+                    <td>
+                      {% if c.complaint_image_path %}
+                        <a class="nf-proof-link" href="{{ '/' + c.complaint_image_path }}" target="_blank" rel="noopener">View Proof</a>
+                      {% else %}
+                        <span style="color:var(--muted);font-weight:800;">—</span>
+                      {% endif %}
+                    </td>
+
+                    <td>
+                      <div class="nf-reply-stack">
+                        {% if c.admin_reply %}
+                          <div class="nf-reply-box">
+                            <b>Admin Reply:</b><br>
+                            {{ c.admin_reply }}
+                          </div>
+                        {% endif %}
+
+                        {% if c.store_reply %}
+                          <div class="nf-reply-box">
+                            <b>Store Reply:</b><br>
+                            {{ c.store_reply }}
+                          </div>
+                        {% endif %}
+
+                        {% if not c.admin_reply and not c.store_reply %}
+                          <span style="color:var(--muted);font-weight:800;">No reply yet</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="nf-complaint-mobile-list" data-complaint-mobile-list>
             {% for c in complaints %}
-              <article class="nf-complaint-item">
+              <article class="nf-complaint-item"
+                       data-complaint-card
+                       data-status="{{ c.status or '' }}"
+                       data-type="{{ c.complaint_type or '' }}"
+                       data-search="{{ (c.subject|string) }} {{ (c.message|string) }} {{ (c.complaint_type|string) }} {{ (c.order_id|string) }} {{ (c.store_name|string) }} {{ (c.product_name|string) }} {{ (c.status_label|string) }} {{ (c.progress_status_label|string) }}">
                 <div class="nf-complaint-top">
                   <div>
-                    <h3>{{ c.subject }}</h3>
+                    <h3><span data-visible-sl-no>{{ loop.index }}</span>. {{ c.subject }}</h3>
                     <div class="nf-complaint-meta">
                       Type: {{ c.complaint_type|replace('_',' ')|title }}
-                      {% if c.order_id %} · Order: {{ c.order_id }}{% endif %}
-                      {% if c.store_name %} · Store: {{ c.store_name }}{% endif %}
-                      {% if c.progress_status_label %} · Progress: {{ c.progress_status_label }}{% endif %}
-                      {% if c.product_name %} · Product: {{ c.product_name }}{% endif %}
                       {% if c.created_at_display %}<br>{{ c.created_at_display }}{% endif %}
                     </div>
                   </div>
@@ -567,17 +1633,47 @@
                   </span>
                 </div>
 
+                <div class="nf-mobile-detail-grid">
+                  {% if c.order_id %}
+                    <div class="nf-mobile-detail">
+                      <small>Order</small>
+                      <strong>{{ c.order_id }}</strong>
+                    </div>
+                  {% endif %}
+
+                  {% if c.store_name %}
+                    <div class="nf-mobile-detail">
+                      <small>Store</small>
+                      <strong>{{ c.store_name }}</strong>
+                    </div>
+                  {% endif %}
+
+                  {% if c.product_name %}
+                    <div class="nf-mobile-detail">
+                      <small>Product</small>
+                      <strong>{{ c.product_name }}</strong>
+                    </div>
+                  {% endif %}
+
+                  {% if c.progress_status_label %}
+                    <div class="nf-mobile-detail">
+                      <small>Progress</small>
+                      <strong>{{ c.progress_status_label }}</strong>
+                    </div>
+                  {% endif %}
+                </div>
+
                 <p class="nf-complaint-message">{{ c.message }}</p>
 
                 {% if c.complaint_image_path %}
-  <div class="nf-complaint-proof">
-    <b>Uploaded Image Proof</b>
-    <img src="{{ '/' + c.complaint_image_path }}" alt="Complaint image proof">
-    <a class="nf-proof-link" href="{{ '/' + c.complaint_image_path }}" target="_blank" rel="noopener">
-      View Full Image
-    </a>
-  </div>
-{% endif %}
+                  <div class="nf-complaint-proof">
+                    <b>Uploaded Image Proof</b>
+                    <img src="{{ '/' + c.complaint_image_path }}" alt="Complaint image proof">
+                    <a class="nf-proof-link" href="{{ '/' + c.complaint_image_path }}" target="_blank" rel="noopener">
+                      View Full Image
+                    </a>
+                  </div>
+                {% endif %}
 
                 {% if c.admin_reply %}
                   <div class="nf-reply-box">
@@ -594,16 +1690,309 @@
                 {% endif %}
               </article>
             {% endfor %}
-          {% else %}
+          </div>
+
+          <div class="nf-no-results" data-complaint-no-results hidden>
+            <b>No complaints found.</b>
+            Try changing your search text or filters.
+          </div>
+
+          <nav class="nf-comp-pagination" data-complaint-pagination aria-label="Complaint pagination">
+            <div class="nf-comp-page-info" data-complaint-page-info>Showing complaints</div>
+            <div class="nf-comp-page-buttons" data-complaint-page-buttons></div>
+          </nav>
+        {% else %}
+          <div style="padding:18px;">
             <div class="nf-empty">
               <b>No complaints yet.</b>
               Your submitted complaints will appear here with status updates.
             </div>
-          {% endif %}
-        </div>
-      </main>
+          </div>
+        {% endif %}
+      </section>
     </section>
   </div>
+
+  <script>
+    (function(){
+      const root = document.querySelector('.nf-complaints-page');
+      if(!root) return;
+
+      const tabButtons = Array.from(root.querySelectorAll('[data-complaint-tab]'));
+      const tabPanels = Array.from(root.querySelectorAll('[data-complaint-panel]'));
+
+      function showComplaintPanel(target){
+        const key = target || 'new';
+
+        tabButtons.forEach(btn => {
+          const active = btn.dataset.complaintTab === key;
+          btn.classList.toggle('is-active', active);
+          btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+
+        tabPanels.forEach(panel => {
+          const active = panel.dataset.complaintPanel === key;
+          panel.hidden = !active;
+          panel.classList.toggle('is-active', active);
+        });
+
+        if(key === 'sent'){
+          setTimeout(function(){
+            root.querySelector('[data-complaint-search]')?.focus({ preventScroll:true });
+          }, 50);
+        }
+      }
+
+      tabButtons.forEach(btn => {
+        btn.addEventListener('click', function(){
+          showComplaintPanel(btn.dataset.complaintTab || 'new');
+        });
+      });
+
+      if(window.location.hash && window.location.hash.toLowerCase().includes('sent')){
+        showComplaintPanel('sent');
+      }
+
+      const searchInput = root.querySelector('[data-complaint-search]');
+      const statusFilter = root.querySelector('[data-complaint-status-filter]');
+      const typeFilter = root.querySelector('[data-complaint-type-filter]');
+      const pageSizeSelect = root.querySelector('[data-complaint-page-size]');
+      const clearBtn = root.querySelector('[data-complaint-clear]');
+      const resultText = root.querySelector('[data-complaint-result-text]');
+      const noResults = root.querySelector('[data-complaint-no-results]');
+      const pagination = root.querySelector('[data-complaint-pagination]');
+      const pageInfo = root.querySelector('[data-complaint-page-info]');
+      const pageButtons = root.querySelector('[data-complaint-page-buttons]');
+
+      const rows = Array.from(root.querySelectorAll('[data-complaint-item]'));
+      const cards = Array.from(root.querySelectorAll('[data-complaint-card]'));
+
+      if(!rows.length && !cards.length) return;
+
+      let currentPage = 1;
+
+      function normalize(value){
+        return String(value || '')
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, '_')
+          .replace(/-/g, '_');
+      }
+
+      function itemText(item){
+        return String(item.dataset.search || item.textContent || '').toLowerCase();
+      }
+
+      function itemMatches(item){
+        const q = String(searchInput?.value || '').trim().toLowerCase();
+        const status = normalize(statusFilter?.value || '');
+        const type = normalize(typeFilter?.value || '');
+
+        const itemStatus = normalize(item.dataset.status || '');
+        const itemType = normalize(item.dataset.type || '');
+
+        const qOk = !q || itemText(item).includes(q);
+        const statusOk = !status || itemStatus === status;
+        const typeOk = !type || itemType === type;
+
+        return qOk && statusOk && typeOk;
+      }
+
+      function getPageSize(){
+        const value = Number(pageSizeSelect?.value || 10);
+        return Number.isFinite(value) ? value : 10;
+      }
+
+      function updateVisibleSlNumbers(visibleRows, visibleCards){
+        visibleRows.forEach((row, index) => {
+          const sl = row.querySelector('[data-visible-sl-no]');
+          if(sl) sl.textContent = String(index + 1);
+        });
+
+        visibleCards.forEach((card, index) => {
+          const sl = card.querySelector('[data-visible-sl-no]');
+          if(sl) sl.textContent = String(index + 1);
+        });
+      }
+
+      function renderPagination(total, pageSize){
+        if(!pagination || !pageInfo || !pageButtons) return;
+
+        pageButtons.innerHTML = '';
+
+        if(pageSize === 0 || total <= pageSize){
+          pagination.hidden = total === 0;
+          pageInfo.textContent = total ? `Showing all ${total} complaint${total === 1 ? '' : 's'}` : 'No complaints found';
+          return;
+        }
+
+        pagination.hidden = false;
+
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+        const start = ((currentPage - 1) * pageSize) + 1;
+        const end = Math.min(total, currentPage * pageSize);
+
+        pageInfo.textContent = `Showing ${start}-${end} of ${total} complaint${total === 1 ? '' : 's'}`;
+
+        function addButton(label, page, disabled, active){
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'nf-comp-page-btn' + (active ? ' active' : '');
+          btn.textContent = label;
+          btn.disabled = !!disabled;
+          btn.addEventListener('click', () => {
+            currentPage = page;
+            apply();
+            root.querySelector('.nf-comp-list-card')?.scrollIntoView({ behavior:'smooth', block:'start' });
+          });
+          pageButtons.appendChild(btn);
+        }
+
+        addButton('‹', Math.max(1, currentPage - 1), currentPage === 1, false);
+
+        const pages = new Set([1, totalPages, currentPage, currentPage - 1, currentPage + 1]);
+        const sorted = Array.from(pages).filter(p => p >= 1 && p <= totalPages).sort((a,b) => a-b);
+
+        let previous = 0;
+        sorted.forEach(page => {
+          if(previous && page - previous > 1){
+            const dots = document.createElement('span');
+            dots.textContent = '...';
+            dots.style.cssText = 'color:var(--muted);font-weight:900;padding:0 3px;';
+            pageButtons.appendChild(dots);
+          }
+          addButton(String(page), page, false, page === currentPage);
+          previous = page;
+        });
+
+        addButton('›', Math.min(totalPages, currentPage + 1), currentPage === totalPages, false);
+      }
+
+      function apply(){
+        const matchedRows = rows.filter(itemMatches);
+        const matchedCards = cards.filter(itemMatches);
+        const total = Math.max(matchedRows.length, matchedCards.length);
+        const pageSize = getPageSize();
+
+        const totalPages = pageSize === 0 ? 1 : Math.max(1, Math.ceil(total / pageSize));
+        currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+        const startIndex = pageSize === 0 ? 0 : (currentPage - 1) * pageSize;
+        const endIndex = pageSize === 0 ? total : startIndex + pageSize;
+
+        rows.forEach(row => { row.style.display = 'none'; });
+        cards.forEach(card => { card.style.display = 'none'; });
+
+        matchedRows.forEach((row, index) => {
+          row.style.display = index >= startIndex && index < endIndex ? '' : 'none';
+        });
+
+        matchedCards.forEach((card, index) => {
+          card.style.display = index >= startIndex && index < endIndex ? '' : 'none';
+        });
+
+        updateVisibleSlNumbers(matchedRows, matchedCards);
+
+        if(resultText){
+          resultText.innerHTML = `Showing <strong>${total}</strong> complaint${total === 1 ? '' : 's'}`;
+        }
+
+        if(noResults){
+          noResults.hidden = total !== 0;
+        }
+
+        renderPagination(total, pageSize);
+      }
+
+      function resetPageAndApply(){
+        currentPage = 1;
+        apply();
+      }
+
+      searchInput?.addEventListener('input', resetPageAndApply);
+      statusFilter?.addEventListener('change', resetPageAndApply);
+      typeFilter?.addEventListener('change', resetPageAndApply);
+      pageSizeSelect?.addEventListener('change', resetPageAndApply);
+
+      clearBtn?.addEventListener('click', function(){
+        if(searchInput) searchInput.value = '';
+        if(statusFilter) statusFilter.value = '';
+        if(typeFilter) typeFilter.value = '';
+        if(pageSizeSelect) pageSizeSelect.value = '10';
+        resetPageAndApply();
+      });
+
+      const tableWrap = root.querySelector('.nf-comp-table-wrap');
+
+      if(tableWrap){
+        let isDown = false;
+        let startX = 0;
+        let startScrollLeft = 0;
+        let moved = false;
+
+        function isInteractive(target){
+          return !!target.closest('a, button, input, select, textarea, label');
+        }
+
+        tableWrap.addEventListener('mousedown', function(ev){
+          if(isInteractive(ev.target)) return;
+
+          isDown = true;
+          moved = false;
+          startX = ev.pageX;
+          startScrollLeft = tableWrap.scrollLeft;
+          tableWrap.classList.add('is-dragging');
+          ev.preventDefault();
+        });
+
+        window.addEventListener('mousemove', function(ev){
+          if(!isDown) return;
+
+          const walk = ev.pageX - startX;
+
+          if(Math.abs(walk) > 4){
+            moved = true;
+          }
+
+          tableWrap.scrollLeft = startScrollLeft - walk;
+          ev.preventDefault();
+        });
+
+        window.addEventListener('mouseup', function(){
+          if(!isDown) return;
+
+          isDown = false;
+          setTimeout(function(){ moved = false; }, 0);
+          tableWrap.classList.remove('is-dragging');
+        });
+
+        tableWrap.addEventListener('mouseleave', function(){
+          if(!isDown) return;
+          isDown = false;
+          tableWrap.classList.remove('is-dragging');
+        });
+
+        tableWrap.addEventListener('click', function(ev){
+          if(moved){
+            ev.preventDefault();
+            ev.stopPropagation();
+          }
+        }, true);
+
+        tableWrap.addEventListener('touchstart', function(){
+          tableWrap.classList.add('is-touching');
+        }, { passive:true });
+
+        tableWrap.addEventListener('touchend', function(){
+          tableWrap.classList.remove('is-touching');
+        }, { passive:true });
+      }
+
+      apply();
+    })();
+  </script>
 </section>
 
 {% endblock %}

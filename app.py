@@ -30,9 +30,18 @@ if os.getenv("NEFRESH_DEBUG_LOGS", "0").strip().lower() in ["1", "true", "yes", 
     print("=================================\n")
 
 if __name__ == "__main__":
+    debug_enabled = os.getenv("FLASK_DEBUG", "0").strip().lower() in ["1", "true", "yes", "on"]
+
+    app.config["TEMPLATES_AUTO_RELOAD"] = debug_enabled
+    app.jinja_env.auto_reload = debug_enabled
+
     app.run(
         host="0.0.0.0",
         port=int(os.getenv("PORT", "5000")),
-        debug=os.getenv("FLASK_DEBUG", "0").strip().lower() in ["1", "true", "yes", "on"],
-        use_reloader=False
+        debug=debug_enabled,
+        use_reloader=debug_enabled,
+        extra_files=[
+            "app_core.py",
+            "app.py",
+        ]
     )

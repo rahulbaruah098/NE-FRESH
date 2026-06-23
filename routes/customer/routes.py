@@ -7,6 +7,59 @@ Only the file location changed.
 from app_core import *
 
 
+CUSTOMER_EMAIL_CHANGE_SESSION_KEY = "customer_pending_email_change"
+
+
+def _send_customer_email_change_otp(to_email, otp, name=""):
+    subject = "Confirm your new NE FRESH email"
+    display_name = name or "there"
+    html = f"""
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NE FRESH Email Change OTP</title>
+</head>
+<body style="margin:0;padding:0;background:#F8FFFB;font-family:Arial,Helvetica,sans-serif;color:#23332A;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8FFFB;padding:28px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#fff;border:1px solid rgba(0,168,89,.16);border-radius:28px;overflow:hidden;box-shadow:0 18px 44px rgba(17,64,38,.09);">
+        <tr><td style="height:6px;background:linear-gradient(90deg,#00A859,#008A48,#6DDFA5);"></td></tr>
+        <tr><td style="padding:34px 34px 18px;text-align:center;">
+          <div style="display:inline-block;padding:10px 18px;border-radius:999px;border:1px solid #DDF4E8;background:#F6FFF9;color:#008A48;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Email Change Verification</div>
+          <h1 style="margin:18px 0 0;font-size:30px;line-height:1.12;font-weight:900;color:#23332A;">Confirm your <span style="color:#00A859;">new email</span></h1>
+          <p style="margin:14px auto 0;max-width:500px;font-size:15px;line-height:1.7;color:#66756D;">Hi {display_name}, enter this OTP in your NE FRESH profile to confirm that this email belongs to you.</p>
+        </td></tr>
+        <tr><td style="padding:10px 34px 0;">
+          <div style="padding:16px;border-radius:18px;border:1px solid #DDF4E8;background:#F8FFFB;">
+            <div style="font-size:12px;font-weight:700;color:#8A9890;">Verification code</div>
+            <div style="margin-top:6px;font-size:34px;font-weight:900;color:#00A859;letter-spacing:.22em;line-height:1.2;text-align:center;">{otp}</div>
+          </div>
+          <div style="margin-top:12px;padding:16px;border-radius:18px;background:#FFF7E8;border:1px solid rgba(255,184,77,.28);color:#8A5A00;font-size:13px;line-height:1.6;font-weight:600;">This OTP is valid for <strong>10 minutes</strong>. Your email will not change until this code is verified.</div>
+        </td></tr>
+        <tr><td style="padding:18px 34px 32px;text-align:center;font-size:12px;color:#8A9890;">NE FRESH Team</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+"""
+    send_email(to_email, subject, html)
+
+
+def _pending_customer_email_change():
+    pending = session.get(CUSTOMER_EMAIL_CHANGE_SESSION_KEY) or {}
+    try:
+        expires_at = float(pending.get("expires_at") or 0)
+    except Exception:
+        expires_at = 0
+    if not pending or expires_at <= time.time():
+        session.pop(CUSTOMER_EMAIL_CHANGE_SESSION_KEY, None)
+        return None
+    return pending
+
+
 @app.route("/profile", methods=["GET", "POST"])
 @login_required()
 def profile():
@@ -48,12 +101,118 @@ def profile():
     if return_to not in {"checkout"}:
         return_to = ""
 
+    pending_email_change = _pending_customer_email_change()
+
     return render_template(
         "profile.html",
         user=u,
         addresses=addrs,
-        return_to=return_to
+        return_to=return_to,
+        pending_new_email=(pending_email_change or {}).get("new_email", "")
     )
+
+
+@app.route("/profile/email/request", methods=["POST"])
+@login_required()
+def profile_email_change_request():
+    u = current_user()
+    if not u or u.get("role") != "customer":
+        flash("Only customer accounts can change email from this page.", "warning")
+        return redirect(url_for("profile"))
+
+    new_email = (request.form.get("new_email") or "").lower().strip()
+    current_email = (u.get("email") or "").lower().strip()
+
+    if not new_email or "@" not in new_email or "." not in new_email.split("@")[-1]:
+        flash("Please enter a valid new email address.", "warning")
+        return redirect(url_for("profile"))
+
+    if new_email == current_email:
+        flash("This email is already linked to your account.", "info")
+        return redirect(url_for("profile"))
+
+    existing = mongo.users.find_one({
+        "email": new_email,
+        "_id": {"$ne": ObjectId(str(u["id"]))}
+    })
+    if existing:
+        flash("This email is already used by another account.", "danger")
+        return redirect(url_for("profile"))
+
+    otp = f"{secrets.randbelow(1000000):06d}"
+    pending = {
+        "new_email": new_email,
+        "otp": otp,
+        "expires_at": time.time() + 600,
+        "attempts": 0,
+        "requested_at": datetime.utcnow().isoformat(),
+    }
+
+    try:
+        _send_customer_email_change_otp(new_email, otp, u.get("name") or "")
+    except Exception as exc:
+        log_warning(f"[EMAIL CHANGE OTP ERROR] {new_email}: {exc}")
+        flash("Could not send OTP to the new email. Please check SMTP settings or try again later.", "danger")
+        return redirect(url_for("profile"))
+
+    session[CUSTOMER_EMAIL_CHANGE_SESSION_KEY] = pending
+    session.modified = True
+    flash("OTP sent to your new email. Verify it below to complete the email change.", "success")
+    return redirect(url_for("profile"))
+
+
+@app.route("/profile/email/verify", methods=["POST"])
+@login_required()
+def profile_email_change_verify():
+    u = current_user()
+    if not u or u.get("role") != "customer":
+        flash("Only customer accounts can change email from this page.", "warning")
+        return redirect(url_for("profile"))
+
+    pending = _pending_customer_email_change()
+    if not pending:
+        flash("Email change OTP has expired. Please request a new OTP.", "warning")
+        return redirect(url_for("profile"))
+
+    code = (request.form.get("otp") or "").strip()
+    attempts = int(pending.get("attempts") or 0)
+
+    if attempts >= 5:
+        session.pop(CUSTOMER_EMAIL_CHANGE_SESSION_KEY, None)
+        flash("Too many wrong OTP attempts. Please request a new OTP.", "danger")
+        return redirect(url_for("profile"))
+
+    if not code or code != str(pending.get("otp") or ""):
+        pending["attempts"] = attempts + 1
+        session[CUSTOMER_EMAIL_CHANGE_SESSION_KEY] = pending
+        session.modified = True
+        flash("Invalid OTP. Please check the email and try again.", "danger")
+        return redirect(url_for("profile"))
+
+    new_email = (pending.get("new_email") or "").lower().strip()
+    existing = mongo.users.find_one({
+        "email": new_email,
+        "_id": {"$ne": ObjectId(str(u["id"]))}
+    })
+    if existing:
+        session.pop(CUSTOMER_EMAIL_CHANGE_SESSION_KEY, None)
+        flash("This email has already been used by another account. Please choose a different email.", "danger")
+        return redirect(url_for("profile"))
+
+    mongo.users.update_one(
+        {"_id": ObjectId(str(u["id"])), "role": "customer"},
+        {"$set": {
+            "email": new_email,
+            "email_verified": 1,
+            "previous_email": u.get("email", ""),
+            "email_changed_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+        }}
+    )
+
+    session.pop(CUSTOMER_EMAIL_CHANGE_SESSION_KEY, None)
+    flash("Email changed successfully. Use the new email for your next login.", "success")
+    return redirect(url_for("profile"))
 
 @app.route("/profile/address/new", methods=["POST"])
 @login_required()
