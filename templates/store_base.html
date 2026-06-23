@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" class="nf-view-boot">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -67,22 +67,46 @@
   </script>
 
 
+
+  <style>
+    html.nf-view-boot,
+    html.nf-view-boot body,
+    html.nf-restore-pending,
+    html.nf-restore-pending body {
+      overflow: hidden;
+    }
+
+    html.nf-view-boot body,
+    html.nf-restore-pending body {
+      opacity: 0;
+    }
+
+    html.nf-view-ready body {
+      opacity: 1;
+      transition: opacity .12s ease;
+    }
+  </style>
   <script>
     (function(){
+      var BOOT_CLASS = 'nf-view-boot';
       var RESTORE_CLASS = 'nf-restore-pending';
+      var READY_CLASS = 'nf-view-ready';
       var STORAGE_PREFIX = 'nefresh:view-state:v2:';
+      var STORE_STORAGE_PREFIX = 'neFreshStoreViewState:';
       var MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
-      function shouldHoldForRestore(){
+      function now(){
+        return Date.now ? Date.now() : new Date().getTime();
+      }
+
+      function hasUsefulState(raw, allowSimpleStoreState){
+        if (!raw) return false;
+
         try{
-          if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-          if (!window.sessionStorage) return false;
-
-          var raw = sessionStorage.getItem(STORAGE_PREFIX + window.location.pathname + window.location.search);
-          if (!raw) return false;
-
           var state = JSON.parse(raw);
-          if (!state || !state.t || ((Date.now ? Date.now() : new Date().getTime()) - state.t) > MAX_AGE_MS) return false;
+          if (!state) return false;
+
+          if (state.t && (now() - state.t) > MAX_AGE_MS) return false;
 
           if (Math.abs(Number(state.x || 0)) > 2 || Math.abs(Number(state.y || 0)) > 2) return true;
           if (state.hash) return true;
@@ -96,45 +120,51 @@
             }
           }
 
+          if (allowSimpleStoreState && Number(state.y || 0) > 2) return true;
+
           return false;
         }catch(_){
           return false;
         }
       }
 
+      function shouldHoldForRestore(){
+        try{
+          if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+          if (!window.sessionStorage) return !!window.location.hash;
+
+          var exactKey = STORAGE_PREFIX + window.location.pathname + window.location.search;
+          var storeKey = STORE_STORAGE_PREFIX + window.location.pathname;
+
+          if (hasUsefulState(sessionStorage.getItem(exactKey), false)) return true;
+          if (hasUsefulState(sessionStorage.getItem(storeKey), true)) return true;
+          if (window.location.hash) return true;
+
+          return false;
+        }catch(_){
+          return !!window.location.hash;
+        }
+      }
+
+      function reveal(){
+        document.documentElement.classList.remove(BOOT_CLASS);
+        document.documentElement.classList.remove(RESTORE_CLASS);
+        document.documentElement.classList.add(READY_CLASS);
+      }
+
+      document.documentElement.classList.remove(READY_CLASS);
+
       if (shouldHoldForRestore()) {
+        document.documentElement.classList.remove(BOOT_CLASS);
         document.documentElement.classList.add(RESTORE_CLASS);
-        window.setTimeout(function(){
-          document.documentElement.classList.remove(RESTORE_CLASS);
-        }, 1600);
+        window.setTimeout(reveal, 1800);
+      } else {
+        reveal();
       }
     })();
   </script>
-  <style>
-    html.nf-restore-pending,
-    html.nf-restore-pending body {
-      overflow: hidden;
-    }
 
-    html.nf-restore-pending body {
-      opacity: 0;
-    }
-
-    html.nf-restore-pending::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      z-index: 2147483646;
-      background: #F8FFFB;
-      pointer-events: none;
-    }
-
-    html[data-theme="dark"].nf-restore-pending::before {
-      background: #07140F;
-    }
-  </style>
-
-  <title>{% block title %}NE FRESH Store{% endblock %}</title>
+<title>{% block title %}NE FRESH Store{% endblock %}</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1889,7 +1919,9 @@ saveSidebarMenuScroll(url.pathname);
           setActiveMenuByHash('');
           window.scrollTo({ top: 0, behavior: 'auto' });
           requestAnimationFrame(function () {
+            document.documentElement.classList.remove('nf-view-boot');
             document.documentElement.classList.remove('nf-restore-pending');
+            document.documentElement.classList.add('nf-view-ready');
           });
           return;
         }
@@ -1904,7 +1936,9 @@ saveSidebarMenuScroll(url.pathname);
         }
 
         requestAnimationFrame(function () {
-          document.documentElement.classList.remove('nf-restore-pending');
+          document.documentElement.classList.remove('nf-view-boot');
+            document.documentElement.classList.remove('nf-restore-pending');
+            document.documentElement.classList.add('nf-view-ready');
         });
       }
 

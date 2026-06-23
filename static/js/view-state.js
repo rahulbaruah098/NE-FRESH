@@ -6,7 +6,9 @@
   'use strict';
 
   var STORAGE_PREFIX = 'nefresh:view-state:v2:';
+  var VIEW_BOOT_CLASS = 'nf-view-boot';
   var RESTORE_CLASS = 'nf-restore-pending';
+  var VIEW_READY_CLASS = 'nf-view-ready';
   var SAVE_THROTTLE_MS = 160;
   var MAX_AGE_MS = 1000 * 60 * 60 * 8;
   var saveTimer = null;
@@ -126,7 +128,9 @@
   function releaseRestoreHold() {
     if (restoreReleased) return;
     restoreReleased = true;
+    document.documentElement.classList.remove(VIEW_BOOT_CLASS);
     document.documentElement.classList.remove(RESTORE_CLASS);
+    document.documentElement.classList.add(VIEW_READY_CLASS);
   }
 
   function restoreOpenGroups(state) {
@@ -240,5 +244,14 @@
 
   window.addEventListener('pageshow', function () {
     restoreState();
+  });
+
+
+  window.addEventListener('load', function () {
+    window.setTimeout(releaseRestoreHold, 450);
+  });
+
+  window.addEventListener('pageshow', function () {
+    window.setTimeout(releaseRestoreHold, 120);
   });
 })();
