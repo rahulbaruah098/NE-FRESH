@@ -4281,6 +4281,136 @@
     overflow-x:hidden !important;
   }
 }
+
+
+/* ===================== LOGIN LOCATION PROMPT ===================== */
+.nf-location-required-prompt {
+  position: fixed;
+  top: calc(var(--nav-height, 76px) + env(safe-area-inset-top, 0px) + 14px);
+  right: max(18px, env(safe-area-inset-right, 0px));
+  z-index: 100000;
+  width: min(420px, calc(100vw - 28px));
+  border-radius: 22px;
+  border: 1px solid rgba(0,168,89,.18);
+  background: rgba(255,255,255,.98);
+  box-shadow: 0 24px 70px rgba(17,64,38,.18);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  overflow: hidden;
+  transform: translateY(-10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .24s ease, transform .24s ease;
+}
+
+.nf-location-required-prompt.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.nf-location-required-inner {
+  display: grid;
+  grid-template-columns: 46px minmax(0,1fr);
+  gap: 12px;
+  padding: 15px;
+}
+
+.nf-location-required-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 17px;
+  display: grid;
+  place-items: center;
+  background: var(--green-soft, #E9FFF3);
+  color: var(--green, #00A859);
+  font-size: 1.25rem;
+  box-shadow: inset 0 0 0 1px rgba(0,168,89,.14);
+}
+
+.nf-location-required-copy strong {
+  display: block;
+  color: #17352A;
+  font-size: .96rem;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: -.02em;
+}
+
+.nf-location-required-copy p {
+  margin: 5px 0 0;
+  color: #66756D;
+  font-size: .82rem;
+  line-height: 1.45;
+  font-weight: 650;
+}
+
+.nf-location-required-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.nf-location-required-btn {
+  min-height: 38px;
+  border: 0;
+  border-radius: 13px;
+  padding: 0 14px;
+  cursor: pointer;
+  font-size: .82rem;
+  font-weight: 900;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+}
+
+.nf-location-required-btn.primary {
+  background: var(--green, #00A859);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(0,168,89,.18);
+}
+
+.nf-location-required-btn.soft {
+  background: #F3FFF8;
+  color: #007A43;
+  border: 1px solid rgba(0,168,89,.16);
+}
+
+.nf-location-required-btn:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 720px) {
+  .nf-location-required-prompt {
+    top: auto;
+    right: max(10px, env(safe-area-inset-right, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px));
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    width: auto;
+    border-radius: 20px;
+  }
+
+  .nf-location-required-inner {
+    grid-template-columns: 42px minmax(0,1fr);
+    padding: 13px;
+  }
+
+  .nf-location-required-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+  }
+
+  .nf-location-required-actions {
+    justify-content: stretch;
+  }
+
+  .nf-location-required-btn {
+    flex: 1 1 auto;
+  }
+}
+
 </style>
 
 </head>
@@ -4945,6 +5075,30 @@
 
   </div>
 </div>
+
+{% set nf_location_prompt_user = user if user is defined else current_user %}
+{% if nf_location_prompt_user and nf_location_prompt_user.role == 'customer' %}
+<div
+  id="nfMissingLocationPrompt"
+  class="nf-location-required-prompt"
+  hidden
+  data-server-location-set="{{ '1' if session.get('location_pincode') or session.get('location_address') else '0' }}"
+  data-user-id="{{ nf_location_prompt_user.id if nf_location_prompt_user.id is defined else nf_location_prompt_user._id }}"
+>
+  <div class="nf-location-required-inner">
+    <div class="nf-location-required-icon">📍</div>
+    <div class="nf-location-required-copy">
+      <strong>Set your delivery location</strong>
+      <p>Please set your location to see serviceable products and delivery availability correctly.</p>
+    </div>
+    <div class="nf-location-required-actions">
+      <button type="button" class="nf-location-required-btn soft" id="nfLocationPromptLater">Later</button>
+      <button type="button" class="nf-location-required-btn primary" id="nfLocationPromptSet">Set Location</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 
 
 <!-- Scripts -->
@@ -6014,6 +6168,75 @@ refreshSiteAfterLocationChange();
   })();
 </script>
 
+
+
+<script>
+  (function(){
+    document.addEventListener('DOMContentLoaded', function(){
+      const prompt = document.getElementById('nfMissingLocationPrompt');
+      if (!prompt) return;
+
+      const serverLocationSet = prompt.getAttribute('data-server-location-set') === '1';
+      const userId = prompt.getAttribute('data-user-id') || 'customer';
+      const dismissedKey = 'nf_location_prompt_dismissed:' + userId;
+
+      function hasClientLocation(){
+        try{
+          return !!(
+            localStorage.getItem('cc_pin') ||
+            localStorage.getItem('cc_addr') ||
+            localStorage.getItem('cc_lat') ||
+            localStorage.getItem('cc_lng')
+          );
+        }catch(_){
+          return false;
+        }
+      }
+
+      function wasDismissed(){
+        try{
+          return sessionStorage.getItem(dismissedKey) === '1';
+        }catch(_){
+          return false;
+        }
+      }
+
+      function dismiss(){
+        prompt.classList.remove('is-visible');
+        try{ sessionStorage.setItem(dismissedKey, '1'); }catch(_){}
+        window.setTimeout(function(){ prompt.hidden = true; }, 240);
+      }
+
+      function openLocationWindow(){
+        prompt.classList.remove('is-visible');
+        window.setTimeout(function(){ prompt.hidden = true; }, 180);
+
+        const locationTrigger = document.getElementById('navLocChip') || document.getElementById('stripChip');
+        if (locationTrigger) {
+          locationTrigger.click();
+          return;
+        }
+
+        window.location.href = '{{ url_for("detect_location") }}';
+      }
+
+      if (serverLocationSet || hasClientLocation() || wasDismissed()) {
+        return;
+      }
+
+      window.setTimeout(function(){
+        prompt.hidden = false;
+        window.requestAnimationFrame(function(){
+          prompt.classList.add('is-visible');
+        });
+      }, 650);
+
+      document.getElementById('nfLocationPromptSet')?.addEventListener('click', openLocationWindow);
+      document.getElementById('nfLocationPromptLater')?.addEventListener('click', dismiss);
+    });
+  })();
+</script>
+
 <script>
   (function(){
     const logoutMobile = document.getElementById('logoutLinkMobile');
@@ -6444,5 +6667,6 @@ refreshSiteAfterLocationChange();
 })();
 </script>
 
+  <script defer src="{{ url_for('static', filename='js/view-state.js') }}"></script>
 </body>
 </html>
