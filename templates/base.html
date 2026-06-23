@@ -66,6 +66,73 @@
     })();
   </script>
 
+  <script>
+    (function(){
+      var RESTORE_CLASS = 'nf-restore-pending';
+      var STORAGE_PREFIX = 'nefresh:view-state:v2:';
+      var MAX_AGE_MS = 1000 * 60 * 60 * 8;
+
+      function shouldHoldForRestore(){
+        try{
+          if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+          if (!window.sessionStorage) return false;
+
+          var raw = sessionStorage.getItem(STORAGE_PREFIX + window.location.pathname + window.location.search);
+          if (!raw) return false;
+
+          var state = JSON.parse(raw);
+          if (!state || !state.t || ((Date.now ? Date.now() : new Date().getTime()) - state.t) > MAX_AGE_MS) return false;
+
+          if (Math.abs(Number(state.x || 0)) > 2 || Math.abs(Number(state.y || 0)) > 2) return true;
+          if (state.hash) return true;
+          if (state.openGroups && state.openGroups.length) return true;
+
+          if (state.containers) {
+            for (var key in state.containers) {
+              if (!Object.prototype.hasOwnProperty.call(state.containers, key)) continue;
+              var item = state.containers[key] || {};
+              if (Math.abs(Number(item.top || 0)) > 2 || Math.abs(Number(item.left || 0)) > 2) return true;
+            }
+          }
+
+          return false;
+        }catch(_){
+          return false;
+        }
+      }
+
+      if (shouldHoldForRestore()) {
+        document.documentElement.classList.add(RESTORE_CLASS);
+        window.setTimeout(function(){
+          document.documentElement.classList.remove(RESTORE_CLASS);
+        }, 1600);
+      }
+    })();
+  </script>
+  <style>
+    html.nf-restore-pending,
+    html.nf-restore-pending body {
+      overflow: hidden;
+    }
+
+    html.nf-restore-pending body {
+      opacity: 0;
+    }
+
+    html.nf-restore-pending::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 2147483646;
+      background: #F8FFFB;
+      pointer-events: none;
+    }
+
+    html[data-theme="dark"].nf-restore-pending::before {
+      background: #07140F;
+    }
+  </style>
+
   <title>NE-Fresh</title>
     <!-- Product page typography fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -6177,33 +6244,9 @@ refreshSiteAfterLocationChange();
       if (!prompt) return;
 
       const serverLocationSet = prompt.getAttribute('data-server-location-set') === '1';
-      const userId = prompt.getAttribute('data-user-id') || 'customer';
-      const dismissedKey = 'nf_location_prompt_dismissed:' + userId;
 
-      function hasClientLocation(){
-        try{
-          return !!(
-            localStorage.getItem('cc_pin') ||
-            localStorage.getItem('cc_addr') ||
-            localStorage.getItem('cc_lat') ||
-            localStorage.getItem('cc_lng')
-          );
-        }catch(_){
-          return false;
-        }
-      }
-
-      function wasDismissed(){
-        try{
-          return sessionStorage.getItem(dismissedKey) === '1';
-        }catch(_){
-          return false;
-        }
-      }
-
-      function dismiss(){
+      function hideForThisPageOnly(){
         prompt.classList.remove('is-visible');
-        try{ sessionStorage.setItem(dismissedKey, '1'); }catch(_){}
         window.setTimeout(function(){ prompt.hidden = true; }, 240);
       }
 
@@ -6220,7 +6263,10 @@ refreshSiteAfterLocationChange();
         window.location.href = '{{ url_for("detect_location") }}';
       }
 
-      if (serverLocationSet || hasClientLocation() || wasDismissed()) {
+      /* Keep prompting on every fresh page load/login until the server-side
+         delivery location is actually set. "Later" hides it only for the
+         current page view and does not persist across reload/navigation. */
+      if (serverLocationSet) {
         return;
       }
 
@@ -6232,7 +6278,7 @@ refreshSiteAfterLocationChange();
       }, 650);
 
       document.getElementById('nfLocationPromptSet')?.addEventListener('click', openLocationWindow);
-      document.getElementById('nfLocationPromptLater')?.addEventListener('click', dismiss);
+      document.getElementById('nfLocationPromptLater')?.addEventListener('click', hideForThisPageOnly);
     });
   })();
 </script>

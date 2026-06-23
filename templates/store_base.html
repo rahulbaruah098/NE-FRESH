@@ -67,6 +67,73 @@
   </script>
 
 
+  <script>
+    (function(){
+      var RESTORE_CLASS = 'nf-restore-pending';
+      var STORAGE_PREFIX = 'nefresh:view-state:v2:';
+      var MAX_AGE_MS = 1000 * 60 * 60 * 8;
+
+      function shouldHoldForRestore(){
+        try{
+          if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+          if (!window.sessionStorage) return false;
+
+          var raw = sessionStorage.getItem(STORAGE_PREFIX + window.location.pathname + window.location.search);
+          if (!raw) return false;
+
+          var state = JSON.parse(raw);
+          if (!state || !state.t || ((Date.now ? Date.now() : new Date().getTime()) - state.t) > MAX_AGE_MS) return false;
+
+          if (Math.abs(Number(state.x || 0)) > 2 || Math.abs(Number(state.y || 0)) > 2) return true;
+          if (state.hash) return true;
+          if (state.openGroups && state.openGroups.length) return true;
+
+          if (state.containers) {
+            for (var key in state.containers) {
+              if (!Object.prototype.hasOwnProperty.call(state.containers, key)) continue;
+              var item = state.containers[key] || {};
+              if (Math.abs(Number(item.top || 0)) > 2 || Math.abs(Number(item.left || 0)) > 2) return true;
+            }
+          }
+
+          return false;
+        }catch(_){
+          return false;
+        }
+      }
+
+      if (shouldHoldForRestore()) {
+        document.documentElement.classList.add(RESTORE_CLASS);
+        window.setTimeout(function(){
+          document.documentElement.classList.remove(RESTORE_CLASS);
+        }, 1600);
+      }
+    })();
+  </script>
+  <style>
+    html.nf-restore-pending,
+    html.nf-restore-pending body {
+      overflow: hidden;
+    }
+
+    html.nf-restore-pending body {
+      opacity: 0;
+    }
+
+    html.nf-restore-pending::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 2147483646;
+      background: #F8FFFB;
+      pointer-events: none;
+    }
+
+    html[data-theme="dark"].nf-restore-pending::before {
+      background: #07140F;
+    }
+  </style>
+
   <title>{% block title %}NE FRESH Store{% endblock %}</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">

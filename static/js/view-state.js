@@ -10,6 +10,7 @@
   var SAVE_THROTTLE_MS = 160;
   var MAX_AGE_MS = 1000 * 60 * 60 * 8;
   var saveTimer = null;
+  var restoreReleased = false;
 
   function now() {
     return Date.now ? Date.now() : new Date().getTime();
@@ -122,6 +123,12 @@
     }, SAVE_THROTTLE_MS);
   }
 
+  function releaseRestoreHold() {
+    if (restoreReleased) return;
+    restoreReleased = true;
+    document.documentElement.classList.remove(RESTORE_CLASS);
+  }
+
   function restoreOpenGroups(state) {
     if (!state || !Array.isArray(state.openGroups)) return;
 
@@ -150,10 +157,24 @@
     });
   }
 
+  function restoreWindowPosition(state) {
+    var y = Number(state && state.y || 0);
+    var x = Number(state && state.x || 0);
+
+    if (y > 0 || x > 0) {
+      window.scrollTo(x, y);
+    } else if (state && state.hash && document.querySelector(state.hash)) {
+      try { document.querySelector(state.hash).scrollIntoView(); }
+      catch (_) {}
+    }
+  }
+
   function restoreState() {
+    restoreReleased = false;
+
     var state = parseState();
     if (!state) {
-      document.documentElement.classList.remove(RESTORE_CLASS);
+      releaseRestoreHold();
       return;
     }
 
@@ -165,30 +186,29 @@
     function applyRestore() {
       tries += 1;
       restoreContainers(state);
+      restoreWindowPosition(state);
 
-      var y = Number(state.y || 0);
-      var x = Number(state.x || 0);
-
-      if (y > 0 || x > 0) {
-        window.scrollTo(x, y);
-      } else if (state.hash && document.querySelector(state.hash)) {
-        try { document.querySelector(state.hash).scrollIntoView(); }
-        catch (_) {}
+      /* Reveal after the first stable restore pass, then keep correcting quietly.
+         This prevents the visible top-page flash without holding a blank page too long. */
+      if (tries >= 2) {
+        releaseRestoreHold();
       }
 
       if (tries < maxTries) {
         window.setTimeout(applyRestore, tries < 4 ? 40 : 120);
       } else {
-        document.documentElement.classList.remove(RESTORE_CLASS);
+        releaseRestoreHold();
       }
     }
 
-    window.requestAnimationFrame(applyRestore);
+    window.requestAnimationFrame(function () {
+      applyRestore();
+      window.setTimeout(releaseRestoreHold, 650);
+    });
   }
 
   try {
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-    if (parseState()) document.documentElement.classList.add(RESTORE_CLASS);
   } catch (_) {}
 
   window.addEventListener('scroll', scheduleSave, { passive: true });
