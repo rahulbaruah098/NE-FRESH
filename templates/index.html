@@ -112,22 +112,46 @@
     cursor:grabbing;
   }
 
- .nf-hero-slides{
-  height:100%;
-  display:flex;
-  transition:transform .75s var(--nf-ease);
-  will-change:transform;
+  .nf-hero-slides{
+  position:relative;
+  display:block;
+  min-height:clamp(430px,30vw,520px);
+  transform:none;
+  transition:none;
+  will-change:auto;
 }
 
   .nf-hero-slide{
-    flex:0 0 100%;
+    position:absolute;
+    inset:0;
+    width:100%;
     min-width:100%;
+    min-height:100%;
     display:grid;
     grid-template-columns:minmax(0,1fr) 330px;
     align-items:center;
-    padding:36px 42px;
-    position:relative;
-    overflow:hidden;
+    padding:36px 42px 76px;
+    overflow:visible;
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+    transform:translate3d(18px,0,0) scale(.992);
+    transition:
+      opacity .7s var(--nf-ease),
+      visibility .7s var(--nf-ease),
+      transform .7s var(--nf-ease);
+  }
+
+  .nf-hero-slide.is-active{
+    opacity:1;
+    visibility:visible;
+    pointer-events:auto;
+    transform:translate3d(0,0,0) scale(1);
+    z-index:2;
+  }
+
+  .nf-hero-slide.is-prev{
+    z-index:1;
   }
 
   .nf-hero-slide::before,
@@ -963,9 +987,13 @@
       order:2;
     }
 
+          .nf-hero-slides{
+      min-height:620px;
+    }
+
     .nf-hero-slide{
       grid-template-columns:1fr;
-      padding:30px;
+      padding:30px 30px 72px;
     }
 
     .nf-hero-art{
@@ -1029,8 +1057,12 @@
       min-height:auto;
     }
 
+           .nf-hero-slides{
+      min-height:590px;
+    }
+
     .nf-hero-slide{
-      padding:24px;
+      padding:24px 24px 70px;
     }
 
     .nf-hero-copy h1{
@@ -4125,8 +4157,8 @@ padding-right:clamp(42px,6vw,118px) !important;
 
 
   /* FINAL UPDATE: NE LOCALS HERO CARD REDESIGN - 3 SLIDES ONLY */
-  .nf-grocery-page .nf-hero-panel{
-    min-height:360px !important;
+   .nf-grocery-page .nf-hero-panel{
+    min-height:clamp(430px,30vw,520px) !important;
     border-radius:30px !important;
     overflow:hidden !important;
     background:#F6FFFA !important;
@@ -4135,10 +4167,10 @@ padding-right:clamp(42px,6vw,118px) !important;
   }
 
 .nf-grocery-page .nf-hero-slide{
-  min-height:360px !important;
+  min-height:100% !important;
   grid-template-columns:minmax(0,1.04fr) minmax(310px,.96fr) !important;
   gap:28px !important;
-  padding:48px clamp(34px,4.8vw,74px) !important;
+  padding:48px clamp(34px,4.8vw,74px) 86px !important;
   isolation:isolate;
   background:linear-gradient(120deg,#E7FFF0 0%,#F8FFF9 54%,#FFF7E7 100%) !important;
 }
@@ -4306,11 +4338,11 @@ padding-right:clamp(42px,6vw,118px) !important;
       border-radius:24px !important;
     }
 
-    .nf-grocery-page .nf-hero-slide{
-      min-height:auto !important;
+       .nf-grocery-page .nf-hero-slide{
+      min-height:100% !important;
       grid-template-columns:1fr !important;
       gap:22px !important;
-      padding:34px 26px 64px !important;
+      padding:34px 26px 78px !important;
     }
 
     .nf-grocery-page .nf-hero-slide::before{
@@ -4344,8 +4376,8 @@ padding-right:clamp(42px,6vw,118px) !important;
   }
 
   @media(max-width:640px){
-    .nf-grocery-page .nf-hero-slide{
-      padding:28px 22px 60px !important;
+        .nf-grocery-page .nf-hero-slide{
+      padding:28px 22px 76px !important;
     }
 
     .nf-grocery-page .nf-hero-copy h1{
@@ -4742,7 +4774,7 @@ padding-right:clamp(42px,6vw,118px) !important;
       <div class="nf-hero-copy">
         <span>Multiple Product Categories</span>
 <h1>Explore every local category with ease</h1>
-<p>Browse vegetables, pantry items, home essentials and regional favourites in one organised place.</p>
+<p>Browse regional favourites in one organised place.</p>
 <a href="/products" class="nf-hero-btn">Explore Categories</a>
       </div>
 
@@ -5621,7 +5653,7 @@ padding-right:clamp(42px,6vw,118px) !important;
   </div>
 </section>
 
-  <!-- POPULAR STORES -->
+  <!-- POPULAR STORES SECTION COMMENTED OUT FOR NOW
 <section class="nf-section">
   <div class="nf-wrap">
     <div class="nf-section-head nf-reveal">
@@ -5683,6 +5715,7 @@ padding-right:clamp(42px,6vw,118px) !important;
     </div>
   </div>
 </section>
+POPULAR STORES SECTION COMMENTED OUT FOR NOW -->
 
   <!-- APP PROMO BODY SECTION -->
   <section class="nf-section">
@@ -5855,82 +5888,53 @@ requestAnimationFrame(loadNotifications);
       });
     }
 
- const hero = document.getElementById('nfGroceryHero');
+const hero = document.getElementById('nfGroceryHero');
 
 if(hero){
   const track = hero.querySelector('.nf-hero-slides');
+  const slides = Array.prototype.slice.call(hero.querySelectorAll('.nf-hero-slide'));
   const dots = Array.prototype.slice.call(hero.querySelectorAll('.nf-hero-dots button'));
 
-  if(track){
-    track.querySelectorAll('.nf-hero-clone, .nf-hero-loop-copy').forEach(function(clone){
+  if(track && slides.length){
+    track.querySelectorAll('.nf-hero-loop-copy, .nf-hero-clone').forEach(function(clone){
       clone.remove();
     });
 
-    const slides = Array.prototype.slice.call(track.querySelectorAll('.nf-hero-slide'));
-    const slideCount = slides.length;
-
     let currentIndex = 0;
+    let previousIndex = 0;
     let heroTimer = null;
-    let isAnimating = false;
     let isDragging = false;
     let startX = 0;
     let dragX = 0;
 
-    if(slideCount > 1){
-      const firstClone = slides[0].cloneNode(true);
-      firstClone.classList.add('nf-hero-loop-copy');
-      firstClone.setAttribute('aria-hidden', 'true');
-      track.appendChild(firstClone);
-    }
+    function renderHero(index){
+      previousIndex = currentIndex;
+      currentIndex = (index + slides.length) % slides.length;
 
-    function updateDots(){
-      const realIndex = currentIndex >= slideCount ? 0 : currentIndex;
+      slides.forEach(function(slide, slideIndex){
+        slide.classList.toggle('is-active', slideIndex === currentIndex);
+        slide.classList.toggle('is-prev', slideIndex === previousIndex && slideIndex !== currentIndex);
+      });
 
       dots.forEach(function(dot, dotIndex){
-        dot.classList.toggle('active', dotIndex === realIndex);
+        dot.classList.toggle('active', dotIndex === currentIndex);
       });
     }
 
-    function moveHero(index, withTransition){
-      currentIndex = index;
-      isAnimating = !!withTransition;
-
-      track.style.transition = withTransition ? 'transform .75s var(--nf-ease)' : 'none';
-      track.style.transform = 'translate3d(' + (-currentIndex * 100) + '%,0,0)';
-
-      updateDots();
-
-      if(!withTransition){
-        track.offsetHeight;
-        requestAnimationFrame(function(){
-          track.style.transition = 'transform .75s var(--nf-ease)';
-          isAnimating = false;
-        });
-      }
-    }
-
     function nextHeroSlide(){
-      if(isAnimating || isDragging || slideCount <= 1) return;
-      moveHero(currentIndex + 1, true);
+      if(isDragging || slides.length <= 1) return;
+      renderHero(currentIndex + 1);
     }
 
     function prevHeroSlide(){
-      if(isAnimating || isDragging || slideCount <= 1) return;
-
-      if(currentIndex === 0){
-        currentIndex = slideCount;
-        track.style.transition = 'none';
-        track.style.transform = 'translate3d(' + (-currentIndex * 100) + '%,0,0)';
-        track.offsetHeight;
-      }
-
-      moveHero(currentIndex - 1, true);
+      if(isDragging || slides.length <= 1) return;
+      renderHero(currentIndex - 1);
     }
 
     function startHeroAutoplay(){
       stopHeroAutoplay();
 
-      if(slideCount <= 1) return;
+      if(slides.length <= 1) return;
 
       heroTimer = window.setInterval(function(){
         nextHeroSlide();
@@ -5944,32 +5948,10 @@ if(hero){
       }
     }
 
-    track.addEventListener('transitionend', function(event){
-      if(event.propertyName !== 'transform') return;
-
-      if(currentIndex === slideCount){
-        track.style.transition = 'none';
-        currentIndex = 0;
-        track.style.transform = 'translate3d(0,0,0)';
-        track.offsetHeight;
-
-        requestAnimationFrame(function(){
-          track.style.transition = 'transform .75s var(--nf-ease)';
-          isAnimating = false;
-          updateDots();
-        });
-
-        return;
-      }
-
-      isAnimating = false;
-      updateDots();
-    });
-
     dots.forEach(function(dot, dotIndex){
       dot.addEventListener('click', function(){
         stopHeroAutoplay();
-        moveHero(dotIndex, true);
+        renderHero(dotIndex);
         startHeroAutoplay();
       });
     });
@@ -5982,13 +5964,11 @@ if(hero){
       if(clickableTarget) return;
 
       isDragging = true;
-      isAnimating = false;
       startX = event.clientX;
       dragX = 0;
+
       hero.classList.add('is-dragging');
       stopHeroAutoplay();
-
-      track.style.transition = 'none';
 
       if(hero.setPointerCapture){
         try{
@@ -5999,10 +5979,7 @@ if(hero){
 
     hero.addEventListener('pointermove', function(event){
       if(!isDragging) return;
-
       dragX = event.clientX - startX;
-      track.style.transition = 'none';
-      track.style.transform = 'translate3d(calc(' + (-currentIndex * 100) + '% + ' + dragX + 'px),0,0)';
     });
 
     function endHeroDrag(event){
@@ -6014,11 +5991,9 @@ if(hero){
       const threshold = Math.min(110, Math.max(45, hero.clientWidth * 0.08));
 
       if(dragX < -threshold){
-        moveHero(currentIndex + 1, true);
+        nextHeroSlide();
       }else if(dragX > threshold){
         prevHeroSlide();
-      }else{
-        moveHero(currentIndex, true);
       }
 
       dragX = 0;
@@ -6036,10 +6011,11 @@ if(hero){
     hero.addEventListener('pointercancel', endHeroDrag);
     hero.addEventListener('lostpointercapture', endHeroDrag);
 
-    moveHero(0, false);
+    renderHero(0);
     startHeroAutoplay();
   }
 }
+
 
 const categoryScroller = document.getElementById('nfCategoryScroller');
 

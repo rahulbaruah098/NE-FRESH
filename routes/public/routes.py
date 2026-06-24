@@ -1,5 +1,7 @@
 """Public routes extracted from the updated app.py.
 
+NELOCALS SEARCH STORE RESULTS HIDDEN FINAL
+
 Logic, decorators, endpoint names and route paths are intentionally preserved.
 Only the file location changed.
 """
@@ -428,7 +430,8 @@ def search():
                     {"name": {"$regex": q, "$options": "i"}},
                     {"category": {"$regex": q, "$options": "i"}},
                     {"sub_category": {"$regex": q, "$options": "i"}},
-                    {"store_name": {"$regex": q, "$options": "i"}},
+                    # Store-name matching is hidden for customer/public navbar search for now.
+                    # {"store_name": {"$regex": q, "$options": "i"}},
                 ]
             }).sort("created_at", -1).limit(50)
         )
@@ -436,29 +439,36 @@ def search():
         for p in products:
             p["id"] = str(p["_id"])
 
-            store = None
-            if p.get("store_id"):
-                store = mongo.stores.find_one({"_id": p["store_id"]})
-
-            p["store_name"] = store.get("store_name") if store else p.get("store_name", "")
+            # Store lookup/display is hidden in customer/public navbar search for now.
+            # Kept here commented for future re-enable without deleting old logic.
+            # store = None
+            # if p.get("store_id"):
+            #     store = mongo.stores.find_one({"_id": p["store_id"]})
+            #
+            # p["store_name"] = store.get("store_name") if store else p.get("store_name", "")
+            # p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
+            p["store_name"] = ""
             p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
 
-        stores = list(
-            mongo.stores.find({
-                "$or": [
-                    {"store_name": {"$regex": q, "$options": "i"}},
-                    {"address": {"$regex": q, "$options": "i"}},
-                ]
-            }).sort("store_name", 1).limit(30)
-        )
-
-        for s in stores:
-            s["id"] = str(s["_id"])
-            s["product_count"] = mongo.products.count_documents({
-                "store_id": s["_id"],
-                "is_active": 1,
-                "stock_quantity": {"$gt": 0}
-            })
+        # Store result search is hidden in customer/public navbar search for now.
+        # Kept commented, not deleted, so Admin/store search logic can be restored later if needed.
+        # stores = list(
+        #     mongo.stores.find({
+        #         "$or": [
+        #             {"store_name": {"$regex": q, "$options": "i"}},
+        #             {"address": {"$regex": q, "$options": "i"}},
+        #         ]
+        #     }).sort("store_name", 1).limit(30)
+        # )
+        #
+        # for s in stores:
+        #     s["id"] = str(s["_id"])
+        #     s["product_count"] = mongo.products.count_documents({
+        #         "store_id": s["_id"],
+        #         "is_active": 1,
+        #         "stock_quantity": {"$gt": 0}
+        #     })
+        stores = []
 
     return render_template("search.html", user=user, q=q, products=products, stores=stores)
 
