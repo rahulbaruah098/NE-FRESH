@@ -1,9 +1,9 @@
 {% extends "store_base.html" %}
 {% set active_page = "store_profile" %}
 
-{% block title %}Store Profile | NE FRESH Store{% endblock %}
-{% block page_title %}Store Profile{% endblock %}
-{% block page_subtitle %}Manage store identity, owner details, location and operating information.{% endblock %}
+{% block title %}Store Admin Profile | NE FRESH Store{% endblock %}
+{% block page_title %}Store Admin Profile{% endblock %}
+{% block page_subtitle %}Manage internal store account details, owner contact, pickup location, delivery area and operation settings.{% endblock %}
 
 {% block content %}
 
@@ -810,13 +810,13 @@
 
   <div class="sp-shell"><div class="sp-stack">
     <section class="sp-hero">
-      <div><span class="sp-kicker">🏪 NE FRESH Store Profile</span><h1 class="sp-title">{{ store.store_name or 'Store Profile' }}</h1><p class="sp-copy">Manage your NE FRESH store identity, owner contact details, pickup location, operating information and profile readiness from one place.</p><div class="sp-actions"><button class="sp-btn sp-btn-primary" type="button" data-submit-profile>Save Profile</button><button class="sp-btn" type="button" id="spUseLocation">Use Current Location</button><a class="sp-btn" href="{{ url_for('store_products') }}">Open Products</a><a class="sp-btn" href="{{ url_for('store_orders') }}">Open Orders</a></div></div>
+      <div><span class="sp-kicker">🏪 NE FRESH Store Admin Profile</span><h1 class="sp-title">{{ store.store_name or 'Store Profile' }}</h1><p class="sp-copy">Manage internal NE FRESH store admin data, owner contact, pickup location, delivery service area and operation readiness from one place.</p><div class="sp-actions"><button class="sp-btn sp-btn-primary" type="button" data-submit-profile>Save Store Admin Profile</button><button class="sp-btn" type="button" id="spUseLocation">Detect Store Pickup Location</button><a class="sp-btn" href="{{ url_for('store_products') }}">Manage Store Products</a><a class="sp-btn" href="{{ url_for('store_orders') }}">Manage Store Orders</a></div></div>
       <aside><div class="sp-logo-row"><div class="sp-logo">{% if store.logo_path %}<img src="/{{ store.logo_path }}" alt="{{ store.store_name }}">{% else %}{{ (store.store_name or 'S')[:1]|upper }}{% endif %}</div><div><div class="sp-store-name">{{ store.store_name or 'Store name not added' }}</div><div class="sp-store-sub">{{ store.address or 'Store address not updated yet.' }}</div></div></div><div class="sp-status-grid"><div class="sp-status-pill"><span>Status</span><strong>{{ 'Active' if store.is_active else 'Inactive' }}</strong></div><div class="sp-status-pill"><span>Profile</span><strong>{{ completion.percent|default(0) }}% Complete</strong></div><div class="sp-status-pill"><span>Notifications</span><strong>{{ 'Enabled' if settings.enabled else 'Disabled' }}</strong></div><div class="sp-status-pill"><span>Store ID</span><strong>{{ store.id or store._id }}</strong></div></div></aside>
     </section>
 
     <section class="sp-grid">
       <div class="sp-card">
-        <div class="sp-section-head"><h2 class="sp-section-title">Edit Store Details</h2><p class="sp-section-sub">Update identity, owner contact, location and operating details.</p></div>
+        <div class="sp-section-head"><h2 class="sp-section-title">Store Admin & Operation Details</h2><p class="sp-section-sub">Update internal store admin identity, owner contact, pickup location and operation details.</p></div>
         <form class="sp-form" id="storeProfileForm" method="post" action="{{ url_for('store_profile_update') }}" enctype="multipart/form-data">
           <div class="sp-form-grid">
             <div class="sp-field"><label>Store Name</label><input class="sp-input" name="store_name" value="{{ store.store_name or '' }}" required><div class="sp-current">Current: <strong>{{ store.store_name or '—' }}</strong></div></div>
@@ -826,7 +826,7 @@
             <div class="sp-field full"><label>Store Address</label><textarea class="sp-textarea" name="address" required>{{ store.address or '' }}</textarea><div class="sp-current">Current: <strong>{{ store.address or '—' }}</strong></div></div>
 
 <div class="sp-field full">
-  <label>Store Intro Line</label>
+  <label>Admin-only Store Note</label>
   <textarea
     class="sp-textarea"
     name="profile_intro"
@@ -837,7 +837,7 @@
     <strong>{{ store.profile_intro or 'Not added' }}</strong>
   </div>
   <div class="sp-help">
-    This line will appear on the public Stores section and store cards. Keep it short and customer friendly.
+    This note is for NE FRESH admin/store reference only. It does not display on the customer product UI.
   </div>
 </div>
 
@@ -860,12 +860,12 @@
 </div>
 
 <div class="sp-field full">
-  <label>Delivery Fee Control</label>
+  <label>Admin-controlled Delivery Fee Rule</label>
   <div class="sp-current">
-    Delivery fee, distance-wise slabs, free delivery amount, minimum delivery order and delivery-boy earning rule are controlled by NE FRESH Admin.
+    Delivery fee, distance slabs, free delivery amount, minimum delivery order and in-house delivery earning rules are controlled only by NE FRESH Admin.
   </div>
   <div class="sp-help">
-    Store can manage location and delivery zone only. Pricing settings are locked from Store profile.
+    Store can manage pickup location and delivery service area only. Pricing settings are admin-only controls.
   </div>
 </div>
 
@@ -884,9 +884,9 @@
 <div class="sp-delivery-box">
   <div class="sp-delivery-head">
     <div>
-      <h3 class="sp-delivery-title">Store Operation & Delivery Zone</h3>
+      <h3 class="sp-delivery-title">Store Operation & Delivery Service Area</h3>
       <p class="sp-delivery-sub">
-        Control whether your store accepts orders and define the exact delivery area on the map.
+        Control whether this store can operate and define the exact delivery service area on the map.
       </p>
     </div>
   </div>
@@ -898,8 +898,8 @@
 
       <label class="sp-switch-card">
         <div>
-          <strong>Store Online</strong>
-          <span>Online stores can receive customer orders. Offline stores remain visible but checkout is blocked.</span>
+          <strong>Store Operational Status</strong>
+          <span>Online means this store can accept eligible customer orders. Offline blocks new checkout for this store.</span>
         </div>
         <span class="sp-toggle">
           <input type="checkbox" name="is_online" value="1" {{ 'checked' if store_online == 1 else '' }}>
@@ -909,8 +909,8 @@
 
       <label class="sp-switch-card">
         <div>
-          <strong>Delivery Enabled</strong>
-          <span>Enable only after drawing a valid delivery zone with at least 3 boundary points.</span>
+          <strong>Delivery Service Enabled</strong>
+          <span>Enable only after drawing a valid delivery service area with at least 3 boundary points.</span>
         </div>
         <span class="sp-toggle">
           <input type="checkbox" id="deliveryEnabledToggle" name="delivery_enabled" value="1" {{ 'checked' if delivery_on == 1 else '' }}>
@@ -930,17 +930,17 @@
     <div class="sp-delivery-map-card">
       <div class="sp-map-toolbar">
         <div>
-          <div class="sp-map-toolbar-title">Delivery Zone Map</div>
+          <div class="sp-map-toolbar-title">Delivery Service Area Map</div>
           <div class="sp-map-toolbar-sub">
-            Click around your serviceable area to create boundary points. Minimum 3 points are required.
+            Click around the actual serviceable area to create boundary points. Minimum 3 points are required.
           </div>
         </div>
 
         <div class="sp-map-actions">
-          <button type="button" class="sp-map-btn primary" id="btnCenterStore">Center Store</button>
+          <button type="button" class="sp-map-btn primary" id="btnCenterStore">Center Pickup Location</button>
           <button type="button" class="sp-map-btn" id="btnUndoZonePoint">Undo Point</button>
-          <button type="button" class="sp-map-btn" id="btnFinishZone">Finish Zone</button>
-          <button type="button" class="sp-map-btn danger" id="btnClearZone">Clear Zone</button>
+          <button type="button" class="sp-map-btn" id="btnFinishZone">Mark Area Ready</button>
+          <button type="button" class="sp-map-btn danger" id="btnClearZone">Clear Service Area</button>
         </div>
       </div>
 
@@ -950,18 +950,18 @@
         <div class="sp-zone-help">
           <div class="sp-zone-help-icon">i</div>
           <div>
-            Click map points around your actual delivery area. Use Undo Point to remove the last point,
+            Click map points around the actual delivery service area. Use Undo Point to remove the last point,
             or click a point marker to remove a specific point.
           </div>
         </div>
 
         <div class="sp-zone-counter">
           <span id="zonePointCount">0 points added</span>
-          <small>Orders will be allowed only inside this drawn zone.</small>
+          <small>Orders will be allowed only inside this drawn service area.</small>
         </div>
 
         <div id="zoneStatus" class="sp-zone-status bad">
-          Delivery zone not configured.
+          Delivery service area not configured.
         </div>
       </div>
     </div>
@@ -974,12 +974,12 @@
             <div class="sp-field"><label>Minimum Order Amount</label><input class="sp-input" type="number" min="0" step="0.01" name="min_order_amount" value="{{ store.min_order_amount or '' }}" placeholder="₹"><div class="sp-current">Current: <strong>{% if store.min_order_amount %}₹ {{ store.min_order_amount }}{% else %}—{% endif %}</strong></div></div>
            
           </div>
-          <div class="sp-actions"><button class="sp-btn sp-btn-primary" type="submit">Save Store Profile</button><button class="sp-btn" type="button" id="spUseLocationBottom">Use Current Location</button><a class="sp-btn" href="{{ url_for('store_dashboard') }}">Back to Dashboard</a></div><div class="sp-help" id="spLocationMsg"></div>
+          <div class="sp-actions"><button class="sp-btn sp-btn-primary" type="submit">Save Store Admin Profile</button><button class="sp-btn" type="button" id="spUseLocationBottom">Detect Store Pickup Location</button><a class="sp-btn" href="{{ url_for('store_dashboard') }}">Back to Store Dashboard</a></div><div class="sp-help" id="spLocationMsg"></div>
         </form>
       </div>
 
       <aside class="sp-side-stack">
-        <div class="sp-card"><div class="sp-section-head"><h2 class="sp-section-title">Store Preview</h2><p class="sp-section-sub">Current identity and operational details.</p></div><div class="sp-preview"><div class="sp-preview-box">
+        <div class="sp-card"><div class="sp-section-head"><h2 class="sp-section-title">Store Internal Admin Summary</h2><p class="sp-section-sub">Internal summary for store/admin reference only. This is not a customer store catalog page.</p></div><div class="sp-preview"><div class="sp-preview-box">
           <div class="sp-banner-preview">
   {% if store.banner_path %}
     <img src="/{{ store.banner_path }}" alt="{{ store.store_name or 'Store banner' }}">
@@ -993,10 +993,10 @@
 </div>
 
 <div class="sp-intro-preview">
-  {{ store.profile_intro or store.description or 'Store intro line not added yet.' }}
+  {{ store.profile_intro or store.description or 'Admin-only store note not added yet.' }}
 </div>
           <div class="sp-preview-head"><div class="sp-preview-logo">{% if store.logo_path %}<img src="/{{ store.logo_path }}" alt="{{ store.store_name }}">{% else %}{{ (store.store_name or 'S')[:1]|upper }}{% endif %}</div><div><div class="sp-preview-title">{{ store.store_name or 'Store name not added' }}</div><div class="sp-preview-meta">{{ store.description or 'No store description added yet.' }}</div></div></div><div><div class="sp-info-row"><span>Owner</span><strong>{{ owner.name or store.owner_name or '—' }}</strong></div><div class="sp-info-row"><span>Phone</span><strong>{{ owner.phone or store.phone or '—' }}</strong></div><div class="sp-info-row"><span>Email</span><strong>{{ owner.email or '—' }}</strong></div><div class="sp-info-row"><span>Address</span><strong>{{ store.address or '—' }}</strong></div><div class="sp-info-row"><span>Coordinates</span><strong>{% if store.latitude is not none and store.longitude is not none %}{{ store.latitude }}, {{ store.longitude }}{% else %}Missing{% endif %}</strong></div><div class="sp-info-row"><span>Timing</span><strong>{{ store.opening_time or '—' }} - {{ store.closing_time or '—' }}</strong></div><div class="sp-info-row"><span>Delivery</span><strong>{{ 'Available' if store.delivery_available|default(true) else 'Not Available' }}</strong></div></div></div></div></div>
-        <div class="sp-card"><div class="sp-section-head"><h2 class="sp-section-title">Profile Health</h2><p class="sp-section-sub">Checklist for a complete NE FRESH store profile.</p></div><div class="sp-completion"><div class="sp-progress-head"><div><div class="sp-progress-label">Completion</div><div class="sp-help">{{ completion.done|default(0) }} of {{ completion.total|default(0) }} items completed</div></div><div class="sp-progress-value">{{ completion.percent|default(0) }}%</div></div><div class="sp-progress-track"><div class="sp-progress-fill"></div></div><div class="sp-checklist">{% if checklist %}{% for item in checklist %}<div class="sp-check-item {{ '' if item.done else 'missing' }}"><div class="sp-check-icon">{{ '✓' if item.done else '!' }}</div><div>{{ item.label }}</div></div>{% endfor %}{% else %}<div class="sp-check-item missing"><div class="sp-check-icon">!</div><div>Checklist not available.</div></div>{% endif %}</div></div></div>
+        <div class="sp-card"><div class="sp-section-head"><h2 class="sp-section-title">Store Admin Data Completion</h2><p class="sp-section-sub">Checklist for complete internal store admin data.</p></div><div class="sp-completion"><div class="sp-progress-head"><div><div class="sp-progress-label">Completion</div><div class="sp-help">{{ completion.done|default(0) }} of {{ completion.total|default(0) }} items completed</div></div><div class="sp-progress-value">{{ completion.percent|default(0) }}%</div></div><div class="sp-progress-track"><div class="sp-progress-fill"></div></div><div class="sp-checklist">{% if checklist %}{% for item in checklist %}<div class="sp-check-item {{ '' if item.done else 'missing' }}"><div class="sp-check-icon">{{ '✓' if item.done else '!' }}</div><div>{{ item.label }}</div></div>{% endfor %}{% else %}<div class="sp-check-item missing"><div class="sp-check-icon">!</div><div>Checklist not available.</div></div>{% endif %}</div></div></div>
       </aside>
     </section>
   </div></div>
@@ -1287,7 +1287,7 @@ function updateZoneState(){
   if (!zoneStatus) return;
 
   if (count >= 3) {
-    zoneStatus.textContent = `Delivery zone ready with ${count} points. Click Finish Zone to enable delivery.`;
+    zoneStatus.textContent = `Delivery zone ready with ${count} points. Click Mark Area Ready to enable delivery.`;
     zoneStatus.classList.remove('bad');
     zoneStatus.classList.add('ok');
   } else if (count > 0) {
@@ -1295,7 +1295,7 @@ function updateZoneState(){
     zoneStatus.classList.remove('ok');
     zoneStatus.classList.add('bad');
   } else {
-    zoneStatus.textContent = 'Delivery zone not configured. Click at least 3 points on the map.';
+    zoneStatus.textContent = 'Delivery service area not configured. Click at least 3 points on the map.';
     zoneStatus.classList.remove('ok');
     zoneStatus.classList.add('bad');
   }
@@ -1742,9 +1742,9 @@ openConfirm();
     <div class="sp-confirm-head">
       <div class="sp-confirm-icon">✓</div>
       <div>
-        <h3 class="sp-confirm-title" id="spConfirmTitle">Save store profile?</h3>
+        <h3 class="sp-confirm-title" id="spConfirmTitle">Save store admin profile?</h3>
         <p class="sp-confirm-message">
-          This will update your store identity, owner contact, location, operating details and logo if selected.
+          This will update internal store admin identity, owner contact, pickup location, delivery area and operation details.
         </p>
       </div>
     </div>
@@ -1752,13 +1752,13 @@ openConfirm();
     <div class="sp-confirm-body">
       <div class="sp-confirm-note">
         <span>ℹ️</span>
-        <span>Please confirm only after checking the updated profile details.</span>
+        <span>Please confirm only after checking the updated store admin details.</span>
       </div>
     </div>
 
     <div class="sp-confirm-actions">
       <button type="button" class="sp-confirm-cancel" id="spConfirmCancel">Cancel</button>
-      <button type="button" class="sp-confirm-ok" id="spConfirmOk">Save Profile</button>
+      <button type="button" class="sp-confirm-ok" id="spConfirmOk">Save Store Admin Profile</button>
     </div>
   </div>
 </div>

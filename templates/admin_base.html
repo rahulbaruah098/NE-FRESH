@@ -1366,10 +1366,10 @@
           </div>
           <div class="nf-submenu">
             <span class="nf-submenu-heading">Store accounts</span>
-            <a href="{{ url_for('admin_store_overview') }}" class="{% if active_page == 'store_overview' %}active{% endif %}">Store Overview & KPIs</a>
-            <a href="{{ url_for('admin_create_store') }}" class="{% if active_page == 'add_store' %}active{% endif %}">Create New Store</a>
-            <a href="{{ url_for('admin_store_list') }}" class="{% if active_page == 'store_list' %}active{% endif %}">All Store List</a>
-            <a href="{{ url_for('admin_store_reviews') }}" class="{% if active_page == 'store_reviews' %}active{% endif %}">Store Reviews</a>
+            <a href="{{ url_for('admin_store_overview') }}" class="{% if active_page == 'store_overview' %}active{% endif %}">Admin Store Overview & KPIs</a>
+            <a href="{{ url_for('admin_create_store') }}" class="{% if active_page == 'add_store' %}active{% endif %}">Create Store Admin Profile</a>
+            <a href="{{ url_for('admin_store_list') }}" class="{% if active_page == 'store_list' %}active{% endif %}">All Store Admin Profiles</a>
+            <a href="{{ url_for('admin_store_reviews') }}" class="{% if active_page == 'store_reviews' %}active{% endif %}">Store Review Records</a>
           </div>
         </div>
 
@@ -1387,8 +1387,10 @@
           </div>
           <div class="nf-submenu">
             <a href="{{ url_for('admin_users') }}" class="{% if active_page == 'users_overview' %}active{% endif %}">All Admin/Staff Users</a>
-            <a href="{{ url_for('admin_store_users') }}" class="{% if active_page == 'store_users' %}active{% endif %}">Store Login Accounts</a>
-            <a href="{{ url_for('admin_delivery_users') }}" class="{% if active_page == 'delivery_users' %}active{% endif %}">In-house Delivery Boy Accounts</a>
+            <a href="{{ url_for('admin_store_users') }}" class="{% if active_page == 'store_users' %}active{% endif %}">Store Admin Login Accounts</a>
+            {% if in_house_delivery_enabled %}
+              <a href="{{ url_for('admin_delivery_users') }}" class="{% if active_page == 'delivery_users' %}active{% endif %}">In-house Delivery Staff Accounts</a>
+            {% endif %}
             <a href="{{ url_for('admin_customers') }}" class="{% if active_page == 'customers' %}active{% endif %}">Customer Accounts</a>
           </div>
         </div>
@@ -1397,7 +1399,7 @@
 
         <div class="nf-dropdown {% if active_group == 'delivery' %}open{% endif %}" data-menu-item>
           <div class="nf-dropdown-row">
-            <a href="{{ url_for('admin_delivery_overview') }}" class="nf-menu-parent {% if active_group == 'delivery' %}active{% endif %}">
+            <a href="{% if in_house_delivery_enabled %}{{ url_for('admin_delivery_overview') }}{% else %}{{ url_for('admin_delivery_mode_settings') }}{% endif %}" class="nf-menu-parent {% if active_group == 'delivery' %}active{% endif %}">
               <span class="nf-menu-icon">🚚</span>
               <span class="nf-menu-label">Delivery Setup & Operations</span>
             </a>
@@ -1409,16 +1411,17 @@
             <span class="nf-submenu-heading">Mode selection</span>
             <a href="{{ url_for('admin_delivery_mode_settings') }}" class="{% if active_page == 'delivery_mode_settings' %}active{% endif %}">Delivery Routing & Channel Availability</a>
 
-            <span class="nf-submenu-heading">In-house delivery-boy system</span>
-            <a href="{{ url_for('admin_delivery_fee_settings') }}" class="{% if active_page == 'delivery_fee_settings' %}active{% endif %}">In-house Delivery Fee Rules</a>
             {% if in_house_delivery_enabled %}
+              <span class="nf-submenu-heading">In-house delivery system</span>
+              <a href="{{ url_for('admin_delivery_fee_settings') }}" class="{% if active_page == 'delivery_fee_settings' %}active{% endif %}">In-house Delivery Fee Rules</a>
               <a href="{{ url_for('admin_delivery_overview') }}" class="{% if active_page == 'delivery_overview' %}active{% endif %}">In-house Delivery Overview</a>
-              <a href="{{ url_for('admin_create_delivery') }}" class="{% if active_page == 'create_delivery_person' %}active{% endif %}">Create Delivery Boy</a>
-              <a href="{{ url_for('admin_delivery_list') }}" class="{% if active_page == 'delivery_list' %}active{% endif %}">Delivery Boy List</a>
-              <a href="{{ url_for('admin_delivery_history') }}" class="{% if active_page == 'delivery_history' %}active{% endif %}">Delivery Boy Order History</a>
-              <a href="{{ url_for('admin_delivery_reviews') }}" class="{% if active_page == 'delivery_reviews' %}active{% endif %}">Delivery Boy Reviews</a>
+              <a href="{{ url_for('admin_create_delivery') }}" class="{% if active_page == 'create_delivery_person' %}active{% endif %}">Create In-house Delivery Staff</a>
+              <a href="{{ url_for('admin_delivery_list') }}" class="{% if active_page == 'delivery_list' %}active{% endif %}">In-house Delivery Staff List</a>
+              <a href="{{ url_for('admin_delivery_history') }}" class="{% if active_page == 'delivery_history' %}active{% endif %}">In-house Delivery Order History</a>
+              <a href="{{ url_for('admin_delivery_reviews') }}" class="{% if active_page == 'delivery_reviews' %}active{% endif %}">In-house Delivery Review Records</a>
             {% else %}
-              <span class="nf-submenu-heading">In-house is currently disabled</span>
+              <span class="nf-submenu-heading">In-house delivery hidden</span>
+              <a href="{{ url_for('admin_delivery_mode_settings') }}" class="{% if active_page == 'delivery_mode_settings' %}active{% endif %}">Enable / manage in-house delivery</a>
             {% endif %}
 
             <span class="nf-submenu-heading">External local + Shiprocket</span>
@@ -1459,7 +1462,7 @@
             <a href="{{ url_for('admin_platform_fee_settings') }}" class="{% if active_page == 'platform_fee_settings' %}active{% endif %}">Platform Fee Rules</a>
 
             <span class="nf-submenu-heading">Admin settlement work</span>
-            <a href="{{ url_for('admin_settlements') }}" class="{% if active_page == 'settlements' %}active{% endif %}">Store Payouts & In-house Delivery Collection</a>
+            <a href="{{ url_for('admin_settlements') }}" class="{% if active_page == 'settlements' %}active{% endif %}">Store Payouts & In-house Delivery Collections</a>
             <a href="{{ url_for('admin_platform_earnings') }}" class="{% if active_page == 'platform_earnings' %}active{% endif %}">Platform Fee Earnings Report</a>
             <a href="{{ url_for('admin_settlement_audit_logs') }}" class="{% if active_page == 'settlement_audit_logs' %}active{% endif %}">Settlement Audit Trail</a>
 
@@ -1476,7 +1479,7 @@
 
         <a href="{{ url_for('admin_notifications') }}" class="nf-menu-link {% if active_page == 'notifications' %}active{% endif %}" data-menu-item>
           <span class="nf-menu-icon">🔔</span>
-          <span class="nf-menu-label">Homepage Notification Banner</span>
+          <span class="nf-menu-label">Homepage Notification Banner Control</span>
         </a>
 
         <a href="{{ url_for('admin_exports') }}" class="nf-menu-link {% if active_page == 'exports' %}active{% endif %}" data-menu-item>

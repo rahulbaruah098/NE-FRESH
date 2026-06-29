@@ -1,9 +1,9 @@
 {% extends "store_base.html" %}
 {% set active_page = "dashboard" %}
 
-{% block title %}Store Dashboard | NE FRESH{% endblock %}
-{% block page_title %}Store Dashboard{% endblock %}
-{% block page_subtitle %}View store performance, orders, stock alerts and revenue at a glance.{% endblock %}
+{% block title %}Store Admin Dashboard | NE FRESH{% endblock %}
+{% block page_title %}Store Admin Dashboard{% endblock %}
+{% block page_subtitle %}View internal store operations, customer orders, stock alerts, delivery activity and payment summaries.{% endblock %}
 
 {% block content %}
 {% set products_total = products|length if products else 0 %}
@@ -313,7 +313,7 @@
       line-height:1.45;
     }
 
-    /* ===== Store Operation Quick Controls ===== */
+    /* ===== Store Operational Status Quick Controls ===== */
 .sd-live-control-grid{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -895,21 +895,21 @@
 
       <section class="sd-hero" id="store-summary">
         <div class="sd-hero-main">
-          <span class="sd-kicker">🏪 Store Control Center</span>
+          <span class="sd-kicker">🏪 Store Admin Control Center</span>
           <h1 class="sd-hero-title">{{ store.store_name }}</h1>
           <p class="sd-hero-copy">
-            Advanced store dashboard for live order monitoring, product availability, stock health,
-            delivery movement and revenue tracking. All figures are scoped only to this store.
+            Internal store admin dashboard for live order monitoring, product availability, stock health,
+            delivery movement and payment summaries. All figures are scoped only to this store.
           </p>
 
          <div class="sd-hero-actions">
-  <a class="sd-btn sd-btn-primary" href="{{ url_for('store_orders') }}">Open Orders</a>
+  <a class="sd-btn sd-btn-primary" href="{{ url_for('store_orders') }}">Manage Customer Orders</a>
   {% if delivery_mode_ui.is_external %}
-    <a class="sd-btn" href="{{ url_for('store_external_delivery') }}">External Delivery</a>
+    <a class="sd-btn" href="{{ url_for('store_external_delivery') }}">External/Courier Orders</a>
   {% else %}
-    <a class="sd-btn" href="{{ url_for('store_orders') }}#delivery-control">Delivery Control</a>
+    <a class="sd-btn" href="{{ url_for('store_orders') }}#delivery-control">Delivery Operation Status</a>
   {% endif %}
-  <a class="sd-btn" href="{{ url_for('store_products') }}">Manage Products</a>
+  <a class="sd-btn" href="{{ url_for('store_products') }}">Manage Product Records</a>
   <a class="sd-btn" href="{{ url_for('store_inventory') }}">Inventory</a>
 </div>
         </div>
@@ -920,12 +920,12 @@
       <section class="sd-card" id="store-live-controls">
         <div class="sd-section-head">
           <div>
-            <h2 class="sd-section-title">Store Live Controls</h2>
+            <h2 class="sd-section-title">Store Operation Controls</h2>
             <p class="sd-section-sub">
-              Quickly control whether the store accepts orders and whether delivery is currently available.
+              Control whether this store can accept orders and whether delivery service is currently available.
             </p>
           </div>
-          <a class="sd-view-link" href="{{ url_for('store_profile') }}">Open delivery settings</a>
+          <a class="sd-view-link" href="{{ url_for('store_profile') }}">Open Store Admin Profile</a>
         </div>
 
         <div class="sd-live-control-grid">
@@ -934,7 +934,7 @@
             <div class="sd-live-card-inner">
               <div class="sd-live-top">
                 <div>
-                  <div class="sd-live-title">Store Operation</div>
+                  <div class="sd-live-title">Store Operational Status</div>
                   
                 </div>
 
@@ -964,7 +964,7 @@
 
               <div class="sd-live-meta">
                 <div class="sd-live-meta-row">
-                  <span>Status meaning</span>
+                  <span>Operation meaning</span>
                   <strong>{{ 'Accepting orders' if store_online == 1 else 'Orders blocked' }}</strong>
                 </div>
               </div>
@@ -975,7 +975,7 @@
             <div class="sd-live-card-inner">
               <div class="sd-live-top">
                 <div>
-                  <div class="sd-live-title">Delivery Availability</div>
+                  <div class="sd-live-title">Delivery Service Availability</div>
                   
                 </div>
 
@@ -993,8 +993,8 @@
                     <strong>{{ delivery_mode_ui.provider_label }}</strong>
                   </div>
                   <div class="sd-live-meta-row">
-                    <span>Store action</span>
-                    <strong>Prepare order and mark ready for external pickup</strong>
+                    <span>Store-side action</span>
+                    <strong>Prepare order and mark ready for pickup/delivery handover</strong>
                   </div>
                 </div>
               {% else %}
@@ -1029,7 +1029,7 @@
             <div class="sd-live-card-inner">
               <div class="sd-live-top">
                 <div>
-                  <div class="sd-live-title">Delivery Setup Readiness</div>
+                  <div class="sd-live-title">Pickup & Delivery Area Readiness</div>
                   
                 </div>
 
@@ -1047,17 +1047,17 @@
                 </div>
 
                 <div class="sd-live-meta-row">
-                  <span>Delivery zone</span>
+                  <span>Delivery service area</span>
                   <strong>{{ 'Configured' if zone_ready == 1 else 'Missing' }}</strong>
                 </div>
 
                 <div class="sd-live-meta-row">
-                  <span>Base delivery fee</span>
-                  <strong>₹ {{ store.delivery_base_fee|default(40) }}</strong>
+                  <span>Delivery fee rule</span>
+                  <strong>Admin controlled</strong>
                 </div>
 
                 <a class="sd-live-link" href="{{ url_for('store_profile') }}">
-                  Configure location and zone →
+                  Configure pickup location and service area →
                 </a>
               </div>
             </div>
@@ -1069,8 +1069,8 @@
       <section class="sd-card" id="notifications">
         <div class="sd-section-head">
           <div>
-            <h2 class="sd-section-title">Quick Actions & Live Alerts</h2>
-            <p class="sd-section-sub">Keep order alerts active and jump directly to the most-used store actions.</p>
+            <h2 class="sd-section-title">Store Admin Shortcuts & Live Alerts</h2>
+            <p class="sd-section-sub">Keep order alerts active and jump directly to the most-used internal store admin actions.</p>
           </div>
           
         </div>
@@ -1082,15 +1082,15 @@
         <div class="sd-control-panel">
           <div class="sd-action-row" style="margin-top:0;">
             <button id="enableSound" class="sd-btn sd-btn-primary" type="button">🔔 Enable Order Notifications</button>
-            <a class="sd-btn" href="{{ url_for('store_add_product') }}">＋ Add Product</a>
-            <a class="sd-btn" href="{{ url_for('store_categories') }}">Categories</a>
-            <a class="sd-btn" href="{{ url_for('store_delivered_orders') }}">Delivered Orders</a>
+            <a class="sd-btn" href="{{ url_for('store_add_product') }}">＋ Add Product Record</a>
+            <a class="sd-btn" href="{{ url_for('store_categories') }}">Product Categories</a>
+            <a class="sd-btn" href="{{ url_for('store_delivered_orders') }}">Delivered Order Records</a>
           </div>
 
           <div class="sd-action-row" style="margin-top:0;">
-            <a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=day">Daily CSV</a>
-            <a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=week">Weekly CSV</a>
-            <a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=month">Monthly CSV</a>
+            <a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=day">Daily Order CSV</a>
+            <a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=week">Weekly Order CSV</a>
+            <a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=month">Monthly Order CSV</a>
           </div>
         </div>
 
@@ -1098,7 +1098,7 @@
       </section>
 
       <section class="sd-priority-grid" aria-label="Priority summary">
-        {% if failed_delivery_total > 0 %}
+        {% if in_house_delivery_enabled and failed_delivery_total > 0 %}
   <a class="sd-priority-card is-danger" href="{{ url_for('store_delivery') }}#failed-deliveries" style="text-decoration:none;color:inherit;">
     <div>
       <div class="sd-priority-label">Failed Delivery</div>
@@ -1119,7 +1119,7 @@
 
         <div class="sd-priority-card is-warning">
           <div>
-            <div class="sd-priority-label">Operational Queue</div>
+            <div class="sd-priority-label">Orders Needing Action</div>
             <div class="sd-priority-value is-orange">{{ pending_ops_total }}</div>
             
           </div>
@@ -1128,7 +1128,7 @@
 
         <div class="sd-priority-card is-danger">
           <div>
-            <div class="sd-priority-label">Stock Attention</div>
+            <div class="sd-priority-label">Stock Alerts</div>
             <div class="sd-priority-value is-red">{{ low_stock_total }}</div>
             <div class="sd-priority-meta">{{ ns.low_stock }} low stock, {{ ns.out_stock }} out of stock</div>
           </div>
@@ -1137,7 +1137,7 @@
 
         <div class="sd-priority-card">
           <div>
-            <div class="sd-priority-label">Delivered Revenue</div>
+            <div class="sd-priority-label">Paid Delivered Order Value</div>
             <div class="sd-priority-value">₹ {{ '%.2f'|format(earnings_total or 0) }}</div>
            
           </div>
@@ -1146,13 +1146,14 @@
       </section>
 
 
+{% if in_house_delivery_enabled %}
 <section class="sd-card" id="delivery-control">
   <div class="sd-section-head">
     <div>
-      <h2 class="sd-section-title">Delivery Operations</h2>
-      <p class="sd-section-sub">Store-controlled delivery assignment, pickup readiness and rider movement overview.</p>
+      <h2 class="sd-section-title">Delivery Operation Status</h2>
+      <p class="sd-section-sub">Internal view of delivery assignment, pickup readiness and rider movement.</p>
     </div>
-   <a class="sd-view-link" href="{{ url_for('store_delivery') }}">Open Delivery Control</a>
+   <a class="sd-view-link" href="{{ url_for('store_delivery') }}">Open Delivery Operations</a>
   </div>
 
   <div class="sd-status-wrap">
@@ -1160,7 +1161,7 @@
       <div class="sd-status-card">
         <div class="sd-status-left">
           <span class="sd-status-icon">📍</span>
-          <span class="sd-status-label">Ready for Pickup</span>
+          <span class="sd-status-label">Ready for Handover</span>
         </div>
         <strong class="sd-status-value is-green">{{ ns.ready }}</strong>
       </div>
@@ -1168,7 +1169,7 @@
       <div class="sd-status-card">
         <div class="sd-status-left">
           <span class="sd-status-icon">⚠️</span>
-          <span class="sd-status-label">Needs Rider</span>
+          <span class="sd-status-label">Needs Delivery Assignment</span>
         </div>
         <strong class="sd-status-value is-orange">{{ ns.unassigned_delivery }}</strong>
       </div>
@@ -1231,14 +1232,15 @@
     </div>
   </div>
 </section>
+{% endif %}
 
       <section class="sd-card">
         <div class="sd-section-head">
           <div>
-            <h2 class="sd-section-title">Order Pipeline</h2>
-           <p class="sd-section-sub">Complete store and delivery pipeline connected to real order data.</p>
+            <h2 class="sd-section-title">Customer Order Pipeline</h2>
+           <p class="sd-section-sub">Customer order and delivery pipeline connected to real order data.</p>
           </div>
-          <a class="sd-view-link" href="{{ url_for('store_orders') }}">Manage orders</a>
+          <a class="sd-view-link" href="{{ url_for('store_orders') }}">Manage customer orders</a>
         </div>
 
         <div class="sd-status-wrap">
@@ -1246,11 +1248,11 @@
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🕒</span><span class="sd-status-label">Placed</span></div><strong class="sd-status-value is-blue">{{ ns.placed }}</strong></div>
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">✅</span><span class="sd-status-label">Confirmed</span></div><strong class="sd-status-value is-green">{{ ns.confirmed }}</strong></div>
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🍳</span><span class="sd-status-label">Preparing</span></div><strong class="sd-status-value is-orange">{{ ns.preparing }}</strong></div>
-            <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">📍</span><span class="sd-status-label">Ready Pickup</span></div><strong class="sd-status-value is-green">{{ ns.ready }}</strong></div>
+            <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">📍</span><span class="sd-status-label">Ready Handover</span></div><strong class="sd-status-value is-green">{{ ns.ready }}</strong></div>
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🛵</span><span class="sd-status-label">Assigned</span></div><strong class="sd-status-value is-blue">{{ ns.assigned }}</strong></div>
 <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🏪</span><span class="sd-status-label">Reached Store</span></div><strong class="sd-status-value is-blue">{{ ns.reached_store }}</strong></div>
 <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">📦</span><span class="sd-status-label">Picked Up</span></div><strong class="sd-status-value is-blue">{{ ns.picked_up }}</strong></div>
-<div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🚚</span><span class="sd-status-label">Out Delivery</span></div><strong class="sd-status-value is-blue">{{ ns.out_for_delivery }}</strong></div>
+<div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🚚</span><span class="sd-status-label">Out for Delivery</span></div><strong class="sd-status-value is-blue">{{ ns.out_for_delivery }}</strong></div>
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">🏁</span><span class="sd-status-label">Delivered</span></div><strong class="sd-status-value is-green">{{ ns.delivered }}</strong></div>
             <div class="sd-status-card"><div class="sd-status-left"><span class="sd-status-icon">✖️</span><span class="sd-status-label">Cancelled</span></div><strong class="sd-status-value is-red">{{ ns.cancelled }}</strong></div>
           </div>
@@ -1261,8 +1263,8 @@
         <div class="sd-card" aria-label="Store performance">
           <div class="sd-section-head">
             <div>
-              <h2 class="sd-section-title">Store Performance</h2>
-              <p class="sd-section-sub">Real-time overview from product, order, customer and delivery data.</p>
+              <h2 class="sd-section-title">Store Operation Summary</h2>
+              <p class="sd-section-sub">Internal overview from product records, customer orders and delivery data.</p>
             </div>
           
           </div>
@@ -1271,7 +1273,7 @@
             <div class="sd-kpi-card">
               <div class="sd-kpi-icon">🛍️</div>
               <div>
-                <div class="sd-kpi-label">Products</div>
+                <div class="sd-kpi-label">Product Records</div>
                 <div class="sd-kpi-value">{{ products_total }}</div>
                 <div class="sd-kpi-sub">{{ ns.active_products }} active, {{ ns.inactive_products }} disabled</div>
               </div>
@@ -1298,25 +1300,27 @@
             <div class="sd-kpi-card">
               <div class="sd-kpi-icon">👥</div>
               <div>
-                <div class="sd-kpi-label">Customers</div>
+                <div class="sd-kpi-label">Ordering Customers</div>
                 <div class="sd-kpi-value">{{ unique_customers_total }}</div>
-                <div class="sd-kpi-sub">Unique customers from orders</div>
+                <div class="sd-kpi-sub">Unique customers from store orders</div>
               </div>
             </div>
 
+          {% if in_house_delivery_enabled %}
           <div class="sd-kpi-card">
   <div class="sd-kpi-icon">🚚</div>
   <div>
     <div class="sd-kpi-label">Delivery In Progress</div>
     <div class="sd-kpi-value">{{ delivery_in_progress_total }}</div>
-    <div class="sd-kpi-sub">{{ rider_available_total }} online/active delivery boys</div>
+    <div class="sd-kpi-sub">{{ rider_available_total }} online/active delivery staff</div>
   </div>
 </div>
+          {% endif %}
 
             <div class="sd-kpi-card">
               <div class="sd-kpi-icon">₹</div>
               <div>
-                <div class="sd-kpi-label">Delivered GMV</div>
+                <div class="sd-kpi-label">Delivered Order GMV</div>
                 <div class="sd-kpi-value">₹ {{ '%.2f'|format(gmv_total or 0) }}</div>
                 <div class="sd-kpi-sub">Cancelled orders excluded</div>
               </div>
@@ -1327,17 +1331,17 @@
         <div class="sd-card">
           <div class="sd-section-head">
             <div>
-              <h2 class="sd-section-title">Finance Details</h2>
-              <p class="sd-section-sub">Revenue and payment figures from store orders.</p>
+              <h2 class="sd-section-title">Store Order Payment Summary</h2>
+              <p class="sd-section-sub">Order value and payment figures from store orders.</p>
             </div>
             <a class="sd-view-link" href="{{ url_for('store_txn_csv') }}?range=month">Export</a>
           </div>
 
           <div class="sd-compact-stats">
-            <div class="sd-stat-row"><span>Delivered Revenue</span><strong>₹ {{ '%.2f'|format(earnings_total or 0) }}</strong></div>
-            <div class="sd-stat-row"><span>Delivered GMV</span><strong>₹ {{ '%.2f'|format(gmv_total or 0) }}</strong></div>
+            <div class="sd-stat-row"><span>Paid Delivered Order Value</span><strong>₹ {{ '%.2f'|format(earnings_total or 0) }}</strong></div>
+            <div class="sd-stat-row"><span>Delivered Order GMV</span><strong>₹ {{ '%.2f'|format(gmv_total or 0) }}</strong></div>
             <div class="sd-stat-row"><span>Paid Transactions</span><strong>{{ txn_count_total }}</strong></div>
-            <div class="sd-stat-row"><span>Delivered Orders</span><strong>{{ delivered_orders_total }}</strong></div>
+            <div class="sd-stat-row"><span>Delivered Order Records</span><strong>{{ delivered_orders_total }}</strong></div>
             <div class="sd-stat-row"><span>Cancelled Orders</span><strong>{{ ns.cancelled }}</strong></div>
             <div class="sd-stat-row"><span>Pending Payment</span><strong>{{ ns.pending_payment }}</strong></div>
           </div>
@@ -1350,7 +1354,7 @@
         <div class="sd-card sd-chart-card">
           <div class="sd-chart-head">
             <div>
-              <h2 class="sd-section-title">Order & Revenue Analytics</h2>
+              <h2 class="sd-section-title">Order & Payment Analytics</h2>
               <p class="sd-section-sub">A quick graph of order volume, active orders, delivered orders and cancelled orders.</p>
             </div>
             <a class="sd-view-link" href="{{ url_for('store_txn_csv') }}?range=month">Export</a>
@@ -1364,7 +1368,7 @@
               <div class="sd-bar-item">
                 <span class="sd-bar-value">{{ orders_total }}</span>
                 <div class="sd-bar-slot"><div class="sd-bar" style="height:{{ 100 if orders_total > 0 else 4 }}%;"></div></div>
-                <span class="sd-bar-label">All Orders</span>
+                <span class="sd-bar-label">Total Orders</span>
               </div>
 
               <div class="sd-bar-item">
@@ -1391,10 +1395,10 @@
         <div class="sd-card sd-chart-card">
           <div class="sd-chart-head">
             <div>
-              <h2 class="sd-section-title">Product Health</h2>
-              <p class="sd-section-sub">Active product ratio and products requiring stock attention.</p>
+              <h2 class="sd-section-title">Product Record Health</h2>
+              <p class="sd-section-sub">Active product-record ratio and products requiring stock attention.</p>
             </div>
-            <a class="sd-view-link" href="{{ url_for('store_inventory') }}">Open stock</a>
+            <a class="sd-view-link" href="{{ url_for('store_inventory') }}">Open Inventory</a>
           </div>
 
           <div class="sd-money">{{ '%.0f'|format(active_product_percent) }}%</div>
@@ -1405,7 +1409,7 @@
               <div class="sd-bar-item">
                 <span class="sd-bar-value">{{ products_total }}</span>
                 <div class="sd-bar-slot"><div class="sd-bar" style="height:{{ 100 if products_total > 0 else 4 }}%;"></div></div>
-                <span class="sd-bar-label">Products</span>
+                <span class="sd-bar-label">Product Records</span>
               </div>
 
               <div class="sd-bar-item">
@@ -1435,7 +1439,7 @@
           <div class="sd-section-head">
             <div>
               <h2 class="sd-section-title">Low Stock Alerts</h2>
-              <p class="sd-section-sub">Products that need immediate attention.</p>
+              <p class="sd-section-sub">Product Records that need immediate attention.</p>
             </div>
             <a class="sd-view-link" href="{{ url_for('store_inventory') }}">View stock</a>
           </div>
@@ -1503,8 +1507,8 @@
         <div class="sd-card sd-list-card">
           <div class="sd-section-head">
             <div>
-              <h2 class="sd-section-title">Categories</h2>
-              <p class="sd-section-sub">Active categories shown in Add Product.</p>
+              <h2 class="sd-section-title">Product Categories</h2>
+              <p class="sd-section-sub">Active categories available while adding product records.</p>
             </div>
             <a class="sd-view-link" href="{{ url_for('store_categories') }}">Manage</a>
           </div>
@@ -1545,10 +1549,10 @@
       <section class="sd-card">
         <div class="sd-section-head">
           <div>
-            <h2 class="sd-section-title">Actionable Order Snapshot</h2>
-            <p class="sd-section-sub">Orders that need action first. Delivered and cancelled orders are excluded here.</p>
+            <h2 class="sd-section-title">Orders Needing Store Action</h2>
+            <p class="sd-section-sub">Orders needing store action first. Delivered and cancelled orders are excluded here.</p>
           </div>
-          <a class="sd-view-link" href="{{ url_for('store_orders') }}">Open full order page</a>
+          <a class="sd-view-link" href="{{ url_for('store_orders') }}">Open full order management page</a>
         </div>
 
         <div class="sd-table-wrap">

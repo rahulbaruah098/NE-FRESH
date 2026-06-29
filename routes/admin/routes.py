@@ -7,11 +7,13 @@ Only the file location changed.
 from app_core import *
 
 ADMIN_IN_HOUSE_DELIVERY_ENDPOINTS = {
+    "admin_delivery_fee_settings",
     "admin_delivery_overview",
     "admin_delivery_history",
     "admin_create_delivery",
     "admin_delivery_list",
     "admin_delivery_reviews",
+    "admin_delivery_users",
     "admin_delivery_export_csv",
     "admin_delivery_reviews_export_csv",
     "admin_store_delivery_toggle",
@@ -35,8 +37,15 @@ def _block_admin_delivery_and_return_pages_when_disabled():
         if is_delivery_feature_enabled("in_house_delivery_enabled", True):
             return None
 
-        flash("In-house delivery-boy system is currently disabled.", "warning")
+        flash("In-house delivery system is currently disabled and hidden by Admin.", "warning")
         return redirect(url_for("admin_delivery_mode_settings"))
+
+    if endpoint == "admin_users_export_csv" and (request.args.get("role") or "").strip().lower() == "delivery":
+        if is_delivery_feature_enabled("in_house_delivery_enabled", True):
+            return None
+
+        flash("In-house delivery account export is currently disabled and hidden by Admin.", "warning")
+        return redirect(url_for("admin_users_overview"))
 
     if endpoint == "admin_settlement_rider_cash_received":
         if is_delivery_feature_enabled("cod_rider_collection_enabled", True):
@@ -97,6 +106,120 @@ def _admin_money_or_default(value, default=0):
         return float(default)
 
 
+
+
+
+def _admin_redirect_back(default_endpoint="admin_dashboard"):
+    referrer = request.referrer or ""
+    try:
+        if referrer and referrer.startswith(request.host_url):
+            return redirect(referrer)
+    except Exception:
+        pass
+    return redirect(url_for(default_endpoint))
+
+
+def _admin_save_in_house_delivery_operation(enable_in_house):
+    """
+    One-click Admin control for showing/hiding the in-house delivery system.
+    It reuses the existing delivery mode settings so checkout and protected
+    delivery pages stay consistent with what Admin sees in the UI.
+    """
+    existing_settings = get_delivery_mode_settings()
+    admin_user = current_user() or {}
+
+    allow_online_payment = bool(existing_settings.get("allow_online_payment", True))
+    allow_pay_online_on_delivery = bool(existing_settings.get("allow_cod_payment", False))
+
+    if not allow_online_payment and not allow_pay_online_on_delivery:
+        allow_online_payment = True
+
+    if allow_online_payment and allow_pay_online_on_delivery:
+        delivery_payment_methods = DELIVERY_PAYMENT_ONLINE_AND_COD
+    elif allow_pay_online_on_delivery:
+        delivery_payment_methods = DELIVERY_PAYMENT_COD_ONLY
+    else:
+        delivery_payment_methods = DELIVERY_PAYMENT_ONLINE_ONLY
+
+    if enable_in_house:
+        operation_mode = DELIVERY_OPERATION_IN_HOUSE_ONLY
+        routing_mode = DELIVERY_ROUTING_MODE_MANUAL
+        active_delivery_mode = DELIVERY_MODE_IN_HOUSE
+        in_house_enabled = True
+        external_local_enabled = False
+        third_party_enabled = False
+    else:
+        operation_mode = DELIVERY_OPERATION_EXTERNAL_CONNECTED
+        routing_mode = DELIVERY_ROUTING_MODE_AUTO
+        active_delivery_mode = DELIVERY_MODE_EXTERNAL_LOCAL
+        in_house_enabled = False
+        external_local_enabled = True
+        third_party_enabled = bool(existing_settings.get("third_party_shipping_enabled", True))
+
+    cod_collection_method = (
+        COD_COLLECTION_DELIVERY_BOY
+        if in_house_enabled and allow_pay_online_on_delivery
+        else (COD_COLLECTION_STORE if allow_pay_online_on_delivery else "")
+    )
+
+    external_payment_rule = external_payment_rule_from_methods(
+        DELIVERY_MODE_EXTERNAL_LOCAL,
+        allow_pay_online_on_delivery,
+        COD_COLLECTION_STORE if allow_pay_online_on_delivery else "",
+    )
+
+    now = datetime.utcnow().isoformat()
+    update_data = {
+        "key": DELIVERY_MODE_SETTINGS_KEY,
+        "delivery_operation_mode": operation_mode,
+        "delivery_routing_mode": routing_mode,
+        "active_delivery_mode": active_delivery_mode,
+        "in_house_delivery_enabled": bool(in_house_enabled),
+        "external_local_delivery_enabled": bool(external_local_enabled),
+        "third_party_shipping_enabled": bool(third_party_enabled),
+        "external_delivery_enabled": bool(external_local_enabled or third_party_enabled),
+        "shiprocket_shipping_enabled": bool(third_party_enabled),
+        "delivery_boy_panel_enabled": bool(in_house_enabled),
+        "delivery_assignment_enabled": bool(in_house_enabled),
+        "delivery_tracking_enabled": bool(in_house_enabled),
+        "cod_rider_collection_enabled": bool(in_house_enabled),
+        "return_refund_enabled": bool(existing_settings.get("return_refund_enabled", True)),
+        "delivery_payment_methods": delivery_payment_methods,
+        "allow_online_payment": bool(allow_online_payment),
+        "allow_cod_payment": bool(allow_pay_online_on_delivery),
+        "cod_collection_method": cod_collection_method,
+        "external_payment_rule": external_payment_rule,
+        "external_local_provider": "LOCAL_DELIVERY_PARTNER",
+        "third_party_provider": "SHIPROCKET",
+        "updated_at": now,
+        "updated_by": str(admin_user.get("_id") or admin_user.get("id") or ""),
+        "updated_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+    }
+
+    mongo.platform_settings.update_one(
+        {"key": DELIVERY_MODE_SETTINGS_KEY},
+        {
+            "$set": update_data,
+            "$setOnInsert": {"created_at": now},
+        },
+        upsert=True,
+    )
+
+
+@app.route("/admin/in-house-delivery/disable", methods=["POST"], endpoint="admin_disable_in_house_delivery_quick")
+@login_required(role="admin")
+def admin_disable_in_house_delivery_quick():
+    _admin_save_in_house_delivery_operation(False)
+    flash("In-house delivery has been disabled. Related Admin and Store pages are now hidden.", "success")
+    return _admin_redirect_back("admin_dashboard")
+
+
+@app.route("/admin/in-house-delivery/enable", methods=["POST"], endpoint="admin_enable_in_house_delivery_quick")
+@login_required(role="admin")
+def admin_enable_in_house_delivery_quick():
+    _admin_save_in_house_delivery_operation(True)
+    flash("In-house delivery has been enabled. Related Admin and Store pages are now visible again.", "success")
+    return _admin_redirect_back("admin_dashboard")
 
 def _admin_settlement_money(value, default=0.0):
     try:
@@ -4027,7 +4150,7 @@ def admin_dashboard():
         {"label": "Manage Users", "endpoint": "admin_users"},
         {"label": "Customer Refund Processing", "endpoint": "admin_refund_processing"},
         {"label": "Return / Refund Settlement Impact", "endpoint": "admin_returns_settlements"},
-        {"label": "Store Payouts & In-house Collection", "endpoint": "admin_settlements"},
+        {"label": "Store Payouts & Collection", "endpoint": "admin_settlements"},
         {"label": "Customer Complaints", "endpoint": "admin_complaints"},
         {"label": "Create Store", "endpoint": "admin_create_store"},
     ]
@@ -4040,7 +4163,7 @@ def admin_dashboard():
         ])
     else:
         quick_links.extend([
-            {"label": "Create In-house Delivery Boy", "endpoint": "admin_create_delivery"},
+            {"label": "Create In-house Delivery Staff", "endpoint": "admin_create_delivery"},
             {"label": "In-house Delivery Overview", "endpoint": "admin_delivery_overview"},
             {"label": "Delivery Routing & Channel Availability", "endpoint": "admin_delivery_mode_settings"},
         ])

@@ -2,7 +2,7 @@
 {% set active_page = "dashboard" %}
 
 {% block title %}Admin Dashboard | NE FRESH{% endblock %}
-{% block page_title %}Grocery Dashboard{% endblock %}
+{% block page_title %}NE FRESH Admin Operations Dashboard{% endblock %}
 
 
 {% block content %}
@@ -1065,6 +1065,77 @@
   .nf-grocery-dashboard .gd-mode-actions a{width:100%;}
 }
 
+
+/* In-house delivery visibility quick control */
+.nf-grocery-dashboard .gd-inhouse-control{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:18px;
+  margin:0 0 20px;
+  border:1px solid rgba(0,168,89,.18);
+  border-radius:22px;
+  background:linear-gradient(135deg,#fff,#F3FFF8);
+  box-shadow:0 14px 36px rgba(17,64,38,.07);
+}
+.nf-grocery-dashboard .gd-inhouse-control h3{
+  margin:0;
+  color:var(--ink,#26364B);
+  font-size:1rem;
+  font-weight:950;
+  letter-spacing:-.025em;
+}
+.nf-grocery-dashboard .gd-inhouse-control p{
+  margin:5px 0 0;
+  color:var(--muted,#66756D);
+  font-size:.84rem;
+  line-height:1.5;
+  font-weight:700;
+}
+.nf-grocery-dashboard .gd-inhouse-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.nf-grocery-dashboard .gd-inhouse-btn{
+  min-height:42px;
+  border:0;
+  border-radius:14px;
+  padding:0 15px;
+  background:#00A859;
+  color:#fff;
+  font-size:.82rem;
+  font-weight:950;
+  cursor:pointer;
+  box-shadow:0 12px 24px rgba(0,168,89,.18);
+}
+.nf-grocery-dashboard .gd-inhouse-btn.is-disable{
+  background:#B91C1C;
+  box-shadow:0 12px 24px rgba(185,28,28,.14);
+}
+.nf-grocery-dashboard .gd-inhouse-link{
+  min-height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:14px;
+  border:1px solid rgba(0,168,89,.20);
+  padding:0 14px;
+  background:#fff;
+  color:#008A48;
+  text-decoration:none;
+  font-size:.82rem;
+  font-weight:950;
+}
+@media(max-width:760px){
+  .nf-grocery-dashboard .gd-inhouse-control{display:grid;}
+  .nf-grocery-dashboard .gd-inhouse-actions{display:grid;grid-template-columns:1fr;}
+  .nf-grocery-dashboard .gd-inhouse-btn,
+  .nf-grocery-dashboard .gd-inhouse-link{width:100%;}
+}
+
 </style>
 
   <div class="gd-shell">
@@ -1072,7 +1143,7 @@
       <div class="gd-title-row">
         <div class="gd-title-icon">🥦</div>
         <div>
-          <h1 class="gd-title">Grocery Dashboard.</h1>
+          <h1 class="gd-title">NE FRESH admin operations dashboard.</h1>
          
         </div>
       </div>
@@ -1082,8 +1153,31 @@
       </select>
     </div>
 
-    <div class="gd-grid">
-      <section class="gd-panel gd-summary-panel">
+    <section class="gd-inhouse-control" aria-label="In-house delivery visibility control">
+      <div>
+        <h3>In-house Delivery Pages</h3>
+        {% if in_house_delivery_enabled %}
+          <p>Currently enabled. Admin and Store in-house delivery pages are visible.</p>
+        {% else %}
+          <p>Currently disabled. Admin and Store in-house delivery pages are hidden to keep panels simple.</p>
+        {% endif %}
+      </div>
+      <div class="gd-inhouse-actions">
+        {% if in_house_delivery_enabled %}
+          <form method="post" action="{{ url_for('admin_disable_in_house_delivery_quick') }}">
+            <button class="gd-inhouse-btn is-disable" type="submit">Disable & Hide In-house Delivery Pages</button>
+          </form>
+        {% else %}
+          <form method="post" action="{{ url_for('admin_enable_in_house_delivery_quick') }}">
+            <button class="gd-inhouse-btn" type="submit">Enable & Show In-house Delivery Pages</button>
+          </form>
+        {% endif %}
+        <a class="gd-inhouse-link" href="{{ url_for('admin_delivery_mode_settings') }}">Advanced Delivery Settings</a>
+      </div>
+    </section>
+
+
+    <div class="gd-grid">      <section class="gd-panel gd-summary-panel">
         <div class="gd-filter-row">
           <div class="gd-filter-tabs" aria-label="Date filters">
             <button type="button">This Year</button>
@@ -1095,7 +1189,7 @@
        <div class="gd-kpi-grid">
           <div class="gd-kpi-card">
             <div class="gd-kpi-icon">🛍️</div>
-            <div class="gd-kpi-label">Items</div>
+            <div class="gd-kpi-label">Product Records</div>
             <div class="gd-kpi-value">{{ products_total }}</div>
             <div class="gd-kpi-sub">0 Newly added</div>
           </div>
@@ -1109,7 +1203,7 @@
 
           <div class="gd-kpi-card">
             <div class="gd-kpi-icon">🏪</div>
-            <div class="gd-kpi-label">Grocery Stores</div>
+            <div class="gd-kpi-label">Store Admin Profiles</div>
             <div class="gd-kpi-value">{{ stores_total }}</div>
             <div class="gd-kpi-sub">0 Newly added</div>
           </div>
@@ -1123,41 +1217,43 @@
 
           <div class="gd-kpi-card">
             <div class="gd-kpi-icon">💰</div>
-            <div class="gd-kpi-label">Total Earnings</div>
+            <div class="gd-kpi-label">Gross Order Value</div>
             <div class="gd-kpi-value">₹ {{ '%.2f'|format(earnings_total or 0) }}</div>
-            <div class="gd-kpi-sub">Paid transactions / delivered GMV</div>
+            <div class="gd-kpi-sub">Paid transactions and delivered order value</div>
           </div>
 
                     <div class="gd-kpi-card gd-refund-card success">
             <div class="gd-kpi-icon">💳</div>
-            <div class="gd-kpi-label">Online Payment Received</div>
+            <div class="gd-kpi-label">Online Payment Collections</div>
             <div class="gd-kpi-value">₹ {{ '%.2f'|format(online_payment_received_amount|float) }}</div>
             <div class="gd-kpi-sub">{{ online_payment_received_count }} online paid orders</div>
             <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Settlements</a>
           </div>
 
+          {% if in_house_delivery_enabled %}
           <div class="gd-kpi-card gd-refund-card warning">
             <div class="gd-kpi-icon">🧾</div>
-            <div class="gd-kpi-label">COD Rider Cash Pending</div>
+            <div class="gd-kpi-label">In-house COD Collection Pending</div>
             <div class="gd-kpi-value">₹ {{ '%.2f'|format(cod_rider_cash_pending_amount|float) }}</div>
             <div class="gd-kpi-sub">{{ cod_rider_cash_pending_count }} rider cash settlements pending</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Collect Cash</a>
+            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Open Collection</a>
           </div>
+          {% endif %}
 
           <div class="gd-kpi-card gd-refund-card success">
             <div class="gd-kpi-icon">📈</div>
-            <div class="gd-kpi-label">Platform Fee Received</div>
+            <div class="gd-kpi-label">Platform Fee Collections</div>
             <div class="gd-kpi-value">₹ {{ '%.2f'|format(platform_fee_received_amount|float) }}</div>
-            <div class="gd-kpi-sub">Received from online payment / settled COD</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_platform_earnings') }}">View Earnings</a>
+            <div class="gd-kpi-sub">Received from online payment and settled pay-on-delivery orders</div>
+            <a class="gd-refund-action" href="{{ url_for('admin_platform_earnings') }}">View Platform Earnings</a>
           </div>
 
           <div class="gd-kpi-card gd-refund-card warning">
             <div class="gd-kpi-icon">🏪</div>
-            <div class="gd-kpi-label">Store Payout Pending</div>
+            <div class="gd-kpi-label">Store Payouts Pending</div>
             <div class="gd-kpi-value">₹ {{ '%.2f'|format(store_payout_pending_amount|float) }}</div>
             <div class="gd-kpi-sub">{{ store_payout_pending_count }} store payouts pending</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Pay Stores</a>
+            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Open Store Payouts</a>
           </div>
 
                     <div class="gd-kpi-card gd-refund-card warning">
@@ -1170,9 +1266,9 @@
 
           <div class="gd-kpi-card gd-refund-card">
             <div class="gd-kpi-icon">🧾</div>
-            <div class="gd-kpi-label">Admin Review Needed</div>
+            <div class="gd-kpi-label">Admin Review Required</div>
             <div class="gd-kpi-value">{{ admin_review_needed_total }}</div>
-            <div class="gd-kpi-sub">Returns waiting for Admin decision</div>
+            <div class="gd-kpi-sub">Returns/refunds waiting for admin decision</div>
             <a class="gd-refund-action" href="{{ url_for('admin_refund_processing') }}">Review Now</a>
           </div>
 
@@ -1186,7 +1282,7 @@
 
           <div class="gd-kpi-card gd-refund-card warning">
             <div class="gd-kpi-icon">🏪</div>
-            <div class="gd-kpi-label">Store Deduction</div>
+            <div class="gd-kpi-label">Store Refund Deduction</div>
             <div class="gd-kpi-value">₹ {{ '%.2f'|format(store_refund_deduction_amount|float) }}</div>
             <div class="gd-kpi-sub">Deducted from store payout</div>
             <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Settlements</a>
@@ -1200,12 +1296,14 @@
             <a class="gd-refund-action" href="{{ url_for('admin_returns_settlements') }}">View Impact</a>
           </div>
 
+          {% if in_house_delivery_enabled %}
           <div class="gd-kpi-card">
             <div class="gd-kpi-icon">🚚</div>
-            <div class="gd-kpi-label">Delivery Persons</div>
+            <div class="gd-kpi-label">In-house Delivery Accounts</div>
             <div class="gd-kpi-value">{{ delivery_people_total }}</div>
             <div class="gd-kpi-sub">{{ active_delivery_people_total }} Active</div>
           </div>
+          {% endif %}
         </div>
 
       </section>
@@ -1215,7 +1313,7 @@
           <div class="gd-chart-head">
             <div>
               <div class="gd-money">₹ {{ '%.2f'|format(gmv_total or 0) }}</div>
-              <div class="gd-small-muted">Gross Sale</div>
+              <div class="gd-small-muted">Gross Order Value</div>
             </div>
 
             <div class="gd-chart-center-label">
@@ -1234,7 +1332,7 @@
           <div class="gd-chart-legend">
             <span class="gd-legend-item">
               <span class="gd-dot" style="background:#32E7CE;"></span>
-              Gross Sale
+              Gross Order Value
             </span>
             <span class="gd-legend-item">
               <span class="gd-dot" style="background:#F15B66;"></span>
@@ -1277,7 +1375,7 @@
       <section class="gd-list-grid">
         <div class="gd-card gd-list-card">
           <div class="gd-list-head">
-            <h3 class="gd-list-title">Top Selling Stores</h3>
+            <h3 class="gd-list-title">Store Sales Summary</h3>
             <a href="#" class="gd-view-link">View All</a>
           </div>
 
@@ -1301,7 +1399,7 @@
 
         <div class="gd-card gd-list-card">
           <div class="gd-list-head">
-            <h3 class="gd-list-title">Most Popular Stores</h3>
+            <h3 class="gd-list-title">Store Activity Summary</h3>
             <a href="#" class="gd-view-link">View All</a>
           </div>
 
@@ -1332,7 +1430,7 @@
 
         <div class="gd-card gd-list-card">
           <div class="gd-list-head">
-            <h3 class="gd-list-title">Top Selling Items</h3>
+            <h3 class="gd-list-title">Product Sales Summary</h3>
             <a href="#" class="gd-view-link">View All</a>
           </div>
 
@@ -1365,7 +1463,7 @@
       <section class="gd-list-grid">
         <div class="gd-card gd-list-card">
           <div class="gd-list-head">
-            <h3 class="gd-list-title">Most Rated Items</h3>
+            <h3 class="gd-list-title">Product Review Summary</h3>
             <a href="#" class="gd-view-link">View All</a>
           </div>
 
@@ -1394,10 +1492,11 @@
           </div>
         </div>
 
+        {% if in_house_delivery_enabled %}
         <div class="gd-card gd-list-card">
           <div class="gd-list-head">
-            <h3 class="gd-list-title">Top Deliveryman</h3>
-            <a href="#" class="gd-view-link">View All</a>
+            <h3 class="gd-list-title">In-house Delivery Performance</h3>
+            <a href="{{ url_for('admin_delivery_overview') }}" class="gd-view-link">View All</a>
           </div>
 
           <div class="gd-list-body">
@@ -1420,14 +1519,15 @@
                 <div class="gd-pill">Orders : {{ d.orders|default(0) }}</div>
               </div>
             {% else %}
-              <div class="gd-empty">No deliveryman found.</div>
+              <div class="gd-empty">No in-house delivery activity found.</div>
             {% endfor %}
           </div>
         </div>
+        {% endif %}
 
         <div class="gd-card gd-list-card">
           <div class="gd-list-head">
-            <h3 class="gd-list-title">Top Customers</h3>
+            <h3 class="gd-list-title">Customer Order Summary</h3>
             <a href="#" class="gd-view-link">View All</a>
           </div>
 
@@ -1454,7 +1554,7 @@
       <section class="gd-list-grid">
         <div class="gd-card gd-list-card">
           <div class="gd-list-head">
-            <h3 class="gd-list-title">Top Rated Stores</h3>
+            <h3 class="gd-list-title">Store Review Summary</h3>
             <a href="#" class="gd-view-link">View All</a>
           </div>
 
@@ -1485,7 +1585,7 @@
 
         <div class="gd-card gd-list-card">
           <div class="gd-list-head">
-            <h3 class="gd-list-title">Store Complaints</h3>
+            <h3 class="gd-list-title">Customer Complaints Involving Stores</h3>
             <a href="#" class="gd-view-link">View All</a>
           </div>
 
@@ -1497,7 +1597,7 @@
                   <div class="gd-thumb">🏬</div>
                   <div style="min-width:0;">
                     <div class="gd-name">{{ s.store_name or ('ID ' ~ s.store_id) }}</div>
-                    <div class="gd-meta">Store complaints</div>
+                    <div class="gd-meta">Store-related complaints</div>
                   </div>
                 </div>
                 <div class="gd-pill gd-complaint-pill">{{ s.cnt|default(0) }}</div>
@@ -1510,7 +1610,7 @@
 
         <div class="gd-card gd-list-card">
           <div class="gd-list-head">
-            <h3 class="gd-list-title">Delivery Complaints</h3>
+            <h3 class="gd-list-title">Customer Complaints Involving Delivery</h3>
             <a href="#" class="gd-view-link">View All</a>
           </div>
 
@@ -1536,7 +1636,7 @@
 
       <section class="gd-card">
         <div class="gd-list-head">
-          <h3 class="gd-list-title">Stores Performance</h3>
+          <h3 class="gd-list-title">Store Admin Performance Summary</h3>
           <a href="#" class="gd-view-link">View All</a>
         </div>
 
@@ -1575,7 +1675,7 @@
 
       <section class="gd-card">
         <div class="gd-list-head">
-          <h3 class="gd-list-title">Quick Actions</h3>
+          <h3 class="gd-list-title">Admin Quick Actions</h3>
           <span class="gd-view-link">Admin Shortcuts</span>
         </div>
 
@@ -1583,12 +1683,12 @@
           {% for link in quick_links|default([]) %}
             <a href="{{ url_for(link.endpoint) }}">{{ link.label }}</a>
           {% else %}
-            <a href="{{ url_for('admin_approvals') }}">Pending Approvals</a>
-            <a href="{{ url_for('admin_users') }}">Manage Users</a>
+            <a href="{{ url_for('admin_approvals') }}">Review Pending Items</a>
+            <a href="{{ url_for('admin_users') }}">Manage Admin/Staff Users</a>
             <a href="{{ url_for('admin_complaints') }}">Complaints</a>
-            <a href="{{ url_for('admin_create_store') }}">Create Store</a>
-            <a href="{{ url_for('admin_create_delivery') }}">Create Delivery Partner</a>
-            <a href="{{ url_for('admin_transactions_csv') }}">Export Transactions CSV</a>
+            <a href="{{ url_for('admin_create_store') }}">Create Store Admin Profile</a>
+            {% if in_house_delivery_enabled %}<a href="{{ url_for('admin_create_delivery') }}">Create In-house Delivery Account</a>{% endif %}
+            <a href="{{ url_for('admin_transactions_csv') }}">Export Order Transactions CSV</a>
           {% endfor %}
         </div>
       </section>
@@ -1597,13 +1697,13 @@
         <span>© NE FRESH Admin.</span>
         <div class="gd-footer-links">
           <span>•</span>
-          <span>Business setup</span>
+          <span>Admin setup</span>
           <span>•</span>
           <span>Profile</span>
           <span>•</span>
           <span>Home</span>
           <span>•</span>
-          <span class="gd-version">Software Version : 3.8</span>
+          <span class="gd-version">NE FRESH Admin Console</span>
         </div>
       </div>
     </div>
