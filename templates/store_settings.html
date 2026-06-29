@@ -53,6 +53,7 @@
       --radius:24px;
       --ease:cubic-bezier(.2,.75,.25,1);
       width:100%;
+      min-width:0;
       min-height:100%;
       background:
         radial-gradient(circle at 12% 0%, rgba(0,168,89,.09), transparent 34%),
@@ -60,7 +61,9 @@
         var(--bg);
       color:var(--ink);
       font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      overflow-x:hidden;
+      overflow-x:visible;
+      overflow-y:visible;
+      isolation:isolate;
     }
 
     .nf-store-settings-page,
@@ -68,19 +71,41 @@
       box-sizing:border-box;
     }
 
+    .nf-store-settings-page a,
+    .nf-store-settings-page button,
+    .nf-store-settings-page input,
+    .nf-store-settings-page select,
+    .nf-store-settings-page textarea{
+      font-family:inherit;
+    }
+
+    /* Page-level sticky support: store_base wrappers must not clip this page, otherwise position: sticky cannot attach to the viewport. */
+    .nf-admin-shell,
+    .nf-main,
+    .nf-content,
+    .nf-content-card{
+      overflow:visible!important;
+    }
+
     .ss-shell{
       width:100%;
       max-width:1680px;
       margin:0 auto;
-      padding:24px;
+      padding:clamp(12px,2vw,24px);
+      padding-left:max(clamp(12px,2vw,24px), env(safe-area-inset-left, 0px));
+      padding-right:max(clamp(12px,2vw,24px), env(safe-area-inset-right, 0px));
+      overflow:visible;
     }
 
     .ss-stack{
       display:grid;
       gap:20px;
+      min-width:0;
+      overflow:visible;
     }
 
     .ss-card{
+      min-width:0;
       background:rgba(255,255,255,.98);
       border:1px solid var(--line);
       border-radius:var(--radius);
@@ -89,10 +114,11 @@
     }
 
     .ss-hero{
+      min-width:0;
       display:grid;
-      grid-template-columns:minmax(0,1.1fr) minmax(340px,.9fr);
+      grid-template-columns:minmax(0,1.08fr) minmax(320px,.92fr);
       gap:20px;
-      padding:24px;
+      padding:clamp(18px,2.2vw,28px);
       border-radius:30px;
       border:1px solid var(--line);
       background:
@@ -103,20 +129,9 @@
       position:relative;
     }
 
-    .ss-hero::after{
-      content:"";
-      position:absolute;
-      right:-120px;
-      top:-140px;
-      width:340px;
-      height:340px;
-      border-radius:999px;
-      background:rgba(0,168,89,.10);
-      pointer-events:none;
-    }
-
     .ss-hero-main,
     .ss-hero-side{
+      min-width:0;
       position:relative;
       z-index:1;
     }
@@ -126,6 +141,7 @@
       align-items:center;
       gap:8px;
       min-height:30px;
+      max-width:100%;
       padding:0 12px;
       border-radius:999px;
       background:#E9FFF3;
@@ -135,6 +151,7 @@
       font-weight:900;
       letter-spacing:.08em;
       text-transform:uppercase;
+      white-space:nowrap;
     }
 
     .ss-title{
@@ -144,6 +161,7 @@
       font-weight:900;
       letter-spacing:-.06em;
       color:var(--ink);
+      overflow-wrap:anywhere;
     }
 
     .ss-copy{
@@ -176,9 +194,11 @@
       text-decoration:none;
       font-size:13px;
       font-weight:900;
+      line-height:1.2;
       transition:.2s var(--ease);
       cursor:pointer;
       white-space:nowrap;
+      -webkit-tap-highlight-color:transparent;
     }
 
     .ss-btn:hover{
@@ -201,11 +221,14 @@
       border:1px solid rgba(0,168,89,.16);
       background:rgba(255,255,255,.78);
       backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
       display:grid;
       gap:12px;
+      align-content:start;
     }
 
     .ss-store-card{
+      min-width:0;
       display:flex;
       align-items:center;
       gap:14px;
@@ -235,6 +258,11 @@
       height:100%;
       object-fit:contain;
       padding:7px;
+      display:block;
+    }
+
+    .ss-store-card > div:last-child{
+      min-width:0;
     }
 
     .ss-store-name{
@@ -242,6 +270,7 @@
       font-weight:900;
       line-height:1.2;
       color:var(--ink);
+      overflow-wrap:anywhere;
     }
 
     .ss-store-meta{
@@ -250,6 +279,7 @@
       font-size:12px;
       font-weight:750;
       line-height:1.4;
+      overflow-wrap:anywhere;
     }
 
     .ss-status-grid{
@@ -259,6 +289,7 @@
     }
 
     .ss-status{
+      min-width:0;
       padding:12px;
       border-radius:18px;
       border:1px solid var(--line2);
@@ -272,14 +303,17 @@
       font-weight:900;
       letter-spacing:.08em;
       text-transform:uppercase;
+      line-height:1.25;
     }
 
     .ss-status strong{
       display:block;
       margin-top:7px;
       font-size:14px;
+      line-height:1.25;
       font-weight:900;
       color:var(--ink);
+      overflow-wrap:anywhere;
     }
 
     .ss-status.on strong{
@@ -291,18 +325,30 @@
     }
 
     .ss-layout{
+      min-width:0;
       display:grid;
-      grid-template-columns:280px minmax(0,1fr);
+      grid-template-columns:minmax(230px,280px) minmax(0,1fr);
       gap:20px;
       align-items:start;
+      overflow:visible;
     }
 
     .ss-nav{
+      position:-webkit-sticky;
       position:sticky;
-      top:96px;
+      top:calc(var(--nf-frame-top, 74px) + 18px);
+      align-self:start;
+      z-index:120;
+      max-height:none;
       padding:14px;
       display:grid;
       gap:8px;
+      overflow:visible;
+      background:rgba(255,255,255,.98);
+      backdrop-filter:blur(14px);
+      -webkit-backdrop-filter:blur(14px);
+      transform:translateZ(0);
+      will-change:top;
     }
 
     .ss-nav a{
@@ -310,14 +356,16 @@
       display:flex;
       align-items:center;
       gap:10px;
-      padding:0 12px;
+      padding:8px 12px;
       border-radius:14px;
       border:1px solid transparent;
       color:var(--text);
       font-size:13px;
       font-weight:900;
+      line-height:1.25;
       text-decoration:none;
       transition:.18s var(--ease);
+      white-space:normal;
     }
 
     .ss-nav a:hover,
@@ -339,12 +387,15 @@
     }
 
     .ss-form{
+      min-width:0;
       display:grid;
       gap:20px;
+      overflow:visible;
     }
 
     .ss-section{
-      scroll-margin-top:96px;
+      min-width:0;
+      scroll-margin-top:calc(var(--nf-frame-top, 74px) + 20px);
     }
 
     .ss-section-head{
@@ -361,6 +412,7 @@
       margin:0;
       color:var(--ink);
       font-size:18px;
+      line-height:1.2;
       font-weight:900;
       letter-spacing:-.03em;
     }
@@ -379,6 +431,13 @@
       gap:18px;
     }
 
+    .ss-grid-2,
+    .ss-grid-3,
+    .ss-switch-grid,
+    .ss-shortcuts{
+      min-width:0;
+    }
+
     .ss-grid-2{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -392,6 +451,7 @@
     }
 
     .ss-field{
+      min-width:0;
       display:grid;
       gap:8px;
     }
@@ -403,6 +463,7 @@
     .ss-label{
       color:var(--text);
       font-size:12px;
+      line-height:1.3;
       font-weight:900;
       text-transform:uppercase;
       letter-spacing:.07em;
@@ -412,6 +473,7 @@
     .ss-select,
     .ss-textarea{
       width:100%;
+      min-width:0;
       border:1px solid var(--line);
       border-radius:14px;
       background:#fff;
@@ -420,6 +482,8 @@
       font-weight:800;
       font-family:inherit;
       box-shadow:none;
+      appearance:auto;
+      -webkit-appearance:auto;
     }
 
     .ss-input,
@@ -442,6 +506,12 @@
       box-shadow:0 0 0 4px rgba(0,168,89,.08);
     }
 
+    .ss-input:disabled{
+      cursor:not-allowed;
+      color:var(--muted);
+      background:#F8FAF9;
+    }
+
     .ss-help{
       color:var(--muted);
       font-size:12px;
@@ -456,6 +526,7 @@
     }
 
     .ss-switch{
+      min-width:0;
       min-height:78px;
       display:flex;
       align-items:center;
@@ -474,12 +545,17 @@
       box-shadow:0 10px 24px rgba(17,64,38,.06);
     }
 
+    .ss-switch-text{
+      min-width:0;
+    }
+
     .ss-switch-text strong{
       display:block;
       color:var(--ink);
       font-size:14px;
       font-weight:900;
       line-height:1.25;
+      overflow-wrap:anywhere;
     }
 
     .ss-switch-text span{
@@ -498,6 +574,7 @@
       min-width:52px;
       display:inline-flex;
       align-items:center;
+      -webkit-tap-highlight-color:transparent;
     }
 
     .ss-toggle input{
@@ -545,6 +622,7 @@
     }
 
     .ss-shortcut{
+      min-width:0;
       min-height:118px;
       padding:16px;
       border-radius:20px;
@@ -556,6 +634,7 @@
       transition:.18s var(--ease);
       display:grid;
       gap:10px;
+      align-content:start;
     }
 
     .ss-shortcut:hover{
@@ -581,6 +660,7 @@
       color:var(--ink);
       font-size:14px;
       font-weight:900;
+      line-height:1.25;
     }
 
     .ss-shortcut small{
@@ -590,19 +670,31 @@
       line-height:1.4;
     }
 
+    #shortcuts .ss-section-body{
+      padding-bottom:190px;
+    }
+
     .ss-savebar{
       position:sticky;
-      bottom:18px;
+      bottom:calc(var(--nf-frame-bottom, 78px) + 16px);
       z-index:5;
       display:flex;
       justify-content:flex-end;
+      align-items:center;
       gap:10px;
       padding:14px;
       border-radius:22px;
       border:1px solid var(--line);
       background:rgba(255,255,255,.92);
       backdrop-filter:blur(14px);
+      -webkit-backdrop-filter:blur(14px);
       box-shadow:0 18px 50px rgba(17,64,38,.12);
+    }
+
+    @media(max-width:1400px){
+      .ss-shortcuts{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
     }
 
     @media(max-width:1180px){
@@ -614,13 +706,25 @@
       .ss-nav{
         position:relative;
         top:auto;
-        display:flex;
-        overflow-x:auto;
+        align-self:stretch;
+        z-index:10;
+        max-height:none;
+        display:grid;
+        grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+        gap:10px;
+        overflow:visible;
         padding:12px;
+        border-radius:22px;
+        background:rgba(255,255,255,.96);
+        backdrop-filter:blur(14px);
+        -webkit-backdrop-filter:blur(14px);
+        box-shadow:0 16px 44px rgba(17,64,38,.10);
       }
 
       .ss-nav a{
-        min-width:max-content;
+        min-width:0;
+        width:100%;
+        justify-content:flex-start;
       }
 
       .ss-shortcuts{
@@ -628,26 +732,98 @@
       }
     }
 
+    @media(max-width:900px){
+      .ss-grid-3{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
     @media(max-width:760px){
       .ss-shell{
         padding:12px;
+        padding-left:max(12px, env(safe-area-inset-left, 0px));
+        padding-right:max(12px, env(safe-area-inset-right, 0px));
+      }
+
+      .ss-stack{
+        gap:16px;
       }
 
       .ss-hero{
         padding:18px;
         border-radius:24px;
+        gap:16px;
+      }
+
+      .ss-title{
+        font-size:clamp(28px,10vw,40px);
+        letter-spacing:-.05em;
+      }
+
+      .ss-copy{
+        font-size:14px;
+        line-height:1.6;
+      }
+
+      .ss-actions{
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .ss-actions .ss-btn{
+        width:100%;
+        white-space:normal;
       }
 
       .ss-hero-side{
         padding:14px;
+        border-radius:22px;
+      }
+
+      .ss-store-card{
+        align-items:flex-start;
+      }
+
+      .ss-logo{
+        width:58px;
+        height:58px;
+        min-width:58px;
+        border-radius:18px;
       }
 
       .ss-grid-2,
       .ss-grid-3,
       .ss-switch-grid,
-      .ss-status-grid,
-      .ss-shortcuts{
+      .ss-status-grid{
         grid-template-columns:1fr;
+      }
+
+      .ss-nav{
+        position:relative;
+        top:auto;
+        z-index:10;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+        padding:10px;
+        border-radius:20px;
+        overflow:visible;
+      }
+
+      .ss-nav a{
+        min-height:44px;
+        padding:8px 10px;
+        font-size:12px;
+      }
+
+      .ss-nav-icon{
+        width:30px;
+        height:30px;
+        min-width:30px;
+      }
+
+      .ss-shortcuts{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:10px;
       }
 
       .ss-section-head{
@@ -658,14 +834,290 @@
         padding:18px;
       }
 
+      #shortcuts .ss-section-body{
+        padding-bottom:18px;
+      }
+
+      .ss-switch{
+        align-items:flex-start;
+      }
+
       .ss-savebar{
         position:relative;
         bottom:auto;
         display:grid;
+        grid-template-columns:1fr;
       }
 
       .ss-savebar .ss-btn{
         width:100%;
+      }
+    }
+
+    @media(max-width:480px){
+      .ss-shell{
+        padding:10px;
+        padding-left:max(10px, env(safe-area-inset-left, 0px));
+        padding-right:max(10px, env(safe-area-inset-right, 0px));
+      }
+
+      .ss-card,
+      .ss-hero{
+        border-radius:20px;
+      }
+
+      .ss-hero{
+        padding:15px;
+      }
+
+      .ss-kicker{
+        width:100%;
+        justify-content:center;
+        font-size:11px;
+      }
+
+      .ss-actions{
+        grid-template-columns:1fr;
+      }
+
+      .ss-store-card{
+        display:grid;
+        grid-template-columns:58px minmax(0,1fr);
+        gap:12px;
+        padding:12px;
+      }
+
+      .ss-status,
+      .ss-switch,
+      .ss-shortcut{
+        border-radius:16px;
+      }
+
+      .ss-section-head,
+      .ss-section-body{
+        padding:15px;
+      }
+
+      .ss-nav{
+        margin-left:0;
+        margin-right:0;
+        padding:9px;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .ss-nav a{
+        min-height:40px;
+        padding:7px 8px;
+        font-size:12px;
+      }
+
+      .ss-nav-icon{
+        width:28px;
+        height:28px;
+        min-width:28px;
+      }
+
+      .ss-shortcuts{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:9px;
+      }
+
+      .ss-shortcut{
+        min-height:auto;
+        padding:12px;
+        gap:8px;
+      }
+
+      .ss-shortcut-icon{
+        width:34px;
+        height:34px;
+        border-radius:12px;
+      }
+
+      .ss-shortcut strong{
+        font-size:13px;
+      }
+
+      .ss-shortcut small{
+        font-size:11.2px;
+        line-height:1.35;
+      }
+
+      .ss-switch{
+        gap:12px;
+        padding:13px;
+      }
+
+      .ss-switch-text strong{
+        font-size:13px;
+      }
+
+      .ss-switch-text span{
+        font-size:11.5px;
+      }
+    }
+
+    @media(max-width:360px){
+      .ss-title{
+        font-size:26px;
+      }
+
+      .ss-store-card{
+        grid-template-columns:1fr;
+      }
+
+      .ss-logo{
+        width:56px;
+        height:56px;
+        min-width:56px;
+      }
+
+      .ss-nav{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:7px;
+        padding:8px;
+      }
+
+      .ss-nav a{
+        gap:7px;
+        padding:7px;
+        font-size:11.5px;
+      }
+
+      .ss-shortcuts{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .ss-shortcut{
+        padding:10px;
+      }
+
+      .ss-shortcut small{
+        font-size:10.8px;
+      }
+    }
+
+
+    /* Sticky navigation reliability: every parent between the sticky nav and viewport must stay unclipped. */
+    .nf-admin-shell,
+    .nf-main,
+    .nf-content,
+    .nf-content-card,
+    .nf-store-settings-page,
+    .nf-store-settings-page .ss-shell,
+    .nf-store-settings-page .ss-stack,
+    .nf-store-settings-page .ss-layout,
+    .nf-store-settings-page .ss-form{
+      overflow:visible!important;
+    }
+
+    .nf-store-settings-page .ss-card.ss-nav{
+      overflow:visible!important;
+    }
+
+
+    /* =========================================================
+       REAL STICKY NAV FIX
+       Why: CSS-only sticky can fail inside the fixed store_base frame
+       because outer wrappers and footer/topbar create complex scroll
+       contexts. This keeps CSS sticky as first layer and adds a JS
+       fixed-position fallback class below.
+       ========================================================= */
+    .nf-store-settings-page .ss-layout{
+      position:relative;
+      overflow:visible!important;
+      align-items:start;
+    }
+
+    .nf-store-settings-page .ss-nav{
+      position:-webkit-sticky;
+      position:sticky;
+      top:calc(var(--nf-frame-top, 74px) + 18px);
+      align-self:start;
+      z-index:1200;
+      overflow:visible!important;
+      transform:none!important;
+      will-change:auto!important;
+      contain:none!important;
+    }
+
+    .nf-store-settings-page .ss-nav-placeholder{
+      display:none;
+      min-width:0;
+      width:100%;
+      visibility:hidden;
+      pointer-events:none;
+    }
+
+    .nf-store-settings-page .ss-nav-placeholder.active{
+      display:block;
+    }
+
+    .nf-store-settings-page .ss-nav.ss-js-fixed{
+      position:fixed!important;
+      top:var(--ss-nav-fixed-top, 92px)!important;
+      left:var(--ss-nav-fixed-left, 0px)!important;
+      width:var(--ss-nav-fixed-width, 280px)!important;
+      max-width:var(--ss-nav-fixed-width, 280px)!important;
+      z-index:1600!important;
+      margin:0!important;
+    }
+
+    .nf-store-settings-page .ss-nav.ss-js-bottom{
+      position:absolute!important;
+      top:auto!important;
+      bottom:0!important;
+      left:0!important;
+      width:var(--ss-nav-fixed-width, 280px)!important;
+      max-width:var(--ss-nav-fixed-width, 280px)!important;
+      z-index:90!important;
+      margin:0!important;
+    }
+
+    @media(max-width:1180px){
+      .nf-store-settings-page .ss-nav,
+      .nf-store-settings-page .ss-nav.ss-js-fixed,
+      .nf-store-settings-page .ss-nav.ss-js-bottom{
+        position:relative!important;
+        top:auto!important;
+        left:auto!important;
+        bottom:auto!important;
+        width:100%!important;
+        max-width:100%!important;
+        margin:0!important;
+        transform:none!important;
+      }
+
+      .nf-store-settings-page .ss-nav-placeholder,
+      .nf-store-settings-page .ss-nav-placeholder.active{
+        display:none!important;
+        height:0!important;
+      }
+    }
+
+    @media(max-width:760px){
+      .nf-store-settings-page .ss-nav{
+        position:relative!important;
+        top:auto!important;
+      }
+    }
+
+
+    @media(hover:none) and (pointer:coarse){
+      .ss-btn:hover,
+      .ss-shortcut:hover{
+        transform:none;
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      .nf-store-settings-page *,
+      .nf-store-settings-page *::before,
+      .nf-store-settings-page *::after{
+        transition:none!important;
+        scroll-behavior:auto!important;
       }
     }
   </style>
@@ -692,7 +1144,7 @@
           <div class="ss-store-card">
             <div class="ss-logo">
               {% if store.logo_path %}
-                <img src="{{ url_for('static', filename=store.logo_path) }}" alt="{{ store.store_name|default('Store') }}">
+                <img src="/{{ store.logo_path }}" alt="{{ store.store_name|default('Store') }}">
               {% else %}
                 {{ (store.store_name|default('S'))[:1]|upper }}
               {% endif %}
@@ -859,7 +1311,7 @@
             </div>
           </section>
 
-                   <section class="ss-card ss-section" id="delivery">
+          <section class="ss-card ss-section" id="delivery">
             <div class="ss-section-head">
               <div>
                 <h2 class="ss-section-title">Delivery Preferences</h2>
@@ -1117,8 +1569,121 @@
 
   <script>
     (function(){
+      const nav = document.querySelector('.ss-nav');
+      const layout = document.querySelector('.ss-layout');
       const navLinks = document.querySelectorAll('.ss-nav a[href^="#"]');
       const sections = Array.from(document.querySelectorAll('.ss-section[id]'));
+
+      let placeholder = null;
+      let ticking = false;
+
+      function numberFromCssVar(name, fallback){
+        const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        const parsed = parseFloat(raw);
+        return Number.isFinite(parsed) ? parsed : fallback;
+      }
+
+      function getTopOffset(){
+        const frameTop = numberFromCssVar('--nf-frame-top', 74);
+        if (window.innerWidth <= 760) return frameTop + 6;
+        if (window.innerWidth <= 1180) return frameTop + 8;
+        return frameTop + 18;
+      }
+
+      function getScrollOffset(){
+        return getTopOffset() + 18;
+      }
+
+      function ensurePlaceholder(){
+        if (!nav || !layout) return null;
+
+        if (!placeholder) {
+          placeholder = document.createElement('div');
+          placeholder.className = 'ss-nav-placeholder';
+          nav.parentNode.insertBefore(placeholder, nav);
+        }
+
+        return placeholder;
+      }
+
+      function clearStickyState(){
+        if (!nav) return;
+
+        nav.classList.remove('ss-js-fixed', 'ss-js-bottom');
+        nav.style.removeProperty('--ss-nav-fixed-top');
+        nav.style.removeProperty('--ss-nav-fixed-left');
+        nav.style.removeProperty('--ss-nav-fixed-width');
+
+        if (placeholder) {
+          placeholder.classList.remove('active');
+          placeholder.style.height = '';
+        }
+      }
+
+      function measureAnchorRect(){
+        const ph = ensurePlaceholder();
+        if (ph && ph.classList.contains('active')) {
+          return ph.getBoundingClientRect();
+        }
+
+        return nav.getBoundingClientRect();
+      }
+
+      function updateStickyNav(){
+        ticking = false;
+
+        if (!nav || !layout) return;
+
+        /*
+          Keep sticky behavior only on web/desktop view.
+          In app/mobile/tablet view, the nav should remain in normal page flow.
+        */
+        if (window.innerWidth <= 1180) {
+          clearStickyState();
+          return;
+        }
+
+        const topOffset = getTopOffset();
+        const layoutRect = layout.getBoundingClientRect();
+        const navHeight = nav.offsetHeight;
+        const anchorRect = measureAnchorRect();
+        const ph = ensurePlaceholder();
+
+        if (!ph) return;
+
+        const shouldStick = layoutRect.top <= topOffset;
+        const shouldStop = layoutRect.bottom <= (topOffset + navHeight + 10);
+
+        if (!shouldStick) {
+          clearStickyState();
+          return;
+        }
+
+        ph.classList.add('active');
+        ph.style.height = navHeight + 'px';
+
+        const fixedWidth = anchorRect.width || nav.offsetWidth;
+        nav.style.setProperty('--ss-nav-fixed-width', fixedWidth + 'px');
+
+        if (shouldStop && window.innerWidth > 1180) {
+          nav.classList.remove('ss-js-fixed');
+          nav.classList.add('ss-js-bottom');
+          nav.style.removeProperty('--ss-nav-fixed-top');
+          nav.style.removeProperty('--ss-nav-fixed-left');
+          return;
+        }
+
+        nav.classList.remove('ss-js-bottom');
+        nav.classList.add('ss-js-fixed');
+        nav.style.setProperty('--ss-nav-fixed-top', topOffset + 'px');
+        nav.style.setProperty('--ss-nav-fixed-left', anchorRect.left + 'px');
+      }
+
+      function requestStickyUpdate(){
+        if (ticking) return;
+        ticking = true;
+        window.requestAnimationFrame(updateStickyNav);
+      }
 
       navLinks.forEach(function(link){
         link.addEventListener('click', function(e){
@@ -1129,9 +1694,11 @@
 
           e.preventDefault();
 
-          target.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
+          const targetTop = target.getBoundingClientRect().top + window.pageYOffset - getScrollOffset();
+
+          window.scrollTo({
+            top: Math.max(targetTop, 0),
+            behavior: 'smooth'
           });
 
           history.replaceState(null, '', targetId);
@@ -1141,16 +1708,19 @@
           });
 
           link.classList.add('active');
+
+          window.setTimeout(requestStickyUpdate, 80);
         });
       });
 
       function syncActiveSection(){
         let current = sections[0] ? sections[0].id : '';
+        const threshold = getScrollOffset() + 24;
 
         sections.forEach(function(section){
           const rect = section.getBoundingClientRect();
 
-          if (rect.top <= 140) {
+          if (rect.top <= threshold) {
             current = section.id;
           }
         });
@@ -1161,7 +1731,24 @@
         });
       }
 
-      window.addEventListener('scroll', syncActiveSection, { passive: true });
+      function onScroll(){
+        requestStickyUpdate();
+        syncActiveSection();
+      }
+
+      window.addEventListener('scroll', onScroll, { passive: true });
+      window.addEventListener('resize', function(){
+        clearStickyState();
+        requestStickyUpdate();
+        syncActiveSection();
+      }, { passive: true });
+
+      window.addEventListener('load', function(){
+        requestStickyUpdate();
+        syncActiveSection();
+      });
+
+      requestStickyUpdate();
       syncActiveSection();
     })();
   </script>
