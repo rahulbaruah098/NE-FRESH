@@ -3,7 +3,7 @@
 
 {% block title %}Order Management | NE FRESH{% endblock %}
 {% block page_title %}Order Management{% endblock %}
-{% block page_subtitle %}Review customer orders and update delivery status.{% endblock %}
+{% block page_subtitle %}Manage orders, payments and delivery handover from one clean screen.{% endblock %}
 
 {% block content %}
 {% set products_total = products|length if products else 0 %}
@@ -18,6 +18,12 @@
 {% set shipment_ready_total = metrics.shipment_ready_orders|default(metrics.ready_for_pickup_orders|default(0)) %}
 {% set delivered_orders_total = metrics.delivered_orders|default(0) %}
 {% set available_delivery_people_list = available_delivery_people if available_delivery_people is defined else [] %}
+{% set mode_ui = delivery_mode_ui if delivery_mode_ui is defined else {} %}
+{% set active_mode_label = mode_ui.short_label|default(mode_ui.label|default('Delivery')) %}
+{% set active_provider_label = mode_ui.provider_label|default('NE FRESH') %}
+{% set active_payment_label = mode_ui.payment_rule_label|default('Configured') %}
+{% set mode_is_external = mode_ui.is_external|default(false) %}
+{% set mode_inhouse_enabled = in_house_delivery_enabled if in_house_delivery_enabled is defined else true %}
 
 {% set ns = namespace(placed=0, confirmed=0, out_for_delivery=0, delivered=0, cancelled=0, low_stock=0, active_products=0, inactive_products=0) %}
 {% if orders %}
@@ -1885,15 +1891,982 @@
   }
 }
 
+
+/* ==========================================================
+   NELOCALS STORE ORDERS FULL RESPONSIVE CLEAN UI FINAL
+   UI-only layer:
+   - cleaner NE Locals green/white palette
+   - added order summary blocks
+   - improved web/tablet/app/mobile alignment
+   - app/mobile order rows display as cards
+   Existing routes, forms, JS, filters, pagination and backend logic untouched.
+========================================================== */
+
+.nf-store-dashboard{
+  --bg:#F7FFFB !important;
+  --card:#FFFFFF !important;
+  --card2:#FBFFFD !important;
+  --soft:#F1FFF7 !important;
+  --soft2:#F8FFFB !important;
+  --line:#DCEFE5 !important;
+  --line2:#EAF5EF !important;
+  --ink:#10251B !important;
+  --text:#33483E !important;
+  --muted:#66786F !important;
+  --muted2:#8A9A92 !important;
+  --green:#00A859 !important;
+  --green-dark:#007A43 !important;
+  --green-deep:#075C3B !important;
+  --green-soft:#E9FFF3 !important;
+  --orange:#F59E0B !important;
+  --orange-soft:#FFF7E8 !important;
+  --red:#DC2626 !important;
+  --red-soft:#FEF2F2 !important;
+  --blue:#0284C7 !important;
+  --blue-soft:#E0F2FE !important;
+  --shadow:0 14px 36px rgba(17,64,38,.07) !important;
+  --shadow2:0 24px 64px rgba(17,64,38,.11) !important;
+  background:
+    radial-gradient(circle at 12% 0%,rgba(0,168,89,.07),transparent 30%),
+    linear-gradient(180deg,#F8FFFB 0%,#FFFFFF 38%,#F8FFFB 100%) !important;
+  overflow-x:clip !important;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
+
+.nf-store-dashboard,
+.nf-store-dashboard *{
+  min-width:0;
+  -webkit-tap-highlight-color:transparent;
+}
+
+.nf-store-dashboard .sd-shell{
+  max-width:1680px !important;
+  padding:clamp(10px,1.6vw,24px) !important;
+  padding-left:max(clamp(10px,1.6vw,24px),env(safe-area-inset-left,0px)) !important;
+  padding-right:max(clamp(10px,1.6vw,24px),env(safe-area-inset-right,0px)) !important;
+}
+
+.nf-store-dashboard .sd-stack{
+  gap:clamp(14px,1.45vw,22px) !important;
+}
+
+.nf-store-dashboard .sd-card,
+.nf-store-dashboard .sd-orders-hero,
+.nf-store-dashboard .sd-order-overview-card{
+  border-color:rgba(220,239,229,.98) !important;
+  box-shadow:0 14px 38px rgba(17,64,38,.065) !important;
+}
+
+/* top page summary */
+.nf-store-dashboard .sd-orders-hero{
+  display:grid;
+  grid-template-columns:minmax(0,1.18fr) minmax(280px,.82fr);
+  gap:clamp(14px,1.55vw,22px);
+  align-items:stretch;
+  padding:clamp(16px,2vw,28px);
+  border:1px solid var(--line);
+  border-radius:clamp(20px,2vw,30px);
+  background:
+    radial-gradient(circle at 100% 0%,rgba(0,168,89,.12),transparent 30%),
+    linear-gradient(135deg,#FFFFFF 0%,#F1FFF7 100%);
+  overflow:hidden;
+}
+
+.nf-store-dashboard .sd-orders-hero-copy{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+.nf-store-dashboard .sd-orders-mode-panel{
+  display:grid;
+  gap:10px;
+  align-content:center;
+}
+
+.nf-store-dashboard .sd-orders-mode-row{
+  min-height:66px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:13px 15px;
+  border-radius:18px;
+  border:1px solid var(--line2);
+  background:#FFFFFF;
+}
+
+.nf-store-dashboard .sd-orders-mode-row span{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.065em;
+}
+
+.nf-store-dashboard .sd-orders-mode-row strong{
+  color:var(--ink);
+  font-size:15px;
+  font-weight:950;
+  text-align:right;
+  overflow-wrap:anywhere;
+}
+
+/* overview cards */
+.nf-store-dashboard .sd-order-overview-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:clamp(10px,1vw,14px);
+}
+
+.nf-store-dashboard .sd-order-overview-card{
+  min-height:118px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:clamp(13px,1.25vw,18px);
+  border:1px solid var(--line);
+  border-radius:22px;
+  background:#FFFFFF;
+}
+
+.nf-store-dashboard .sd-order-overview-card:nth-child(1){
+  background:linear-gradient(135deg,#FFFFFF,#F1FFF7);
+}
+
+.nf-store-dashboard .sd-order-overview-card:nth-child(2){
+  background:linear-gradient(135deg,#FFFFFF,#F8FFFB);
+}
+
+.nf-store-dashboard .sd-order-overview-card:nth-child(3){
+  background:linear-gradient(135deg,#FFFFFF,#F0F9FF);
+}
+
+.nf-store-dashboard .sd-order-overview-card:nth-child(4){
+  background:linear-gradient(135deg,#FFFFFF,#F1FFF7);
+}
+
+.nf-store-dashboard .sd-order-overview-icon{
+  order:2;
+  width:46px;
+  height:46px;
+  min-width:46px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  background:var(--green-soft);
+  color:var(--green-dark);
+  font-size:22px;
+}
+
+.nf-store-dashboard .sd-order-overview-label{
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.065em;
+}
+
+.nf-store-dashboard .sd-order-overview-value{
+  display:block;
+  margin-top:7px;
+  color:var(--ink);
+  font-size:clamp(25px,2.55vw,38px);
+  line-height:1;
+  font-weight:950;
+  letter-spacing:-.045em;
+}
+
+.nf-store-dashboard .sd-order-overview-card small{
+  display:block;
+  margin-top:7px;
+  color:var(--muted2);
+  font-size:12px;
+  font-weight:800;
+  line-height:1.3;
+}
+
+/* cleaner global cards and buttons */
+.nf-store-dashboard .sd-section-head{
+  background:linear-gradient(180deg,#FFFFFF,#FBFFFD) !important;
+  padding:clamp(14px,1.35vw,22px) !important;
+}
+
+.nf-store-dashboard .sd-section-title{
+  color:var(--ink) !important;
+  letter-spacing:-.035em !important;
+}
+
+.nf-store-dashboard .sd-section-sub{
+  color:var(--muted) !important;
+  max-width:760px;
+}
+
+.nf-store-dashboard .sd-btn,
+.nf-store-dashboard .sd-view-link,
+.nf-store-dashboard .sd-quick-links a,
+.nf-store-dashboard .sd-table button,
+.nf-store-dashboard .sd-table a,
+.nf-store-dashboard .sd-action-row button,
+.nf-store-dashboard .sd-action-row a,
+.nf-store-dashboard .sd-order-clear{
+  border-color:var(--line) !important;
+  border-radius:14px !important;
+  background:#FFFFFF !important;
+  color:var(--text) !important;
+  box-shadow:none !important;
+}
+
+.nf-store-dashboard .sd-btn-primary,
+.nf-store-dashboard .sd-action-row button#enableSound,
+.nf-store-dashboard .sd-delivery-buttons .primary{
+  background:var(--green) !important;
+  border-color:var(--green) !important;
+  color:#FFFFFF !important;
+}
+
+.nf-store-dashboard .sd-btn:hover,
+.nf-store-dashboard .sd-view-link:hover,
+.nf-store-dashboard .sd-quick-links a:hover,
+.nf-store-dashboard .sd-table button:hover,
+.nf-store-dashboard .sd-table a:hover,
+.nf-store-dashboard .sd-action-row a:hover,
+.nf-store-dashboard .sd-order-clear:hover{
+  transform:translateY(-1px);
+  color:var(--green-dark) !important;
+  border-color:rgba(0,168,89,.30) !important;
+  box-shadow:0 12px 26px rgba(17,64,38,.08) !important;
+}
+
+/* toolbar */
+.nf-store-dashboard .sd-orders-toolbar{
+  background:#FFFFFF !important;
+  border-bottom:1px solid var(--line2) !important;
+}
+
+.nf-store-dashboard .sd-search-input,
+.nf-store-dashboard .sd-order-filter,
+.nf-store-dashboard .sd-order-page-size,
+.nf-store-dashboard .sd-table select,
+.nf-store-dashboard .sd-delivery-form select,
+.nf-store-dashboard .sd-add-stock input{
+  background:#FFFFFF !important;
+  border-color:var(--line) !important;
+  color:var(--ink) !important;
+  box-shadow:0 8px 18px rgba(17,64,38,.035);
+}
+
+.nf-store-dashboard .sd-swipe-hint{
+  background:var(--green-soft) !important;
+  color:var(--green-dark) !important;
+  border-color:rgba(0,168,89,.18) !important;
+}
+
+/* desktop card order rows */
+.nf-store-dashboard .sd-card#orders{
+  background:#FFFFFF !important;
+  border-radius:clamp(20px,1.8vw,28px) !important;
+}
+
+.nf-store-dashboard .sd-table tbody tr{
+  border-color:rgba(220,239,229,.98) !important;
+  box-shadow:0 12px 30px rgba(17,64,38,.055) !important;
+}
+
+.nf-store-dashboard .sd-table tbody tr:hover{
+  box-shadow:0 20px 50px rgba(17,64,38,.10) !important;
+  border-color:rgba(0,168,89,.24) !important;
+}
+
+.nf-store-dashboard .sd-table td{
+  color:var(--text) !important;
+}
+
+.nf-store-dashboard .sd-table td::before{
+  color:var(--green-dark) !important;
+}
+
+.nf-store-dashboard .sd-tag,
+.nf-store-dashboard .sd-payment-pill{
+  border-radius:999px !important;
+  font-weight:950 !important;
+}
+
+/* payment/delivery blocks */
+.nf-store-dashboard .sd-money-breakdown,
+.nf-store-dashboard .sd-delivery-control,
+.nf-store-dashboard .sd-settlement-box,
+.nf-store-dashboard .sd-rider-card,
+.nf-store-dashboard .sd-external-mode-card{
+  border-color:var(--line2) !important;
+  background:#FFFFFF !important;
+  box-shadow:0 8px 20px rgba(17,64,38,.035);
+}
+
+.nf-store-dashboard .sd-money-breakdown-row.highlight,
+.nf-store-dashboard .sd-money-breakdown-row.store-earning{
+  color:var(--green-dark) !important;
+}
+
+.nf-store-dashboard .sd-external-mode-card{
+  background:linear-gradient(135deg,#F0F9FF,#FFFFFF) !important;
+}
+
+/* fully responsive */
+@media(max-width:1280px){
+  .nf-store-dashboard .sd-orders-hero{
+    grid-template-columns:1fr;
+  }
+
+  .nf-store-dashboard .sd-order-overview-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:920px){
+  .nf-store-dashboard .sd-shell{
+    padding:14px !important;
+    padding-left:max(14px,env(safe-area-inset-left,0px)) !important;
+    padding-right:max(14px,env(safe-area-inset-right,0px)) !important;
+  }
+
+  .nf-store-dashboard .sd-orders-hero{
+    padding:16px;
+    border-radius:22px;
+  }
+
+  .nf-store-dashboard .sd-hero-title{
+    font-size:clamp(26px,7vw,40px) !important;
+    line-height:1.04 !important;
+  }
+
+  .nf-store-dashboard .sd-order-overview-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:10px;
+  }
+
+  .nf-store-dashboard .sd-order-overview-card{
+    min-height:112px;
+    align-items:flex-start;
+  }
+
+  .nf-store-dashboard .sd-table tbody tr{
+    background:#FFFFFF !important;
+    border-radius:22px !important;
+  }
+
+  .nf-store-dashboard .sd-table td{
+    background:#FFFFFF !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(1),
+  .nf-store-dashboard .sd-table td:nth-child(2),
+  .nf-store-dashboard .sd-table td:nth-child(5),
+  .nf-store-dashboard .sd-table td:nth-child(6),
+  .nf-store-dashboard .sd-table td:nth-child(7){
+    background:linear-gradient(180deg,#FFFFFF,#F8FFFB) !important;
+  }
+
+  .nf-store-dashboard .sd-orders-mode-row{
+    min-height:auto;
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .nf-store-dashboard .sd-orders-mode-row strong{
+    text-align:left;
+  }
+}
+
+@media(max-width:680px){
+  .nf-store-dashboard .sd-shell{
+    padding:10px !important;
+    padding-left:max(10px,env(safe-area-inset-left,0px)) !important;
+    padding-right:max(10px,env(safe-area-inset-right,0px)) !important;
+  }
+
+  .nf-store-dashboard .sd-stack{
+    gap:12px !important;
+  }
+
+  .nf-store-dashboard .sd-orders-hero,
+  .nf-store-dashboard .sd-card{
+    border-radius:20px !important;
+  }
+
+  .nf-store-dashboard .sd-orders-hero{
+    padding:14px;
+  }
+
+  .nf-store-dashboard .sd-hero-copy{
+    font-size:13px !important;
+    line-height:1.52 !important;
+  }
+
+  .nf-store-dashboard .sd-hero-actions{
+    display:grid !important;
+    grid-template-columns:1fr 1fr;
+    width:100%;
+  }
+
+  .nf-store-dashboard .sd-hero-actions .sd-btn{
+    width:100%;
+    min-height:42px;
+    white-space:normal;
+  }
+
+  .nf-store-dashboard .sd-order-overview-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:9px !important;
+  }
+
+  .nf-store-dashboard .sd-order-overview-card{
+    min-height:112px;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:9px;
+    padding:12px;
+  }
+
+  .nf-store-dashboard .sd-order-overview-icon{
+    order:0;
+    width:38px;
+    height:38px;
+    min-width:38px;
+    border-radius:14px;
+    font-size:19px;
+  }
+
+  .nf-store-dashboard .sd-order-overview-label{
+    font-size:10px;
+  }
+
+  .nf-store-dashboard .sd-order-overview-value{
+    font-size:24px;
+  }
+
+  .nf-store-dashboard .sd-order-overview-card small{
+    font-size:11px;
+  }
+
+  .nf-store-dashboard .sd-orders-toolbar{
+    padding:12px !important;
+  }
+
+  .nf-store-dashboard .sd-table-wrap{
+    padding-left:10px !important;
+    padding-right:10px !important;
+  }
+
+  .nf-store-dashboard .sd-table tbody{
+    gap:12px !important;
+  }
+
+  .nf-store-dashboard .sd-table tbody tr{
+    border-radius:18px !important;
+    box-shadow:0 10px 26px rgba(17,64,38,.06) !important;
+  }
+
+  .nf-store-dashboard .sd-table td{
+    padding:11px 12px !important;
+  }
+
+  .nf-store-dashboard .sd-payment-note,
+  .nf-store-dashboard .sd-settlement-text,
+  .nf-store-dashboard .sd-delivery-note{
+    font-size:11.5px !important;
+  }
+
+  .nf-store-dashboard .sd-money-breakdown,
+  .nf-store-dashboard .sd-delivery-control,
+  .nf-store-dashboard .sd-settlement-box{
+    padding:10px !important;
+    border-radius:14px !important;
+  }
+
+  .nf-store-dashboard .sd-cancel-modal{
+    padding:12px !important;
+    padding-left:max(12px,env(safe-area-inset-left,0px)) !important;
+    padding-right:max(12px,env(safe-area-inset-right,0px)) !important;
+    padding-bottom:max(12px,env(safe-area-inset-bottom,0px)) !important;
+  }
+}
+
+@media(max-width:390px){
+  .nf-store-dashboard .sd-hero-actions{
+    grid-template-columns:1fr;
+  }
+
+  .nf-store-dashboard .sd-order-overview-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+
+  .nf-store-dashboard .sd-order-overview-card{
+    padding:10px;
+  }
+
+  .nf-store-dashboard .sd-order-overview-value{
+    font-size:22px;
+  }
+
+  .nf-store-dashboard .sd-order-overview-card small{
+    font-size:10.5px;
+  }
+}
+
+@media(orientation:landscape) and (max-height:540px) and (max-width:980px){
+  .nf-store-dashboard .sd-shell{
+    padding-top:8px !important;
+    padding-bottom:8px !important;
+  }
+
+  .nf-store-dashboard .sd-orders-hero{
+    padding:12px 14px;
+  }
+
+  .nf-store-dashboard .sd-hero-title{
+    font-size:28px !important;
+  }
+}
+
+@supports (-webkit-touch-callout:none){
+  .nf-store-dashboard .sd-table-wrap,
+  .nf-store-dashboard .sd-chart-area,
+  .nf-store-dashboard .sd-table tbody{
+    -webkit-overflow-scrolling:touch !important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .nf-store-dashboard *,
+  .nf-store-dashboard *::before,
+  .nf-store-dashboard *::after{
+    transition:none !important;
+    animation:none !important;
+    scroll-behavior:auto !important;
+  }
+}
+
+
+
+/* ==========================================================
+   NELOCALS STORE ORDERS BALANCED LEFT RIGHT CARD FINAL
+   UI-only order card redesign:
+   - removes empty left / crowded right feel
+   - top order info becomes a clean full-width strip
+   - address gets its own full-width panel
+   - payment, settlement, status and delivery controls are balanced
+   Existing Jinja, routes, forms, modal, JS, pagination and backend logic unchanged.
+========================================================== */
+
+.nf-store-dashboard .sd-card#orders{
+  background:linear-gradient(180deg,#FFFFFF 0%,#FAFFFC 100%) !important;
+  border-color:#D7EEE2 !important;
+  box-shadow:0 18px 48px rgba(17,64,38,.085) !important;
+}
+
+.nf-store-dashboard .sd-table-wrap{
+  padding:0 clamp(14px,1.8vw,24px) clamp(16px,1.8vw,24px) !important;
+}
+
+.nf-store-dashboard .sd-table tbody{
+  gap:18px !important;
+}
+
+.nf-store-dashboard .sd-table tbody tr{
+  grid-template-columns:76px repeat(6,minmax(0,1fr)) !important;
+  grid-template-areas:
+    "sl order customer phone total status payment"
+    "address address address address address address address"
+    "action action action action action action action" !important;
+  align-items:stretch !important;
+  border:1px solid rgba(215,238,226,.96) !important;
+  border-radius:26px !important;
+  background:#FFFFFF !important;
+  box-shadow:0 16px 44px rgba(17,64,38,.075) !important;
+  overflow:hidden !important;
+}
+
+.nf-store-dashboard .sd-table tbody tr:hover{
+  border-color:rgba(0,168,89,.30) !important;
+  box-shadow:0 22px 62px rgba(17,64,38,.12) !important;
+}
+
+.nf-store-dashboard .sd-table td{
+  min-height:72px !important;
+  padding:15px 16px !important;
+  display:block !important;
+  border-right:1px solid rgba(234,244,239,.96) !important;
+  border-bottom:1px solid rgba(234,244,239,.96) !important;
+  background:#FFFFFF !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(1),
+.nf-store-dashboard .sd-table td:nth-child(2),
+.nf-store-dashboard .sd-table td:nth-child(3),
+.nf-store-dashboard .sd-table td:nth-child(4),
+.nf-store-dashboard .sd-table td:nth-child(5),
+.nf-store-dashboard .sd-table td:nth-child(6),
+.nf-store-dashboard .sd-table td:nth-child(7){
+  background:linear-gradient(180deg,#FFFFFF 0%,#F8FFFB 100%) !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(7){
+  border-right:0 !important;
+}
+
+.nf-store-dashboard .sd-table td::before{
+  margin-bottom:7px !important;
+  color:#007D45 !important;
+  font-size:10.5px !important;
+  letter-spacing:.075em !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(1){
+  display:grid !important;
+  place-items:start center !important;
+  text-align:center !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(1)::before{
+  justify-self:center !important;
+}
+
+.nf-store-dashboard .sd-order-slno{
+  display:inline-grid !important;
+  place-items:center !important;
+  width:38px !important;
+  height:38px !important;
+  border-radius:14px !important;
+  background:#E9FFF3 !important;
+  border:1px solid rgba(0,168,89,.18) !important;
+  color:#007D45 !important;
+  font-size:15px !important;
+}
+
+.nf-store-dashboard .sd-order-id,
+.nf-store-dashboard .sd-table td:nth-child(3),
+.nf-store-dashboard .sd-table td:nth-child(4),
+.nf-store-dashboard .sd-table td:nth-child(5){
+  font-size:14px !important;
+  line-height:1.35 !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(5){
+  color:#007D45 !important;
+  font-size:16px !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(6) .sd-tag,
+.nf-store-dashboard .sd-table td:nth-child(7) .sd-payment-pill{
+  width:max-content !important;
+  max-width:100% !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(8){
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) auto !important;
+  align-items:center !important;
+  gap:14px !important;
+  min-height:78px !important;
+  padding:16px 18px !important;
+  border-right:0 !important;
+  border-bottom:1px solid rgba(234,244,239,.96) !important;
+  background:linear-gradient(135deg,#F8FFFB 0%,#FFFFFF 100%) !important;
+  color:#40534A !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(8)::before{
+  grid-column:1 / -1 !important;
+  margin-bottom:0 !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(8) a{
+  margin-top:0 !important;
+  white-space:nowrap !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(9){
+  display:grid !important;
+  grid-template-columns:minmax(230px,.82fr) minmax(240px,.82fr) minmax(360px,1.36fr) !important;
+  gap:14px !important;
+  align-items:start !important;
+  min-height:0 !important;
+  padding:16px !important;
+  border-right:0 !important;
+  border-bottom:0 !important;
+  background:linear-gradient(135deg,#FBFFFD 0%,#FFFFFF 46%,#F8FFFB 100%) !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(9)::before{
+  grid-column:1 / -1 !important;
+  margin:0 0 2px !important;
+  padding:0 0 10px !important;
+  border-bottom:1px solid rgba(234,244,239,.96) !important;
+  color:#075C3B !important;
+  font-size:11px !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(9) > .sd-money-breakdown{
+  grid-column:1 !important;
+  grid-row:2 / span 6 !important;
+  margin:0 !important;
+  height:100% !important;
+  align-content:start !important;
+  background:#FFFFFF !important;
+  border-color:#DDECE4 !important;
+  box-shadow:0 8px 22px rgba(17,64,38,.045) !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(9) > .sd-settlement-box,
+.nf-store-dashboard .sd-table td:nth-child(9) > .sd-row-actions,
+.nf-store-dashboard .sd-table td:nth-child(9) > .sd-muted{
+  grid-column:2 !important;
+  margin-top:0 !important;
+}
+
+.nf-store-dashboard .sd-table td:nth-child(9) > .sd-delivery-control{
+  grid-column:3 !important;
+  grid-row:2 / span 8 !important;
+  margin-top:0 !important;
+  min-height:100% !important;
+  background:#FFFFFF !important;
+  border-color:#DDECE4 !important;
+  box-shadow:0 8px 22px rgba(17,64,38,.045) !important;
+}
+
+.nf-store-dashboard .sd-settlement-box,
+.nf-store-dashboard .sd-delivery-control,
+.nf-store-dashboard .sd-money-breakdown{
+  border-radius:18px !important;
+}
+
+.nf-store-dashboard .sd-row-actions{
+  grid-template-columns:minmax(0,1fr) minmax(92px,auto) !important;
+  background:#FFFFFF !important;
+  border:1px solid #DDECE4 !important;
+  border-radius:18px !important;
+  padding:12px !important;
+  box-shadow:0 8px 22px rgba(17,64,38,.045) !important;
+}
+
+.nf-store-dashboard .sd-row-actions select{
+  background:#F8FFFB !important;
+}
+
+.nf-store-dashboard .sd-delivery-title{
+  padding-bottom:8px !important;
+  border-bottom:1px solid rgba(234,244,239,.96) !important;
+}
+
+.nf-store-dashboard .sd-delivery-note,
+.nf-store-dashboard .sd-delivery-empty,
+.nf-store-dashboard .sd-rider-card,
+.nf-store-dashboard .sd-external-mode-card{
+  background:#F8FFFB !important;
+}
+
+@media(max-width:1380px) and (min-width:921px){
+  .nf-store-dashboard .sd-table tbody tr{
+    grid-template-columns:76px repeat(3,minmax(0,1fr)) !important;
+    grid-template-areas:
+      "sl order total status"
+      "customer phone payment payment"
+      "address address address address"
+      "action action action action" !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(4),
+  .nf-store-dashboard .sd-table td:nth-child(7){
+    border-right:0 !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(8){
+    grid-template-columns:minmax(0,1fr) !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(8) a{
+    width:max-content !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(9){
+    grid-template-columns:minmax(260px,.92fr) minmax(340px,1.08fr) !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(9) > .sd-money-breakdown{
+    grid-column:1 !important;
+    grid-row:2 / span 5 !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(9) > .sd-settlement-box,
+  .nf-store-dashboard .sd-table td:nth-child(9) > .sd-row-actions,
+  .nf-store-dashboard .sd-table td:nth-child(9) > .sd-muted{
+    grid-column:1 !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(9) > .sd-delivery-control{
+    grid-column:2 !important;
+    grid-row:2 / span 8 !important;
+  }
+}
+
+@media(max-width:920px){
+  .nf-store-dashboard .sd-table tbody tr{
+    grid-template-columns:1fr 1fr !important;
+    grid-template-areas:
+      "sl order"
+      "customer phone"
+      "total status"
+      "payment payment"
+      "address address"
+      "action action" !important;
+  }
+
+  .nf-store-dashboard .sd-table td{
+    min-height:auto !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(8){
+    grid-template-columns:1fr !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(9){
+    grid-template-columns:1fr !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(9)::before,
+  .nf-store-dashboard .sd-table td:nth-child(9) > .sd-money-breakdown,
+  .nf-store-dashboard .sd-table td:nth-child(9) > .sd-settlement-box,
+  .nf-store-dashboard .sd-table td:nth-child(9) > .sd-row-actions,
+  .nf-store-dashboard .sd-table td:nth-child(9) > .sd-muted,
+  .nf-store-dashboard .sd-table td:nth-child(9) > .sd-delivery-control{
+    grid-column:1 !important;
+    grid-row:auto !important;
+  }
+}
+
+@media(max-width:560px){
+  .nf-store-dashboard .sd-table tbody tr{
+    grid-template-columns:1fr !important;
+    grid-template-areas:
+      "sl"
+      "order"
+      "customer"
+      "phone"
+      "total"
+      "status"
+      "payment"
+      "address"
+      "action" !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(1){
+    place-items:start !important;
+    text-align:left !important;
+  }
+
+  .nf-store-dashboard .sd-table td:nth-child(1)::before{
+    justify-self:start !important;
+  }
+
+  .nf-store-dashboard .sd-order-slno{
+    width:34px !important;
+    height:34px !important;
+  }
+
+  .nf-store-dashboard .sd-row-actions{
+    grid-template-columns:1fr !important;
+  }
+}
+
+
+
+/* ==========================================================
+   NELOCALS STORE ORDERS MODE-AWARE STATUS FILTER FINAL
+   Status filter options are now shown by active delivery mode.
+   Existing forms, routes, delivery assignment, search and pagination
+   logic remain unchanged.
+========================================================== */
 </style>
 
   <div class="sd-shell">
     <div class="sd-stack">
+      {# =========================================================
+         NELOCALS STORE ORDERS CLEAN UI SUMMARY
+         UI-only dashboard blocks using existing template variables.
+         Routes, forms, tables, pagination and backend logic unchanged.
+         ========================================================= #}
+      <section class="sd-orders-hero" id="orders-overview">
+        <div class="sd-orders-hero-copy">
+          <span class="sd-kicker">🧾 Order Desk</span>
+          <h1 class="sd-hero-title">Store Order Management</h1>
+          <p class="sd-hero-copy">Review new orders, confirm packing, check payments and manage delivery handover from one responsive workspace.</p>
+          <div class="sd-hero-actions">
+            <a class="sd-btn sd-btn-primary" href="#orders">Manage Orders</a>
+            <a class="sd-btn" href="{{ url_for('store_delivered_orders') }}">Delivered</a>
+            <a class="sd-btn" href="{{ url_for('store_cancelled_orders', cancel_type='customer') }}">Cancelled</a>
+          </div>
+        </div>
+
+        <div class="sd-orders-mode-panel">
+          <div class="sd-orders-mode-row">
+            <span>Delivery Mode</span>
+            <strong>{{ active_mode_label }}</strong>
+          </div>
+          <div class="sd-orders-mode-row">
+            <span>Provider</span>
+            <strong>{{ active_provider_label }}</strong>
+          </div>
+          <div class="sd-orders-mode-row">
+            <span>Payment Rule</span>
+            <strong>{{ active_payment_label }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="sd-order-overview-grid" aria-label="Order overview">
+        <div class="sd-order-overview-card">
+          <span class="sd-order-overview-icon">📦</span>
+          <div>
+            <span class="sd-order-overview-label">Total Orders</span>
+            <strong class="sd-order-overview-value">{{ orders_total }}</strong>
+            <small>{{ delivered_orders_total }} delivered</small>
+          </div>
+        </div>
+        <div class="sd-order-overview-card">
+          <span class="sd-order-overview-icon">🕒</span>
+          <div>
+            <span class="sd-order-overview-label">New / Confirmed</span>
+            <strong class="sd-order-overview-value">{{ ns.placed + ns.confirmed }}</strong>
+            <small>Needs store review</small>
+          </div>
+        </div>
+        <div class="sd-order-overview-card">
+          <span class="sd-order-overview-icon">🚚</span>
+          <div>
+            <span class="sd-order-overview-label">Ready / Delivery</span>
+            <strong class="sd-order-overview-value">{{ shipment_ready_total + accepted_delivery_total + ns.out_for_delivery }}</strong>
+            <small>Pickup or delivery stage</small>
+          </div>
+        </div>
+        <div class="sd-order-overview-card">
+          <span class="sd-order-overview-icon">✅</span>
+          <div>
+            <span class="sd-order-overview-label">Completed</span>
+            <strong class="sd-order-overview-value">{{ ns.delivered }}</strong>
+            <small>{{ ns.cancelled }} cancelled</small>
+          </div>
+        </div>
+      </section>
+
 <section class="sd-card" id="orders" aria-label="Orders">
        <div class="sd-section-head">
   <div>
     <h2 class="sd-section-title">Order Management</h2>
-    <p class="sd-section-sub">Review customer details, prepare orders, mark pickup readiness and assign delivery boys.</p>
+    <p class="sd-section-sub">Search, filter, update status, review payment and handle delivery handover.</p>
   </div>
 
   <div class="sd-section-actions">
@@ -1917,15 +2890,30 @@
             <option value="confirmed">Confirmed</option>
             <option value="preparing">Preparing</option>
             <option value="packaging">Packaging</option>
-            <option value="shipment-ready">Shipment Ready</option>
-            <option value="ready-for-pickup">Ready For Pickup</option>
-            <option value="assigned-to-delivery">Assigned To Delivery</option>
-            <option value="accepted-by-delivery-man">Accepted By Delivery Man</option>
-            <option value="reached-store">Reached Store</option>
-            <option value="out-for-delivery">Out For Delivery</option>
-            <option value="delivered">Delivered</option>
-            <option value="delivery-failed">Delivery Failed</option>
-            <option value="cancelled">Cancelled</option>
+
+            {% if mode_is_external %}
+              <option value="shipment-ready">Shipment Ready</option>
+              <option value="ready-for-pickup">Ready For Pickup</option>
+              <option value="delivered">Delivered</option>
+              <option value="delivery-failed">Delivery Failed</option>
+              <option value="cancelled">Cancelled</option>
+            {% elif mode_inhouse_enabled %}
+              <option value="shipment-ready">Shipment Ready</option>
+              <option value="ready-for-pickup">Ready For Pickup</option>
+              <option value="assigned-to-delivery">Assigned To Delivery</option>
+              <option value="accepted-by-delivery-man">Accepted By Delivery Man</option>
+              <option value="reached-store">Reached Store</option>
+              <option value="picked-up">Picked Up</option>
+              <option value="out-for-delivery">Out For Delivery</option>
+              <option value="delivered">Delivered</option>
+              <option value="delivery-failed">Delivery Failed</option>
+              <option value="cancelled">Cancelled</option>
+            {% else %}
+              <option value="shipment-ready">Shipment Ready</option>
+              <option value="ready-for-pickup">Ready For Pickup</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            {% endif %}
           </select>
 
           <select class="sd-order-page-size" data-sd-order-page-size aria-label="Orders per page">
@@ -1939,7 +2927,7 @@
 
           <div class="sd-orders-toolbar-meta">
             <span data-sd-order-result-text>Showing <strong>{{ orders_total }}</strong> orders · {{ delivered_orders_total }} delivered</span>
-            <span class="sd-swipe-hint">▦ Card view · Search, filter and paginate orders</span>
+            <span class="sd-swipe-hint">▦ Search · Filter · Paginate</span>
           </div>
         </div>
         <div class="sd-table-wrap">

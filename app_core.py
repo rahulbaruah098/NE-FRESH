@@ -6731,6 +6731,79 @@ def _get_store_products(store_id):
     return products
 
 
+def _store_order_money(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return float(default)
+        return float(value)
+    except Exception:
+        return float(default)
+
+
+def _store_order_total_payable(order_doc):
+    """
+    Returns the customer payable amount for a store order without double-counting.
+
+    New orders store total_payable as the final checkout amount. Older rows may
+    only have items_subtotal / total_amount plus delivery/platform/tip fields,
+    so this helper falls back safely. This keeps dashboard GMV/payment values
+    accurate for in-house, external-local and courier delivery modes.
+    """
+    if not order_doc:
+        return 0.0
+
+    if order_doc.get("total_payable") is not None:
+        return round(_store_order_money(order_doc.get("total_payable")), 2)
+
+    delivery_fee = _store_order_money(
+        order_doc.get("delivery_fee_amount")
+        if order_doc.get("delivery_fee_amount") is not None
+        else order_doc.get("delivery_fee")
+    )
+    platform_fee = _store_order_money(order_doc.get("platform_fee"))
+    tip_amount = _store_order_money(
+        order_doc.get("tip_amount")
+        if order_doc.get("tip_amount") is not None
+        else order_doc.get("delivery_tip_amount")
+    )
+
+    if order_doc.get("items_subtotal") is not None:
+        return round(_store_order_money(order_doc.get("items_subtotal")) + delivery_fee + platform_fee + tip_amount, 2)
+
+    if order_doc.get("store_earning") is not None:
+        return round(_store_order_money(order_doc.get("store_earning")) + delivery_fee + platform_fee + tip_amount, 2)
+
+    # Current NE FRESH order rows use total_amount as final customer payable.
+    # Do not add delivery/tip again here, otherwise dashboard values get inflated.
+    return round(_store_order_money(order_doc.get("total_amount")), 2)
+
+
+def _store_order_items_subtotal(order_doc):
+    if not order_doc:
+        return 0.0
+
+    if order_doc.get("items_subtotal") is not None:
+        return round(_store_order_money(order_doc.get("items_subtotal")), 2)
+
+    if order_doc.get("store_earning") is not None:
+        return round(_store_order_money(order_doc.get("store_earning")), 2)
+
+    total_payable = _store_order_total_payable(order_doc)
+    delivery_fee = _store_order_money(
+        order_doc.get("delivery_fee_amount")
+        if order_doc.get("delivery_fee_amount") is not None
+        else order_doc.get("delivery_fee")
+    )
+    platform_fee = _store_order_money(order_doc.get("platform_fee"))
+    tip_amount = _store_order_money(
+        order_doc.get("tip_amount")
+        if order_doc.get("tip_amount") is not None
+        else order_doc.get("delivery_tip_amount")
+    )
+
+    return round(max(total_payable - delivery_fee - platform_fee - tip_amount, 0), 2)
+
+
 def _get_store_orders(store_id):
     orders = list(
         mongo.orders.find({"store_id": store_id}).sort("created_at", -1)
@@ -6762,14 +6835,12 @@ def _get_store_orders(store_id):
         row["addr_lat"] = addr.get("latitude") if addr else None
         row["addr_lng"] = addr.get("longitude") if addr else None
 
-        row["total_amount"] = float(o.get("total_amount") or 0)
-        row["delivery_fee"] = float(o.get("delivery_fee") or 0)
-        row["tip_amount"] = float(o.get("tip_amount") or 0)
-        row["total_payable"] = (
-            float(o.get("total_amount") or 0)
-            + float(o.get("delivery_fee") or 0)
-            + float(o.get("tip_amount") or 0)
-        )
+        row["items_subtotal"] = _store_order_items_subtotal(o)
+        row["delivery_fee"] = _store_order_money(o.get("delivery_fee_amount") if o.get("delivery_fee_amount") is not None else o.get("delivery_fee"))
+        row["platform_fee"] = _store_order_money(o.get("platform_fee"))
+        row["tip_amount"] = _store_order_money(o.get("tip_amount") if o.get("tip_amount") is not None else o.get("delivery_tip_amount"))
+        row["total_payable"] = _store_order_total_payable(o)
+        row["total_amount"] = row["total_payable"]
 
         hydrated.append(row)
 
@@ -6952,32 +7023,49 @@ def _build_store_split_page_context(store):
     ]
 
     paid_transactions = []
+    paid_txn_order_ids = set()
 
     if delivered_order_ids:
         paid_transactions = list(mongo.transactions.find({
             "order_id": {"$in": delivered_order_ids},
             "status": "PAID"
         }))
+        paid_txn_order_ids = {str(t.get("order_id")) for t in paid_transactions if t.get("order_id")}
 
-    gmv_total = sum(
-        float(o.get("total_amount") or 0)
-        + float(o.get("delivery_fee") or 0)
-        + float(o.get("tip_amount") or 0)
-        for o in delivered_orders
-    )
+    # Delivered Customer GMV is delivery-mode agnostic:
+    # it sums the final customer payable captured on delivered orders. That
+    # amount already includes the correct in-house / external / courier delivery
+    # fee, platform fee and tip snapshot from checkout. Cancelled and open orders
+    # are intentionally excluded.
+    gmv_total = sum(_store_order_total_payable(o) for o in delivered_orders)
+    delivered_items_subtotal = sum(_store_order_items_subtotal(o) for o in delivered_orders)
+    delivered_delivery_fee_total = sum(_store_order_money(o.get("delivery_fee")) for o in delivered_orders)
+    delivered_platform_fee_total = sum(_store_order_money(o.get("platform_fee")) for o in delivered_orders)
+    delivered_tip_total = sum(_store_order_money(o.get("tip_amount")) for o in delivered_orders)
 
-    paid_total = sum(
-    float(t.get("amount") or 0)
-    for t in paid_transactions
-)
+    paid_online_total = sum(_store_order_money(t.get("amount")) for t in paid_transactions)
 
-    if not paid_transactions and delivered_orders:
-        paid_total = sum(
-        float(o.get("total_amount") or 0)
-        + float(o.get("delivery_fee") or 0)
-        + float(o.get("tip_amount") or 0)
-        for o in delivered_orders
-    )
+    cod_collected_total = 0.0
+    for o in delivered_orders:
+        payment_method = str(o.get("payment_method") or "").upper()
+        payment_status = str(o.get("payment_status") or "").upper()
+        order_id_text = str(o.get("_id"))
+
+        if order_id_text in paid_txn_order_ids:
+            continue
+
+        if payment_method == "COD" or payment_status in {"COD_COLLECTED", "COLLECTED", "PAID", "RECEIVED"}:
+            cod_collected_total += _store_order_total_payable(o)
+
+    paid_total = paid_online_total + cod_collected_total
+
+    pending_payment_orders = [
+        o for o in orders
+        if (o.get("status") or "").upper() not in {"DELIVERED", "CANCELLED"}
+        and (o.get("payment_status") or "").upper() in {"", "PENDING", "UNPAID", "COD_PENDING", "PENDING_PAYMENT"}
+    ]
+
+    pending_payment_value = sum(_store_order_total_payable(o) for o in pending_payment_orders)
 
     unique_customers = len(set([
         str(o.get("user_id"))
@@ -7019,8 +7107,17 @@ def _build_store_split_page_context(store):
     metrics = {
         "total_orders": len(orders),
         "gmv_total": float(gmv_total),
+        "delivered_customer_gmv": float(gmv_total),
+        "delivered_items_subtotal": float(delivered_items_subtotal),
+        "delivered_delivery_fee_total": float(delivered_delivery_fee_total),
+        "delivered_platform_fee_total": float(delivered_platform_fee_total),
+        "delivered_tip_total": float(delivered_tip_total),
         "paid_total": float(paid_total),
-        "txn_count": len(paid_transactions) if paid_transactions else len(delivered_orders),
+        "paid_online_total": float(paid_online_total),
+        "cod_collected_total": float(cod_collected_total),
+        "pending_payment_orders": len(pending_payment_orders),
+        "pending_payment_value": float(pending_payment_value),
+        "txn_count": len(paid_transactions),
         "unique_customers": unique_customers,
         "delivery_people": delivery_people_total,
         "active_delivery_people": active_delivery_people_total,

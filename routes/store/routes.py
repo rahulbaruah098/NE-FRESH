@@ -900,10 +900,6 @@ def store_settings_page():
             bool(int(store.get("allow_online_payment", 1) or 0))
         )
 
-        auto_accept_orders = _store_bool_from_form(
-            "auto_accept_orders",
-            bool(int(store.get("auto_accept_orders", 0) or 0))
-        )
 
         hide_out_of_stock = _store_bool_from_form(
             "hide_out_of_stock",
@@ -925,12 +921,6 @@ def store_settings_page():
             store.get("min_order_amount", 0)
         )
 
-        preparation_time = _settings_int_or_default(
-            request.form.get("preparation_time"),
-            store.get("preparation_time", 30) or 30,
-            0,
-            300
-        )
 
         lat_raw = (request.form.get("latitude") or "").strip()
         lng_raw = (request.form.get("longitude") or "").strip()
@@ -975,10 +965,8 @@ def store_settings_page():
             "weekly_off_day": weekly_off_day,
 
             "min_order_amount": min_order_amount,
-            "preparation_time": preparation_time,
             "allow_cod": 1 if allow_cod else 0,
             "allow_online_payment": 1 if allow_online_payment else 0,
-            "auto_accept_orders": 1 if auto_accept_orders else 0,
 
             "delivery_enabled": 1 if delivery_enabled else 0,
             "delivery_available": bool(delivery_enabled),
@@ -3990,7 +3978,6 @@ def store_profile_update():
     closing_time = (request.form.get("closing_time") or "").strip()
     working_days = request.form.getlist("working_days")
 
-    preparation_time_raw = (request.form.get("preparation_time") or "").strip()
     min_order_amount_raw = (request.form.get("min_order_amount") or "").strip()
 
        # Delivery enabled/off.
@@ -4039,10 +4026,6 @@ def store_profile_update():
     latitude = _store_float_or_none(lat_raw, -90, 90)
     longitude = _store_float_or_none(lng_raw, -180, 180)
 
-    try:
-        preparation_time = int(float(preparation_time_raw)) if preparation_time_raw else None
-    except Exception:
-        preparation_time = None
 
     try:
         min_order_amount = float(min_order_amount_raw) if min_order_amount_raw else None
@@ -4096,7 +4079,6 @@ def store_profile_update():
         "opening_time": opening_time,
         "closing_time": closing_time,
         "working_days": working_days,
-        "preparation_time": preparation_time,
         "min_order_amount": min_order_amount,
 
         # Backward compatibility with old field.
