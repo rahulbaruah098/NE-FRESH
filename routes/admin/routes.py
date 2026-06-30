@@ -45,7 +45,7 @@ def _block_admin_delivery_and_return_pages_when_disabled():
             return None
 
         flash("In-house delivery account export is currently disabled and hidden by Admin.", "warning")
-        return redirect(url_for("admin_users_overview"))
+        return redirect(url_for("admin_users"))
 
     if endpoint == "admin_settlement_rider_cash_received":
         if is_delivery_feature_enabled("cod_rider_collection_enabled", True):

@@ -4091,10 +4091,6 @@ def store_profile_update():
         "delivery_mode": delivery_mode,
         "delivery_zone_polygon": delivery_zone_polygon,
         "delivery_zone_configured": 1 if delivery_zone_polygon else 0,
-        "delivery_enabled": 1 if delivery_enabled else 0,
-        "delivery_mode": delivery_mode,
-        "delivery_zone_polygon": delivery_zone_polygon,
-        "delivery_zone_configured": 1 if delivery_zone_polygon else 0,
 
         "profile_updated_at": now,
         "updated_at": now
@@ -4125,11 +4121,11 @@ def store_profile_update():
             flash("Invalid banner image file type.", "warning")
             return redirect(url_for("store_profile"))
 
-            fn = secure_filename(banner.filename)
-            save_as = "store_banner_" + str(store["_id"]) + "_" + datetime.utcnow().strftime("%Y%m%d%H%M%S_") + fn
-            os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-            banner.save(os.path.join(app.config["UPLOAD_FOLDER"], save_as))
-            update_data["banner_path"] = f"uploads/{save_as}"
+        fn = secure_filename(banner.filename)
+        save_as = "store_banner_" + str(store["_id"]) + "_" + datetime.utcnow().strftime("%Y%m%d%H%M%S_") + fn
+        os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+        banner.save(os.path.join(app.config["UPLOAD_FOLDER"], save_as))
+        update_data["banner_path"] = f"uploads/{save_as}"
 
     mongo.stores.update_one(
         {"_id": store["_id"]},

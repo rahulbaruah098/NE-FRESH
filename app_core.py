@@ -6718,9 +6718,56 @@ def _get_current_store_or_redirect():
     return u, store_view
 
 
+def _store_identity_values(store_id):
+    """Return ObjectId/string store ids so legacy and new rows both match.
+
+    Some old records were saved with store_id as a string, while current store
+    records use ObjectId. Dashboard/report queries must read both shapes to keep
+    GMV, products and order counts accurate after migrations/imports.
+    """
+    values = []
+
+    def add(value):
+        if value is None:
+            return
+        if value not in values:
+            values.append(value)
+
+    add(store_id)
+    add(str(store_id))
+
+    try:
+        add(ObjectId(str(store_id)))
+    except Exception:
+        pass
+
+    return values
+
+
+def _order_identity_values(order_ids):
+    """Return ObjectId/string order ids for transaction joins."""
+    values = []
+
+    def add(value):
+        if value is None:
+            return
+        if value not in values:
+            values.append(value)
+
+    for oid in order_ids or []:
+        add(oid)
+        add(str(oid))
+        try:
+            add(ObjectId(str(oid)))
+        except Exception:
+            pass
+
+    return values
+
+
 def _get_store_products(store_id):
     products = list(
-        mongo.products.find({"store_id": store_id}).sort("created_at", -1)
+        mongo.products.find({"store_id": {"$in": _store_identity_values(store_id)}}).sort("created_at", -1)
     )
 
     for p in products:
@@ -6806,7 +6853,7 @@ def _store_order_items_subtotal(order_doc):
 
 def _get_store_orders(store_id):
     orders = list(
-        mongo.orders.find({"store_id": store_id}).sort("created_at", -1)
+        mongo.orders.find({"store_id": {"$in": _store_identity_values(store_id)}}).sort("created_at", -1)
     )
 
     hydrated = []
@@ -7027,8 +7074,8 @@ def _build_store_split_page_context(store):
 
     if delivered_order_ids:
         paid_transactions = list(mongo.transactions.find({
-            "order_id": {"$in": delivered_order_ids},
-            "status": "PAID"
+            "order_id": {"$in": _order_identity_values(delivered_order_ids)},
+            "status": {"$in": ["PAID", "ONLINE_PAID", "SUCCESS", "COMPLETED", "CAPTURED"]}
         }))
         paid_txn_order_ids = {str(t.get("order_id")) for t in paid_transactions if t.get("order_id")}
 
@@ -7058,6 +7105,19 @@ def _build_store_split_page_context(store):
             cod_collected_total += _store_order_total_payable(o)
 
     paid_total = paid_online_total + cod_collected_total
+
+    paid_delivered_orders = 0
+    for o in delivered_orders:
+        payment_method = str(o.get("payment_method") or "").upper()
+        payment_status = str(o.get("payment_status") or "").upper()
+        order_id_text = str(o.get("_id"))
+
+        if (
+            order_id_text in paid_txn_order_ids
+            or payment_method == "COD"
+            or payment_status in {"COD_COLLECTED", "COLLECTED", "PAID", "RECEIVED", "ONLINE_PAID", "SUCCESS", "COMPLETED", "CAPTURED"}
+        ):
+            paid_delivered_orders += 1
 
     pending_payment_orders = [
         o for o in orders
@@ -7118,6 +7178,7 @@ def _build_store_split_page_context(store):
         "pending_payment_orders": len(pending_payment_orders),
         "pending_payment_value": float(pending_payment_value),
         "txn_count": len(paid_transactions),
+        "paid_delivered_orders": paid_delivered_orders,
         "unique_customers": unique_customers,
         "delivery_people": delivery_people_total,
         "active_delivery_people": active_delivery_people_total,
