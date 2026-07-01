@@ -43,6 +43,16 @@ def _env_bool(name, default=False):
     return str(raw).strip().lower() in ["1", "true", "yes", "on"]
 
 
+def _is_production_env():
+    raw = (
+        os.getenv("APP_ENV")
+        or os.getenv("FLASK_ENV")
+        or os.getenv("ENV")
+        or ""
+    ).strip().lower()
+    return raw in {"production", "prod", "live"}
+
+
 def is_debug_logging_enabled():
     return _env_bool("NEFRESH_DEBUG_LOGS", False) or _env_bool("FLASK_DEBUG", False)
 
@@ -62,15 +72,24 @@ def log_warning(*args):
 # development key is never reused.
 _app_secret = (os.getenv("APP_SECRET_KEY") or os.getenv("SECRET_KEY") or "").strip()
 if not _app_secret:
+    if _is_production_env():
+        raise RuntimeError("APP_SECRET_KEY or SECRET_KEY must be set in the production server environment.")
     _app_secret = secrets.token_urlsafe(48)
     log_warning("[SECURITY WARNING] APP_SECRET_KEY/SECRET_KEY is not set. Using a temporary runtime key; sessions will reset on restart.")
+elif len(_app_secret) < 32:
+    log_warning("[SECURITY WARNING] APP_SECRET_KEY/SECRET_KEY is shorter than recommended. Use at least 32 random characters in production.")
 app.secret_key = _app_secret
 
 
 # WebView Session Configuration
 from datetime import timedelta
-app.config['SESSION_COOKIE_HTTPONLY'] = False  # kept for existing WebView compatibility
-_session_cookie_secure = _env_bool("SESSION_COOKIE_SECURE", False)  # set true on HTTPS production
+_session_cookie_httponly = _env_bool("SESSION_COOKIE_HTTPONLY", False)  # set true unless WebView needs JS-readable cookies
+if _is_production_env() and not _session_cookie_httponly:
+    log_warning("[SECURITY WARNING] SESSION_COOKIE_HTTPONLY=false. Set SESSION_COOKIE_HTTPONLY=true in production unless WebView requires JS-readable cookies.")
+app.config['SESSION_COOKIE_HTTPONLY'] = _session_cookie_httponly
+_session_cookie_secure = _env_bool("SESSION_COOKIE_SECURE", _is_production_env())  # true by default when APP_ENV/FLASK_ENV=production
+if _is_production_env() and not _session_cookie_secure:
+    log_warning("[SECURITY WARNING] SESSION_COOKIE_SECURE=false. Set SESSION_COOKIE_SECURE=true on HTTPS production.")
 _session_cookie_samesite = (os.getenv("SESSION_COOKIE_SAMESITE") or "").strip()
 
 # CSRF needs the browser session cookie to survive from GET /login to POST /login.
@@ -118,6 +137,23 @@ CORS(app, resources={
 })
 
 log_debug("[RUNNING]", __file__)
+
+
+def _warn_missing_production_sender_settings():
+    if not _is_production_env():
+        return
+
+    required_email_settings = ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"]
+    missing_email_settings = [name for name in required_email_settings if not (os.getenv(name) or "").strip()]
+
+    if missing_email_settings:
+        log_warning(
+            "[PRODUCTION WARNING] Email/OTP sender is not fully configured. Missing: "
+            + ", ".join(missing_email_settings)
+        )
+
+
+_warn_missing_production_sender_settings()
 
 
 # =========================================================
@@ -277,6 +313,22 @@ FOOTER_LINKS = [
 @app.context_processor
 def inject_footer_links():
     return {"FOOTER_LINKS": FOOTER_LINKS}
+
+
+# ---- Brand/support/social config site-wide ----
+def _env_text(name, default=""):
+    return (os.getenv(name) or default or "").strip()
+
+
+@app.context_processor
+def inject_site_brand_settings():
+    return {
+        "APP_BRAND_NAME": _env_text("APP_BRAND_NAME", "NELOCALS"),
+        "SUPPORT_EMAIL": _env_text("SUPPORT_EMAIL", "support@nelocals.in"),
+        "SOCIAL_FACEBOOK_URL": _env_text("SOCIAL_FACEBOOK_URL", ""),
+        "SOCIAL_INSTAGRAM_URL": _env_text("SOCIAL_INSTAGRAM_URL", ""),
+        "SOCIAL_YOUTUBE_URL": _env_text("SOCIAL_YOUTUBE_URL", ""),
+    }
 
 # ----------------------
 # ----------------------
@@ -3938,7 +3990,14 @@ with app.app_context():
 # ----------------------
 # MISC UTILS
 # ----------------------
-app.config["UPLOAD_FOLDER"] = os.path.join(os.path.dirname(__file__), "uploads")
+_upload_folder_env = (os.getenv("UPLOAD_FOLDER") or os.getenv("NELOCALS_UPLOAD_FOLDER") or "").strip()
+app.config["UPLOAD_FOLDER"] = (
+    os.path.abspath(_upload_folder_env)
+    if _upload_folder_env
+    else os.path.join(os.path.dirname(__file__), "uploads")
+)
+if _is_production_env() and not _upload_folder_env:
+    log_warning("[PRODUCTION WARNING] UPLOAD_FOLDER is not set. Using local ./uploads; configure a persistent upload path in production to prevent file loss.")
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
@@ -3982,7 +4041,7 @@ def order_total_payable(order_row):
 def ensure_admin_seed_password():
     """
     Security-safe admin seeding.
-    The old hardcoded admin@chhimphei.local / admin123 fallback has been removed.
+    The old hardcoded demo admin fallback has been removed.
     To seed an admin on a fresh database, set ADMIN_SEED_EMAIL and
     ADMIN_SEED_PASSWORD in the environment before first run.
     """

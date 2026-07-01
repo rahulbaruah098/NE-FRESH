@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from pathlib import Path
 from datetime import datetime
@@ -6,9 +7,9 @@ from pymongo import MongoClient
 BASE_DIR = Path(__file__).resolve().parent.parent
 SQLITE_DB_PATH = BASE_DIR / "app.db"
 
-MONGO_URI = "mongodb://localhost:27017/chhimpheichicken_db"
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/NE_Fresh")
 mongo_client = MongoClient(MONGO_URI)
-mongo_db = mongo_client["chhimpheichicken_db"]
+mongo_db = mongo_client.get_database()
 
 sqlite_conn = sqlite3.connect(SQLITE_DB_PATH)
 sqlite_conn.row_factory = sqlite3.Row

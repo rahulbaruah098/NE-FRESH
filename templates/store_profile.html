@@ -15,6 +15,8 @@
 {% set completion = profile_completion if profile_completion is defined else {} %}
 {% set checklist = profile_checklist if profile_checklist is defined else [] %}
 {% set settings = notification_settings if notification_settings is defined else {} %}
+{% set store_active_image_src = url_for('store_profile_image', store_id=store.id) if store.profile_image_id else '' %}
+{% set store_active_image_version = store.profile_image_updated_at|default(store.updated_at|default('')) %}
 
 <section class="nf-store-profile-page">
   <style>
@@ -33,11 +35,12 @@
     .sp-kicker{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:0 12px;border-radius:999px;background:#E9FFF3;border:1px solid rgba(0,168,89,.18);color:var(--green-dark);font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
     .sp-title{margin:14px 0 8px;font-size:clamp(30px,4vw,54px);line-height:1;font-weight:900;letter-spacing:-.06em}.sp-copy{max-width:900px;margin:0;color:var(--muted);font-size:15px;font-weight:650;line-height:1.65}
     .sp-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.sp-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 15px;border-radius:15px;border:1px solid var(--line);background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:900;transition:.2s var(--ease);cursor:pointer;white-space:nowrap}.sp-btn-primary{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;box-shadow:0 12px 24px rgba(0,168,89,.18)}.sp-btn:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(17,64,38,.09)}
-    .sp-logo-row{display:flex;align-items:center;gap:14px}.sp-logo{width:82px;height:82px;border-radius:24px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;color:var(--green-dark);font-size:34px;font-weight:900;box-shadow:0 12px 28px rgba(17,64,38,.08)}.sp-logo img{width:100%;height:100%;object-fit:contain;padding:8px}.sp-store-name{font-size:18px;font-weight:900}.sp-store-sub{margin-top:5px;color:var(--muted);font-size:13px;font-weight:750;line-height:1.35}
+    .sp-logo-row{display:flex;align-items:center;gap:14px}.sp-logo{width:82px;height:82px;border-radius:24px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;color:var(--green-dark);font-size:34px;font-weight:900;box-shadow:0 12px 28px rgba(17,64,38,.08);position:relative}.sp-logo img{width:100%;height:100%;object-fit:cover;padding:0;display:block}.sp-store-name{font-size:18px;font-weight:900}.sp-store-sub{margin-top:5px;color:var(--muted);font-size:13px;font-weight:750;line-height:1.35}
     .sp-status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.sp-status-pill{min-height:56px;padding:11px 12px;border-radius:18px;border:1px solid var(--line2);background:#fff}.sp-status-pill span{display:block;color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.sp-status-pill strong{display:block;margin-top:6px;font-size:14px;font-weight:900;line-height:1.25}
     .sp-grid{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(340px,.84fr);gap:20px;align-items:start}.sp-section-head{padding:20px 22px;border-bottom:1px solid var(--line2);background:#FBFFFD}.sp-section-title{margin:0;font-size:18px;font-weight:900;letter-spacing:-.03em}.sp-section-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:650;line-height:1.45}
     .sp-form{padding:22px;display:grid;gap:18px}.sp-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.sp-field{display:grid;gap:8px}.sp-field.full{grid-column:1/-1}.sp-field label{color:var(--text);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.07em}
     .sp-input,.sp-textarea,.sp-file{width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);outline:none;font-weight:800;font-family:inherit}.sp-input{min-height:46px;padding:0 13px}.sp-textarea{min-height:108px;padding:13px;resize:vertical;line-height:1.5}.sp-file{height:auto;padding:12px 13px}.sp-input:focus,.sp-textarea:focus,.sp-file:focus{border-color:rgba(0,168,89,.42);box-shadow:0 0 0 4px rgba(0,168,89,.08)}
+    .sp-profile-upload{grid-column:1/-1;display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;align-items:center;padding:14px;border:1px solid var(--line2);border-radius:20px;background:linear-gradient(135deg,#fff,var(--soft))}.sp-profile-upload-preview{width:96px;height:96px;border-radius:24px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;color:var(--green-dark);font-size:36px;font-weight:900}.sp-profile-upload-preview img{width:100%;height:100%;object-fit:cover;display:block}.sp-profile-upload-copy{display:grid;gap:8px}.sp-profile-upload-copy .sp-file{background:#fff}.sp-profile-upload-copy strong{color:var(--ink);font-size:14px;font-weight:900}.sp-profile-upload-copy small{color:var(--muted);font-size:12px;font-weight:750;line-height:1.4}@media(max-width:520px){.sp-profile-upload{grid-template-columns:1fr}.sp-profile-upload-preview{width:86px;height:86px}}
     .sp-help{color:var(--muted);font-size:12px;font-weight:700;line-height:1.4}.sp-current{display:inline-flex;align-items:center;gap:6px;width:max-content;max-width:100%;min-height:28px;padding:6px 10px;border-radius:999px;background:#E9FFF3;border:1px solid rgba(0,168,89,.16);color:var(--muted);font-size:12px;font-weight:800}.sp-current strong{color:var(--green-dark);font-weight:900}.sp-check-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sp-check{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--text);font-size:13px;font-weight:850}.sp-check input{accent-color:var(--green)}
     .sp-side-stack{display:grid;gap:20px}.sp-preview,.sp-completion{padding:20px}.sp-preview-box{padding:18px;border:1px solid var(--line2);border-radius:22px;background:linear-gradient(135deg,#fff,var(--soft));display:grid;gap:14px}
     
@@ -1202,7 +1205,7 @@
   <div class="sp-shell"><div class="sp-stack">
     <section class="sp-hero">
       <div><span class="sp-kicker">🏪 NE FRESH Store Admin Profile</span><h1 class="sp-title">{{ store.store_name or 'Store Admin Profile' }}</h1><p class="sp-copy">Essential store admin, pickup and operation details.</p><div class="sp-actions"><button class="sp-btn sp-btn-primary" type="button" data-submit-profile>Save Store Admin Profile</button><button class="sp-btn" type="button" id="spUseLocation">Detect Store Pickup Location</button></div></div>
-      <aside><div class="sp-logo-row"><div class="sp-logo">{% if store.logo_path %}<img src="/{{ store.logo_path }}" alt="{{ store.store_name }}">{% else %}{{ (store.store_name or 'S')[:1]|upper }}{% endif %}</div><div><div class="sp-store-name">{{ store.store_name or 'Store name not added' }}</div><div class="sp-store-sub">{{ store.address or 'Store address not updated yet.' }}</div></div></div><div class="sp-status-grid"><div class="sp-status-pill"><span>Admin Status</span><strong>{{ 'Active' if store.is_active else 'Inactive' }}</strong></div><div class="sp-status-pill"><span>Operation</span><strong>{{ 'Online' if store.is_online|default(store.is_open|default(1))|int else 'Offline' }}</strong></div></div></aside>
+      <aside><div class="sp-logo-row"><div class="sp-logo" aria-label="{{ store.store_name or 'Store' }} profile picture">{% if store_active_image_src %}<img src="{{ store_active_image_src }}?v={{ store_active_image_version }}" alt="{{ store.store_name or 'Store' }}" data-store-profile-img>{% else %}<span data-store-profile-fallback>{{ (store.store_name or 'S')[:1]|upper }}</span>{% endif %}</div><div><div class="sp-store-name">{{ store.store_name or 'Store name not added' }}</div><div class="sp-store-sub">{{ store.address or 'Store address not updated yet.' }}</div></div></div><div class="sp-status-grid"><div class="sp-status-pill"><span>Admin Status</span><strong>{{ 'Active' if store.is_active else 'Inactive' }}</strong></div><div class="sp-status-pill"><span>Operation</span><strong>{{ 'Online' if store.is_online|default(store.is_open|default(1))|int else 'Offline' }}</strong></div></div></aside>
     </section>
 
     <section class="sp-grid">
@@ -1215,6 +1218,24 @@
             <div class="sp-field"><label>Login Email</label><input class="sp-input" value="{{ owner.email or '' }}" readonly></div>
             <div class="sp-field"><label>Phone Number</label><input class="sp-input" name="phone" value="{{ owner.phone or store.phone or '' }}" required><div class="sp-current">Current: <strong>{{ owner.phone or store.phone or '—' }}</strong></div></div>
             <div class="sp-field full"><label>Store Address</label><textarea class="sp-textarea" name="address" required>{{ store.address or '' }}</textarea><div class="sp-current">Current: <strong>{{ store.address or '—' }}</strong></div></div>
+
+            <div class="sp-field full">
+              <label>Store Profile Picture</label>
+              <div class="sp-profile-upload">
+                <div class="sp-profile-upload-preview" aria-label="Current store profile picture">
+                  {% if store_active_image_src %}
+                    <img src="{{ store_active_image_src }}?v={{ store_active_image_version }}" alt="{{ store.store_name or 'Store' }}" data-store-profile-img>
+                  {% else %}
+                    <span data-store-profile-fallback>{{ (store.store_name or 'S')[:1]|upper }}</span>
+                  {% endif %}
+                </div>
+                <div class="sp-profile-upload-copy">
+                  <strong>Upload active store image</strong>
+                  <input class="sp-file" id="storeProfileImageInput" type="file" name="profile_image" accept="image/png,image/jpeg,image/jpg,image/webp">
+                  <small>This image is saved in MongoDB and shown on the store dashboard. Use JPG, PNG or WEBP up to 4 MB.</small>
+                </div>
+              </div>
+            </div>
 
 <input type="hidden" name="profile_intro" value="{{ store.profile_intro or '' }}">
 
@@ -1349,6 +1370,9 @@
         const cityInput = document.getElementById('storeCity');
 const stateInput = document.getElementById('storeState');
 const pinInput = document.getElementById('storePincode');
+const profileImageInput = document.getElementById('storeProfileImageInput');
+const profileImageTargets = Array.from(document.querySelectorAll('[data-store-profile-img]'));
+const profileImageFallbacks = Array.from(document.querySelectorAll('[data-store-profile-fallback]'));
 
 const deliveryEnabledToggle = document.getElementById('deliveryEnabledToggle');
 const zoneInput = document.getElementById('deliveryZonePolygon');
@@ -1373,6 +1397,44 @@ let zoneMarkers = [];
           document.getElementById('spUseLocation'),
           document.getElementById('spUseLocationBottom')
         ].filter(Boolean);
+
+        if (profileImageInput) {
+          profileImageInput.addEventListener('change', function(){
+            const file = profileImageInput.files && profileImageInput.files[0];
+
+            if (!file) return;
+
+            const previewUrl = URL.createObjectURL(file);
+
+            profileImageFallbacks.forEach(function(fallback){
+              fallback.style.display = 'none';
+            });
+
+            profileImageTargets.forEach(function(img){
+              img.src = previewUrl;
+              img.style.display = 'block';
+            });
+
+            if (!profileImageTargets.length) {
+              document.querySelectorAll('.sp-logo, .sp-profile-upload-preview').forEach(function(box){
+                const existing = box.querySelector('img');
+
+                if (existing) {
+                  existing.src = previewUrl;
+                  existing.style.display = 'block';
+                  return;
+                }
+
+                const img = document.createElement('img');
+                img.src = previewUrl;
+                img.alt = 'Selected store profile picture';
+                img.setAttribute('data-store-profile-img', '');
+                box.innerHTML = '';
+                box.appendChild(img);
+              });
+            }
+          });
+        }
 
         function setLocationMessage(text, isError) {
           if (!locationMessage) return;

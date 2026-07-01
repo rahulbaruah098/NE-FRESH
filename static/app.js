@@ -492,7 +492,7 @@
               });
 
               playBeep();
-              desktopNotify("Chhimphei Chicken", `${title} (${data.new.length})`);
+              desktopNotify("NELOCALS", `${title} (${data.new.length})`);
             }
           } else {
             // even if no new, accept server cursor update

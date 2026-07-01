@@ -4,7 +4,26 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/NE_Fresh")
+
+def _is_production_env():
+    raw = (
+        os.getenv("APP_ENV")
+        or os.getenv("FLASK_ENV")
+        or os.getenv("ENV")
+        or ""
+    ).strip().lower()
+    return raw in {"production", "prod", "live"}
+
+
+MONGO_URI = (os.getenv("MONGO_URI") or "").strip()
+
+if not MONGO_URI:
+    if _is_production_env():
+        raise RuntimeError("MONGO_URI must be set in the production server environment.")
+    MONGO_URI = "mongodb://localhost:27017/NE_Fresh"
+
+if _is_production_env() and "localhost" in MONGO_URI.lower():
+    print("[PRODUCTION WARNING] MONGO_URI points to localhost. Confirm production MongoDB backups are enabled.")
 
 client = MongoClient(MONGO_URI)
 mongo = client.get_database()

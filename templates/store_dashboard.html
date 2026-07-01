@@ -1,7 +1,7 @@
 {% extends "store_base.html" %}
 {% set active_page = "dashboard" %}
 
-{% block title %}Store Admin Dashboard | NE FRESH{% endblock %}
+{% block title %}Store Admin Dashboard | NE Locals{% endblock %}
 {% block page_title %}Store Admin Dashboard{% endblock %}
 {% block page_subtitle %}Orders, delivery, stock and payments in one clean view.{% endblock %}
 
@@ -26,6 +26,9 @@
 {% set dashboard_provider_short = 'External Local' if is_external_local_mode else ('Courier' if is_third_party_mode else ('External' if is_external_mode else 'In-house')) %}
 {% set dashboard_payment_short = 'Online Only' if mode_ui.online_only|default(false) else ('Online / COD' if not is_external_mode else 'As Set') %}
 {% set dashboard_action_short = 'Prepare' if is_external_mode else ('Assign' if inhouse_enabled else 'Orders') %}
+{% set dashboard_store_id = store.id|default(store._id) %}
+{% set store_active_image_src = url_for('store_profile_image', store_id=dashboard_store_id) if store.profile_image_id else '' %}
+{% set store_active_image_version = store.profile_image_updated_at|default(store.updated_at|default('')) %}
 
 {% set ns = namespace(
   placed=0,
@@ -48,7 +51,8 @@
   paid_orders=0,
   open_orders=0,
   open_value=0,
-  ready_without_assignment=0
+  ready_without_assignment=0,
+  actionable_orders=0
 ) %}
 
 {% if orders %}
@@ -78,6 +82,13 @@
       {% set ns.ready_without_assignment = ns.ready_without_assignment + 1 %}
     {% endif %}
 
+    {% if st in ['PLACED','PENDING_PAYMENT','CONFIRMED','PREPARING','PACKAGING']
+      or (st in ['READY_FOR_PICKUP','SHIPMENT_READY'] and (is_external_mode or not o.delivery_partner_id))
+      or (is_external_mode and st in ['PENDING_BOOKING','BOOKING_PENDING','BOOKING_FAILED','EXTERNAL_BOOKING_FAILED','DELIVERY_FAILED','FAILED_DELIVERY'])
+      or ((not is_external_mode) and inhouse_enabled and st == 'DELIVERY_FAILED') %}
+      {% set ns.actionable_orders = ns.actionable_orders + 1 %}
+    {% endif %}
+
     {% if pay == 'PAID' or pay == 'RECEIVED' or pay == 'COLLECTED' or st == 'DELIVERED' %}
       {% set ns.paid_orders = ns.paid_orders + 1 %}
     {% endif %}
@@ -96,7 +107,7 @@
   {% endfor %}
 {% endif %}
 
-{% set store_action_total = ns.placed + ns.confirmed + ns.preparing + ns.ready %}
+{% set store_action_total = (ns.placed + ns.confirmed + ns.preparing + ns.ready + (metrics.mode_external_pending_booking|default(0)) + (metrics.mode_external_failed|default(0))) if is_external_mode else (ns.placed + ns.confirmed + ns.preparing + (ns.ready_without_assignment if inhouse_enabled else ns.ready) + (ns.failed_delivery if inhouse_enabled else 0)) %}
 {% set delivery_progress_total = ns.assigned + ns.reached_store + ns.picked_up + ns.out_for_delivery %}
 {% set low_stock_total = ns.low_stock + ns.out_stock %}
 {% set fulfilment_base = orders_total if orders_total else 1 %}
@@ -131,8 +142,10 @@
     .sd-btn-primary{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;box-shadow:0 12px 24px rgba(0,168,89,.18);}
     .sd-hero-panel{display:grid;gap:12px;align-content:start;}
     .sd-store-card{display:flex;align-items:center;gap:13px;padding:14px;border-radius:22px;border:1px solid var(--line2);background:#fff;}
-    .sd-logo{width:64px;height:64px;min-width:64px;border-radius:20px;border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;background:#fff;color:var(--green-dark);font-size:28px;font-weight:950;}
-    .sd-logo img{width:100%;height:100%;object-fit:contain;padding:7px;display:block;}
+    .sd-logo{width:64px;height:64px;min-width:64px;border-radius:20px;border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;background:#fff;color:var(--green-dark);font-size:28px;font-weight:950;position:relative;isolation:isolate;}
+    .sd-logo-fallback{position:absolute;inset:0;z-index:0;display:grid;place-items:center;color:var(--green-dark);font-size:28px;font-weight:950;line-height:1;background:#fff;}
+    .sd-logo.has-logo .sd-logo-fallback{opacity:0;}
+    .sd-logo img{width:100%;height:100%;object-fit:cover;padding:0;display:block;position:relative;z-index:1;background:#fff;}
     .sd-store-name{font-size:17px;font-weight:950;line-height:1.2;overflow-wrap:anywhere;}
     .sd-store-meta{margin-top:5px;color:var(--muted);font-size:12px;font-weight:750;line-height:1.35;overflow-wrap:anywhere;}
     .sd-hero-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
@@ -1199,7 +1212,45 @@
         </div>
         <aside class="sd-hero-panel">
           <div class="sd-store-card">
-            <div class="sd-logo">{% if store.logo_path %}<img src="/{{ store.logo_path }}" alt="{{ store.store_name }}">{% else %}{{ (store.store_name or 'S')[:1]|upper }}{% endif %}</div>
+            {% set store_logo_raw = (store.logo_path|default(store.logo|default(store.store_logo_path|default(store.image_path|default('')))) or '')|string|trim|replace('\\', '/') %}
+            {% set store_logo_clean = store_logo_raw.lstrip('/') %}
+            {% if store_logo_clean.startswith('static/') %}
+              {% set store_logo_file = store_logo_clean[7:] %}
+            {% else %}
+              {% set store_logo_file = store_logo_clean %}
+            {% endif %}
+            {% if store_logo_file.startswith('uploads/') %}
+              {% set store_logo_upload_fn = store_logo_file[8:] %}
+            {% else %}
+              {% set store_logo_upload_fn = store_logo_file %}
+            {% endif %}
+            {% set store_logo_is_external = store_logo_raw.startswith('http://') or store_logo_raw.startswith('https://') %}
+            <div class="sd-logo" aria-label="{{ store.store_name or 'Store' }} profile picture">
+              <span class="sd-logo-fallback">{{ (store.store_name or 'S')[:1]|upper }}</span>
+              {% if store_active_image_src %}
+                <img
+                  src="{{ store_active_image_src }}?v={{ store_active_image_version }}"
+                  alt="{{ store.store_name or 'Store' }}"
+                  loading="lazy"
+                  onload="if(this.naturalWidth>0){this.closest('.sd-logo').classList.add('has-logo');}"
+                  onerror="this.style.display='none';this.closest('.sd-logo').classList.remove('has-logo');"
+                >
+              {% elif store_logo_raw %}
+                {% if store_logo_is_external %}
+                  <img src="{{ store_logo_raw }}" alt="{{ store.store_name or 'Store' }}" loading="lazy" onload="if(this.naturalWidth>0){this.closest('.sd-logo').classList.add('has-logo');}" onerror="this.style.display='none';this.closest('.sd-logo').classList.remove('has-logo');">
+                {% else %}
+                  <img
+                    src="{{ url_for('uploaded_file', fn=store_logo_upload_fn) }}"
+                    data-alt-1="{{ url_for('static', filename=store_logo_file) }}"
+                    data-alt-2="{{ '/' ~ store_logo_clean }}"
+                    alt="{{ store.store_name or 'Store' }}"
+                    loading="lazy"
+                    onload="if(this.naturalWidth>0){this.closest('.sd-logo').classList.add('has-logo');}"
+                    onerror="if(!this.dataset.try1 && this.dataset.alt1){this.dataset.try1='1';this.src=this.dataset.alt1;}else if(!this.dataset.try2 && this.dataset.alt2){this.dataset.try2='1';this.src=this.dataset.alt2;}else{this.style.display='none';this.closest('.sd-logo').classList.remove('has-logo');}"
+                  >
+                {% endif %}
+              {% endif %}
+            </div>
             <div><div class="sd-store-name">{{ store.store_name or 'Store' }}</div><div class="sd-store-meta">{{ store.address or 'Address not updated' }}</div></div>
           </div>
           <div class="sd-hero-stat-grid">
@@ -1209,28 +1260,6 @@
             <div class="sd-hero-stat"><span>Paid Value</span><strong>₹ {{ '%.2f'|format(earnings_total or 0) }}</strong></div>
           </div>
         </aside>
-      </section>
-
-      <section class="sd-mode-panel" id="delivery-mode-workflow">
-        <div>
-          <span class="sd-kicker">{{ mode_ui.icon|default('🚚') }} {{ mode_ui.label|default('Delivery Mode') }}</span>
-          <h2 class="sd-mode-title">{{ mode_ui.store_dashboard_title|default('Delivery Setup') }}</h2>
-          <p class="sd-mode-copy">{{ mode_ui.store_dashboard_copy|default('Current delivery setup and store action for incoming orders.') }}</p>
-          <div class="sd-hero-actions">
-            <a class="sd-btn sd-btn-primary" href="{{ url_for('store_orders') }}">Open Orders</a>
-            {% if is_external_mode %}
-              <a class="sd-btn" href="{{ url_for('store_external_delivery') }}">External Delivery</a>
-            {% elif inhouse_enabled %}
-              <a class="sd-btn" href="{{ url_for('store_delivery') }}">Open Delivery</a>
-            {% endif %}
-          </div>
-        </div>
-        <div class="sd-mode-mini-grid">
-          <div class="sd-mode-mini"><span>Delivery Partner</span><strong>{{ dashboard_provider_short }}</strong></div>
-          <div class="sd-mode-mini"><span>Payment</span><strong>{{ dashboard_payment_short }}</strong></div>
-          <div class="sd-mode-mini"><span>Store Action</span><strong>{{ dashboard_action_short }}</strong></div>
-          <div class="sd-mode-mini"><span>Mode Orders</span><strong>{{ metrics.mode_active_orders|default(orders_total) }}</strong></div>
-        </div>
       </section>
 
       <section class="sd-card" id="store-live-controls">
@@ -1261,6 +1290,29 @@
         </div>
       </section>
 
+
+      <section class="sd-mode-panel" id="delivery-mode-workflow">
+        <div>
+          <span class="sd-kicker">{{ mode_ui.icon|default('🚚') }} {{ mode_ui.label|default('Delivery Mode') }}</span>
+          <h2 class="sd-mode-title">{{ mode_ui.store_dashboard_title|default('Delivery Setup') }}</h2>
+          <p class="sd-mode-copy">{{ mode_ui.store_dashboard_copy|default('Current delivery setup and store action for incoming orders.') }}</p>
+          <div class="sd-hero-actions">
+            <a class="sd-btn sd-btn-primary" href="{{ url_for('store_orders') }}">Open Orders</a>
+            {% if is_external_mode %}
+              <a class="sd-btn" href="{{ url_for('store_external_delivery') }}">External Delivery</a>
+            {% elif inhouse_enabled %}
+              <a class="sd-btn" href="{{ url_for('store_delivery') }}">Open Delivery</a>
+            {% endif %}
+          </div>
+        </div>
+        <div class="sd-mode-mini-grid">
+          <div class="sd-mode-mini"><span>Delivery Partner</span><strong>{{ dashboard_provider_short }}</strong></div>
+          <div class="sd-mode-mini"><span>Payment</span><strong>{{ dashboard_payment_short }}</strong></div>
+          <div class="sd-mode-mini"><span>Store Action</span><strong>{{ dashboard_action_short }}</strong></div>
+          <div class="sd-mode-mini"><span>Mode Orders</span><strong>{{ metrics.mode_active_orders|default(orders_total) }}</strong></div>
+        </div>
+      </section>
+
       <section class="sd-card" id="customer-order-pipeline">
         <div class="sd-section-head"><div><h2 class="sd-section-title">Order Pipeline</h2></div><a class="sd-view-link" href="{{ url_for('store_orders') }}">Open Orders</a></div>
         <div class="sd-pipeline">
@@ -1285,8 +1337,15 @@
       </section>
 
       <section class="sd-priority-grid" aria-label="Priority summary">
-        {% if inhouse_enabled and ns.failed_delivery > 0 %}<a class="sd-priority-card" href="{{ url_for('store_delivery') }}#failed-deliveries" style="text-decoration:none;color:inherit;"><div><div class="sd-priority-label">Failed Delivery</div><div class="sd-priority-value is-red">{{ ns.failed_delivery }}</div><div class="sd-priority-meta">Needs reschedule/cancel decision</div></div><div class="sd-priority-icon">🚨</div></a>{% endif %}
-        <div class="sd-priority-card"><div><div class="sd-priority-label">Needs Action</div><div class="sd-priority-value is-orange">{{ store_action_total }}</div><div class="sd-priority-meta">New, accepted, packing or ready</div></div><div class="sd-priority-icon">📦</div></div>
+        {% if is_external_mode and (metrics.mode_external_pending_booking|default(0)) > 0 %}
+          <a class="sd-priority-card" href="{{ url_for('store_external_delivery') }}" style="text-decoration:none;color:inherit;"><div><div class="sd-priority-label">Booking Pending</div><div class="sd-priority-value is-orange">{{ metrics.mode_external_pending_booking|default(0) }}</div><div class="sd-priority-meta">External delivery booking pending</div></div><div class="sd-priority-icon">🧾</div></a>
+        {% endif %}
+        {% if is_external_mode and (metrics.mode_external_failed|default(0)) > 0 %}
+          <a class="sd-priority-card" href="{{ url_for('store_external_delivery') }}" style="text-decoration:none;color:inherit;"><div><div class="sd-priority-label">External Failed</div><div class="sd-priority-value is-red">{{ metrics.mode_external_failed|default(0) }}</div><div class="sd-priority-meta">Booking or delivery needs review</div></div><div class="sd-priority-icon">⚠️</div></a>
+        {% elif inhouse_enabled and ns.failed_delivery > 0 %}
+          <a class="sd-priority-card" href="{{ url_for('store_delivery') }}#failed-deliveries" style="text-decoration:none;color:inherit;"><div><div class="sd-priority-label">Failed Delivery</div><div class="sd-priority-value is-red">{{ ns.failed_delivery }}</div><div class="sd-priority-meta">Needs reschedule/cancel decision</div></div><div class="sd-priority-icon">🚨</div></a>
+        {% endif %}
+        <div class="sd-priority-card"><div><div class="sd-priority-label">Needs Action</div><div class="sd-priority-value is-orange">{{ store_action_total }}</div><div class="sd-priority-meta">{{ 'External booking / handover pending' if is_external_mode else 'New, accepted, packing, ready or failed' }}</div></div><div class="sd-priority-icon">📦</div></div>
         <div class="sd-priority-card"><div><div class="sd-priority-label">Open Value</div><div class="sd-priority-value">₹ {{ '%.2f'|format(ns.open_value or 0) }}</div><div class="sd-priority-meta">Only active orders</div></div><div class="sd-priority-icon">🧾</div></div>
         <div class="sd-priority-card"><div><div class="sd-priority-label">Stock Alerts</div><div class="sd-priority-value is-red">{{ low_stock_total }}</div><div class="sd-priority-meta">{{ ns.low_stock }} low, {{ ns.out_stock }} out</div></div><div class="sd-priority-icon">⚠️</div></div>
         <div class="sd-priority-card"><div><div class="sd-priority-label">Delivered GMV</div><div class="sd-priority-value">₹ {{ '%.2f'|format(gmv_total or 0) }}</div><div class="sd-priority-meta">Delivered order value</div></div><div class="sd-priority-icon">💰</div></div>
@@ -1297,7 +1356,7 @@
           <div class="sd-section-head"><div><h2 class="sd-section-title">Operations Summary</h2></div></div>
           <div class="sd-kpi-grid">
             <div class="sd-kpi-card"><div class="sd-kpi-icon">🛍️</div><div><span class="sd-kpi-label">Products</span><strong class="sd-kpi-value">{{ products_total }}</strong><small class="sd-kpi-sub">{{ ns.active_products }} active, {{ ns.inactive_products }} disabled</small></div></div>
-            <div class="sd-kpi-card"><div class="sd-kpi-icon">📦</div><div><span class="sd-kpi-label">Total Stock</span><strong class="sd-kpi-value">{{ '%.2f'|format(ns.total_stock or 0) }}</strong><small class="sd-kpi-sub">Current stock quantity</small></div></div>
+            <div class="sd-kpi-card"><div class="sd-kpi-icon">📦</div><div><span class="sd-kpi-label">Stock Quantity</span><strong class="sd-kpi-value">{{ '%.2f'|format(ns.total_stock or 0) }}</strong><small class="sd-kpi-sub">Current stock quantity</small></div></div>
             <div class="sd-kpi-card"><div class="sd-kpi-icon">🧾</div><div><span class="sd-kpi-label">Orders</span><strong class="sd-kpi-value">{{ orders_total }}</strong><small class="sd-kpi-sub">{{ ns.open_orders }} open, {{ delivered_orders_total }} delivered</small></div></div>
             <div class="sd-kpi-card"><div class="sd-kpi-icon">👥</div><div><span class="sd-kpi-label">Customers</span><strong class="sd-kpi-value">{{ unique_customers_total }}</strong><small class="sd-kpi-sub">Unique customers</small></div></div>
             <div class="sd-kpi-card"><div class="sd-kpi-icon">🚚</div><div><span class="sd-kpi-label">Delivery Activity</span><strong class="sd-kpi-value">{{ delivery_progress_total if inhouse_enabled and not is_external_mode else metrics.mode_external_orders|default(0) }}</strong><small class="sd-kpi-sub">{{ 'In-house movement' if inhouse_enabled and not is_external_mode else 'External orders' }}</small></div></div>
@@ -1308,22 +1367,19 @@
         <div class="sd-card" id="transactions-reports">
           <div class="sd-section-head"><div><h2 class="sd-section-title">Payment Summary</h2></div><a class="sd-view-link" href="{{ url_for('store_txn_csv') }}?range=month">Export CSV</a></div>
           <div class="sd-payment-grid">
-            <div class="sd-payment-card main"><span class="sd-payment-label">Paid Value</span><strong class="sd-payment-value">₹ {{ '%.2f'|format(earnings_total or 0) }}</strong><small class="sd-payment-sub">Delivered paid orders</small></div>
+            <div class="sd-payment-card main"><span class="sd-payment-label">{{ 'Online Paid Value' if mode_ui.online_only|default(false) else 'Paid Value' }}</span><strong class="sd-payment-value">₹ {{ '%.2f'|format(earnings_total or 0) }}</strong><small class="sd-payment-sub">{{ 'Delivered online-paid orders' if mode_ui.online_only|default(false) else 'Delivered paid orders' }}</small></div>
             <div class="sd-payment-card"><span class="sd-payment-label">Delivered GMV</span><strong class="sd-payment-value">₹ {{ '%.2f'|format(gmv_total or 0) }}</strong><small class="sd-payment-sub">Completed order value</small></div>
-            <div class="sd-payment-card"><span class="sd-payment-label">Paid / Collected Orders</span><strong class="sd-payment-value">{{ metrics.paid_delivered_orders|default(txn_count_total) }}</strong><small class="sd-payment-sub">Delivered orders with payment received</small></div>
+            <div class="sd-payment-card"><span class="sd-payment-label">{{ 'Paid Online Orders' if mode_ui.online_only|default(false) else 'Paid / Collected Orders' }}</span><strong class="sd-payment-value">{{ metrics.paid_delivered_orders|default(txn_count_total) }}</strong><small class="sd-payment-sub">{{ 'Delivered orders paid through gateway' if mode_ui.online_only|default(false) else 'Delivered orders with payment received' }}</small></div>
             <div class="sd-payment-card"><span class="sd-payment-label">Online Payments</span><strong class="sd-payment-value">₹ {{ '%.2f'|format(metrics.paid_online_total|default(0)) }}</strong><small class="sd-payment-sub">Gateway paid</small></div>
-            <div class="sd-payment-card"><span class="sd-payment-label">Collected on Delivery</span><strong class="sd-payment-value">₹ {{ '%.2f'|format(metrics.cod_collected_total|default(0)) }}</strong><small class="sd-payment-sub">COD / pay-on-delivery collected</small></div>
-            <div class="sd-payment-card"><span class="sd-payment-label">Pending Payments</span><strong class="sd-payment-value">{{ metrics.pending_payment_orders|default(ns.pending_payment) }}</strong><small class="sd-payment-sub">₹ {{ '%.2f'|format(metrics.pending_payment_value|default(0)) }} open order value</small></div>
+            {% if mode_ui.online_only|default(false) %}
+              <div class="sd-payment-card"><span class="sd-payment-label">Payment Mode</span><strong class="sd-payment-value">Online</strong><small class="sd-payment-sub">COD / pay-on-delivery disabled</small></div>
+            {% else %}
+              <div class="sd-payment-card"><span class="sd-payment-label">Collected on Delivery</span><strong class="sd-payment-value">₹ {{ '%.2f'|format(metrics.cod_collected_total|default(0)) }}</strong><small class="sd-payment-sub">COD / pay-on-delivery collected</small></div>
+            {% endif %}
+            <div class="sd-payment-card"><span class="sd-payment-label">{{ 'Pending Online Payments' if mode_ui.online_only|default(false) else 'Pending Payments' }}</span><strong class="sd-payment-value">{{ metrics.pending_payment_orders|default(ns.pending_payment) }}</strong><small class="sd-payment-sub">₹ {{ '%.2f'|format(metrics.pending_payment_value|default(0)) }} {{ 'open online order value' if mode_ui.online_only|default(false) else 'open order value' }}</small></div>
           </div>
           <div class="sd-export-row" style="padding:0 20px 20px;margin-top:0;"><a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=day">Daily CSV</a><a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=week">Weekly CSV</a><a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=month">Monthly CSV</a><a class="sd-btn" href="{{ url_for('store_payouts') }}">Payouts</a></div>
         </div>
-      </section>
-
-      <section class="sd-card" id="notifications">
-        <div class="sd-section-head"><div><h2 class="sd-section-title">Shortcuts & Alerts</h2></div></div>
-        <audio id="ding" preload="auto"><source src="{{ url_for('static', filename='sounds/ding.mp3') }}" type="audio/mpeg"></audio>
-        <div class="sd-action-row" style="padding:0 20px 20px;margin-top:0;"><button id="enableSound" class="sd-btn sd-btn-primary" type="button">🔔 Enable Order Notifications</button><a class="sd-btn" href="{{ url_for('store_add_product') }}">＋ Add Product</a><a class="sd-btn" href="{{ url_for('store_categories') }}">Categories</a><a class="sd-btn" href="{{ url_for('store_delivered_orders') }}">Delivered</a></div>
-        <noscript><p class="sd-muted" style="padding:0 20px 20px;">Enable JavaScript to receive order alerts.</p></noscript>
       </section>
 
       <section class="sd-chart-grid">
@@ -1344,8 +1400,8 @@
          ========================================================= #}
       <section class="sd-card" id="needs-action">
         <div class="sd-section-head"><div><h2 class="sd-section-title">Needs Action</h2></div><a class="sd-view-link" href="{{ url_for('store_orders') }}">Open Orders</a></div>
-        <div class="sd-table-wrap sd-needs-action-wrap"><table class="sd-table sd-needs-action-table"><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th></tr></thead><tbody>{% set open_rows = namespace(count=0) %}{% if orders %}{% for o in orders %}{% if (o.status or '')|upper not in ['DELIVERED','CANCELLED'] and open_rows.count < 5 %}{% set open_rows.count = open_rows.count + 1 %}<tr><td data-label="Order">#{{ o.id[-6:] if o.id else '' }}</td><td data-label="Customer"><strong>{{ o.customer_name or 'Customer' }}</strong><div class="sd-muted">{{ o.customer_phone or '—' }}</div></td><td data-label="Status"><span class="sd-pill">{{ (o.status or 'PLACED')|replace('_',' ')|title }}</span></td><td data-label="Payment">{{ o.payment_status or '—' }}</td><td data-label="Total">₹ {{ '%.2f'|format(o.total_payable|default(o.total_amount|default(0))|float) }}</td></tr>{% endif %}{% endfor %}{% endif %}{% if open_rows.count == 0 %}<tr><td colspan="5" class="sd-muted" style="text-align:center;">No orders need action right now.</td></tr>{% endif %}</tbody></table></div>
-        {% if ns.open_orders > 5 %}
+        <div class="sd-table-wrap sd-needs-action-wrap"><table class="sd-table sd-needs-action-table"><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th></tr></thead><tbody>{% set open_rows = namespace(count=0) %}{% if orders %}{% for o in orders %}{% set action_status = (o.status or '')|upper %}{% if (action_status in ['PLACED','PENDING_PAYMENT','CONFIRMED','PREPARING','PACKAGING'] or (action_status in ['READY_FOR_PICKUP','SHIPMENT_READY'] and (is_external_mode or not o.delivery_partner_id)) or (is_external_mode and action_status in ['PENDING_BOOKING','BOOKING_PENDING','BOOKING_FAILED','EXTERNAL_BOOKING_FAILED','DELIVERY_FAILED','FAILED_DELIVERY']) or ((not is_external_mode) and inhouse_enabled and action_status == 'DELIVERY_FAILED')) and open_rows.count < 5 %}{% set open_rows.count = open_rows.count + 1 %}<tr><td data-label="Order">#{{ o.id[-6:] if o.id else '' }}</td><td data-label="Customer"><strong>{{ o.customer_name or 'Customer' }}</strong><div class="sd-muted">{{ o.customer_phone or '—' }}</div></td><td data-label="Status"><span class="sd-pill">{{ (o.status or 'PLACED')|replace('_',' ')|title }}</span></td><td data-label="Payment">{{ o.payment_status or '—' }}</td><td data-label="Total">₹ {{ '%.2f'|format(o.total_payable|default(o.total_amount|default(0))|float) }}</td></tr>{% endif %}{% endfor %}{% endif %}{% if open_rows.count == 0 %}<tr><td colspan="5" class="sd-muted" style="text-align:center;">No orders need action right now.</td></tr>{% endif %}</tbody></table></div>
+        {% if ns.actionable_orders > 5 %}
           <div class="sd-action-row" style="padding:0 20px 20px;margin-top:0;justify-content:flex-end;">
             <a class="sd-btn sd-btn-primary" href="{{ url_for('store_orders') }}">View All Orders</a>
           </div>
@@ -1356,10 +1412,6 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const enableBtn = document.getElementById('enableSound');
-      const ding = document.getElementById('ding');
-      let storePollTimer = null;
-      let storeLastId = localStorage.getItem('storeLastAlertId') || '';
       const storeToggleForm = document.querySelector('[data-store-toggle-form]');
       const deliveryToggleForm = document.querySelector('[data-delivery-toggle-form]');
 
@@ -1407,13 +1459,6 @@
         if (type !== 'on') setTimeout(dismissToast, 3000);
       }
 
-      async function playNotifySound() {
-        try { if (ding) { ding.currentTime = 0; await ding.play(); return; } } catch (_) {}
-        try { const AudioContext = window.AudioContext || window.webkitAudioContext; if (!AudioContext) return; const ctx = new AudioContext(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.type = 'sine'; osc.frequency.value = 880; gain.gain.value = 0.08; osc.connect(gain); gain.connect(ctx.destination); osc.start(); setTimeout(() => { osc.stop(); ctx.close(); }, 160); } catch (e) {}
-      }
-
-      async function askNotif() { try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {} }
-
       function updateLiveToggleButton(button, isOn, onText, offText, onClass, offClass) {
         if (!button) return;
         button.disabled = false;
@@ -1440,45 +1485,8 @@
         });
       }
 
-      function syncNotificationButton() {
-        if (!enableBtn) return;
-        const enabled = localStorage.getItem('alertsEnabled') === '1';
-        enableBtn.innerHTML = enabled ? '🔕 Disable Order Notifications' : '🔔 Enable Order Notifications';
-        enableBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
-      }
-
-      async function pollStoreOrders() {
-        if (localStorage.getItem('alertsEnabled') !== '1') return;
-        try {
-          const res = await fetch(`/api/alerts/store?last_id=${encodeURIComponent(storeLastId || '')}`, { method:'GET', cache:'no-store', credentials:'same-origin' });
-          const data = await res.json();
-          if (!data || !data.ok) return;
-          if (data.next_last_id) { storeLastId = data.next_last_id; localStorage.setItem('storeLastAlertId', storeLastId); }
-          const newOrders = Array.isArray(data.new) ? data.new : [];
-          if (newOrders.length > 0) {
-            await playNotifySound();
-            const msg = newOrders.length === 1 ? '1 new order received.' : `${newOrders.length} new orders received.`;
-            showNotifyToast(msg, 'on');
-            try { if ('Notification' in window && Notification.permission === 'granted') new Notification('New order received', { body: msg }); } catch (e) {}
-          }
-        } catch (e) { console.warn('Store alert poll failed', e); }
-      }
-
-      function startStorePolling() { if (storePollTimer) clearInterval(storePollTimer); pollStoreOrders(); storePollTimer = setInterval(pollStoreOrders, 5000); }
-      function stopStorePolling() { if (storePollTimer) { clearInterval(storePollTimer); storePollTimer = null; } }
-
       submitLiveToggle(storeToggleForm, document.querySelector('[data-store-toggle-button]'), { responseKey:'is_online', onText:'Online', offText:'Offline', onClass:'is-on', offClass:'is-off' });
       submitLiveToggle(deliveryToggleForm, document.querySelector('[data-delivery-toggle-button]'), { responseKey:'delivery_enabled', onText:'Delivery On', offText:'Delivery Off', onClass:'delivery-on', offClass:'delivery-off' });
-      syncNotificationButton();
-      if (localStorage.getItem('alertsEnabled') === '1') startStorePolling();
-      if (enableBtn) {
-        enableBtn.addEventListener('click', async () => {
-          const enabled = localStorage.getItem('alertsEnabled') === '1';
-          if (!enabled) { await askNotif(); localStorage.setItem('alertsEnabled', '1'); localStorage.setItem('soundEnabled', '1'); await playNotifySound(); showNotifyToast('Notifications enabled. New orders will ring from now.', 'on'); startStorePolling(); }
-          else { localStorage.setItem('alertsEnabled', '0'); localStorage.setItem('soundEnabled', '0'); await playNotifySound(); showNotifyToast('New order notifications are disabled.', 'off'); stopStorePolling(); }
-          syncNotificationButton();
-        });
-      }
     });
   </script>
 </section>

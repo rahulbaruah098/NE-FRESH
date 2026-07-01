@@ -5,6 +5,8 @@ Only the file location changed.
 """
 
 from app_core import *
+from bson.binary import Binary
+
 
 
 STORE_IN_HOUSE_DELIVERY_ENDPOINTS = {
@@ -753,6 +755,67 @@ def rate_store_disabled(sid):
     flash('Please rate from the order page after your delivery is completed.', 'info')
     return redirect(request.referrer or url_for('orders'))
 
+
+@app.route('/store/profile-image/<store_id>', methods=['GET'], endpoint='store_profile_image')
+def store_profile_image(store_id):
+    """Serve the active store profile picture stored in MongoDB."""
+    try:
+        store_obj_id = ObjectId(str(store_id))
+    except Exception:
+        return "Store image not found", 404
+
+    store = mongo.stores.find_one({"_id": store_obj_id})
+
+    if not store:
+        return "Store image not found", 404
+
+    image_doc = None
+    profile_image_id = store.get("profile_image_id")
+
+    if profile_image_id:
+        try:
+            profile_image_obj_id = ObjectId(str(profile_image_id))
+        except Exception:
+            profile_image_obj_id = profile_image_id
+
+        image_doc = mongo.store_profile_images.find_one({
+            "_id": profile_image_obj_id,
+            "store_id": store_obj_id,
+            "is_active": 1
+        })
+
+    if not image_doc:
+        image_doc = mongo.store_profile_images.find_one(
+            {
+                "$or": [
+                    {"store_id": store_obj_id},
+                    {"store_id": str(store_obj_id)}
+                ],
+                "is_active": 1
+            },
+            sort=[("created_at", -1)]
+        )
+
+    if not image_doc or not image_doc.get("data"):
+        return "Store image not found", 404
+
+    image_data = image_doc.get("data")
+
+    if not isinstance(image_data, (bytes, bytearray)):
+        try:
+            image_data = bytes(image_data)
+        except Exception:
+            return "Store image not found", 404
+
+    response = send_file(
+        io.BytesIO(image_data),
+        mimetype=image_doc.get("mime_type") or "image/jpeg",
+        as_attachment=False,
+        download_name=image_doc.get("filename") or "store-profile-image"
+    )
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
+
 @app.route('/store/dashboard')
 @login_required(role='store')
 def store_dashboard():
@@ -761,6 +824,8 @@ def store_dashboard():
     if not store:
         flash("Store not found.", "danger")
         return redirect(url_for("login"))
+
+    store["id"] = str(store["_id"])
 
     page_context = _build_store_split_page_context(store)
 
@@ -3968,6 +4033,7 @@ def store_profile_update():
     banner = request.files.get("banner")
     logo = request.files.get("logo")
     image = request.files.get("image")
+    profile_image = request.files.get("profile_image")
     city = (request.form.get("city") or "").strip()
     state = (request.form.get("state") or "Assam").strip()
     pincode = _clean_pin(request.form.get("pincode") or "")
@@ -4095,6 +4161,58 @@ def store_profile_update():
         "profile_updated_at": now,
         "updated_at": now
     }
+
+    profile_image = request.files.get("profile_image")
+
+    if profile_image and profile_image.filename:
+        if not allowed_file(profile_image.filename):
+            flash("Invalid store profile image file type.", "warning")
+            return redirect(url_for("store_profile"))
+
+        image_bytes = profile_image.read()
+
+        if not image_bytes:
+            flash("Please upload a valid store profile image.", "warning")
+            return redirect(url_for("store_profile"))
+
+        if len(image_bytes) > 4 * 1024 * 1024:
+            flash("Store profile image must be 4 MB or smaller.", "warning")
+            return redirect(url_for("store_profile"))
+
+        safe_name = secure_filename(profile_image.filename)
+        mime_type = profile_image.mimetype or "image/jpeg"
+
+        image_doc = {
+            "store_id": store["_id"],
+            "store_id_str": str(store["_id"]),
+            "filename": safe_name,
+            "mime_type": mime_type,
+            "data": Binary(image_bytes),
+            "is_active": 1,
+            "uploaded_by": str(u.get("_id") or u.get("id") or ""),
+            "created_at": now,
+            "updated_at": now
+        }
+
+        inserted_image = mongo.store_profile_images.insert_one(image_doc)
+
+        mongo.store_profile_images.update_many(
+            {
+                "store_id": store["_id"],
+                "_id": {"$ne": inserted_image.inserted_id}
+            },
+            {
+                "$set": {
+                    "is_active": 0,
+                    "updated_at": now
+                }
+            }
+        )
+
+        update_data["profile_image_id"] = inserted_image.inserted_id
+        update_data["profile_image_filename"] = safe_name
+        update_data["profile_image_mime_type"] = mime_type
+        update_data["profile_image_updated_at"] = now
 
     logo = request.files.get("logo")
 

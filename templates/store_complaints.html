@@ -1,467 +1,308 @@
 {% extends "store_base.html" %}
 {% set active_page = "complaints" %}
 
-{% block title %}Store Complaints{% endblock %}
+{% block title %}Store Complaints | NE Locals Store{% endblock %}
 {% block page_title %}Store Complaints{% endblock %}
 {% block page_subtitle %}Receive, track and resolve customer complaints sent to your store.{% endblock %}
 
 {% block content %}
-<section class="nf-store-complaints-page">
+{% set complaints = complaints if complaints is defined else [] %}
+{% set complaint_metrics = complaint_metrics if complaint_metrics is defined else {} %}
+
+<section class="nf-store-complaints-page" data-page="complaints">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
     .nf-store-complaints-page{
+      --sc-bg:#F7FFFA;
+      --sc-card:#FFFFFF;
+      --sc-card-2:#FBFFFD;
+      --sc-soft:#F1FFF7;
+      --sc-soft-2:#F8FFFB;
       --sc-green:#00A859;
-      --sc-green-dark:#008A48;
-      --sc-green-deep:#075C3B;
+      --sc-green-dark:#075C3B;
+      --sc-green-deep:#06482F;
       --sc-green-soft:#E9FFF3;
-      --sc-orange:#FFB84D;
-      --sc-orange-soft:#FFF7E8;
-      --sc-red:#EF4444;
+      --sc-orange:#F59E0B;
+      --sc-orange-soft:#FFF8E8;
+      --sc-red:#DC2626;
       --sc-red-soft:#FFF1F2;
       --sc-blue:#0284C7;
       --sc-blue-soft:#E0F2FE;
-      --sc-card:#FFFFFF;
-      --sc-bg:#F8FFFB;
-      --sc-text:#1F332A;
-      --sc-muted:#66756D;
-      --sc-muted-2:#8A9890;
-      --sc-line:#DDECE4;
-      --sc-line-2:#EAF4EF;
-      --sc-shadow:0 14px 36px rgba(17,64,38,.08);
-      --sc-shadow-hover:0 22px 58px rgba(17,64,38,.13);
+      --sc-text:#10251B;
+      --sc-body:#30443A;
+      --sc-muted:#65766D;
+      --sc-muted-2:#85978E;
+      --sc-line:#D9EDE3;
+      --sc-line-2:#EDF6F1;
+      --sc-shadow:0 10px 28px rgba(17,64,38,.055);
+      --sc-shadow-2:0 18px 50px rgba(17,64,38,.085);
       --sc-radius:24px;
       --sc-ease:cubic-bezier(.2,.75,.25,1);
-
       width:100%;
-      display:grid;
-      gap:22px;
+      min-height:100%;
+      padding:clamp(12px,1.6vw,28px);
+      padding-left:max(clamp(12px,1.6vw,28px),env(safe-area-inset-left,0px));
+      padding-right:max(clamp(12px,1.6vw,28px),env(safe-area-inset-right,0px));
+      background:
+        radial-gradient(circle at 0% 0%, rgba(0,168,89,.055), transparent 34%),
+        linear-gradient(180deg,#F7FFFA 0%,#FFFFFF 44%,#F8FFFB 100%);
       color:var(--sc-text);
+      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      text-size-adjust:100%;
+    }
+
+    .nf-store-complaints-page,
+    .nf-store-complaints-page *{
+      box-sizing:border-box;
+      min-width:0;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .sc-shell{
+      width:100%;
+      max-width:1760px;
+      margin:0 auto;
+      display:grid;
+      gap:clamp(14px,1.35vw,22px);
+    }
+
+    .sc-hero,
+    .sc-card,
+    .sc-kpi{
+      background:rgba(255,255,255,.98);
+      border:1px solid var(--sc-line);
+      border-radius:var(--sc-radius);
+      box-shadow:var(--sc-shadow);
+      overflow:hidden;
     }
 
     .sc-hero{
-      position:relative;
-      overflow:hidden;
-      border-radius:28px;
-      padding:clamp(22px,3vw,34px);
-      background:
-        radial-gradient(circle at 10% 12%,rgba(255,184,77,.24),transparent 30%),
-        radial-gradient(circle at 92% 18%,rgba(255,255,255,.20),transparent 28%),
-        linear-gradient(135deg,#075C3B 0%,#00A859 100%);
-      color:#fff;
-      box-shadow:var(--sc-shadow);
-    }
-
-    .sc-hero-content{
-      position:relative;
-      z-index:2;
-      display:flex;
-      align-items:flex-end;
-      justify-content:space-between;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
       gap:18px;
-      flex-wrap:wrap;
+      padding:clamp(18px,2vw,30px);
+      border-radius:30px;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(0,168,89,.10), transparent 30%),
+        linear-gradient(135deg,#FFFFFF 0%,#F2FFF8 100%);
+      box-shadow:var(--sc-shadow-2);
     }
 
     .sc-kicker{
-      min-height:30px;
       display:inline-flex;
       align-items:center;
-      border-radius:999px;
+      justify-content:center;
+      min-height:30px;
+      width:max-content;
+      max-width:100%;
       padding:0 12px;
-      background:rgba(255,255,255,.16);
-      border:1px solid rgba(255,255,255,.26);
-      color:#fff;
-      font-size:.74rem;
+      border-radius:999px;
+      background:var(--sc-green-soft);
+      color:var(--sc-green-dark);
+      border:1px solid rgba(0,168,89,.22);
+      font-size:12px;
       font-weight:900;
       letter-spacing:.08em;
       text-transform:uppercase;
     }
 
-    .sc-hero h2{
-      margin:12px 0 0;
-      font-size:clamp(1.9rem,4vw,3.4rem);
+    .sc-title{
+      margin:14px 0 6px;
+      color:var(--sc-text);
+      font-size:clamp(30px,3.4vw,50px);
       line-height:1.02;
       font-weight:950;
-      letter-spacing:-.055em;
+      letter-spacing:-.06em;
+      overflow-wrap:anywhere;
     }
 
-    .sc-hero p{
-      margin:12px 0 0;
-      max-width:840px;
-      color:rgba(255,255,255,.88);
-      font-size:clamp(.92rem,1.5vw,1.08rem);
+    .sc-copy{
+      margin:0;
+      max-width:860px;
+      color:var(--sc-muted);
+      font-size:clamp(13.5px,1vw,15px);
+      font-weight:700;
       line-height:1.55;
-      font-weight:650;
     }
 
-    .sc-hero-pill{
-      min-height:48px;
+    .sc-hero-actions{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .sc-btn,
+    .sc-submit{
+      min-height:42px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      gap:9px;
-      border-radius:16px;
-      padding:0 16px;
-      background:rgba(255,255,255,.17);
-      border:1px solid rgba(255,255,255,.26);
-      color:#fff;
-      font-size:.9rem;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:14px;
+      border:1px solid var(--sc-line);
+      background:#fff;
+      color:var(--sc-body);
+      text-decoration:none;
+      font:inherit;
+      font-size:13px;
       font-weight:900;
-      backdrop-filter:blur(10px);
-      -webkit-backdrop-filter:blur(10px);
+      line-height:1.2;
+      cursor:pointer;
+      transition:.2s var(--sc-ease);
+      white-space:nowrap;
+      touch-action:manipulation;
+    }
+
+    .sc-btn:hover,
+    .sc-submit:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.30);
+      color:var(--sc-green-dark);
+      background:var(--sc-soft);
+      box-shadow:0 12px 24px rgba(17,64,38,.09);
+    }
+
+    .sc-btn-primary,
+    .sc-submit{
+      background:linear-gradient(135deg,var(--sc-green),var(--sc-green-dark))!important;
+      border-color:var(--sc-green)!important;
+      color:#fff!important;
+      box-shadow:0 12px 26px rgba(0,168,89,.16);
     }
 
     .sc-kpis{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:16px;
+      gap:clamp(12px,1.2vw,18px);
     }
 
     .sc-kpi{
-      border:1px solid var(--sc-line);
-      border-radius:24px;
-      background:linear-gradient(180deg,#FFFFFF 0%,#F8FFFB 100%);
-      padding:18px;
-      box-shadow:0 10px 26px rgba(17,64,38,.06);
+      min-height:112px;
+      padding:clamp(15px,1.25vw,20px);
       display:flex;
-      align-items:center;
+      align-items:flex-start;
+      justify-content:space-between;
       gap:14px;
-      min-height:108px;
-      transition:.22s var(--sc-ease);
+      background:linear-gradient(180deg,#FFFFFF 0%,#FCFFFD 100%);
+      position:relative;
     }
 
-    .sc-kpi:hover{
-      transform:translateY(-3px);
-      border-color:rgba(0,168,89,.24);
-      box-shadow:var(--sc-shadow-hover);
+    .sc-kpi::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:0;
+      width:5px;
+      background:var(--sc-green);
     }
 
-    .sc-kpi-icon{
-      width:52px;
-      height:52px;
-      min-width:52px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      background:var(--sc-green-soft);
-      color:var(--sc-green-dark);
-      font-size:1.25rem;
-      border:1px solid rgba(0,168,89,.13);
-    }
-
-    .sc-kpi.orange .sc-kpi-icon{
-      background:var(--sc-orange-soft);
-      color:#A66A00;
-    }
-
-    .sc-kpi.blue .sc-kpi-icon{
-      background:var(--sc-blue-soft);
-      color:var(--sc-blue);
-    }
-
-    .sc-kpi.red .sc-kpi-icon{
-      background:var(--sc-red-soft);
-      color:var(--sc-red);
-    }
+    .sc-kpi.orange::before{background:var(--sc-orange);}
+    .sc-kpi.blue::before{background:var(--sc-blue);}
+    .sc-kpi.red::before{background:var(--sc-red);}
 
     .sc-kpi small{
       display:block;
       color:var(--sc-muted);
-      font-size:.70rem;
-      font-weight:900;
-      letter-spacing:.08em;
+      font-size:11px;
+      font-weight:950;
       text-transform:uppercase;
+      letter-spacing:.06em;
+      line-height:1.25;
     }
 
     .sc-kpi b{
       display:block;
-      margin-top:6px;
+      margin-top:8px;
       color:var(--sc-text);
-      font-size:1.5rem;
+      font-size:clamp(24px,2.6vw,38px);
       line-height:1;
       font-weight:950;
-      letter-spacing:-.04em;
+      letter-spacing:-.045em;
+      overflow-wrap:anywhere;
     }
 
-    .sc-card{
-      border:1px solid var(--sc-line);
-      border-radius:24px;
-      background:#fff;
-      box-shadow:var(--sc-shadow);
-      overflow:hidden;
-      min-width:0;
+    .sc-kpi-icon{
+      width:46px;
+      height:46px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:var(--sc-green-soft);
+      color:var(--sc-green-dark);
+      font-size:22px;
+      flex:0 0 auto;
     }
+
+    .sc-kpi.orange .sc-kpi-icon{background:var(--sc-orange-soft);color:#9A5A00;}
+    .sc-kpi.blue .sc-kpi-icon{background:var(--sc-blue-soft);color:var(--sc-blue);}
+    .sc-kpi.red .sc-kpi-icon{background:var(--sc-red-soft);color:var(--sc-red);}
 
     .sc-card-head{
-      padding:20px;
+      padding:clamp(16px,1.35vw,22px);
       border-bottom:1px solid var(--sc-line-2);
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
     }
 
-    .sc-card-head h3{
+    .sc-card-title{
       margin:0;
       color:var(--sc-text);
-      font-size:1.08rem;
+      font-size:19px;
       font-weight:950;
-      letter-spacing:-.03em;
+      letter-spacing:-.035em;
+      line-height:1.2;
     }
 
-    .sc-card-head p{
-      margin:7px 0 0;
+    .sc-card-sub{
+      margin:5px 0 0;
       color:var(--sc-muted);
-      font-size:.88rem;
-      line-height:1.45;
-      font-weight:650;
+      font-size:13px;
+      font-weight:700;
+      line-height:1.42;
     }
 
     .sc-tools{
-      padding:16px 18px 0;
       display:grid;
-      grid-template-columns:minmax(0,1fr) 180px;
+      grid-template-columns:minmax(250px,1fr) auto;
+      align-items:center;
       gap:12px;
+      padding:clamp(14px,1.2vw,18px) clamp(14px,1.35vw,22px);
+      background:#fff;
+      border-bottom:1px solid var(--sc-line-2);
+    }
+
+    .sc-search-wrap{
+      width:100%;
+      max-width:560px;
+      position:relative;
+    }
+
+    .sc-search-wrap::before{
+      content:'⌕';
+      position:absolute;
+      left:14px;
+      top:50%;
+      transform:translateY(-50%);
+      color:var(--sc-muted-2);
+      font-weight:950;
+      pointer-events:none;
     }
 
     .sc-search,
-    .sc-select{
-      min-height:46px;
-      border:1px solid var(--sc-line);
-      border-radius:15px;
-      background:#F8FFFB;
-      color:var(--sc-text);
-      outline:none;
-      font:inherit;
-      font-size:.9rem;
-      font-weight:650;
-      transition:.18s var(--sc-ease);
-    }
-
-    .sc-search{
-      padding:0 14px;
-    }
-
-    .sc-select{
-      padding:0 12px;
-    }
-
-    .sc-search:focus,
-    .sc-select:focus{
-      border-color:rgba(0,168,89,.45);
-      background:#fff;
-      box-shadow:0 0 0 4px rgba(0,168,89,.08);
-    }
-
-    .sc-list{
-      display:grid;
-      gap:14px;
-      padding:18px;
-    }
-
-    .sc-complaint{
-      border:1px solid var(--sc-line);
-      border-radius:22px;
-      background:
-        radial-gradient(circle at 4% 8%,rgba(0,168,89,.055),transparent 28%),
-        #F8FFFB;
-      padding:18px;
-      display:grid;
-      gap:14px;
-      transition:.2s var(--sc-ease);
-    }
-
-    .sc-complaint:hover{
-      transform:translateY(-2px);
-      border-color:rgba(0,168,89,.24);
-      box-shadow:0 14px 30px rgba(17,64,38,.07);
-    }
-
-    .sc-complaint.is-hidden{
-      display:none !important;
-    }
-
-    .sc-complaint-top{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:14px;
-    }
-
-    .sc-complaint h4{
-      margin:0;
-      color:var(--sc-text);
-      font-size:1rem;
-      font-weight:950;
-      letter-spacing:-.02em;
-    }
-
-    .sc-meta{
-      margin-top:6px;
-      color:var(--sc-muted);
-      font-size:.8rem;
-      line-height:1.45;
-      font-weight:650;
-      word-break:break-word;
-    }
-
-    .sc-status{
-      min-height:32px;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      border-radius:999px;
-      padding:0 11px;
-      background:var(--sc-orange-soft);
-      color:#A66A00;
-      font-size:.78rem;
-      font-weight:950;
-      white-space:nowrap;
-    }
-
-    .sc-status.in_progress{
-      background:var(--sc-blue-soft);
-      color:var(--sc-blue);
-    }
-
-    .sc-status.resolved{
-      background:var(--sc-green-soft);
-      color:var(--sc-green-dark);
-    }
-
-    .sc-message{
-      margin:0;
-      color:#40534A;
-      font-size:.92rem;
-      line-height:1.65;
-      font-weight:650;
-      white-space:pre-wrap;
-    }
-
-    .sc-proof{
-  border:1px solid var(--sc-line);
-  border-radius:18px;
-  background:#fff;
-  padding:12px;
-  display:grid;
-  gap:10px;
-}
-
-.sc-proof b{
-  color:var(--sc-green-dark);
-  font-size:.78rem;
-  font-weight:950;
-  text-transform:uppercase;
-  letter-spacing:.08em;
-}
-
-.sc-proof img{
-  width:100%;
-  max-height:300px;
-  object-fit:contain;
-  border-radius:14px;
-  background:#F8FFFB;
-  border:1px solid var(--sc-line);
-}
-
-.sc-proof-link{
-  width:max-content;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  min-height:34px;
-  padding:0 12px;
-  border-radius:999px;
-  background:var(--sc-green-soft);
-  color:var(--sc-green-dark);
-  font-size:.8rem;
-  font-weight:900;
-  text-decoration:none;
-}
-
-@media(max-width:760px){
-  .sc-proof-link{
-    width:100%;
-  }
-}
-
-    .sc-detail-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .sc-detail{
-      border:1px solid var(--sc-line);
-      border-radius:16px;
-      background:#fff;
-      padding:11px;
-      min-width:0;
-    }
-
-    .sc-detail small{
-      display:block;
-      color:var(--sc-muted);
-      font-size:.68rem;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      margin-bottom:5px;
-    }
-
-    .sc-detail b{
-      display:block;
-      color:var(--sc-text);
-      font-size:.88rem;
-      font-weight:850;
-      word-break:break-word;
-    }
-
-        .sc-admin-taken-over{
-      border:1px solid rgba(239,68,68,.25);
-      border-radius:18px;
-      background:linear-gradient(180deg,#FFF1F2 0%,#FFFFFF 100%);
-      padding:14px;
-      display:grid;
-      gap:8px;
-    }
-
-    .sc-admin-taken-over strong{
-      color:var(--sc-red);
-      font-size:.78rem;
-      font-weight:950;
-      text-transform:uppercase;
-      letter-spacing:.08em;
-    }
-
-    .sc-admin-taken-over span{
-      color:#7F1D1D;
-      font-size:.88rem;
-      line-height:1.45;
-      font-weight:750;
-    }
-
-    .sc-update{
-      border-top:1px solid var(--sc-line);
-      padding-top:14px;
-      display:grid;
-      gap:12px;
-    }
-
-    .sc-form-grid{
-      display:grid;
-      grid-template-columns:210px minmax(0,1fr);
-      gap:12px;
-      align-items:start;
-    }
-
-    .sc-field{
-      display:grid;
-      gap:7px;
-    }
-
-    .sc-field label{
-      color:var(--sc-text);
-      font-size:.76rem;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-
+    .sc-select,
+    .sc-page-size-select,
     .sc-field select,
     .sc-field textarea{
       width:100%;
@@ -471,414 +312,1014 @@
       color:var(--sc-text);
       outline:none;
       font:inherit;
-      font-size:.88rem;
-      font-weight:650;
+      font-size:13px;
+      font-weight:850;
     }
 
-    .sc-field select{
+    .sc-search{
       min-height:44px;
-      padding:0 12px;
+      padding:0 12px 0 40px;
     }
 
-    .sc-field textarea{
-      min-height:86px;
-      padding:12px;
-      line-height:1.5;
-      resize:vertical;
+    .sc-select,
+    .sc-page-size-select{
+      height:44px;
+      min-width:132px;
+      padding:0 34px 0 12px;
+      appearance:none;
+      -webkit-appearance:none;
+      background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6z" fill="%23075C3B"/></svg>');
+      background-repeat:no-repeat;
+      background-position:right 11px center;
     }
 
+    .sc-search:focus,
+    .sc-select:focus,
+    .sc-page-size-select:focus,
     .sc-field select:focus,
     .sc-field textarea:focus{
-      border-color:rgba(0,168,89,.45);
+      border-color:rgba(0,168,89,.42);
       box-shadow:0 0 0 4px rgba(0,168,89,.08);
     }
 
-    .sc-submit{
-      min-height:44px;
-      border:0;
-      border-radius:14px;
-      background:var(--sc-green);
-      color:#fff;
-      font:inherit;
-      font-size:.88rem;
-      font-weight:950;
-      cursor:pointer;
-      padding:0 18px;
-      width:max-content;
-      box-shadow:0 12px 26px rgba(0,168,89,.18);
-      transition:.2s var(--sc-ease);
+    .sc-table-tools{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
-    .sc-submit:hover{
-      background:var(--sc-green-dark);
-      transform:translateY(-2px);
+    .sc-muted{
+      color:var(--sc-muted);
+      font-size:13px;
+      font-weight:800;
+      overflow-wrap:anywhere;
+    }
+
+    .sc-table-wrap{
+      width:100%;
+      padding:0 clamp(10px,1.05vw,18px) clamp(16px,1.35vw,22px);
+      overflow-x:hidden;
+      overflow-y:visible;
+    }
+
+    .sc-table{
+      width:100%;
+      min-width:0;
+      max-width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      table-layout:fixed;
+      border:1px solid var(--sc-line);
+      border-radius:18px;
+      overflow:hidden;
+      background:#fff;
+      box-shadow:0 8px 22px rgba(17,64,38,.035);
+    }
+
+    .sc-table thead{
+      background:linear-gradient(135deg,#075C3B,#06482F);
+      color:#fff;
+    }
+
+    .sc-table th,
+    .sc-table td{
+      padding:clamp(8px,.78vw,12px);
+      text-align:left;
+      vertical-align:top;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+      white-space:normal;
+    }
+
+    .sc-table th{
+      font-size:clamp(8.5px,.66vw,10.5px);
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.035em;
+      line-height:1.25;
+    }
+
+    .sc-table td{
+      border-bottom:1px solid var(--sc-line-2);
+      color:var(--sc-body);
+      font-size:clamp(10.5px,.78vw,12.5px);
+      font-weight:750;
+      line-height:1.36;
+      background:#fff;
+    }
+
+    .sc-table tbody tr:nth-child(even) td{background:#FCFFFD;}
+    .sc-table tbody tr:last-child td{border-bottom:0;}
+    .sc-table tbody tr[hidden]{display:none!important;}
+
+    .sc-table th:nth-child(1),
+    .sc-table td:nth-child(1){width:5%;text-align:center;}
+    .sc-table th:nth-child(2),
+    .sc-table td:nth-child(2){width:15%;}
+    .sc-table th:nth-child(3),
+    .sc-table td:nth-child(3){width:12%;}
+    .sc-table th:nth-child(4),
+    .sc-table td:nth-child(4){width:13%;}
+    .sc-table th:nth-child(5),
+    .sc-table td:nth-child(5){width:16%;}
+    .sc-table th:nth-child(6),
+    .sc-table td:nth-child(6){width:11%;}
+    .sc-table th:nth-child(7),
+    .sc-table td:nth-child(7){width:14%;}
+    .sc-table th:nth-child(8),
+    .sc-table td:nth-child(8){width:14%;}
+
+    .sc-cell-content{
+      width:100%;
+      min-width:0;
+      display:grid;
+      gap:6px;
+      align-content:start;
+    }
+
+    .sc-slno-value{
+      width:clamp(30px,2.35vw,38px);
+      height:clamp(30px,2.35vw,38px);
+      display:inline-grid;
+      place-items:center;
+      border-radius:999px;
+      background:var(--sc-green-soft);
+      border:1px solid rgba(0,168,89,.20);
+      color:var(--sc-green-dark);
+      font-size:clamp(11px,.8vw,14px);
+      font-weight:950;
+      margin:auto;
+    }
+
+    .sc-main{
+      display:block;
+      color:var(--sc-text);
+      font-weight:950;
+      line-height:1.25;
+    }
+
+    .sc-sub{
+      display:block;
+      color:var(--sc-muted);
+      font-size:clamp(10px,.72vw,11.5px);
+      font-weight:700;
+      line-height:1.35;
+    }
+
+    .sc-message{
+      margin:0;
+      color:var(--sc-body);
+      font-size:inherit;
+      line-height:1.5;
+      font-weight:750;
+      white-space:pre-wrap;
+      overflow-wrap:anywhere;
+    }
+
+    .sc-status{
+      min-height:26px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:max-content;
+      max-width:100%;
+      border-radius:999px;
+      padding:4px 9px;
+      background:var(--sc-orange-soft);
+      color:#9A5A00;
+      border:1px solid #FDE7B2;
+      font-size:clamp(9.5px,.68vw,11px);
+      font-weight:950;
+      text-align:center;
+    }
+
+    .sc-status.in_progress{background:var(--sc-blue-soft);color:var(--sc-blue);border-color:#BAE6FD;}
+    .sc-status.resolved{background:var(--sc-green-soft);color:var(--sc-green-dark);border-color:rgba(0,168,89,.20);}
+
+    .sc-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:max-content;
+      max-width:100%;
+      min-height:26px;
+      padding:4px 9px;
+      border-radius:999px;
+      background:var(--sc-green-soft);
+      color:var(--sc-green-dark);
+      border:1px solid rgba(0,168,89,.18);
+      font-size:clamp(9.5px,.68vw,11px);
+      font-weight:950;
+      text-align:center;
+    }
+
+    .sc-proof{
+      border:1px solid var(--sc-line);
+      border-radius:14px;
+      background:#fff;
+      padding:9px;
+      display:grid;
+      gap:8px;
+    }
+
+    .sc-proof b{
+      color:var(--sc-green-dark);
+      font-size:10px;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .sc-proof img{
+      width:100%;
+      max-height:130px;
+      object-fit:contain;
+      border-radius:12px;
+      background:var(--sc-soft-2);
+      border:1px solid var(--sc-line);
+    }
+
+    .sc-proof-link{
+      width:max-content;
+      min-height:32px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 11px;
+      border-radius:999px;
+      background:var(--sc-green-soft);
+      color:var(--sc-green-dark);
+      font-size:11px;
+      font-weight:950;
+      text-decoration:none;
+      border:1px solid rgba(0,168,89,.18);
+    }
+
+    .sc-admin-taken-over{
+      border:1px solid rgba(239,68,68,.22);
+      border-radius:14px;
+      background:linear-gradient(180deg,#FFF1F2 0%,#FFFFFF 100%);
+      padding:10px;
+      display:grid;
+      gap:6px;
+    }
+
+    .sc-admin-taken-over strong{
+      color:var(--sc-red);
+      font-size:10px;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .sc-admin-taken-over span{
+      color:#7F1D1D;
+      font-size:11px;
+      line-height:1.35;
+      font-weight:750;
+    }
+
+    .sc-update-form{
+      display:grid;
+      gap:8px;
+    }
+
+    .sc-field{
+      display:grid;
+      gap:6px;
+    }
+
+    .sc-field label{
+      color:var(--sc-green-dark);
+      font-size:10px;
+      font-weight:950;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+    }
+
+    .sc-field select{
+      min-height:38px;
+      padding:0 10px;
+    }
+
+    .sc-field textarea{
+      min-height:62px;
+      padding:10px;
+      resize:vertical;
+      line-height:1.4;
+    }
+
+    .sc-submit{
+      width:100%;
+      min-height:40px;
+      padding:9px 12px;
     }
 
     .sc-empty{
-      border:1px dashed rgba(0,168,89,.35);
-      border-radius:22px;
-      background:#F3FFF8;
-      padding:34px 18px;
+      margin:0 clamp(14px,1.35vw,22px) clamp(16px,1.35vw,22px);
+      padding:26px 16px;
+      border:1px dashed rgba(0,168,89,.28);
+      border-radius:18px;
+      background:#fff;
       text-align:center;
       color:var(--sc-muted);
-      font-weight:750;
-      line-height:1.55;
+      font-size:13px;
+      font-weight:800;
+      line-height:1.45;
     }
 
     .sc-empty b{
       display:block;
-      margin-bottom:5px;
       color:var(--sc-green-dark);
-      font-size:1rem;
+      font-size:15px;
+      margin-bottom:4px;
     }
 
-    .sc-empty[hidden]{
-      display:none !important;
+    .sc-empty[hidden]{display:none!important;}
+
+    .sc-pagination-box{
+      margin:0 clamp(14px,1.35vw,22px) clamp(16px,1.35vw,22px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      border:1px solid var(--sc-line);
+      border-radius:18px;
+      background:#fff;
+      padding:12px 14px;
+      box-shadow:0 10px 26px rgba(17,64,38,.045);
+    }
+
+    .sc-pagination-box[hidden]{display:none!important;}
+
+    .sc-page-info{
+      color:var(--sc-muted);
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .sc-page-controls,
+    .sc-page-numbers{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:7px;
+      flex-wrap:wrap;
+    }
+
+    .sc-page-btn{
+      min-width:38px;
+      min-height:38px;
+      border-radius:12px;
+      border:1px solid var(--sc-line);
+      background:#fff;
+      color:var(--sc-text);
+      font:inherit;
+      font-size:12px;
+      font-weight:950;
+      cursor:pointer;
+      transition:.2s var(--sc-ease);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 10px;
+    }
+
+    .sc-page-btn:hover:not(:disabled),
+    .sc-page-btn.active{
+      background:linear-gradient(135deg,var(--sc-green),var(--sc-green-dark));
+      border-color:var(--sc-green);
+      color:#fff;
+      box-shadow:0 10px 20px rgba(0,168,89,.18);
+    }
+
+    .sc-page-btn:disabled{opacity:.45;cursor:not-allowed;}
+
+    @media(max-width:1280px){
+      .sc-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
     }
 
     @media(max-width:1180px){
-      .sc-kpis{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .sc-form-grid,
-      .sc-detail-grid{
-        grid-template-columns:1fr;
-      }
+      .sc-hero{grid-template-columns:1fr;}
+      .sc-hero-actions{justify-content:flex-start;}
     }
 
-    @media(max-width:760px){
+    @media(max-width:920px){
       .nf-store-complaints-page{
-        gap:16px;
+        padding:14px;
+        padding-left:max(14px,env(safe-area-inset-left,0px));
+        padding-right:max(14px,env(safe-area-inset-right,0px));
       }
 
-      .sc-hero{
-        border-radius:22px;
+      .sc-hero{border-radius:22px;padding:18px;}
+      .sc-copy,
+      .sc-card-sub{display:none;}
+      .sc-hero-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;}
+      .sc-hero-actions .sc-btn{width:100%;}
+      .sc-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+      .sc-kpi{min-height:96px;padding:13px;border-radius:18px;}
+      .sc-kpi small{font-size:9.8px;letter-spacing:.045em;}
+      .sc-kpi b{font-size:clamp(20px,5.8vw,28px);}
+      .sc-kpi-icon{width:38px;height:38px;border-radius:14px;font-size:18px;}
+
+      .sc-tools{grid-template-columns:1fr;padding:14px;}
+      .sc-search-wrap{max-width:100%;}
+      .sc-table-tools{display:grid;width:100%;grid-template-columns:1fr 1fr;}
+      .sc-table-tools .sc-muted{grid-column:1/-1;}
+      .sc-select,
+      .sc-page-size-select{width:100%;}
+
+      .sc-table-wrap{
+        overflow-x:auto;
+        overflow-y:visible;
+        padding:0 14px 16px;
+        scroll-snap-type:x mandatory;
+        overscroll-behavior-x:contain;
+        -webkit-overflow-scrolling:touch;
+        scrollbar-width:thin;
+        scrollbar-color:rgba(0,168,89,.38) transparent;
       }
 
-      .sc-hero-content{
-        display:grid;
-        gap:16px;
-      }
+      .sc-table-wrap::-webkit-scrollbar{height:8px;}
+      .sc-table-wrap::-webkit-scrollbar-track{background:#F1F8F4;border-radius:999px;}
+      .sc-table-wrap::-webkit-scrollbar-thumb{background:rgba(0,168,89,.38);border-radius:999px;border:2px solid #F1F8F4;}
 
-      .sc-hero-pill{
+      .sc-table{
+        min-width:0;
         width:100%;
+        display:block;
+        border:0;
+        border-radius:0;
+        box-shadow:none;
+        background:transparent;
+        overflow:visible;
       }
 
-      .sc-kpis{
-        grid-template-columns:1fr;
-        gap:12px;
-      }
+      .sc-table thead{display:none;}
 
-      .sc-kpi{
-        min-height:96px;
-        border-radius:20px;
-      }
-
-      .sc-card{
-        border-radius:20px;
-      }
-
-      .sc-card-head{
-        padding:17px;
-      }
-
-      .sc-tools{
-        grid-template-columns:1fr;
-        padding:14px 16px 0;
-      }
-
-      .sc-list{
-        padding:16px;
-      }
-
-      .sc-complaint-top{
-        display:grid;
-      }
-
-      .sc-status{
+      .sc-table tbody{
+        display:flex;
+        flex-wrap:nowrap;
+        gap:14px;
         width:max-content;
+        min-width:100%;
       }
 
-      .sc-submit{
-        width:100%;
+      .sc-table tbody tr{
+        width:min(88vw,460px);
+        min-width:min(88vw,460px);
+        max-width:min(88vw,460px);
+        flex:0 0 min(88vw,460px);
+        display:grid;
+        grid-template-columns:1fr;
+        gap:0;
+        border:1px solid var(--sc-line);
+        border-radius:22px;
+        background:#fff;
+        box-shadow:0 10px 28px rgba(17,64,38,.06);
+        overflow:hidden;
+        scroll-snap-align:start;
       }
+
+      .sc-table tbody tr[hidden]{display:none!important;}
+
+      .sc-table th,
+      .sc-table td,
+      .sc-table th:nth-child(1),
+      .sc-table td:nth-child(1),
+      .sc-table th:nth-child(2),
+      .sc-table td:nth-child(2),
+      .sc-table th:nth-child(3),
+      .sc-table td:nth-child(3),
+      .sc-table th:nth-child(4),
+      .sc-table td:nth-child(4),
+      .sc-table th:nth-child(5),
+      .sc-table td:nth-child(5),
+      .sc-table th:nth-child(6),
+      .sc-table td:nth-child(6),
+      .sc-table th:nth-child(7),
+      .sc-table td:nth-child(7),
+      .sc-table th:nth-child(8),
+      .sc-table td:nth-child(8){
+        width:auto!important;
+        text-align:left!important;
+      }
+
+      .sc-table td{
+        width:100%!important;
+        display:grid!important;
+        grid-template-columns:114px minmax(0,1fr)!important;
+        gap:10px;
+        align-items:start;
+        padding:12px;
+        border:0;
+        border-bottom:1px dashed var(--sc-line-2);
+        background:#fff!important;
+        color:var(--sc-body);
+        font-size:13px;
+        line-height:1.42;
+        word-break:normal;
+        overflow-wrap:anywhere;
+        white-space:normal;
+      }
+
+      .sc-table td::before{
+        color:var(--sc-green-dark);
+        font-size:10.2px;
+        line-height:1.25;
+        font-weight:950;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        white-space:normal;
+      }
+
+      .sc-table td:nth-child(1)::before{content:'Sl No';}
+      .sc-table td:nth-child(2)::before{content:'Complaint';}
+      .sc-table td:nth-child(3)::before{content:'Customer';}
+      .sc-table td:nth-child(4)::before{content:'Details';}
+      .sc-table td:nth-child(5)::before{content:'Message / Proof';}
+      .sc-table td:nth-child(6)::before{content:'Status';}
+      .sc-table td:nth-child(7)::before{content:'Reply / Progress';}
+      .sc-table td:nth-child(8)::before{content:'Action';}
+
+      .sc-table td:nth-child(1){
+        background:#F8FFFB!important;
+        justify-items:center;
+        text-align:center!important;
+        grid-template-columns:1fr!important;
+      }
+
+      .sc-table td:nth-child(8){
+        grid-template-columns:1fr!important;
+        border-bottom:0;
+        background:#FBFFFD!important;
+      }
+
+      .sc-table td:nth-child(8)::before{
+        margin-bottom:2px;
+      }
+
+      .sc-slno-value{width:42px;height:42px;}
+      .sc-proof img{max-height:220px;}
+      .sc-proof-link{width:100%;}
+      .sc-empty,
+      .sc-pagination-box{margin-left:14px;margin-right:14px;}
     }
 
-    @media(max-width:430px){
-      .sc-hero{
-        padding:18px;
+    @media(max-width:640px){
+      .nf-store-complaints-page{
+        padding:10px;
+        padding-left:max(10px,env(safe-area-inset-left,0px));
+        padding-right:max(10px,env(safe-area-inset-right,0px));
       }
 
-      .sc-hero h2{
-        font-size:1.85rem;
+      .sc-hero{padding:16px;border-radius:20px;}
+      .sc-kicker{width:100%;}
+      .sc-title{font-size:clamp(24px,8vw,34px);}
+      .sc-hero-actions{grid-template-columns:1fr;}
+      .sc-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+      .sc-kpi{padding:11px;min-height:88px;}
+      .sc-kpi-icon{display:none;}
+      .sc-card-head{padding:14px;}
+      .sc-tools{padding:12px;}
+      .sc-table-tools{grid-template-columns:1fr;}
+      .sc-table tbody tr{
+        width:min(88vw,390px);
+        min-width:min(88vw,390px);
+        max-width:min(88vw,390px);
+        flex-basis:min(88vw,390px);
       }
+      .sc-table td{grid-template-columns:104px minmax(0,1fr)!important;padding:11px;}
+      .sc-pagination-box{justify-content:center;text-align:center;}
+      .sc-page-info,.sc-page-controls{width:100%;justify-content:center;}
+    }
 
-      .sc-kpi{
-        padding:15px;
-      }
+    @media(max-width:380px){
+      .sc-kpis{grid-template-columns:1fr;}
+      .sc-kpi{min-height:auto;}
+      .sc-table tbody tr{width:86vw;min-width:86vw;max-width:86vw;flex-basis:86vw;}
+      .sc-table td{grid-template-columns:1fr!important;gap:6px;}
+      .sc-table td::before{margin-bottom:1px;}
+    }
 
-      .sc-kpi-icon{
-        width:46px;
-        height:46px;
-        min-width:46px;
-        border-radius:16px;
-      }
+    @supports (-webkit-touch-callout:none){
+      .nf-store-complaints-page,
+      .sc-table-wrap{-webkit-font-smoothing:antialiased;}
+      .sc-table-wrap{-webkit-overflow-scrolling:touch;}
+    }
 
-      .sc-kpi b{
-        font-size:1.35rem;
-      }
+    @media(hover:none) and (pointer:coarse){
+      .sc-btn:hover,
+      .sc-submit:hover{transform:none;box-shadow:var(--sc-shadow);}
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      .nf-store-complaints-page *,
+      .nf-store-complaints-page *::before,
+      .nf-store-complaints-page *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important;}
     }
   </style>
 
-  <div class="sc-hero">
-    <div class="sc-hero-content">
+  <div class="sc-shell">
+    <section class="sc-hero">
       <div>
         <span class="sc-kicker">Customer Support</span>
-        <h2>Store Complaints</h2>
-        <p>
-          Receive complaints submitted by customers for {{ store.store_name or 'your store' }}.
-          Update progress, reply to the customer and mark resolved when complete.
-        </p>
+        <h1 class="sc-title">Store Complaints</h1>
+        <p class="sc-copy">Track customer complaints, update progress and reply from one clean screen.</p>
+      </div>
+      <div class="sc-hero-actions">
+        <span class="sc-btn sc-btn-primary">📩 {{ complaint_metrics.get('total', 0) or 0 }} Total Complaints</span>
+      </div>
+    </section>
+
+    <section class="sc-kpis" aria-label="Complaint summary">
+      <div class="sc-kpi">
+        <div>
+          <small>Total</small>
+          <b>{{ complaint_metrics.get('total', 0) or 0 }}</b>
+        </div>
+        <div class="sc-kpi-icon">📩</div>
+      </div>
+      <div class="sc-kpi orange">
+        <div>
+          <small>Open</small>
+          <b>{{ complaint_metrics.get('open', 0) or 0 }}</b>
+        </div>
+        <div class="sc-kpi-icon">🟠</div>
+      </div>
+      <div class="sc-kpi blue">
+        <div>
+          <small>In Progress</small>
+          <b>{{ complaint_metrics.get('in_progress', 0) or 0 }}</b>
+        </div>
+        <div class="sc-kpi-icon">🔵</div>
+      </div>
+      <div class="sc-kpi">
+        <div>
+          <small>Resolved</small>
+          <b>{{ complaint_metrics.get('resolved', 0) or 0 }}</b>
+        </div>
+        <div class="sc-kpi-icon">✅</div>
+      </div>
+    </section>
+
+    <section class="sc-card">
+      <div class="sc-card-head">
+        <div>
+          <h2 class="sc-card-title">Received Complaints</h2>
+          <p class="sc-card-sub">Search, filter, review and update store complaints.</p>
+        </div>
       </div>
 
-      <div class="sc-hero-pill">
-        📩 {{ complaint_metrics.get('total', 0) or 0 }} Total Complaints
-      </div>
-    </div>
-  </div>
-
-  <div class="sc-kpis">
-    <div class="sc-kpi">
-      <div class="sc-kpi-icon">📩</div>
-      <div>
-        <small>Total</small>
-        <b>{{ complaint_metrics.get('total', 0) or 0 }}</b>
-      </div>
-    </div>
-
-    <div class="sc-kpi orange">
-      <div class="sc-kpi-icon">🟠</div>
-      <div>
-        <small>Open</small>
-        <b>{{ complaint_metrics.get('open', 0) or 0 }}</b>
-      </div>
-    </div>
-
-    <div class="sc-kpi blue">
-      <div class="sc-kpi-icon">🔵</div>
-      <div>
-        <small>In Progress</small>
-        <b>{{ complaint_metrics.get('in_progress', 0) or 0 }}</b>
-      </div>
-    </div>
-
-    <div class="sc-kpi">
-      <div class="sc-kpi-icon">✅</div>
-      <div>
-        <small>Resolved</small>
-        <b>{{ complaint_metrics.get('resolved', 0) or 0 }}</b>
-      </div>
-    </div>
-  </div>
-
-  <section class="sc-card">
-    <div class="sc-card-head">
-      <h3>Received Complaints</h3>
-      <p>Only complaints submitted for this store are shown here.</p>
-    </div>
-
-    <div class="sc-tools">
-      <input
-        type="search"
-        class="sc-search"
-        id="scComplaintSearch"
-        placeholder="Search customer, subject, order, product or message..."
-      >
-
-      <select class="sc-select" id="scStatusFilter">
-        <option value="all">All status</option>
-        <option value="open">Open</option>
-        <option value="in_progress">In Progress</option>
-        <option value="resolved">Resolved</option>
-      </select>
-    </div>
-
-    <div class="sc-list" id="scComplaintList">
       {% if complaints %}
-        {% for c in complaints %}
-          <article
-            class="sc-complaint"
-            data-status="{{ c.status }}"
-            data-search="{{ (c.subject ~ ' ' ~ c.customer_name ~ ' ' ~ c.customer_email ~ ' ' ~ c.customer_phone ~ ' ' ~ c.order_id ~ ' ' ~ c.product_name ~ ' ' ~ c.message ~ ' ' ~ c.store_reply ~ ' ' ~ c.store_progress_note)|lower|e }}"
-          >
-            <div class="sc-complaint-top">
-              <div>
-                <h4>{{ c.subject or 'Complaint' }}</h4>
-                <div class="sc-meta">
-                  {{ c.customer_name or 'Customer' }}
-                  {% if c.customer_email %} · {{ c.customer_email }}{% endif %}
-                  {% if c.customer_phone %} · {{ c.customer_phone }}{% endif %}
-                  {% if c.created_at_display %}<br>Submitted: {{ c.created_at_display }}{% endif %}
-                  {% if c.updated_at_display %}<br>Last Updated: {{ c.updated_at_display }}{% endif %}
-                </div>
-              </div>
+        <div class="sc-tools">
+          <div class="sc-search-wrap">
+            <input
+              type="search"
+              class="sc-search"
+              id="scComplaintSearch"
+              placeholder="Search customer, subject, order, product or message..."
+            >
+          </div>
 
-              <span class="sc-status {{ c.status }}">
-                {{ c.status_label }}
-              </span>
-            </div>
+          <div class="sc-table-tools">
+            <select class="sc-select" id="scStatusFilter" aria-label="Complaint status filter">
+              <option value="all">All Status</option>
+              <option value="open">Open</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+            </select>
 
-            <div class="sc-detail-grid">
-              <div class="sc-detail">
-                <small>Complaint Type</small>
-                <b>{{ c.complaint_type|replace('_',' ')|title if c.complaint_type else 'General' }}</b>
-              </div>
+            <select class="sc-page-size-select" id="scPageSize" aria-label="Complaints per page">
+              <option value="10">10 / page</option>
+              <option value="20">20 / page</option>
+              <option value="50">50 / page</option>
+              <option value="100">100 / page</option>
+            </select>
 
-              <div class="sc-detail">
-                <small>Order Ref</small>
-                <b>{{ c.order_id or 'Not provided' }}</b>
-              </div>
+            <span class="sc-muted" id="scComplaintMeta">{{ complaints|length }} complaints</span>
+          </div>
+        </div>
 
-              <div class="sc-detail">
-                <small>Product</small>
-                <b>{{ c.product_name or 'Not provided' }}</b>
-              </div>
-            </div>
+        <div class="sc-table-wrap">
+          <table class="sc-table" id="scComplaintTable">
+            <thead>
+              <tr>
+                <th>SL No</th>
+                <th>Complaint</th>
+                <th>Customer</th>
+                <th>Details</th>
+                <th>Message / Proof</th>
+                <th>Status</th>
+                <th>Reply / Progress</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in complaints %}
+                <tr
+                  data-sc-row
+                  data-status="{{ c.status }}"
+                  data-search="{{ (c.subject ~ ' ' ~ c.customer_name ~ ' ' ~ c.customer_email ~ ' ' ~ c.customer_phone ~ ' ' ~ c.order_id ~ ' ' ~ c.product_name ~ ' ' ~ c.message ~ ' ' ~ c.store_reply ~ ' ' ~ c.store_progress_note ~ ' ' ~ c.status_label)|lower|e }}"
+                >
+                  <td>
+                    <div class="sc-cell-content">
+                      <span class="sc-slno-value" data-sc-row-number>{{ loop.index }}</span>
+                    </div>
+                  </td>
 
-            <p class="sc-message">{{ c.message or 'No complaint message provided.' }}</p>
+                  <td>
+                    <div class="sc-cell-content">
+                      <span class="sc-main">{{ c.subject or 'Complaint' }}</span>
+                      {% if c.created_at_display %}<span class="sc-sub">Submitted: {{ c.created_at_display }}</span>{% endif %}
+                      {% if c.updated_at_display %}<span class="sc-sub">Updated: {{ c.updated_at_display }}</span>{% endif %}
+                    </div>
+                  </td>
 
-            {% if c.complaint_image_path %}
-  <div class="sc-proof">
-    <b>Customer Uploaded Image Proof</b>
-    <img src="{{ '/' + c.complaint_image_path }}" alt="Complaint image proof">
-    <a class="sc-proof-link" href="{{ '/' + c.complaint_image_path }}" target="_blank" rel="noopener">
-      View Full Image
-    </a>
-  </div>
-{% endif %}
+                  <td>
+                    <div class="sc-cell-content">
+                      <span class="sc-main">{{ c.customer_name or 'Customer' }}</span>
+                      {% if c.customer_email %}<span class="sc-sub">{{ c.customer_email }}</span>{% endif %}
+                      {% if c.customer_phone %}<span class="sc-sub">{{ c.customer_phone }}</span>{% endif %}
+                    </div>
+                  </td>
 
-            {% if c.is_admin_taken_over %}
-              <div class="sc-admin-taken-over">
-                <strong>Taken over by NE FRESH Admin</strong>
+                  <td>
+                    <div class="sc-cell-content">
+                      <span class="sc-pill">{{ c.complaint_type|replace('_',' ')|title if c.complaint_type else 'General' }}</span>
+                      <span class="sc-sub"><b>Order:</b> {{ c.order_id or 'Not provided' }}</span>
+                      <span class="sc-sub"><b>Product:</b> {{ c.product_name or 'Not provided' }}</span>
+                    </div>
+                  </td>
 
-                <span>
-                  This complaint has been escalated and is now handled directly by NE FRESH Admin.
-                  Store updates are disabled for this complaint.
-                </span>
+                  <td>
+                    <div class="sc-cell-content">
+                      <p class="sc-message">{{ c.message or 'No complaint message provided.' }}</p>
+                      {% if c.complaint_image_path %}
+                        <div class="sc-proof">
+                          <b>Image Proof</b>
+                          <img src="{{ '/' + c.complaint_image_path }}" alt="Complaint image proof">
+                          <a class="sc-proof-link" href="{{ '/' + c.complaint_image_path }}" target="_blank" rel="noopener">View Full Image</a>
+                        </div>
+                      {% endif %}
+                    </div>
+                  </td>
 
-                {% if c.admin_takeover_reason %}
-                  <span><b>Reason:</b> {{ c.admin_takeover_reason }}</span>
-                {% endif %}
+                  <td>
+                    <div class="sc-cell-content">
+                      <span class="sc-status {{ c.status }}">{{ c.status_label }}</span>
+                      {% if c.progress_status %}<span class="sc-sub">Progress: {{ c.progress_status|replace('_',' ')|title }}</span>{% endif %}
+                    </div>
+                  </td>
 
-                {% if c.admin_takeover_by_name %}
-                  <span><b>Taken over by:</b> {{ c.admin_takeover_by_name }}</span>
-                {% endif %}
+                  <td>
+                    <div class="sc-cell-content">
+                      {% if c.is_admin_taken_over %}
+                        <div class="sc-admin-taken-over">
+                          <strong>Taken over by NE Locals Admin</strong>
+                          <span>This complaint is now handled directly by Admin. Store updates are disabled.</span>
+                          {% if c.admin_takeover_reason %}<span><b>Reason:</b> {{ c.admin_takeover_reason }}</span>{% endif %}
+                          {% if c.admin_takeover_by_name %}<span><b>Taken over by:</b> {{ c.admin_takeover_by_name }}</span>{% endif %}
+                          {% if c.admin_takeover_at %}<span><b>Takeover Time:</b> {{ c.admin_takeover_at }}</span>{% endif %}
+                          {% if c.admin_reply %}<span><b>Admin Reply:</b> {{ c.admin_reply }}</span>{% endif %}
+                          {% if c.admin_progress_note %}<span><b>Admin Note:</b> {{ c.admin_progress_note }}</span>{% endif %}
+                        </div>
+                      {% else %}
+                        {% if c.store_progress_note %}<span class="sc-main">{{ c.store_progress_note }}</span>{% else %}<span class="sc-sub">No progress note yet.</span>{% endif %}
+                        {% if c.store_reply %}<span class="sc-sub"><b>Reply:</b> {{ c.store_reply }}</span>{% else %}<span class="sc-sub">No customer reply yet.</span>{% endif %}
+                      {% endif %}
+                    </div>
+                  </td>
 
-                {% if c.admin_takeover_at %}
-                  <span><b>Takeover Time:</b> {{ c.admin_takeover_at }}</span>
-                {% endif %}
+                  <td>
+                    <div class="sc-cell-content">
+                      {% if c.is_admin_taken_over %}
+                        <span class="sc-sub">Store update disabled after Admin takeover.</span>
+                      {% else %}
+                        <form class="sc-update-form" method="POST" action="{{ url_for('store_complaint_update', cid=c.id) }}">
+                          <div class="sc-field">
+                            <label>Progress Status</label>
+                            <select name="progress_status" required>
+                              <option value="received" {% if c.progress_status == 'received' %}selected{% endif %}>Received / Open</option>
+                              <option value="in_progress" {% if c.progress_status == 'in_progress' %}selected{% endif %}>In Progress</option>
+                              <option value="resolved" {% if c.progress_status == 'resolved' %}selected{% endif %}>Resolved / Completed</option>
+                            </select>
+                          </div>
 
-                {% if c.admin_reply %}
-                  <span><b>Admin Reply:</b> {{ c.admin_reply }}</span>
-                {% endif %}
+                          <div class="sc-field">
+                            <label>Progress Note</label>
+                            <textarea name="store_progress_note" maxlength="1000" placeholder="Write progress note...">{{ c.store_progress_note or '' }}</textarea>
+                          </div>
 
-                {% if c.admin_progress_note %}
-                  <span><b>Admin Note:</b> {{ c.admin_progress_note }}</span>
-                {% endif %}
-              </div>
-            {% else %}
-              <form class="sc-update" method="POST" action="{{ url_for('store_complaint_update', cid=c.id) }}">
-                <div class="sc-form-grid">
-                  <div class="sc-field">
-                    <label>Progress Status</label>
-                    <select name="progress_status" required>
-                      <option value="received" {% if c.progress_status == 'received' %}selected{% endif %}>Received / Open</option>
-                      <option value="in_progress" {% if c.progress_status == 'in_progress' %}selected{% endif %}>In Progress</option>
-                      <option value="resolved" {% if c.progress_status == 'resolved' %}selected{% endif %}>Resolved / Completed</option>
-                    </select>
-                  </div>
+                          <div class="sc-field">
+                            <label>Store Reply</label>
+                            <textarea name="store_reply" maxlength="1000" placeholder="Write customer reply...">{{ c.store_reply or '' }}</textarea>
+                          </div>
 
-                  <div class="sc-field">
-                    <label>Progress Note</label>
-                    <textarea name="store_progress_note" maxlength="1000" placeholder="Example: We are checking this issue with our packing team.">{{ c.store_progress_note or '' }}</textarea>
-                  </div>
-                </div>
+                          <button class="sc-submit" type="submit">Update Complaint</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
 
-                <div class="sc-field">
-                  <label>Store Reply To Customer</label>
-                  <textarea name="store_reply" maxlength="1000" placeholder="Write reply visible to customer complaint tracking page.">{{ c.store_reply or '' }}</textarea>
-                </div>
+        <div class="sc-empty" id="scNoFilteredComplaints" hidden>
+          <b>No matching complaints found.</b>
+          Try another search keyword or status filter.
+        </div>
 
-                <button class="sc-submit" type="submit">
-                  Update Complaint
-                </button>
-              </form>
-            {% endif %}
-          </article>
-        {% endfor %}
+        <div class="sc-pagination-box" id="scPaginationBox" hidden>
+          <div class="sc-page-info" id="scPageInfo">Showing 0 complaints</div>
+          <div class="sc-page-controls">
+            <button type="button" class="sc-page-btn" id="scPrevPage">Prev</button>
+            <div class="sc-page-numbers" id="scPageNumbers"></div>
+            <button type="button" class="sc-page-btn" id="scNextPage">Next</button>
+          </div>
+        </div>
       {% else %}
         <div class="sc-empty">
           <b>No complaints received yet.</b>
           Complaints submitted by customers for this store will appear here.
         </div>
       {% endif %}
-
-      <div class="sc-empty" id="scNoFilteredComplaints" hidden>
-        <b>No matching complaints found.</b>
-        Try another search keyword or status filter.
-      </div>
-    </div>
-  </section>
+    </section>
+  </div>
 
   <script>
     (function(){
-      const page = document.querySelector('.nf-store-complaints-page');
-      if(!page) return;
+      'use strict';
 
-      const searchInput = page.querySelector('#scComplaintSearch');
-      const statusFilter = page.querySelector('#scStatusFilter');
-      const complaints = Array.from(page.querySelectorAll('.sc-complaint'));
-      const emptyFiltered = page.querySelector('#scNoFilteredComplaints');
+      document.addEventListener('DOMContentLoaded', function(){
+        const pageRoot = document.querySelector('.nf-store-complaints-page');
+        if (!pageRoot) return;
 
-      function normalize(value){
-        return String(value || '').trim().toLowerCase();
-      }
+        const table = pageRoot.querySelector('#scComplaintTable');
+        if (!table) return;
 
-      function applyComplaintFilters(){
-        const q = normalize(searchInput ? searchInput.value : '');
-        const status = statusFilter ? statusFilter.value : 'all';
-        let shown = 0;
+        const rows = Array.from(table.querySelectorAll('[data-sc-row]'));
+        const searchInput = pageRoot.querySelector('#scComplaintSearch');
+        const statusFilter = pageRoot.querySelector('#scStatusFilter');
+        const pageSizeSelect = pageRoot.querySelector('#scPageSize');
+        const meta = pageRoot.querySelector('#scComplaintMeta');
+        const emptyFiltered = pageRoot.querySelector('#scNoFilteredComplaints');
+        const paginationBox = pageRoot.querySelector('#scPaginationBox');
+        const pageInfo = pageRoot.querySelector('#scPageInfo');
+        const pageNumbers = pageRoot.querySelector('#scPageNumbers');
+        const prevBtn = pageRoot.querySelector('#scPrevPage');
+        const nextBtn = pageRoot.querySelector('#scNextPage');
 
-        complaints.forEach(function(card){
-          const text = normalize(card.getAttribute('data-search'));
-          const cardStatus = String(card.getAttribute('data-status') || '');
+        let page = 1;
+        let pageSize = parseInt(pageSizeSelect ? pageSizeSelect.value : '10', 10) || 10;
+        let filteredRows = rows.slice();
 
-          const matchText = !q || text.indexOf(q) !== -1;
-          const matchStatus = status === 'all' || cardStatus === status;
-
-          const show = matchText && matchStatus;
-          card.classList.toggle('is-hidden', !show);
-
-          if(show){
-            shown += 1;
-          }
-        });
-
-        if(emptyFiltered){
-          emptyFiltered.hidden = shown !== 0 || complaints.length === 0;
+        function normalize(value){
+          return String(value || '').trim().toLowerCase();
         }
-      }
 
-      if(searchInput){
-        searchInput.addEventListener('input', applyComplaintFilters);
-      }
+        function getSearchText(row){
+          return normalize(row.dataset.search || row.textContent || '');
+        }
 
-      if(statusFilter){
-        statusFilter.addEventListener('change', applyComplaintFilters);
-      }
+        function filterRows(){
+          const q = normalize(searchInput ? searchInput.value : '');
+          const status = statusFilter ? statusFilter.value : 'all';
 
-      applyComplaintFilters();
+          filteredRows = rows.filter(function(row){
+            const rowStatus = String(row.dataset.status || '');
+            const matchText = !q || getSearchText(row).indexOf(q) !== -1;
+            const matchStatus = status === 'all' || rowStatus === status;
+            return matchText && matchStatus;
+          });
+
+          page = 1;
+          render();
+        }
+
+        function buildPageButton(label, targetPage, isActive, disabled){
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'sc-page-btn' + (isActive ? ' active' : '');
+          btn.textContent = label;
+          btn.disabled = !!disabled;
+
+          if (!disabled) {
+            btn.addEventListener('click', function(){
+              page = targetPage;
+              render();
+            });
+          }
+
+          return btn;
+        }
+
+        function renderNumbers(totalPages){
+          if (!pageNumbers) return;
+          pageNumbers.innerHTML = '';
+
+          if (totalPages <= 1) return;
+
+          const pages = [];
+          const start = Math.max(1, page - 1);
+          const end = Math.min(totalPages, page + 1);
+
+          if (start > 1) {
+            pages.push(1);
+            if (start > 2) pages.push('...');
+          }
+
+          for (let i = start; i <= end; i += 1) pages.push(i);
+
+          if (end < totalPages) {
+            if (end < totalPages - 1) pages.push('...');
+            pages.push(totalPages);
+          }
+
+          pages.forEach(function(item){
+            if (item === '...') {
+              pageNumbers.appendChild(buildPageButton('...', page, false, true));
+            } else {
+              pageNumbers.appendChild(buildPageButton(String(item), item, item === page, false));
+            }
+          });
+        }
+
+        function render(){
+          pageSize = parseInt(pageSizeSelect ? pageSizeSelect.value : String(pageSize), 10) || 10;
+          const total = filteredRows.length;
+          const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+          if (page > totalPages) page = totalPages;
+
+          const start = (page - 1) * pageSize;
+          const end = start + pageSize;
+          const visibleRows = filteredRows.slice(start, end);
+
+          rows.forEach(function(row){
+            row.hidden = true;
+          });
+
+          visibleRows.forEach(function(row, index){
+            row.hidden = false;
+            const rowNumber = row.querySelector('[data-sc-row-number]');
+            if (rowNumber) rowNumber.textContent = String(start + index + 1);
+          });
+
+          if (meta) {
+            meta.textContent = total + ' shown · ' + rows.length + ' total';
+          }
+
+          if (emptyFiltered) {
+            emptyFiltered.hidden = total !== 0;
+          }
+
+          if (paginationBox) {
+            paginationBox.hidden = rows.length === 0;
+          }
+
+          if (pageInfo) {
+            if (total === 0) {
+              pageInfo.textContent = 'Showing 0 complaints';
+            } else {
+              pageInfo.textContent = 'Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' complaints';
+            }
+          }
+
+          if (prevBtn) {
+            prevBtn.disabled = page <= 1;
+            prevBtn.onclick = function(){
+              if (page > 1) {
+                page -= 1;
+                render();
+              }
+            };
+          }
+
+          if (nextBtn) {
+            nextBtn.disabled = page >= totalPages;
+            nextBtn.onclick = function(){
+              if (page < totalPages) {
+                page += 1;
+                render();
+              }
+            };
+          }
+
+          renderNumbers(totalPages);
+        }
+
+        if (searchInput) searchInput.addEventListener('input', filterRows);
+        if (statusFilter) statusFilter.addEventListener('change', filterRows);
+        if (pageSizeSelect) pageSizeSelect.addEventListener('change', function(){ page = 1; render(); });
+
+        render();
+      });
     })();
   </script>
 </section>

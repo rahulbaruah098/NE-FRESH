@@ -1,86 +1,769 @@
 {% extends "store_base.html" %}
 {% set active_page = "inventory" %}
 
-{% block title %}Stock & Inventory | NE FRESH{% endblock %}
+{% block title %}Stock & Inventory | NE Locals{% endblock %}
 {% block page_title %}Stock & Inventory{% endblock %}
-{% block page_subtitle %}Track stock availability, low-stock products and inventory status.{% endblock %}
+{% block page_subtitle %}Monitor stock health, low-stock items and restock needs.{% endblock %}
 
 {% block content %}
 <section class="nf-store-dashboard" data-page="inventory">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
     .nf-store-dashboard{
-      --bg:#F8FFFB;
+      --bg:#F7FFFA;
       --card:#FFFFFF;
-      --soft:#F3FFF8;
-      --line:#DDECE4;
-      --line2:#EAF4EF;
-      --ink:#1F332A;
-      --text:#40534A;
-      --muted:#66756D;
+      --card2:#FBFFFD;
+      --soft:#F1FFF7;
+      --soft2:#F8FFFB;
+      --line:#D9EDE3;
+      --line2:#EDF6F1;
+      --ink:#10251B;
+      --text:#30443A;
+      --muted:#65766D;
+      --muted2:#85978E;
       --green:#00A859;
-      --green-dark:#008A48;
+      --green-dark:#075C3B;
+      --green-deep:#06482F;
       --green-soft:#E9FFF3;
-      --orange:#FF8A1F;
-      --red:#EF4444;
-      --shadow:0 14px 36px rgba(17,64,38,.08);
+      --orange:#F59E0B;
+      --orange-soft:#FFF8E8;
+      --red:#DC2626;
+      --red-soft:#FFF1F2;
+      --shadow:0 10px 28px rgba(17,64,38,.055);
+      --shadow2:0 18px 50px rgba(17,64,38,.085);
+      --radius:24px;
+      --ease:cubic-bezier(.2,.75,.25,1);
       width:100%;
       min-height:100%;
-      background:var(--bg);
+      background:
+        radial-gradient(circle at 0% 0%, rgba(0,168,89,.055), transparent 34%),
+        linear-gradient(180deg,#F7FFFA 0%,#FFFFFF 42%,#F8FFFB 100%);
       color:var(--ink);
       font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
       overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      text-size-adjust:100%;
     }
 
     .nf-store-dashboard,
-    .nf-store-dashboard *{box-sizing:border-box;}
+    .nf-store-dashboard *{
+      box-sizing:border-box;
+      min-width:0;
+      -webkit-tap-highlight-color:transparent;
+    }
 
-    .sd-shell{width:100%;max-width:1600px;margin:0 auto;padding:24px;}
-    .sd-stack{display:grid;gap:20px;}
-    .sd-card{background:#fff;border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);overflow:hidden;}
-    .sd-hero{padding:24px;border-radius:28px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);}
-    .sd-kicker{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:0 11px;border-radius:999px;background:var(--green-soft);border:1px solid rgba(0,168,89,.18);color:var(--green-dark);font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;}
-    .sd-hero-title{margin:14px 0 8px;color:var(--ink);font-size:clamp(26px,3vw,42px);line-height:1.04;font-weight:900;letter-spacing:-.05em;}
-    .sd-hero-copy{max-width:900px;margin:0;color:var(--muted);font-size:15px;font-weight:650;line-height:1.65;}
+    .sd-shell{
+      width:100%;
+      max-width:1760px;
+      margin:0 auto;
+      padding:clamp(12px,1.6vw,28px);
+      padding-left:max(clamp(12px,1.6vw,28px), env(safe-area-inset-left,0px));
+      padding-right:max(clamp(12px,1.6vw,28px), env(safe-area-inset-right,0px));
+    }
 
-    .sd-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
-    .sd-kpi-card{min-height:126px;border-radius:22px;background:#fff;border:1px solid var(--line);box-shadow:0 10px 28px rgba(17,64,38,.06);padding:18px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;}
-    .sd-kpi-label{color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;}
-    .sd-kpi-value{margin-top:8px;color:var(--ink);font-size:clamp(26px,3vw,38px);line-height:1;font-weight:900;letter-spacing:-.045em;}
-    .sd-kpi-meta{margin-top:8px;color:var(--muted);font-size:12px;font-weight:800;line-height:1.35;}
-    .sd-kpi-icon{width:48px;height:48px;border-radius:17px;display:grid;place-items:center;background:var(--green-soft);font-size:24px;flex:0 0 auto;}
+    .sd-stack{display:grid;gap:clamp(14px,1.35vw,22px);}
 
-    .sd-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:20px 22px;border-bottom:1px solid var(--line2);background:#FBFFFD;}
-    .sd-section-title{margin:0;color:var(--ink);font-size:18px;font-weight:900;letter-spacing:-.03em;}
-    .sd-section-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:650;line-height:1.45;}
-    .sd-view-link{color:var(--green-dark);text-decoration:none;font-size:13px;font-weight:900;white-space:nowrap;}
+    .sd-hero,
+    .sd-card,
+    .sd-kpi-card{
+      background:rgba(255,255,255,.98);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
 
-    .sd-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;background:#fff;border-bottom:1px solid var(--line2);flex-wrap:wrap;}
-    .sd-search-wrap{width:min(360px,100%);position:relative;}
-    .sd-search-input{width:100%;height:42px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);padding:0 12px 0 38px;outline:none;font-weight:750;}
-    .sd-search-wrap::before{content:"⌕";position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:900;}
-    .sd-table-wrap{padding:0 20px 20px;overflow:auto;}
-    .sd-table{width:100%;min-width:900px;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;}
-    .sd-table thead{background:#075C3B;color:#fff;}
-    .sd-table th{padding:14px;text-align:left;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;}
-    .sd-table td{padding:14px;border-bottom:1px solid var(--line2);color:var(--text);font-size:13px;font-weight:700;vertical-align:top;}
+    .sd-hero{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:18px;
+      padding:clamp(18px,2vw,30px);
+      border-radius:30px;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(0,168,89,.10), transparent 30%),
+        linear-gradient(135deg,#FFFFFF 0%,#F2FFF8 100%);
+      box-shadow:var(--shadow2);
+    }
+
+    .sd-kicker{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:max-content;
+      max-width:100%;
+      min-height:30px;
+      padding:0 12px;
+      border-radius:999px;
+      background:var(--green-soft);
+      border:1px solid rgba(0,168,89,.22);
+      color:var(--green-dark);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .sd-hero-title{
+      margin:14px 0 6px;
+      color:var(--ink);
+      font-size:clamp(30px,3.4vw,50px);
+      line-height:1.02;
+      font-weight:950;
+      letter-spacing:-.06em;
+      overflow-wrap:anywhere;
+    }
+
+    .sd-hero-copy{
+      max-width:850px;
+      margin:0;
+      color:var(--muted);
+      font-size:clamp(13.5px,1vw,15px);
+      font-weight:700;
+      line-height:1.55;
+    }
+
+    .sd-hero-actions{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .sd-btn,
+    .sd-view-link{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--text);
+      text-decoration:none;
+      font:inherit;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.2;
+      cursor:pointer;
+      transition:.2s var(--ease);
+      white-space:nowrap;
+      touch-action:manipulation;
+    }
+
+    .sd-btn:hover,
+    .sd-view-link:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.30);
+      color:var(--green-dark);
+      background:var(--soft);
+      box-shadow:0 12px 24px rgba(17,64,38,.09);
+    }
+
+    .sd-btn-primary{
+      background:linear-gradient(135deg,var(--green),var(--green-dark))!important;
+      border-color:var(--green)!important;
+      color:#fff!important;
+      box-shadow:0 12px 26px rgba(0,168,89,.16);
+    }
+
+    .sd-kpi-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:clamp(12px,1.2vw,18px);
+    }
+
+    .sd-kpi-card{
+      min-height:118px;
+      padding:clamp(15px,1.25vw,20px);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FCFFFD 100%);
+    }
+
+    .sd-kpi-label{
+      color:var(--muted);
+      font-size:11px;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .sd-kpi-value{
+      margin-top:8px;
+      color:var(--ink);
+      font-size:clamp(26px,3vw,38px);
+      line-height:1;
+      font-weight:950;
+      letter-spacing:-.045em;
+    }
+
+    .sd-kpi-meta{
+      margin-top:8px;
+      color:var(--muted2);
+      font-size:12px;
+      font-weight:800;
+      line-height:1.35;
+    }
+
+    .sd-kpi-icon{
+      width:46px;
+      height:46px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      font-size:22px;
+      flex:0 0 auto;
+    }
+
+    .sd-section-head{
+      padding:clamp(16px,1.35vw,22px);
+      border-bottom:1px solid var(--line2);
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+
+    .sd-section-title{
+      margin:0;
+      color:var(--ink);
+      font-size:19px;
+      font-weight:950;
+      letter-spacing:-.035em;
+      line-height:1.2;
+    }
+
+    .sd-section-sub{
+      margin:5px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:700;
+      line-height:1.42;
+    }
+
+    .sd-table-toolbar{
+      display:grid;
+      grid-template-columns:minmax(250px,1fr) auto;
+      align-items:center;
+      gap:12px;
+      padding:clamp(14px,1.2vw,18px) clamp(14px,1.35vw,22px);
+      background:#fff;
+      border-bottom:1px solid var(--line2);
+    }
+
+    .sd-search-wrap{
+      width:100%;
+      max-width:560px;
+      position:relative;
+    }
+
+    .sd-search-wrap::before{
+      content:'⌕';
+      position:absolute;
+      left:14px;
+      top:50%;
+      transform:translateY(-50%);
+      color:var(--muted2);
+      font-weight:950;
+      pointer-events:none;
+    }
+
+    .sd-search-input{
+      width:100%;
+      min-height:44px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--ink);
+      padding:0 12px 0 40px;
+      outline:none;
+      font:inherit;
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .sd-table-tools{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .sd-filter-select,
+    .sd-page-size-select{
+      height:44px;
+      min-width:140px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--ink);
+      padding:0 34px 0 12px;
+      outline:none;
+      font:inherit;
+      font-size:13px;
+      font-weight:850;
+      appearance:none;
+      -webkit-appearance:none;
+      background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6z" fill="%23075C3B"/></svg>');
+      background-repeat:no-repeat;
+      background-position:right 11px center;
+    }
+
+    .sd-search-input:focus,
+    .sd-filter-select:focus,
+    .sd-page-size-select:focus{
+      border-color:rgba(0,168,89,.42);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .sd-muted{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:800;
+      overflow-wrap:anywhere;
+    }
+
+    .sd-table-wrap{
+      width:100%;
+      padding:0 clamp(10px,1.05vw,18px) clamp(16px,1.35vw,22px);
+      overflow-x:hidden;
+      overflow-y:visible;
+    }
+
+    .sd-table{
+      width:100%;
+      min-width:0;
+      max-width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      table-layout:fixed;
+      border:1px solid var(--line);
+      border-radius:18px;
+      overflow:hidden;
+      background:#fff;
+      box-shadow:0 8px 22px rgba(17,64,38,.035);
+    }
+
+    .sd-table thead{
+      background:linear-gradient(135deg,#075C3B,#06482F);
+      color:#fff;
+    }
+
+    .sd-table th,
+    .sd-table td{
+      padding:clamp(8px,.78vw,13px);
+      text-align:left;
+      vertical-align:top;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+      white-space:normal;
+    }
+
+    .sd-table th{
+      font-size:clamp(9px,.72vw,11px);
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.045em;
+      line-height:1.25;
+    }
+
+    .sd-table td{
+      border-bottom:1px solid var(--line2);
+      color:var(--text);
+      font-size:clamp(11px,.82vw,13px);
+      font-weight:750;
+      line-height:1.35;
+      background:#fff;
+    }
+
+    .sd-table tbody tr:nth-child(even) td{background:#FCFFFD;}
     .sd-table tbody tr:last-child td{border-bottom:0;}
-    .sd-table tbody tr:nth-child(even){background:#FCFFFD;}
-    .sd-table tbody tr:hover{background:#F7FFFB;}
-    .sd-pill{display:inline-flex;align-items:center;gap:6px;min-height:28px;border-radius:999px;padding:0 10px;font-size:12px;font-weight:900;background:var(--green-soft);color:var(--green-dark);border:1px solid rgba(0,168,89,.16);}
-    .sd-pill-warning{background:#FFF7ED;color:#C2410C;border-color:#FED7AA;}
-    .sd-pill-danger{background:#FFF1F2;color:#B91C1C;border-color:#FECACA;}
-    .sd-muted{color:var(--muted);font-size:13px;font-weight:700;}
+    .sd-table tbody tr[hidden]{display:none!important;}
 
-    @media(max-width:900px){
-      .sd-shell{padding:16px;}
+    .sd-table th:nth-child(1),
+    .sd-table td:nth-child(1){width:5%;text-align:center;}
+    .sd-table th:nth-child(2),
+    .sd-table td:nth-child(2){width:22%;}
+    .sd-table th:nth-child(3),
+    .sd-table td:nth-child(3){width:14%;}
+    .sd-table th:nth-child(4),
+    .sd-table td:nth-child(4){width:10%;}
+    .sd-table th:nth-child(5),
+    .sd-table td:nth-child(5){width:13%;}
+    .sd-table th:nth-child(6),
+    .sd-table td:nth-child(6){width:10%;}
+    .sd-table th:nth-child(7),
+    .sd-table td:nth-child(7){width:14%;}
+    .sd-table th:nth-child(8),
+    .sd-table td:nth-child(8){width:12%;}
+
+    .sd-slno-value{
+      width:clamp(30px,2.4vw,38px);
+      height:clamp(30px,2.4vw,38px);
+      display:inline-grid;
+      place-items:center;
+      border-radius:999px;
+      background:var(--green-soft);
+      border:1px solid rgba(0,168,89,.20);
+      color:var(--green-dark);
+      font-size:clamp(11px,.8vw,14px);
+      font-weight:950;
+    }
+
+    .sd-product-name{
+      color:var(--ink);
+      font-weight:950;
+      line-height:1.25;
+    }
+
+    .sd-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      border-radius:999px;
+      padding:5px 10px;
+      font-size:clamp(9.5px,.72vw,11px);
+      font-weight:950;
+      line-height:1.15;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      border:1px solid rgba(0,168,89,.18);
+      text-align:center;
+      max-width:100%;
+    }
+
+    .sd-pill-warning{
+      background:var(--orange-soft);
+      color:#9A5A00;
+      border-color:#FDE7B2;
+    }
+
+    .sd-pill-danger{
+      background:var(--red-soft);
+      color:#B91C1C;
+      border-color:#FECACA;
+    }
+
+    .sd-pill-muted{
+      background:#F8FFFB;
+      color:var(--muted);
+      border-color:var(--line2);
+    }
+
+    .sd-products-empty{
+      margin:0 clamp(14px,1.35vw,22px) 18px;
+      padding:24px 16px;
+      border:1px dashed rgba(0,168,89,.28);
+      border-radius:18px;
+      background:#fff;
+      text-align:center;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .sd-products-empty[hidden]{display:none!important;}
+
+    .sd-pagination-box{
+      margin:0 clamp(14px,1.35vw,22px) clamp(16px,1.35vw,22px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      padding:12px 14px;
+      box-shadow:0 10px 26px rgba(17,64,38,.045);
+    }
+
+    .sd-pagination-box[hidden]{display:none!important;}
+
+    .sd-page-info{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .sd-page-controls,
+    .sd-page-numbers{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:7px;
+      flex-wrap:wrap;
+    }
+
+    .sd-page-btn{
+      min-width:38px;
+      min-height:38px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--ink);
+      font:inherit;
+      font-size:12px;
+      font-weight:950;
+      cursor:pointer;
+      transition:.2s var(--ease);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 10px;
+    }
+
+    .sd-page-btn:hover:not(:disabled),
+    .sd-page-btn.active{
+      background:linear-gradient(135deg,var(--green),var(--green-dark));
+      border-color:var(--green);
+      color:#fff;
+      box-shadow:0 10px 20px rgba(0,168,89,.18);
+    }
+
+    .sd-page-btn:disabled{opacity:.45;cursor:not-allowed;}
+
+    @media(max-width:1180px){
+      .sd-hero{grid-template-columns:1fr;}
+      .sd-hero-actions{justify-content:flex-start;}
       .sd-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
     }
-    @media(max-width:560px){
-      .sd-shell{padding:10px;}
+
+    @media(max-width:920px){
+      .sd-shell{
+        padding:14px;
+        padding-left:max(14px,env(safe-area-inset-left,0px));
+        padding-right:max(14px,env(safe-area-inset-right,0px));
+      }
+
+      .sd-hero{border-radius:22px;padding:18px;}
+      .sd-hero-copy,
+      .sd-kpi-meta,
+      .sd-section-sub{display:none;}
+
+      .sd-hero-actions{
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        width:100%;
+      }
+
+      .sd-hero-actions .sd-btn{width:100%;}
+      .sd-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+      .sd-kpi-card{min-height:104px;padding:13px;border-radius:18px;}
+      .sd-kpi-icon{width:38px;height:38px;border-radius:14px;font-size:18px;}
+      .sd-kpi-label{font-size:9.6px;letter-spacing:.045em;}
+      .sd-kpi-value{font-size:clamp(22px,6vw,30px);}
+
+      .sd-table-toolbar{
+        grid-template-columns:1fr;
+        padding:14px;
+      }
+
+      .sd-search-wrap{max-width:100%;}
+
+      .sd-table-tools{
+        display:grid;
+        width:100%;
+        grid-template-columns:1fr 1fr;
+      }
+
+      .sd-table-tools .sd-muted{grid-column:1/-1;}
+      .sd-filter-select,
+      .sd-page-size-select{width:100%;}
+
+      .sd-table-wrap{
+        overflow-x:auto;
+        overflow-y:visible;
+        padding:0 14px 16px;
+        scroll-snap-type:x mandatory;
+        overscroll-behavior-x:contain;
+        -webkit-overflow-scrolling:touch;
+        scrollbar-width:thin;
+        scrollbar-color:rgba(0,168,89,.38) transparent;
+      }
+
+      .sd-table-wrap::-webkit-scrollbar{height:8px;}
+      .sd-table-wrap::-webkit-scrollbar-track{background:#F1F8F4;border-radius:999px;}
+      .sd-table-wrap::-webkit-scrollbar-thumb{background:rgba(0,168,89,.38);border-radius:999px;border:2px solid #F1F8F4;}
+
+      .sd-table{
+        min-width:0;
+        width:100%;
+        display:block;
+        border:0;
+        border-radius:0;
+        box-shadow:none;
+        background:transparent;
+        overflow:visible;
+      }
+
+      .sd-table thead{display:none;}
+
+      .sd-table tbody{
+        display:flex;
+        flex-wrap:nowrap;
+        gap:14px;
+        width:max-content;
+        min-width:100%;
+      }
+
+      .sd-table tbody tr{
+        width:min(86vw,420px);
+        min-width:min(86vw,420px);
+        max-width:min(86vw,420px);
+        flex:0 0 min(86vw,420px);
+        display:grid;
+        grid-template-columns:1fr;
+        gap:0;
+        border:1px solid var(--line);
+        border-radius:22px;
+        background:#fff;
+        box-shadow:0 10px 28px rgba(17,64,38,.06);
+        overflow:hidden;
+        scroll-snap-align:start;
+      }
+
+      .sd-table tbody tr[hidden]{display:none!important;}
+
+      .sd-table td{
+        width:100%!important;
+        display:grid;
+        grid-template-columns:112px minmax(0,1fr);
+        gap:10px;
+        align-items:start;
+        padding:12px;
+        border:0;
+        border-bottom:1px dashed var(--line2);
+        background:#fff!important;
+        color:var(--text);
+        font-size:13px;
+        line-height:1.42;
+        word-break:normal;
+        overflow-wrap:anywhere;
+        text-align:left!important;
+      }
+
+      .sd-table td::before{
+        color:var(--green-dark);
+        font-size:10.2px;
+        line-height:1.25;
+        font-weight:950;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        white-space:normal;
+      }
+
+      .sd-table td:nth-child(1)::before{content:'Sl No';}
+      .sd-table td:nth-child(2)::before{content:'Product';}
+      .sd-table td:nth-child(3)::before{content:'Category';}
+      .sd-table td:nth-child(4)::before{content:'Unit';}
+      .sd-table td:nth-child(5)::before{content:'Current Stock';}
+      .sd-table td:nth-child(6)::before{content:'Status';}
+      .sd-table td:nth-child(7)::before{content:'Stock Health';}
+      .sd-table td:nth-child(8)::before{content:'Action';}
+
+      .sd-table td:nth-child(1),
+      .sd-table td:nth-child(8){
+        grid-template-columns:1fr;
+      }
+
+      .sd-table td:nth-child(1){
+        justify-items:center;
+        text-align:center!important;
+        background:#F8FFFB!important;
+      }
+
+      .sd-table td:nth-child(8){
+        border-bottom:0;
+        background:#FBFFFD!important;
+      }
+
+      .sd-slno-value{width:42px;height:42px;}
+    }
+
+    @media(max-width:640px){
+      .sd-shell{
+        padding:10px;
+        padding-left:max(10px,env(safe-area-inset-left,0px));
+        padding-right:max(10px,env(safe-area-inset-right,0px));
+      }
+
       .sd-hero{padding:16px;border-radius:20px;}
+      .sd-kicker{width:100%;}
+      .sd-hero-title{font-size:clamp(24px,8vw,34px);}
+      .sd-hero-actions{grid-template-columns:1fr;}
+      .sd-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+      .sd-kpi-card{padding:10px;min-height:94px;}
+      .sd-kpi-icon{display:none;}
+      .sd-section-head{padding:14px;}
+      .sd-table-toolbar{padding:12px;}
+      .sd-table-tools{grid-template-columns:1fr;}
+
+      .sd-table tbody tr{
+        width:min(88vw,380px);
+        min-width:min(88vw,380px);
+        max-width:min(88vw,380px);
+        flex-basis:min(88vw,380px);
+      }
+
+      .sd-table td{
+        grid-template-columns:104px minmax(0,1fr);
+        padding:11px;
+      }
+
+      .sd-pagination-box{justify-content:center;text-align:center;}
+      .sd-page-info,.sd-page-controls{width:100%;justify-content:center;}
+    }
+
+    @media(max-width:380px){
       .sd-kpi-grid{grid-template-columns:1fr;}
-      .sd-section-head{padding:16px;flex-direction:column;}
-      .sd-table-wrap{padding:0 14px 16px;}
+      .sd-kpi-card{min-height:auto;}
+      .sd-table tbody tr{
+        width:86vw;
+        min-width:86vw;
+        max-width:86vw;
+        flex-basis:86vw;
+      }
+
+      .sd-table td{
+        grid-template-columns:1fr;
+        gap:6px;
+      }
+
+      .sd-table td::before{margin-bottom:1px;}
+    }
+
+    @supports (-webkit-touch-callout:none){
+      .nf-store-dashboard,
+      .sd-shell,
+      .sd-table-wrap{-webkit-font-smoothing:antialiased;}
+      .sd-table-wrap{-webkit-overflow-scrolling:touch;}
+    }
+
+    @media(hover:none) and (pointer:coarse){
+      .sd-btn:hover,
+      .sd-view-link:hover,
+      .sd-kpi-card:hover{transform:none;box-shadow:var(--shadow);}
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      .nf-store-dashboard *,
+      .nf-store-dashboard *::before,
+      .nf-store-dashboard *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important;}
     }
   </style>
 
@@ -88,98 +771,187 @@
   {% if products %}
     {% for p in products %}
       {% if p.is_active %}{% set ns.active = ns.active + 1 %}{% else %}{% set ns.inactive = ns.inactive + 1 %}{% endif %}
-     {% set p_stock = p.stock_quantity or 0 %}
-{% set p_unit = p.unit_label or 'kg' %}
-{% set low_limit = 500 if p_unit in ['gram', 'ml'] else 5 %}
+      {% set p_stock = p.stock_quantity or 0 %}
+      {% set p_unit = p.unit_label or 'kg' %}
+      {% set low_limit = 500 if p_unit in ['gram', 'ml'] else 5 %}
 
-{% if p_stock is not none and p_stock <= low_limit and p_stock > 0 %}
-  {% set ns.low = ns.low + 1 %}
-{% endif %}
+      {% if p_stock is not none and p_stock <= low_limit and p_stock > 0 %}
+        {% set ns.low = ns.low + 1 %}
+      {% endif %}
 
-{% if p_stock is not none and p_stock <= 0 %}
-  {% set ns.out = ns.out + 1 %}
-{% endif %}
+      {% if p_stock is not none and p_stock <= 0 %}
+        {% set ns.out = ns.out + 1 %}
+      {% endif %}
 
-{% set ns.total_stock = ns.total_stock + (p_stock or 0) %}
+      {% set ns.total_stock = ns.total_stock + (p_stock or 0) %}
     {% endfor %}
   {% endif %}
 
   <div class="sd-shell">
     <div class="sd-stack">
       <section class="sd-hero">
-        <span class="sd-kicker">📦 Store Inventory</span>
-        <h1 class="sd-hero-title">Stock & Inventory</h1>
-        <p class="sd-hero-copy">Monitor product stock, active availability, low-stock alerts and out-of-stock items for {{ store.store_name }}.</p>
+        <div>
+          <span class="sd-kicker">📦 Stock Monitor</span>
+          <h1 class="sd-hero-title">Stock & Inventory</h1>
+          <p class="sd-hero-copy">Monitor product availability, low-stock items and out-of-stock products for {{ store.store_name }}.</p>
+        </div>
+        <div class="sd-hero-actions">
+          <a class="sd-btn" href="{{ url_for('store_products') }}">Manage Products</a>
+          <a class="sd-btn sd-btn-primary" href="{{ url_for('store_add_product') }}">Add Product</a>
+        </div>
       </section>
 
-      <section class="sd-kpi-grid">
-        <div class="sd-kpi-card"><div><div class="sd-kpi-label">Total Products</div><div class="sd-kpi-value">{{ products|length if products else 0 }}</div><div class="sd-kpi-meta">All store products</div></div><div class="sd-kpi-icon">🛍️</div></div>
-        <div class="sd-kpi-card"><div><div class="sd-kpi-label">Active Products</div><div class="sd-kpi-value">{{ ns.active }}</div><div class="sd-kpi-meta">Visible for ordering</div></div><div class="sd-kpi-icon">✅</div></div>
-        <div class="sd-kpi-card"><div><div class="sd-kpi-label">Low Stock</div><div class="sd-kpi-value">{{ ns.low }}</div><div class="sd-kpi-meta">At or below unit threshold</div></div><div class="sd-kpi-icon">⚠️</div></div>
-        <div class="sd-kpi-card"><div><div class="sd-kpi-label">Total Stock</div><div class="sd-kpi-value">{{ '%.2f'|format(ns.total_stock or 0) }}</div><div class="sd-kpi-meta">Total quantity across products</div></div><div class="sd-kpi-icon">📦</div></div>
+      <section class="sd-kpi-grid" aria-label="Inventory summary">
+        <div class="sd-kpi-card">
+          <div>
+            <div class="sd-kpi-label">Total Products</div>
+            <div class="sd-kpi-value">{{ products|length if products else 0 }}</div>
+            <div class="sd-kpi-meta">All store products</div>
+          </div>
+          <div class="sd-kpi-icon">🛍️</div>
+        </div>
+
+        <div class="sd-kpi-card">
+          <div>
+            <div class="sd-kpi-label">Active Products</div>
+            <div class="sd-kpi-value">{{ ns.active }}</div>
+            <div class="sd-kpi-meta">Visible for ordering</div>
+          </div>
+          <div class="sd-kpi-icon">✅</div>
+        </div>
+
+        <div class="sd-kpi-card">
+          <div>
+            <div class="sd-kpi-label">Low Stock</div>
+            <div class="sd-kpi-value">{{ ns.low }}</div>
+            <div class="sd-kpi-meta">Needs restock soon</div>
+          </div>
+          <div class="sd-kpi-icon">⚠️</div>
+        </div>
+
+        <div class="sd-kpi-card">
+          <div>
+            <div class="sd-kpi-label">Out of Stock</div>
+            <div class="sd-kpi-value">{{ ns.out }}</div>
+            <div class="sd-kpi-meta">Currently unavailable</div>
+          </div>
+          <div class="sd-kpi-icon">⛔</div>
+        </div>
       </section>
 
       <section class="sd-card">
         <div class="sd-section-head">
           <div>
-            <h2 class="sd-section-title">Inventory List</h2>
-            <p class="sd-section-sub">Review current stock and quickly open product management.</p>
+            <h2 class="sd-section-title">Inventory Health</h2>
+            <p class="sd-section-sub">Stock-focused list for quick checking and restocking.</p>
           </div>
-          <a class="sd-view-link" href="{{ url_for('store_products') }}">Manage Products</a>
+          <a class="sd-view-link" href="{{ url_for('store_products') }}">Open Product Management</a>
         </div>
 
         <div class="sd-table-toolbar">
           <div class="sd-search-wrap">
-            <input class="sd-search-input" id="inventorySearch" type="search" placeholder="Search product, category or stock status...">
+            <input class="sd-search-input" id="inventorySearch" type="search" placeholder="Search product, category, stock or status...">
           </div>
-          <a class="sd-view-link" href="{{ url_for('store_add_product') }}">Add Product</a>
+          <div class="sd-table-tools">
+            <select class="sd-filter-select" id="inventoryFilter" aria-label="Filter inventory">
+              <option value="all">All Stock</option>
+              <option value="low">Low Stock</option>
+              <option value="out">Out of Stock</option>
+              <option value="good">Good Stock</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <select class="sd-page-size-select" id="inventoryPageSize" aria-label="Inventory per page">
+              <option value="10">10 / page</option>
+              <option value="20">20 / page</option>
+              <option value="50">50 / page</option>
+              <option value="100">100 / page</option>
+            </select>
+            <span class="sd-muted" id="inventoryMeta">{{ products|length if products else 0 }} products</span>
+          </div>
         </div>
 
         <div class="sd-table-wrap">
           <table class="sd-table" id="inventoryTable">
             <thead>
               <tr>
+                <th>SL No</th>
                 <th>Product</th>
                 <th>Category</th>
-                <th>Sub Category</th>
-                <th>Stock</th>
+                <th>Unit</th>
+                <th>Current Stock</th>
                 <th>Status</th>
-                <th>Health</th>
+                <th>Stock Health</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               {% if products %}
                 {% for p in products %}
-                  <tr>
-{% set p_stock = p.stock_quantity or 0 %}
-{% set p_unit = p.unit_label or 'kg' %}
-{% set p_price = p.price_per_unit or 0 %}
-{% set low_limit = 500 if p_unit in ['gram', 'ml'] else 5 %}
+                  {% set p_stock = p.stock_quantity or 0 %}
+                  {% set p_unit = p.unit_label or 'kg' %}
+                  {% set p_price = p.price_per_unit or 0 %}
+                  {% set low_limit = 500 if p_unit in ['gram', 'ml'] else 5 %}
+                  {% set stock_health = 'out' if (p_stock or 0) <= 0 else ('low' if (p_stock or 0) <= low_limit else 'good') %}
+                  {% set stock_label = 'Out of Stock' if stock_health == 'out' else ('Low Stock' if stock_health == 'low' else 'Good') %}
+                  {% set active_label = 'active' if p.is_active else 'inactive' %}
+                  {% set product_id = p.get('id') or p.get('_id') %}
 
-<td>
-  <strong>{{ p.name }}</strong>
-  <div class="sd-muted">₹ {{ '%.2f'|format(p_price or 0) }} / {{ p_unit }}</div>
-</td>
-                    <td>{{ p.category or '—' }}</td>
-                    <td>{{ p.sub_category or '—' }}</td>
-<td>{{ '%.2f'|format(p_stock or 0) }} {{ p_unit }}</td>
-                    <td>{% if p.is_active %}<span class="sd-pill">Active</span>{% else %}<span class="sd-pill sd-pill-danger">Inactive</span>{% endif %}</td>
+                  <tr
+                    data-inventory-row
+                    data-health="{{ stock_health }}"
+                    data-status="{{ active_label }}"
+                    data-search="{{ (p.name ~ ' ' ~ (p.category or '') ~ ' ' ~ (p.sub_category or '') ~ ' ' ~ p_unit ~ ' ' ~ stock_label ~ ' ' ~ active_label)|lower }}"
+                  >
+                    <td><span class="sd-slno-value" data-row-number>{{ loop.index }}</span></td>
                     <td>
-                     {% if (p_stock or 0) <= 0 %}
-  <span class="sd-pill sd-pill-danger">Out of Stock</span>
-{% elif (p_stock or 0) <= low_limit %}
-  <span class="sd-pill sd-pill-warning">Low Stock</span>
+                      <div class="sd-product-name">{{ p.name }}</div>
+                      <div class="sd-muted">₹ {{ '%.2f'|format(p_price or 0) }} / {{ p_unit }}</div>
+                    </td>
+                    <td>{{ p.category or '—' }}</td>
+                    <td>{{ p_unit }}</td>
+                    <td>{{ '%.2f'|format(p_stock or 0) }} {{ p_unit }}</td>
+                    <td>
+                      {% if p.is_active %}
+                        <span class="sd-pill">Active</span>
+                      {% else %}
+                        <span class="sd-pill sd-pill-danger">Inactive</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if stock_health == 'out' %}
+                        <span class="sd-pill sd-pill-danger">Out of Stock</span>
+                      {% elif stock_health == 'low' %}
+                        <span class="sd-pill sd-pill-warning">Low Stock</span>
                       {% else %}
                         <span class="sd-pill">Good</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if product_id %}
+                        <a class="sd-btn" href="{{ url_for('store_product_edit', pid=product_id) }}">Edit / Restock</a>
+                      {% else %}
+                        <span class="sd-pill sd-pill-muted">No action</span>
                       {% endif %}
                     </td>
                   </tr>
                 {% endfor %}
               {% else %}
-                <tr><td colspan="6" class="sd-muted" style="text-align:center;">No inventory found.</td></tr>
+                <tr data-empty-row><td colspan="8" class="sd-muted" style="text-align:center;">No inventory found.</td></tr>
               {% endif %}
             </tbody>
           </table>
+        </div>
+
+        <div class="sd-products-empty" id="inventoryEmpty" hidden>No matching inventory items found.</div>
+
+        <div class="sd-pagination-box" id="inventoryPagination" hidden>
+          <div class="sd-page-info" id="inventoryPageInfo">Showing 0 products</div>
+          <div class="sd-page-controls">
+            <button type="button" class="sd-page-btn" id="inventoryPrev">Prev</button>
+            <div class="sd-page-numbers" id="inventoryPageNumbers"></div>
+            <button type="button" class="sd-page-btn" id="inventoryNext">Next</button>
+          </div>
         </div>
       </section>
     </div>
@@ -187,15 +959,154 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', function(){
+      const rows = Array.from(document.querySelectorAll('[data-inventory-row]'));
       const search = document.getElementById('inventorySearch');
-      const rows = document.querySelectorAll('#inventoryTable tbody tr');
-      if (!search) return;
-      search.addEventListener('input', function(){
-        const q = search.value.toLowerCase().trim();
-        rows.forEach(function(row){
-          row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      const filter = document.getElementById('inventoryFilter');
+      const pageSizeSelect = document.getElementById('inventoryPageSize');
+      const meta = document.getElementById('inventoryMeta');
+      const emptyBox = document.getElementById('inventoryEmpty');
+      const paginationBox = document.getElementById('inventoryPagination');
+      const pageInfo = document.getElementById('inventoryPageInfo');
+      const pageNumbers = document.getElementById('inventoryPageNumbers');
+      const prevBtn = document.getElementById('inventoryPrev');
+      const nextBtn = document.getElementById('inventoryNext');
+
+      let page = 1;
+      let pageSize = parseInt(pageSizeSelect ? pageSizeSelect.value : '10', 10) || 10;
+      let filteredRows = rows.slice();
+
+      function getSearchText(row){
+        return (row.dataset.search || row.textContent || '').toLowerCase();
+      }
+
+      function applyFilters(){
+        const q = search ? search.value.trim().toLowerCase() : '';
+        const f = filter ? filter.value : 'all';
+
+        filteredRows = rows.filter(function(row){
+          const matchesSearch = !q || getSearchText(row).includes(q);
+          const matchesFilter = f === 'all' || row.dataset.health === f || row.dataset.status === f;
+          return matchesSearch && matchesFilter;
         });
-      });
+
+        page = 1;
+        render();
+      }
+
+      function buildPageButton(label, targetPage, isActive, disabled){
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sd-page-btn' + (isActive ? ' active' : '');
+        btn.textContent = label;
+        btn.disabled = !!disabled;
+
+        if (!disabled) {
+          btn.addEventListener('click', function(){
+            page = targetPage;
+            render();
+          });
+        }
+
+        return btn;
+      }
+
+      function renderNumbers(totalPages){
+        if (!pageNumbers) return;
+        pageNumbers.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        const pages = [];
+        const start = Math.max(1, page - 1);
+        const end = Math.min(totalPages, page + 1);
+
+        if (start > 1) {
+          pages.push(1);
+          if (start > 2) pages.push('...');
+        }
+
+        for (let i = start; i <= end; i += 1) pages.push(i);
+
+        if (end < totalPages) {
+          if (end < totalPages - 1) pages.push('...');
+          pages.push(totalPages);
+        }
+
+        pages.forEach(function(item){
+          if (item === '...') {
+            pageNumbers.appendChild(buildPageButton('...', page, false, true));
+          } else {
+            pageNumbers.appendChild(buildPageButton(String(item), item, item === page, false));
+          }
+        });
+      }
+
+      function render(){
+        pageSize = parseInt(pageSizeSelect ? pageSizeSelect.value : String(pageSize), 10) || 10;
+        const total = filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+        if (page > totalPages) page = totalPages;
+
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
+
+        rows.forEach(function(row){
+          row.hidden = true;
+        });
+
+        filteredRows.slice(start, end).forEach(function(row){
+          row.hidden = false;
+        });
+
+        if (meta) {
+          meta.textContent = total + ' shown · ' + rows.length + ' total';
+        }
+
+        if (emptyBox) {
+          emptyBox.hidden = total !== 0;
+        }
+
+        if (paginationBox) {
+          paginationBox.hidden = rows.length === 0;
+        }
+
+        if (pageInfo) {
+          if (total === 0) {
+            pageInfo.textContent = 'Showing 0 products';
+          } else {
+            pageInfo.textContent = 'Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' products';
+          }
+        }
+
+        if (prevBtn) {
+          prevBtn.disabled = page <= 1;
+          prevBtn.onclick = function(){
+            if (page > 1) {
+              page -= 1;
+              render();
+            }
+          };
+        }
+
+        if (nextBtn) {
+          nextBtn.disabled = page >= totalPages;
+          nextBtn.onclick = function(){
+            if (page < totalPages) {
+              page += 1;
+              render();
+            }
+          };
+        }
+
+        renderNumbers(totalPages);
+      }
+
+      if (search) search.addEventListener('input', applyFilters);
+      if (filter) filter.addEventListener('change', applyFilters);
+      if (pageSizeSelect) pageSizeSelect.addEventListener('change', function(){ page = 1; render(); });
+
+      render();
     });
   </script>
 </section>

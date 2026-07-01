@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light" class="nf-view-boot">
+<html lang="en" class="nf-view-boot">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -78,7 +78,7 @@
 
     html.nf-view-boot body,
     html.nf-restore-pending body {
-      opacity: 0;
+      opacity: 1;
     }
 
     html.nf-view-ready body {
@@ -164,7 +164,7 @@
     })();
   </script>
 
-<title>{% block title %}NE FRESH Store{% endblock %}</title>
+<title>{% block title %}NE Locals Store{% endblock %}</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -202,8 +202,7 @@
       --nf-muted-2: #8A9890;
       --nf-line: #DDECE4;
       --nf-line-2: #EAF4EF;
-      --nf-sidebar: #FFFFFF;
-      --nf-sidebar-2: #F6FFF9;
+      --nf-sidebar-bg: #FFFFFF;
       --nf-sidebar-text: #1F332A;
       --nf-sidebar-muted: #6F8177;
       --nf-sidebar-hover: #E9FFF3;
@@ -214,7 +213,7 @@
       --nf-footer-height: 78px;
       --nf-sidebar-width: 326px;
       --nf-sidebar-collapsed: 88px;
-      --nf-mobile-sidebar-width: min(326px, 88vw);
+      --nf-mobile-sidebar-width: min(326px, 90vw);
       --nf-safe-top: env(safe-area-inset-top, 0px);
       --nf-safe-right: env(safe-area-inset-right, 0px);
       --nf-safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -222,24 +221,6 @@
       --nf-frame-top: calc(var(--nf-topbar-height) + var(--nf-safe-top));
       --nf-frame-bottom: calc(var(--nf-footer-height) + var(--nf-safe-bottom));
       --nf-ease: cubic-bezier(.2,.75,.25,1);
-    }
-
-    html[data-theme="dark"] {
-      --nf-bg: #07140F;
-      --nf-surface: #0F2119;
-      --nf-surface-2: #122B20;
-      --nf-text: #ECFFF5;
-      --nf-muted: #A9BDB3;
-      --nf-muted-2: #88A095;
-      --nf-line: rgba(221,236,228,.14);
-      --nf-line-2: rgba(221,236,228,.10);
-      --nf-sidebar: #031F16;
-      --nf-sidebar-2: #021811;
-      --nf-sidebar-text: #F1FFF7;
-      --nf-sidebar-muted: #86B99F;
-      --nf-sidebar-hover: rgba(255,255,255,.08);
-      --nf-shadow: 0 16px 40px rgba(0,0,0,.25);
-      --nf-shadow-heavy: 0 24px 70px rgba(0,0,0,.38);
     }
 
     * { box-sizing: border-box; }
@@ -274,7 +255,7 @@
       overflow-x: hidden;
     }
 
-    /* ===================== FULL WIDTH STICKY / FIXED TOP NAVBAR ===================== */
+    /* ===================== TOP BAR ===================== */
 
     .nf-topbar {
       position: fixed;
@@ -284,7 +265,7 @@
       z-index: 1000;
       width: 100%;
       height: var(--nf-frame-top);
-      padding: var(--nf-safe-top) 28px 0 20px;
+      padding: var(--nf-safe-top) max(20px, var(--nf-safe-right)) 0 max(20px, var(--nf-safe-left));
       display: flex;
       align-items: center;
       gap: 16px;
@@ -295,17 +276,15 @@
       -webkit-backdrop-filter: blur(18px);
     }
 
-    html[data-theme="dark"] .nf-topbar {
-      background: rgba(15,33,25,.96);
-    }
-
     .nf-topbar-logo {
-      width: 116px;
-      height: 56px;
+      width: 108px;
+      height: 44px;
       display: grid;
       place-items: center;
+      align-self: center;
       flex: 0 0 auto;
-      margin: 0;
+      position: relative;
+      top: -7px;
     }
 
     .nf-topbar-logo img {
@@ -425,6 +404,8 @@
       border: 2px solid var(--nf-surface);
     }
 
+    /* ===================== NOTIFICATION PANEL ===================== */
+
     .nf-store-alert-wrap {
       position: relative;
       display: inline-grid;
@@ -491,6 +472,8 @@
     .nf-store-alert-time { margin-top: 5px; color: var(--nf-muted-2); font-size: .68rem; font-weight: 800; }
     .nf-store-alert-empty { padding: 18px 14px; color: var(--nf-muted); font-size: .82rem; font-weight: 750; text-align: center; }
 
+    /* ===================== PROFILE MENU ===================== */
+
     .nf-profile { position: relative; flex: 0 0 auto; }
 
     .nf-profile-btn {
@@ -528,7 +511,6 @@
       overflow: hidden;
     }
 
-    html[data-theme="dark"] .nf-profile-menu { background: rgba(15,33,25,.98); }
     .nf-profile-menu.open { display: block; }
 
     .nf-profile-menu-head {
@@ -541,8 +523,6 @@
       background: var(--nf-green-soft-2);
       border: 1px solid rgba(0,168,89,.14);
     }
-
-    html[data-theme="dark"] .nf-profile-menu-head { background: rgba(255,255,255,.06); }
 
     .nf-profile-menu-avatar {
       width: 42px;
@@ -605,7 +585,7 @@
     .nf-profile-menu-logout { color: #B45309; }
     .nf-profile-menu-logout .nf-profile-menu-icon { background: #FFF3E7; color: #B45309; border-color: rgba(255,138,31,.22); }
 
-    /* ===================== SIDEBAR STARTS BELOW NAVBAR AND ENDS ABOVE FOOTER ===================== */
+    /* ===================== SIDEBAR FRAME ===================== */
 
     .nf-sidebar {
       position: fixed;
@@ -615,26 +595,27 @@
       z-index: 900;
       width: var(--nf-sidebar-width);
       min-width: var(--nf-sidebar-width);
-      height: auto;
+      max-width: var(--nf-sidebar-width);
       display: flex;
       flex-direction: column;
-      background: var(--nf-sidebar);
+      background: var(--nf-sidebar-bg);
       color: var(--nf-sidebar-text);
       border-right: 1px solid var(--nf-line);
       box-shadow: 14px 0 42px rgba(17,64,38,.08);
       overflow: hidden;
-      transition: width .25s var(--nf-ease), min-width .25s var(--nf-ease), transform .25s var(--nf-ease);
+      transition: width .22s var(--nf-ease), min-width .22s var(--nf-ease), max-width .22s var(--nf-ease), transform .22s var(--nf-ease);
     }
 
     .nf-sidebar-header {
       min-height: 74px;
+      height: 74px;
       flex: 0 0 auto;
       display: flex;
       align-items: center;
       gap: 12px;
       padding: 12px 14px 12px 18px;
       border-bottom: 1px solid var(--nf-line);
-      background: var(--nf-sidebar);
+      background: var(--nf-sidebar-bg);
     }
 
     .nf-brand-logo {
@@ -661,7 +642,7 @@
     .nf-brand-text {
       min-width: 0;
       flex: 1 1 auto;
-      transition: opacity .2s var(--nf-ease);
+      transition: opacity .15s var(--nf-ease);
     }
 
     .nf-brand-text strong {
@@ -683,27 +664,66 @@
       white-space: nowrap;
     }
 
+    .nf-sidebar-title-only {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+    }
+
+    .nf-sidebar-title-only strong {
+      font-size: 1.02rem;
+      line-height: 1.12;
+      letter-spacing: -.02em;
+    }
+
     .nf-sidebar-toggle {
       margin-left: auto;
-      width: 36px;
-      height: 36px;
-      min-width: 36px;
+      width: 38px;
+      height: 38px;
+      min-width: 38px;
       border: 1px solid rgba(0,168,89,.18);
-      border-radius: 12px;
+      border-radius: 13px;
       background: var(--nf-green-soft);
       color: var(--nf-green-dark);
       cursor: pointer;
       display: grid;
       place-items: center;
+      position: relative;
+      z-index: 25;
+      pointer-events: auto;
       transition: background .22s var(--nf-ease), color .22s var(--nf-ease), transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease);
     }
 
     .nf-sidebar-toggle:hover { background: var(--nf-green); color:#fff; transform: translateY(-1px); box-shadow:0 12px 24px rgba(0,168,89,.16); }
+    .nf-sidebar-toggle span { pointer-events: none; }
+
+    .nf-sidebar-header { position: relative; z-index: 6; }
+    .nf-sidebar-toggle {
+      flex: 0 0 auto;
+      isolation: isolate;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .nf-sidebar-toggle::after {
+      content: "";
+      position: absolute;
+      inset: -10px;
+      border-radius: 20px;
+      z-index: -1;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-sidebar-toggle {
+      position: relative;
+      z-index: 45;
+      pointer-events: auto;
+    }
 
     .nf-sidebar-search {
       flex: 0 0 auto;
       padding: 14px 14px 10px;
-      background: var(--nf-sidebar);
+      background: var(--nf-sidebar-bg);
     }
 
     .nf-menu-search {
@@ -776,12 +796,6 @@
       box-shadow: inset 4px 0 0 var(--nf-green), 0 10px 22px rgba(17,64,38,.06);
     }
 
-    html[data-theme="dark"] .nf-menu-link.active,
-    html[data-theme="dark"] .nf-menu-parent.active {
-      background: rgba(255,255,255,.08);
-      color: #ECFFF5;
-    }
-
     .nf-menu-icon {
       width: 36px;
       height: 36px;
@@ -795,8 +809,6 @@
       font-size: 0;
       transition: background .22s var(--nf-ease), color .22s var(--nf-ease), border-color .22s var(--nf-ease);
     }
-
-    html[data-theme="dark"] .nf-menu-icon { background: rgba(255,255,255,.08); color: var(--nf-sidebar-text); border-color: var(--nf-line); }
 
     .nf-menu-icon svg,
     .nf-logout-icon svg {
@@ -818,7 +830,7 @@
     }
 
     .nf-menu-label {
-      flex: 1;
+      flex: 1 1 auto;
       min-width: 0;
       white-space: normal;
       overflow: visible;
@@ -840,7 +852,7 @@
 
     .nf-dropdown-row .nf-menu-parent { min-width: 0; }
 
-    .nf-dropdown-row .nf-parent-open {
+    .nf-parent-open {
       width: 34px;
       height: 34px;
       min-width: 34px;
@@ -854,7 +866,7 @@
       line-height: 1;
     }
 
-    .nf-dropdown-row .nf-parent-open:hover { background: var(--nf-green-soft); }
+    .nf-parent-open:hover { background: var(--nf-green-soft); }
 
     .nf-submenu {
       display: none;
@@ -865,11 +877,12 @@
     .nf-dropdown.open .nf-submenu { display: block; }
 
     .nf-submenu a {
-      min-height: 34px;
+      min-height: 38px;
       display: flex;
       align-items: center;
+      gap: 9px;
       padding: 6px 8px;
-      border-radius: 10px;
+      border-radius: 12px;
       color: #5E7067;
       font-size: .86rem;
       line-height: 1.25;
@@ -878,10 +891,34 @@
       transition: background .2s var(--nf-ease), color .2s var(--nf-ease);
     }
 
-    html[data-theme="dark"] .nf-submenu a { color: var(--nf-muted); }
+    .nf-submenu-icon {
+      width: 26px;
+      height: 26px;
+      min-width: 26px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 10px;
+      background: #F4F9F6;
+      color: var(--nf-green-dark);
+      border: 1px solid #E2F1E9;
+      font-size: .83rem;
+      line-height: 1;
+    }
+
+    .nf-submenu-label {
+      min-width: 0;
+      flex: 1 1 auto;
+      overflow-wrap: anywhere;
+    }
 
     .nf-submenu a:hover,
     .nf-submenu a.active { background: var(--nf-green-soft); color: var(--nf-green-dark); }
+    .nf-submenu a:hover .nf-submenu-icon,
+    .nf-submenu a.active .nf-submenu-icon {
+      background: var(--nf-green);
+      color: #fff;
+      border-color: var(--nf-green);
+    }
 
     .nf-menu-no-results {
       margin: 18px 8px 10px;
@@ -916,10 +953,9 @@
 
     .nf-sidebar-footer {
       flex: 0 0 auto;
-      margin-top: 0;
       padding: 12px 14px;
       border-top: 1px solid var(--nf-line);
-      background: var(--nf-sidebar);
+      background: var(--nf-sidebar-bg);
     }
 
     .nf-logout {
@@ -957,7 +993,6 @@
     .nf-menu-link:focus-visible,
     .nf-menu-parent:focus-visible,
     .nf-sidebar-toggle:focus-visible,
-    .nf-home-btn:focus-visible,
     .nf-logout:focus-visible,
     .nf-mobile-menu:focus-visible,
     .nf-icon-btn:focus-visible,
@@ -977,7 +1012,7 @@
       margin-left: var(--nf-sidebar-width);
       padding-top: var(--nf-frame-top);
       padding-bottom: var(--nf-frame-bottom);
-      transition: margin-left .25s var(--nf-ease);
+      transition: margin-left .22s var(--nf-ease);
       background: var(--nf-bg);
     }
 
@@ -1015,7 +1050,7 @@
     .nf-flash.error, .nf-flash.danger { border-color: rgba(239,68,68,.25); background: #FFF1F2; color: #B91C1C; }
     .nf-flash.warning { border-color: rgba(245,158,11,.25); background: #FFFBEB; color: #92400E; }
 
-    /* ===================== FULL WIDTH FOOTER BELOW MENU/CONTENT FRAME ===================== */
+    /* ===================== FOOTER ===================== */
 
     .footer {
       position: fixed;
@@ -1038,10 +1073,7 @@
       padding-bottom: var(--nf-safe-bottom);
     }
 
-    html[data-theme="dark"] .footer { background: rgba(15,33,25,.96); }
-
     .footer-content {
-      min-height: auto;
       padding: 10px 16px;
       display: flex;
       align-items: center;
@@ -1074,60 +1106,180 @@
 
     .footer-link:hover { color: var(--nf-green); text-decoration: underline; }
 
-    /* ===================== COLLAPSED SIDEBAR ===================== */
+    /* ===================== SINGLE CLEAN DESKTOP COLLAPSE STATE ===================== */
 
-    body.sidebar-collapsed .nf-sidebar {
+    body[data-sidebar-state="collapsed"] .nf-sidebar {
       width: var(--nf-sidebar-collapsed);
       min-width: var(--nf-sidebar-collapsed);
+      max-width: var(--nf-sidebar-collapsed);
     }
 
-    body.sidebar-collapsed .nf-main { margin-left: var(--nf-sidebar-collapsed); }
+    body[data-sidebar-state="collapsed"] .nf-main {
+      margin-left: var(--nf-sidebar-collapsed);
+    }
 
-    body.sidebar-collapsed .nf-brand-text,
-    body.sidebar-collapsed .nf-menu-label,
-    body.sidebar-collapsed .nf-menu-arrow,
-    body.sidebar-collapsed .nf-sidebar-search,
-    body.sidebar-collapsed .nf-menu-section,
-    body.sidebar-collapsed .nf-submenu,
-    body.sidebar-collapsed .nf-parent-open,
-    body.sidebar-collapsed .nf-menu-no-results,
-    body.sidebar-collapsed .nf-logout-text {
+    body[data-sidebar-state="collapsed"] .nf-sidebar-header {
+      justify-content: center;
+      padding: 12px 0;
+      gap: 0;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-brand-logo,
+    body[data-sidebar-state="collapsed"] .nf-brand-text,
+    body[data-sidebar-state="collapsed"] .nf-sidebar-search,
+    body[data-sidebar-state="collapsed"] .nf-menu-section,
+    body[data-sidebar-state="collapsed"] .nf-menu-label,
+    body[data-sidebar-state="collapsed"] .nf-menu-no-results,
+    body[data-sidebar-state="collapsed"] .nf-logout-text {
       display: none;
     }
 
-    body.sidebar-collapsed .nf-sidebar-header {
-      justify-content: center;
-      padding: 14px 10px;
+    body[data-sidebar-state="collapsed"] .nf-sidebar-toggle {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      margin-left: 0;
+      border-radius: 16px;
     }
 
-    body.sidebar-collapsed .nf-sidebar-toggle { margin-left: 0; }
-    body.sidebar-collapsed .nf-sidebar-scroll { padding: 14px 10px 18px; }
+    body[data-sidebar-state="collapsed"] .nf-sidebar-scroll {
+      padding: 14px 10px 18px;
+      scrollbar-width: none;
+    }
 
-    body.sidebar-collapsed .nf-menu-link,
-    body.sidebar-collapsed .nf-menu-parent {
+    body[data-sidebar-state="collapsed"] .nf-sidebar-scroll::-webkit-scrollbar { width: 0; height: 0; }
+
+    body[data-sidebar-state="collapsed"] .nf-dropdown {
+      width: 100%;
+      display: grid;
+      justify-items: center;
+      gap: 0;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-dropdown-row {
       width: 58px;
-      min-height: 58px;
       height: 58px;
+      display: block;
+      position: relative;
+      margin: 0 auto 8px;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-menu-link,
+    body[data-sidebar-state="collapsed"] .nf-menu-parent {
+      width: 58px;
+      height: 58px;
+      min-height: 58px;
       margin: 0 auto 8px;
       padding: 0;
       justify-content: center;
       border-radius: 18px;
+      box-shadow: none;
     }
 
-    body.sidebar-collapsed .nf-menu-icon,
-    body.sidebar-collapsed .nf-logout-icon {
+    body[data-sidebar-state="collapsed"] .nf-dropdown-row .nf-menu-parent {
+      margin: 0;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-menu-link.active,
+    body[data-sidebar-state="collapsed"] .nf-menu-parent.active {
+      background: var(--nf-green-soft);
+      box-shadow: none;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-menu-icon,
+    body[data-sidebar-state="collapsed"] .nf-logout-icon {
       width: 42px;
       height: 42px;
       min-width: 42px;
     }
 
-    body.sidebar-collapsed .nf-logout {
+    body[data-sidebar-state="collapsed"] .nf-menu-link.active .nf-menu-icon,
+    body[data-sidebar-state="collapsed"] .nf-menu-parent.active .nf-menu-icon {
+      box-shadow: 0 12px 26px rgba(0,168,89,.18);
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-parent-open {
+      display: grid;
+      position: absolute;
+      right: -4px;
+      bottom: 3px;
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      border-radius: 999px;
+      background: #FFFFFF;
+      color: var(--nf-green-dark);
+      border-color: rgba(0,168,89,.22);
+      box-shadow: 0 8px 16px rgba(17,64,38,.10);
+      z-index: 4;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-parent-open:hover {
+      background: var(--nf-green-soft);
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-menu-arrow {
+      display: inline;
+      font-size: .68rem;
+      line-height: 1;
+      opacity: .95;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-dropdown.open .nf-menu-arrow {
+      transform: rotate(180deg);
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-submenu {
+      display: none;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-dropdown.open .nf-submenu {
       width: 58px;
+      display: grid;
+      justify-items: center;
+      gap: 6px;
+      padding: 0 0 10px;
+      margin: -2px auto 10px;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-submenu a {
+      width: 46px;
+      height: 42px;
+      min-height: 42px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      margin: 0 auto;
+      border-radius: 15px;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-submenu-icon {
+      width: 34px;
+      height: 34px;
+      min-width: 34px;
+      border-radius: 13px;
+      font-size: .82rem;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-submenu-label {
+      display: none;
+    }
+
+    body[data-sidebar-state="collapsed"] .nf-logout {
+      width: 58px;
+      height: 58px;
       min-height: 58px;
       margin: 0 auto;
       justify-content: center;
       padding: 0;
       border-radius: 18px;
+    }
+
+    .nf-menu-link.active,
+    .nf-menu-parent.active,
+    .nf-submenu a.active {
+      scroll-margin-top: 18px;
+      scroll-margin-bottom: 18px;
     }
 
     /* ===================== RESPONSIVE FRAME ===================== */
@@ -1150,15 +1302,14 @@
         gap: 10px;
       }
 
-      .nf-topbar-logo { width: 96px; height: 52px; }
+      .nf-topbar-logo { width: 92px; height: 42px; top: -5px; }
       .nf-mobile-dashboard-link { display: inline-flex; max-width: 164px; }
       .nf-mobile-menu { display: grid; }
       .nf-profile,
-      #nfThemeToggle,
       .nf-top-search { display: none; }
 
       .nf-sidebar,
-      body.sidebar-collapsed .nf-sidebar {
+      body[data-sidebar-state="collapsed"] .nf-sidebar {
         width: var(--nf-mobile-sidebar-width);
         min-width: var(--nf-mobile-sidebar-width);
         max-width: var(--nf-mobile-sidebar-width);
@@ -1167,7 +1318,7 @@
       }
 
       body.sidebar-open .nf-sidebar,
-      body.sidebar-open.sidebar-collapsed .nf-sidebar {
+      body.sidebar-open[data-sidebar-state="collapsed"] .nf-sidebar {
         transform: translateX(0);
       }
 
@@ -1175,37 +1326,129 @@
       body.sidebar-open .nf-sidebar,
       body.sidebar-open .nf-sidebar-scroll { touch-action: auto; -webkit-overflow-scrolling: touch; }
 
-      body.sidebar-collapsed .nf-brand-text,
-      body.sidebar-collapsed .nf-menu-label,
-      body.sidebar-collapsed .nf-menu-section,
-      body.sidebar-collapsed .nf-sidebar-search {
+      .nf-sidebar-header,
+      body[data-sidebar-state="collapsed"] .nf-sidebar-header {
+        min-height: 74px;
+        height: 74px;
+        justify-content: flex-start;
+        align-items: center;
+        padding: 12px 14px 12px 18px;
+        gap: 12px;
+      }
+
+      .nf-brand-logo,
+      body[data-sidebar-state="collapsed"] .nf-brand-logo {
+        display: grid;
+        width: 76px;
+        height: 58px;
+      }
+
+      .nf-brand-text,
+      .nf-sidebar-search,
+      .nf-menu-section,
+      .nf-menu-label,
+      .nf-menu-arrow,
+      .nf-parent-open,
+      .nf-logout-text,
+      body[data-sidebar-state="collapsed"] .nf-brand-text,
+      body[data-sidebar-state="collapsed"] .nf-sidebar-search,
+      body[data-sidebar-state="collapsed"] .nf-menu-section,
+      body[data-sidebar-state="collapsed"] .nf-menu-label,
+      body[data-sidebar-state="collapsed"] .nf-menu-arrow,
+      body[data-sidebar-state="collapsed"] .nf-parent-open,
+      body[data-sidebar-state="collapsed"] .nf-logout-text {
+        display: initial;
+      }
+
+      .nf-brand-text,
+      body[data-sidebar-state="collapsed"] .nf-brand-text,
+      .nf-sidebar-search,
+      body[data-sidebar-state="collapsed"] .nf-sidebar-search,
+      .nf-menu-section,
+      body[data-sidebar-state="collapsed"] .nf-menu-section {
         display: block;
       }
 
-      body.sidebar-collapsed .nf-logout-text {
-        display: inline;
+      .nf-parent-open,
+      body[data-sidebar-state="collapsed"] .nf-parent-open { display: grid; }
+      .nf-logout-text,
+      body[data-sidebar-state="collapsed"] .nf-logout-text { display: inline; }
+      .nf-menu-label,
+      body[data-sidebar-state="collapsed"] .nf-menu-label { display: block; }
+      .nf-menu-arrow,
+      body[data-sidebar-state="collapsed"] .nf-menu-arrow { display: inline; }
+
+      .nf-submenu,
+      body[data-sidebar-state="collapsed"] .nf-submenu { display: none; }
+      .nf-dropdown.open .nf-submenu,
+      body[data-sidebar-state="collapsed"] .nf-dropdown.open .nf-submenu { display: block; }
+
+      .nf-sidebar-toggle,
+      body[data-sidebar-state="collapsed"] .nf-sidebar-toggle {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        margin-left: auto;
+        border-radius: 13px;
       }
 
-      body.sidebar-collapsed .nf-submenu { display: none; }
-      body.sidebar-collapsed .nf-dropdown.open .nf-submenu { display: block; }
-      body.sidebar-collapsed .nf-parent-open { display: grid; }
+      .nf-sidebar-scroll,
+      body[data-sidebar-state="collapsed"] .nf-sidebar-scroll {
+        padding: 8px 14px 14px;
+        scrollbar-width: thin;
+      }
 
-      body.sidebar-collapsed .nf-menu-link,
-      body.sidebar-collapsed .nf-menu-parent {
+      .nf-sidebar-scroll::-webkit-scrollbar,
+      body[data-sidebar-state="collapsed"] .nf-sidebar-scroll::-webkit-scrollbar { width: 7px; }
+
+      .nf-dropdown,
+      body[data-sidebar-state="collapsed"] .nf-dropdown {
+        display: block;
+        width: 100%;
+        justify-items: initial;
+      }
+
+      .nf-dropdown-row,
+      body[data-sidebar-state="collapsed"] .nf-dropdown-row {
+        width: 100%;
+        display: grid;
+        grid-template-columns: minmax(0,1fr) 34px;
+        align-items: center;
+        justify-content: initial;
+        gap: 8px;
+      }
+
+      .nf-menu-link,
+      .nf-menu-parent,
+      body[data-sidebar-state="collapsed"] .nf-menu-link,
+      body[data-sidebar-state="collapsed"] .nf-menu-parent {
         width: 100%;
         height: auto;
         min-height: 48px;
         margin: 0;
         padding: 8px 12px;
         justify-content: flex-start;
+        border-radius: 15px;
       }
 
-      body.sidebar-collapsed .nf-logout {
+      .nf-menu-icon,
+      .nf-logout-icon,
+      body[data-sidebar-state="collapsed"] .nf-menu-icon,
+      body[data-sidebar-state="collapsed"] .nf-logout-icon {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+      }
+
+      .nf-logout,
+      body[data-sidebar-state="collapsed"] .nf-logout {
         width: 100%;
+        height: auto;
         min-height: 46px;
         margin: 0;
         justify-content: flex-start;
         padding: 0 12px;
+        border-radius: 14px;
       }
 
       .nf-mobile-backdrop {
@@ -1222,7 +1465,7 @@
       body.sidebar-open .nf-mobile-backdrop { display: block; }
 
       .nf-main,
-      body.sidebar-collapsed .nf-main {
+      body[data-sidebar-state="collapsed"] .nf-main {
         margin-left: 0;
       }
 
@@ -1242,7 +1485,7 @@
         gap: 8px;
       }
 
-      .nf-topbar-logo { width: 86px; height: 46px; }
+      .nf-topbar-logo { width: 82px; height: 40px; top: -4px; }
       .nf-mobile-dashboard-link { max-width: 140px; min-height: 36px; padding: 0 10px; font-size: .78rem; }
       .nf-icon-btn,
       .nf-mobile-menu { width: 38px; height: 38px; min-width: 38px; border-radius: 13px; }
@@ -1254,7 +1497,7 @@
 
     @media (max-width: 420px) {
       .nf-mobile-dashboard-link { display: none; }
-      .nf-topbar-logo { width: 82px; }
+      .nf-topbar-logo { width: 78px; height: 38px; top: -3px; }
       .nf-store-alert-panel { right: -50px; }
       .footer-content { font-size: .72rem; }
     }
@@ -1267,8 +1510,8 @@
         animation-iteration-count: 1;
       }
     }
-
   </style>
+
   {% block extra_css %}{% endblock %}
 </head>
 
@@ -1276,13 +1519,8 @@
   <div class="nf-admin-shell">
     <aside class="nf-sidebar" id="nfSidebar">
       <div class="nf-sidebar-header">
-        <a href="{{ url_for('store_dashboard') }}" class="nf-brand-logo" aria-label="NE FRESH Store Admin Dashboard">
-          <img src="{{ url_for('static', filename='nefresh.png') }}" alt="NE FRESH">
-        </a>
-
-        <div class="nf-brand-text">
-          <strong>NE FRESH</strong>
-          <span>Store Admin Portal</span>
+        <div class="nf-brand-text nf-sidebar-title-only">
+          <strong>Store Admin Portal</strong>
         </div>
 
         <button type="button" class="nf-sidebar-toggle" id="nfSidebarToggle" aria-label="Collapse sidebar" title="Collapse / expand menu"><span id="nfSidebarToggleIcon">⇤</span></button>
@@ -1326,26 +1564,26 @@
           </div>
 
               <div class="nf-submenu">
-  <a href="{{ url_for('store_orders') }}" class="{% if active_page == 'orders' %}active{% endif %}">Customer Orders</a>
+  <a href="{{ url_for('store_orders') }}" class="{% if active_page == 'orders' %}active{% endif %}"><span class="nf-submenu-icon">🧾</span><span class="nf-submenu-label">Customer Orders</span></a>
 
-  <a href="{{ url_for('store_cancelled_orders', cancel_type='customer') }}" class="{% if active_page == 'cancelled_orders' %}active{% endif %}">Cancelled Customer Orders</a>
+  <a href="{{ url_for('store_cancelled_orders', cancel_type='customer') }}" class="{% if active_page == 'cancelled_orders' %}active{% endif %}"><span class="nf-submenu-icon">✕</span><span class="nf-submenu-label">Cancelled Customer Orders</span></a>
 
   {% if in_house_delivery_enabled %}
-    <a href="{{ url_for('store_delivery') }}" class="{% if active_page == 'delivery' %}active{% endif %}">Delivery Assignment</a>
+    <a href="{{ url_for('store_delivery') }}" class="{% if active_page == 'delivery' %}active{% endif %}"><span class="nf-submenu-icon">🚚</span><span class="nf-submenu-label">Delivery Assignment</span></a>
   {% endif %}
 
   {% if third_party_shipping_enabled %}
-    <a href="{{ url_for('store_external_delivery') }}" class="{% if active_page == 'external_delivery' %}active{% endif %}">Shiprocket / Courier Orders</a>
+    <a href="{{ url_for('store_external_delivery') }}" class="{% if active_page == 'external_delivery' %}active{% endif %}"><span class="nf-submenu-icon">📦</span><span class="nf-submenu-label">Shiprocket / Courier Orders</span></a>
   {% endif %}
 
-  <a href="{{ url_for('store_delivered_orders') }}" class="{% if active_page == 'delivered_orders' %}active{% endif %}">Delivered Order Records</a>
+  <a href="{{ url_for('store_delivered_orders') }}" class="{% if active_page == 'delivered_orders' %}active{% endif %}"><span class="nf-submenu-icon">✅</span><span class="nf-submenu-label">Delivered Order Records</span></a>
 
   {% if return_refund_enabled %}
-    <a href="{{ url_for('store_returns') }}" class="{% if active_page == 'returns' %}active{% endif %}">Return / Refund Requests</a>
+    <a href="{{ url_for('store_returns') }}" class="{% if active_page == 'returns' %}active{% endif %}"><span class="nf-submenu-icon">↩</span><span class="nf-submenu-label">Return / Refund Requests</span></a>
   {% endif %}
 
   {% if in_house_delivery_enabled %}
-    <a href="{{ url_for('store_delivery_history') }}" class="{% if active_page == 'delivery_history' %}active{% endif %}">In-house Delivery History</a>
+    <a href="{{ url_for('store_delivery_history') }}" class="{% if active_page == 'delivery_history' %}active{% endif %}"><span class="nf-submenu-icon">🕘</span><span class="nf-submenu-label">In-house Delivery History</span></a>
   {% endif %}
 </div>
         </div>
@@ -1369,18 +1607,18 @@
           </div>
 
           <div class="nf-submenu">
-            <a href="{{ url_for('store_products') }}" class="{% if active_page == 'products' %}active{% endif %}">All Products</a>
-            <a href="{{ url_for('store_add_product') }}" class="{% if active_page == 'add_product' %}active{% endif %}">Add Product</a>
-            <a href="{{ url_for('store_inventory') }}" class="{% if active_page == 'inventory' %}active{% endif %}">Stock & Inventory</a>
-            <a href="{{ url_for('store_categories') }}" class="{% if active_page == 'categories' %}active{% endif %}">Categories</a>
+            <a href="{{ url_for('store_products') }}" class="{% if active_page == 'products' %}active{% endif %}"><span class="nf-submenu-icon">🛍</span><span class="nf-submenu-label">All Products</span></a>
+            <a href="{{ url_for('store_add_product') }}" class="{% if active_page == 'add_product' %}active{% endif %}"><span class="nf-submenu-icon">＋</span><span class="nf-submenu-label">Add Product</span></a>
+            <a href="{{ url_for('store_inventory') }}" class="{% if active_page == 'inventory' %}active{% endif %}"><span class="nf-submenu-icon">📊</span><span class="nf-submenu-label">Stock & Inventory</span></a>
+            <a href="{{ url_for('store_categories') }}" class="{% if active_page == 'categories' %}active{% endif %}"><span class="nf-submenu-icon">🏷</span><span class="nf-submenu-label">Categories</span></a>
           </div>
         </div>
 
         <div class="nf-menu-section">Customer Care</div>
 
-        <div class="nf-dropdown {% if active_page in ['reviews', 'product_reviews'] %}open{% endif %}" data-menu-item>
+        <div class="nf-dropdown {% if active_page == 'product_reviews' %}open{% endif %}" data-menu-item>
           <div class="nf-dropdown-row">
-            <a href="{{ url_for('store_reviews') }}" class="nf-menu-parent {% if active_page in ['reviews', 'product_reviews'] %}active{% endif %}" {% if active_page in ['reviews', 'product_reviews'] %}data-active-page-link{% endif %}>
+            <a href="{{ url_for('store_product_reviews') }}" class="nf-menu-parent {% if active_page == 'product_reviews' %}active{% endif %}" {% if active_page == 'product_reviews' %}data-active-page-link{% endif %}>
               <span class="nf-menu-icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M12 17.3 6.2 20.5l1.1-6.5-4.7-4.6 6.5-.9L12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.3Z"></path>
@@ -1394,8 +1632,8 @@
           </div>
 
           <div class="nf-submenu">
-            <a href="{{ url_for('store_reviews') }}" class="{% if active_page == 'reviews' %}active{% endif %}">Store Review Records</a>
-            <a href="{{ url_for('store_product_reviews') }}" class="{% if active_page == 'product_reviews' %}active{% endif %}">Product Review Records</a>
+            {# <a href="{{ url_for('store_reviews') }}" class="{% if active_page == 'reviews' %}active{% endif %}"><span class="nf-submenu-icon">⭐</span><span class="nf-submenu-label">Store Review Records</span></a> #}
+            <a href="{{ url_for('store_product_reviews') }}" class="{% if active_page == 'product_reviews' %}active{% endif %}"><span class="nf-submenu-icon">💬</span><span class="nf-submenu-label">Product Review Records</span></a>
           </div>
         </div>
 
@@ -1422,9 +1660,9 @@
 
         <div class="nf-menu-section">Insights</div>
 
-        <div class="nf-dropdown {% if active_group == 'reports' %}open{% endif %}" data-menu-item>
+        <div class="nf-dropdown {% if active_group == 'reports' or active_page == 'payouts' %}open{% endif %}" data-menu-item>
           <div class="nf-dropdown-row">
-            <a href="{{ url_for('store_dashboard') }}#transactions-reports" class="nf-menu-parent {% if active_group == 'reports' %}active{% endif %}">
+            <a href="{{ url_for('store_dashboard') }}#transactions-reports" class="nf-menu-parent {% if active_group == 'reports' or active_page == 'payouts' %}active{% endif %}">
               <span class="nf-menu-icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M4 19V5"></path>
@@ -1442,11 +1680,11 @@
           </div>
 
           <div class="nf-submenu">
-            <a href="{{ url_for('store_dashboard') }}#transactions-reports">Dashboard Payment Summary</a>
-            <a href="{{ url_for('store_txn_csv') }}?range=day">Download Daily CSV</a>
-            <a href="{{ url_for('store_txn_csv') }}?range=week">Download Weekly CSV</a>
-            <a href="{{ url_for('store_txn_csv') }}?range=month">Download Monthly CSV</a>
-            <a href="{{ url_for('store_payouts') }}" class="{% if active_page == 'payouts' %}active{% endif %}">View Store Payout Status</a>
+            <a href="{{ url_for('store_dashboard') }}#transactions-reports"><span class="nf-submenu-icon">📈</span><span class="nf-submenu-label">Dashboard Payment Summary</span></a>
+            <a href="{{ url_for('store_txn_csv') }}?range=day"><span class="nf-submenu-icon">D</span><span class="nf-submenu-label">Download Daily CSV</span></a>
+            <a href="{{ url_for('store_txn_csv') }}?range=week"><span class="nf-submenu-icon">W</span><span class="nf-submenu-label">Download Weekly CSV</span></a>
+            <a href="{{ url_for('store_txn_csv') }}?range=month"><span class="nf-submenu-icon">M</span><span class="nf-submenu-label">Download Monthly CSV</span></a>
+            <a href="{{ url_for('store_payouts') }}" class="{% if active_page == 'payouts' %}active{% endif %}"><span class="nf-submenu-icon">₹</span><span class="nf-submenu-label">View Store Payout Status</span></a>
           </div>
         </div>
 
@@ -1464,7 +1702,7 @@
           <span class="nf-menu-label">Store Admin Profile</span>
         </a>
 
-        <a href="{{ url_for('store_settings') }}" class="nf-menu-link {% if active_page == 'settings' %}active{% endif %}" data-menu-item>
+        <a href="{{ url_for('store_settings') }}" class="nf-menu-link {% if active_page == 'settings' %}active{% endif %}" data-menu-item {% if active_page == 'settings' %}data-active-page-link{% endif %}>
           <span class="nf-menu-icon">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
@@ -1493,8 +1731,8 @@
 
     <main class="nf-main">
    <header class="nf-topbar">
-  <a href="{{ url_for('store_dashboard') }}" class="nf-topbar-logo" aria-label="NE FRESH Store Admin Dashboard">
-    <img src="{{ url_for('static', filename='nefresh.png') }}" alt="NE FRESH">
+  <a href="{{ url_for('store_dashboard') }}" class="nf-topbar-logo" aria-label="NE Locals Store Admin Dashboard">
+    <img src="{{ url_for('static', filename='nelocal.png') }}" alt="NE Locals">
   </a>
 
   <a href="{{ url_for('store_dashboard') }}" class="nf-mobile-dashboard-link" aria-label="Open Store Admin Dashboard">
@@ -1512,9 +1750,6 @@
           <input type="search" placeholder="Search here...">
         </div>
 
-        <button type="button" class="nf-icon-btn" id="nfThemeToggle" title="Toggle theme">
-          <span id="nfThemeIcon">🌙</span>
-        </button>
 
         <div class="nf-store-alert-wrap">
   <button type="button" class="nf-icon-btn" id="nfStoreAlertBtn" title="Notifications">
@@ -1558,14 +1793,6 @@
   <span class="nf-profile-menu-icon"><svg viewBox="0 0 24 24"><path d="M4 10h16"/><path d="m5 10 1-5h12l1 5"/><path d="M6 10v10h12V10"/></svg></span>
   <span>Store Admin Profile</span>
 </a>
-            <a href="{{ url_for('store_dashboard') }}#transactions-reports">
-              <span class="nf-profile-menu-icon"><svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-3"/></svg></span>
-              <span>Reports</span>
-            </a>
-            <button type="button" id="nfProfileThemeBtn">
-              <span class="nf-profile-menu-icon"><svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 7.5A9 9 0 1 1 12 3Z"/></svg></span>
-              <span>Toggle Dark Mode</span>
-            </button>
             <a href="{{ url_for('logout') }}" class="nf-profile-menu-logout">
               <span class="nf-profile-menu-icon"><svg viewBox="0 0 24 24"><path d="M10 17v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2"/><path d="M15 16l4-4-4-4"/><path d="M19 12H8"/></svg></span>
               <span>Logout</span>
@@ -1587,7 +1814,7 @@
 
         {% block content %}
         <div class="nf-content-card">
-          <h2 style="margin-top:0;">Welcome to NE FRESH Store</h2>
+          <h2 style="margin-top:0;">Welcome to NE Locals Store</h2>
           <p style="color:var(--nf-muted);">Start managing your store from this portal.</p>
         </div>
         {% endblock %}
@@ -1609,169 +1836,427 @@
     </main>
   </div>
 
+
   <script>
     (function () {
-      const html = document.documentElement;
+      'use strict';
+
       const body = document.body;
+      const sidebar = document.getElementById('nfSidebar');
       const sidebarToggle = document.getElementById('nfSidebarToggle');
       const sidebarToggleIcon = document.getElementById('nfSidebarToggleIcon');
+      const main = document.querySelector('.nf-main');
       const mobileMenu = document.getElementById('nfMobileMenu');
       const mobileBackdrop = document.getElementById('nfMobileBackdrop');
       const profileBtn = document.getElementById('nfProfileBtn');
       const profileMenu = document.getElementById('nfProfileMenu');
-      const themeToggle = document.getElementById('nfThemeToggle');
-      const profileThemeBtn = document.getElementById('nfProfileThemeBtn');
-      const themeIcon = document.getElementById('nfThemeIcon');
       const menuSearch = document.getElementById('nfMenuSearch');
-const menuItems = document.querySelectorAll('[data-menu-item]');
-const sidebarScroll = document.querySelector('.nf-sidebar-scroll');
-const savedTheme = localStorage.getItem('neFreshStoreTheme') || 'light';
-const savedSidebar = localStorage.getItem('neFreshStoreSidebarCollapsed');
+      const noResults = document.getElementById('nfMenuNoResults');
+      const sidebarScroll = document.getElementById('nfSidebarMenu') || document.querySelector('.nf-sidebar-scroll');
+      const menuItems = Array.prototype.slice.call(document.querySelectorAll('[data-menu-item]'));
+      const SIDEBAR_STATE_KEY = 'neLocalsStoreSidebarState:v6';
+      const SIDEBAR_STATE_FALLBACK_KEYS = [
+        SIDEBAR_STATE_KEY,
+        'neLocalsStoreSidebarState:v5',
+        'neLocalsStoreSidebarState:v4'
+      ];
+      const SIDEBAR_STATE_COOKIE = 'neLocalsStoreSidebarState';
+      const SIDEBAR_OPEN_DROPDOWNS_KEY = 'neLocalsStoreSidebarOpenDropdowns:v5';
 
-      html.setAttribute('data-theme', savedTheme);
-      if (themeIcon) themeIcon.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
-      if (savedSidebar === '1') body.classList.add('sidebar-collapsed');
-      syncSidebarToggleIcon();
-
-      function syncSidebarToggleIcon() {
-        if (!sidebarToggleIcon || !sidebarToggle) return;
-        const collapsed = body.classList.contains('sidebar-collapsed');
-        sidebarToggleIcon.textContent = collapsed ? '⇥' : '⇤';
-        sidebarToggle.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
-        sidebarToggle.setAttribute('title', collapsed ? 'Expand menu' : 'Collapse menu');
+      function isMobileFrame() {
+        return window.matchMedia && window.matchMedia('(max-width: 1024px)').matches;
       }
 
+      function normalizeSidebarState(state) {
+        return state === 'collapsed' ? 'collapsed' : 'expanded';
+      }
+
+      function readSidebarCookieState() {
+        try {
+          const parts = document.cookie ? document.cookie.split(';') : [];
+          for (let i = 0; i < parts.length; i += 1) {
+            const part = parts[i].trim();
+            if (part.indexOf(SIDEBAR_STATE_COOKIE + '=') === 0) {
+              return decodeURIComponent(part.substring(SIDEBAR_STATE_COOKIE.length + 1));
+            }
+          }
+        } catch (err) {}
+        return '';
+      }
+
+      function getSavedSidebarState() {
+        try {
+          for (let i = 0; i < SIDEBAR_STATE_FALLBACK_KEYS.length; i += 1) {
+            const key = SIDEBAR_STATE_FALLBACK_KEYS[i];
+            const sessionValue = sessionStorage.getItem(key);
+            if (sessionValue === 'collapsed' || sessionValue === 'expanded') return sessionValue;
+
+            const localValue = localStorage.getItem(key);
+            if (localValue === 'collapsed' || localValue === 'expanded') return localValue;
+          }
+
+          const cookieValue = readSidebarCookieState();
+          if (cookieValue === 'collapsed' || cookieValue === 'expanded') return cookieValue;
+        } catch (err) {}
+
+        return 'expanded';
+      }
+
+      function saveSidebarState(state, forceSave) {
+        const normalized = normalizeSidebarState(state);
+
+        if (isMobileFrame() && !forceSave) return;
+
+        try {
+          sessionStorage.setItem(SIDEBAR_STATE_KEY, normalized);
+          localStorage.setItem(SIDEBAR_STATE_KEY, normalized);
+          document.cookie = SIDEBAR_STATE_COOKIE + '=' + encodeURIComponent(normalized) + '; path=/; max-age=2592000; SameSite=Lax';
+        } catch (err) {}
+      }
+
+      function getSidebarDropdowns() {
+        return Array.prototype.slice.call(document.querySelectorAll('.nf-sidebar .nf-dropdown'));
+      }
+
+      function saveOpenDropdowns() {
+        try {
+          const openIndexes = [];
+          getSidebarDropdowns().forEach(function (dropdown, index) {
+            if (dropdown.classList.contains('open')) openIndexes.push(index);
+          });
+          localStorage.setItem(SIDEBAR_OPEN_DROPDOWNS_KEY, JSON.stringify(openIndexes));
+        } catch (err) {}
+      }
+
+      function restoreOpenDropdowns() {
+        try {
+          const raw = localStorage.getItem(SIDEBAR_OPEN_DROPDOWNS_KEY);
+          if (!raw) return;
+          const openIndexes = JSON.parse(raw);
+          if (!Array.isArray(openIndexes)) return;
+          const dropdowns = getSidebarDropdowns();
+          openIndexes.forEach(function (index) {
+            if (dropdowns[index]) dropdowns[index].classList.add('open');
+          });
+        } catch (err) {}
+      }
+
+      function clearLegacySidebarState() {
+        body.classList.remove('sidebar-collapsed', 'nf-sidebar-collapsed', 'sidebar-expanded');
+        body.removeAttribute('data-nf-sidebar-state');
+        try {
+          localStorage.removeItem('neFreshStoreSidebarCollapsed');
+          localStorage.removeItem('neFreshStoreSidebarCollapsed:v2');
+          localStorage.removeItem('neLocalsStoreSidebarCollapsed:v3');
+          localStorage.removeItem('neLocalsStoreSidebarCollapsed:v4');
+          sessionStorage.removeItem('neFreshStoreSidebarCollapsed');
+          sessionStorage.removeItem('neFreshStoreSidebarCollapsed:v2');
+          sessionStorage.removeItem('neLocalsStoreSidebarCollapsed:v3');
+          sessionStorage.removeItem('neLocalsStoreSidebarCollapsed:v4');
+        } catch (err) {}
+      }
+
+      function resetFrameInlineStyles() {
+        if (!sidebar || !main) return;
+
+        if (isMobileFrame()) {
+          sidebar.style.width = '';
+          sidebar.style.minWidth = '';
+          sidebar.style.maxWidth = '';
+          sidebar.style.transform = '';
+          main.style.marginLeft = '';
+          return;
+        }
+
+        const state = body.getAttribute('data-sidebar-state') === 'collapsed' ? 'collapsed' : 'expanded';
+        const width = state === 'collapsed' ? 'var(--nf-sidebar-collapsed)' : 'var(--nf-sidebar-width)';
+        sidebar.style.width = width;
+        sidebar.style.minWidth = width;
+        sidebar.style.maxWidth = width;
+        sidebar.style.transform = '';
+        main.style.marginLeft = width;
+      }
+
+      function applySidebarState(state) {
+        const nextState = state === 'collapsed' && !isMobileFrame() ? 'collapsed' : 'expanded';
+
+        clearLegacySidebarState();
+        body.setAttribute('data-sidebar-state', nextState);
+        saveSidebarState(nextState, false);
+        resetFrameInlineStyles();
+
+        if (sidebarToggle && sidebarToggleIcon) {
+          const collapsed = nextState === 'collapsed' && !isMobileFrame();
+          sidebarToggleIcon.textContent = collapsed ? '⇥' : '⇤';
+          sidebarToggle.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+          sidebarToggle.setAttribute('title', collapsed ? 'Expand menu' : 'Collapse menu');
+          sidebarToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        }
+
+        requestAnimationFrame(keepActiveMenuVisible);
+      }
+
+      function toggleDesktopSidebar(event) {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+
+        if (isMobileFrame()) {
+          body.classList.add('sidebar-open');
+          if (mobileMenu) mobileMenu.setAttribute('aria-expanded', 'true');
+          applySidebarState('expanded');
+          return false;
+        }
+
+        const current = body.getAttribute('data-sidebar-state') === 'collapsed' ? 'collapsed' : 'expanded';
+        applySidebarState(current === 'collapsed' ? 'expanded' : 'collapsed');
+        return false;
+      }
+
+      window.NELocalsToggleSidebar = toggleDesktopSidebar;
+
+      let nfSidebarToggleLastTriggeredAt = 0;
+      let nfSidebarTogglePointerMode = false;
+
+      function isSidebarToggleTarget(event) {
+        return !!(event && event.target && event.target.closest && event.target.closest('#nfSidebarToggle'));
+      }
+
+      function handleReliableSidebarToggle(event) {
+        if (!isSidebarToggleTarget(event)) return;
+
+        const now = Date.now ? Date.now() : new Date().getTime();
+        if (now - nfSidebarToggleLastTriggeredAt < 220) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+          return;
+        }
+
+        nfSidebarToggleLastTriggeredAt = now;
+        nfSidebarTogglePointerMode = true;
+        window.setTimeout(function () { nfSidebarTogglePointerMode = false; }, 360);
+        toggleDesktopSidebar(event);
+      }
+
+      function handleReliableSidebarClick(event) {
+        if (!isSidebarToggleTarget(event)) return;
+
+        if (nfSidebarTogglePointerMode) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+          return;
+        }
+
+        handleReliableSidebarToggle(event);
+      }
+
+      document.addEventListener('pointerdown', handleReliableSidebarToggle, true);
+      document.addEventListener('click', handleReliableSidebarClick, true);
+
+      if (sidebarToggle) {
+        sidebarToggle.onclick = null;
+        sidebarToggle.addEventListener('keydown', function (event) {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          handleReliableSidebarToggle(event);
+        });
+      }
+
+      function closeMobileMenu() {
+        body.classList.remove('sidebar-open');
+        if (mobileMenu) mobileMenu.setAttribute('aria-expanded', 'false');
+      }
+
+      if (mobileMenu) {
+        mobileMenu.onclick = function (event) {
+          event.preventDefault();
+          const isOpen = body.classList.toggle('sidebar-open');
+          mobileMenu.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+          applySidebarState('expanded');
+          return false;
+        };
+      }
+
+      if (mobileBackdrop) {
+        mobileBackdrop.onclick = closeMobileMenu;
+      }
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          closeMobileMenu();
+          if (profileMenu) profileMenu.classList.remove('open');
+          const storeAlertPanel = document.getElementById('nfStoreAlertPanel');
+          if (storeAlertPanel) storeAlertPanel.classList.remove('show');
+        }
+      });
+
+      document.querySelectorAll('[data-dropdown-toggle]').forEach(function (button) {
+        button.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          const dropdown = button.closest('.nf-dropdown');
+          if (dropdown) {
+            dropdown.classList.toggle('open');
+            saveOpenDropdowns();
+          }
+        });
+      });
+
+      if (profileBtn && profileMenu) {
+        profileBtn.addEventListener('click', function (event) {
+          event.stopPropagation();
+          profileMenu.classList.toggle('open');
+        });
+
+        document.addEventListener('click', function (event) {
+          if (!profileMenu.contains(event.target) && !profileBtn.contains(event.target)) {
+            profileMenu.classList.remove('open');
+          }
+        });
+      }
 
       function sidebarScrollStorageKey(pathname) {
-  return 'neFreshStoreSidebarScroll:' + (pathname || window.location.pathname);
-}
+        return 'neFreshStoreSidebarScroll:' + (pathname || window.location.pathname);
+      }
 
-function saveSidebarMenuScroll(targetPathname) {
-  if (!sidebarScroll) return;
+      function saveSidebarMenuScroll(targetPathname) {
+        if (!sidebarScroll) return;
+        try {
+          const value = String(sidebarScroll.scrollTop || 0);
+          sessionStorage.setItem(sidebarScrollStorageKey(targetPathname), value);
+          sessionStorage.setItem('neFreshStoreSidebarScroll:last', value);
+        } catch (err) {}
+      }
 
-  try {
-    const value = String(sidebarScroll.scrollTop || 0);
-    sessionStorage.setItem(sidebarScrollStorageKey(targetPathname), value);
-    sessionStorage.setItem('neFreshStoreSidebarScroll:last', value);
-  } catch (err) {}
-}
+      function restoreSidebarMenuScroll() {
+        if (!sidebarScroll) return;
+        try {
+          const saved = sessionStorage.getItem(sidebarScrollStorageKey(window.location.pathname)) || sessionStorage.getItem('neFreshStoreSidebarScroll:last');
+          if (!saved) return;
+          const top = Number(saved) || 0;
+          requestAnimationFrame(function () {
+            sidebarScroll.scrollTop = top;
+          });
+        } catch (err) {}
+      }
 
-function restoreSidebarMenuScroll() {
-  if (!sidebarScroll) return;
+      function getCurrentActiveMenuItem() {
+        return document.querySelector('.nf-submenu a.active, .nf-menu-link.active, .nf-menu-parent.active, [data-active-page-link]');
+      }
 
-  try {
-    const saved =
-      sessionStorage.getItem(sidebarScrollStorageKey(window.location.pathname)) ||
-      sessionStorage.getItem('neFreshStoreSidebarScroll:last');
+      function keepActiveMenuVisible() {
+        if (!sidebarScroll) return;
 
-    if (!saved) return;
+        const activeItem = getCurrentActiveMenuItem();
+        if (!activeItem) return;
 
-    const top = Number(saved) || 0;
+        const dropdown = activeItem.closest('.nf-dropdown');
+        if (dropdown) dropdown.classList.add('open');
 
-    requestAnimationFrame(function () {
-      sidebarScroll.scrollTop = top;
+        requestAnimationFrame(function () {
+          const containerRect = sidebarScroll.getBoundingClientRect();
+          const activeRect = activeItem.getBoundingClientRect();
+          const upperGap = 18;
+          const lowerGap = 18;
 
-      requestAnimationFrame(function () {
-        sidebarScroll.scrollTop = top;
+          if (activeRect.top < containerRect.top + upperGap) {
+            sidebarScroll.scrollTop -= (containerRect.top + upperGap - activeRect.top);
+          } else if (activeRect.bottom > containerRect.bottom - lowerGap) {
+            sidebarScroll.scrollTop += (activeRect.bottom - containerRect.bottom + lowerGap);
+          }
+
+          saveSidebarMenuScroll(window.location.pathname);
+        });
+      }
+
+      function persistSidebarStateBeforeNavigation(link) {
+        if (!link) return;
+
+        try {
+          const currentState = body.getAttribute('data-sidebar-state') === 'collapsed' ? 'collapsed' : 'expanded';
+          saveSidebarState(currentState, true);
+
+          const dropdown = link.closest('.nf-dropdown');
+          if (dropdown) dropdown.classList.add('open');
+          saveOpenDropdowns();
+
+          const url = new URL(link.getAttribute('href'), window.location.origin);
+          saveSidebarMenuScroll(url.pathname || window.location.pathname);
+        } catch (err) {
+          saveSidebarState(body.getAttribute('data-sidebar-state') === 'collapsed' ? 'collapsed' : 'expanded', true);
+          saveSidebarMenuScroll(window.location.pathname);
+        }
+      }
+
+      document.addEventListener('pointerdown', function (event) {
+        const link = event.target.closest && event.target.closest('.nf-sidebar .nf-menu-link[href], .nf-sidebar .nf-menu-parent[href], .nf-sidebar .nf-submenu a[href]');
+        if (!link) return;
+        persistSidebarStateBeforeNavigation(link);
+      }, true);
+
+      document.addEventListener('mousedown', function (event) {
+        const link = event.target.closest && event.target.closest('.nf-sidebar .nf-menu-link[href], .nf-sidebar .nf-menu-parent[href], .nf-sidebar .nf-submenu a[href]');
+        if (!link) return;
+        persistSidebarStateBeforeNavigation(link);
+      }, true);
+
+      document.addEventListener('touchstart', function (event) {
+        const link = event.target.closest && event.target.closest('.nf-sidebar .nf-menu-link[href], .nf-sidebar .nf-menu-parent[href], .nf-sidebar .nf-submenu a[href]');
+        if (!link) return;
+        persistSidebarStateBeforeNavigation(link);
+      }, { capture: true, passive: true });
+
+      document.querySelectorAll('.nf-menu-link[href], .nf-menu-parent[href], .nf-submenu a[href]').forEach(function (link) {
+        link.addEventListener('click', function () {
+          persistSidebarStateBeforeNavigation(link);
+
+          if (isMobileFrame()) closeMobileMenu();
+        });
       });
-    });
-  } catch (err) {}
-}
 
       function setActiveMenuByHash(hash) {
-  const normalizedHash = hash || window.location.hash || '';
-  const currentPath = window.location.pathname.replace(/\/$/, '');
+        const normalizedHash = hash || window.location.hash || '';
+        const currentPath = window.location.pathname.replace(/\/$/, '');
+        let matched = false;
 
-  document.querySelectorAll('.nf-menu-link, .nf-menu-parent, .nf-submenu a').forEach(function (item) {
-    item.classList.remove('active');
-  });
+        document.querySelectorAll('.nf-menu-link, .nf-menu-parent, .nf-submenu a').forEach(function (item) {
+          item.classList.remove('active');
+        });
 
-  let matched = false;
+        document.querySelectorAll('.nf-menu-link[href], .nf-menu-parent[href], .nf-submenu a[href]').forEach(function (item) {
+          const rawHref = item.getAttribute('href');
+          if (!rawHref || rawHref === '#') return;
 
-  document.querySelectorAll('.nf-menu-link[href], .nf-menu-parent[href], .nf-submenu a[href]').forEach(function (item) {
-    const rawHref = item.getAttribute('href');
+          const url = new URL(rawHref, window.location.origin);
+          const itemPath = url.pathname.replace(/\/$/, '');
+          const itemHash = url.hash || '';
 
-    if (!rawHref || rawHref === '#') return;
+          if (normalizedHash && itemHash && itemPath === currentPath && itemHash === normalizedHash) {
+            item.classList.add('active');
+            const dropdown = item.closest('.nf-dropdown');
+            if (dropdown) dropdown.classList.add('open');
+            matched = true;
+          } else if (!normalizedHash && !itemHash && itemPath === currentPath) {
+            item.classList.add('active');
+            const dropdown = item.closest('.nf-dropdown');
+            if (dropdown) dropdown.classList.add('open');
+            matched = true;
+          }
+        });
 
-    const url = new URL(rawHref, window.location.origin);
-    const itemPath = url.pathname.replace(/\/$/, '');
-    const itemHash = url.hash || '';
+        if (!matched) {
+          const activeFromServer = document.querySelector('[data-active-page-link]');
+          if (activeFromServer) {
+            activeFromServer.classList.add('active');
+            const dropdown = activeFromServer.closest('.nf-dropdown');
+            if (dropdown) dropdown.classList.add('open');
+          }
+        }
 
-    /*
-      Priority 1:
-      If current page has a hash, match exact path + hash.
-      Example:
-      /store/dashboard#delivery-readiness
-    */
-    if (
-      normalizedHash &&
-      itemHash &&
-      itemPath === currentPath &&
-      itemHash === normalizedHash
-    ) {
-      item.classList.add('active');
-
-      const dropdown = item.closest('.nf-dropdown');
-      if (dropdown) dropdown.classList.add('open');
-
-      matched = true;
-      return;
-    }
-
-    /*
-      Priority 2:
-      If current page has no hash, match exact path only.
-      This fixes newly added separate pages:
-      /store/orders
-      /store/products
-      /store/products/new
-      /store/inventory
-      /store/categories
-      /store/delivered-orders
-    */
-    if (
-      !normalizedHash &&
-      !itemHash &&
-      itemPath === currentPath
-    ) {
-      item.classList.add('active');
-
-      const dropdown = item.closest('.nf-dropdown');
-      if (dropdown) dropdown.classList.add('open');
-
-      matched = true;
-    }
-  });
-
-  /*
-    Priority 3:
-    If no exact href match is found, keep the server-rendered active_page class.
-    This prevents JS from wiping active boxes on pages where active_page is already set.
-  */
-  if (!matched) {
-    const activeFromServer = document.querySelector('[data-active-page-link]');
-    if (activeFromServer) {
-      activeFromServer.classList.add('active');
-    }
-  }
-
-  /*
-    Priority 4:
-    Safe dashboard fallback.
-  */
-  if (!matched && !normalizedHash) {
-    const dashboardUrl = new URL("{{ url_for('store_dashboard') }}", window.location.origin);
-    const dashboardPath = dashboardUrl.pathname.replace(/\/$/, '');
-
-    if (currentPath === dashboardPath) {
-      const dashboard = document.querySelector('.nf-menu-link[href="{{ url_for('store_dashboard') }}"]');
-
-      if (dashboard) {
-        dashboard.classList.add('active');
+        keepActiveMenuVisible();
       }
-    }
-  }
-}
 
       function scrollToStoreSection(hash, pushState, behavior) {
         if (!hash || hash === '#') return false;
@@ -1792,196 +2277,287 @@ function restoreSidebarMenuScroll() {
         return true;
       }
 
-      function toggleTheme() {
-        const current = html.getAttribute('data-theme') || 'light';
-        const next = current === 'dark' ? 'light' : 'dark';
-        html.setAttribute('data-theme', next);
-        localStorage.setItem('neFreshStoreTheme', next);
-        if (themeIcon) themeIcon.textContent = next === 'dark' ? '☀️' : '🌙';
+      let nfSoftNavBusy = false;
+
+      function getSoftNavAssetContainer() {
+        let container = document.getElementById('nfSoftNavDynamicAssets');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'nfSoftNavDynamicAssets';
+          container.hidden = true;
+          document.head.appendChild(container);
+        }
+        return container;
       }
 
-      if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
-      if (profileThemeBtn) profileThemeBtn.addEventListener('click', toggleTheme);
+      function syncSoftNavHeadAssets(parsedDoc) {
+        try {
+          const container = getSoftNavAssetContainer();
+          container.innerHTML = '';
 
-      function runSidebarTransition() {
-        // Sidebar collapse/expand is intentionally instant to avoid text rendering lag.
-        return;
+          const fetchedStyles = Array.prototype.slice.call(parsedDoc.head.querySelectorAll('style'));
+          fetchedStyles.slice(2).forEach(function (styleNode) {
+            const clone = document.createElement('style');
+            clone.textContent = styleNode.textContent || '';
+            container.appendChild(clone);
+          });
+
+          Array.prototype.slice.call(parsedDoc.head.querySelectorAll('link[rel="stylesheet"]')).forEach(function (linkNode) {
+            const href = linkNode.getAttribute('href') || '';
+            if (!href || href.indexOf('fonts.googleapis.com') !== -1) return;
+            const absoluteHref = new URL(href, window.location.href).href;
+            const exists = Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).some(function (existing) {
+              try { return new URL(existing.getAttribute('href') || '', window.location.href).href === absoluteHref; } catch (err) { return false; }
+            });
+            if (exists) return;
+
+            const clone = document.createElement('link');
+            Array.prototype.slice.call(linkNode.attributes).forEach(function (attr) {
+              clone.setAttribute(attr.name, attr.value);
+            });
+            container.appendChild(clone);
+          });
+        } catch (err) {}
       }
 
-      if (sidebarToggle) {
-        sidebarToggle.addEventListener('click', function () {
-          body.classList.toggle('sidebar-collapsed');
-          localStorage.setItem('neFreshStoreSidebarCollapsed', body.classList.contains('sidebar-collapsed') ? '1' : '0');
-          syncSidebarToggleIcon();
-        });
+      function shouldSkipSoftScript(scriptNode) {
+        const text = scriptNode.textContent || '';
+        if (scriptNode.closest && scriptNode.closest('#nfSoftNavDynamicAssets')) return true;
+        if (text.indexOf('const SIDEBAR_STATE_KEY') !== -1) return true;
+        if (text.indexOf('window.NELocalsToggleSidebar') !== -1) return true;
+        if (text.indexOf('nfFetchStoreAlerts') !== -1) return true;
+        if (text.indexOf('ensureFormToken') !== -1 && text.indexOf('X-CSRFToken') !== -1) return true;
+        if (text.indexOf('BOOT_CLASS') !== -1 && text.indexOf('RESTORE_CLASS') !== -1) return true;
+        return false;
       }
 
-      function closeMobileMenu() {
-        body.classList.remove('sidebar-open');
-        if (mobileMenu) {
-          mobileMenu.setAttribute('aria-expanded', 'false');
-          mobileMenu.setAttribute('aria-label', 'Open menu');
+      function runSoftNavScripts(parsedDoc) {
+        try {
+          const scripts = Array.prototype.slice.call(parsedDoc.body.querySelectorAll('script'));
+          scripts.forEach(function (scriptNode) {
+            if (shouldSkipSoftScript(scriptNode)) return;
+
+            const type = (scriptNode.getAttribute('type') || '').trim().toLowerCase();
+            if (type && type !== 'text/javascript' && type !== 'application/javascript' && type !== 'module') return;
+
+            const clone = document.createElement('script');
+            Array.prototype.slice.call(scriptNode.attributes).forEach(function (attr) {
+              if (attr.name.toLowerCase() !== 'src') clone.setAttribute(attr.name, attr.value);
+            });
+
+            if (scriptNode.src) {
+              const src = scriptNode.getAttribute('src');
+              if (!src) return;
+              const absoluteSrc = new URL(src, window.location.href).href;
+              const alreadyLoaded = Array.prototype.slice.call(document.querySelectorAll('script[src]')).some(function (existing) {
+                try { return new URL(existing.getAttribute('src') || '', window.location.href).href === absoluteSrc; } catch (err) { return false; }
+              });
+              if (alreadyLoaded) return;
+              clone.src = absoluteSrc;
+              document.body.appendChild(clone);
+              return;
+            }
+
+            const scriptText = scriptNode.textContent || '';
+            if (!scriptText.trim()) return;
+            clone.text = `
+              (function(){
+                const __nfOldAddEventListener = document.addEventListener.bind(document);
+                document.addEventListener = function(type, callback, options){
+                  if (type === 'DOMContentLoaded' && document.readyState !== 'loading' && typeof callback === 'function') {
+                    window.setTimeout(function(){ callback.call(document, new Event('DOMContentLoaded')); }, 0);
+                    return;
+                  }
+                  return __nfOldAddEventListener(type, callback, options);
+                };
+                try {
+                  ${scriptText}
+                } finally {
+                  document.addEventListener = __nfOldAddEventListener;
+                }
+              })();
+            `;
+            document.body.appendChild(clone);
+            document.body.removeChild(clone);
+          });
+        } catch (err) {}
+      }
+
+      function isSoftNavUrlAllowed(url) {
+        const path = (url.pathname || '').toLowerCase();
+        if (url.origin !== window.location.origin) return false;
+        if (path.indexOf('/static/') === 0) return false;
+        if (path.indexOf('/uploads/') === 0) return false;
+        if (path.indexOf('/documents/') === 0) return false;
+        if (path.indexOf('/logout') !== -1) return false;
+        if (path.indexOf('store_txn_csv') !== -1) return false;
+        if (/\.(csv|xlsx?|pdf|docx?|zip|rar|png|jpe?g|webp|gif|svg)$/i.test(path)) return false;
+        return true;
+      }
+
+      function isSoftNavLink(link, event) {
+        if (!link) return false;
+        if (event && (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0)) return false;
+        if (link.target && link.target !== '_self') return false;
+        if (link.hasAttribute('download')) return false;
+        if (link.matches('.nf-logout, .nf-profile-menu-logout, [data-no-soft-nav]')) return false;
+        const href = link.getAttribute('href') || '';
+        if (!href || href === '#' || href.indexOf('javascript:') === 0 || href.indexOf('mailto:') === 0 || href.indexOf('tel:') === 0) return false;
+        try {
+          const url = new URL(href, window.location.href);
+          return isSoftNavUrlAllowed(url);
+        } catch (err) {
+          return false;
         }
       }
 
-      if (mobileMenu) {
-        mobileMenu.addEventListener('click', function () {
-          const isOpen = body.classList.toggle('sidebar-open');
-          mobileMenu.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-          mobileMenu.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
-        });
-      }
-
-      if (mobileBackdrop) {
-        mobileBackdrop.addEventListener('click', closeMobileMenu);
-      }
-
-      function openStoreDashboardTop(linkUrl, samePage) {
-        const stateKey = 'neFreshStoreViewState:' + linkUrl.pathname;
+      function updateSoftNavActiveState(url) {
         try {
-          sessionStorage.setItem(stateKey, JSON.stringify({ hash: '', y: 0, forceTop: 1 }));
-        } catch (err) {}
+          const cleanPath = (url.pathname || window.location.pathname).replace(/\/$/, '');
+          const cleanHash = url.hash || '';
+          let matched = false;
 
-        if (samePage) {
-          history.pushState(null, '', linkUrl.pathname + linkUrl.search);
-          setActiveMenuByHash('');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          closeMobileMenu();
+          document.querySelectorAll('.nf-menu-link, .nf-menu-parent, .nf-submenu a').forEach(function (item) {
+            item.classList.remove('active');
+          });
+
+          document.querySelectorAll('.nf-menu-link[href], .nf-menu-parent[href], .nf-submenu a[href]').forEach(function (item) {
+            const itemUrl = new URL(item.getAttribute('href'), window.location.origin);
+            const itemPath = itemUrl.pathname.replace(/\/$/, '');
+            const itemHash = itemUrl.hash || '';
+
+            if ((cleanHash && itemHash && itemPath === cleanPath && itemHash === cleanHash) || (!cleanHash && !itemHash && itemPath === cleanPath)) {
+              item.classList.add('active');
+              const dropdown = item.closest('.nf-dropdown');
+              if (dropdown) dropdown.classList.add('open');
+              matched = true;
+            }
+          });
+
+          if (!matched) setActiveMenuByHash(cleanHash);
+          restoreOpenDropdowns();
+          keepActiveMenuVisible();
+        } catch (err) {
+          setActiveMenuByHash(window.location.hash);
+        }
+      }
+
+      async function softNavigateTo(url, options) {
+        options = options || {};
+        if (nfSoftNavBusy) return;
+
+        if (url.pathname === window.location.pathname && url.search === window.location.search && url.hash) {
+          scrollToStoreSection(url.hash, !options.replace, 'smooth');
           return;
         }
 
-        window.location.href = linkUrl.pathname + linkUrl.search;
+        nfSoftNavBusy = true;
+        try {
+          saveSidebarState(body.getAttribute('data-sidebar-state') === 'collapsed' ? 'collapsed' : 'expanded', true);
+          saveOpenDropdowns();
+          if (sidebarScroll) saveSidebarMenuScroll(url.pathname || window.location.pathname);
+
+          const response = await fetch(url.href, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'text/html,application/xhtml+xml'
+            },
+            cache: 'no-store'
+          });
+
+          const contentType = response.headers.get('content-type') || '';
+          if (!response.ok || contentType.indexOf('text/html') === -1) {
+            window.location.href = url.href;
+            return;
+          }
+
+          const html = await response.text();
+          const parsedDoc = new DOMParser().parseFromString(html, 'text/html');
+          const nextContent = parsedDoc.querySelector('.nf-content');
+          const currentContent = document.querySelector('.nf-content');
+
+          if (!nextContent || !currentContent) {
+            window.location.href = url.href;
+            return;
+          }
+
+          syncSoftNavHeadAssets(parsedDoc);
+
+          const nextTitle = parsedDoc.querySelector('title');
+          if (nextTitle) document.title = nextTitle.textContent || document.title;
+
+          const nextCsrf = parsedDoc.querySelector('meta[name="csrf-token"]');
+          const currentCsrf = document.querySelector('meta[name="csrf-token"]');
+          if (nextCsrf && currentCsrf) currentCsrf.setAttribute('content', nextCsrf.getAttribute('content') || '');
+
+          currentContent.innerHTML = nextContent.innerHTML;
+
+          if (options.replace) {
+            history.replaceState({ nfSoftNav: true }, '', url.href);
+          } else {
+            history.pushState({ nfSoftNav: true }, '', url.href);
+          }
+
+          updateSoftNavActiveState(url);
+          applySidebarState(isMobileFrame() ? 'expanded' : getSavedSidebarState());
+          restoreOpenDropdowns();
+          closeMobileMenu();
+
+          if (url.hash) {
+            requestAnimationFrame(function () { scrollToStoreSection(url.hash, false, 'auto'); });
+          } else {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+          }
+
+          runSoftNavScripts(parsedDoc);
+          requestAnimationFrame(function () {
+            lockHorizontalAppViewport();
+            keepActiveMenuVisible();
+          });
+        } catch (err) {
+          window.location.href = url.href;
+        } finally {
+          nfSoftNavBusy = false;
+        }
       }
 
-      document.querySelectorAll('.nf-menu-link[href], .nf-menu-parent[href], .nf-submenu a[href]').forEach(function (link) {
-  link.addEventListener('click', function (event) {
-    const href = link.getAttribute('href');
+      document.addEventListener('click', function (event) {
+        const link = event.target.closest && event.target.closest('a[href]');
+        if (!isSoftNavLink(link, event)) return;
 
-    if (!href || href === '#') {
-      return;
-    }
+        const url = new URL(link.getAttribute('href'), window.location.href);
+        if (link.closest('.nf-sidebar')) persistSidebarStateBeforeNavigation(link);
 
-   const url = new URL(href, window.location.origin);
-const currentPath = window.location.pathname.replace(/\/$/, '');
-const targetPath = url.pathname.replace(/\/$/, '');
-const samePage = targetPath === currentPath;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        softNavigateTo(url);
+      }, true);
 
-saveSidebarMenuScroll(url.pathname);
+      window.addEventListener('popstate', function () {
+        softNavigateTo(new URL(window.location.href), { replace: true });
+      });
 
-    if (samePage && url.hash) {
-      event.preventDefault();
-      scrollToStoreSection(url.hash, true, 'auto');
-      return;
-    }
+      document.addEventListener('click', function (event) {
+        const link = event.target.closest('.nf-menu-link[href], .nf-menu-parent[href], .nf-submenu a[href]');
+        if (!link) return;
+        const rawHref = link.getAttribute('href');
+        if (!rawHref) return;
 
-    if (samePage && !url.hash) {
-      event.preventDefault();
-      setActiveMenuByHash(window.location.hash || '');
-      closeMobileMenu();
-      return;
-    }
-
-    try {
-      if (url.hash) {
-        sessionStorage.setItem('neFreshStoreViewState:' + url.pathname, JSON.stringify({
-          hash: url.hash,
-          y: 0
-        }));
-      } else {
-        sessionStorage.removeItem('neFreshStoreViewState:' + url.pathname);
-      }
-    } catch (err) {}
-
-    closeMobileMenu();
-  });
-});
+        const url = new URL(rawHref, window.location.origin);
+        if (url.pathname === window.location.pathname && url.hash) {
+          const didScroll = scrollToStoreSection(url.hash, true, 'smooth');
+          if (didScroll) event.preventDefault();
+        }
+      });
 
       window.addEventListener('hashchange', function () {
         setActiveMenuByHash(window.location.hash);
-        try {
-          sessionStorage.setItem('neFreshStoreViewState:' + window.location.pathname, JSON.stringify({
-            hash: window.location.hash || '',
-            y: window.scrollY || window.pageYOffset || 0
-          }));
-        } catch (err) {}
       });
-
-      function restoreInitialStoreView() {
-        let saved = {};
-        try {
-          saved = JSON.parse(sessionStorage.getItem('neFreshStoreViewState:' + window.location.pathname) || '{}');
-        } catch (err) {}
-
-        if (saved.forceTop) {
-          try {
-            sessionStorage.setItem('neFreshStoreViewState:' + window.location.pathname, JSON.stringify({ hash: '', y: 0 }));
-          } catch (err) {}
-          setActiveMenuByHash('');
-          window.scrollTo({ top: 0, behavior: 'auto' });
-          requestAnimationFrame(function () {
-            document.documentElement.classList.remove('nf-view-boot');
-            document.documentElement.classList.remove('nf-restore-pending');
-            document.documentElement.classList.add('nf-view-ready');
-          });
-          return;
-        }
-
-        const initialHash = window.location.hash || saved.hash || '';
-        setActiveMenuByHash(initialHash);
-
-        if (initialHash && document.querySelector(initialHash)) {
-          scrollToStoreSection(initialHash, false, 'auto');
-        } else if (saved.y && Number(saved.y) > 0) {
-          window.scrollTo({ top: Number(saved.y), behavior: 'auto' });
-        }
-
-        requestAnimationFrame(function () {
-          document.documentElement.classList.remove('nf-view-boot');
-            document.documentElement.classList.remove('nf-restore-pending');
-            document.documentElement.classList.add('nf-view-ready');
-        });
-      }
-
-     window.addEventListener('load', function () {
-  restoreInitialStoreView();
-  restoreSidebarMenuScroll();
-});
-
-restoreInitialStoreView();
-restoreSidebarMenuScroll();
-
-      window.addEventListener('beforeunload', function () {
-  try {
-    sessionStorage.setItem('neFreshStoreViewState:' + window.location.pathname, JSON.stringify({
-      hash: window.location.hash || '',
-      y: window.scrollY || window.pageYOffset || 0
-    }));
-  } catch (err) {}
-
-  saveSidebarMenuScroll(window.location.pathname);
-});
-
-      document.querySelectorAll('[data-dropdown-toggle]').forEach(function (btn) {
-        btn.addEventListener('click', function (event) {
-          event.preventDefault();
-          event.stopPropagation();
-          const dropdown = btn.closest('.nf-dropdown');
-          if (dropdown) dropdown.classList.toggle('open');
-        });
-      });
-
-      if (profileBtn && profileMenu) {
-        profileBtn.addEventListener('click', function (event) {
-          event.stopPropagation();
-          profileMenu.classList.toggle('open');
-        });
-        document.addEventListener('click', function () { profileMenu.classList.remove('open'); });
-        profileMenu.addEventListener('click', function (event) { event.stopPropagation(); });
-      }
 
       function syncMenuSectionsForSearch() {
-        const sections = document.querySelectorAll('.nf-menu-section');
-        sections.forEach(function (section) {
+        document.querySelectorAll('.nf-menu-section').forEach(function (section) {
           let next = section.nextElementSibling;
           let hasVisibleItem = false;
 
@@ -1998,8 +2574,6 @@ restoreSidebarMenuScroll();
       }
 
       if (menuSearch) {
-        const noResults = document.getElementById('nfMenuNoResults');
-
         menuSearch.addEventListener('input', function () {
           const query = menuSearch.value.trim().toLowerCase();
           let visibleCount = 0;
@@ -2016,13 +2590,9 @@ restoreSidebarMenuScroll();
           });
 
           syncMenuSectionsForSearch();
-
-          if (noResults) {
-            noResults.hidden = visibleCount > 0;
-          }
+          if (noResults) noResults.hidden = visibleCount > 0;
         });
       }
-
 
       function lockHorizontalAppViewport() {
         try {
@@ -2034,24 +2604,17 @@ restoreSidebarMenuScroll();
       }
 
       window.addEventListener('load', lockHorizontalAppViewport);
-      window.addEventListener('resize', lockHorizontalAppViewport);
-      window.addEventListener('orientationchange', lockHorizontalAppViewport);
+      window.addEventListener('resize', function () {
+        applySidebarState(isMobileFrame() ? 'expanded' : getSavedSidebarState());
+        restoreOpenDropdowns();
+        lockHorizontalAppViewport();
+      });
+      window.addEventListener('orientationchange', function () {
+        applySidebarState(isMobileFrame() ? 'expanded' : getSavedSidebarState());
+        restoreOpenDropdowns();
+        lockHorizontalAppViewport();
+      });
       lockHorizontalAppViewport();
-
-      const footer = document.querySelector('.footer');
-      const rootStyle = document.documentElement.style;
-
-      function updateSidebarBottomOffset() {
-        if (!footer) return;
-        const rect = footer.getBoundingClientRect();
-        const visibleFooterHeight = Math.max(0, window.innerHeight - Math.max(rect.top, 0));
-        rootStyle.setProperty('--nf-visible-footer-height', Math.ceil(visibleFooterHeight) + 'px');
-      }
-
-      window.addEventListener('scroll', updateSidebarBottomOffset, { passive: true });
-      window.addEventListener('resize', updateSidebarBottomOffset);
-      window.addEventListener('load', updateSidebarBottomOffset);
-      updateSidebarBottomOffset();
 
       const storeAlertBtn = document.getElementById('nfStoreAlertBtn');
       const storeAlertBadge = document.getElementById('nfStoreAlertBadge');
@@ -2060,38 +2623,23 @@ restoreSidebarMenuScroll();
 
       function nfEscapeHtml(value){
         return String(value || '').replace(/[&<>"']/g, function(ch){
-          return {
-            '&':'&amp;',
-            '<':'&lt;',
-            '>':'&gt;',
-            '"':'&quot;',
-            "'":'&#39;'
-          }[ch];
+          return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch];
         });
       }
 
       function nfStoreNotificationIcon(type){
         type = String(type || '').toLowerCase();
-
         if (type === 'delivery_reassignment') return '⚠️';
         if (type === 'new_order') return '🧾';
         if (type === 'status') return '🔁';
         if (type === 'system') return '⚙️';
-
         return '🔔';
       }
 
       function nfStoreNotificationUrl(n){
         const type = String(n.type || '').toLowerCase();
-
-        if (type === 'delivery_reassignment') {
-          return "{{ url_for('store_delivery') }}";
-        }
-
-        if (n.order_id) {
-          return "{{ url_for('store_orders') }}";
-        }
-
+        if (type === 'delivery_reassignment') return "{{ url_for('store_delivery') }}";
+        if (n.order_id) return "{{ url_for('store_orders') }}";
         return "{{ url_for('store_notifications') }}";
       }
 
@@ -2111,7 +2659,6 @@ restoreSidebarMenuScroll();
         }
 
         const rows = notifications.slice(0, 6);
-
         if (!rows.length) {
           storeAlertList.innerHTML = '<div class="nf-store-alert-empty">No new notifications.</div>';
           return;
@@ -2148,9 +2695,7 @@ restoreSidebarMenuScroll();
           if (!ct.includes('application/json')) return;
 
           const data = await res.json();
-
           if (!data.ok) return;
-
           nfRenderStoreAlerts(data.notifications || [], data.stats || {});
         }catch(err){}
       }
@@ -2171,10 +2716,31 @@ restoreSidebarMenuScroll();
         setInterval(nfFetchStoreAlerts, 10000);
       }
 
+      clearLegacySidebarState();
+      setActiveMenuByHash(window.location.hash);
+      restoreOpenDropdowns();
+      applySidebarState(getSavedSidebarState());
+      restoreSidebarMenuScroll();
+
+      window.addEventListener('load', function () {
+        clearLegacySidebarState();
+        setActiveMenuByHash(window.location.hash);
+        restoreOpenDropdowns();
+        applySidebarState(getSavedSidebarState());
+        restoreSidebarMenuScroll();
+        keepActiveMenuVisible();
+        if (window.location.hash) {
+          scrollToStoreSection(window.location.hash, false, 'auto');
+        }
+      });
+
+      window.addEventListener('beforeunload', function () {
+        saveSidebarState(body.getAttribute('data-sidebar-state') === 'collapsed' ? 'collapsed' : 'expanded', true);
+        saveOpenDropdowns();
+      });
     })();
   </script>
 
-  <script defer src="{{ url_for('static', filename='js/view-state.js') }}"></script>
 
   {% block extra_js %}{% endblock %}
 </body>

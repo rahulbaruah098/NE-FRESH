@@ -1,95 +1,134 @@
 {% extends "store_base.html" %}
 {% set active_page = "product_reviews" %}
 
-{% block title %}Product Reviews{% endblock %}
+{% block title %}Product Reviews | NE Locals Store{% endblock %}
 {% block page_title %}Product Reviews{% endblock %}
 {% block page_subtitle %}View customer feedback received on your store products.{% endblock %}
 
 {% block content %}
-<section class="nf-store-product-reviews-page">
+{% set review_rows = reviews if reviews is defined else [] %}
+{% set review_metrics = product_review_metrics if product_review_metrics is defined else {} %}
+{% set rating_counts = rating_breakdown if rating_breakdown is defined else {} %}
+{% set total_reviews = review_metrics.get('total_reviews', 0) or 0 %}
+
+<section class="nf-store-product-reviews-page" data-page="product-reviews">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
     .nf-store-product-reviews-page{
+      --pr-bg:#F7FFFA;
+      --pr-card:#FFFFFF;
+      --pr-card-2:#FBFFFD;
+      --pr-soft:#F1FFF7;
+      --pr-soft-2:#F8FFFB;
+      --pr-line:#D9EDE3;
+      --pr-line-2:#EDF6F1;
+      --pr-text:#10251B;
+      --pr-body:#30443A;
+      --pr-muted:#65766D;
+      --pr-muted-2:#85978E;
       --pr-green:#00A859;
-      --pr-green-dark:#008A48;
-      --pr-green-deep:#075C3B;
+      --pr-green-dark:#075C3B;
+      --pr-green-deep:#06482F;
       --pr-green-soft:#E9FFF3;
-      --pr-orange:#FFB84D;
-      --pr-orange-soft:#FFF7E8;
-      --pr-red:#EF4444;
+      --pr-orange:#F59E0B;
+      --pr-orange-soft:#FFF8E8;
+      --pr-red:#DC2626;
       --pr-red-soft:#FFF1F2;
       --pr-blue:#0284C7;
       --pr-blue-soft:#E0F2FE;
-      --pr-card:#FFFFFF;
-      --pr-bg:#F8FFFB;
-      --pr-text:#1F332A;
-      --pr-muted:#66756D;
-      --pr-muted-2:#8A9890;
-      --pr-line:#DDECE4;
-      --pr-line-2:#EAF4EF;
-      --pr-shadow:0 14px 36px rgba(17,64,38,.08);
-      --pr-shadow-hover:0 22px 58px rgba(17,64,38,.13);
+      --pr-shadow:0 10px 28px rgba(17,64,38,.055);
+      --pr-shadow-2:0 18px 50px rgba(17,64,38,.085);
       --pr-radius:24px;
       --pr-ease:cubic-bezier(.2,.75,.25,1);
-
       width:100%;
-      display:grid;
-      gap:22px;
+      min-height:100%;
+      padding:clamp(12px,1.6vw,28px);
+      padding-left:max(clamp(12px,1.6vw,28px),env(safe-area-inset-left,0px));
+      padding-right:max(clamp(12px,1.6vw,28px),env(safe-area-inset-right,0px));
+      background:
+        radial-gradient(circle at 0% 0%, rgba(0,168,89,.055), transparent 34%),
+        linear-gradient(180deg,#F7FFFA 0%,#FFFFFF 44%,#F8FFFB 100%);
       color:var(--pr-text);
+      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      text-size-adjust:100%;
+    }
+
+    .nf-store-product-reviews-page,
+    .nf-store-product-reviews-page *{
+      box-sizing:border-box;
+      min-width:0;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .pr-shell{
+      width:100%;
+      max-width:1760px;
+      margin:0 auto;
+      display:grid;
+      gap:clamp(14px,1.35vw,22px);
+    }
+
+    .pr-hero,
+    .pr-card,
+    .pr-kpi{
+      background:rgba(255,255,255,.98);
+      border:1px solid var(--pr-line);
+      border-radius:var(--pr-radius);
+      box-shadow:var(--pr-shadow);
+      overflow:hidden;
     }
 
     .pr-hero{
-      position:relative;
-      overflow:hidden;
-      border-radius:28px;
-      padding:clamp(22px,3vw,34px);
-      background:
-        radial-gradient(circle at 10% 12%,rgba(255,184,77,.24),transparent 30%),
-        radial-gradient(circle at 92% 18%,rgba(255,255,255,.20),transparent 28%),
-        linear-gradient(135deg,#075C3B 0%,#00A859 100%);
-      color:#fff;
-      box-shadow:var(--pr-shadow);
-    }
-
-    .pr-hero-content{
-      position:relative;
-      z-index:2;
-      display:flex;
-      align-items:flex-end;
-      justify-content:space-between;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
       gap:18px;
-      flex-wrap:wrap;
+      padding:clamp(18px,2vw,30px);
+      border-radius:30px;
+      background:
+        radial-gradient(circle at 100% 0%, rgba(245,158,11,.12), transparent 30%),
+        linear-gradient(135deg,#FFFFFF 0%,#F2FFF8 100%);
+      box-shadow:var(--pr-shadow-2);
     }
 
     .pr-kicker{
-      min-height:30px;
       display:inline-flex;
       align-items:center;
-      border-radius:999px;
+      justify-content:center;
+      width:max-content;
+      max-width:100%;
+      min-height:30px;
       padding:0 12px;
-      background:rgba(255,255,255,.16);
-      border:1px solid rgba(255,255,255,.26);
-      color:#fff;
-      font-size:.74rem;
+      border-radius:999px;
+      background:var(--pr-green-soft);
+      border:1px solid rgba(0,168,89,.22);
+      color:var(--pr-green-dark);
+      font-size:12px;
       font-weight:900;
       letter-spacing:.08em;
       text-transform:uppercase;
     }
 
-    .pr-hero h2{
-      margin:12px 0 0;
-      font-size:clamp(1.9rem,4vw,3.4rem);
+    .pr-title{
+      margin:14px 0 6px;
+      color:var(--pr-text);
+      font-size:clamp(30px,3.4vw,50px);
       line-height:1.02;
       font-weight:950;
-      letter-spacing:-.055em;
+      letter-spacing:-.06em;
+      overflow-wrap:anywhere;
     }
 
-    .pr-hero p{
-      margin:12px 0 0;
-      max-width:840px;
-      color:rgba(255,255,255,.88);
-      font-size:clamp(.92rem,1.5vw,1.08rem);
+    .pr-copy{
+      max-width:850px;
+      margin:0;
+      color:var(--pr-muted);
+      font-size:clamp(13.5px,1vw,15px);
+      font-weight:700;
       line-height:1.55;
-      font-weight:650;
     }
 
     .pr-hero-pill{
@@ -98,130 +137,113 @@
       align-items:center;
       justify-content:center;
       gap:9px;
-      border-radius:16px;
       padding:0 16px;
-      background:rgba(255,255,255,.17);
-      border:1px solid rgba(255,255,255,.26);
-      color:#fff;
-      font-size:.9rem;
-      font-weight:900;
-      backdrop-filter:blur(10px);
-      -webkit-backdrop-filter:blur(10px);
+      border-radius:16px;
+      background:#fff;
+      color:var(--pr-green-dark);
+      border:1px solid rgba(0,168,89,.20);
+      font-size:14px;
+      font-weight:950;
+      white-space:nowrap;
+      box-shadow:0 12px 28px rgba(17,64,38,.06);
     }
 
     .pr-kpis{
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:16px;
+      gap:clamp(12px,1.2vw,18px);
     }
 
     .pr-kpi{
-      border:1px solid var(--pr-line);
-      border-radius:24px;
-      background:linear-gradient(180deg,#FFFFFF 0%,#F8FFFB 100%);
-      padding:18px;
-      box-shadow:0 10px 26px rgba(17,64,38,.06);
-      display:flex;
-      align-items:center;
-      gap:14px;
       min-height:112px;
-      transition:.22s var(--pr-ease);
+      padding:clamp(15px,1.25vw,20px);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FCFFFD 100%);
+      position:relative;
     }
 
-    .pr-kpi:hover{
-      transform:translateY(-3px);
-      border-color:rgba(0,168,89,.24);
-      box-shadow:var(--pr-shadow-hover);
+    .pr-kpi-label{
+      color:var(--pr-muted);
+      font-size:11px;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      line-height:1.25;
+    }
+
+    .pr-kpi-value{
+      margin-top:8px;
+      color:var(--pr-text);
+      font-size:clamp(24px,2.6vw,38px);
+      line-height:1;
+      font-weight:950;
+      letter-spacing:-.045em;
+      overflow-wrap:anywhere;
+    }
+
+    .pr-kpi-sub{
+      margin-top:8px;
+      color:var(--pr-muted-2);
+      font-size:12px;
+      font-weight:800;
+      line-height:1.35;
     }
 
     .pr-kpi-icon{
-      width:52px;
-      height:52px;
-      min-width:52px;
-      border-radius:18px;
+      width:46px;
+      height:46px;
+      border-radius:16px;
       display:grid;
       place-items:center;
       background:var(--pr-green-soft);
       color:var(--pr-green-dark);
-      font-size:1.25rem;
-      border:1px solid rgba(0,168,89,.13);
+      font-size:22px;
+      flex:0 0 auto;
     }
 
-    .pr-kpi.orange .pr-kpi-icon{
-      background:var(--pr-orange-soft);
-      color:#A66A00;
-    }
-
-    .pr-kpi.blue .pr-kpi-icon{
-      background:var(--pr-blue-soft);
-      color:var(--pr-blue);
-    }
-
-    .pr-kpi.red .pr-kpi-icon{
-      background:var(--pr-red-soft);
-      color:var(--pr-red);
-    }
-
-    .pr-kpi small{
-      display:block;
-      color:var(--pr-muted);
-      font-size:.68rem;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-
-    .pr-kpi b{
-      display:block;
-      margin-top:6px;
-      color:var(--pr-text);
-      font-size:1.45rem;
-      line-height:1;
-      font-weight:950;
-      letter-spacing:-.04em;
-    }
-
-    .pr-grid{
+    .pr-main-grid{
       display:grid;
-      grid-template-columns:360px minmax(0,1fr);
-      gap:18px;
+      grid-template-columns:1fr;
+      gap:clamp(14px,1.35vw,22px);
       align-items:start;
     }
 
-    .pr-card{
-      border:1px solid var(--pr-line);
-      border-radius:24px;
-      background:#fff;
-      box-shadow:var(--pr-shadow);
-      overflow:hidden;
-      min-width:0;
-    }
-
     .pr-card-head{
-      padding:20px;
+      padding:clamp(16px,1.35vw,22px);
       border-bottom:1px solid var(--pr-line-2);
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
     }
 
-    .pr-card-head h3{
+    .pr-card-title{
       margin:0;
       color:var(--pr-text);
-      font-size:1.08rem;
+      font-size:19px;
       font-weight:950;
-      letter-spacing:-.03em;
+      letter-spacing:-.035em;
+      line-height:1.2;
     }
 
-    .pr-card-head p{
-      margin:7px 0 0;
+    .pr-card-sub{
+      margin:5px 0 0;
       color:var(--pr-muted);
-      font-size:.88rem;
-      line-height:1.45;
-      font-weight:650;
+      font-size:13px;
+      font-weight:700;
+      line-height:1.42;
     }
 
     .pr-breakdown{
-      padding:18px 20px 20px;
+      padding:clamp(16px,1.35vw,22px);
       display:grid;
       gap:13px;
+      max-width:100%;
     }
 
     .pr-bar-row{
@@ -230,7 +252,7 @@
       align-items:center;
       gap:10px;
       color:var(--pr-muted);
-      font-size:.84rem;
+      font-size:13px;
       font-weight:850;
     }
 
@@ -248,95 +270,187 @@
       width:0%;
     }
 
-    .pr-tools{
-      padding:16px 18px 0;
+    .pr-table-toolbar{
       display:grid;
-      grid-template-columns:minmax(0,1fr) 170px;
+      grid-template-columns:minmax(250px,1fr) auto;
+      align-items:center;
       gap:12px;
+      padding:clamp(14px,1.2vw,18px) clamp(14px,1.35vw,22px);
+      background:#fff;
+      border-bottom:1px solid var(--pr-line-2);
     }
 
-    .pr-search,
-    .pr-select{
-      min-height:46px;
+    .pr-search-wrap{
+      width:100%;
+      max-width:560px;
+      position:relative;
+    }
+
+    .pr-search-wrap::before{
+      content:'⌕';
+      position:absolute;
+      left:14px;
+      top:50%;
+      transform:translateY(-50%);
+      color:var(--pr-muted-2);
+      font-weight:950;
+      pointer-events:none;
+    }
+
+    .pr-search-input,
+    .pr-filter-select,
+    .pr-page-size-select{
+      width:100%;
+      min-height:44px;
       border:1px solid var(--pr-line);
-      border-radius:15px;
-      background:#F8FFFB;
+      border-radius:14px;
+      background:#fff;
       color:var(--pr-text);
       outline:none;
       font:inherit;
-      font-size:.9rem;
-      font-weight:650;
-      transition:.18s var(--pr-ease);
+      font-size:13px;
+      font-weight:850;
     }
 
-    .pr-search{
-      padding:0 14px;
+    .pr-search-input{
+      padding:0 12px 0 40px;
     }
 
-    .pr-select{
-      padding:0 12px;
+    .pr-filter-select,
+    .pr-page-size-select{
+      min-width:132px;
+      padding:0 34px 0 12px;
+      appearance:none;
+      -webkit-appearance:none;
+      background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6z" fill="%23075C3B"/></svg>');
+      background-repeat:no-repeat;
+      background-position:right 11px center;
     }
 
-    .pr-search:focus,
-    .pr-select:focus{
-      border-color:rgba(0,168,89,.45);
-      background:#fff;
+    .pr-search-input:focus,
+    .pr-filter-select:focus,
+    .pr-page-size-select:focus{
+      border-color:rgba(0,168,89,.42);
       box-shadow:0 0 0 4px rgba(0,168,89,.08);
     }
 
-    .pr-reviews{
-      display:grid;
-      gap:14px;
-      padding:18px;
-    }
-
-    .pr-review{
-      border:1px solid var(--pr-line);
-      border-radius:22px;
-      background:
-        radial-gradient(circle at 4% 8%,rgba(0,168,89,.055),transparent 28%),
-        #F8FFFB;
-      padding:18px;
-      display:grid;
-      gap:14px;
-      transition:.2s var(--pr-ease);
-    }
-
-    .pr-review:hover{
-      transform:translateY(-2px);
-      border-color:rgba(0,168,89,.24);
-      box-shadow:0 14px 30px rgba(17,64,38,.07);
-    }
-
-    .pr-review.is-hidden{
-      display:none !important;
-    }
-
-    .pr-review-top{
+    .pr-table-tools{
       display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:14px;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
-    .pr-product{
+    .pr-muted{
+      color:var(--pr-muted);
+      font-size:13px;
+      font-weight:800;
+      overflow-wrap:anywhere;
+    }
+
+    .pr-table-wrap{
+      width:100%;
+      padding:0 clamp(10px,1.05vw,18px) clamp(16px,1.35vw,22px);
+      overflow-x:hidden;
+      overflow-y:visible;
+    }
+
+    .pr-table{
+      width:100%;
+      min-width:0;
+      max-width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      table-layout:fixed;
+      border:1px solid var(--pr-line);
+      border-radius:18px;
+      overflow:hidden;
+      background:#fff;
+      box-shadow:0 8px 22px rgba(17,64,38,.035);
+    }
+
+    .pr-table thead{
+      background:linear-gradient(135deg,#075C3B,#06482F);
+      color:#fff;
+    }
+
+    .pr-table th,
+    .pr-table td{
+      padding:clamp(9px,.85vw,13px);
+      text-align:left;
+      vertical-align:top;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+      white-space:normal;
+    }
+
+    .pr-table th{
+      font-size:clamp(9px,.72vw,11px);
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.045em;
+      line-height:1.25;
+    }
+
+    .pr-table td{
+      border-bottom:1px solid var(--pr-line-2);
+      color:var(--pr-body);
+      font-size:clamp(11px,.82vw,13px);
+      font-weight:750;
+      line-height:1.38;
+      background:#fff;
+    }
+
+    .pr-table tbody tr:nth-child(even) td{background:#FCFFFD;}
+    .pr-table tbody tr:last-child td{border-bottom:0;}
+    .pr-table tbody tr[hidden]{display:none!important;}
+
+    .pr-table th:nth-child(1),
+    .pr-table td:nth-child(1){width:6%;text-align:center;}
+    .pr-table th:nth-child(2),
+    .pr-table td:nth-child(2){width:25%;}
+    .pr-table th:nth-child(3),
+    .pr-table td:nth-child(3){width:18%;}
+    .pr-table th:nth-child(4),
+    .pr-table td:nth-child(4){width:10%;}
+    .pr-table th:nth-child(5),
+    .pr-table td:nth-child(5){width:31%;}
+    .pr-table th:nth-child(6),
+    .pr-table td:nth-child(6){width:10%;}
+
+    .pr-slno-value{
+      width:clamp(30px,2.35vw,38px);
+      height:clamp(30px,2.35vw,38px);
+      display:inline-grid;
+      place-items:center;
+      border-radius:999px;
+      background:var(--pr-green-soft);
+      border:1px solid rgba(0,168,89,.20);
+      color:var(--pr-green-dark);
+      font-size:clamp(11px,.8vw,14px);
+      font-weight:950;
+    }
+
+    .pr-product-cell{
       display:grid;
-      grid-template-columns:58px minmax(0,1fr);
-      gap:12px;
-      align-items:center;
+      grid-template-columns:56px minmax(0,1fr);
+      gap:11px;
+      align-items:start;
     }
 
     .pr-product-img{
-      width:58px;
-      height:58px;
-      border-radius:16px;
-      background:#fff;
+      width:56px;
+      height:56px;
+      border-radius:15px;
+      background:var(--pr-soft-2);
       border:1px solid var(--pr-line);
       display:grid;
       place-items:center;
       overflow:hidden;
       color:var(--pr-green-dark);
-      font-weight:900;
+      font-weight:950;
+      font-size:20px;
     }
 
     .pr-product-img img{
@@ -346,396 +460,691 @@
       display:block;
     }
 
-    .pr-product h4{
-      margin:0;
+    .pr-main{
+      display:block;
       color:var(--pr-text);
-      font-size:1rem;
       font-weight:950;
-      letter-spacing:-.02em;
+      line-height:1.25;
     }
 
-    .pr-review-meta{
-      margin-top:5px;
+    .pr-sub{
+      display:block;
+      margin-top:4px;
       color:var(--pr-muted);
-      font-size:.8rem;
-      line-height:1.45;
-      font-weight:650;
-      word-break:break-word;
-    }
-
-    .pr-rating{
-      min-height:32px;
-      display:inline-flex;
-      align-items:center;
-      gap:5px;
-      border-radius:999px;
-      padding:0 11px;
-      background:#FFF8E8;
-      color:#A66A00;
-      font-size:.8rem;
-      font-weight:950;
-      white-space:nowrap;
+      font-size:clamp(10px,.72vw,11.5px);
+      font-weight:700;
+      line-height:1.32;
     }
 
     .pr-review-text{
       margin:0;
-      color:#40534A;
-      font-size:.92rem;
-      line-height:1.65;
-      font-weight:650;
+      color:var(--pr-body);
+      font-size:inherit;
+      line-height:1.5;
+      font-weight:750;
       white-space:pre-wrap;
     }
 
-    .pr-empty{
-      border:1px dashed rgba(0,168,89,.35);
-      border-radius:22px;
-      background:#F3FFF8;
-      padding:34px 18px;
+    .pr-rating-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      border-radius:999px;
+      padding:5px 10px;
+      background:var(--pr-orange-soft);
+      color:#9A5A00;
+      border:1px solid #FDE7B2;
+      font-size:12px;
+      font-weight:950;
+      text-align:center;
+    }
+
+    .pr-products-empty{
+      margin:0 clamp(14px,1.35vw,22px) 18px;
+      padding:24px 16px;
+      border:1px dashed rgba(0,168,89,.28);
+      border-radius:18px;
+      background:#fff;
       text-align:center;
       color:var(--pr-muted);
-      font-weight:750;
-      line-height:1.55;
+      font-size:13px;
+      font-weight:800;
+      line-height:1.45;
+    }
+
+    .pr-products-empty[hidden]{display:none!important;}
+
+    .pr-empty{
+      min-height:260px;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:34px 18px;
+      color:var(--pr-muted);
+      font-size:14px;
+      font-weight:800;
     }
 
     .pr-empty b{
       display:block;
-      margin-bottom:5px;
       color:var(--pr-green-dark);
-      font-size:1rem;
+      font-size:16px;
+      margin-bottom:5px;
     }
 
-    .pr-empty[hidden]{
-      display:none !important;
+    .pr-pagination-box{
+      margin:0 clamp(14px,1.35vw,22px) clamp(16px,1.35vw,22px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      border:1px solid var(--pr-line);
+      border-radius:18px;
+      background:#fff;
+      padding:12px 14px;
+      box-shadow:0 10px 26px rgba(17,64,38,.045);
     }
 
-    @media(max-width:1280px){
-      .pr-kpis{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
+    .pr-pagination-box[hidden]{display:none!important;}
+
+    .pr-page-info{
+      color:var(--pr-muted);
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .pr-page-controls,
+    .pr-page-numbers{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:7px;
+      flex-wrap:wrap;
+    }
+
+    .pr-page-btn{
+      min-width:38px;
+      min-height:38px;
+      border-radius:12px;
+      border:1px solid var(--pr-line);
+      background:#fff;
+      color:var(--pr-text);
+      font:inherit;
+      font-size:12px;
+      font-weight:950;
+      cursor:pointer;
+      transition:.2s var(--pr-ease);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 10px;
+    }
+
+    .pr-page-btn:hover:not(:disabled),
+    .pr-page-btn.active{
+      background:linear-gradient(135deg,var(--pr-green),var(--pr-green-dark));
+      border-color:var(--pr-green);
+      color:#fff;
+      box-shadow:0 10px 20px rgba(0,168,89,.18);
+    }
+
+    .pr-page-btn:disabled{opacity:.45;cursor:not-allowed;}
+
+    @media(max-width:1320px){
+      .pr-kpis{grid-template-columns:repeat(3,minmax(0,1fr));}
+      .pr-main-grid{grid-template-columns:1fr;}
     }
 
     @media(max-width:1180px){
-      .pr-grid{
-        grid-template-columns:1fr;
-      }
+      .pr-hero{grid-template-columns:1fr;}
+      .pr-hero-pill{width:max-content;}
+      .pr-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
     }
 
-    @media(max-width:760px){
+    @media(max-width:920px){
       .nf-store-product-reviews-page{
-        gap:16px;
+        padding:14px;
+        padding-left:max(14px,env(safe-area-inset-left,0px));
+        padding-right:max(14px,env(safe-area-inset-right,0px));
       }
 
-      .pr-hero{
-        border-radius:22px;
+      .pr-hero{border-radius:22px;padding:18px;}
+      .pr-copy,
+      .pr-kpi-sub,
+      .pr-card-sub{display:none;}
+      .pr-hero-pill{width:100%;}
+      .pr-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+      .pr-kpi{min-height:96px;padding:13px;border-radius:18px;}
+      .pr-kpi-label{font-size:9.8px;letter-spacing:.045em;}
+      .pr-kpi-value{font-size:clamp(20px,5.8vw,28px);}
+      .pr-kpi-icon{width:38px;height:38px;border-radius:14px;font-size:18px;}
+
+      .pr-table-toolbar{grid-template-columns:1fr;padding:14px;}
+      .pr-search-wrap{max-width:100%;}
+      .pr-table-tools{display:grid;width:100%;grid-template-columns:1fr 1fr;}
+      .pr-table-tools .pr-muted{grid-column:1/-1;}
+      .pr-filter-select,
+      .pr-page-size-select{width:100%;}
+
+      .pr-table-wrap{
+        overflow-x:auto;
+        overflow-y:visible;
+        padding:0 14px 16px;
+        scroll-snap-type:x mandatory;
+        overscroll-behavior-x:contain;
+        -webkit-overflow-scrolling:touch;
+        scrollbar-width:thin;
+        scrollbar-color:rgba(0,168,89,.38) transparent;
       }
 
-      .pr-hero-content{
-        display:grid;
-        gap:16px;
-      }
+      .pr-table-wrap::-webkit-scrollbar{height:8px;}
+      .pr-table-wrap::-webkit-scrollbar-track{background:#F1F8F4;border-radius:999px;}
+      .pr-table-wrap::-webkit-scrollbar-thumb{background:rgba(0,168,89,.38);border-radius:999px;border:2px solid #F1F8F4;}
 
-      .pr-hero-pill{
+      .pr-table{
+        min-width:0;
         width:100%;
+        display:block;
+        border:0;
+        border-radius:0;
+        box-shadow:none;
+        background:transparent;
+        overflow:visible;
       }
 
-      .pr-kpis{
-        grid-template-columns:1fr;
-        gap:12px;
-      }
+      .pr-table thead{display:none;}
 
-      .pr-kpi{
-        min-height:96px;
-        border-radius:20px;
-      }
-
-      .pr-card{
-        border-radius:20px;
-      }
-
-      .pr-card-head{
-        padding:17px;
-      }
-
-      .pr-tools{
-        grid-template-columns:1fr;
-        padding:14px 16px 0;
-      }
-
-      .pr-reviews{
-        padding:16px;
-      }
-
-      .pr-review-top{
-        display:grid;
-      }
-
-      .pr-rating{
+      .pr-table tbody{
+        display:flex;
+        flex-wrap:nowrap;
+        gap:14px;
         width:max-content;
+        min-width:100%;
       }
+
+      .pr-table tbody tr{
+        width:min(88vw,420px);
+        min-width:min(88vw,420px);
+        max-width:min(88vw,420px);
+        flex:0 0 min(88vw,420px);
+        display:grid;
+        grid-template-columns:1fr;
+        gap:0;
+        border:1px solid var(--pr-line);
+        border-radius:22px;
+        background:#fff;
+        box-shadow:0 10px 28px rgba(17,64,38,.06);
+        overflow:hidden;
+        scroll-snap-align:start;
+      }
+
+      .pr-table tbody tr[hidden]{display:none!important;}
+
+      .pr-table th:nth-child(n),
+      .pr-table td:nth-child(n){
+        width:auto!important;
+        max-width:none!important;
+        min-width:0!important;
+        text-align:left!important;
+      }
+
+      .pr-table td{
+        width:100%!important;
+        display:grid;
+        grid-template-columns:108px minmax(0,1fr);
+        gap:10px;
+        align-items:start;
+        padding:12px;
+        border:0;
+        border-bottom:1px dashed var(--pr-line-2);
+        background:#fff!important;
+        color:var(--pr-body);
+        font-size:13px;
+        line-height:1.42;
+        word-break:normal;
+        overflow-wrap:anywhere;
+      }
+
+      .pr-table td::before{
+        color:var(--pr-green-dark);
+        font-size:10.2px;
+        line-height:1.25;
+        font-weight:950;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        white-space:normal;
+      }
+
+      .pr-table td:nth-child(1)::before{content:'Sl No';}
+      .pr-table td:nth-child(2)::before{content:'Product';}
+      .pr-table td:nth-child(3)::before{content:'Customer';}
+      .pr-table td:nth-child(4)::before{content:'Rating';}
+      .pr-table td:nth-child(5)::before{content:'Review';}
+      .pr-table td:nth-child(6)::before{content:'Date';}
+
+      .pr-table td:nth-child(1){
+        background:#F8FFFB!important;
+        justify-items:center;
+        text-align:center!important;
+        grid-template-columns:1fr;
+      }
+
+      .pr-table td:nth-child(6){border-bottom:0;}
+      .pr-slno-value{width:42px;height:42px;}
+      .pr-product-cell{grid-template-columns:58px minmax(0,1fr);}
+      .pr-product-img{width:58px;height:58px;}
+      .pr-products-empty,
+      .pr-pagination-box{margin-left:14px;margin-right:14px;}
     }
 
-    @media(max-width:430px){
-      .pr-hero{
-        padding:18px;
+    @media(max-width:640px){
+      .nf-store-product-reviews-page{
+        padding:10px;
+        padding-left:max(10px,env(safe-area-inset-left,0px));
+        padding-right:max(10px,env(safe-area-inset-right,0px));
       }
 
-      .pr-hero h2{
-        font-size:1.85rem;
+      .pr-hero{padding:16px;border-radius:20px;}
+      .pr-kicker{width:100%;}
+      .pr-title{font-size:clamp(24px,8vw,34px);}
+      .pr-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+      .pr-kpi{padding:11px;min-height:88px;}
+      .pr-kpi-icon{display:none;}
+      .pr-card-head{padding:14px;}
+      .pr-breakdown{padding:14px;}
+      .pr-table-toolbar{padding:12px;}
+      .pr-table-tools{grid-template-columns:1fr;}
+      .pr-table tbody tr{
+        width:min(88vw,380px);
+        min-width:min(88vw,380px);
+        max-width:min(88vw,380px);
+        flex-basis:min(88vw,380px);
       }
+      .pr-table td{grid-template-columns:104px minmax(0,1fr);padding:11px;}
+      .pr-product-cell{grid-template-columns:52px minmax(0,1fr);}
+      .pr-product-img{width:52px;height:52px;border-radius:14px;}
+      .pr-pagination-box{justify-content:center;text-align:center;}
+      .pr-page-info,.pr-page-controls{width:100%;justify-content:center;}
+    }
 
-      .pr-kpi{
-        padding:15px;
-      }
+    @media(max-width:380px){
+      .pr-kpis{grid-template-columns:1fr;}
+      .pr-kpi{min-height:auto;}
+      .pr-table tbody tr{width:86vw;min-width:86vw;max-width:86vw;flex-basis:86vw;}
+      .pr-table td{grid-template-columns:1fr;gap:6px;}
+      .pr-table td::before{margin-bottom:1px;}
+      .pr-product-cell{grid-template-columns:1fr;}
+    }
 
-      .pr-kpi-icon{
-        width:46px;
-        height:46px;
-        min-width:46px;
-        border-radius:16px;
-      }
+    @supports (-webkit-touch-callout:none){
+      .nf-store-product-reviews-page,
+      .pr-table-wrap{-webkit-font-smoothing:antialiased;}
+      .pr-table-wrap{-webkit-overflow-scrolling:touch;}
+    }
 
-      .pr-kpi b{
-        font-size:1.35rem;
-      }
+    @media(hover:none) and (pointer:coarse){
+      .pr-page-btn:hover{box-shadow:none;}
+    }
 
-      .pr-bar-row{
-        grid-template-columns:46px minmax(0,1fr) 30px;
-        gap:8px;
-      }
-
-      .pr-product{
-        grid-template-columns:46px minmax(0,1fr);
-      }
-
-      .pr-product-img{
-        width:46px;
-        height:46px;
-        border-radius:14px;
-      }
+    @media(prefers-reduced-motion:reduce){
+      .nf-store-product-reviews-page *,
+      .nf-store-product-reviews-page *::before,
+      .nf-store-product-reviews-page *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important;}
     }
   </style>
 
-  {% set total_reviews = product_review_metrics.get('total_reviews', 0) or 0 %}
-
-  <div class="pr-hero">
-    <div class="pr-hero-content">
+  <div class="pr-shell">
+    <section class="pr-hero">
       <div>
         <span class="pr-kicker">Product Feedback</span>
-        <h2>Product Reviews</h2>
-        <p>
-          Track real-time customer feedback submitted for products from {{ store.store_name or 'your store' }}.
-          Use ratings and comments to improve freshness, packaging, pricing and product quality.
-        </p>
+        <h1 class="pr-title">Product Reviews</h1>
+        <p class="pr-copy">Track customer ratings and comments for products from {{ store.store_name or 'your store' }}.</p>
       </div>
 
       <div class="pr-hero-pill">
-        ⭐ {{ '%.1f'|format(product_review_metrics.get('avg_rating', 0) or 0) }} Average Rating
+        ⭐ {{ '%.1f'|format(review_metrics.get('avg_rating', 0) or 0) }} Average Rating
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div class="pr-kpis">
-    <div class="pr-kpi orange">
-      <div class="pr-kpi-icon">⭐</div>
-      <div>
-        <small>Average Rating</small>
-        <b>{{ '%.1f'|format(product_review_metrics.get('avg_rating', 0) or 0) }}</b>
-      </div>
-    </div>
-
-    <div class="pr-kpi blue">
-      <div class="pr-kpi-icon">💬</div>
-      <div>
-        <small>Total Reviews</small>
-        <b>{{ product_review_metrics.get('total_reviews', 0) or 0 }}</b>
-      </div>
-    </div>
-
-    <div class="pr-kpi">
-      <div class="pr-kpi-icon">📦</div>
-      <div>
-        <small>Reviewed Products</small>
-        <b>{{ product_review_metrics.get('reviewed_products', 0) or 0 }}</b>
-      </div>
-    </div>
-
-    <div class="pr-kpi">
-      <div class="pr-kpi-icon">✅</div>
-      <div>
-        <small>Positive Reviews</small>
-        <b>{{ product_review_metrics.get('positive_reviews', 0) or 0 }}</b>
-      </div>
-    </div>
-
-    <div class="pr-kpi red">
-      <div class="pr-kpi-icon">⚠️</div>
-      <div>
-        <small>Low Reviews</small>
-        <b>{{ product_review_metrics.get('low_reviews', 0) or 0 }}</b>
-      </div>
-    </div>
-  </div>
-
-  <div class="pr-grid">
-    <aside class="pr-card">
-      <div class="pr-card-head">
-        <h3>Rating Breakdown</h3>
-        <p>Live distribution of product ratings received by this store.</p>
+    <section class="pr-kpis" aria-label="Product review summary">
+      <div class="pr-kpi orange">
+        <div>
+          <div class="pr-kpi-label">Average Rating</div>
+          <div class="pr-kpi-value">{{ '%.1f'|format(review_metrics.get('avg_rating', 0) or 0) }}</div>
+          <div class="pr-kpi-sub">Overall rating</div>
+        </div>
+        <div class="pr-kpi-icon">⭐</div>
       </div>
 
-      <div class="pr-breakdown">
-        {% for star in [5,4,3,2,1] %}
-          {% set count = rating_breakdown.get(star, 0) %}
-          {% set pct = (count / total_reviews * 100) if total_reviews else 0 %}
+      <div class="pr-kpi blue">
+        <div>
+          <div class="pr-kpi-label">Total Reviews</div>
+          <div class="pr-kpi-value">{{ review_metrics.get('total_reviews', 0) or 0 }}</div>
+          <div class="pr-kpi-sub">All received feedback</div>
+        </div>
+        <div class="pr-kpi-icon">💬</div>
+      </div>
 
-          <div class="pr-bar-row">
-            <span>{{ star }} ★</span>
-            <div class="pr-bar-track">
-              <div class="pr-bar-fill" style="width:{{ pct }}%;"></div>
-            </div>
-            <span>{{ count }}</span>
+      <div class="pr-kpi">
+        <div>
+          <div class="pr-kpi-label">Reviewed Products</div>
+          <div class="pr-kpi-value">{{ review_metrics.get('reviewed_products', 0) or 0 }}</div>
+          <div class="pr-kpi-sub">Products with reviews</div>
+        </div>
+        <div class="pr-kpi-icon">📦</div>
+      </div>
+
+      <div class="pr-kpi">
+        <div>
+          <div class="pr-kpi-label">Positive Reviews</div>
+          <div class="pr-kpi-value">{{ review_metrics.get('positive_reviews', 0) or 0 }}</div>
+          <div class="pr-kpi-sub">Higher rated feedback</div>
+        </div>
+        <div class="pr-kpi-icon">✅</div>
+      </div>
+
+      <div class="pr-kpi red">
+        <div>
+          <div class="pr-kpi-label">Low Reviews</div>
+          <div class="pr-kpi-value">{{ review_metrics.get('low_reviews', 0) or 0 }}</div>
+          <div class="pr-kpi-sub">Needs attention</div>
+        </div>
+        <div class="pr-kpi-icon">⚠️</div>
+      </div>
+    </section>
+
+    <section class="pr-main-grid">
+      <aside class="pr-card">
+        <div class="pr-card-head">
+          <div>
+            <h2 class="pr-card-title">Rating Breakdown</h2>
+            <p class="pr-card-sub">Distribution by star rating.</p>
           </div>
-        {% endfor %}
-      </div>
-    </aside>
+        </div>
 
-    <section class="pr-card">
-      <div class="pr-card-head">
-        <h3>Received Product Reviews</h3>
-        <p>Latest customer feedback submitted from public product detail pages.</p>
-      </div>
+        <div class="pr-breakdown">
+          {% for star in [5,4,3,2,1] %}
+            {% set count = rating_counts.get(star, 0) %}
+            {% set pct = (count / total_reviews * 100) if total_reviews else 0 %}
 
-      <div class="pr-tools">
-        <input
-          type="search"
-          class="pr-search"
-          id="prReviewSearch"
-          placeholder="Search product, customer, email, phone or review text..."
-        >
-
-        <select class="pr-select" id="prRatingFilter">
-          <option value="all">All ratings</option>
-          <option value="5">5 star</option>
-          <option value="4">4 star</option>
-          <option value="3">3 star</option>
-          <option value="2">2 star</option>
-          <option value="1">1 star</option>
-        </select>
-      </div>
-
-      <div class="pr-reviews" id="prReviewsList">
-        {% if reviews %}
-          {% for r in reviews %}
-            {% set rating_int = (r.rating or 0)|round(0, 'floor')|int %}
-
-            <article
-              class="pr-review"
-              data-rating="{{ rating_int }}"
-              data-search="{{ (r.product_name ~ ' ' ~ r.reviewer_name ~ ' ' ~ r.reviewer_email ~ ' ' ~ r.reviewer_phone ~ ' ' ~ r.review_text)|lower|e }}"
-            >
-              <div class="pr-review-top">
-                <div class="pr-product">
-                  <div class="pr-product-img">
-                    {% if r.product_image_path %}
-                      <img src="{{ '/' + r.product_image_path if r.product_image_path.startswith('uploads/') else url_for('static', filename=r.product_image_path) }}" alt="{{ r.product_name }}">
-                    {% else %}
-                      📦
-                    {% endif %}
-                  </div>
-
-                  <div>
-                    <h4>{{ r.product_name or 'Product' }}</h4>
-                    <div class="pr-review-meta">
-                      {{ r.reviewer_name or 'Customer' }}
-
-                      {% if r.reviewer_email %}
-                        · {{ r.reviewer_email }}
-                      {% endif %}
-
-                      {% if r.reviewer_phone %}
-                        · {{ r.reviewer_phone }}
-                      {% endif %}
-
-                      {% if r.created_at_display %}
-                        <br>{{ r.created_at_display }}
-                      {% endif %}
-                    </div>
-                  </div>
-                </div>
-
-                <span class="pr-rating">★ {{ '%.1f'|format(r.rating or 0) }}</span>
+            <div class="pr-bar-row">
+              <span>{{ star }} ★</span>
+              <div class="pr-bar-track">
+                <div class="pr-bar-fill" style="width:{{ pct }}%;"></div>
               </div>
-
-              {% if r.review_text %}
-                <p class="pr-review-text">{{ r.review_text }}</p>
-              {% else %}
-                <p class="pr-review-text">No written comment was added.</p>
-              {% endif %}
-            </article>
+              <span>{{ count }}</span>
+            </div>
           {% endfor %}
+        </div>
+      </aside>
+
+      <section class="pr-card">
+        <div class="pr-card-head">
+          <div>
+            <h2 class="pr-card-title">Received Product Reviews</h2>
+            <p class="pr-card-sub">Search, filter and review product feedback.</p>
+          </div>
+        </div>
+
+        {% if review_rows %}
+          <div class="pr-table-toolbar">
+            <div class="pr-search-wrap">
+              <input class="pr-search-input" type="search" data-pr-search placeholder="Search product, customer, phone or review...">
+            </div>
+            <div class="pr-table-tools">
+              <select class="pr-filter-select" data-pr-rating-filter aria-label="Filter reviews by rating">
+                <option value="all">All ratings</option>
+                <option value="5">5 star</option>
+                <option value="4">4 star</option>
+                <option value="3">3 star</option>
+                <option value="2">2 star</option>
+                <option value="1">1 star</option>
+              </select>
+              <select class="pr-page-size-select" data-pr-page-size aria-label="Reviews per page">
+                <option value="10">10 / page</option>
+                <option value="20">20 / page</option>
+                <option value="50">50 / page</option>
+                <option value="100">100 / page</option>
+              </select>
+              <span class="pr-muted" data-pr-meta>{{ total_reviews }} reviews</span>
+            </div>
+          </div>
+
+          <div class="pr-table-wrap">
+            <table class="pr-table" data-pr-table>
+              <thead>
+                <tr>
+                  <th>SL No</th>
+                  <th>Product</th>
+                  <th>Customer</th>
+                  <th>Rating</th>
+                  <th>Review</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {% for r in review_rows %}
+                  {% set rating_int = (r.rating or 0)|round(0, 'floor')|int %}
+                  <tr data-pr-row data-rating="{{ rating_int }}" data-search="{{ (r.product_name ~ ' ' ~ r.reviewer_name ~ ' ' ~ r.reviewer_email ~ ' ' ~ r.reviewer_phone ~ ' ' ~ r.review_text ~ ' ' ~ r.created_at_display ~ ' ' ~ rating_int|string)|lower|e }}">
+                    <td><span class="pr-slno-value" data-pr-row-number>{{ loop.index }}</span></td>
+
+                    <td>
+                      <div class="pr-product-cell">
+                        <div class="pr-product-img">
+                          {% if r.product_image_path %}
+                            <img src="{{ '/' + r.product_image_path if r.product_image_path.startswith('uploads/') else url_for('static', filename=r.product_image_path) }}" alt="{{ r.product_name }}">
+                          {% else %}
+                            📦
+                          {% endif %}
+                        </div>
+                        <div>
+                          <span class="pr-main">{{ r.product_name or 'Product' }}</span>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td>
+                      <span class="pr-main">{{ r.reviewer_name or 'Customer' }}</span>
+                      {% if r.reviewer_email %}<span class="pr-sub">{{ r.reviewer_email }}</span>{% endif %}
+                      {% if r.reviewer_phone %}<span class="pr-sub">{{ r.reviewer_phone }}</span>{% endif %}
+                    </td>
+
+                    <td>
+                      <span class="pr-rating-pill">★ {{ '%.1f'|format(r.rating or 0) }}</span>
+                    </td>
+
+                    <td>
+                      {% if r.review_text %}
+                        <p class="pr-review-text">{{ r.review_text }}</p>
+                      {% else %}
+                        <p class="pr-review-text">No written comment was added.</p>
+                      {% endif %}
+                    </td>
+
+                    <td>
+                      <span class="pr-main">{{ r.created_at_display or '-' }}</span>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pr-products-empty" data-pr-empty hidden>No matching product reviews found.</div>
+
+          <div class="pr-pagination-box" data-pr-pagination-box hidden>
+            <div class="pr-page-info" data-pr-page-info>Showing 0 reviews</div>
+            <div class="pr-page-controls">
+              <button type="button" class="pr-page-btn" data-pr-prev>Prev</button>
+              <div class="pr-page-numbers" data-pr-page-numbers></div>
+              <button type="button" class="pr-page-btn" data-pr-next>Next</button>
+            </div>
+          </div>
         {% else %}
           <div class="pr-empty">
-            <b>No product reviews yet.</b>
-            Once customers submit reviews from product detail pages, they will appear here.
+            <div>
+              <b>No product reviews yet.</b>
+              Customer reviews will appear here after submission.
+            </div>
           </div>
         {% endif %}
-
-        <div class="pr-empty" id="prNoFilteredReviews" hidden>
-          <b>No matching product reviews found.</b>
-          Try another search keyword or rating filter.
-        </div>
-      </div>
+      </section>
     </section>
   </div>
 
   <script>
     (function(){
-      const page = document.querySelector('.nf-store-product-reviews-page');
-      if(!page) return;
+      'use strict';
 
-      const searchInput = page.querySelector('#prReviewSearch');
-      const ratingFilter = page.querySelector('#prRatingFilter');
-      const reviews = Array.from(page.querySelectorAll('.pr-review'));
-      const emptyFiltered = page.querySelector('#prNoFilteredReviews');
+      document.addEventListener('DOMContentLoaded', function(){
+        const page = document.querySelector('.nf-store-product-reviews-page');
+        if (!page) return;
 
-      function normalize(value){
-        return String(value || '').trim().toLowerCase();
-      }
+        const table = page.querySelector('[data-pr-table]');
+        if (!table) return;
 
-      function applyReviewFilters(){
-        const q = normalize(searchInput ? searchInput.value : '');
-        const rating = ratingFilter ? ratingFilter.value : 'all';
-        let shown = 0;
+        const rows = Array.from(table.querySelectorAll('[data-pr-row]'));
+        const searchInput = page.querySelector('[data-pr-search]');
+        const ratingFilter = page.querySelector('[data-pr-rating-filter]');
+        const pageSizeSelect = page.querySelector('[data-pr-page-size]');
+        const meta = page.querySelector('[data-pr-meta]');
+        const emptyBox = page.querySelector('[data-pr-empty]');
+        const paginationBox = page.querySelector('[data-pr-pagination-box]');
+        const pageInfo = page.querySelector('[data-pr-page-info]');
+        const pageNumbers = page.querySelector('[data-pr-page-numbers]');
+        const prevBtn = page.querySelector('[data-pr-prev]');
+        const nextBtn = page.querySelector('[data-pr-next]');
 
-        reviews.forEach(function(card){
-          const text = normalize(card.getAttribute('data-search'));
-          const cardRating = String(card.getAttribute('data-rating') || '');
+        let pageNo = 1;
+        let pageSize = parseInt(pageSizeSelect ? pageSizeSelect.value : '10', 10) || 10;
+        let filteredRows = rows.slice();
 
-          const matchText = !q || text.indexOf(q) !== -1;
-          const matchRating = rating === 'all' || cardRating === rating;
-
-          const show = matchText && matchRating;
-          card.classList.toggle('is-hidden', !show);
-
-          if(show){
-            shown += 1;
-          }
-        });
-
-        if(emptyFiltered){
-          emptyFiltered.hidden = shown !== 0 || reviews.length === 0;
+        function getSearchText(row) {
+          return (row.dataset.search || row.textContent || '').toLowerCase();
         }
-      }
 
-      if(searchInput){
-        searchInput.addEventListener('input', applyReviewFilters);
-      }
+        function filterRows() {
+          const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+          const rating = ratingFilter ? ratingFilter.value : 'all';
 
-      if(ratingFilter){
-        ratingFilter.addEventListener('change', applyReviewFilters);
-      }
+          filteredRows = rows.filter(function(row){
+            const text = getSearchText(row);
+            const rowRating = row.dataset.rating || '';
+            const matchText = !q || text.indexOf(q) !== -1;
+            const matchRating = rating === 'all' || rowRating === rating;
+            return matchText && matchRating;
+          });
 
-      applyReviewFilters();
+          pageNo = 1;
+          render();
+        }
+
+        function buildPageButton(label, targetPage, isActive, disabled) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'pr-page-btn' + (isActive ? ' active' : '');
+          btn.textContent = label;
+          btn.disabled = !!disabled;
+
+          if (!disabled) {
+            btn.addEventListener('click', function(){
+              pageNo = targetPage;
+              render();
+            });
+          }
+
+          return btn;
+        }
+
+        function renderNumbers(totalPages) {
+          if (!pageNumbers) return;
+          pageNumbers.innerHTML = '';
+
+          if (totalPages <= 1) return;
+
+          const pages = [];
+          const start = Math.max(1, pageNo - 1);
+          const end = Math.min(totalPages, pageNo + 1);
+
+          if (start > 1) {
+            pages.push(1);
+            if (start > 2) pages.push('...');
+          }
+
+          for (let i = start; i <= end; i += 1) pages.push(i);
+
+          if (end < totalPages) {
+            if (end < totalPages - 1) pages.push('...');
+            pages.push(totalPages);
+          }
+
+          pages.forEach(function(item){
+            if (item === '...') {
+              pageNumbers.appendChild(buildPageButton('...', pageNo, false, true));
+            } else {
+              pageNumbers.appendChild(buildPageButton(String(item), item, item === pageNo, false));
+            }
+          });
+        }
+
+        function render() {
+          pageSize = parseInt(pageSizeSelect ? pageSizeSelect.value : String(pageSize), 10) || 10;
+          const total = filteredRows.length;
+          const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+          if (pageNo > totalPages) pageNo = totalPages;
+
+          const start = (pageNo - 1) * pageSize;
+          const end = start + pageSize;
+
+          rows.forEach(function(row){ row.hidden = true; });
+
+          filteredRows.slice(start, end).forEach(function(row){
+            row.hidden = false;
+          });
+
+          if (meta) meta.textContent = total + ' shown · ' + rows.length + ' total';
+          if (emptyBox) emptyBox.hidden = total !== 0;
+          if (paginationBox) paginationBox.hidden = rows.length === 0;
+
+          if (pageInfo) {
+            pageInfo.textContent = total === 0
+              ? 'Showing 0 reviews'
+              : 'Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' reviews';
+          }
+
+          if (prevBtn) {
+            prevBtn.disabled = pageNo <= 1;
+            prevBtn.onclick = function(){
+              if (pageNo > 1) {
+                pageNo -= 1;
+                render();
+              }
+            };
+          }
+
+          if (nextBtn) {
+            nextBtn.disabled = pageNo >= totalPages;
+            nextBtn.onclick = function(){
+              if (pageNo < totalPages) {
+                pageNo += 1;
+                render();
+              }
+            };
+          }
+
+          renderNumbers(totalPages);
+        }
+
+        if (searchInput) searchInput.addEventListener('input', filterRows);
+        if (ratingFilter) ratingFilter.addEventListener('change', filterRows);
+        if (pageSizeSelect) pageSizeSelect.addEventListener('change', function(){ pageNo = 1; render(); });
+
+        render();
+      });
     })();
   </script>
 </section>

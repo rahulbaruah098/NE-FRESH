@@ -1,9 +1,9 @@
 {% extends "store_base.html" %}
 {% set active_page = "notifications" %}
 
-{% block title %}Notifications | NE FRESH Store{% endblock %}
+{% block title %}Notifications | NE Locals Store{% endblock %}
 {% block page_title %}Notifications{% endblock %}
-{% block page_subtitle %}Track live order alerts, active notifications and notification history.{% endblock %}
+{% block page_subtitle %}Track active notifications and notification history.{% endblock %}
 
 {% block content %}
 {% set notifications = notifications if notifications is defined else [] %}
@@ -21,47 +21,64 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
     .nf-store-notifications{
-      --bg:#F8FFFB;
+      --bg:#F7FFFA;
       --card:#FFFFFF;
-      --soft:#F3FFF8;
-      --soft2:#F7FBF9;
-      --line:#DDECE4;
-      --line2:#EAF4EF;
-      --ink:#1F332A;
-      --text:#40534A;
-      --muted:#66756D;
-      --muted2:#8A9890;
+      --card2:#FBFFFD;
+      --soft:#F1FFF7;
+      --soft2:#F8FFFB;
+      --line:#D9EDE3;
+      --line2:#EDF6F1;
+      --ink:#10251B;
+      --text:#30443A;
+      --muted:#65766D;
+      --muted2:#85978E;
       --green:#00A859;
-      --green-dark:#008A48;
-      --green-deep:#075C3B;
+      --green-dark:#075C3B;
+      --green-deep:#06482F;
       --green-soft:#E9FFF3;
-      --orange:#FF8A1F;
-      --orange-soft:#FFF4EA;
-      --red:#EF4444;
+      --orange:#F59E0B;
+      --orange-soft:#FFF8E8;
+      --red:#DC2626;
       --red-soft:#FFF1F2;
       --blue:#0284C7;
       --blue-soft:#E0F2FE;
-      --shadow:0 14px 36px rgba(17,64,38,.08);
-      --shadow2:0 24px 70px rgba(17,64,38,.13);
+      --shadow:0 10px 28px rgba(17,64,38,.055);
+      --shadow2:0 18px 50px rgba(17,64,38,.085);
       --radius:24px;
       --ease:cubic-bezier(.2,.75,.25,1);
       width:100%;
       min-height:100%;
       background:
-        radial-gradient(circle at 10% 0%, rgba(0,168,89,.09), transparent 34%),
-        radial-gradient(circle at 95% 10%, rgba(255,138,31,.08), transparent 30%),
-        var(--bg);
+        radial-gradient(circle at 0% 0%, rgba(0,168,89,.055), transparent 34%),
+        linear-gradient(180deg,#F7FFFA 0%,#FFFFFF 44%,#F8FFFB 100%);
       color:var(--ink);
       font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
       overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      text-size-adjust:100%;
     }
 
     .nf-store-notifications,
-    .nf-store-notifications *{box-sizing:border-box;}
+    .nf-store-notifications *{
+      box-sizing:border-box;
+      min-width:0;
+      -webkit-tap-highlight-color:transparent;
+    }
 
-    .sn-shell{width:100%;max-width:1680px;margin:0 auto;padding:24px;}
-    .sn-stack{display:grid;gap:20px;}
-    .sn-card{
+    .sn-shell{
+      width:100%;
+      max-width:1760px;
+      margin:0 auto;
+      padding:clamp(12px,1.6vw,28px);
+      padding-left:max(clamp(12px,1.6vw,28px),env(safe-area-inset-left,0px));
+      padding-right:max(clamp(12px,1.6vw,28px),env(safe-area-inset-right,0px));
+    }
+
+    .sn-stack{display:grid;gap:clamp(14px,1.35vw,22px);}
+
+    .sn-hero,
+    .sn-card,
+    .sn-stat{
       background:rgba(255,255,255,.98);
       border:1px solid var(--line);
       border-radius:var(--radius);
@@ -71,41 +88,28 @@
 
     .sn-hero{
       display:grid;
-      grid-template-columns:minmax(0,1.15fr) minmax(340px,.85fr);
-      gap:20px;
+      grid-template-columns:minmax(0,1fr) minmax(300px,.42fr);
       align-items:stretch;
-      padding:24px;
+      gap:18px;
+      padding:clamp(18px,2vw,30px);
       border-radius:30px;
-      background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(243,255,248,.92));
-      border:1px solid var(--line);
+      background:
+        radial-gradient(circle at 100% 0%, rgba(0,168,89,.10), transparent 30%),
+        linear-gradient(135deg,#FFFFFF 0%,#F2FFF8 100%);
       box-shadow:var(--shadow2);
-      overflow:hidden;
-      position:relative;
     }
-
-    .sn-hero::after{
-      content:"";
-      position:absolute;
-      right:-120px;
-      top:-120px;
-      width:320px;
-      height:320px;
-      border-radius:999px;
-      background:rgba(0,168,89,.10);
-      pointer-events:none;
-    }
-
-    .sn-hero-main,.sn-hero-panel{position:relative;z-index:1;}
 
     .sn-kicker{
       display:inline-flex;
       align-items:center;
-      gap:8px;
+      justify-content:center;
+      width:max-content;
+      max-width:100%;
       min-height:30px;
       padding:0 12px;
       border-radius:999px;
       background:var(--green-soft);
-      border:1px solid rgba(0,168,89,.18);
+      border:1px solid rgba(0,168,89,.22);
       color:var(--green-dark);
       font-size:12px;
       font-weight:900;
@@ -114,50 +118,74 @@
     }
 
     .sn-title{
-      margin:14px 0 8px;
+      margin:14px 0 6px;
       color:var(--ink);
-      font-size:clamp(30px,4vw,54px);
-      line-height:1;
-      font-weight:900;
+      font-size:clamp(30px,3.4vw,50px);
+      line-height:1.02;
+      font-weight:950;
       letter-spacing:-.06em;
+      overflow-wrap:anywhere;
     }
 
     .sn-copy{
-      max-width:880px;
+      max-width:820px;
       margin:0;
       color:var(--muted);
-      font-size:15px;
-      font-weight:650;
-      line-height:1.65;
+      font-size:clamp(13.5px,1vw,15px);
+      font-weight:700;
+      line-height:1.55;
     }
 
-    .sn-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;}
+    .sn-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
 
-    .sn-btn{
-      min-height:44px;
+    .sn-btn,
+    .sn-mini-btn,
+    .sn-page-btn,
+    .sn-tab-btn{
+      min-height:42px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
       gap:8px;
-      padding:10px 15px;
-      border-radius:15px;
+      padding:10px 14px;
+      border-radius:14px;
       border:1px solid var(--line);
       background:#fff;
       color:var(--text);
       text-decoration:none;
+      font:inherit;
       font-size:13px;
       font-weight:900;
-      transition:.2s var(--ease);
+      line-height:1.2;
       cursor:pointer;
+      transition:.2s var(--ease);
       white-space:nowrap;
-      font-family:inherit;
+      touch-action:manipulation;
     }
 
-    .sn-btn-primary{
-      background:var(--green)!important;
+    .sn-btn:hover,
+    .sn-mini-btn:hover,
+    .sn-page-btn:hover:not(:disabled),
+    .sn-tab-btn:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.30);
+      color:var(--green-dark);
+      background:var(--soft);
+      box-shadow:0 12px 24px rgba(17,64,38,.09);
+    }
+
+    .sn-btn-primary,
+    .sn-tab-btn.is-active,
+    .sn-page-btn.active{
+      background:linear-gradient(135deg,var(--green),var(--green-dark))!important;
       border-color:var(--green)!important;
       color:#fff!important;
-      box-shadow:0 12px 24px rgba(0,168,89,.18);
+      box-shadow:0 12px 26px rgba(0,168,89,.16);
     }
 
     .sn-btn-danger{
@@ -166,23 +194,16 @@
       color:#B91C1C!important;
     }
 
-    .sn-btn:hover{
-      transform:translateY(-1px);
-      border-color:rgba(0,168,89,.30);
-      color:var(--green-dark);
-      box-shadow:0 12px 24px rgba(17,64,38,.09);
-    }
-
-    .sn-btn-primary:hover{color:#fff!important;}
-
     .sn-hero-panel{
       display:grid;
       gap:12px;
-      padding:18px;
-      border-radius:24px;
+      align-content:start;
+      padding:16px;
+      border-radius:22px;
       border:1px solid rgba(0,168,89,.16);
-      background:rgba(255,255,255,.76);
+      background:rgba(255,255,255,.78);
       backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
     }
 
     .sn-state{
@@ -190,7 +211,7 @@
       align-items:center;
       justify-content:space-between;
       gap:14px;
-      padding:16px;
+      padding:15px;
       border:1px solid var(--line2);
       border-radius:20px;
       background:#fff;
@@ -198,18 +219,18 @@
 
     .sn-state-left{display:flex;align-items:center;gap:12px;min-width:0;}
     .sn-state-icon{
-      width:48px;
-      height:48px;
-      border-radius:17px;
+      width:46px;
+      height:46px;
+      border-radius:16px;
       display:grid;
       place-items:center;
       background:var(--green-soft);
       color:var(--green-dark);
-      font-size:24px;
+      font-size:23px;
       flex:0 0 auto;
     }
 
-    .sn-state-title{font-size:14px;font-weight:900;color:var(--ink);}
+    .sn-state-title{font-size:14px;font-weight:950;color:var(--ink);line-height:1.2;}
     .sn-state-sub{margin-top:4px;font-size:12px;font-weight:750;color:var(--muted);line-height:1.35;}
 
     .sn-switch{
@@ -238,34 +259,30 @@
     .sn-switch.is-on span{transform:translateX(28px);}
 
     .sn-status-note{
-      padding:13px 14px;
-      border-radius:18px;
+      padding:12px 13px;
+      border-radius:17px;
       background:var(--green-soft);
       border:1px solid rgba(0,168,89,.16);
       color:var(--green-dark);
-      font-size:13px;
+      font-size:12.5px;
       font-weight:800;
-      line-height:1.45;
+      line-height:1.4;
     }
 
     .sn-stats{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:14px;
+      gap:clamp(12px,1.2vw,18px);
     }
 
     .sn-stat{
-      min-height:126px;
-      border-radius:22px;
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 10px 28px rgba(17,64,38,.06);
-      padding:18px;
+      min-height:112px;
+      padding:clamp(15px,1.25vw,20px);
       display:flex;
       align-items:flex-start;
       justify-content:space-between;
       gap:14px;
-      overflow:hidden;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FCFFFD 100%);
       position:relative;
     }
 
@@ -283,144 +300,295 @@
     .sn-stat.is-danger::before{background:var(--red);}
     .sn-stat.is-info::before{background:var(--blue);}
 
-    .sn-stat-label{color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;}
-    .sn-stat-value{margin-top:8px;color:var(--ink);font-size:clamp(28px,3vw,42px);line-height:1;font-weight:900;letter-spacing:-.045em;}
+    .sn-stat-label{color:var(--muted);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;line-height:1.25;}
+    .sn-stat-value{margin-top:8px;color:var(--ink);font-size:clamp(26px,3vw,38px);line-height:1;font-weight:950;letter-spacing:-.045em;}
     .sn-stat-meta{margin-top:8px;color:var(--muted2);font-size:12px;font-weight:800;line-height:1.35;}
-    .sn-stat-icon{width:48px;height:48px;border-radius:17px;display:grid;place-items:center;background:var(--green-soft);font-size:24px;flex:0 0 auto;}
+    .sn-stat-icon{width:46px;height:46px;border-radius:16px;display:grid;place-items:center;background:var(--green-soft);font-size:22px;flex:0 0 auto;}
 
-    .sn-grid{
+    .sn-tabs-card{
+      padding:12px;
+      border:1px solid var(--line);
+      border-radius:22px;
+      background:#fff;
+      box-shadow:var(--shadow);
       display:grid;
-      grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);
-      gap:20px;
-      align-items:start;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
     }
+
+    .sn-tab-btn{
+      min-height:48px;
+      border-radius:16px;
+      justify-content:center;
+      white-space:normal;
+    }
+
+    .sn-tab-panel[hidden]{display:none!important;}
 
     .sn-section-head{
       display:flex;
       align-items:flex-start;
       justify-content:space-between;
       gap:14px;
-      padding:20px 22px;
+      padding:clamp(16px,1.35vw,22px);
       border-bottom:1px solid var(--line2);
-      background:var(--soft2);
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
+      flex-wrap:wrap;
     }
 
-    .sn-section-title{margin:0;color:var(--ink);font-size:18px;font-weight:900;letter-spacing:-.03em;}
-    .sn-section-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:650;line-height:1.45;}
+    .sn-section-title{margin:0;color:var(--ink);font-size:19px;font-weight:950;letter-spacing:-.035em;line-height:1.2;}
+    .sn-section-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:700;line-height:1.42;}
     .sn-section-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-    .sn-body{padding:20px;}
 
-    .sn-alert-list{display:grid;gap:12px;}
-    .sn-alert{
+    .sn-tools{
       display:grid;
-      grid-template-columns:auto minmax(0,1fr) auto;
+      grid-template-columns:minmax(250px,1fr) auto;
+      align-items:center;
       gap:12px;
-      align-items:start;
-      padding:15px;
-      border-radius:20px;
-      border:1px solid var(--line2);
+      padding:clamp(14px,1.2vw,18px) clamp(14px,1.35vw,22px);
       background:#fff;
-      box-shadow:0 8px 24px rgba(17,64,38,.045);
-      transition:.2s var(--ease);
+      border-bottom:1px solid var(--line2);
     }
 
-    .sn-alert:hover{transform:translateY(-1px);box-shadow:var(--shadow);}
-    .sn-alert.unread{border-color:rgba(0,168,89,.28);background:linear-gradient(135deg,#fff,var(--green-soft));}
-    .sn-alert.active{border-color:rgba(2,132,199,.24);background:linear-gradient(135deg,#fff,var(--blue-soft));}
+    .sn-search-wrap{
+      width:100%;
+      max-width:560px;
+      position:relative;
+    }
 
-    .sn-alert-icon{
-      width:44px;
+    .sn-search-wrap::before{
+      content:'⌕';
+      position:absolute;
+      left:14px;
+      top:50%;
+      transform:translateY(-50%);
+      color:var(--muted2);
+      font-weight:950;
+      pointer-events:none;
+    }
+
+    .sn-search,
+    .sn-select{
+      width:100%;
+      min-height:44px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--ink);
+      outline:none;
+      font:inherit;
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .sn-search{padding:0 12px 0 40px;}
+
+    .sn-select{
       height:44px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      background:var(--green-soft);
-      color:var(--green-dark);
-      font-size:22px;
+      min-width:132px;
+      padding:0 34px 0 12px;
+      appearance:none;
+      -webkit-appearance:none;
+      background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6z" fill="%23075C3B"/></svg>');
+      background-repeat:no-repeat;
+      background-position:right 11px center;
     }
 
-    .sn-alert-title{font-size:14px;font-weight:900;color:var(--ink);line-height:1.25;}
-    .sn-alert-message{margin-top:5px;font-size:13px;font-weight:700;color:var(--muted);line-height:1.45;}
-    .sn-alert-meta{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted2);font-size:11px;font-weight:850;}
+    .sn-search:focus,
+    .sn-select:focus{
+      border-color:rgba(0,168,89,.42);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .sn-table-tools{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .sn-muted{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:800;
+      overflow-wrap:anywhere;
+    }
+
+    .sn-table-wrap{
+      width:100%;
+      padding:0 clamp(10px,1.05vw,18px) clamp(16px,1.35vw,22px);
+      overflow-x:hidden;
+      overflow-y:visible;
+    }
+
+    .sn-table{
+      width:100%;
+      min-width:0;
+      max-width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      table-layout:fixed;
+      border:1px solid var(--line);
+      border-radius:18px;
+      overflow:hidden;
+      background:#fff;
+      box-shadow:0 8px 22px rgba(17,64,38,.035);
+    }
+
+    .sn-table thead{background:linear-gradient(135deg,#075C3B,#06482F);color:#fff;}
+
+    .sn-table th,
+    .sn-table td{
+      padding:clamp(9px,.78vw,13px);
+      text-align:left;
+      vertical-align:top;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+      white-space:normal;
+    }
+
+    .sn-table th{
+      font-size:clamp(9px,.72vw,11px);
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.045em;
+      line-height:1.25;
+    }
+
+    .sn-table td{
+      border-bottom:1px solid var(--line2);
+      color:var(--text);
+      font-size:clamp(11px,.82vw,13px);
+      font-weight:750;
+      line-height:1.35;
+      background:#fff;
+    }
+
+    .sn-table tbody tr:nth-child(even) td{background:#FCFFFD;}
+    .sn-table tbody tr:last-child td{border-bottom:0;}
+    .sn-table tbody tr[hidden]{display:none!important;}
+
+    .sn-table.is-active-table th:nth-child(1),
+    .sn-table.is-active-table td:nth-child(1){width:7%;text-align:center;}
+    .sn-table.is-active-table th:nth-child(2),
+    .sn-table.is-active-table td:nth-child(2){width:43%;}
+    .sn-table.is-active-table th:nth-child(3),
+    .sn-table.is-active-table td:nth-child(3){width:17%;}
+    .sn-table.is-active-table th:nth-child(4),
+    .sn-table.is-active-table td:nth-child(4){width:19%;}
+    .sn-table.is-active-table th:nth-child(5),
+    .sn-table.is-active-table td:nth-child(5){width:14%;}
+
+    .sn-table.is-history-table th:nth-child(1),
+    .sn-table.is-history-table td:nth-child(1){width:6%;text-align:center;}
+    .sn-table.is-history-table th:nth-child(2),
+    .sn-table.is-history-table td:nth-child(2){width:36%;}
+    .sn-table.is-history-table th:nth-child(3),
+    .sn-table.is-history-table td:nth-child(3){width:15%;}
+    .sn-table.is-history-table th:nth-child(4),
+    .sn-table.is-history-table td:nth-child(4){width:13%;}
+    .sn-table.is-history-table th:nth-child(5),
+    .sn-table.is-history-table td:nth-child(5){width:18%;}
+    .sn-table.is-history-table th:nth-child(6),
+    .sn-table.is-history-table td:nth-child(6){width:12%;}
+
+    .sn-slno-value{
+      width:clamp(30px,2.4vw,38px);
+      height:clamp(30px,2.4vw,38px);
+      display:inline-grid;
+      place-items:center;
+      border-radius:999px;
+      background:var(--green-soft);
+      border:1px solid rgba(0,168,89,.20);
+      color:var(--green-dark);
+      font-size:clamp(11px,.8vw,14px);
+      font-weight:950;
+    }
+
+    .sn-main{display:block;color:var(--ink);font-weight:950;line-height:1.28;}
+    .sn-sub{display:block;margin-top:4px;color:var(--muted);font-size:clamp(10px,.72vw,11.5px);font-weight:750;line-height:1.34;}
+
     .sn-pill{
       display:inline-flex;
       align-items:center;
       justify-content:center;
       min-height:26px;
-      padding:0 10px;
+      padding:5px 10px;
       border-radius:999px;
       background:var(--green-soft);
       color:var(--green-dark);
-      border:1px solid rgba(0,168,89,.16);
-      font-size:11px;
-      font-weight:900;
-      white-space:nowrap;
+      border:1px solid rgba(0,168,89,.18);
+      font-size:clamp(9.5px,.72vw,11px);
+      font-weight:950;
+      line-height:1.15;
+      text-align:center;
+      max-width:100%;
     }
 
-    .sn-pill.warn{background:var(--orange-soft);color:#C2410C;border-color:#FED7AA;}
-    .sn-pill.blue{background:var(--blue-soft);color:var(--blue);border-color:#BAE6FD;}
+    .sn-pill.warn{background:var(--orange-soft);color:#9A5A00;border-color:#FDE7B2;}
+    .sn-pill.blue{background:var(--blue-soft);color:#075985;border-color:#BAE6FD;}
     .sn-pill.red{background:var(--red-soft);color:#B91C1C;border-color:#FECACA;}
-    .sn-inline-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
 
     .sn-mini-btn{
-      min-height:34px;
-      border:1px solid var(--line);
-      background:#fff;
-      color:var(--text);
-      border-radius:12px;
-      padding:7px 10px;
+      min-height:36px;
+      padding:8px 10px;
       font-size:12px;
-      font-weight:900;
-      cursor:pointer;
-      white-space:nowrap;
+      white-space:normal;
+      text-align:center;
     }
 
-    .sn-mini-btn:hover{border-color:rgba(0,168,89,.30);color:var(--green-dark);}
-
-    .sn-tools{
+    .sn-inline-actions{
       display:flex;
       align-items:center;
-      gap:10px;
-      padding:16px 20px;
-      border-bottom:1px solid var(--line2);
-      background:#fff;
+      gap:8px;
       flex-wrap:wrap;
     }
 
-    .sn-search{
-      width:min(440px,100%);
-      height:44px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:#fff;
-      color:var(--ink);
-      padding:0 13px;
-      outline:none;
-      font-weight:750;
-    }
-
-    .sn-select{
-      height:44px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:#fff;
-      color:var(--ink);
-      padding:0 13px;
-      outline:none;
-      font-weight:850;
-    }
-
     .sn-empty{
-      padding:22px;
-      border:1px dashed var(--line);
-      border-radius:20px;
-      background:var(--soft2);
-      color:var(--muted);
+      margin:0 clamp(14px,1.35vw,22px) 18px;
+      padding:24px 16px;
+      border:1px dashed rgba(0,168,89,.28);
+      border-radius:18px;
+      background:#fff;
       text-align:center;
-      font-size:14px;
+      color:var(--muted);
+      font-size:13px;
       font-weight:800;
-      line-height:1.55;
+      line-height:1.45;
     }
+
+    .sn-empty[hidden]{display:none!important;}
+
+    .sn-pagination-box{
+      margin:0 clamp(14px,1.35vw,22px) clamp(16px,1.35vw,22px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:#fff;
+      padding:12px 14px;
+      box-shadow:0 10px 26px rgba(17,64,38,.045);
+    }
+
+    .sn-pagination-box[hidden]{display:none!important;}
+
+    .sn-page-info{color:var(--muted);font-size:13px;font-weight:850;}
+
+    .sn-page-controls,
+    .sn-page-numbers{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:7px;
+      flex-wrap:wrap;
+    }
+
+    .sn-page-btn{min-width:38px;min-height:38px;padding:0 10px;font-size:12px;}
+    .sn-page-btn:disabled{opacity:.45;cursor:not-allowed;}
 
     .sn-toast-wrap{
       position:fixed;
@@ -456,44 +624,212 @@
 
     .sn-audio{display:none;}
 
-    @media(max-width:1300px){
-      .sn-grid,.sn-hero{grid-template-columns:1fr;}
+    @media(max-width:1180px){
+      .sn-hero{grid-template-columns:1fr;}
       .sn-stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .sn-actions{justify-content:flex-start;}
     }
 
-    @media(max-width:760px){
-      .sn-shell{padding:14px;}
-      .sn-hero{padding:18px;border-radius:22px;}
-      .sn-actions .sn-btn,.sn-section-actions .sn-btn{width:100%;}
-      .sn-stats{grid-template-columns:1fr;}
-      .sn-section-head{padding:16px;flex-direction:column;}
-      .sn-body{padding:16px;}
-      .sn-tools{padding:14px;align-items:stretch;}
-      .sn-search,.sn-select{width:100%;}
-      .sn-alert{grid-template-columns:auto minmax(0,1fr);gap:10px;}
-      .sn-inline-actions{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:flex-start;flex-wrap:wrap;}
-      .sn-mini-btn{flex:1;}
+    @media(max-width:920px){
+      .sn-shell{
+        padding:14px;
+        padding-left:max(14px,env(safe-area-inset-left,0px));
+        padding-right:max(14px,env(safe-area-inset-right,0px));
+      }
+
+      .sn-hero{border-radius:22px;padding:18px;}
+      .sn-copy,
+      .sn-stat-meta,
+      .sn-section-sub{display:none;}
+      .sn-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;}
+      .sn-actions .sn-btn{width:100%;}
+      .sn-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+      .sn-stat{min-height:96px;padding:13px;border-radius:18px;}
+      .sn-stat-icon{width:38px;height:38px;border-radius:14px;font-size:18px;}
+      .sn-stat-label{font-size:9.8px;letter-spacing:.045em;}
+      .sn-stat-value{font-size:clamp(22px,6vw,30px);}
+
+      .sn-tools{grid-template-columns:1fr;padding:14px;}
+      .sn-search-wrap{max-width:100%;}
+      .sn-table-tools{display:grid;width:100%;grid-template-columns:1fr 1fr;}
+      .sn-table-tools .sn-muted{grid-column:1/-1;}
+      .sn-select{width:100%;}
+      .sn-section-head{padding:14px;}
+
+      .sn-table-wrap{
+        overflow-x:auto;
+        overflow-y:visible;
+        padding:0 14px 16px;
+        scroll-snap-type:x mandatory;
+        overscroll-behavior-x:contain;
+        -webkit-overflow-scrolling:touch;
+        scrollbar-width:thin;
+        scrollbar-color:rgba(0,168,89,.38) transparent;
+      }
+
+      .sn-table-wrap::-webkit-scrollbar{height:8px;}
+      .sn-table-wrap::-webkit-scrollbar-track{background:#F1F8F4;border-radius:999px;}
+      .sn-table-wrap::-webkit-scrollbar-thumb{background:rgba(0,168,89,.38);border-radius:999px;border:2px solid #F1F8F4;}
+
+      .sn-table{
+        min-width:0;
+        width:100%;
+        display:block;
+        border:0;
+        border-radius:0;
+        box-shadow:none;
+        background:transparent;
+        overflow:visible;
+      }
+
+      .sn-table thead{display:none;}
+
+      .sn-table tbody{
+        display:flex;
+        flex-wrap:nowrap;
+        gap:14px;
+        width:max-content;
+        min-width:100%;
+      }
+
+      .sn-table tbody tr{
+        width:min(88vw,420px);
+        min-width:min(88vw,420px);
+        max-width:min(88vw,420px);
+        flex:0 0 min(88vw,420px);
+        display:grid;
+        grid-template-columns:1fr;
+        gap:0;
+        border:1px solid var(--line);
+        border-radius:22px;
+        background:#fff;
+        box-shadow:0 10px 28px rgba(17,64,38,.06);
+        overflow:hidden;
+        scroll-snap-align:start;
+      }
+
+      .sn-table tbody tr[hidden]{display:none!important;}
+
+      .sn-table th,
+      .sn-table td{
+        width:100%!important;
+        max-width:100%!important;
+        min-width:0!important;
+      }
+
+      .sn-table td{
+        display:grid;
+        grid-template-columns:104px minmax(0,1fr);
+        gap:10px;
+        align-items:start;
+        padding:12px;
+        border:0;
+        border-bottom:1px dashed var(--line2);
+        background:#fff!important;
+        color:var(--text);
+        font-size:13px;
+        line-height:1.42;
+        word-break:normal;
+        overflow-wrap:anywhere;
+      }
+
+      .sn-table td::before{
+        color:var(--green-dark);
+        font-size:10.2px;
+        line-height:1.25;
+        font-weight:950;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        white-space:normal;
+      }
+
+      .sn-table.is-active-table td:nth-child(1)::before{content:'Sl No';}
+      .sn-table.is-active-table td:nth-child(2)::before{content:'Notification';}
+      .sn-table.is-active-table td:nth-child(3)::before{content:'Type';}
+      .sn-table.is-active-table td:nth-child(4)::before{content:'Created';}
+      .sn-table.is-active-table td:nth-child(5)::before{content:'Action';}
+
+      .sn-table.is-history-table td:nth-child(1)::before{content:'Sl No';}
+      .sn-table.is-history-table td:nth-child(2)::before{content:'Notification';}
+      .sn-table.is-history-table td:nth-child(3)::before{content:'Type';}
+      .sn-table.is-history-table td:nth-child(4)::before{content:'Status';}
+      .sn-table.is-history-table td:nth-child(5)::before{content:'Created';}
+      .sn-table.is-history-table td:nth-child(6)::before{content:'Action';}
+
+      .sn-table td:nth-child(1){background:#F8FFFB!important;justify-items:center;text-align:center;grid-template-columns:1fr;}
+      .sn-table td:last-child{border-bottom:0;background:#FBFFFD!important;}
+      .sn-slno-value{width:42px;height:42px;}
+      .sn-inline-actions{width:100%;display:grid;grid-template-columns:1fr;gap:8px;}
+      .sn-inline-actions .sn-mini-btn{width:100%;}
+      .sn-empty,
+      .sn-pagination-box{margin-left:14px;margin-right:14px;}
+    }
+
+    @media(max-width:640px){
+      .sn-shell{
+        padding:10px;
+        padding-left:max(10px,env(safe-area-inset-left,0px));
+        padding-right:max(10px,env(safe-area-inset-right,0px));
+      }
+
+      .sn-hero{padding:16px;border-radius:20px;}
+      .sn-kicker{width:100%;}
+      .sn-title{font-size:clamp(24px,8vw,34px);}
+      .sn-actions{grid-template-columns:1fr;}
+      .sn-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+      .sn-stat{padding:11px;min-height:88px;}
+      .sn-stat-icon{display:none;}
+      .sn-tabs-card{grid-template-columns:1fr;padding:10px;}
+      .sn-table-tools{grid-template-columns:1fr;}
+      .sn-table tbody tr{
+        width:min(88vw,380px);
+        min-width:min(88vw,380px);
+        max-width:min(88vw,380px);
+        flex-basis:min(88vw,380px);
+      }
+      .sn-table td{grid-template-columns:96px minmax(0,1fr);padding:11px;}
+      .sn-pagination-box{justify-content:center;text-align:center;}
+      .sn-page-info,.sn-page-controls{width:100%;justify-content:center;}
       .sn-toast-wrap{top:12px;right:12px;left:12px;}
       .sn-toast{min-width:0;width:100%;}
+    }
+
+    @media(max-width:380px){
+      .sn-stats{grid-template-columns:1fr;}
+      .sn-stat{min-height:auto;}
+      .sn-table tbody tr{width:86vw;min-width:86vw;max-width:86vw;flex-basis:86vw;}
+      .sn-table td{grid-template-columns:1fr;gap:6px;}
+      .sn-table td::before{margin-bottom:1px;}
+    }
+
+    @supports (-webkit-touch-callout:none){
+      .nf-store-notifications,
+      .sn-shell,
+      .sn-table-wrap{-webkit-font-smoothing:antialiased;}
+      .sn-table-wrap{-webkit-overflow-scrolling:touch;}
+    }
+
+    @media(hover:none) and (pointer:coarse){
+      .sn-btn:hover,.sn-mini-btn:hover,.sn-tab-btn:hover,.sn-stat:hover{transform:none;box-shadow:var(--shadow);}
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      .nf-store-notifications *,
+      .nf-store-notifications *::before,
+      .nf-store-notifications *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important;}
     }
   </style>
 
   <div class="sn-shell">
     <div class="sn-stack">
-
       <section class="sn-hero">
-        <div class="sn-hero-main">
+        <div>
           <span class="sn-kicker">🔔 Store Notification Center</span>
           <h1 class="sn-title">Notifications</h1>
-          <p class="sn-copy">
-            View live order alerts, active notifications and full notification history for this store.
-            Enable alerts here to receive sound alerts and browser notifications for new orders.
-          </p>
+          <p class="sn-copy">Track active alerts and notification history from one clean workspace.</p>
 
           <div class="sn-actions">
-            <button class="sn-btn sn-btn-primary" type="button" id="snToggleAlerts">
-              🔔 Enable Notifications
-            </button>
+            <button class="sn-btn sn-btn-primary" type="button" id="snToggleAlerts">🔔 Enable Notifications</button>
             <button class="sn-btn" type="button" id="snTestSound">Test Sound</button>
             <a class="sn-btn" href="{{ url_for('store_orders') }}">Open Orders</a>
             <button class="sn-btn" type="button" id="snMarkAllRead">Mark All Read</button>
@@ -512,9 +848,7 @@
             <button class="sn-switch" type="button" id="snSwitch" aria-label="Toggle notifications"><span></span></button>
           </div>
 
-          <div class="sn-status-note" id="snPermissionNote">
-            Browser permission will be requested when you enable notifications.
-          </div>
+          <div class="sn-status-note" id="snPermissionNote">Browser permission will be requested when you enable notifications.</div>
         </aside>
       </section>
 
@@ -523,7 +857,7 @@
           <div>
             <div class="sn-stat-label">Active Alerts</div>
             <div class="sn-stat-value" id="snActiveCount">{{ active_total }}</div>
-            <div class="sn-stat-meta">Open orders needing attention</div>
+            <div class="sn-stat-meta">Open items</div>
           </div>
           <div class="sn-stat-icon">⚡</div>
         </div>
@@ -532,7 +866,7 @@
           <div>
             <div class="sn-stat-label">Unread</div>
             <div class="sn-stat-value" id="snUnreadCount">{{ unread_total }}</div>
-            <div class="sn-stat-meta">Notifications not marked as read</div>
+            <div class="sn-stat-meta">Not marked read</div>
           </div>
           <div class="sn-stat-icon">●</div>
         </div>
@@ -541,7 +875,7 @@
           <div>
             <div class="sn-stat-label">Today</div>
             <div class="sn-stat-value" id="snTodayCount">{{ today_total }}</div>
-            <div class="sn-stat-meta">Notifications generated today</div>
+            <div class="sn-stat-meta">Generated today</div>
           </div>
           <div class="sn-stat-icon">📅</div>
         </div>
@@ -550,113 +884,194 @@
           <div>
             <div class="sn-stat-label">History</div>
             <div class="sn-stat-value" id="snHistoryCount">{{ history_total }}</div>
-            <div class="sn-stat-meta">Stored notification records</div>
+            <div class="sn-stat-meta">Stored records</div>
           </div>
           <div class="sn-stat-icon">🧾</div>
         </div>
       </section>
 
-      <section class="sn-grid">
-        <div class="sn-card">
-          <div class="sn-section-head">
-            <div>
-              <h2 class="sn-section-title">Active Notifications</h2>
-              <p class="sn-section-sub">Current orders that still need store action.</p>
-            </div>
-            <div class="sn-section-actions">
-              <a class="sn-btn" href="{{ url_for('store_orders') }}">Manage Orders</a>
-            </div>
-          </div>
+      <section class="sn-tabs-card" aria-label="Notification sections">
+        <button class="sn-tab-btn is-active" type="button" data-sn-tab="active" id="snActiveTab">Active Notifications · {{ active_total }}</button>
+        <button class="sn-tab-btn" type="button" data-sn-tab="history" id="snHistoryTab">Notification History · {{ history_total }}</button>
+      </section>
 
-          <div class="sn-body">
-            <div class="sn-alert-list" id="snActiveList">
-              {% if active_notifications %}
-                {% for n in active_notifications %}
-                  <div class="sn-alert active" data-search="{{ (n.title ~ ' ' ~ n.message ~ ' ' ~ n.type)|lower }}">
-                    <div class="sn-alert-icon">⚡</div>
-                    <div>
-                      <div class="sn-alert-title">{{ n.title }}</div>
-                      <div class="sn-alert-message">{{ n.message }}</div>
-                      <div class="sn-alert-meta">
-                        <span class="sn-pill blue">{{ n.type|default('ACTIVE') }}</span>
-                        <span>{{ n.created_at|default('') }}</span>
-                      </div>
-                    </div>
-                    <div class="sn-inline-actions">
-                      {% if n.order_id %}
-                        <a class="sn-mini-btn" href="{{ url_for('store_orders') }}">Open Orders</a>
-                      {% endif %}
-                    </div>
-                  </div>
-                {% endfor %}
-              {% else %}
-                <div class="sn-empty" id="snActiveEmpty">No active notifications right now.</div>
-              {% endif %}
-            </div>
+      <section class="sn-card sn-tab-panel" id="snActivePanel" data-sn-panel="active">
+        <div class="sn-section-head">
+          <div>
+            <h2 class="sn-section-title">Active Notifications</h2>
+            <p class="sn-section-sub">Current notifications that still need store attention.</p>
+          </div>
+          <div class="sn-section-actions">
+            <a class="sn-btn" href="{{ url_for('store_orders') }}">Manage Orders</a>
           </div>
         </div>
 
-        <div class="sn-card">
-          <div class="sn-section-head">
-            <div>
-              <h2 class="sn-section-title">Notification History</h2>
-              <p class="sn-section-sub">Stored notification records for this store.</p>
-            </div>
-            <div class="sn-section-actions">
-              <button class="sn-btn" type="button" id="snRefresh">Refresh</button>
-            </div>
+        <div class="sn-tools">
+          <div class="sn-search-wrap">
+            <input class="sn-search" id="snActiveSearch" type="search" placeholder="Search active notifications...">
           </div>
+          <div class="sn-table-tools">
+            <select class="sn-select" id="snActivePageSize" aria-label="Active notifications per page">
+              <option value="10">10 / page</option>
+              <option value="20">20 / page</option>
+              <option value="50">50 / page</option>
+              <option value="100">100 / page</option>
+            </select>
+            <span class="sn-muted" id="snActiveMeta">{{ active_total }} active</span>
+          </div>
+        </div>
 
-          <div class="sn-tools">
+        <div class="sn-table-wrap">
+          <table class="sn-table is-active-table" id="snActiveTable">
+            <thead>
+              <tr>
+                <th>SL No</th>
+                <th>Notification</th>
+                <th>Type</th>
+                <th>Created</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="snActiveList">
+              {% if active_notifications %}
+                {% for n in active_notifications %}
+                  <tr class="sn-row sn-active-row" data-sn-active-row data-search="{{ (n.title ~ ' ' ~ n.message ~ ' ' ~ n.type ~ ' ' ~ n.created_at)|lower }}">
+                    <td><span class="sn-slno-value" data-row-number>{{ loop.index }}</span></td>
+                    <td>
+                      <span class="sn-main">{{ n.title }}</span>
+                      <span class="sn-sub">{{ n.message }}</span>
+                    </td>
+                    <td><span class="sn-pill blue">{{ n.type|default('ACTIVE') }}</span></td>
+                    <td><span class="sn-main">{{ n.created_at|default('-') }}</span></td>
+                    <td>
+                      <div class="sn-inline-actions">
+                        {% if n.order_id %}
+                          <a class="sn-mini-btn" href="{{ url_for('store_orders') }}">Open Orders</a>
+                        {% else %}
+                          <span class="sn-sub">No action</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="sn-empty" id="snActiveEmpty" {% if active_notifications %}hidden{% endif %}>No active notifications right now.</div>
+
+        <div class="sn-pagination-box" id="snActivePagination" hidden>
+          <div class="sn-page-info" id="snActivePageInfo">Showing 0 active notifications</div>
+          <div class="sn-page-controls">
+            <button type="button" class="sn-page-btn" id="snActivePrev">Prev</button>
+            <div class="sn-page-numbers" id="snActivePageNumbers"></div>
+            <button type="button" class="sn-page-btn" id="snActiveNext">Next</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="sn-card sn-tab-panel" id="snHistoryPanel" data-sn-panel="history" hidden>
+        <div class="sn-section-head">
+          <div>
+            <h2 class="sn-section-title">Notification History</h2>
+            <p class="sn-section-sub">Stored notification records for this store.</p>
+          </div>
+          <div class="sn-section-actions">
+            <button class="sn-btn" type="button" id="snRefresh">Refresh</button>
+          </div>
+        </div>
+
+        <div class="sn-tools">
+          <div class="sn-search-wrap">
             <input class="sn-search" id="snSearch" type="search" placeholder="Search notifications, orders, customer, status...">
-            <select class="sn-select" id="snFilter">
+          </div>
+          <div class="sn-table-tools">
+            <select class="sn-select" id="snFilter" aria-label="Notification filter">
               <option value="all">All notifications</option>
               <option value="unread">Unread only</option>
               <option value="new_order">New orders</option>
               <option value="status">Status updates</option>
               <option value="system">System</option>
             </select>
+            <select class="sn-select" id="snHistoryPageSize" aria-label="History notifications per page">
+              <option value="10">10 / page</option>
+              <option value="20">20 / page</option>
+              <option value="50">50 / page</option>
+              <option value="100">100 / page</option>
+            </select>
+            <span class="sn-muted" id="snHistoryMeta">{{ history_total }} history</span>
           </div>
+        </div>
 
-          <div class="sn-body">
-            <div class="sn-alert-list" id="snHistoryList">
+        <div class="sn-table-wrap">
+          <table class="sn-table is-history-table" id="snHistoryTable">
+            <thead>
+              <tr>
+                <th>SL No</th>
+                <th>Notification</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="snHistoryList">
               {% if notifications %}
                 {% for n in notifications %}
-                  <div class="sn-alert {{ 'unread' if not n.is_read else '' }}"
-                       data-notification-id="{{ n.id }}"
-                       data-type="{{ n.type|default('system') }}"
-                       data-read="{{ 1 if n.is_read else 0 }}"
-                       data-search="{{ (n.title ~ ' ' ~ n.message ~ ' ' ~ n.type ~ ' ' ~ n.status)|lower }}">
-                    <div class="sn-alert-icon">
-                      {% if n.type == 'new_order' %}🧾{% elif n.type == 'status' %}🔁{% elif n.type == 'system' %}⚙️{% else %}🔔{% endif %}
-                    </div>
-                    <div>
-                      <div class="sn-alert-title">{{ n.title }}</div>
-                      <div class="sn-alert-message">{{ n.message }}</div>
-                      <div class="sn-alert-meta">
-                        <span class="sn-pill {% if n.type == 'new_order' %}blue{% elif n.type == 'status' %}warn{% endif %}">{{ n.type|default('system')|replace('_',' ')|title }}</span>
-                        {% if not n.is_read %}<span class="sn-pill">Unread</span>{% endif %}
-                        <span>{{ n.created_at|default('') }}</span>
-                      </div>
-                    </div>
-                    <div class="sn-inline-actions">
+                  <tr class="sn-row sn-history-row {{ 'unread' if not n.is_read else '' }}"
+                      data-sn-history-row
+                      data-notification-id="{{ n.id }}"
+                      data-type="{{ n.type|default('system') }}"
+                      data-read="{{ 1 if n.is_read else 0 }}"
+                      data-search="{{ (n.title ~ ' ' ~ n.message ~ ' ' ~ n.type ~ ' ' ~ n.status ~ ' ' ~ n.created_at)|lower }}">
+                    <td><span class="sn-slno-value" data-row-number>{{ loop.index }}</span></td>
+                    <td>
+                      <span class="sn-main">{{ n.title }}</span>
+                      <span class="sn-sub">{{ n.message }}</span>
+                    </td>
+                    <td>
+                      <span class="sn-pill {% if n.type == 'new_order' %}blue{% elif n.type == 'status' %}warn{% endif %}">{{ n.type|default('system')|replace('_',' ')|title }}</span>
+                    </td>
+                    <td>
                       {% if not n.is_read %}
-                        <button type="button" class="sn-mini-btn" data-mark-read="{{ n.id }}">Mark read</button>
+                        <span class="sn-pill sn-unread-pill">Unread</span>
+                      {% else %}
+                        <span class="sn-pill">Read</span>
                       {% endif %}
-                      {% if n.order_id %}
-                        <a class="sn-mini-btn" href="{{ url_for('store_orders') }}">Orders</a>
-                      {% endif %}
-                    </div>
-                  </div>
+                    </td>
+                    <td><span class="sn-main">{{ n.created_at|default('-') }}</span></td>
+                    <td>
+                      <div class="sn-inline-actions">
+                        {% if not n.is_read %}
+                          <button type="button" class="sn-mini-btn" data-mark-read="{{ n.id }}">Mark read</button>
+                        {% endif %}
+                        {% if n.order_id %}
+                          <a class="sn-mini-btn" href="{{ url_for('store_orders') }}">Orders</a>
+                        {% endif %}
+                        {% if n.is_read and not n.order_id %}
+                          <span class="sn-sub">No action</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
                 {% endfor %}
-              {% else %}
-                <div class="sn-empty" id="snHistoryEmpty">No notification history yet. New order alerts will appear here.</div>
               {% endif %}
-            </div>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="sn-empty" id="snHistoryEmpty" {% if notifications %}hidden{% endif %}>No notification history yet. New order alerts will appear here.</div>
+
+        <div class="sn-pagination-box" id="snHistoryPagination" hidden>
+          <div class="sn-page-info" id="snHistoryPageInfo">Showing 0 notifications</div>
+          <div class="sn-page-controls">
+            <button type="button" class="sn-page-btn" id="snHistoryPrev">Prev</button>
+            <div class="sn-page-numbers" id="snHistoryPageNumbers"></div>
+            <button type="button" class="sn-page-btn" id="snHistoryNext">Next</button>
           </div>
         </div>
       </section>
-
     </div>
   </div>
 
@@ -688,12 +1103,18 @@
         const activeCount = document.getElementById('snActiveCount');
         const todayCount = document.getElementById('snTodayCount');
         const historyCount = document.getElementById('snHistoryCount');
+        const activeTab = document.getElementById('snActiveTab');
+        const historyTab = document.getElementById('snHistoryTab');
+        const activePanel = document.getElementById('snActivePanel');
+        const historyPanel = document.getElementById('snHistoryPanel');
         const ding = document.getElementById('snDing');
         const toastWrap = document.getElementById('snToastWrap');
 
         let pollTimer = null;
         let lastId = localStorage.getItem('storeLastAlertId') || '';
         let alertsEnabled = localStorage.getItem('alertsEnabled');
+        let historyPager = null;
+        let activePager = null;
 
         if (alertsEnabled === null) {
           alertsEnabled = serverEnabled === 1 ? '1' : '0';
@@ -703,6 +1124,17 @@
         function getEnabled() {
           return localStorage.getItem('alertsEnabled') === '1';
         }
+
+        function setTab(tab) {
+          const showHistory = tab === 'history';
+          if (activePanel) activePanel.hidden = showHistory;
+          if (historyPanel) historyPanel.hidden = !showHistory;
+          if (activeTab) activeTab.classList.toggle('is-active', !showHistory);
+          if (historyTab) historyTab.classList.toggle('is-active', showHistory);
+        }
+
+        if (activeTab) activeTab.addEventListener('click', function(){ setTab('active'); });
+        if (historyTab) historyTab.addEventListener('click', function(){ setTab('history'); });
 
         function showToast(title, message, kind) {
           if (!toastWrap) return;
@@ -778,9 +1210,7 @@
             switchBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
           }
 
-          if (stateTitle) {
-            stateTitle.textContent = enabled ? 'Notifications are active' : 'Notifications are off';
-          }
+          if (stateTitle) stateTitle.textContent = enabled ? 'Notifications are active' : 'Notifications are off';
 
           if (stateSub) {
             stateSub.textContent = enabled
@@ -823,48 +1253,241 @@
           return String(type || 'system').replace(/_/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
         }
 
+        function createPager(options) {
+          const tbody = options.tbody;
+          const search = options.search;
+          const filter = options.filter;
+          const pageSizeSelect = options.pageSizeSelect;
+          const meta = options.meta;
+          const emptyBox = options.emptyBox;
+          const paginationBox = options.paginationBox;
+          const pageInfo = options.pageInfo;
+          const pageNumbers = options.pageNumbers;
+          const prevBtn = options.prevBtn;
+          const nextBtn = options.nextBtn;
+          const rowSelector = options.rowSelector;
+          const itemLabel = options.itemLabel;
+          const filterFn = options.filterFn;
+          let rows = [];
+          let filteredRows = [];
+          let page = 1;
+          let pageSize = parseInt(pageSizeSelect ? pageSizeSelect.value : '10', 10) || 10;
+
+          function refreshRows() {
+            rows = tbody ? Array.from(tbody.querySelectorAll(rowSelector)) : [];
+            filteredRows = rows.slice();
+          }
+
+          function getSearchText(row) {
+            return (row.dataset.search || row.textContent || '').toLowerCase();
+          }
+
+          function buildPageButton(label, targetPage, isActive, disabled) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'sn-page-btn' + (isActive ? ' active' : '');
+            btn.textContent = label;
+            btn.disabled = !!disabled;
+
+            if (!disabled) {
+              btn.addEventListener('click', function(){
+                page = targetPage;
+                render();
+              });
+            }
+
+            return btn;
+          }
+
+          function renderNumbers(totalPages) {
+            if (!pageNumbers) return;
+            pageNumbers.innerHTML = '';
+            if (totalPages <= 1) return;
+
+            const pages = [];
+            const start = Math.max(1, page - 1);
+            const end = Math.min(totalPages, page + 1);
+
+            if (start > 1) {
+              pages.push(1);
+              if (start > 2) pages.push('...');
+            }
+
+            for (let i = start; i <= end; i += 1) pages.push(i);
+
+            if (end < totalPages) {
+              if (end < totalPages - 1) pages.push('...');
+              pages.push(totalPages);
+            }
+
+            pages.forEach(function(item){
+              if (item === '...') {
+                pageNumbers.appendChild(buildPageButton('...', page, false, true));
+              } else {
+                pageNumbers.appendChild(buildPageButton(String(item), item, item === page, false));
+              }
+            });
+          }
+
+          function render() {
+            pageSize = parseInt(pageSizeSelect ? pageSizeSelect.value : String(pageSize), 10) || 10;
+            const total = filteredRows.length;
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+            if (page > totalPages) page = totalPages;
+
+            const start = (page - 1) * pageSize;
+            const end = start + pageSize;
+
+            rows.forEach(function(row){ row.hidden = true; });
+
+            filteredRows.slice(start, end).forEach(function(row){
+              row.hidden = false;
+              const number = row.querySelector('[data-row-number]');
+              if (number) number.textContent = String(filteredRows.indexOf(row) + 1);
+            });
+
+            if (meta) meta.textContent = total + ' shown · ' + rows.length + ' total';
+            if (emptyBox) emptyBox.hidden = total !== 0;
+            if (paginationBox) paginationBox.hidden = rows.length === 0;
+
+            if (pageInfo) {
+              pageInfo.textContent = total === 0
+                ? 'Showing 0 ' + itemLabel
+                : 'Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' ' + itemLabel;
+            }
+
+            if (prevBtn) {
+              prevBtn.disabled = page <= 1;
+              prevBtn.onclick = function(){
+                if (page > 1) {
+                  page -= 1;
+                  render();
+                }
+              };
+            }
+
+            if (nextBtn) {
+              nextBtn.disabled = page >= totalPages;
+              nextBtn.onclick = function(){
+                if (page < totalPages) {
+                  page += 1;
+                  render();
+                }
+              };
+            }
+
+            renderNumbers(totalPages);
+          }
+
+          function apply() {
+            const q = search ? search.value.trim().toLowerCase() : '';
+            const filterValue = filter ? filter.value : 'all';
+            filteredRows = rows.filter(function(row){
+              let show = true;
+              if (q && !getSearchText(row).includes(q)) show = false;
+              if (typeof filterFn === 'function' && !filterFn(row, filterValue)) show = false;
+              return show;
+            });
+            page = 1;
+            render();
+          }
+
+          refreshRows();
+          if (search) search.addEventListener('input', apply);
+          if (filter) filter.addEventListener('change', apply);
+          if (pageSizeSelect) pageSizeSelect.addEventListener('change', function(){ page = 1; render(); });
+          render();
+
+          return {
+            refreshRows: refreshRows,
+            apply: apply,
+            render: render
+          };
+        }
+
+        activePager = createPager({
+          tbody: activeList,
+          search: document.getElementById('snActiveSearch'),
+          pageSizeSelect: document.getElementById('snActivePageSize'),
+          meta: document.getElementById('snActiveMeta'),
+          emptyBox: document.getElementById('snActiveEmpty'),
+          paginationBox: document.getElementById('snActivePagination'),
+          pageInfo: document.getElementById('snActivePageInfo'),
+          pageNumbers: document.getElementById('snActivePageNumbers'),
+          prevBtn: document.getElementById('snActivePrev'),
+          nextBtn: document.getElementById('snActiveNext'),
+          rowSelector: '[data-sn-active-row]',
+          itemLabel: 'active notifications'
+        });
+
+        historyPager = createPager({
+          tbody: historyList,
+          search: searchInput,
+          filter: filterInput,
+          pageSizeSelect: document.getElementById('snHistoryPageSize'),
+          meta: document.getElementById('snHistoryMeta'),
+          emptyBox: document.getElementById('snHistoryEmpty'),
+          paginationBox: document.getElementById('snHistoryPagination'),
+          pageInfo: document.getElementById('snHistoryPageInfo'),
+          pageNumbers: document.getElementById('snHistoryPageNumbers'),
+          prevBtn: document.getElementById('snHistoryPrev'),
+          nextBtn: document.getElementById('snHistoryNext'),
+          rowSelector: '[data-sn-history-row]',
+          itemLabel: 'notifications',
+          filterFn: function(row, filterValue) {
+            const type = row.dataset.type || '';
+            const read = row.dataset.read || '1';
+            if (filterValue === 'unread') return read === '0';
+            if (filterValue !== 'all' && filterValue !== 'unread') return type === filterValue;
+            return true;
+          }
+        });
+
         function notificationHtml(n) {
           const isUnread = !n.is_read;
           const type = n.type || 'system';
-          const icon = type === 'new_order' ? '🧾' : (type === 'status' ? '🔁' : '🔔');
           const typeClass = type === 'new_order' ? 'blue' : (type === 'status' ? 'warn' : '');
+          const statusCell = isUnread
+            ? '<span class="sn-pill sn-unread-pill">Unread</span>'
+            : '<span class="sn-pill">Read</span>';
+          const actionCell = `
+            <div class="sn-inline-actions">
+              ${isUnread && n.id ? `<button type="button" class="sn-mini-btn" data-mark-read="${n.id}">Mark read</button>` : ''}
+              ${n.order_id ? `<a class="sn-mini-btn" href="{{ url_for('store_orders') }}">Orders</a>` : ''}
+              ${(!isUnread && !n.order_id) ? '<span class="sn-sub">No action</span>' : ''}
+            </div>
+          `;
 
           return `
-            <div class="sn-alert ${isUnread ? 'unread' : ''}"
-                 data-notification-id="${n.id || ''}"
-                 data-type="${type}"
-                 data-read="${isUnread ? '0' : '1'}"
-                 data-search="${String((n.title || '') + ' ' + (n.message || '') + ' ' + type).toLowerCase()}">
-              <div class="sn-alert-icon">${icon}</div>
-              <div>
-                <div class="sn-alert-title">${n.title || 'Notification'}</div>
-                <div class="sn-alert-message">${n.message || ''}</div>
-                <div class="sn-alert-meta">
-                  <span class="sn-pill ${typeClass}">${formatType(type)}</span>
-                  ${isUnread ? '<span class="sn-pill">Unread</span>' : ''}
-                  <span>${n.created_at || ''}</span>
-                </div>
-              </div>
-              <div class="sn-inline-actions">
-                ${isUnread && n.id ? `<button type="button" class="sn-mini-btn" data-mark-read="${n.id}">Mark read</button>` : ''}
-                ${n.order_id ? `<a class="sn-mini-btn" href="{{ url_for('store_orders') }}">Orders</a>` : ''}
-              </div>
-            </div>
+            <tr class="sn-row sn-history-row ${isUnread ? 'unread' : ''}"
+                data-sn-history-row
+                data-notification-id="${n.id || ''}"
+                data-type="${type}"
+                data-read="${isUnread ? '0' : '1'}"
+                data-search="${String((n.title || '') + ' ' + (n.message || '') + ' ' + type + ' ' + (n.created_at || '')).toLowerCase()}">
+              <td><span class="sn-slno-value" data-row-number>1</span></td>
+              <td><span class="sn-main">${n.title || 'Notification'}</span><span class="sn-sub">${n.message || ''}</span></td>
+              <td><span class="sn-pill ${typeClass}">${formatType(type)}</span></td>
+              <td>${statusCell}</td>
+              <td><span class="sn-main">${n.created_at || '-'}</span></td>
+              <td>${actionCell}</td>
+            </tr>
           `;
         }
 
         function prependNotifications(items) {
           if (!historyList || !Array.isArray(items) || !items.length) return;
 
-          const empty = historyList.querySelector('.sn-empty');
-          if (empty) empty.remove();
-
           items.slice().reverse().forEach(function(n){
             if (n.id && historyList.querySelector('[data-notification-id="' + n.id + '"]')) return;
             historyList.insertAdjacentHTML('afterbegin', notificationHtml(n));
           });
 
-          applyFilters();
+          if (historyPager) {
+            historyPager.refreshRows();
+            historyPager.apply();
+          }
         }
 
         function updateCounts(stats) {
@@ -873,27 +1496,12 @@
           if (activeCount) activeCount.textContent = stats.active ?? activeCount.textContent;
           if (todayCount) todayCount.textContent = stats.today ?? todayCount.textContent;
           if (historyCount) historyCount.textContent = stats.total ?? historyCount.textContent;
+          if (activeTab && stats.active !== undefined) activeTab.textContent = 'Active Notifications · ' + stats.active;
+          if (historyTab && stats.total !== undefined) historyTab.textContent = 'Notification History · ' + stats.total;
         }
 
         function applyFilters() {
-          if (!historyList) return;
-
-          const q = (searchInput ? searchInput.value : '').trim().toLowerCase();
-          const filter = filterInput ? filterInput.value : 'all';
-          const rows = Array.from(historyList.querySelectorAll('.sn-alert'));
-
-          rows.forEach(function(row){
-            const text = row.dataset.search || row.textContent.toLowerCase();
-            const type = row.dataset.type || '';
-            const read = row.dataset.read || '1';
-
-            let show = true;
-            if (q && !text.includes(q)) show = false;
-            if (filter === 'unread' && read !== '0') show = false;
-            if (filter !== 'all' && filter !== 'unread' && type !== filter) show = false;
-
-            row.style.display = show ? '' : 'none';
-          });
+          if (historyPager) historyPager.apply();
         }
 
         async function pollStoreOrders() {
@@ -987,12 +1595,16 @@
               row.dataset.read = '1';
               const button = row.querySelector('[data-mark-read]');
               if (button) button.remove();
-              row.querySelectorAll('.sn-pill').forEach(function(pill){
-                if (pill.textContent.trim().toLowerCase() === 'unread') pill.remove();
-              });
+              const statusCell = row.children[3];
+              if (statusCell) statusCell.innerHTML = '<span class="sn-pill">Read</span>';
+              const actionsCell = row.children[5];
+              if (actionsCell && !actionsCell.querySelector('a')) {
+                actionsCell.innerHTML = '<div class="sn-inline-actions"><span class="sn-sub">No action</span></div>';
+              }
             }
 
             updateCounts(data.stats || {});
+            if (historyPager) historyPager.apply();
           } catch (err) {}
         }
 
@@ -1006,17 +1618,21 @@
             const data = await res.json();
             if (!data || !data.ok) return;
 
-            document.querySelectorAll('.sn-alert.unread').forEach(function(row){
+            document.querySelectorAll('[data-sn-history-row].unread').forEach(function(row){
               row.classList.remove('unread');
               row.dataset.read = '1';
               const button = row.querySelector('[data-mark-read]');
               if (button) button.remove();
-              row.querySelectorAll('.sn-pill').forEach(function(pill){
-                if (pill.textContent.trim().toLowerCase() === 'unread') pill.remove();
-              });
+              const statusCell = row.children[3];
+              if (statusCell) statusCell.innerHTML = '<span class="sn-pill">Read</span>';
+              const actionsCell = row.children[5];
+              if (actionsCell && !actionsCell.querySelector('a')) {
+                actionsCell.innerHTML = '<div class="sn-inline-actions"><span class="sn-sub">No action</span></div>';
+              }
             });
 
             updateCounts(data.stats || {});
+            if (historyPager) historyPager.apply();
             showToast('Marked as read', 'All notifications have been marked as read.', 'on');
           } catch (err) {
             showToast('Failed', 'Could not mark notifications as read.', 'off');
@@ -1056,7 +1672,7 @@
           const btn = event.target.closest('[data-mark-read]');
           if (!btn) return;
 
-          const row = btn.closest('.sn-alert');
+          const row = btn.closest('[data-sn-history-row]');
           markRead(btn.dataset.markRead, row);
         });
 

@@ -387,16 +387,16 @@ def legal_report_fraud():
 @app.route('/about')
 def about():
     """
-    About Us page for Chhimphei Women Poultry Producer Company Limited
+    About Us page for NELOCALS marketplace.
     """
     company_info = {
-        "name": "Chhimphei Women Poultry Producer Company Limited",
-        "year": 2018,
-        "location": "Melriat, Aizawl, Mizoram",
-        "fssai": "21825102002418",
-        "phone": "8132831406",
-        "website": "chhimphei.com",
-        "supported_by": "Mizoram State Rural Livelihood Mission (MzSRLM)",
+        "name": "NELOCALS",
+        "year": 2026,
+        "location": "Northeast India",
+        "fssai": "",
+        "phone": "",
+        "website": "",
+        "supported_by": "Ayanant Ventures Pvt. Ltd.",
     }
 
     u = current_user()

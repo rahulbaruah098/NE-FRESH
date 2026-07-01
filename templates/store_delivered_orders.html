@@ -1,389 +1,930 @@
 {% extends "store_base.html" %}
 {% set active_page = "delivered_orders" %}
 
-{% block title %}Delivered Orders | NE FRESH Store{% endblock %}
+{% block title %}Delivered Orders | NE Locals Store{% endblock %}
 {% block page_title %}Delivered Orders{% endblock %}
-{% block page_subtitle %}Delivered order report with delivery boy, payment, COD and earning breakdown.{% endblock %}
+{% block page_subtitle %}Delivered order report with payment, delivery and earning breakdown.{% endblock %}
 
 {% block content %}
 {% set delivered_orders = orders if orders is defined else [] %}
 
-<section class="nf-store-delivered-report">
+<section class="nf-store-delivered-report" data-page="delivered-orders">
   <style>
-    .nf-store-delivered-report {
-      --dor-green: var(--nf-green, #00A859);
-      --dor-green-dark: var(--nf-green-dark, #008A48);
-      --dor-green-soft: var(--nf-green-soft, #E9FFF3);
-      --dor-card: var(--nf-surface, #FFFFFF);
-      --dor-card-2: var(--nf-surface-2, #F2FBF6);
-      --dor-text: var(--nf-text, #1F332A);
-      --dor-muted: var(--nf-muted, #66756D);
-      --dor-muted-2: var(--nf-muted-2, #8A9890);
-      --dor-line: var(--nf-line, #DDECE4);
-      --dor-red: var(--nf-red, #EF4444);
-      --dor-blue: var(--nf-blue, #0284C7);
-      --dor-shadow: var(--nf-shadow, 0 14px 36px rgba(17,64,38,.08));
-      display: grid;
-      gap: 20px;
-      animation: dorFade .35s ease both;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    .nf-store-delivered-report{
+      --dor-bg:#F7FFFA;
+      --dor-card:#FFFFFF;
+      --dor-card-2:#FBFFFD;
+      --dor-soft:#F1FFF7;
+      --dor-soft-2:#F8FFFB;
+      --dor-line:#D9EDE3;
+      --dor-line-2:#EDF6F1;
+      --dor-text:#10251B;
+      --dor-body:#30443A;
+      --dor-muted:#65766D;
+      --dor-muted-2:#85978E;
+      --dor-green:#00A859;
+      --dor-green-dark:#075C3B;
+      --dor-green-deep:#06482F;
+      --dor-green-soft:#E9FFF3;
+      --dor-red:#DC2626;
+      --dor-red-soft:#FFF1F2;
+      --dor-orange:#F59E0B;
+      --dor-orange-soft:#FFF8E8;
+      --dor-blue:#0284C7;
+      --dor-blue-soft:#E0F2FE;
+      --dor-shadow:0 10px 28px rgba(17,64,38,.055);
+      --dor-shadow-2:0 18px 50px rgba(17,64,38,.085);
+      --dor-radius:24px;
+      --dor-ease:cubic-bezier(.2,.75,.25,1);
+      width:100%;
+      min-height:100%;
+      padding:clamp(12px,1.6vw,28px);
+      padding-left:max(clamp(12px,1.6vw,28px),env(safe-area-inset-left,0px));
+      padding-right:max(clamp(12px,1.6vw,28px),env(safe-area-inset-right,0px));
+      background:
+        radial-gradient(circle at 0% 0%, rgba(0,168,89,.055), transparent 34%),
+        linear-gradient(180deg,#F7FFFA 0%,#FFFFFF 44%,#F8FFFB 100%);
+      color:var(--dor-text);
+      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      text-size-adjust:100%;
     }
 
     .nf-store-delivered-report,
-    .nf-store-delivered-report * {
-      box-sizing: border-box;
+    .nf-store-delivered-report *{
+      box-sizing:border-box;
+      min-width:0;
+      -webkit-tap-highlight-color:transparent;
     }
 
-    @keyframes dorFade {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
+    .dor-shell{
+      width:100%;
+      max-width:1760px;
+      margin:0 auto;
+      display:grid;
+      gap:clamp(14px,1.35vw,22px);
     }
 
     .dor-hero,
-    .dor-card {
-      background: var(--dor-card);
-      border: 1px solid var(--dor-line);
-      border-radius: 24px;
-      box-shadow: var(--dor-shadow);
-      overflow: hidden;
+    .dor-card,
+    .dor-kpi{
+      background:rgba(255,255,255,.98);
+      border:1px solid var(--dor-line);
+      border-radius:var(--dor-radius);
+      box-shadow:var(--dor-shadow);
+      overflow:hidden;
     }
 
-    .dor-hero {
-      padding: 24px;
+    .dor-hero{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:18px;
+      padding:clamp(18px,2vw,30px);
+      border-radius:30px;
       background:
-        radial-gradient(circle at 8% 12%, rgba(0,168,89,.12), transparent 34%),
-        radial-gradient(circle at 92% 8%, rgba(2,132,199,.10), transparent 30%),
-        linear-gradient(135deg, #FFFFFF, var(--dor-card-2));
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: flex-start;
-      flex-wrap: wrap;
+        radial-gradient(circle at 100% 0%, rgba(0,168,89,.10), transparent 30%),
+        linear-gradient(135deg,#FFFFFF 0%,#F2FFF8 100%);
+      box-shadow:var(--dor-shadow-2);
     }
 
-    .dor-kicker {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 30px;
-      padding: 0 12px;
-      border-radius: 999px;
-      background: var(--dor-green-soft);
-      color: var(--dor-green-dark);
-      border: 1px solid rgba(0,168,89,.18);
-      font-size: .76rem;
-      font-weight: 900;
-      letter-spacing: .06em;
-      text-transform: uppercase;
+    .dor-kicker{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:30px;
+      width:max-content;
+      max-width:100%;
+      padding:0 12px;
+      border-radius:999px;
+      background:var(--dor-green-soft);
+      color:var(--dor-green-dark);
+      border:1px solid rgba(0,168,89,.22);
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
     }
 
-    .dor-hero h2 {
-      margin: 12px 0 8px;
-      color: var(--dor-text);
-      font-size: clamp(1.55rem, 3vw, 2.3rem);
-      line-height: 1.08;
-      font-weight: 950;
-      letter-spacing: -.05em;
+    .dor-title{
+      margin:14px 0 6px;
+      color:var(--dor-text);
+      font-size:clamp(30px,3.4vw,50px);
+      line-height:1.02;
+      font-weight:950;
+      letter-spacing:-.06em;
+      overflow-wrap:anywhere;
     }
 
-    .dor-hero p {
-      margin: 0;
-      max-width: 860px;
-      color: var(--dor-muted);
-      font-size: .95rem;
-      font-weight: 650;
-      line-height: 1.65;
+    .dor-copy{
+      margin:0;
+      max-width:860px;
+      color:var(--dor-muted);
+      font-size:clamp(13.5px,1vw,15px);
+      font-weight:700;
+      line-height:1.55;
     }
 
-    .dor-actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+    .dor-actions{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
-    .dor-btn {
-      min-height: 42px;
-      border: 1px solid var(--dor-line);
-      border-radius: 14px;
-      background: #fff;
-      color: var(--dor-text);
-      padding: 0 14px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-size: .84rem;
-      font-weight: 900;
-      text-decoration: none;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: .2s ease;
+    .dor-btn{
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:10px 14px;
+      border-radius:14px;
+      border:1px solid var(--dor-line);
+      background:#fff;
+      color:var(--dor-body);
+      text-decoration:none;
+      font:inherit;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.2;
+      cursor:pointer;
+      transition:.2s var(--dor-ease);
+      white-space:nowrap;
+      touch-action:manipulation;
     }
 
-    .dor-btn:hover {
-      border-color: rgba(0,168,89,.32);
-      color: var(--dor-green-dark);
-      box-shadow: 0 10px 22px rgba(17,64,38,.08);
-      transform: translateY(-1px);
+    .dor-btn:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.30);
+      color:var(--dor-green-dark);
+      background:var(--dor-soft);
+      box-shadow:0 12px 24px rgba(17,64,38,.09);
     }
 
-    .dor-btn.primary {
-      background: var(--dor-green);
-      border-color: var(--dor-green);
-      color: #fff;
+    .dor-btn.primary{
+      background:linear-gradient(135deg,var(--dor-green),var(--dor-green-dark));
+      border-color:var(--dor-green);
+      color:#fff;
+      box-shadow:0 12px 26px rgba(0,168,89,.16);
     }
 
-    .dor-summary-grid {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 14px;
+    .dor-summary-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:clamp(12px,1.2vw,18px);
     }
 
-    .dor-kpi {
-      min-height: 112px;
-      padding: 18px;
-      border-radius: 22px;
-      background: var(--dor-card);
-      border: 1px solid var(--dor-line);
-      box-shadow: 0 10px 26px rgba(17,64,38,.06);
-      display: grid;
-      align-content: space-between;
-      gap: 10px;
+    .dor-kpi{
+      min-height:112px;
+      padding:clamp(15px,1.25vw,20px);
+      display:grid;
+      align-content:space-between;
+      gap:10px;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FCFFFD 100%);
     }
 
-    .dor-kpi span {
-      color: var(--dor-muted);
-      font-size: .76rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .055em;
+    .dor-kpi span{
+      display:block;
+      color:var(--dor-muted);
+      font-size:11px;
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      line-height:1.25;
     }
 
-    .dor-kpi strong {
-      color: var(--dor-text);
-      font-size: clamp(1.15rem, 2.2vw, 1.75rem);
-      line-height: 1;
-      font-weight: 950;
-      letter-spacing: -.04em;
+    .dor-kpi strong{
+      display:block;
+      color:var(--dor-text);
+      font-size:clamp(20px,2.4vw,34px);
+      line-height:1;
+      font-weight:950;
+      letter-spacing:-.045em;
+      overflow-wrap:anywhere;
     }
 
-    .dor-kpi small {
-      color: var(--dor-muted-2);
-      font-size: .76rem;
-      font-weight: 750;
+    .dor-kpi small{
+      display:block;
+      color:var(--dor-muted-2);
+      font-size:12px;
+      font-weight:800;
+      line-height:1.35;
     }
 
-    .dor-section-head {
-      padding: 18px 18px 0;
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: flex-start;
-      flex-wrap: wrap;
+    .dor-card-head{
+      padding:clamp(16px,1.35vw,22px);
+      border-bottom:1px solid var(--dor-line-2);
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
     }
 
-    .dor-section-head h3 {
-      margin: 0;
-      color: var(--dor-text);
-      font-size: 1.05rem;
-      font-weight: 950;
-      letter-spacing: -.03em;
+    .dor-card-title{
+      margin:0;
+      color:var(--dor-text);
+      font-size:19px;
+      font-weight:950;
+      letter-spacing:-.035em;
+      line-height:1.2;
     }
 
-    .dor-section-head p {
-      margin: 5px 0 0;
-      color: var(--dor-muted);
-      font-size: .84rem;
-      font-weight: 650;
+    .dor-card-sub{
+      margin:5px 0 0;
+      color:var(--dor-muted);
+      font-size:13px;
+      font-weight:700;
+      line-height:1.42;
     }
 
-    .dor-table-wrap {
-      width: 100%;
-      overflow-x: auto;
-      padding: 18px;
+    .dor-table-toolbar{
+      display:grid;
+      grid-template-columns:minmax(250px,1fr) auto;
+      align-items:center;
+      gap:12px;
+      padding:clamp(14px,1.2vw,18px) clamp(14px,1.35vw,22px);
+      background:#fff;
+      border-bottom:1px solid var(--dor-line-2);
     }
 
-    .dor-table {
-      width: 100%;
-      min-width: 1280px;
-      border-collapse: separate;
-      border-spacing: 0;
+    .dor-search-wrap{
+      width:100%;
+      max-width:560px;
+      position:relative;
     }
 
-    .dor-table th {
-      background: var(--dor-card-2);
-      color: var(--dor-muted);
-      font-size: .7rem;
-      font-weight: 950;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      text-align: left;
-      padding: 12px;
-      border-top: 1px solid var(--dor-line);
-      border-bottom: 1px solid var(--dor-line);
-      white-space: nowrap;
+    .dor-search-wrap::before{
+      content:'⌕';
+      position:absolute;
+      left:14px;
+      top:50%;
+      transform:translateY(-50%);
+      color:var(--dor-muted-2);
+      font-weight:950;
+      pointer-events:none;
     }
 
-    .dor-table th:first-child {
-      border-left: 1px solid var(--dor-line);
-      border-top-left-radius: 16px;
+    .dor-search-input{
+      width:100%;
+      min-height:44px;
+      border:1px solid var(--dor-line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--dor-text);
+      padding:0 12px 0 40px;
+      outline:none;
+      font:inherit;
+      font-size:13px;
+      font-weight:850;
     }
 
-    .dor-table th:last-child {
-      border-right: 1px solid var(--dor-line);
-      border-top-right-radius: 16px;
+    .dor-search-input:focus,
+    .dor-page-size-select:focus{
+      border-color:rgba(0,168,89,.42);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
     }
 
-    .dor-table td {
-      padding: 13px 12px;
-      border-bottom: 1px solid var(--dor-line);
-      color: var(--dor-text);
-      font-size: .84rem;
-      font-weight: 750;
-      vertical-align: top;
-      background: #fff;
+    .dor-table-tools{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
-    .dor-table tr:hover td {
-      background: #FBFFFD;
+    .dor-page-size-select{
+      height:44px;
+      min-width:132px;
+      border:1px solid var(--dor-line);
+      border-radius:14px;
+      background:#fff;
+      color:var(--dor-text);
+      padding:0 34px 0 12px;
+      outline:none;
+      font:inherit;
+      font-size:13px;
+      font-weight:850;
+      appearance:none;
+      -webkit-appearance:none;
+      background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6z" fill="%23075C3B"/></svg>');
+      background-repeat:no-repeat;
+      background-position:right 11px center;
     }
 
-    .dor-main {
-      display: block;
-      color: var(--dor-text);
-      font-weight: 950;
+    .dor-muted{
+      color:var(--dor-muted);
+      font-size:13px;
+      font-weight:800;
+      overflow-wrap:anywhere;
     }
 
-    .dor-sub {
-      display: block;
-      margin-top: 3px;
-      color: var(--dor-muted);
-      font-size: .74rem;
-      font-weight: 700;
+    .dor-table-wrap{
+      width:100%;
+      padding:0 clamp(10px,1.05vw,18px) clamp(16px,1.35vw,22px);
+      overflow-x:hidden;
+      overflow-y:visible;
     }
 
-    .dor-money {
-      font-weight: 950;
-      white-space: nowrap;
+    .dor-table{
+      width:100%;
+      min-width:0;
+      max-width:100%;
+      border-collapse:separate;
+      border-spacing:0;
+      table-layout:fixed;
+      border:1px solid var(--dor-line);
+      border-radius:18px;
+      overflow:hidden;
+      background:#fff;
+      box-shadow:0 8px 22px rgba(17,64,38,.035);
     }
 
-    .dor-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 26px;
-      padding: 4px 9px;
-      border-radius: 999px;
-      font-size: .7rem;
-      font-weight: 950;
-      border: 1px solid var(--dor-line);
-      background: var(--dor-card-2);
-      color: var(--dor-muted);
-      white-space: nowrap;
+    .dor-table thead{
+      background:linear-gradient(135deg,#075C3B,#06482F);
+      color:#fff;
+    }
+
+    .dor-table th,
+    .dor-table td{
+      padding:clamp(8px,.72vw,12px);
+      text-align:left;
+      vertical-align:top;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+      white-space:normal;
+    }
+
+    .dor-table th{
+      font-size:clamp(8.5px,.66vw,10.5px);
+      font-weight:950;
+      text-transform:uppercase;
+      letter-spacing:.035em;
+      line-height:1.25;
+    }
+
+    .dor-table td{
+      border-bottom:1px solid var(--dor-line-2);
+      color:var(--dor-body);
+      font-size:clamp(10.5px,.76vw,12.5px);
+      font-weight:750;
+      line-height:1.34;
+      background:#fff;
+    }
+
+    .dor-table tbody tr:nth-child(even) td{background:#FCFFFD;}
+    .dor-table tbody tr:last-child td{border-bottom:0;}
+    .dor-table tbody tr[hidden]{display:none!important;}
+
+    .dor-table th:nth-child(1),
+    .dor-table td:nth-child(1){width:4.5%;text-align:center;}
+    .dor-table th:nth-child(2),
+    .dor-table td:nth-child(2){width:9%;}
+    .dor-table th:nth-child(3),
+    .dor-table td:nth-child(3){width:10%;}
+    .dor-table th:nth-child(4),
+    .dor-table td:nth-child(4){width:11%;}
+    .dor-table th:nth-child(5),
+    .dor-table td:nth-child(5){width:8%;}
+    .dor-table th:nth-child(6),
+    .dor-table td:nth-child(6){width:7.5%;}
+    .dor-table th:nth-child(7),
+    .dor-table td:nth-child(7){width:7.5%;}
+    .dor-table th:nth-child(8),
+    .dor-table td:nth-child(8){width:7%;}
+    .dor-table th:nth-child(9),
+    .dor-table td:nth-child(9){width:7%;}
+    .dor-table th:nth-child(10),
+    .dor-table td:nth-child(10){width:5.5%;}
+    .dor-table th:nth-child(11),
+    .dor-table td:nth-child(11){width:7.5%;}
+    .dor-table th:nth-child(12),
+    .dor-table td:nth-child(12){width:7.5%;}
+    .dor-table th:nth-child(13),
+    .dor-table td:nth-child(13){width:7.5%;}
+    .dor-table th:nth-child(14),
+    .dor-table td:nth-child(14){width:10%;}
+
+    .dor-slno-value{
+      width:clamp(30px,2.35vw,38px);
+      height:clamp(30px,2.35vw,38px);
+      display:inline-grid;
+      place-items:center;
+      border-radius:999px;
+      background:var(--dor-green-soft);
+      border:1px solid rgba(0,168,89,.20);
+      color:var(--dor-green-dark);
+      font-size:clamp(11px,.8vw,14px);
+      font-weight:950;
+    }
+
+    .dor-main{
+      display:block;
+      color:var(--dor-text);
+      font-weight:950;
+      line-height:1.25;
+    }
+
+    .dor-sub{
+      display:block;
+      margin-top:4px;
+      color:var(--dor-muted);
+      font-size:clamp(10px,.72vw,11.5px);
+      font-weight:700;
+      line-height:1.32;
+    }
+
+    .dor-money{
+      color:var(--dor-text);
+      font-weight:950;
+      white-space:normal;
+    }
+
+    .dor-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:24px;
+      padding:4px 8px;
+      border-radius:999px;
+      font-size:clamp(9.5px,.68vw,11px);
+      font-weight:950;
+      border:1px solid var(--dor-line);
+      background:var(--dor-soft-2);
+      color:var(--dor-muted);
+      text-align:center;
+      max-width:100%;
     }
 
     .dor-pill.paid,
     .dor-pill.online_paid,
-    .dor-pill.collected {
-      background: var(--dor-green-soft);
-      color: var(--dor-green-dark);
-      border-color: rgba(0,168,89,.20);
+    .dor-pill.collected,
+    .dor-pill.delivered{
+      background:var(--dor-green-soft);
+      color:var(--dor-green-dark);
+      border-color:rgba(0,168,89,.20);
     }
 
-    .dor-pill.pending {
-      background: #FFF7E8;
-      color: #A84700;
-      border-color: rgba(245,158,11,.24);
+    .dor-pill.pending{
+      background:var(--dor-orange-soft);
+      color:#9A5A00;
+      border-color:#FDE7B2;
     }
 
-    .dor-empty {
-      padding: 34px 18px;
-      text-align: center;
-      color: var(--dor-muted);
-      font-size: .92rem;
-      font-weight: 750;
+    .dor-products-empty{
+      margin:0 clamp(14px,1.35vw,22px) 18px;
+      padding:24px 16px;
+      border:1px dashed rgba(0,168,89,.28);
+      border-radius:18px;
+      background:#fff;
+      text-align:center;
+      color:var(--dor-muted);
+      font-size:13px;
+      font-weight:800;
+      line-height:1.45;
     }
 
-    .dor-mobile-list {
-      display: none;
-      padding: 0 18px 18px;
-      gap: 12px;
+    .dor-products-empty[hidden]{display:none!important;}
+
+    .dor-empty{
+      min-height:260px;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:34px 18px;
+      color:var(--dor-muted);
+      font-size:14px;
+      font-weight:800;
     }
 
-    .dor-mobile-card {
-      padding: 16px;
-      border-radius: 20px;
-      background: #fff;
-      border: 1px solid var(--dor-line);
-      box-shadow: 0 10px 26px rgba(17,64,38,.06);
-      display: grid;
-      gap: 12px;
+    .dor-pagination-box{
+      margin:0 clamp(14px,1.35vw,22px) clamp(16px,1.35vw,22px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      border:1px solid var(--dor-line);
+      border-radius:18px;
+      background:#fff;
+      padding:12px 14px;
+      box-shadow:0 10px 26px rgba(17,64,38,.045);
     }
 
-    .dor-mobile-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: flex-start;
+    .dor-pagination-box[hidden]{display:none!important;}
+
+    .dor-page-info{
+      color:var(--dor-muted);
+      font-size:13px;
+      font-weight:850;
     }
 
-    .dor-mobile-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
+    .dor-page-controls,
+    .dor-page-numbers{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:7px;
+      flex-wrap:wrap;
     }
 
-    .dor-mobile-metric {
-      padding: 10px;
-      border-radius: 14px;
-      background: var(--dor-card-2);
-      display: grid;
-      gap: 3px;
+    .dor-page-btn{
+      min-width:38px;
+      min-height:38px;
+      border-radius:12px;
+      border:1px solid var(--dor-line);
+      background:#fff;
+      color:var(--dor-text);
+      font:inherit;
+      font-size:12px;
+      font-weight:950;
+      cursor:pointer;
+      transition:.2s var(--dor-ease);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 10px;
     }
 
-    .dor-mobile-metric span {
-      color: var(--dor-muted);
-      font-size: .68rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .05em;
+    .dor-page-btn:hover:not(:disabled),
+    .dor-page-btn.active{
+      background:linear-gradient(135deg,var(--dor-green),var(--dor-green-dark));
+      border-color:var(--dor-green);
+      color:#fff;
+      box-shadow:0 10px 20px rgba(0,168,89,.18);
     }
 
-    .dor-mobile-metric strong {
-      color: var(--dor-text);
-      font-size: .88rem;
-      font-weight: 950;
+    .dor-page-btn:disabled{opacity:.45;cursor:not-allowed;}
+
+    @media(max-width:1320px){
+      .dor-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
+      .dor-table th,
+      .dor-table td{padding:8px 7px;}
     }
 
-    @media (max-width: 1280px) {
-      .dor-summary-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+    @media(max-width:1180px){
+      .dor-hero{grid-template-columns:1fr;}
+      .dor-actions{justify-content:flex-start;}
+      .dor-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    }
+
+    @media(max-width:920px){
+      .nf-store-delivered-report{
+        padding:14px;
+        padding-left:max(14px,env(safe-area-inset-left,0px));
+        padding-right:max(14px,env(safe-area-inset-right,0px));
+      }
+
+      .dor-hero{border-radius:22px;padding:18px;}
+      .dor-copy,
+      .dor-kpi small,
+      .dor-card-sub{display:none;}
+      .dor-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;}
+      .dor-actions .dor-btn{width:100%;}
+      .dor-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+      .dor-kpi{min-height:96px;padding:13px;border-radius:18px;}
+      .dor-kpi span{font-size:9.8px;letter-spacing:.045em;}
+      .dor-kpi strong{font-size:clamp(20px,5.8vw,28px);}
+
+      .dor-table-toolbar{grid-template-columns:1fr;padding:14px;}
+      .dor-search-wrap{max-width:100%;}
+      .dor-table-tools{display:grid;width:100%;grid-template-columns:1fr 1fr;}
+      .dor-table-tools .dor-muted{grid-column:1/-1;}
+      .dor-page-size-select{width:100%;}
+
+      .dor-table-wrap{
+        overflow-x:auto;
+        overflow-y:visible;
+        padding:0 14px 16px;
+        scroll-snap-type:x mandatory;
+        overscroll-behavior-x:contain;
+        -webkit-overflow-scrolling:touch;
+        scrollbar-width:thin;
+        scrollbar-color:rgba(0,168,89,.38) transparent;
+      }
+
+      .dor-table-wrap::-webkit-scrollbar{height:8px;}
+      .dor-table-wrap::-webkit-scrollbar-track{background:#F1F8F4;border-radius:999px;}
+      .dor-table-wrap::-webkit-scrollbar-thumb{background:rgba(0,168,89,.38);border-radius:999px;border:2px solid #F1F8F4;}
+
+      .dor-table{
+        min-width:0;
+        width:100%;
+        display:block;
+        border:0;
+        border-radius:0;
+        box-shadow:none;
+        background:transparent;
+        overflow:visible;
+      }
+
+      .dor-table thead{display:none;}
+
+      .dor-table tbody{
+        display:flex;
+        flex-wrap:nowrap;
+        gap:14px;
+        width:max-content;
+        min-width:100%;
+      }
+
+      .dor-table tbody tr{
+        width:min(88vw,430px);
+        min-width:min(88vw,430px);
+        max-width:min(88vw,430px);
+        flex:0 0 min(88vw,430px);
+        display:grid;
+        grid-template-columns:1fr;
+        gap:0;
+        border:1px solid var(--dor-line);
+        border-radius:22px;
+        background:#fff;
+        box-shadow:0 10px 28px rgba(17,64,38,.06);
+        overflow:hidden;
+        scroll-snap-align:start;
+      }
+
+      .dor-table tbody tr[hidden]{display:none!important;}
+
+      .dor-table td{
+        width:100%;
+        display:grid;
+        grid-template-columns:112px minmax(0,1fr);
+        gap:10px;
+        align-items:start;
+        padding:12px;
+        border:0;
+        border-bottom:1px dashed var(--dor-line-2);
+        background:#fff!important;
+        color:var(--dor-body);
+        font-size:13px;
+        line-height:1.42;
+        word-break:normal;
+        overflow-wrap:anywhere;
+      }
+
+      .dor-table td::before{
+        color:var(--dor-green-dark);
+        font-size:10.2px;
+        line-height:1.25;
+        font-weight:950;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        white-space:normal;
+      }
+
+      .dor-table td:nth-child(1)::before{content:'Sl No';}
+      .dor-table td:nth-child(2)::before{content:'Order';}
+      .dor-table td:nth-child(3)::before{content:'Customer';}
+      .dor-table td:nth-child(4)::before{content:'Delivery Staff';}
+      .dor-table td:nth-child(5)::before{content:'Payment';}
+      .dor-table td:nth-child(6)::before{content:'COD / Collected';}
+      .dor-table td:nth-child(7)::before{content:'Items Subtotal';}
+      .dor-table td:nth-child(8)::before{content:'Delivery Fee';}
+      .dor-table td:nth-child(9)::before{content:'Platform Fee';}
+      .dor-table td:nth-child(10)::before{content:'Tip';}
+      .dor-table td:nth-child(11)::before{content:'Total Payable';}
+      .dor-table td:nth-child(12)::before{content:'Delivery + Tip';}
+      .dor-table td:nth-child(13)::before{content:'Store Earning';}
+      .dor-table td:nth-child(14)::before{content:'Delivered On';}
+
+      .dor-table td:nth-child(1){background:#F8FFFB!important;justify-items:center;text-align:center;grid-template-columns:1fr;}
+      .dor-table td:nth-child(14){border-bottom:0;}
+      .dor-slno-value{width:42px;height:42px;}
+      .dor-products-empty,
+      .dor-pagination-box{margin-left:14px;margin-right:14px;}
+    }
+
+    @media(max-width:640px){
+      .nf-store-delivered-report{
+        padding:10px;
+        padding-left:max(10px,env(safe-area-inset-left,0px));
+        padding-right:max(10px,env(safe-area-inset-right,0px));
+      }
+
+      .dor-hero{padding:16px;border-radius:20px;}
+      .dor-kicker{width:100%;}
+      .dor-title{font-size:clamp(24px,8vw,34px);}
+      .dor-actions{grid-template-columns:1fr;}
+      .dor-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+      .dor-kpi{padding:11px;min-height:88px;}
+      .dor-card-head{padding:14px;}
+      .dor-table-toolbar{padding:12px;}
+      .dor-table-tools{grid-template-columns:1fr;}
+      .dor-table tbody tr{
+        width:min(88vw,380px);
+        min-width:min(88vw,380px);
+        max-width:min(88vw,380px);
+        flex-basis:min(88vw,380px);
+      }
+      .dor-table td{grid-template-columns:104px minmax(0,1fr);padding:11px;}
+      .dor-pagination-box{justify-content:center;text-align:center;}
+      .dor-page-info,.dor-page-controls{width:100%;justify-content:center;}
+    }
+
+    @media(max-width:380px){
+      .dor-summary-grid{grid-template-columns:1fr;}
+      .dor-kpi{min-height:auto;}
+      .dor-table tbody tr{width:86vw;min-width:86vw;max-width:86vw;flex-basis:86vw;}
+      .dor-table td{grid-template-columns:1fr;gap:6px;}
+      .dor-table td::before{margin-bottom:1px;}
+    }
+
+    @supports (-webkit-touch-callout:none){
+      .nf-store-delivered-report,
+      .dor-table-wrap{-webkit-font-smoothing:antialiased;}
+      .dor-table-wrap{-webkit-overflow-scrolling:touch;}
+    }
+
+    @media(hover:none) and (pointer:coarse){
+      .dor-btn:hover{transform:none;box-shadow:var(--dor-shadow);}
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      .nf-store-delivered-report *,
+      .nf-store-delivered-report *::before,
+      .nf-store-delivered-report *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important;}
+    }
+
+
+    /* ==========================================================
+       FINAL APP/MOBILE CARD FIX
+       Fixes deformed mobile card rows caused by desktop nth-child
+       table widths overriding the card layout. Desktop/tablet
+       structure and all Jinja/form/backend logic remain unchanged.
+    ========================================================== */
+    @media(max-width:920px){
+      .nf-store-delivered-report .dor-table-wrap{
+        width:100% !important;
+        max-width:100% !important;
+        overflow-x:auto !important;
+        overflow-y:visible !important;
+        padding:0 14px 16px !important;
+        scroll-snap-type:x mandatory !important;
+        overscroll-behavior-x:contain !important;
+        -webkit-overflow-scrolling:touch !important;
+      }
+
+      .nf-store-delivered-report .dor-table{
+        width:100% !important;
+        min-width:100% !important;
+        max-width:none !important;
+        display:block !important;
+        table-layout:auto !important;
+        border:0 !important;
+        border-radius:0 !important;
+        box-shadow:none !important;
+        background:transparent !important;
+        overflow:visible !important;
+      }
+
+      .nf-store-delivered-report .dor-table thead{
+        display:none !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody{
+        display:flex !important;
+        flex-direction:row !important;
+        flex-wrap:nowrap !important;
+        align-items:stretch !important;
+        gap:14px !important;
+        width:max-content !important;
+        min-width:100% !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row]{
+        width:min(88vw,430px) !important;
+        min-width:min(88vw,430px) !important;
+        max-width:min(88vw,430px) !important;
+        flex:0 0 min(88vw,430px) !important;
+        display:grid !important;
+        grid-template-columns:1fr !important;
+        gap:0 !important;
+        border:1px solid var(--dor-line) !important;
+        border-radius:22px !important;
+        background:#fff !important;
+        box-shadow:0 10px 28px rgba(17,64,38,.06) !important;
+        overflow:hidden !important;
+        scroll-snap-align:start !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody tr[hidden]{
+        display:none !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row] > td{
+        width:100% !important;
+        min-width:0 !important;
+        max-width:100% !important;
+        display:grid !important;
+        grid-template-columns:minmax(96px,34%) minmax(0,1fr) !important;
+        gap:10px !important;
+        align-items:start !important;
+        padding:12px !important;
+        border:0 !important;
+        border-bottom:1px dashed var(--dor-line-2) !important;
+        background:#fff !important;
+        color:var(--dor-body) !important;
+        font-size:13px !important;
+        line-height:1.42 !important;
+        text-align:left !important;
+        white-space:normal !important;
+        word-break:normal !important;
+        overflow-wrap:break-word !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row] > td::before{
+        color:var(--dor-green-dark) !important;
+        font-size:10.2px !important;
+        line-height:1.25 !important;
+        font-weight:950 !important;
+        text-transform:uppercase !important;
+        letter-spacing:.06em !important;
+        white-space:normal !important;
+        word-break:normal !important;
+        overflow-wrap:break-word !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row] > td > *,
+      .nf-store-delivered-report .dor-table .dor-main,
+      .nf-store-delivered-report .dor-table .dor-sub,
+      .nf-store-delivered-report .dor-table .dor-money,
+      .nf-store-delivered-report .dor-table .dor-pill{
+        min-width:0 !important;
+        max-width:100% !important;
+        white-space:normal !important;
+        word-break:normal !important;
+        overflow-wrap:break-word !important;
+        text-align:left !important;
+      }
+
+      .nf-store-delivered-report .dor-table .dor-main,
+      .nf-store-delivered-report .dor-table .dor-sub,
+      .nf-store-delivered-report .dor-table .dor-money{
+        display:block !important;
+      }
+
+      .nf-store-delivered-report .dor-table .dor-pill{
+        display:inline-flex !important;
+        width:max-content !important;
+        justify-content:center !important;
+        text-align:center !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row] > td:nth-child(1){
+        grid-template-columns:1fr !important;
+        justify-items:center !important;
+        text-align:center !important;
+        background:#F8FFFB !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row] > td:nth-child(1)::before{
+        text-align:center !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row] > td:nth-child(14){
+        border-bottom:0 !important;
       }
     }
 
-    @media (max-width: 760px) {
-      .dor-hero {
-        padding: 18px;
+    @media(max-width:640px){
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row]{
+        width:min(88vw,380px) !important;
+        min-width:min(88vw,380px) !important;
+        max-width:min(88vw,380px) !important;
+        flex-basis:min(88vw,380px) !important;
       }
 
-      .dor-summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .dor-table-wrap {
-        display: none;
-      }
-
-      .dor-mobile-list {
-        display: grid;
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row] > td{
+        grid-template-columns:minmax(94px,36%) minmax(0,1fr) !important;
+        padding:11px !important;
       }
     }
 
-    @media (max-width: 460px) {
-      .dor-summary-grid,
-      .dor-mobile-grid {
-        grid-template-columns: 1fr;
+    @media(max-width:380px){
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row]{
+        width:86vw !important;
+        min-width:86vw !important;
+        max-width:86vw !important;
+        flex-basis:86vw !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row] > td{
+        grid-template-columns:1fr !important;
+        gap:6px !important;
+      }
+
+      .nf-store-delivered-report .dor-table tbody tr[data-dor-row] > td::before{
+        margin-bottom:1px !important;
       }
     }
+
   </style>
 
   {% set total_orders = delivered_orders|length %}
@@ -407,208 +948,332 @@
     {% set ns.store_earning = ns.store_earning + (o.store_earning|default(0)|float) %}
   {% endfor %}
 
-  <div class="dor-hero">
-    <div>
-      <span class="dor-kicker">Delivered Orders Report</span>
-      <h2>{{ store.store_name or "Store" }}</h2>
-      <p>
-        View all delivered orders with payment method, delivery boy details, COD collection,
-        delivery charge, platform fee, customer tip, rider earning and store earning separation.
-      </p>
-    </div>
-
-    <div class="dor-actions">
-      <a class="dor-btn" href="{{ url_for('store_dashboard') }}">Dashboard</a>
-      <a class="dor-btn primary" href="{{ url_for('store_delivery_history') }}">In-house Delivery Staff History</a>
-    </div>
-  </div>
-
-  <div class="dor-summary-grid">
-    <div class="dor-kpi">
-      <span>Delivered Orders</span>
-      <strong>{{ total_orders }}</strong>
-      <small>Total delivered records</small>
-    </div>
-
-    <div class="dor-kpi">
-      <span>Total Payable</span>
-      <strong>₹{{ "%.2f"|format(ns.total_payable|float) }}</strong>
-      <small>Includes delivery, platform fee and tip</small>
-    </div>
-
-    <div class="dor-kpi">
-      <span>COD Collection</span>
-      <strong>₹{{ "%.2f"|format(ns.cod_collect|float) }}</strong>
-      <small>Online-paid orders show zero collection</small>
-    </div>
-
-    <div class="dor-kpi">
-      <span>Delivery Fee</span>
-      <strong>₹{{ "%.2f"|format(ns.delivery_fee|float) }}</strong>
-      <small>Delivery fee total</small>
-    </div>
-
-    <div class="dor-kpi">
-      <span>Platform Fee</span>
-      <strong>₹{{ "%.2f"|format(ns.platform_fee|float) }}</strong>
-      <small>Separated platform/admin fee</small>
-    </div>
-
-    <div class="dor-kpi">
-      <span>Tips</span>
-      <strong>₹{{ "%.2f"|format(ns.tip|float) }}</strong>
-      <small>Customer tips</small>
-    </div>
-
-    <div class="dor-kpi">
-      <span>Delivery + Tip</span>
-      <strong>₹{{ "%.2f"|format(ns.delivery_plus_tip|float) }}</strong>
-      <small>Delivery-boy earning component</small>
-    </div>
-
-    <div class="dor-kpi">
-      <span>Store Earning</span>
-      <strong>₹{{ "%.2f"|format(ns.store_earning|float) }}</strong>
-      <small>Items subtotal only</small>
-    </div>
-  </div>
-
-  <div class="dor-card">
-    <div class="dor-section-head">
+  <div class="dor-shell">
+    <section class="dor-hero">
       <div>
-        <h3>Delivered order details</h3>
-        <p>Each row contains delivery, payment and financial breakdown for one delivered order.</p>
-      </div>
-    </div>
-
-    {% if delivered_orders %}
-      <div class="dor-table-wrap">
-        <table class="dor-table">
-          <thead>
-            <tr>
-              <th>Order</th>
-              <th>Customer</th>
-              <th>In-house Delivery Staff</th>
-              <th>Payment</th>
-              <th>COD / Collected</th>
-              <th>Items Subtotal</th>
-              <th>Delivery Fee</th>
-              <th>Platform Fee</th>
-              <th>Tip</th>
-              <th>Total Payable</th>
-              <th>Delivery + Tip</th>
-              <th>Store Earning</th>
-              <th>Delivered On</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for o in delivered_orders %}
-              <tr>
-                <td>
-                  <span class="dor-main">#{{ (o.id|string)[-6:] }}</span>
-                  <span class="dor-sub">{{ o.id }}</span>
-                </td>
-
-                <td>
-                  <span class="dor-main">{{ o.customer_name or "Customer" }}</span>
-                  <span class="dor-sub">{{ o.customer_phone or "Phone not available" }}</span>
-                </td>
-
-                <td>
-                  <span class="dor-main">{{ o.delivery_partner_name or "Not assigned" }}</span>
-                  <span class="dor-sub">{{ o.delivery_partner_phone or "Phone not available" }}</span>
-                  {% if o.delivery_assignment_source_label %}
-                    <span class="dor-sub">{{ o.delivery_assignment_source_label }}</span>
-                  {% endif %}
-                </td>
-
-                <td>
-                  <span class="dor-main">{{ o.payment_method or "COD" }}</span>
-                  <span class="dor-pill {{ (o.payment_status or 'PENDING')|lower }}">
-                    {{ o.payment_status or "PENDING" }}
-                  </span>
-                </td>
-
-                <td class="dor-money">₹{{ "%.2f"|format(o.amount_to_collect|default(0)|float) }}</td>
-                <td class="dor-money">₹{{ "%.2f"|format(o.items_subtotal|default(o.total_amount|default(0))|float) }}</td>
-                <td class="dor-money">₹{{ "%.2f"|format(o.delivery_fee|default(0)|float) }}</td>
-                <td class="dor-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</td>
-                <td class="dor-money">₹{{ "%.2f"|format(o.tip_amount|default(0)|float) }}</td>
-                <td class="dor-money">₹{{ "%.2f"|format(o.total_payable|default(o.total_amount|default(0))|float) }}</td>
-                <td class="dor-money">₹{{ "%.2f"|format(o.delivery_fee_plus_tip|default(0)|float) }}</td>
-                <td class="dor-money">₹{{ "%.2f"|format(o.store_earning|default(o.items_subtotal|default(o.total_amount|default(0)))|float) }}</td>
-
-                <td>
-                  <span class="dor-main">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
-                  {% if o.assigned_at %}
-                    <span class="dor-sub">Assigned: {{ o.assigned_at }}</span>
-                  {% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        <span class="dor-kicker">Delivered Orders</span>
+        <h1 class="dor-title">{{ store.store_name or "Store" }}</h1>
+        <p class="dor-copy">Review delivered orders with payment, delivery and earning breakdown.</p>
       </div>
 
-      <div class="dor-mobile-list">
-        {% for o in delivered_orders %}
-          <div class="dor-mobile-card">
-            <div class="dor-mobile-top">
-              <div>
-                <span class="dor-main">#{{ (o.id|string)[-6:] }} · {{ o.customer_name or "Customer" }}</span>
-                <span class="dor-sub">{{ o.customer_phone or "Phone not available" }}</span>
-              </div>
-              <span class="dor-pill {{ (o.payment_status or 'PENDING')|lower }}">
-                {{ o.payment_status or "PENDING" }}
-              </span>
-            </div>
+      <div class="dor-actions">
+        <a class="dor-btn" href="{{ url_for('store_dashboard') }}">Dashboard</a>
+        <a class="dor-btn primary" href="{{ url_for('store_delivery_history') }}">Delivery History</a>
+      </div>
+    </section>
 
-            <div>
-              <span class="dor-main">{{ o.delivery_partner_name or "Not assigned" }}</span>
-              <span class="dor-sub">{{ o.delivery_partner_phone or "Phone not available" }}</span>
-            </div>
+    <section class="dor-summary-grid" aria-label="Delivered order summary">
+      <div class="dor-kpi">
+        <span>Delivered Orders</span>
+        <strong>{{ total_orders }}</strong>
+        <small>Total delivered records</small>
+      </div>
 
-            <div class="dor-mobile-grid">
-              <div class="dor-mobile-metric">
-                <span>COD</span>
-                <strong>₹{{ "%.2f"|format(o.amount_to_collect|default(0)|float) }}</strong>
-              </div>
+      <div class="dor-kpi">
+        <span>Total Payable</span>
+        <strong>₹{{ "%.2f"|format(ns.total_payable|float) }}</strong>
+        <small>Customer payable value</small>
+      </div>
 
-              <div class="dor-mobile-metric">
-                <span>Total</span>
-                <strong>₹{{ "%.2f"|format(o.total_payable|default(o.total_amount|default(0))|float) }}</strong>
-              </div>
+      <div class="dor-kpi">
+        <span>COD Collection</span>
+        <strong>₹{{ "%.2f"|format(ns.cod_collect|float) }}</strong>
+        <small>Cash/order collection</small>
+      </div>
 
-              <div class="dor-mobile-metric">
-                <span>Delivery</span>
-                <strong>₹{{ "%.2f"|format(o.delivery_fee|default(0)|float) }}</strong>
-              </div>
+      <div class="dor-kpi">
+        <span>Delivery Fee</span>
+        <strong>₹{{ "%.2f"|format(ns.delivery_fee|float) }}</strong>
+        <small>Delivery fee total</small>
+      </div>
 
-              <div class="dor-mobile-metric">
-                <span>Platform</span>
-                <strong>₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</strong>
-              </div>
+      <div class="dor-kpi">
+        <span>Platform Fee</span>
+        <strong>₹{{ "%.2f"|format(ns.platform_fee|float) }}</strong>
+        <small>Platform/admin fee</small>
+      </div>
 
-              <div class="dor-mobile-metric">
-                <span>Tip</span>
-                <strong>₹{{ "%.2f"|format(o.tip_amount|default(0)|float) }}</strong>
-              </div>
+      <div class="dor-kpi">
+        <span>Tips</span>
+        <strong>₹{{ "%.2f"|format(ns.tip|float) }}</strong>
+        <small>Customer tips</small>
+      </div>
 
-              <div class="dor-mobile-metric">
-                <span>Store Earning</span>
-                <strong>₹{{ "%.2f"|format(o.store_earning|default(o.items_subtotal|default(o.total_amount|default(0)))|float) }}</strong>
-              </div>
-            </div>
+      <div class="dor-kpi">
+        <span>Delivery + Tip</span>
+        <strong>₹{{ "%.2f"|format(ns.delivery_plus_tip|float) }}</strong>
+        <small>Delivery earning component</small>
+      </div>
 
-            <span class="dor-sub">
-              Delivered: {{ o.delivered_at or o.updated_at or o.created_at or "-" }}
-            </span>
+      <div class="dor-kpi">
+        <span>Store Earning</span>
+        <strong>₹{{ "%.2f"|format(ns.store_earning|float) }}</strong>
+        <small>Items subtotal only</small>
+      </div>
+    </section>
+
+    <section class="dor-card">
+      <div class="dor-card-head">
+        <div>
+          <h2 class="dor-card-title">Delivered Order Details</h2>
+          <p class="dor-card-sub">Search, review and paginate delivered order records.</p>
+        </div>
+      </div>
+
+      {% if delivered_orders %}
+        <div class="dor-table-toolbar">
+          <div class="dor-search-wrap">
+            <input class="dor-search-input" type="search" data-dor-search placeholder="Search order, customer, staff, payment or amount...">
           </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="dor-empty">No delivered orders yet.</div>
-    {% endif %}
+          <div class="dor-table-tools">
+            <select class="dor-page-size-select" data-dor-page-size aria-label="Delivered orders per page">
+              <option value="10">10 / page</option>
+              <option value="20">20 / page</option>
+              <option value="50">50 / page</option>
+              <option value="100">100 / page</option>
+            </select>
+            <span class="dor-muted" data-dor-meta>{{ total_orders }} delivered orders</span>
+          </div>
+        </div>
+
+        <div class="dor-table-wrap">
+          <table class="dor-table" data-dor-table>
+            <thead>
+              <tr>
+                <th>SL No</th>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Delivery Staff</th>
+                <th>Payment</th>
+                <th>COD / Collected</th>
+                <th>Items Subtotal</th>
+                <th>Delivery Fee</th>
+                <th>Platform Fee</th>
+                <th>Tip</th>
+                <th>Total Payable</th>
+                <th>Delivery + Tip</th>
+                <th>Store Earning</th>
+                <th>Delivered On</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for o in delivered_orders %}
+                <tr data-dor-row data-search="{{ ((o.id|string) ~ ' ' ~ (o.customer_name or 'Customer') ~ ' ' ~ (o.customer_phone or '') ~ ' ' ~ (o.delivery_partner_name or 'Not assigned') ~ ' ' ~ (o.delivery_partner_phone or '') ~ ' ' ~ (o.payment_method or 'COD') ~ ' ' ~ (o.payment_status or 'PENDING') ~ ' ' ~ (o.total_payable|default(o.total_amount|default(0))|string) ~ ' ' ~ (o.delivered_at or o.updated_at or o.created_at or ''))|lower }}">
+                  <td><span class="dor-slno-value" data-dor-row-number>{{ loop.index }}</span></td>
+
+                  <td>
+                    <span class="dor-main">#{{ (o.id|string)[-6:] }}</span>
+                    <span class="dor-sub">{{ o.id }}</span>
+                  </td>
+
+                  <td>
+                    <span class="dor-main">{{ o.customer_name or "Customer" }}</span>
+                    <span class="dor-sub">{{ o.customer_phone or "Phone not available" }}</span>
+                  </td>
+
+                  <td>
+                    <span class="dor-main">{{ o.delivery_partner_name or "Not assigned" }}</span>
+                    <span class="dor-sub">{{ o.delivery_partner_phone or "Phone not available" }}</span>
+                    {% if o.delivery_assignment_source_label %}
+                      <span class="dor-sub">{{ o.delivery_assignment_source_label }}</span>
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    <span class="dor-main">{{ o.payment_method or "COD" }}</span>
+                    <span class="dor-pill {{ (o.payment_status or 'PENDING')|lower }}">
+                      {{ o.payment_status or "PENDING" }}
+                    </span>
+                  </td>
+
+                  <td class="dor-money">₹{{ "%.2f"|format(o.amount_to_collect|default(0)|float) }}</td>
+                  <td class="dor-money">₹{{ "%.2f"|format(o.items_subtotal|default(o.total_amount|default(0))|float) }}</td>
+                  <td class="dor-money">₹{{ "%.2f"|format(o.delivery_fee|default(0)|float) }}</td>
+                  <td class="dor-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</td>
+                  <td class="dor-money">₹{{ "%.2f"|format(o.tip_amount|default(0)|float) }}</td>
+                  <td class="dor-money">₹{{ "%.2f"|format(o.total_payable|default(o.total_amount|default(0))|float) }}</td>
+                  <td class="dor-money">₹{{ "%.2f"|format(o.delivery_fee_plus_tip|default(0)|float) }}</td>
+                  <td class="dor-money">₹{{ "%.2f"|format(o.store_earning|default(o.items_subtotal|default(o.total_amount|default(0)))|float) }}</td>
+
+                  <td>
+                    <span class="dor-main">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
+                    {% if o.assigned_at %}
+                      <span class="dor-sub">Assigned: {{ o.assigned_at }}</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="dor-products-empty" data-dor-empty hidden>No matching delivered orders found.</div>
+
+        <div class="dor-pagination-box" data-dor-pagination-box hidden>
+          <div class="dor-page-info" data-dor-page-info>Showing 0 delivered orders</div>
+          <div class="dor-page-controls">
+            <button type="button" class="dor-page-btn" data-dor-prev>Prev</button>
+            <div class="dor-page-numbers" data-dor-page-numbers></div>
+            <button type="button" class="dor-page-btn" data-dor-next>Next</button>
+          </div>
+        </div>
+      {% else %}
+        <div class="dor-empty">No delivered orders yet.</div>
+      {% endif %}
+    </section>
   </div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      document.addEventListener('DOMContentLoaded', function(){
+        const table = document.querySelector('[data-dor-table]');
+        if (!table) return;
+
+        const rows = Array.from(table.querySelectorAll('[data-dor-row]'));
+        const searchInput = document.querySelector('[data-dor-search]');
+        const pageSizeSelect = document.querySelector('[data-dor-page-size]');
+        const meta = document.querySelector('[data-dor-meta]');
+        const emptyBox = document.querySelector('[data-dor-empty]');
+        const paginationBox = document.querySelector('[data-dor-pagination-box]');
+        const pageInfo = document.querySelector('[data-dor-page-info]');
+        const pageNumbers = document.querySelector('[data-dor-page-numbers]');
+        const prevBtn = document.querySelector('[data-dor-prev]');
+        const nextBtn = document.querySelector('[data-dor-next]');
+
+        let page = 1;
+        let pageSize = parseInt(pageSizeSelect ? pageSizeSelect.value : '10', 10) || 10;
+        let filteredRows = rows.slice();
+
+        function getSearchText(row) {
+          return (row.dataset.search || row.textContent || '').toLowerCase();
+        }
+
+        function filterRows() {
+          const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+          filteredRows = rows.filter(function(row){
+            return !q || getSearchText(row).includes(q);
+          });
+          page = 1;
+          render();
+        }
+
+        function buildPageButton(label, targetPage, isActive, disabled) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'dor-page-btn' + (isActive ? ' active' : '');
+          btn.textContent = label;
+          btn.disabled = !!disabled;
+
+          if (!disabled) {
+            btn.addEventListener('click', function(){
+              page = targetPage;
+              render();
+            });
+          }
+
+          return btn;
+        }
+
+        function renderNumbers(totalPages) {
+          if (!pageNumbers) return;
+          pageNumbers.innerHTML = '';
+
+          if (totalPages <= 1) return;
+
+          const pages = [];
+          const start = Math.max(1, page - 1);
+          const end = Math.min(totalPages, page + 1);
+
+          if (start > 1) {
+            pages.push(1);
+            if (start > 2) pages.push('...');
+          }
+
+          for (let i = start; i <= end; i += 1) pages.push(i);
+
+          if (end < totalPages) {
+            if (end < totalPages - 1) pages.push('...');
+            pages.push(totalPages);
+          }
+
+          pages.forEach(function(item){
+            if (item === '...') {
+              pageNumbers.appendChild(buildPageButton('...', page, false, true));
+            } else {
+              pageNumbers.appendChild(buildPageButton(String(item), item, item === page, false));
+            }
+          });
+        }
+
+        function render() {
+          pageSize = parseInt(pageSizeSelect ? pageSizeSelect.value : String(pageSize), 10) || 10;
+          const total = filteredRows.length;
+          const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+          if (page > totalPages) page = totalPages;
+
+          const start = (page - 1) * pageSize;
+          const end = start + pageSize;
+
+          rows.forEach(function(row){
+            row.hidden = true;
+          });
+
+          filteredRows.slice(start, end).forEach(function(row){
+            row.hidden = false;
+          });
+
+          if (meta) {
+            meta.textContent = total + ' shown · ' + rows.length + ' total';
+          }
+
+          if (emptyBox) {
+            emptyBox.hidden = total !== 0;
+          }
+
+          if (paginationBox) {
+            paginationBox.hidden = rows.length === 0;
+          }
+
+          if (pageInfo) {
+            if (total === 0) {
+              pageInfo.textContent = 'Showing 0 delivered orders';
+            } else {
+              pageInfo.textContent = 'Showing ' + (start + 1) + '–' + Math.min(end, total) + ' of ' + total + ' delivered orders';
+            }
+          }
+
+          if (prevBtn) {
+            prevBtn.disabled = page <= 1;
+            prevBtn.onclick = function(){
+              if (page > 1) {
+                page -= 1;
+                render();
+              }
+            };
+          }
+
+          if (nextBtn) {
+            nextBtn.disabled = page >= totalPages;
+            nextBtn.onclick = function(){
+              if (page < totalPages) {
+                page += 1;
+                render();
+              }
+            };
+          }
+
+          renderNumbers(totalPages);
+        }
+
+        if (searchInput) searchInput.addEventListener('input', filterRows);
+        if (pageSizeSelect) pageSizeSelect.addEventListener('change', function(){ page = 1; render(); });
+
+        render();
+      });
+    })();
+  </script>
 </section>
 {% endblock %}

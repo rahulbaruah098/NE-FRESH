@@ -687,7 +687,7 @@
               });
 
               playBeep();
-              desktopNotify("Chhimphei Chicken", `${label}${plural}: ${data.new.length}`);
+              desktopNotify("NELOCALS", `${label}${plural}: ${data.new.length}`);
             }
           }
         }
