@@ -269,21 +269,6 @@ def _parse_since_to_sqlite(since_raw: str):
 def inject_globals():
     delivery_mode_settings = get_delivery_mode_settings()
 
-    try:
-        payment_gateway_row = mongo.platform_settings.find_one({"key": "payment_gateway_settings"}) or {}
-    except Exception:
-        payment_gateway_row = {}
-
-    try:
-        platform_fee_settings = get_platform_fee_settings()
-    except Exception:
-        platform_fee_settings = {"enabled": False}
-
-    online_payment_allowed = bool(delivery_mode_settings.get("allow_online_payment", True))
-    pay_on_delivery_allowed = bool(delivery_mode_settings.get("allow_cod_payment", True))
-    platform_fee_enabled = bool(platform_fee_settings.get("enabled", False))
-    payment_gateway_enabled = bool(payment_gateway_row.get("enabled", False))
-
     return {
         "datetime": datetime,
         "current_user": current_user(),
@@ -296,10 +281,6 @@ def inject_globals():
         "external_local_delivery_enabled": bool(delivery_mode_settings.get("external_local_delivery_enabled", False)),
         "third_party_shipping_enabled": bool(delivery_mode_settings.get("third_party_shipping_enabled", False)),
         "return_refund_enabled": bool(delivery_mode_settings.get("return_refund_enabled", True)),
-        "online_payment_allowed": online_payment_allowed,
-        "pay_on_delivery_allowed": pay_on_delivery_allowed,
-        "payment_gateway_enabled": payment_gateway_enabled,
-        "platform_fee_enabled": platform_fee_enabled,
         "delivery_mode_ui": get_delivery_mode_ui_context(delivery_mode_settings),
     }
 

@@ -1,1042 +1,1305 @@
-{% extends "base.html" %}
-{% block content %}
-
-<style>
-  body{
-    padding-top:0 !important;
-  }
-
-  .header-strip,
-  .loc-strip,
-  .footer{
-    display:none !important;
-  }
-
-  main.container{
-    width:100% !important;
-    max-width:none !important;
-    padding:0 !important;
-    margin:0 !important;
-  }
-
-  .login-page{
-    --nf-green:#00A859;
-    --nf-green-dark:#008A48;
-    --nf-green-soft:#E9FFF3;
-    --nf-green-soft-2:#F3FFF8;
-    --nf-ink:#23332A;
-    --nf-text:#66756D;
-    --nf-muted:#8A9890;
-    --nf-line:#DDF5E9;
-    --nf-card:#FFFFFF;
-    --nf-bg:#F8FFFB;
-    --nf-yellow:#FFB84D;
-    --nf-red:#EF4444;
-    --nf-shadow:0 18px 46px rgba(17,64,38,.08);
-    --nf-shadow-hover:0 24px 64px rgba(17,64,38,.13);
-    --nf-radius:26px;
-    --nf-ease:cubic-bezier(.2,.75,.25,1);
-
-    width:100vw;
-    min-height:100vh;
-    margin-left:calc(50% - 50vw);
-    margin-right:calc(50% - 50vw);
-    position:relative;
-    overflow:hidden;
-    background:#FFFFFF;
-    color:var(--nf-text);
-    font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    -webkit-font-smoothing:antialiased;
-    text-rendering:optimizeLegibility;
-    padding:clamp(18px,3vw,44px) 0;
-  }
-
-  .login-page *,
-  .login-page *::before,
-  .login-page *::after{
-    box-sizing:border-box;
-  }
-
-  .login-page::before,
-  .login-page::after{
-    display:none !important;
-  }
-
-  .login-container{
-    width:100%;
-    max-width:none;
-    padding-left:clamp(18px,5vw,96px);
-    padding-right:clamp(18px,5vw,96px);
-    position:relative;
-    z-index:2;
-  }
-
-  .login-bg-orb,
-  .orb-1,
-  .orb-2{
-    display:none !important;
-  }
-
-  .login-topbar{
-    width:100%;
-    max-width:1180px;
-    margin:0 auto 22px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:16px;
-  }
-
-  .login-brand{
-    display:flex;
-    align-items:center;
-    gap:12px;
-    min-width:0;
-  }
-
-  .login-brand-mark{
-    width:550px;
-    height:200px;
-    border-radius:0;
-    display:grid;
-    place-items:start;
-    background:transparent;
-    border:0;
-    box-shadow:none;
-    overflow:visible;
-    flex:0 0 auto;
-  }
-
-  .login-brand-mark img{
-    width:550px;
-    height:200px;
-    object-fit:contain;
-    object-position:left center;
-    display:block;
-  }
-
-  .login-brand-text{
-    min-width:0;
-  }
-
-  .login-brand-subtitle{
-    display:none;
-  }
-
-  .back-home-btn{
-    min-height:44px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    padding:0 16px;
-    border-radius:999px;
-    background:#FFFFFF;
-    border:1px solid var(--nf-line);
-    color:var(--nf-green-dark);
-    text-decoration:none;
-    font-size:.88rem;
-    font-weight:850;
-    box-shadow:0 12px 28px rgba(17,64,38,.07);
-    transition:transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease), background .22s var(--nf-ease);
-    white-space:nowrap;
-  }
-
-  .back-home-btn:hover{
-    background:var(--nf-green-soft);
-    border-color:rgba(0,168,89,.24);
-    transform:translateY(-2px);
-    box-shadow:0 18px 38px rgba(17,64,38,.10);
-    color:var(--nf-green-dark);
-  }
-
-  .login-shell{
-    display:grid;
-    grid-template-columns:minmax(0,1fr) minmax(410px,520px);
-    gap:clamp(24px,4vw,54px);
-    align-items:stretch;
-    max-width:1180px;
-    margin:0 auto;
-  }
-
-  .login-hero{
-    min-height:610px;
-    border-radius:32px;
-    overflow:hidden;
-    position:relative;
-    background:linear-gradient(145deg,#F7FFFB 0%,#FFFFFF 100%);
-    border:1px solid var(--nf-line);
-    box-shadow:var(--nf-shadow);
-    padding:clamp(30px,4vw,52px);
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    gap:clamp(24px,3vw,36px);
-  }
-
-  .login-hero::before,
-  .login-hero::after{
-    display:none !important;
-  }
-
-  .login-header{
-    position:relative;
-    z-index:2;
-  }
-
-  
-
-  .login-title{
-    margin:0;
-    color:var(--nf-green);
-    font-size:clamp(2.15rem,4.1vw,3.9rem);
-    line-height:1.02;
-    font-weight:900;
-    letter-spacing:-.06em;
-    max-width:580px;
-  }
-
-  .login-title span{
-    color:var(--nf-ink);
-  }
-
-  .login-subtitle{
-    margin:14px 0 0;
-    max-width:560px;
-    color:#516257;
-    font-size:clamp(.96rem,1.12vw,1.04rem);
-    line-height:1.62;
-    font-weight:600;
-  }
-
-  .login-hero-art{
-    position:relative;
-    z-index:2;
-    display:grid;
-    grid-template-columns:minmax(0,1fr);
-    gap:16px;
-    align-items:end;
-    margin-top:0;
-  }
-
-  .grocery-showcase{
-    min-height:218px;
-    border-radius:28px;
-    background:linear-gradient(145deg,#E9FFF3,#FFF8DF);
-    border:1px solid rgba(0,168,89,.12);
-    display:grid;
-    grid-template-columns:minmax(0,1fr) 158px;
-    align-items:center;
-    gap:18px;
-    padding:24px;
-    box-shadow:0 18px 44px rgba(17,64,38,.09);
-  }
-
-  .grocery-brand-preview{
-    display:flex;
-    align-items:center;
-    gap:16px;
-    min-width:0;
-  }
-
-  .grocery-brand-logo{
-    width:92px;
-    height:92px;
-    border-radius:28px;
-    display:grid;
-    place-items:center;
-    background:#FFFFFF;
-    border:1px solid rgba(0,168,89,.16);
-    box-shadow:0 16px 36px rgba(17,64,38,.10);
-    overflow:hidden;
-    flex:0 0 auto;
-  }
-
-  .grocery-brand-logo img{
-    width:72px;
-    height:72px;
-    object-fit:contain;
-    display:block;
-  }
-
-  .grocery-brand-preview h3{
-    margin:0;
-    color:var(--nf-ink);
-    font-size:1.22rem;
-    line-height:1.2;
-    font-weight:780;
-    letter-spacing:-.03em;
-  }
-
-  .grocery-brand-preview p{
-    margin:8px 0 0;
-    color:#65766D;
-    font-size:.9rem;
-    line-height:1.5;
-    font-weight:600;
-  }
-
-  .grocery-bag{
-    min-height:152px;
-    border-radius:26px;
-    background:#FFFFFF;
-    display:grid;
-    place-items:center;
-    font-size:4.45rem;
-    box-shadow:0 18px 42px rgba(17,64,38,.09);
-    position:relative;
-  }
-
-  .grocery-bag small{
-    position:absolute;
-    right:14px;
-    bottom:14px;
-    display:grid;
-    place-items:center;
-    width:52px;
-    height:52px;
-    border-radius:18px;
-    background:var(--nf-green-soft);
-    font-size:1.8rem;
-    box-shadow:0 10px 24px rgba(17,64,38,.08);
-  }
-
-  .hero-mini{
-    display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:12px;
-  }
-
-  .hero-mini-card{
-    min-height:104px;
-    border-radius:20px;
-    background:#fff;
-    border:1px solid #E2F2E9;
-    box-shadow:0 10px 24px rgba(17,64,38,.055);
-    padding:16px;
-    transition:transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease);
-  }
-
-  .hero-mini-card:hover{
-    transform:translateY(-4px);
-    box-shadow:var(--nf-shadow-hover);
-    border-color:rgba(0,168,89,.20);
-  }
-
-  .hero-mini-card b{
-    display:block;
-    color:var(--nf-ink);
-    font-size:.96rem;
-    line-height:1.3;
-    font-weight:780;
-  }
-
-  .hero-mini-card span{
-    display:block;
-    margin-top:7px;
-    color:var(--nf-muted);
-    font-size:.82rem;
-    line-height:1.45;
-    font-weight:600;
-  }
-
-  .form-card{
-    position:relative;
-    border-radius:32px;
-    background:#fff;
-    border:1px solid var(--nf-line);
-    box-shadow:var(--nf-shadow);
-    padding:clamp(22px,3vw,36px);
-    overflow:hidden;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-  }
-
-  .form-card::before{
-    display:none !important;
-  }
-
-  .form-card-head{
-    margin-bottom:22px;
-  }
-
-  .form-card-head h2{
-    margin:0;
-    color:var(--nf-ink);
-    font-size:1.58rem;
-    line-height:1.2;
-    font-weight:850;
-    letter-spacing:-.04em;
-  }
-
-  .form-card-head p{
-    margin:9px 0 0;
-    color:var(--nf-muted);
-    font-size:.94rem;
-    line-height:1.55;
-    font-weight:600;
-  }
-
-  .form{
-    margin:0;
-    max-width:none;
-    border:0;
-    background:transparent;
-    border-radius:0;
-    padding:0;
-    box-shadow:none;
-    position:relative;
-    overflow:visible;
-  }
-
-  .form-group{
-    margin-bottom:18px;
-    position:relative;
-  }
-
-  .form-label{
-    display:block;
-    margin-bottom:9px;
-    color:var(--nf-ink);
-    font-size:.84rem;
-    font-weight:820;
-    letter-spacing:-.01em;
-  }
-
-  .input-group{
-    position:relative;
-    display:flex;
-    align-items:center;
-  }
-
-  .input-icon{
-    position:absolute;
-    left:15px;
-    z-index:2;
-    pointer-events:none;
-    display:grid;
-    place-items:center;
-    width:22px;
-    height:22px;
-    opacity:.9;
-  }
-
-  .form-input{
-    width:100%;
-    min-height:56px;
-    padding:15px 18px 15px 50px;
-    border:1px solid #DCEFE5;
-    border-radius:17px;
-    background:#F8FFFB;
-    color:var(--nf-ink);
-    outline:none;
-    font-family:inherit;
-    font-size:.96rem;
-    font-weight:650;
-    transition:border-color .22s var(--nf-ease), box-shadow .22s var(--nf-ease), background .22s var(--nf-ease);
-  }
-
-  .form-input::placeholder{
-    color:#9CAAA2;
-    font-weight:550;
-  }
-
-  .form-input:hover{
-    background:#fff;
-    border-color:rgba(0,168,89,.26);
-    box-shadow:0 12px 24px rgba(17,64,38,.05);
-  }
-
-  .form-input:focus{
-    background:#fff;
-    border-color:var(--nf-green);
-    box-shadow:0 0 0 4px rgba(0,168,89,.12);
-  }
-
-  .form-group.focused .input-icon{
-    opacity:1;
-  }
-
-  .password-toggle{
-    position:absolute;
-    right:8px;
-    z-index:3;
-    width:42px;
-    height:42px;
-    border:1px solid #DCEFE5;
-    border-radius:14px;
-    background:#fff;
-    color:var(--nf-green-dark);
-    display:grid;
-    place-items:center;
-    cursor:pointer;
-    transition:.22s var(--nf-ease);
-    -webkit-tap-highlight-color:transparent;
-  }
-
-  .password-toggle:hover{
-    background:var(--nf-green-soft);
-    border-color:rgba(0,168,89,.25);
-    transform:translateY(-1px);
-  }
-
-  .password-toggle svg{
-    width:19px;
-    height:19px;
-    display:block;
-  }
-
-  .features{
-    display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:10px;
-    margin:18px 0 14px;
-    padding:0;
-    border:0;
-    background:transparent;
-  }
-
-  .feature{
-    min-height:88px;
-    border-radius:20px;
-    background:#F8FFFB;
-    border:1px solid var(--nf-line);
-    padding:13px 8px;
-    text-align:center;
-    color:var(--nf-ink);
-    transition:transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease), background .22s var(--nf-ease);
-  }
-
-  .feature:hover{
-    transform:translateY(-4px);
-    background:#fff;
-    box-shadow:0 14px 28px rgba(17,64,38,.08);
-    border-color:rgba(0,168,89,.24);
-  }
-
-  .feature-icon{
-    display:block;
-    min-height:28px;
-    font-size:1.34rem;
-    margin-bottom:7px;
-  }
-
-  .feature-text{
-    font-size:.76rem;
-    line-height:1.25;
-    font-weight:760;
-    color:#516257;
-  }
-
-  .security-note{
-    display:none !important;
-  }
-
-  .login-container .btn{
-    width:100%;
-    min-height:56px;
-    border:0;
-    border-radius:17px;
-    background:var(--nf-green);
-    color:#fff;
-    font-family:inherit;
-    font-size:.98rem;
-    font-weight:850;
-    padding:0 18px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:10px;
-    transition:transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), background .22s var(--nf-ease);
-    box-shadow:0 14px 30px rgba(0,168,89,.24);
-    margin-top:10px;
-    position:relative;
-    overflow:hidden;
-    white-space:nowrap;
-    cursor:pointer;
-  }
-
-  .login-container .btn:hover{
-    background:var(--nf-green-dark);
-    transform:translateY(-2px);
-    box-shadow:0 20px 40px rgba(0,168,89,.30);
-  }
-
-  .login-container .btn:active{
-    transform:translateY(0);
-  }
-
-  .login-container .btn:disabled{
-    cursor:not-allowed;
-  }
-
-  .login-container .btn lord-icon{
-    color:currentColor;
-  }
-
-  .form-footer{
-    max-width:none;
-    margin:18px 0 0;
-    padding-top:18px;
-    border-top:1px solid var(--nf-line);
-    text-align:center;
-  }
-
-  .login-container .muted{
-    margin:0;
-    color:var(--nf-muted);
-    font-weight:650;
-    font-size:.9rem;
-  }
-
-  .links{
-    display:flex;
-    justify-content:center;
-    gap:10px;
-    margin-top:13px;
-    flex-wrap:wrap;
-  }
-
-  .link{
-    min-height:44px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-    padding:0 14px;
-    border-radius:15px;
-    border:1px solid #DCEFE5;
-    background:#fff;
-    color:var(--nf-green-dark);
-    text-decoration:none;
-    font-size:.86rem;
-    font-weight:800;
-    transition:transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease), background .22s var(--nf-ease);
-  }
-
-  .link:hover{
-    background:var(--nf-green-soft);
-    color:var(--nf-green-dark);
-    border-color:rgba(0,168,89,.26);
-    transform:translateY(-2px);
-    box-shadow:0 12px 24px rgba(17,64,38,.08);
-  }
-
-  .link:hover lord-icon{
-    color:currentColor;
-  }
-
-  .loading{
-    animation:spin 1s linear infinite;
-  }
-
-  .success{
-    animation:success .6s ease;
-  }
-
-  @keyframes spin{
-    0%{transform:rotate(0deg)}
-    100%{transform:rotate(360deg)}
-  }
-
-  @keyframes success{
-    0%{transform:scale(1)}
-    50%{transform:scale(1.1)}
-    100%{transform:scale(1)}
-  }
-
-  @media(max-width:980px){
-    .login-shell{
-      grid-template-columns:1fr;
-      max-width:620px;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#F8FFFB">
+  <title>Login | NE Locals</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --nf-green:#00A859;
+      --nf-green-dark:#008A48;
+      --nf-green-deep:#075C3B;
+      --nf-green-soft:#E9FFF3;
+      --nf-green-soft-2:#F3FFF8;
+      --nf-ink:#203329;
+      --nf-text:#516257;
+      --nf-muted:#7A8B82;
+      --nf-line:#DDF5E9;
+      --nf-card:#FFFFFF;
+      --nf-bg:#F8FFFB;
+      --nf-yellow:#FFB84D;
+      --nf-red:#EF4444;
+      --nf-shadow:0 18px 46px rgba(17,64,38,.08);
+      --nf-shadow-hover:0 24px 64px rgba(17,64,38,.13);
+      --nf-radius:26px;
+      --nf-ease:cubic-bezier(.2,.75,.25,1);
+      --nf-safe-top:env(safe-area-inset-top,0px);
+      --nf-safe-right:env(safe-area-inset-right,0px);
+      --nf-safe-bottom:env(safe-area-inset-bottom,0px);
+      --nf-safe-left:env(safe-area-inset-left,0px);
     }
 
-    .login-hero{
-      display:none !important;
+    *{box-sizing:border-box;}
+
+    html{
+      width:100%;
+      min-height:100%;
+      overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      text-size-adjust:100%;
+      background:var(--nf-bg);
     }
 
-    .form-card{
-      min-height:auto;
+    body{
+      width:100%;
+      min-height:100vh;
+      min-height:100svh;
+      margin:0;
+      padding:0;
+      overflow-x:hidden;
+      background:var(--nf-bg);
+      color:var(--nf-text);
+      font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
     }
 
-    .features{
-      grid-template-columns:repeat(3,minmax(0,1fr));
+    button,
+    input{
+      font:inherit;
     }
-  }
 
-  @media(max-width:640px){
+    button,
+    a{
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    a{
+      color:inherit;
+      text-decoration:none;
+    }
+
     .login-page{
-      padding:16px 0 22px;
+      width:100%;
+      min-height:100vh;
+      min-height:100svh;
+      min-height:100dvh;
+      position:relative;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      padding:
+        max(18px,var(--nf-safe-top))
+        max(18px,var(--nf-safe-right))
+        max(18px,var(--nf-safe-bottom))
+        max(18px,var(--nf-safe-left));
+      background:linear-gradient(135deg,#F8FFFB 0%,#FFFFFF 58%,#F3FFF8 100%);
+      isolation:isolate;
+    }
+
+    .login-page::before{
+      content:"";
+      position:absolute;
+      inset:clamp(12px,2vw,24px);
+      border:1px solid rgba(0,168,89,.09);
+      border-radius:clamp(26px,4vw,46px);
+      pointer-events:none;
+      z-index:-1;
     }
 
     .login-container{
-      padding-left:16px;
-      padding-right:16px;
+      width:min(100%,1220px);
+      min-width:0;
+      display:grid;
+      gap:clamp(14px,2vw,22px);
     }
 
     .login-topbar{
-      margin-bottom:16px;
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      min-width:0;
+    }
+
+    .login-brand{
+      min-width:0;
+      display:inline-flex;
+      align-items:center;
       gap:12px;
     }
 
-   
+    .login-brand-mark{
+      width:clamp(118px,14vw,176px);
+      height:clamp(44px,5.4vw,64px);
+      display:grid;
+      place-items:center start;
+      overflow:hidden;
+      flex:0 0 auto;
+      line-height:0;
+    }
+
+    .login-brand-mark img{
+      width:100%;
+      height:100%;
+      object-fit:contain;
+      object-position:left center;
+      display:block;
+      filter:drop-shadow(0 8px 16px rgba(0,168,89,.09));
+    }
+
+    .login-brand-text{
+      display:none !important;
+    }
 
     .login-brand-title{
-      font-size:1.12rem;
+      color:var(--nf-ink);
+      font-size:.95rem;
+      font-weight:900;
+      letter-spacing:-.02em;
+      line-height:1.1;
+      white-space:nowrap;
     }
 
     .login-brand-subtitle{
-      display:none;
+      color:var(--nf-muted);
+      font-size:.76rem;
+      font-weight:700;
+      line-height:1.2;
+      white-space:nowrap;
     }
 
     .back-home-btn{
-      min-height:40px;
-      padding:0 12px;
-      font-size:.78rem;
+      min-height:42px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:0 15px;
+      border-radius:999px;
+      background:#FFFFFF;
+      border:1px solid var(--nf-line);
+      color:var(--nf-green-dark);
+      font-size:.86rem;
+      font-weight:850;
+      box-shadow:0 12px 28px rgba(17,64,38,.07);
+      transition:transform .22s var(--nf-ease),box-shadow .22s var(--nf-ease),border-color .22s var(--nf-ease),background .22s var(--nf-ease);
+      white-space:nowrap;
+      flex:0 0 auto;
+    }
+
+    .back-home-btn:hover{
+      background:var(--nf-green-soft);
+      border-color:rgba(0,168,89,.24);
+      transform:translateY(-2px);
+      box-shadow:0 18px 38px rgba(17,64,38,.10);
     }
 
     .login-shell{
+      width:100%;
+      min-width:0;
+      display:grid;
+      grid-template-columns:minmax(0,1.06fr) minmax(360px,.74fr);
+      gap:clamp(18px,3.5vw,46px);
+      align-items:stretch;
+    }
+
+    .login-hero{
+      min-width:0;
+      min-height:clamp(520px,66vh,680px);
+      border-radius:clamp(26px,3vw,34px);
+      position:relative;
+      overflow:hidden;
+      background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(243,255,248,.88));
+      border:1px solid var(--nf-line);
+      box-shadow:var(--nf-shadow);
+      padding:clamp(24px,3.8vw,50px);
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      gap:clamp(20px,3vw,34px);
+    }
+
+    .login-hero::after{
+      display:none !important;
+    }
+
+    .login-kicker{
+      width:max-content;
+      max-width:100%;
+      min-height:32px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:0 13px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid rgba(0,168,89,.16);
+      color:var(--nf-green-dark);
+      font-size:.72rem;
+      font-weight:950;
+      letter-spacing:.07em;
+      text-transform:uppercase;
+      box-shadow:0 10px 22px rgba(17,64,38,.05);
+    }
+
+    .login-title{
+      margin:13px 0 0;
+      color:var(--nf-green);
+      font-size:clamp(2.05rem,4.2vw,4.15rem);
+      line-height:.98;
+      font-weight:950;
+      letter-spacing:-.07em;
+      max-width:640px;
+    }
+
+    .login-title span{
+      color:var(--nf-ink);
+    }
+
+    .login-subtitle{
+      margin:16px 0 0;
+      max-width:590px;
+      color:var(--nf-text);
+      font-size:clamp(.96rem,1.12vw,1.06rem);
+      line-height:1.64;
+      font-weight:650;
+    }
+
+    .login-hero-art{
+      position:relative;
+      z-index:2;
+      display:grid;
       gap:16px;
-      max-width:none;
+    }
+
+    .grocery-showcase{
+      min-height:190px;
+      border-radius:28px;
+      background:linear-gradient(145deg,#E9FFF3,#FFF8DF);
+      border:1px solid rgba(0,168,89,.13);
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(112px,150px);
+      align-items:center;
+      gap:18px;
+      padding:clamp(18px,2vw,24px);
+      box-shadow:0 18px 44px rgba(17,64,38,.09);
+    }
+
+    .grocery-brand-preview{
+      min-width:0;
+    }
+
+    .grocery-brand-preview h3{
+      margin:0;
+      color:var(--nf-ink);
+      font-size:clamp(1.02rem,1.4vw,1.22rem);
+      line-height:1.22;
+      font-weight:850;
+      letter-spacing:-.035em;
+    }
+
+    .grocery-brand-preview p{
+      margin:8px 0 0;
+      color:#65766D;
+      font-size:.9rem;
+      line-height:1.5;
+      font-weight:630;
+    }
+
+    .grocery-bag{
+      min-height:142px;
+      border-radius:26px;
+      background:#FFFFFF;
+      display:grid;
+      place-items:center;
+      font-size:clamp(3.2rem,5vw,4.45rem);
+      box-shadow:0 18px 42px rgba(17,64,38,.09);
+      position:relative;
+    }
+
+    .grocery-bag small{
+      position:absolute;
+      right:12px;
+      bottom:12px;
+      display:grid;
+      place-items:center;
+      width:48px;
+      height:48px;
+      border-radius:17px;
+      background:var(--nf-green-soft);
+      font-size:1.55rem;
+      box-shadow:0 10px 24px rgba(17,64,38,.08);
+    }
+
+    .hero-mini{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .hero-mini-card{
+      min-height:98px;
+      border-radius:20px;
+      background:#fff;
+      border:1px solid #E2F2E9;
+      box-shadow:0 10px 24px rgba(17,64,38,.055);
+      padding:15px;
+      transition:transform .22s var(--nf-ease),box-shadow .22s var(--nf-ease),border-color .22s var(--nf-ease);
+    }
+
+    .hero-mini-card:hover{
+      transform:translateY(-4px);
+      box-shadow:var(--nf-shadow-hover);
+      border-color:rgba(0,168,89,.20);
+    }
+
+    .hero-mini-card b{
+      display:block;
+      color:var(--nf-ink);
+      font-size:.93rem;
+      line-height:1.28;
+      font-weight:850;
+    }
+
+    .hero-mini-card span{
+      display:block;
+      margin-top:7px;
+      color:var(--nf-muted);
+      font-size:.8rem;
+      line-height:1.4;
+      font-weight:620;
     }
 
     .form-card{
-      border-radius:24px;
-      padding:20px 16px;
-      box-shadow:0 12px 32px rgba(17,64,38,.07);
+      width:100%;
+      min-width:0;
+      position:relative;
+      border-radius:clamp(26px,3vw,34px);
+      background:rgba(255,255,255,.96);
+      border:1px solid var(--nf-line);
+      box-shadow:var(--nf-shadow);
+      padding:clamp(22px,3vw,36px);
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      backdrop-filter:blur(14px);
+      -webkit-backdrop-filter:blur(14px);
     }
 
     .form-card-head{
-      margin-bottom:20px;
+      margin-bottom:22px;
     }
 
     .form-card-head h2{
-      font-size:1.36rem;
+      margin:0;
+      color:var(--nf-ink);
+      font-size:clamp(1.34rem,2.1vw,1.62rem);
+      line-height:1.17;
+      font-weight:900;
+      letter-spacing:-.045em;
     }
 
     .form-card-head p{
-      font-size:.88rem;
+      margin:9px 0 0;
+      color:var(--nf-muted);
+      font-size:.94rem;
+      line-height:1.55;
+      font-weight:640;
+    }
+
+    .nf-flash-wrap{
+      display:grid;
+      gap:9px;
+      margin:0 0 16px;
+    }
+
+    .nf-flash{
+      border-radius:15px;
+      padding:11px 13px;
+      font-size:.86rem;
+      font-weight:750;
+      border:1px solid var(--nf-line);
+      background:#FFFFFF;
+      color:var(--nf-text);
+      line-height:1.4;
+    }
+
+    .nf-flash.success{
+      border-color:rgba(0,168,89,.24);
+      background:var(--nf-green-soft);
+      color:var(--nf-green-dark);
+    }
+
+    .nf-flash.error,
+    .nf-flash.danger{
+      border-color:rgba(239,68,68,.25);
+      background:#FFF1F2;
+      color:#B91C1C;
+    }
+
+    .nf-flash.warning{
+      border-color:rgba(255,184,77,.30);
+      background:#FFFBEB;
+      color:#92400E;
+    }
+
+    .form{
+      margin:0;
+      max-width:none;
+      border:0;
+      background:transparent;
+      border-radius:0;
+      padding:0;
+      box-shadow:none;
+      position:relative;
+      overflow:visible;
+    }
+
+    .form-group{
+      margin-bottom:17px;
+      position:relative;
+    }
+
+    .form-label{
+      display:block;
+      margin-bottom:9px;
+      color:var(--nf-ink);
+      font-size:.84rem;
+      font-weight:850;
+      letter-spacing:-.01em;
+    }
+
+    .input-group{
+      position:relative;
+      display:flex;
+      align-items:center;
+      min-width:0;
+    }
+
+    .input-icon{
+      position:absolute;
+      left:15px;
+      z-index:2;
+      pointer-events:none;
+      display:grid;
+      place-items:center;
+      width:22px;
+      height:22px;
+      opacity:.9;
     }
 
     .form-input{
-      min-height:52px;
-      border-radius:15px;
-      font-size:.92rem;
+      width:100%;
+      min-width:0;
+      min-height:56px;
+      padding:15px 58px 15px 50px;
+      border:1px solid #DCEFE5;
+      border-radius:17px;
+      background:#F8FFFB;
+      color:var(--nf-ink);
+      outline:none;
+      font-family:inherit;
+      font-size:16px;
+      font-weight:650;
+      transition:border-color .22s var(--nf-ease),box-shadow .22s var(--nf-ease),background .22s var(--nf-ease);
+      appearance:none;
+      -webkit-appearance:none;
+    }
+
+    .form-group:first-of-type .form-input{
+      padding-right:18px;
+    }
+
+    .form-input::placeholder{
+      color:#9CAAA2;
+      font-weight:550;
+    }
+
+    .form-input:hover{
+      background:#fff;
+      border-color:rgba(0,168,89,.26);
+      box-shadow:0 12px 24px rgba(17,64,38,.05);
+    }
+
+    .form-input:focus{
+      background:#fff;
+      border-color:var(--nf-green);
+      box-shadow:0 0 0 4px rgba(0,168,89,.12);
+    }
+
+    .form-group.focused .input-icon{
+      opacity:1;
     }
 
     .password-toggle{
-      width:40px;
-      height:40px;
-      border-radius:13px;
+      position:absolute;
+      right:8px;
+      z-index:3;
+      width:42px;
+      height:42px;
+      border:1px solid #DCEFE5;
+      border-radius:14px;
+      background:#fff;
+      color:var(--nf-green-dark);
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      transition:transform .22s var(--nf-ease),background .22s var(--nf-ease),border-color .22s var(--nf-ease);
+      touch-action:manipulation;
+    }
+
+    .password-toggle:hover{
+      background:var(--nf-green-soft);
+      border-color:rgba(0,168,89,.25);
+      transform:translateY(-1px);
+    }
+
+    .password-toggle svg{
+      width:19px;
+      height:19px;
+      display:block;
     }
 
     .features{
+      display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
+      gap:10px;
+      margin:18px 0 14px;
+      padding:0;
+      border:0;
+      background:transparent;
     }
 
     .feature{
-      min-height:78px;
-      border-radius:17px;
-      padding:10px 6px;
+      min-height:84px;
+      border-radius:20px;
+      background:#F8FFFB;
+      border:1px solid var(--nf-line);
+      padding:12px 7px;
+      text-align:center;
+      color:var(--nf-ink);
+      transition:transform .22s var(--nf-ease),box-shadow .22s var(--nf-ease),border-color .22s var(--nf-ease),background .22s var(--nf-ease);
+    }
+
+    .feature:hover{
+      transform:translateY(-4px);
+      background:#fff;
+      box-shadow:0 14px 28px rgba(17,64,38,.08);
+      border-color:rgba(0,168,89,.24);
     }
 
     .feature-icon{
-      font-size:1.2rem;
-      min-height:24px;
-      margin-bottom:5px;
+      display:block;
+      min-height:28px;
+      font-size:1.3rem;
+      margin-bottom:7px;
     }
 
     .feature-text{
-      font-size:.66rem;
-      line-height:1.18;
-      font-weight:750;
+      font-size:.74rem;
+      line-height:1.22;
+      font-weight:790;
+      color:#516257;
     }
 
-    .login-container .btn{
-      min-height:52px;
-      border-radius:15px;
+    .btn{
+      width:100%;
+      min-height:56px;
+      border:0;
+      border-radius:17px;
+      background:var(--nf-green);
+      color:#fff;
+      font-family:inherit;
+      font-size:.98rem;
+      font-weight:850;
+      padding:0 18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      transition:transform .22s var(--nf-ease),box-shadow .22s var(--nf-ease),background .22s var(--nf-ease),opacity .22s var(--nf-ease);
+      box-shadow:0 14px 30px rgba(0,168,89,.24);
+      margin-top:10px;
+      position:relative;
+      overflow:hidden;
+      white-space:nowrap;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+
+    .btn:hover{
+      background:var(--nf-green-dark);
+      transform:translateY(-2px);
+      box-shadow:0 20px 40px rgba(0,168,89,.30);
+    }
+
+    .btn:active{
+      transform:translateY(0);
+    }
+
+    .btn:disabled{
+      cursor:not-allowed;
+    }
+
+    .form-footer{
+      max-width:none;
+      margin:18px 0 0;
+      padding-top:18px;
+      border-top:1px solid var(--nf-line);
+      text-align:center;
+    }
+
+    .muted{
+      margin:0;
+      color:var(--nf-muted);
+      font-weight:650;
+      font-size:.9rem;
     }
 
     .links{
-      flex-direction:column;
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      margin-top:13px;
+      flex-wrap:wrap;
     }
 
     .link{
-      width:100%;
-    }
-  }
-
-  @media(max-width:430px){
-    .login-container{
-      padding-left:13px;
-      padding-right:13px;
-    }
-
-    .form-card{
-      padding:18px 13px;
-      border-radius:22px;
-    }
-
-    .form-input{
-      min-height:51px;
-      padding-right:54px;
+      min-height:44px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:0 14px;
+      border-radius:15px;
+      border:1px solid #DCEFE5;
+      background:#fff;
+      color:var(--nf-green-dark);
+      font-size:.86rem;
+      font-weight:800;
+      transition:transform .22s var(--nf-ease),box-shadow .22s var(--nf-ease),border-color .22s var(--nf-ease),background .22s var(--nf-ease);
     }
 
-    .features{
-      gap:7px;
+    .link:hover{
+      background:var(--nf-green-soft);
+      border-color:rgba(0,168,89,.26);
+      transform:translateY(-2px);
+      box-shadow:0 12px 24px rgba(17,64,38,.08);
     }
 
-    .feature{
-      min-height:74px;
-      padding:9px 4px;
+    .loading{
+      animation:spin 1s linear infinite;
     }
 
-    .feature-text{
-      font-size:.62rem;
+    .success{
+      animation:success .6s ease;
     }
 
-    .login-container .btn{
-      min-height:51px;
+    @keyframes spin{
+      0%{transform:rotate(0deg)}
+      100%{transform:rotate(360deg)}
     }
-  }
 
-  @media(hover:none) and (pointer:coarse){
-    .hero-mini-card:hover,
-    .feature:hover,
-    .link:hover,
-    .password-toggle:hover,
-    .login-container .btn:hover,
-    .form-input:hover,
-    .back-home-btn:hover{
-      transform:none;
+    @keyframes success{
+      0%{transform:scale(1)}
+      50%{transform:scale(1.1)}
+      100%{transform:scale(1)}
     }
-  }
 
-  @media(prefers-reduced-motion:reduce){
-    .login-page *,
-    .login-page *::before,
-    .login-page *::after{
-      transition:none !important;
-      animation:none !important;
+    @media(max-width:1180px){
+      .login-shell{
+        grid-template-columns:minmax(0,1fr) minmax(340px,460px);
+        gap:22px;
+      }
+
+      .login-hero{
+        min-height:560px;
+      }
+
+      .hero-mini{
+        grid-template-columns:1fr;
+      }
+
+      .hero-mini-card{
+        min-height:auto;
+      }
     }
-  }
-</style>
 
-<div class="login-page">
-  <div class="login-container">
-    <div class="login-topbar">
-      <a href="{{ url_for('index') }}" class="login-brand" aria-label="Go to homepage">
-        <span class="login-brand-mark">
-          <img src="{{ url_for('static', filename='nelocal.png') }}" alt="NELOCAL Logo">
-        </span>
-        <span class="login-brand-text">
-          <span class="login-brand-subtitle">Fresh grocery, one click away</span>
-        </span>
-      </a>
+    @media(max-width:980px){
+      html,
+      body{
+        height:100%;
+        min-height:100%;
+        overflow:hidden;
+      }
 
-      <a href="{{ url_for('index') }}" class="back-home-btn">
-        ← Back to Home
-      </a>
-    </div>
+      .login-page{
+        height:100vh;
+        height:100svh;
+        height:100dvh;
+        min-height:100vh;
+        min-height:100svh;
+        min-height:100dvh;
+        place-items:center;
+        overflow:hidden;
+      }
 
-    <div class="login-bg-orb orb-1"></div>
-    <div class="login-bg-orb orb-2"></div>
+      .login-container{
+        width:min(100%,660px);
+        height:100%;
+        min-height:0;
+        display:grid;
+        grid-template-rows:auto minmax(0,1fr);
+        align-content:center;
+        overflow:hidden;
+      }
 
-    <div class="login-shell">
-      <section class="login-hero">
-        <div class="login-header">
-         
-          <h1 class="login-title">Welcome <span>Back</span></h1>
-          <p class="login-subtitle">
-            Sign in to continue shopping fresh groceries, daily essentials, vegetables, fruits and more from nearby stores.
-          </p>
-        </div>
+      .login-shell{
+        grid-template-columns:1fr;
+        min-height:0;
+        align-items:center;
+        overflow:hidden;
+      }
 
-        <div class="login-hero-art">
-          <div class="grocery-showcase">
-            <div class="grocery-brand-preview">
-              <div>
+      .login-hero{
+        display:none;
+      }
+
+      .form-card{
+        min-height:0;
+        max-height:100%;
+        justify-content:center;
+      }
+
+      .features{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+    }
+
+    @media(max-width:720px){
+      .login-page{
+        padding:
+          max(14px,var(--nf-safe-top))
+          max(14px,var(--nf-safe-right))
+          max(18px,var(--nf-safe-bottom))
+          max(14px,var(--nf-safe-left));
+      }
+
+      .login-page::before{
+        inset:8px;
+        border-radius:26px;
+      }
+
+      .login-container{
+        gap:12px;
+      }
+
+      .login-topbar{
+        gap:10px;
+      }
+
+      .login-brand-mark{
+        width:116px;
+        height:42px;
+      }
+
+      .login-brand-text{
+        display:none;
+      }
+
+      .back-home-btn{
+        min-height:38px;
+        padding:0 11px;
+        font-size:.76rem;
+      }
+
+      .form-card{
+        border-radius:24px;
+        padding:18px 15px;
+        box-shadow:0 12px 32px rgba(17,64,38,.07);
+      }
+
+      .form-card-head{
+        margin-bottom:15px;
+      }
+
+      .form-card-head p{
+        font-size:.88rem;
+      }
+
+      .form-input{
+        min-height:50px;
+        border-radius:15px;
+      }
+
+      .password-toggle{
+        width:40px;
+        height:40px;
+        border-radius:13px;
+      }
+
+      .features{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .feature{
+        min-height:62px;
+        border-radius:16px;
+        padding:8px 5px;
+      }
+
+      .feature-icon{
+        font-size:1.05rem;
+        min-height:20px;
+        margin-bottom:4px;
+      }
+
+      .feature-text{
+        font-size:.66rem;
+        line-height:1.18;
+        font-weight:780;
+      }
+
+      .btn{
+        min-height:50px;
+        border-radius:15px;
+      }
+
+      .links{
+        flex-direction:column;
+      }
+
+      .link{
+        width:100%;
+      }
+    }
+
+    @media(max-width:430px){
+      .login-page{
+        padding:
+          max(12px,var(--nf-safe-top))
+          max(10px,var(--nf-safe-right))
+          max(14px,var(--nf-safe-bottom))
+          max(10px,var(--nf-safe-left));
+      }
+
+      .login-brand-mark{
+        width:104px;
+        height:38px;
+      }
+
+      .back-home-btn{
+        min-height:36px;
+        padding:0 10px;
+        font-size:.72rem;
+      }
+
+      .form-card{
+        padding:15px 12px;
+        border-radius:22px;
+      }
+
+      .form-card-head h2{
+        font-size:1.28rem;
+      }
+
+      .form-input{
+        min-height:48px;
+        padding-left:46px;
+        padding-right:52px;
+      }
+
+      .features{
+        gap:7px;
+      }
+
+      .feature{
+        min-height:58px;
+        padding:7px 4px;
+      }
+
+      .feature-text{
+        font-size:.62rem;
+      }
+
+      .btn{
+        min-height:48px;
+      }
+    }
+
+    @media(max-width:980px) and (max-height:720px){
+      .login-page{
+        padding:
+          max(8px,var(--nf-safe-top))
+          max(10px,var(--nf-safe-right))
+          max(8px,var(--nf-safe-bottom))
+          max(10px,var(--nf-safe-left));
+      }
+
+      .login-container{
+        gap:8px;
+      }
+
+      .login-brand-mark{
+        width:96px;
+        height:36px;
+      }
+
+      .back-home-btn{
+        min-height:34px;
+        padding:0 10px;
+        font-size:.7rem;
+      }
+
+      .form-card{
+        padding:13px 12px;
+        border-radius:20px;
+      }
+
+      .form-card-head{
+        margin-bottom:10px;
+      }
+
+      .form-card-head h2{
+        font-size:1.14rem;
+      }
+
+      .form-card-head p{
+        display:none;
+      }
+
+      .form-group{
+        margin-bottom:10px;
+      }
+
+      .form-label{
+        margin-bottom:6px;
+        font-size:.76rem;
+      }
+
+      .form-input{
+        min-height:44px;
+        padding-top:10px;
+        padding-bottom:10px;
+      }
+
+      .password-toggle{
+        width:36px;
+        height:36px;
+      }
+
+      .features{
+        margin:10px 0 10px;
+      }
+
+      .feature{
+        min-height:48px;
+        border-radius:14px;
+        padding:6px 4px;
+      }
+
+      .feature-icon{
+        display:none;
+      }
+
+      .feature-text{
+        font-size:.6rem;
+      }
+
+      .btn{
+        min-height:44px;
+        margin-top:6px;
+      }
+
+      .form-footer{
+        margin-top:10px;
+        padding-top:10px;
+      }
+
+      .muted{
+        font-size:.78rem;
+      }
+
+      .links{
+        margin-top:8px;
+        gap:7px;
+      }
+
+      .link{
+        min-height:36px;
+        font-size:.74rem;
+      }
+    }
+
+    @media(max-width:360px){
+      .login-topbar{
+        align-items:center;
+        flex-direction:row;
+      }
+
+      .back-home-btn{
+        align-self:center;
+        font-size:.68rem;
+      }
+
+      .features{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .feature{
+        min-height:52px;
+        display:grid;
+        place-items:center;
+      }
+
+      .feature-icon{
+        margin-bottom:3px;
+      }
+    }
+
+    @media(hover:none) and (pointer:coarse){
+      .hero-mini-card:hover,
+      .feature:hover,
+      .link:hover,
+      .password-toggle:hover,
+      .btn:hover,
+      .form-input:hover,
+      .back-home-btn:hover{
+        transform:none;
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      *,
+      *::before,
+      *::after{
+        transition:none !important;
+        animation:none !important;
+        scroll-behavior:auto !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="login-page">
+    <div class="login-container">
+      <div class="login-topbar">
+        <a href="{{ url_for('index') }}" class="login-brand" aria-label="NE Locals homepage">
+          <span class="login-brand-mark">
+            <img src="{{ url_for('static', filename='nelocal.png') }}" alt="NE Locals Logo">
+          </span>
+        </a>
+
+        <a href="{{ url_for('index') }}" class="back-home-btn">← Back to Home</a>
+      </div>
+
+      <div class="login-shell">
+        <section class="login-hero" aria-label="NE Locals customer login welcome">
+          <div class="login-header">
+            <span class="login-kicker">Fresh grocery access</span>
+            <h1 class="login-title">Welcome <span>Back</span></h1>
+            <p class="login-subtitle">
+              Sign in to continue shopping fresh groceries, daily essentials, vegetables, fruits and more from nearby stores.
+            </p>
+          </div>
+
+          <div class="login-hero-art">
+            <div class="grocery-showcase">
+              <div class="grocery-brand-preview">
                 <h3>Fresh grocery essentials, nearby delivery and smarter offers.</h3>
                 <p>Access your saved cart, favourite products and daily grocery deals securely.</p>
               </div>
+
+              <div class="grocery-bag">🛍️<small>🥦</small></div>
             </div>
 
-            <div class="grocery-bag">🛍️<small>🥦</small></div>
+            <div class="hero-mini">
+              <div class="hero-mini-card">
+                <b>Fast Delivery</b>
+                <span>Fresh items delivered quickly.</span>
+              </div>
+              <div class="hero-mini-card">
+                <b>Secure Login</b>
+                <span>Your account stays protected.</span>
+              </div>
+              <div class="hero-mini-card">
+                <b>Fresh Products</b>
+                <span>Quality groceries every day.</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-card" aria-label="Login form">
+          <div class="form-card-head">
+            <h2>Sign in to your account</h2>
+            <p>Access your cart, saved addresses, orders and fresh grocery deals.</p>
           </div>
 
-          <div class="hero-mini">
-            <div class="hero-mini-card">
-              <b>Fast Delivery</b>
-              <span>Fresh items delivered quickly.</span>
-            </div>
-            <div class="hero-mini-card">
-              <b>Secure Login</b>
-              <span>Your account stays protected.</span>
-            </div>
-            <div class="hero-mini-card">
-              <b>Fresh Products</b>
-              <span>Quality groceries every day.</span>
-            </div>
-          </div>
-        </div>
-      </section>
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              <div class="nf-flash-wrap">
+                {% for category, message in messages %}
+                  <div class="nf-flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% endwith %}
 
-      <section class="form-card">
-        <div class="form-card-head">
-          <h2>Sign in to your account</h2>
-          <p>Access your cart, saved addresses, orders and fresh grocery deals.</p>
-        </div>
+          <form method="post" class="form">
+            {{ csrf_field()|safe }}
 
-        <form method="post" class="form">
-          {{ csrf_field()|safe }}
-          <!-- Email Field -->
-          <div class="form-group">
-            <label class="form-label">Email Address</label>
-            <div class="input-group">
-              <span class="input-icon">
-                <lord-icon src="https://cdn.lordicon.com/dhjqydqh.json" trigger="hover" colors="primary:#00A859" style="width:20px;height:20px"></lord-icon>
+            <div class="form-group">
+              <label class="form-label" for="emailInput">Email Address</label>
+              <div class="input-group">
+                <span class="input-icon">
+                  <lord-icon src="https://cdn.lordicon.com/dhjqydqh.json" trigger="hover" colors="primary:#00A859" style="width:20px;height:20px"></lord-icon>
+                </span>
+                <input id="emailInput" name="email" type="email" class="form-input" placeholder="Enter your email" required autocomplete="email">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="passwordInput">Password</label>
+              <div class="input-group">
+                <span class="input-icon">
+                  <lord-icon src="https://cdn.lordicon.com/lock-lg.json" trigger="hover" colors="primary:#00A859" style="width:20px;height:20px"></lord-icon>
+                </span>
+
+                <input id="passwordInput" name="password" type="password" class="form-input" placeholder="Enter your password" required autocomplete="current-password">
+
+                <button type="button" class="password-toggle" id="passwordToggle" aria-label="Show password">
+                  <svg id="eyeClosed" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M4 4 20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+
+                  <svg id="eyeOpen" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:none;">
+                    <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="features">
+              <div class="feature">
+                <span class="feature-icon">🚚</span>
+                <div class="feature-text">Fast Delivery</div>
+              </div>
+              <div class="feature">
+                <span class="feature-icon">🔒</span>
+                <div class="feature-text">Secure Payment</div>
+              </div>
+              <div class="feature">
+                <span class="feature-icon">⭐</span>
+                <div class="feature-text">Quality Products</div>
+              </div>
+            </div>
+
+            <button class="btn" type="submit" id="submitBtn">
+              <span class="icon-inline">
+                <lord-icon src="https://cdn.lordicon.com/kthelypq.json" trigger="loop" delay="2000" colors="primary:#ffffff" style="width:20px;height:20px"></lord-icon>
               </span>
-              <input name="email" type="email" class="form-input" placeholder="Enter your email" required autocomplete="email">
+              <span id="btnText">Sign In</span>
+            </button>
+          </form>
+
+          <div class="form-footer">
+            <p class="muted">Don't have an account?</p>
+            <div class="links">
+              <a href="{{ url_for('register') }}" class="link">
+                <lord-icon src="https://cdn.lordicon.com/mecwbjnp.json" trigger="hover" colors="primary:#008A48" style="width:16px;height:16px"></lord-icon>
+                Create an account
+              </a>
+              <a href="{{ url_for('forgot_password') }}" class="link">
+                <lord-icon src="https://cdn.lordicon.com/ogkplaef.json" trigger="hover" colors="primary:#008A48" style="width:16px;height:16px"></lord-icon>
+                Forgot password?
+              </a>
             </div>
           </div>
-
-          <!-- Password Field -->
-          <div class="form-group">
-            <label class="form-label">Password</label>
-            <div class="input-group">
-              <span class="input-icon">
-                <lord-icon src="https://cdn.lordicon.com/lock-lg.json" trigger="hover" colors="primary:#00A859" style="width:20px;height:20px"></lord-icon>
-              </span>
-
-              <input name="password" type="password" class="form-input" id="passwordInput" placeholder="Enter your password" required autocomplete="current-password">
-
-              <button type="button" class="password-toggle" id="passwordToggle" aria-label="Show password">
-                <!-- Eye closed default -->
-                <svg id="eyeClosed" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                  <path d="M4 4 20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-
-                <!-- Eye open hidden until toggled -->
-                <svg id="eyeOpen" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="display:none;">
-                  <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                  <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Features Section -->
-          <div class="features">
-            <div class="feature">
-              <span class="feature-icon">🚚</span>
-              <div class="feature-text">Fast Delivery</div>
-            </div>
-            <div class="feature">
-              <span class="feature-icon">🔒</span>
-              <div class="feature-text">Secure Payment</div>
-            </div>
-            <div class="feature">
-              <span class="feature-icon">⭐</span>
-              <div class="feature-text">Quality Products</div>
-            </div>
-          </div>
-
-          <!-- Submit Button -->
-          <button class="btn" type="submit" id="submitBtn">
-            <span class="icon-inline">
-              <lord-icon src="https://cdn.lordicon.com/kthelypq.json" trigger="loop" delay="2000" colors="primary:#ffffff" style="width:20px;height:20px"></lord-icon>
-            </span>
-            <span id="btnText">Sign In</span>
-          </button>
-        </form>
-
-        <div class="form-footer">
-          <p class="muted">Don't have an account?</p>
-          <div class="links">
-            <a href="{{ url_for('register') }}" class="link">
-              <lord-icon src="https://cdn.lordicon.com/mecwbjnp.json" trigger="hover" colors="primary:#008A48" style="width:16px;height:16px"></lord-icon>
-              Create an account
-            </a>
-            <a href="{{ url_for('forgot_password') }}" class="link">
-              <lord-icon src="https://cdn.lordicon.com/ogkplaef.json" trigger="hover" colors="primary:#008A48" style="width:16px;height:16px"></lord-icon>
-              Forgot password?
-            </a>
-          </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
-  </div>
-</div>
+  </main>
 
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const passwordInput = document.getElementById('passwordInput');
-    const passwordToggle = document.getElementById('passwordToggle');
-    const submitBtn = document.getElementById('submitBtn');
-    const btnText = document.getElementById('btnText');
-    const form = document.querySelector('.form');
+  <script src="https://cdn.lordicon.com/lordicon.js"></script>
 
-    const eyeClosed = document.getElementById('eyeClosed');
-    const eyeOpen = document.getElementById('eyeOpen');
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const passwordInput = document.getElementById('passwordInput');
+      const passwordToggle = document.getElementById('passwordToggle');
+      const submitBtn = document.getElementById('submitBtn');
+      const btnText = document.getElementById('btnText');
+      const form = document.querySelector('.form');
 
-    document.querySelectorAll('.form-input').forEach(input => {
-      const group = input.closest('.form-group');
-      input.addEventListener('focus', () => group?.classList.add('focused'));
-      input.addEventListener('blur',  () => group?.classList.remove('focused'));
-    });
+      const eyeClosed = document.getElementById('eyeClosed');
+      const eyeOpen = document.getElementById('eyeOpen');
 
-    function togglePasswordVisibility() {
-      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      passwordInput.setAttribute('type', type);
+      document.querySelectorAll('.form-input').forEach(function(input) {
+        const group = input.closest('.form-group');
+        input.addEventListener('focus', function() {
+          if (group) group.classList.add('focused');
+        });
+        input.addEventListener('blur', function() {
+          if (group) group.classList.remove('focused');
+        });
+      });
 
-      if (type === 'text') {
-        if (eyeClosed) eyeClosed.style.display = 'none';
-        if (eyeOpen) eyeOpen.style.display = 'block';
-        passwordToggle.setAttribute('aria-label', 'Hide password');
-      } else {
-        if (eyeClosed) eyeClosed.style.display = 'block';
-        if (eyeOpen) eyeOpen.style.display = 'none';
-        passwordToggle.setAttribute('aria-label', 'Show password');
-      }
-    }
+      function togglePasswordVisibility() {
+        if (!passwordInput || !passwordToggle) return;
 
-    passwordToggle.addEventListener('click', togglePasswordVisibility);
-    passwordToggle.addEventListener('touchend', function(e) {
-      e.preventDefault();
-      togglePasswordVisibility();
-    });
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
 
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-
-      const btnIcon = submitBtn.querySelector('lord-icon');
-
-      submitBtn.disabled = true;
-      submitBtn.style.opacity = '0.9';
-
-      if (btnIcon) {
-        btnIcon.setAttribute('src', 'https://cdn.lordicon.com/xjovhzzh.json');
-        btnIcon.classList.add('loading');
-      }
-
-      if (btnText) btnText.textContent = 'Signing In...';
-
-      setTimeout(() => {
-        if (btnIcon) {
-          btnIcon.classList.remove('loading');
-          btnIcon.setAttribute('src', 'https://cdn.lordicon.com/grnqjqrb.json');
-          btnIcon.classList.add('success');
+        if (type === 'text') {
+          if (eyeClosed) eyeClosed.style.display = 'none';
+          if (eyeOpen) eyeOpen.style.display = 'block';
+          passwordToggle.setAttribute('aria-label', 'Hide password');
+        } else {
+          if (eyeClosed) eyeClosed.style.display = 'block';
+          if (eyeOpen) eyeOpen.style.display = 'none';
+          passwordToggle.setAttribute('aria-label', 'Show password');
         }
+      }
 
-        setTimeout(() => form.submit(), 900);
-      }, 1200);
+      if (passwordToggle) {
+        passwordToggle.addEventListener('click', togglePasswordVisibility);
+      }
+
+      if (form && submitBtn) {
+        form.addEventListener('submit', function(e) {
+          if (!form.checkValidity()) return;
+
+          e.preventDefault();
+
+          const btnIcon = submitBtn.querySelector('lord-icon');
+
+          submitBtn.disabled = true;
+          submitBtn.style.opacity = '0.9';
+
+          if (btnIcon) {
+            btnIcon.setAttribute('src', 'https://cdn.lordicon.com/xjovhzzh.json');
+            btnIcon.classList.add('loading');
+          }
+
+          if (btnText) btnText.textContent = 'Signing In...';
+
+          window.setTimeout(function() {
+            if (btnIcon) {
+              btnIcon.classList.remove('loading');
+              btnIcon.setAttribute('src', 'https://cdn.lordicon.com/grnqjqrb.json');
+              btnIcon.classList.add('success');
+            }
+
+            window.setTimeout(function() {
+              form.submit();
+            }, 500);
+          }, 550);
+        });
+      }
     });
-  });
-</script>
-
-<script src="https://cdn.lordicon.com/lordicon.js"></script>
-
-{% endblock %}
+  </script>
+</body>
+</html>

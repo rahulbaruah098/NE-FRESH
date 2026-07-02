@@ -1,8 +1,8 @@
 {% extends "admin_base.html" %}
 {% set active_group = "delivery" %}
 {% set active_page = "external_delivery_settings" %}
-{% block title %}{% if delivery_mode_settings.third_party_shipping_enabled and delivery_mode_settings.external_local_delivery_enabled %}External Fare & Shiprocket Settings{% elif delivery_mode_settings.third_party_shipping_enabled %}Shiprocket Settings{% else %}External Local Fare Settings{% endif %} | NE FRESH Admin{% endblock %}
-{% block page_title %}{% if delivery_mode_settings.third_party_shipping_enabled and delivery_mode_settings.external_local_delivery_enabled %}External Fare & Shiprocket Settings{% elif delivery_mode_settings.third_party_shipping_enabled %}Shiprocket Settings{% else %}External Local Fare Settings{% endif %}{% endblock %}
+{% block title %}External Fare & Shiprocket Settings | NE FRESH Admin{% endblock %}
+{% block page_title %}External Fare & Shiprocket Settings{% endblock %}
 {% block page_subtitle %}Set external local fare rules, Shiprocket credentials, map zone and fallback package defaults.{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -31,7 +31,7 @@
       </div>
     </div>
 
-    <div class="dcs-card" {% if not delivery_mode_settings.external_local_delivery_enabled %}style="display:none"{% endif %}>
+    <div class="dcs-card">
       <h3>1. External local fare rules</h3>
       <p class="dcs-help">Used for Rapido-style local delivery without API integration. Fee = base fee + distance × per-km fee, with minimum fee applied.</p>
       <div class="dcs-grid four" style="margin-top:14px">
@@ -47,7 +47,7 @@
       </ul>
     </div>
 
-    <div class="dcs-card" {% if not delivery_mode_settings.external_local_delivery_enabled %}style="display:none"{% endif %}>
+    <div class="dcs-card">
       <h3>2. External local pickup and zone map</h3>
       <p class="dcs-help">Draw the local external delivery zone if you want checkout to restrict external local delivery to a map boundary. If disabled, distance limit controls local eligibility.</p>
       <input type="hidden" id="externalServiceZonePolygon" name="external_service_zone_polygon" value='{{ settings.external_service_zone_polygon|default([])|tojson }}'>
@@ -76,7 +76,7 @@
       </div>
     </div>
 
-    <div class="dcs-card" {% if not delivery_mode_settings.third_party_shipping_enabled %}style="display:none"{% endif %}>
+    <div class="dcs-card">
       <h3>3. Shiprocket courier API settings</h3>
       <p class="dcs-help">Used only when checkout routes the order to Shiprocket/Courier shipping. Keep Shiprocket OFF until API user email/password and pickup details are ready.</p>
       <div class="dcs-split" style="margin-top:14px">
@@ -114,11 +114,9 @@
     </div>
 
     <div class="dcs-actions">
-      <button class="dcs-btn" type="submit">Save {% if delivery_mode_settings.third_party_shipping_enabled and delivery_mode_settings.external_local_delivery_enabled %}External Fare & Shiprocket{% elif delivery_mode_settings.third_party_shipping_enabled %}Shiprocket{% else %}External Local Fare{% endif %} Settings</button>
+      <button class="dcs-btn" type="submit">Save External Fare & Shiprocket Settings</button>
       <a class="dcs-link" href="{{ url_for('admin_delivery_mode_settings') }}">Delivery Operation Settings</a>
-      {% if delivery_mode_settings.third_party_shipping_enabled %}
-        <a class="dcs-link" href="{{ url_for('admin_external_delivery_orders') }}">Shiprocket Shipments</a>
-      {% endif %}
+      <a class="dcs-link" href="{{ url_for('admin_external_delivery_orders') }}">Shiprocket Shipments</a>
     </div>
   </form>
 </section>

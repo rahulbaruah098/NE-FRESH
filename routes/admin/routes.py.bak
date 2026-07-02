@@ -28,93 +28,34 @@ ADMIN_RETURN_REFUND_ENDPOINTS = {
     "admin_returns_settlements_export_csv",
 }
 
-ADMIN_EXTERNAL_SETTINGS_ENDPOINTS = {
-    "admin_external_delivery_settings",
-}
-
-ADMIN_THIRD_PARTY_DELIVERY_ENDPOINTS = {
-    "admin_external_delivery_orders",
-    "admin_external_delivery_book_order",
-    "admin_external_delivery_update_status",
-}
-
-ADMIN_ONLINE_PAYMENT_ENDPOINTS = {
-    "admin_payment_settings",
-}
-
-ADMIN_PLATFORM_FEE_OPERATION_ENDPOINTS = {
-    "admin_platform_earnings",
-    "admin_platform_earnings_export_csv",
-}
-
 
 @app.before_request
-def _block_admin_mode_pages_when_disabled():
+def _block_admin_delivery_and_return_pages_when_disabled():
     endpoint = request.endpoint or ""
-    delivery_settings = get_delivery_mode_settings()
-
-    in_house_enabled = bool(delivery_settings.get("in_house_delivery_enabled", True))
-    external_local_enabled = bool(delivery_settings.get("external_local_delivery_enabled", False))
-    third_party_enabled = bool(delivery_settings.get("third_party_shipping_enabled", False))
-    return_refund_enabled = bool(delivery_settings.get("return_refund_enabled", True))
-    online_payment_allowed = bool(delivery_settings.get("allow_online_payment", True))
 
     if endpoint in ADMIN_IN_HOUSE_DELIVERY_ENDPOINTS:
-        if in_house_enabled:
+        if is_delivery_feature_enabled("in_house_delivery_enabled", True):
             return None
 
         flash("In-house delivery system is currently disabled and hidden by Admin.", "warning")
         return redirect(url_for("admin_delivery_mode_settings"))
 
     if endpoint == "admin_users_export_csv" and (request.args.get("role") or "").strip().lower() == "delivery":
-        if in_house_enabled:
+        if is_delivery_feature_enabled("in_house_delivery_enabled", True):
             return None
 
         flash("In-house delivery account export is currently disabled and hidden by Admin.", "warning")
         return redirect(url_for("admin_users"))
 
     if endpoint == "admin_settlement_rider_cash_received":
-        if bool(delivery_settings.get("cod_rider_collection_enabled", in_house_enabled)):
+        if is_delivery_feature_enabled("cod_rider_collection_enabled", True):
             return None
 
         flash("COD rider cash collection is currently disabled.", "warning")
         return redirect(url_for("admin_settlements"))
 
-    if endpoint in ADMIN_EXTERNAL_SETTINGS_ENDPOINTS:
-        if external_local_enabled or third_party_enabled:
-            return None
-
-        flash("External delivery settings are hidden because external delivery channels are disabled.", "warning")
-        return redirect(url_for("admin_delivery_mode_settings"))
-
-    if endpoint in ADMIN_THIRD_PARTY_DELIVERY_ENDPOINTS:
-        if third_party_enabled:
-            return None
-
-        flash("Shiprocket / Courier pages are hidden because third-party shipping is disabled.", "warning")
-        return redirect(url_for("admin_delivery_mode_settings"))
-
-    if endpoint in ADMIN_ONLINE_PAYMENT_ENDPOINTS:
-        if online_payment_allowed:
-            return None
-
-        flash("Online payment gateway settings are hidden because Online Payment is disabled in Delivery Operation Settings.", "warning")
-        return redirect(url_for("admin_delivery_mode_settings"))
-
-    if endpoint in ADMIN_PLATFORM_FEE_OPERATION_ENDPOINTS:
-        try:
-            platform_fee_enabled = bool(get_platform_fee_settings().get("enabled", False))
-        except Exception:
-            platform_fee_enabled = False
-
-        if platform_fee_enabled:
-            return None
-
-        flash("Platform fee earning pages are hidden because Platform Fee is disabled.", "warning")
-        return redirect(url_for("admin_platform_fee_settings"))
-
     if endpoint in ADMIN_RETURN_REFUND_ENDPOINTS:
-        if return_refund_enabled:
+        if is_delivery_feature_enabled("return_refund_enabled", True):
             return None
 
         flash("Return/refund module is currently disabled.", "warning")
@@ -4204,25 +4145,15 @@ def admin_dashboard():
     # -------------------------
     delivery_mode_settings = get_delivery_mode_settings()
     delivery_mode_ui = get_delivery_mode_ui_context(delivery_mode_settings)
-    platform_fee_settings = get_platform_fee_settings()
-
-    online_payment_allowed = bool(delivery_mode_settings.get("allow_online_payment", True))
-    platform_fee_enabled = bool(platform_fee_settings.get("enabled", False))
 
     quick_links = [
         {"label": "Store Overview", "endpoint": "admin_store_overview"},
         {"label": "All Store Admin Profiles", "endpoint": "admin_store_list"},
         {"label": "Customers", "endpoint": "admin_customers"},
         {"label": "Customer Complaints", "endpoint": "admin_complaints"},
-        {"label": "Store Payouts", "endpoint": "admin_settlements"},
+        {"label": "Store Payouts & Collection", "endpoint": "admin_settlements"},
         {"label": "Delivery Routing Settings", "endpoint": "admin_delivery_mode_settings"},
     ]
-
-    if online_payment_allowed:
-        quick_links.append({"label": "Online Payment Gateway", "endpoint": "admin_payment_settings"})
-
-    if platform_fee_enabled:
-        quick_links.append({"label": "Platform Fee Earnings", "endpoint": "admin_platform_earnings"})
 
     if delivery_mode_settings.get("return_refund_enabled", True):
         quick_links.extend([
@@ -4236,11 +4167,14 @@ def admin_dashboard():
             {"label": "Create In-house Delivery Staff", "endpoint": "admin_create_delivery"},
         ])
 
-    if delivery_mode_settings.get("external_local_delivery_enabled", False) or delivery_mode_settings.get("third_party_shipping_enabled", False):
-        quick_links.append({"label": "External Delivery Settings", "endpoint": "admin_external_delivery_settings"})
+    if delivery_mode_settings.get("external_local_delivery_enabled", False):
+        quick_links.append({"label": "External Local Fare Setup", "endpoint": "admin_external_delivery_settings"})
 
     if delivery_mode_settings.get("third_party_shipping_enabled", False):
-        quick_links.append({"label": "Shiprocket / Courier Orders", "endpoint": "admin_external_delivery_orders"})
+        quick_links.extend([
+            {"label": "Shiprocket / Courier Orders", "endpoint": "admin_external_delivery_orders"},
+            {"label": "Shiprocket / Courier Setup", "endpoint": "admin_external_delivery_settings"},
+        ])
 
     quick_links.append({"label": "Export Transactions CSV", "endpoint": "admin_transactions_csv"})
 
@@ -4306,8 +4240,6 @@ def admin_dashboard():
         quick_links=quick_links,
         delivery_mode_settings=delivery_mode_settings,
         delivery_mode_ui=delivery_mode_ui,
-        online_payment_allowed=online_payment_allowed,
-        platform_fee_enabled=platform_fee_enabled,
         complaints_window_label="(all time)",
     )
 

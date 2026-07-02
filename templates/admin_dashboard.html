@@ -1,11 +1,13 @@
 {% extends "admin_base.html" %}
 {% set active_page = "dashboard" %}
 
-{% block title %}Admin Dashboard | NE FRESH{% endblock %}
-{% block page_title %}NE FRESH Admin Operations Dashboard{% endblock %}
-
+{% block title %}Admin Dashboard | NE Locals{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
 
 {% block content %}
+{% set mode_ui = delivery_mode_ui|default({}) %}
+{% set online_allowed = online_payment_allowed|default(delivery_mode_settings.allow_online_payment|default(true)) %}
+{% set platform_fee_active = platform_fee_enabled|default(false) %}
 {% set users_total = metrics.users|default(0) %}
 {% set customers_total = metrics.customers|default(0) %}
 {% set stores_total = metrics.stores|default(0) %}
@@ -15,17 +17,12 @@
 {% set gmv_total = metrics.gmv|default(0) %}
 {% set delivery_people_total = metrics.delivery_people|default(0) %}
 {% set active_delivery_people_total = metrics.active_delivery_people|default(0) %}
-
 {% set unassigned_orders_total = metrics.unassigned_orders|default(0) %}
 {% set accepted_delivery_total = metrics.accepted_by_delivery|default(0) %}
 {% set packaging_orders_total = metrics.packaging_orders|default(0) %}
 {% set out_for_delivery_total = metrics.out_for_delivery|default(0) %}
 {% set delivered_orders_total = metrics.delivered_orders|default(0) %}
 {% set cancelled_orders_total = metrics.cancelled_orders|default(0) %}
-{% set refunded_orders_total = metrics.refunded_orders|default(0) %}
-{% set failed_payments_total = metrics.failed_payments|default(0) %}
-{% set pending_payments_total = metrics.pending_payments|default(0) %}
-{% set paid_transactions_total = metrics.paid_transactions|default(0) %}
 {% set refund_pending_total = metrics.refund_pending_count|default(0) %}
 {% set admin_review_needed_total = metrics.admin_review_needed_count|default(0) %}
 {% set refund_processed_total = metrics.refund_processed_count|default(0) %}
@@ -40,1787 +37,677 @@
 {% set platform_fee_received_amount = metrics.platform_fee_received_amount|default(0) %}
 {% set store_payout_pending_amount = metrics.store_payout_pending_amount|default(0) %}
 {% set store_payout_pending_count = metrics.store_payout_pending_count|default(0) %}
+{% if in_house_delivery_enabled %}
+  {% set provider_short = 'In-house Delivery' %}
+{% elif external_local_delivery_enabled and third_party_shipping_enabled %}
+  {% set provider_short = 'External + Courier' %}
+{% elif third_party_shipping_enabled %}
+  {% set provider_short = 'Shiprocket Courier' %}
+{% elif external_local_delivery_enabled %}
+  {% set provider_short = 'External Local' %}
+{% else %}
+  {% set provider_short = mode_ui.get('provider_type', mode_ui.get('label', 'Delivery')) %}
+{% endif %}
+{% if mode_ui.get('online_only') %}
+  {% set payment_short = 'Online Only' %}
+{% elif mode_ui.get('cod_allowed') and mode_ui.get('online_allowed') %}
+  {% set payment_short = 'COD + Online' %}
+{% elif mode_ui.get('cod_allowed') %}
+  {% set payment_short = 'COD Enabled' %}
+{% elif online_allowed %}
+  {% set payment_short = 'Online Enabled' %}
+{% else %}
+  {% set payment_short = 'Configured' %}
+{% endif %}
 
-<section class="nf-grocery-dashboard" data-page="admin-dashboard">
+<section class="admin-clean-dashboard" data-page="admin-dashboard">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-
-    .nf-grocery-dashboard{
-      --bg:#F7FAFC;
-      --card:#FFFFFF;
-      --soft:#F4F7FA;
-      --line:#E8EEF5;
-      --line2:#F0F4F8;
-      --ink:#26364B;
-      --text:#40516A;
-      --muted:#7B8AA2;
-      --muted2:#9AA6B5;
-      --teal:#12B8A6;
-      --teal-dark:#006B66;
-      --teal-soft:#E9FBF8;
-      --cyan:#32E7CE;
-      --green:#00C879;
-      --red:#FF3158;
-      --orange:#FF9F1C;
-      --blue:#0B63CE;
-      --shadow:0 8px 30px rgba(28,43,67,.06);
-      --shadow2:0 14px 44px rgba(28,43,67,.09);
-
+    .admin-clean-dashboard{
+      --ad-bg:#F8FFFB;
+      --ad-card:#FFFFFF;
+      --ad-soft:#F3FFF8;
+      --ad-line:#DDECE4;
+      --ad-line2:#EAF4EF;
+      --ad-text:#1F332A;
+      --ad-muted:#66756D;
+      --ad-green:#00A859;
+      --ad-green-dark:#008A48;
+      --ad-orange:#FF8A1F;
+      --ad-red:#B91C1C;
+      --ad-blue:#0284C7;
+      --ad-shadow:0 14px 36px rgba(17,64,38,.08);
       width:100%;
-      min-height:100%;
-      background:var(--bg);
-      color:var(--ink);
-      font-family:'Inter',sans-serif;
+      min-width:0;
+      display:grid;
+      gap:16px;
+      color:var(--ad-text);
       overflow-x:hidden;
     }
+    .admin-clean-dashboard *{box-sizing:border-box;}
+    .admin-clean-dashboard a{-webkit-tap-highlight-color:transparent;}
 
-    .nf-grocery-dashboard,
-    .nf-grocery-dashboard *{
-      box-sizing:border-box;
+    .ad-shortcuts{
+      border:1px solid var(--ad-line);
+      border-radius:24px;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
+      box-shadow:var(--ad-shadow);
+      overflow:hidden;
     }
-
-    .gd-shell{
-      width:100%;
-      padding:22px;
-    }
-
-    .gd-grid{
-      display:grid;
-      gap:18px;
-    }
-
-    .gd-page-head{
+    .ad-shortcuts-head{
       display:flex;
+      align-items:center;
       justify-content:space-between;
-      align-items:center;
-      gap:16px;
-      flex-wrap:wrap;
-      margin-bottom:2px;
+      gap:14px;
+      padding:15px 18px 12px;
+      border-bottom:1px solid var(--ad-line2);
     }
-
-    .gd-title-row{
-      display:flex;
+    .ad-shortcuts-head h2{margin:0;color:var(--ad-text);font-size:1rem;line-height:1.15;font-weight:950;letter-spacing:-.025em;}
+    .ad-shortcuts-head p{margin:4px 0 0;color:var(--ad-muted);font-size:.8rem;line-height:1.35;font-weight:740;}
+    .ad-shortcut-badge{
+      flex:0 0 auto;
+      min-height:34px;
+      display:inline-flex;
       align-items:center;
-      gap:12px;
+      justify-content:center;
+      padding:0 12px;
+      border-radius:999px;
+      background:var(--ad-soft);
+      border:1px solid rgba(0,168,89,.16);
+      color:var(--ad-green-dark);
+      font-size:.72rem;
+      font-weight:950;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+    .ad-shortcuts-body{padding:14px 18px 16px;}
+    .ad-quick-links{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(min(100%,178px),1fr));
+      gap:10px;
+      align-items:stretch;
+    }
+    .ad-footer-note{margin:12px 0 0;color:var(--ad-muted);font-size:.78rem;line-height:1.45;font-weight:720;}
+
+    .ad-hero{
+      display:grid;
+      grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr);
+      gap:14px;
+      align-items:center;
+      padding:16px 18px;
+      border:1px solid rgba(0,168,89,.18);
+      border-radius:24px;
+      background:linear-gradient(135deg,#F3FFF8 0%,#FFFFFF 60%,#FFFDF8 100%);
+      box-shadow:var(--ad-shadow);
+      overflow:hidden;
       min-width:0;
     }
-
-    .gd-title-icon{
-      width:34px;
-      height:34px;
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      flex:0 0 auto;
-    }
-
-    .gd-title{
-      margin:0;
-      color:#1F2937;
-      font-size:22px;
-      line-height:1.15;
-      font-weight:900;
-      letter-spacing:-.02em;
-    }
-
-    .gd-subtitle{
-      margin:3px 0 0;
-      color:#60708A;
-      font-size:14px;
-      font-weight:600;
-      letter-spacing:.01em;
-    }
-
-    .gd-zone-select{
-      min-width:250px;
-      height:44px;
-      border:1px solid #DCE6F1;
-      border-radius:6px;
-      padding:0 14px;
-      background:#fff;
-      color:#1F2937;
-      font-size:14px;
-      outline:none;
-    }
-
-    .gd-panel{
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:12px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .gd-summary-panel{
-      padding:20px 22px;
-    }
-
-    .gd-filter-row{
-      display:flex;
-      justify-content:flex-end;
-      margin-bottom:18px;
-    }
-
-    .gd-filter-tabs{
-      display:inline-flex;
-      border:1px solid #78C7D4;
-      border-radius:6px;
-      overflow:hidden;
-      background:#fff;
-    }
-
-    .gd-filter-tabs button{
-      height:38px;
-      min-width:90px;
-      border:0;
-      background:#fff;
-      color:#00869B;
-      font-size:13px;
-      font-weight:700;
-      cursor:pointer;
-      border-right:1px solid transparent;
-    }
-
-    .gd-filter-tabs button:not(:last-child){
-      border-right:1px solid #E0F2F5;
-    }
-
-    .gd-filter-tabs button:hover{
-      background:#F3FCFD;
-    }
-
-    .gd-kpi-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:14px;
-      margin-bottom:16px;
-    }
-
-    .gd-kpi-card{
-      min-height:172px;
-      border-radius:6px;
-      background:#fff;
-      border:1px solid #F1F4F8;
-      box-shadow:0 5px 20px rgba(28,43,67,.06);
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      padding:20px 14px;
-    }
-
-    .gd-kpi-icon{
-      font-size:32px;
-      line-height:1;
-      margin-bottom:10px;
-    }
-
-    .gd-kpi-label{
-      color:#2E3C55;
-      font-size:13px;
-      font-weight:900;
-      margin-bottom:6px;
-    }
-
-    .gd-kpi-value{
-      color:#2B3A55;
-      font-size:30px;
-      line-height:1;
-      font-weight:900;
-      letter-spacing:-.03em;
-      margin-bottom:9px;
-    }
-
-    .gd-kpi-sub{
-      color:#A1A1A1;
-      font-size:13px;
-      font-weight:800;
-    }
-
-        .gd-refund-card{
-      border-color:#FECACA;
-      background:
-        radial-gradient(circle at 20% 12%, rgba(255,49,88,.08), transparent 34%),
-        linear-gradient(180deg,#FFFFFF,#FFF7F8);
-    }
-
-    .gd-refund-card .gd-kpi-icon{
-      color:var(--red);
-    }
-
-    .gd-refund-card .gd-kpi-label{
-      color:#B91C1C;
-    }
-
-    .gd-refund-card .gd-kpi-value{
-      color:#B91C1C;
-    }
-
-    .gd-refund-card.warning{
-      border-color:rgba(255,159,28,.32);
-      background:
-        radial-gradient(circle at 20% 12%, rgba(255,159,28,.10), transparent 34%),
-        linear-gradient(180deg,#FFFFFF,#FFF8E8);
-    }
-
-    .gd-refund-card.warning .gd-kpi-label,
-    .gd-refund-card.warning .gd-kpi-value{
-      color:#A84700;
-    }
-
-    .gd-refund-card.success{
-      border-color:rgba(0,200,121,.24);
-      background:
-        radial-gradient(circle at 20% 12%, rgba(0,200,121,.09), transparent 34%),
-        linear-gradient(180deg,#FFFFFF,#F0FFF8);
-    }
-
-    .gd-refund-card.success .gd-kpi-label,
-    .gd-refund-card.success .gd-kpi-value{
-      color:#008A48;
-    }
-
-    .gd-refund-action{
-      margin-top:10px;
-      min-height:30px;
+    .ad-hero-copy{min-width:0;}
+    .ad-kicker{
+      width:max-content;
+      max-width:100%;
+      min-height:28px;
       display:inline-flex;
       align-items:center;
-      justify-content:center;
-      padding:0 10px;
+      gap:8px;
+      padding:0 11px;
       border-radius:999px;
       background:#fff;
-      border:1px solid rgba(185,28,28,.16);
-      color:#B91C1C;
-      font-size:12px;
-      font-weight:900;
-      text-decoration:none;
-    }
-
-    .gd-refund-card.warning .gd-refund-action{
-      color:#A84700;
-      border-color:rgba(255,159,28,.28);
-    }
-
-    .gd-refund-card.success .gd-refund-action{
-      color:#008A48;
-      border-color:rgba(0,200,121,.20);
-    } 
-
-    .gd-status-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:16px;
-    }
-
-    .gd-status-card{
-      min-height:64px;
-      background:#F5F7F9;
-      border:1px solid #F0F3F6;
-      border-radius:10px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:16px 20px;
-    }
-
-    .gd-status-left{
-      display:flex;
-      align-items:center;
-      gap:11px;
-      min-width:0;
-    }
-
-    .gd-status-icon{
-      width:24px;
-      height:24px;
-      display:grid;
-      place-items:center;
-      font-size:22px;
-      flex:0 0 auto;
-    }
-
-    .gd-status-label{
-      font-size:15px;
-      font-weight:900;
-      color:#33425A;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .gd-status-value{
-      font-size:20px;
-      line-height:1;
-      color:#5A6678;
-      font-weight:900;
-      flex:0 0 auto;
-    }
-
-    .is-green{ color:var(--green)!important; }
-    .is-red{ color:var(--red)!important; }
-    .is-blue{ color:#008EA6!important; }
-
-    .gd-chart-grid{
-      display:grid;
-      grid-template-columns:minmax(0,1.85fr) minmax(280px,.55fr);
-      gap:16px;
-    }
-
-    .gd-card{
-      background:#fff;
-      border:1px solid var(--line);
-      border-radius:12px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .gd-chart-card{
-      min-height:430px;
-      padding:24px 22px 18px;
-    }
-
-    .gd-chart-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:14px;
-      margin-bottom:12px;
-    }
-
-    .gd-money{
-      color:#1D2A44;
-      font-size:18px;
-      font-weight:900;
-      letter-spacing:.01em;
-      margin-bottom:8px;
-    }
-
-    .gd-small-muted{
-      color:#8290A6;
-      font-size:14px;
-      font-weight:700;
-    }
-
-    .gd-chart-center-label{
-      display:flex;
-      align-items:center;
-      gap:9px;
-      color:#60708A;
-      font-size:14px;
-      font-weight:700;
-      margin-top:8px;
-    }
-
-    .gd-dot{
-      width:12px;
-      height:12px;
-      border-radius:50%;
-      display:inline-block;
-      flex:0 0 auto;
-    }
-
-    .gd-chart-filter{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      color:#111827;
-      font-size:14px;
-      font-weight:500;
-      white-space:nowrap;
-      padding-top:18px;
-    }
-
-    .gd-chart-area{
-      width:100%;
-      height:315px;
-      margin-top:8px;
-    }
-
-    .gd-chart-legend{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      flex-wrap:wrap;
-      gap:14px;
-      color:#334155;
-      font-size:12px;
-      font-weight:600;
-      margin-top:4px;
-    }
-
-    .gd-legend-item{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-    }
-
-    .gd-user-stat-card{
-      padding:24px 20px;
-      min-height:430px;
-    }
-
-    .gd-card-top{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:22px;
-    }
-
-    .gd-card-title{
-      margin:0;
-      color:#222;
-      font-size:16px;
-      font-weight:900;
-    }
-
-    .gd-card-select{
-      border:0;
-      background:transparent;
-      color:#222;
-      font-size:14px;
-      outline:none;
-    }
-
-    .gd-donut-wrap{
-      display:grid;
-      place-items:center;
-      padding:18px 0 22px;
-    }
-
-    .gd-donut{
-      --customer:58;
-      --store:28;
-      width:174px;
-      height:174px;
-      border-radius:50%;
-      background:conic-gradient(
-        #006B66 0 58%,
-        #12B8A6 58% 86%,
-        #A7DFDC 86% 100%
-      );
-      position:relative;
-    }
-
-    .gd-donut::after{
-      content:"";
-      position:absolute;
-      inset:31px;
-      background:#fff;
-      border-radius:50%;
-    }
-
-    .gd-donut-center{
-      position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
-      text-align:center;
-      z-index:1;
-      pointer-events:none;
-    }
-
-    .gd-donut-num{
-      color:#34445F;
-      font-size:22px;
-      line-height:1;
-      font-weight:900;
-      margin-bottom:8px;
-    }
-
-    .gd-donut-text{
-      color:#64748B;
-      font-size:14px;
-      font-weight:700;
-    }
-
-    .gd-donut-legend{
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      flex-wrap:wrap;
-      gap:14px 20px;
-      color:#60708A;
-      font-size:14px;
-      font-weight:600;
-    }
-
-    .gd-donut-legend span{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-    }
-
-    .gd-list-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:16px;
-    }
-
-    .gd-list-card{
-      min-height:330px;
-    }
-
-    .gd-list-head{
-      min-height:54px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:16px 22px;
-      border-bottom:1px solid var(--line2);
-      box-shadow:0 4px 16px rgba(28,43,67,.03);
-    }
-
-    .gd-list-title{
-      color:#536177;
-      font-size:14px;
-      font-weight:900;
-      margin:0;
-    }
-
-    .gd-view-link{
-      color:#006CFF;
-      text-decoration:none;
-      font-size:13px;
-      font-weight:800;
-      white-space:nowrap;
-    }
-
-    .gd-list-body{
-      padding:14px 20px 20px;
-    }
-
-    .gd-store-logo-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px;
-    }
-
-    .gd-store-logo{
-      height:112px;
-      border:1px solid #F2F5F8;
-      border-radius:5px;
-      background:#fff;
-      display:grid;
-      place-items:center;
-      box-shadow:0 8px 22px rgba(28,43,67,.06);
-      overflow:hidden;
-    }
-
-    .gd-store-logo img{
-      width:100%;
-      height:100%;
-      object-fit:cover;
-    }
-
-    .gd-store-logo span{
-      font-size:52px;
-      line-height:1;
-    }
-
-    .gd-row{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      min-height:58px;
-      padding:9px 0;
-      border-bottom:1px solid #F1F4F8;
-    }
-
-    .gd-row:last-child{
-      border-bottom:0;
-    }
-
-    .gd-row-left{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:0;
-      flex:1;
-    }
-
-    .gd-thumb{
-      width:50px;
-      height:50px;
-      border:1px solid #B8D0E5;
-      border-radius:5px;
-      background:#fff;
-      display:grid;
-      place-items:center;
-      overflow:hidden;
-      flex:0 0 auto;
-      color:#0B8F84;
-      font-size:22px;
-    }
-
-    .gd-thumb.round{
-      border-radius:7px;
-    }
-
-    .gd-thumb img{
-      width:100%;
-      height:100%;
-      object-fit:cover;
-    }
-
-    .gd-name{
-      color:#30415B;
-      font-size:14px;
-      font-weight:900;
-      line-height:1.25;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .gd-meta{
-      margin-top:3px;
-      color:#7E8CA2;
-      font-size:12px;
-      font-weight:700;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .gd-pill{
-      min-width:84px;
-      text-align:center;
-      padding:8px 11px;
-      border-radius:4px;
-      background:#F0F7F9;
-      color:#00869B;
-      font-size:12px;
-      font-weight:900;
-      white-space:nowrap;
-      flex:0 0 auto;
-    }
-
-    .gd-heart{
-      color:#FF6372;
-      font-size:14px;
-      font-weight:900;
-      white-space:nowrap;
-      flex:0 0 auto;
-    }
-
-    .gd-rating-row{
-      background:#F7F8FA;
-      border-radius:5px;
-      padding:8px 10px;
-      margin-bottom:8px;
-      border-bottom:0;
-    }
-
-    .gd-complaint-pill{
-      color:#EF4444;
-      background:#FFF1F2;
-    }
-
-    .gd-table-wrap{
-      padding:0 20px 20px;
-      overflow:auto;
-    }
-
-    .gd-table{
-      width:100%;
-      min-width:780px;
-      border-collapse:collapse;
-      border:1px solid #EDF2F7;
-      border-radius:8px;
-      overflow:hidden;
-    }
-
-    .gd-table thead{
-      background:#006B66;
-      color:#fff;
-    }
-
-    .gd-table th{
-      padding:13px 14px;
-      text-align:left;
-      font-size:12px;
-      font-weight:900;
+      border:1px solid rgba(0,168,89,.16);
+      color:var(--ad-green-dark);
+      font-size:.72rem;
+      font-weight:950;
+      letter-spacing:.065em;
       text-transform:uppercase;
-      letter-spacing:.08em;
+      white-space:normal;
     }
-
-    .gd-table td{
-      padding:13px 14px;
-      border-bottom:1px solid #EDF2F7;
-      color:#40516A;
-      font-size:13px;
-      font-weight:700;
+    .ad-title{
+      margin:10px 0 6px;
+      max-width:860px;
+      font-size:clamp(1.22rem,1.9vw,1.72rem);
+      line-height:1.08;
+      font-weight:950;
+      letter-spacing:-.04em;
+      color:var(--ad-text);
     }
-
-    .gd-table tbody tr:last-child td{
-      border-bottom:0;
+    .ad-copy{
+      margin:0;
+      max-width:860px;
+      color:var(--ad-muted);
+      font-size:.88rem;
+      line-height:1.5;
+      font-weight:720;
     }
-
-    .gd-quick-links{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      padding:18px 20px 20px;
-    }
-
-    .gd-quick-links a{
+    .ad-actions{display:none;}
+    .ad-btn{
       min-height:40px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
       gap:8px;
-      padding:10px 14px;
-      border-radius:6px;
-      border:1px solid #D8E6EF;
+      padding:0 14px;
+      border-radius:15px;
+      border:1px solid rgba(0,168,89,.20);
       background:#fff;
-      color:#30415B;
+      color:var(--ad-green-dark);
+      font-size:.83rem;
+      line-height:1.2;
+      font-weight:950;
       text-decoration:none;
-      font-size:13px;
-      font-weight:900;
-      transition:.2s ease;
-    }
-
-    .gd-quick-links a:hover{
-      transform:translateY(-1px);
-      border-color:#A7DADF;
-      color:#00869B;
-      box-shadow:0 8px 20px rgba(18,184,166,.10);
-    }
-
-    .gd-empty{
-      padding:16px;
-      color:#8A98AA;
-      background:#F8FAFC;
-      border:1px dashed #DCE6EF;
-      border-radius:8px;
       text-align:center;
-      font-size:13px;
-      font-weight:700;
+      white-space:normal;
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
     }
-
-    .gd-footer{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:14px;
-      flex-wrap:wrap;
-      color:#63748A;
-      font-size:13px;
-      font-weight:600;
-      padding:8px 0 0;
-    }
-
-    .gd-footer-links{
-      display:flex;
-      align-items:center;
-      flex-wrap:wrap;
+    .ad-btn:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(0,168,89,.12);border-color:rgba(0,168,89,.34);}
+    .ad-btn.primary{background:var(--ad-green);border-color:var(--ad-green);color:#fff;box-shadow:0 12px 24px rgba(0,168,89,.18);}
+    .ad-mode-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:9px;
+      min-width:0;
+    }
+    .ad-mode-mini{
+      min-height:74px;
+      padding:10px 11px;
+      border-radius:18px;
+      border:1px solid rgba(0,168,89,.13);
+      background:#fff;
+      display:grid;
+      align-content:center;
+      gap:5px;
+      min-width:0;
+    }
+    .ad-mode-mini span{color:var(--ad-muted);font-size:.6rem;font-weight:950;text-transform:uppercase;letter-spacing:.06em;line-height:1.2;}
+    .ad-mode-mini strong{font-size:clamp(.88rem,1.05vw,1rem);line-height:1.08;font-weight:950;color:var(--ad-text);letter-spacing:-.025em;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .ad-mode-mini small{color:var(--ad-muted);font-size:.68rem;line-height:1.25;font-weight:720;}
+    .ad-section{
+      border:1px solid var(--ad-line);
+      border-radius:24px;
+      background:var(--ad-card);
+      box-shadow:var(--ad-shadow);
+      overflow:hidden;
+      min-width:0;
+    }
+    .ad-section-head{
+      min-height:60px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding:16px 18px;
+      border-bottom:1px solid var(--ad-line2);
+      background:linear-gradient(180deg,#FFFFFF,#FBFFFD);
+    }
+    .ad-section-head h2{margin:0;font-size:1rem;font-weight:950;letter-spacing:-.025em;color:var(--ad-text);}
+    .ad-section-head p{margin:4px 0 0;color:var(--ad-muted);font-size:.8rem;font-weight:700;line-height:1.35;}
+    .ad-section-link{color:var(--ad-green-dark);font-size:.8rem;font-weight:950;text-decoration:none;white-space:nowrap;}
+    .ad-body{padding:18px;min-width:0;}
+    .ad-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:14px;}
+    .ad-kpi{
+      min-height:126px;
+      padding:15px;
+      border-radius:20px;
+      border:1px solid var(--ad-line2);
+      background:linear-gradient(180deg,#fff,#FBFFFD);
+      display:grid;
+      align-content:space-between;
+      gap:10px;
+      min-width:0;
+    }
+    .ad-kpi-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+    .ad-icon{width:42px;height:42px;min-width:42px;border-radius:16px;display:grid;place-items:center;background:var(--ad-soft);color:var(--ad-green-dark);font-size:1.22rem;border:1px solid rgba(0,168,89,.13);}
+    .ad-kpi small{color:var(--ad-muted);font-size:.72rem;font-weight:950;text-transform:uppercase;letter-spacing:.055em;line-height:1.35;}
+    .ad-kpi strong{display:block;margin-top:6px;color:var(--ad-text);font-size:clamp(1.18rem,2vw,1.5rem);line-height:1;font-weight:950;letter-spacing:-.035em;overflow-wrap:anywhere;}
+    .ad-kpi p{margin:0;color:var(--ad-muted);font-size:.76rem;line-height:1.32;font-weight:720;}
+    .ad-kpi.warn .ad-icon{background:#FFF7E8;color:#A84700;border-color:rgba(255,138,31,.18);}
+    .ad-kpi.danger .ad-icon{background:#FFF1F2;color:var(--ad-red);border-color:rgba(185,28,28,.14);}
+    .ad-kpi.blue .ad-icon{background:#EFF8FF;color:var(--ad-blue);border-color:rgba(2,132,199,.16);}
+    .ad-grid-2{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,.55fr);gap:16px;min-width:0;}
+     .ad-chart{
+      height:340px;
+      min-height:340px;
+      width:100%;
+      min-width:0;
+      border-radius:20px;
+      overflow:hidden;
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
+    }
+    .ad-chart svg{display:block;width:100%;height:100%;}
+    .ad-chart .ad-chart-grid-line{stroke:#EAF4EF;stroke-width:1;}
+    .ad-chart .ad-chart-axis-line{stroke:#CFE9DC;stroke-width:1.4;}
+    .ad-chart .ad-chart-axis-label{fill:#66756D;font-size:12px;font-weight:850;font-family:Inter,Arial,sans-serif;}
+    .ad-chart .ad-chart-month-label{fill:#66756D;font-size:12px;font-weight:850;font-family:Inter,Arial,sans-serif;}
+    .ad-chart .ad-chart-value-label{fill:#FFFFFF;font-size:12px;font-weight:950;font-family:Inter,Arial,sans-serif;}
+    .ad-chart .ad-chart-zero-label{fill:#8A9890;font-size:10px;font-weight:850;font-family:Inter,Arial,sans-serif;}
+    .ad-chart .ad-chart-point{filter:drop-shadow(0 6px 10px rgba(0,168,89,.18));}
+    .ad-chart .ad-chart-line{filter:drop-shadow(0 9px 12px rgba(0,168,89,.14));}
+    .ad-list{display:grid;gap:10px;min-width:0;}
+    .ad-row{
+      min-height:58px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 0;
+      border-bottom:1px solid var(--ad-line2);
+      min-width:0;
+    }
+    .ad-row:last-child{border-bottom:0;}
+    .ad-row-left{display:flex;align-items:center;gap:10px;min-width:0;}
+    .ad-thumb{width:42px;height:42px;min-width:42px;border-radius:15px;background:var(--ad-soft);border:1px solid rgba(0,168,89,.13);display:grid;place-items:center;overflow:hidden;color:var(--ad-green-dark);font-weight:900;}
+    .ad-thumb img{width:100%;height:100%;object-fit:cover;}
+    .ad-name{font-size:.88rem;font-weight:900;color:var(--ad-text);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+    .ad-meta{margin-top:3px;color:var(--ad-muted);font-size:.74rem;font-weight:720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+    .ad-pill{min-width:76px;display:inline-flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:999px;background:var(--ad-soft);color:var(--ad-green-dark);font-size:.75rem;font-weight:950;white-space:nowrap;}
+    .ad-table-wrap{overflow:auto;-webkit-overflow-scrolling:touch;}
+    .ad-table{width:100%;min-width:720px;border-collapse:collapse;}
+    .ad-table th{padding:12px 14px;text-align:left;background:#F3FFF8;color:var(--ad-green-dark);font-size:.72rem;font-weight:950;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--ad-line);}
+    .ad-table td{padding:13px 14px;border-bottom:1px solid var(--ad-line2);color:var(--ad-text);font-size:.84rem;font-weight:750;}
+    .ad-empty{padding:16px;border:1px dashed var(--ad-line);border-radius:18px;background:#FBFFFD;color:var(--ad-muted);font-size:.84rem;font-weight:760;text-align:center;}
+    a.ad-kpi,
+    a.ad-mode-mini{
+      color:inherit;
+      text-decoration:none;
+      cursor:pointer;
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
+    }
+    a.ad-kpi:hover,
+    a.ad-mode-mini:hover{
+      transform:translateY(-1px);
+      border-color:rgba(0,168,89,.28);
+      box-shadow:0 12px 26px rgba(0,168,89,.10);
+    }
+    a.ad-kpi:focus-visible,
+    a.ad-mode-mini:focus-visible{
+      outline:3px solid rgba(0,168,89,.24);
+      outline-offset:2px;
     }
 
-    .gd-version{
-      color:#00A7C3;
-      border:1px solid #36D5EA;
-      padding:5px 9px;
-      border-radius:4px;
-      font-weight:900;
-      background:#F4FEFF;
+    @media(max-width:1280px){
+      .ad-hero{grid-template-columns:1fr;}
+      .ad-mode-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
+      .ad-grid-2{grid-template-columns:1fr;}
     }
-
-    @media (max-width: 1300px){
-      .gd-kpi-grid{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
-      .gd-status-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .gd-chart-grid{
-        grid-template-columns:1fr;
-      }
-
-      .gd-list-grid{
-        grid-template-columns:1fr;
-      }
-
-      .gd-store-logo-grid{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
+    @media(max-width:980px){
+      .admin-clean-dashboard{gap:14px;}
+      .ad-shortcuts-head{align-items:flex-start;flex-direction:column;gap:8px;}
+      .ad-shortcut-badge{width:max-content;max-width:100%;}
+      .ad-mode-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .ad-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .ad-section-head{align-items:flex-start;flex-direction:column;}
     }
-
-    @media (max-width: 900px){
-      .gd-shell{
-        padding:16px;
-      }
-
-      .gd-kpi-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .gd-status-grid{
-        grid-template-columns:1fr;
-      }
-
-      .gd-zone-select{
-        width:100%;
-        min-width:0;
-      }
-
-      .gd-page-head{
-        align-items:stretch;
-      }
-
-      .gd-filter-row{
-        justify-content:flex-start;
-      }
-
-      .gd-filter-tabs{
-        width:100%;
-      }
-
-      .gd-filter-tabs button{
-        flex:1;
-        min-width:0;
-      }
-
-      .gd-chart-card,
-      .gd-user-stat-card{
-        min-height:auto;
-      }
-
-      .gd-chart-area{
-        height:280px;
-      }
-
-      .gd-store-logo-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
+    @media(max-width:720px){
+      .admin-clean-dashboard{gap:12px;}
+      .ad-shortcuts,.ad-hero,.ad-section{border-radius:20px;}
+      .ad-shortcuts-head,.ad-shortcuts-body,.ad-hero,.ad-body{padding:14px;}
+      .ad-title{font-size:1.22rem;}
+      .ad-copy{font-size:.84rem;}
+      .ad-mode-grid,.ad-kpi-grid{grid-template-columns:1fr;}
+      .ad-quick-links{grid-template-columns:1fr;}
+      .ad-btn{width:100%;min-height:42px;}
+      .ad-row{align-items:flex-start;}
+      .ad-name,.ad-meta{max-width:calc(100vw - 190px);}
+      .ad-chart{height:300px;min-height:300px;}
     }
-
-    @media (max-width: 560px){
-      .gd-shell{
-        padding:12px;
-      }
-
-      .gd-kpi-grid{
-        grid-template-columns:1fr;
-      }
-
-      .gd-summary-panel{
-        padding:16px;
-      }
-
-      .gd-title{
-        font-size:20px;
-      }
-
-      .gd-status-card{
-        padding:14px 15px;
-      }
-
-      .gd-chart-head,
-      .gd-card-top,
-      .gd-list-head{
-        align-items:flex-start;
-        flex-direction:column;
-      }
-
-      .gd-store-logo-grid{
-        grid-template-columns:1fr;
-      }
-
-      .gd-row{
-        align-items:flex-start;
-      }
-
-      .gd-pill{
-        min-width:auto;
-      }
-
-      .gd-quick-links a{
-        width:100%;
-      }
+    @media(max-width:420px){
+      .ad-shortcuts-head h2,.ad-section-head h2{font-size:.95rem;}
+      .ad-shortcut-badge{font-size:.66rem;}
+      .ad-mode-mini{min-height:70px;}
+      .ad-kpi{min-height:118px;}
+      .ad-icon,.ad-thumb{width:38px;height:38px;min-width:38px;border-radius:14px;}
+      .ad-pill{min-width:auto;padding:7px 9px;}
+      .ad-chart{height:260px;min-height:260px;}
+      .ad-name,.ad-meta{max-width:calc(100vw - 170px);}
     }
-  
-/* ==========================================================
-   NELOCALS ADMIN DASHBOARD DELIVERY MODE AWARE FINAL
-   Dashboard content changes by active delivery mode.
-========================================================== */
-.nf-grocery-dashboard .gd-delivery-mode-panel{
-  margin:0 0 20px;
-  border:1px solid rgba(0,168,89,.18);
-  border-radius:24px;
-  background:linear-gradient(135deg,#F3FFF8 0%,#FFFFFF 64%,#F8FFFB 100%);
-  box-shadow:0 14px 36px rgba(17,64,38,.07);
-  overflow:hidden;
-}
-.nf-grocery-dashboard .gd-delivery-mode-inner{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(320px,.65fr);
-  gap:18px;
-  align-items:stretch;
-  padding:20px;
-}
-.nf-grocery-dashboard .gd-mode-kicker{
-  display:inline-flex;
-  width:max-content;
-  max-width:100%;
-  min-height:30px;
-  align-items:center;
-  border-radius:999px;
-  background:#fff;
-  border:1px solid rgba(0,168,89,.16);
-  color:var(--green-dark,#008A48);
-  padding:0 12px;
-  font-size:12px;
-  font-weight:950;
-  letter-spacing:.07em;
-  text-transform:uppercase;
-}
-.nf-grocery-dashboard .gd-mode-title{
-  margin:12px 0 6px;
-  color:var(--ink,#26364B);
-  font-size:clamp(1.22rem,2.2vw,1.7rem);
-  line-height:1.12;
-  letter-spacing:-.035em;
-  font-weight:950;
-}
-.nf-grocery-dashboard .gd-mode-copy{
-  margin:0;
-  color:var(--muted,#66756D);
-  font-size:14px;
-  line-height:1.55;
-  font-weight:760;
-}
-.nf-grocery-dashboard .gd-mode-actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  margin-top:16px;
-}
-.nf-grocery-dashboard .gd-mode-actions a{
-  min-height:40px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  border-radius:14px;
-  padding:0 14px;
-  text-decoration:none;
-  border:1px solid rgba(0,168,89,.20);
-  background:#fff;
-  color:#008A48;
-  font-size:13px;
-  font-weight:950;
-}
-.nf-grocery-dashboard .gd-mode-actions a.primary{
-  background:#00A859;
-  border-color:#00A859;
-  color:#fff;
-  box-shadow:0 12px 24px rgba(0,168,89,.18);
-}
-.nf-grocery-dashboard .gd-mode-mini-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px;
-}
-.nf-grocery-dashboard .gd-mode-mini{
-  border:1px solid rgba(0,168,89,.12);
-  border-radius:18px;
-  background:#fff;
-  padding:14px;
-  display:grid;
-  gap:6px;
-}
-.nf-grocery-dashboard .gd-mode-mini span{
-  color:var(--muted,#66756D);
-  font-size:11px;
-  font-weight:950;
-  text-transform:uppercase;
-  letter-spacing:.055em;
-}
-.nf-grocery-dashboard .gd-mode-mini strong{
-  color:var(--ink,#26364B);
-  font-size:1.18rem;
-  font-weight:950;
-  line-height:1.1;
-}
-.nf-grocery-dashboard .gd-mode-mini small{
-  color:var(--muted,#66756D);
-  font-size:12px;
-  line-height:1.35;
-  font-weight:760;
-}
-@media(max-width:980px){
-  .nf-grocery-dashboard .gd-delivery-mode-inner{grid-template-columns:1fr;}
-}
-@media(max-width:560px){
-  .nf-grocery-dashboard .gd-delivery-mode-inner{padding:15px;}
-  .nf-grocery-dashboard .gd-mode-mini-grid{grid-template-columns:1fr;}
-  .nf-grocery-dashboard .gd-mode-actions{display:grid;grid-template-columns:1fr;}
-  .nf-grocery-dashboard .gd-mode-actions a{width:100%;}
-}
+    @media (hover:none) and (pointer:coarse){
+      .ad-btn:hover{transform:none;box-shadow:none;}
+    }
+    @media (prefers-reduced-motion:reduce){
+      .ad-btn{transition:none;}
+    }
+  </style>
 
-
-/* In-house delivery visibility quick control */
-.nf-grocery-dashboard .gd-inhouse-control{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
-  padding:18px;
-  margin:0 0 20px;
-  border:1px solid rgba(0,168,89,.18);
-  border-radius:22px;
-  background:linear-gradient(135deg,#fff,#F3FFF8);
-  box-shadow:0 14px 36px rgba(17,64,38,.07);
-}
-.nf-grocery-dashboard .gd-inhouse-control h3{
-  margin:0;
-  color:var(--ink,#26364B);
-  font-size:1rem;
-  font-weight:950;
-  letter-spacing:-.025em;
-}
-.nf-grocery-dashboard .gd-inhouse-control p{
-  margin:5px 0 0;
-  color:var(--muted,#66756D);
-  font-size:.84rem;
-  line-height:1.5;
-  font-weight:700;
-}
-.nf-grocery-dashboard .gd-inhouse-actions{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.nf-grocery-dashboard .gd-inhouse-btn{
-  min-height:42px;
-  border:0;
-  border-radius:14px;
-  padding:0 15px;
-  background:#00A859;
-  color:#fff;
-  font-size:.82rem;
-  font-weight:950;
-  cursor:pointer;
-  box-shadow:0 12px 24px rgba(0,168,89,.18);
-}
-.nf-grocery-dashboard .gd-inhouse-btn.is-disable{
-  background:#B91C1C;
-  box-shadow:0 12px 24px rgba(185,28,28,.14);
-}
-.nf-grocery-dashboard .gd-inhouse-link{
-  min-height:42px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  border-radius:14px;
-  border:1px solid rgba(0,168,89,.20);
-  padding:0 14px;
-  background:#fff;
-  color:#008A48;
-  text-decoration:none;
-  font-size:.82rem;
-  font-weight:950;
-}
-@media(max-width:760px){
-  .nf-grocery-dashboard .gd-inhouse-control{display:grid;}
-  .nf-grocery-dashboard .gd-inhouse-actions{display:grid;grid-template-columns:1fr;}
-  .nf-grocery-dashboard .gd-inhouse-btn,
-  .nf-grocery-dashboard .gd-inhouse-link{width:100%;}
-}
-
-</style>
-
-  <div class="gd-shell">
-    <div class="gd-page-head">
-      <div class="gd-title-row">
-        <div class="gd-title-icon">🥦</div>
-        <div>
-          <h1 class="gd-title">NE FRESH admin operations dashboard.</h1>
-         
-        </div>
-      </div>
-
-      <select class="gd-zone-select" aria-label="Zone filter">
-        <option>All Zones</option>
-      </select>
-    </div>
-
-    <section class="gd-inhouse-control" aria-label="In-house delivery visibility control">
+  <section class="ad-shortcuts" aria-label="Admin shortcut actions">
+    <div class="ad-shortcuts-head">
       <div>
-        <h3>In-house Delivery Pages</h3>
-        {% if in_house_delivery_enabled %}
-          <p>Currently enabled. Admin and Store in-house delivery pages are visible.</p>
+        <h2>Admin quick actions</h2>
+        <p>Mode-aware shortcut buttons only. Disabled-mode pages are not shown.</p>
+      </div>
+      <span class="ad-shortcut-badge">Shortcuts</span>
+    </div>
+    <div class="ad-shortcuts-body">
+      <div class="ad-quick-links">
+        {% for link in quick_links|default([]) %}
+          <a class="ad-btn" href="{{ url_for(link.endpoint) }}">{{ link.label }}</a>
         {% else %}
-          <p>Currently disabled. Admin and Store in-house delivery pages are hidden to keep panels simple.</p>
+          <a class="ad-btn" href="{{ url_for('admin_store_overview') }}">Store Overview</a>
+          <a class="ad-btn" href="{{ url_for('admin_delivery_mode_settings') }}">Delivery Settings</a>
+          <a class="ad-btn" href="{{ url_for('admin_settlements') }}">Settlements</a>
+          {% if online_allowed %}<a class="ad-btn" href="{{ url_for('admin_payment_settings') }}">Payment Gateway</a>{% endif %}
+          {% if return_refund_enabled %}<a class="ad-btn" href="{{ url_for('admin_refund_processing') }}">Refunds</a>{% endif %}
+        {% endfor %}
+      </div>
+      <p class="ad-footer-note">Admin dashboard uses the same delivery-mode visibility rules as the store panel.</p>
+    </div>
+  </section>
+
+  <section class="ad-hero" aria-label="Delivery mode and admin summary">
+    <div class="ad-hero-copy">
+      <span class="ad-kicker">{{ mode_ui.get('icon', '🚚') }} {{ mode_ui.get('label', 'Delivery Mode') }}</span>
+      <h1 class="ad-title">{{ mode_ui.get('admin_dashboard_title', 'Admin operations dashboard') }}</h1>
+      <p class="ad-copy">{{ mode_ui.get('admin_dashboard_copy', 'Manage live orders, stores, payments and delivery settings from one clean admin console.') }}</p>
+    </div>
+    <div class="ad-mode-grid">
+      <a class="ad-mode-mini" href="{{ url_for('admin_delivery_mode_settings') }}" aria-label="Open delivery routing settings">
+        <span>Provider</span>
+        <strong>{{ provider_short }}</strong>
+        <small>{{ mode_ui.get('provider_type', 'Delivery') }}</small>
+      </a>
+      <a class="ad-mode-mini" href="{% if online_allowed %}{{ url_for('admin_payment_settings') }}{% else %}{{ url_for('admin_delivery_mode_settings') }}{% endif %}" aria-label="Open payment rule settings">
+        <span>Payment Rule</span>
+        <strong>{{ payment_short }}</strong>
+        <small>Payment setup</small>
+      </a>
+      <a class="ad-mode-mini" href="{{ url_for('admin_settlements') }}" aria-label="Open settlements for order value">
+        <span>Order Value</span>
+        <strong>₹ {{ '%.2f'|format(gmv_total|float) }}</strong>
+        <small>Delivered GMV</small>
+      </a>
+      <a class="ad-mode-mini" href="{{ url_for('admin_store_overview') }}" aria-label="Open store overview">
+        <span>Stores</span>
+        <strong>{{ stores_total }}</strong>
+        <small>Store records</small>
+      </a>
+    </div>
+  </section>
+
+  <section class="ad-section">
+    <div class="ad-section-head">
+      <div>
+        <h2>Core business summary</h2>
+        <p>Only current live counts are shown. Static “newly added” placeholders were removed.</p>
+      </div>
+      <a class="ad-section-link" href="{{ url_for('admin_exports') }}">Exports</a>
+    </div>
+    <div class="ad-body">
+      <div class="ad-kpi-grid">
+        <a class="ad-kpi" href="{{ url_for('admin_store_overview') }}" aria-label="Open order overview"><div class="ad-kpi-top"><small>Orders</small><span class="ad-icon">🛒</span></div><strong>{{ orders_total }}</strong><p>Total order records</p></a>
+        <a class="ad-kpi" href="{{ url_for('admin_store_overview') }}" aria-label="Open product/store overview"><div class="ad-kpi-top"><small>Products</small><span class="ad-icon">🛍️</span></div><strong>{{ products_total }}</strong><p>Product catalog records</p></a>
+        <a class="ad-kpi" href="{{ url_for('admin_store_list') }}" aria-label="Open all store admin profiles"><div class="ad-kpi-top"><small>Stores</small><span class="ad-icon">🏪</span></div><strong>{{ stores_total }}</strong><p>Store admin profiles</p></a>
+        <a class="ad-kpi" href="{{ url_for('admin_customers') }}" aria-label="Open customer accounts"><div class="ad-kpi-top"><small>Customers</small><span class="ad-icon">👥</span></div><strong>{{ customers_total }}</strong><p>Customer accounts</p></a>
+        {% if online_allowed %}
+        <a class="ad-kpi blue" href="{{ url_for('admin_payment_settings') }}" aria-label="Open online payment gateway settings"><div class="ad-kpi-top"><small>Online collections</small><span class="ad-icon">💳</span></div><strong>₹ {{ '%.2f'|format(online_payment_received_amount|float) }}</strong><p>{{ online_payment_received_count }} online paid orders</p></a>
+        {% endif %}
+        {% if platform_fee_active %}
+        <a class="ad-kpi" href="{{ url_for('admin_platform_earnings') }}" aria-label="Open platform fee earnings"><div class="ad-kpi-top"><small>Platform fee</small><span class="ad-icon">📈</span></div><strong>₹ {{ '%.2f'|format(platform_fee_received_amount|float) }}</strong><p>Platform fee received</p></a>
+        {% endif %}
+        <a class="ad-kpi warn" href="{{ url_for('admin_settlements') }}" aria-label="Open store payout settlements"><div class="ad-kpi-top"><small>Store payout pending</small><span class="ad-icon">🏦</span></div><strong>₹ {{ '%.2f'|format(store_payout_pending_amount|float) }}</strong><p>{{ store_payout_pending_count }} payouts pending</p></a>
+        {% if in_house_delivery_enabled %}
+        <a class="ad-kpi warn" href="{{ url_for('admin_settlements') }}" aria-label="Open COD rider cash settlements"><div class="ad-kpi-top"><small>COD rider cash</small><span class="ad-icon">🧾</span></div><strong>₹ {{ '%.2f'|format(cod_rider_cash_pending_amount|float) }}</strong><p>{{ cod_rider_cash_pending_count }} settlements pending</p></a>
         {% endif %}
       </div>
-      <div class="gd-inhouse-actions">
-        {% if in_house_delivery_enabled %}
-          <form method="post" action="{{ url_for('admin_disable_in_house_delivery_quick') }}">
-            <button class="gd-inhouse-btn is-disable" type="submit">Disable & Hide In-house Delivery Pages</button>
-          </form>
-        {% else %}
-          <form method="post" action="{{ url_for('admin_enable_in_house_delivery_quick') }}">
-            <button class="gd-inhouse-btn" type="submit">Enable & Show In-house Delivery Pages</button>
-          </form>
-        {% endif %}
-        <a class="gd-inhouse-link" href="{{ url_for('admin_delivery_mode_settings') }}">Advanced Delivery Settings</a>
+    </div>
+  </section>
+
+  <section class="ad-section">
+    <div class="ad-section-head">
+      <div>
+        <h2>Order workflow</h2>
+        <p>Delivery-specific buttons and cards are displayed only when that mode is active.</p>
       </div>
-    </section>
-
-
-    <div class="gd-grid">      <section class="gd-panel gd-summary-panel">
-        <div class="gd-filter-row">
-          <div class="gd-filter-tabs" aria-label="Date filters">
-            <button type="button">This Year</button>
-            <button type="button">This Month</button>
-            <button type="button">This Week</button>
-          </div>
-        </div>
-
-       <div class="gd-kpi-grid">
-          <div class="gd-kpi-card">
-            <div class="gd-kpi-icon">🛍️</div>
-            <div class="gd-kpi-label">Product Records</div>
-            <div class="gd-kpi-value">{{ products_total }}</div>
-            <div class="gd-kpi-sub">0 Newly added</div>
-          </div>
-
-          <div class="gd-kpi-card">
-            <div class="gd-kpi-icon">🛒</div>
-            <div class="gd-kpi-label">Orders</div>
-            <div class="gd-kpi-value">{{ orders_total }}</div>
-            <div class="gd-kpi-sub">0 Newly added</div>
-          </div>
-
-          <div class="gd-kpi-card">
-            <div class="gd-kpi-icon">🏪</div>
-            <div class="gd-kpi-label">Store Admin Profiles</div>
-            <div class="gd-kpi-value">{{ stores_total }}</div>
-            <div class="gd-kpi-sub">0 Newly added</div>
-          </div>
-
-          <div class="gd-kpi-card">
-            <div class="gd-kpi-icon">👥</div>
-            <div class="gd-kpi-label">Customers</div>
-            <div class="gd-kpi-value">{{ customers_total }}</div>
-            <div class="gd-kpi-sub">0 Newly added</div>
-          </div>
-
-          <div class="gd-kpi-card">
-            <div class="gd-kpi-icon">💰</div>
-            <div class="gd-kpi-label">Gross Order Value</div>
-            <div class="gd-kpi-value">₹ {{ '%.2f'|format(earnings_total or 0) }}</div>
-            <div class="gd-kpi-sub">Paid transactions and delivered order value</div>
-          </div>
-
-                    <div class="gd-kpi-card gd-refund-card success">
-            <div class="gd-kpi-icon">💳</div>
-            <div class="gd-kpi-label">Online Payment Collections</div>
-            <div class="gd-kpi-value">₹ {{ '%.2f'|format(online_payment_received_amount|float) }}</div>
-            <div class="gd-kpi-sub">{{ online_payment_received_count }} online paid orders</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Settlements</a>
-          </div>
-
-          {% if in_house_delivery_enabled %}
-          <div class="gd-kpi-card gd-refund-card warning">
-            <div class="gd-kpi-icon">🧾</div>
-            <div class="gd-kpi-label">In-house COD Collection Pending</div>
-            <div class="gd-kpi-value">₹ {{ '%.2f'|format(cod_rider_cash_pending_amount|float) }}</div>
-            <div class="gd-kpi-sub">{{ cod_rider_cash_pending_count }} rider cash settlements pending</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Open Collection</a>
-          </div>
-          {% endif %}
-
-          <div class="gd-kpi-card gd-refund-card success">
-            <div class="gd-kpi-icon">📈</div>
-            <div class="gd-kpi-label">Platform Fee Collections</div>
-            <div class="gd-kpi-value">₹ {{ '%.2f'|format(platform_fee_received_amount|float) }}</div>
-            <div class="gd-kpi-sub">Received from online payment and settled pay-on-delivery orders</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_platform_earnings') }}">View Platform Earnings</a>
-          </div>
-
-          <div class="gd-kpi-card gd-refund-card warning">
-            <div class="gd-kpi-icon">🏪</div>
-            <div class="gd-kpi-label">Store Payouts Pending</div>
-            <div class="gd-kpi-value">₹ {{ '%.2f'|format(store_payout_pending_amount|float) }}</div>
-            <div class="gd-kpi-sub">{{ store_payout_pending_count }} store payouts pending</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Open Store Payouts</a>
-          </div>
-
-                    <div class="gd-kpi-card gd-refund-card warning">
-            <div class="gd-kpi-icon">⏳</div>
-            <div class="gd-kpi-label">Refunds Pending</div>
-            <div class="gd-kpi-value">{{ refund_pending_total }}</div>
-            <div class="gd-kpi-sub">₹ {{ '%.2f'|format(ready_for_refund_amount|float) }} waiting</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_refund_processing') }}">Open Refunds</a>
-          </div>
-
-          <div class="gd-kpi-card gd-refund-card">
-            <div class="gd-kpi-icon">🧾</div>
-            <div class="gd-kpi-label">Admin Review Required</div>
-            <div class="gd-kpi-value">{{ admin_review_needed_total }}</div>
-            <div class="gd-kpi-sub">Returns/refunds waiting for admin decision</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_refund_processing') }}">Review Now</a>
-          </div>
-
-          <div class="gd-kpi-card gd-refund-card success">
-            <div class="gd-kpi-icon">✅</div>
-            <div class="gd-kpi-label">Refunds Processed</div>
-            <div class="gd-kpi-value">{{ refund_processed_total }}</div>
-            <div class="gd-kpi-sub">₹ {{ '%.2f'|format(refund_processed_amount|float) }} processed</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_returns_settlements') }}">View Report</a>
-          </div>
-
-          <div class="gd-kpi-card gd-refund-card warning">
-            <div class="gd-kpi-icon">🏪</div>
-            <div class="gd-kpi-label">Store Refund Deduction</div>
-            <div class="gd-kpi-value">₹ {{ '%.2f'|format(store_refund_deduction_amount|float) }}</div>
-            <div class="gd-kpi-sub">Deducted from store payout</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_settlements') }}">Settlements</a>
-          </div>
-
-          <div class="gd-kpi-card gd-refund-card">
-            <div class="gd-kpi-icon">⚠️</div>
-            <div class="gd-kpi-label">Store Adjustment Due</div>
-            <div class="gd-kpi-value">₹ {{ '%.2f'|format(store_adjustment_due_amount|float) }}</div>
-            <div class="gd-kpi-sub">Recover from next payout</div>
-            <a class="gd-refund-action" href="{{ url_for('admin_returns_settlements') }}">View Impact</a>
-          </div>
-
-          {% if in_house_delivery_enabled %}
-          <div class="gd-kpi-card">
-            <div class="gd-kpi-icon">🚚</div>
-            <div class="gd-kpi-label">In-house Delivery Accounts</div>
-            <div class="gd-kpi-value">{{ delivery_people_total }}</div>
-            <div class="gd-kpi-sub">{{ active_delivery_people_total }} Active</div>
-          </div>
-          {% endif %}
-        </div>
-
-      </section>
-
-      <section class="gd-chart-grid">
-        <div class="gd-card gd-chart-card">
-          <div class="gd-chart-head">
-            <div>
-              <div class="gd-money">₹ {{ '%.2f'|format(gmv_total or 0) }}</div>
-              <div class="gd-small-muted">Gross Order Value</div>
-            </div>
-
-            <div class="gd-chart-center-label">
-              <span class="gd-dot" style="background:#12B8A6;"></span>
-              Sale ({{ now().year if now is defined else "2026" }})
-            </div>
-
-            <div class="gd-chart-filter">
-              This year
-              <span>⌄</span>
-            </div>
-          </div>
-
-          <div class="gd-chart-area" id="grossSaleChart"></div>
-
-          <div class="gd-chart-legend">
-            <span class="gd-legend-item">
-              <span class="gd-dot" style="background:#32E7CE;"></span>
-              Gross Order Value
-            </span>
-            <span class="gd-legend-item">
-              <span class="gd-dot" style="background:#F15B66;"></span>
-              Admin Commission
-            </span>
-            <span class="gd-legend-item">
-              <span class="gd-dot" style="background:#005F5B;"></span>
-              Delivery Commission
-            </span>
-          </div>
-        </div>
-
-        <div class="gd-card gd-user-stat-card">
-          <div class="gd-card-top">
-            <h3 class="gd-card-title">User Statistics</h3>
-            <select class="gd-card-select" aria-label="User statistics filter">
-              <option>Overall</option>
-            </select>
-          </div>
-
-          <div class="gd-donut-wrap">
-            <div class="gd-donut">
-              <div class="gd-donut-center">
-                <div>
-                  <div class="gd-donut-num">{{ users_total }}</div>
-                  <div class="gd-donut-text">Total Users</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="gd-donut-legend">
-            <span><span class="gd-dot" style="background:#006B66;"></span>Customer {{ customers_total }}</span>
-            <span><span class="gd-dot" style="background:#12B8A6;"></span>Store {{ stores_total }}</span>
-            <span><span class="gd-dot" style="background:#A7DFDC;"></span>Delivery man {{ delivery_people_total }}</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="gd-list-grid">
-        <div class="gd-card gd-list-card">
-          <div class="gd-list-head">
-            <h3 class="gd-list-title">Store Sales Summary</h3>
-            <a href="#" class="gd-view-link">View All</a>
-          </div>
-
-          <div class="gd-list-body">
-            <div class="gd-store-logo-grid">
-              {% set selling_store_tiles = top_selling_store_tiles|default(by_store|default([])) %}
-              {% for s in selling_store_tiles[:6] %}
-                <div class="gd-store-logo" title="{{ s.store_name|default('Store') }}">
-                  {% if s.image_url %}
-                    <img src="{{ s.image_url }}" alt="{{ s.store_name|default('Store') }}">
-                  {% else %}
-                    <span>🏪</span>
-                  {% endif %}
-                </div>
-              {% else %}
-                <div class="gd-empty">No store sales found.</div>
-              {% endfor %}
-            </div>
-          </div>
-        </div>
-
-        <div class="gd-card gd-list-card">
-          <div class="gd-list-head">
-            <h3 class="gd-list-title">Store Activity Summary</h3>
-            <a href="#" class="gd-view-link">View All</a>
-          </div>
-
-          <div class="gd-list-body">
-            {% set popular_stores = most_popular_stores|default([]) %}
-            {% for s in popular_stores[:6] %}
-              <div class="gd-row">
-                <div class="gd-row-left">
-                  <div class="gd-thumb">
-                    {% if s.image_url %}
-                      <img src="{{ s.image_url }}" alt="{{ s.store_name|default('Store') }}">
-                    {% else %}
-                      🛒
-                    {% endif %}
-                  </div>
-                  <div style="min-width:0;">
-                    <div class="gd-name">{{ s.store_name|default('Store') }}</div>
-                    <div class="gd-meta">{{ s.subtitle|default((s.orders|default(0)) ~ ' orders') }}</div>
-                  </div>
-                </div>
-                <div class="gd-heart">{{ s.likes|default(s.orders|default(0)) }} ❤</div>
-              </div>
-            {% else %}
-              <div class="gd-empty">No popular stores found.</div>
-            {% endfor %}
-          </div>
-        </div>
-
-        <div class="gd-card gd-list-card">
-          <div class="gd-list-head">
-            <h3 class="gd-list-title">Product Sales Summary</h3>
-            <a href="#" class="gd-view-link">View All</a>
-          </div>
-
-          <div class="gd-list-body">
-            {% set selling_items = top_selling_items|default([]) %}
-            {% for p in selling_items[:6] %}
-              <div class="gd-row">
-                <div class="gd-row-left">
-                  <div class="gd-thumb">
-                    {% if p.image_url %}
-                      <img src="{{ p.image_url }}" alt="{{ p.product_name|default('Item') }}">
-                    {% else %}
-                      🛍️
-                    {% endif %}
-                  </div>
-                  <div style="min-width:0;">
-                    <div class="gd-name">{{ p.product_name|default('Item') }}</div>
-                    <div class="gd-meta">₹ {{ '%.2f'|format(p.revenue|default(0) or 0) }} revenue</div>
-                  </div>
-                </div>
-                <div class="gd-pill">Sold : {{ p.sold|default(0) }}</div>
-              </div>
-            {% else %}
-              <div class="gd-empty">No selling items found.</div>
-            {% endfor %}
-          </div>
-        </div>
-      </section>
-
-      <section class="gd-list-grid">
-        <div class="gd-card gd-list-card">
-          <div class="gd-list-head">
-            <h3 class="gd-list-title">Product Review Summary</h3>
-            <a href="#" class="gd-view-link">View All</a>
-          </div>
-
-          <div class="gd-list-body">
-            {% set rated_products = top_rated_products|default([]) %}
-            {% for p in rated_products[:6] %}
-              <div class="gd-row gd-rating-row">
-                <div class="gd-row-left">
-                  <div class="gd-thumb">
-                    {% if p.image_url %}
-                      <img src="{{ p.image_url }}" alt="{{ p.name|default(p.product_name|default('Item')) }}">
-                    {% else %}
-                      🥬
-                    {% endif %}
-                  </div>
-                  <div style="min-width:0;">
-                    <div class="gd-name">{{ p.name|default(p.product_name|default('Item')) }}</div>
-                    <div class="gd-meta">{{ p.rating_count|default(0) }} ratings</div>
-                  </div>
-                </div>
-                <div class="gd-heart">{{ p.avg_rating|default(0) }} ❤</div>
-              </div>
-            {% else %}
-              <div class="gd-empty">No product ratings yet.</div>
-            {% endfor %}
-          </div>
-        </div>
-
+      {% if in_house_delivery_enabled %}
+        <a class="ad-section-link" href="{{ url_for('admin_delivery_overview') }}">Delivery overview</a>
+      {% elif third_party_shipping_enabled %}
+        <a class="ad-section-link" href="{{ url_for('admin_external_delivery_orders') }}">Courier orders</a>
+      {% elif external_local_delivery_enabled %}
+        <a class="ad-section-link" href="{{ url_for('admin_external_delivery_settings') }}">External local settings</a>
+      {% else %}
+        <a class="ad-section-link" href="{{ url_for('admin_delivery_mode_settings') }}">Routing settings</a>
+      {% endif %}
+    </div>
+    <div class="ad-body">
+      <div class="ad-kpi-grid">
+        <a class="ad-kpi" href="{% if in_house_delivery_enabled %}{{ url_for('admin_delivery_overview') }}{% elif third_party_shipping_enabled %}{{ url_for('admin_external_delivery_orders') }}{% elif external_local_delivery_enabled %}{{ url_for('admin_external_delivery_settings') }}{% else %}{{ url_for('admin_delivery_mode_settings') }}{% endif %}" aria-label="Open placed or confirmed orders workflow"><div class="ad-kpi-top"><small>Placed / confirmed</small><span class="ad-icon">🧾</span></div><strong>{{ unassigned_orders_total }}</strong><p>New orders needing next action</p></a>
+        <a class="ad-kpi" href="{{ url_for('admin_store_overview') }}" aria-label="Open store packaging overview"><div class="ad-kpi-top"><small>Preparing</small><span class="ad-icon">📦</span></div><strong>{{ packaging_orders_total }}</strong><p>Store packaging/preparing</p></a>
         {% if in_house_delivery_enabled %}
-        <div class="gd-card gd-list-card">
-          <div class="gd-list-head">
-            <h3 class="gd-list-title">In-house Delivery Performance</h3>
-            <a href="{{ url_for('admin_delivery_overview') }}" class="gd-view-link">View All</a>
-          </div>
-
-          <div class="gd-list-body">
-            {% set delivery_list = top_deliverymen|default([]) %}
-            {% for d in delivery_list[:6] %}
-              <div class="gd-row">
-                <div class="gd-row-left">
-                  <div class="gd-thumb round">
-                    {% if d.image_url %}
-                      <img src="{{ d.image_url }}" alt="{{ d.name|default('Delivery') }}">
-                    {% else %}
-                      👤
-                    {% endif %}
-                  </div>
-                  <div style="min-width:0;">
-                    <div class="gd-name">{{ d.name|default('Delivery') }}</div>
-                    <div class="gd-meta">{{ d.phone|default('+**********') }}</div>
-                  </div>
-                </div>
-                <div class="gd-pill">Orders : {{ d.orders|default(0) }}</div>
-              </div>
-            {% else %}
-              <div class="gd-empty">No in-house delivery activity found.</div>
-            {% endfor %}
-          </div>
-        </div>
+          <a class="ad-kpi" href="{{ url_for('admin_delivery_overview') }}" aria-label="Open assigned delivery overview"><div class="ad-kpi-top"><small>Assigned</small><span class="ad-icon">🛵</span></div><strong>{{ accepted_delivery_total }}</strong><p>With in-house delivery staff</p></a>
+          <a class="ad-kpi blue" href="{{ url_for('admin_delivery_overview') }}" aria-label="Open live in-house deliveries"><div class="ad-kpi-top"><small>Out for delivery</small><span class="ad-icon">🚚</span></div><strong>{{ out_for_delivery_total }}</strong><p>Live in-house deliveries</p></a>
+          <a class="ad-kpi" href="{{ url_for('admin_delivery_list') }}" aria-label="Open in-house delivery staff list"><div class="ad-kpi-top"><small>Delivery staff</small><span class="ad-icon">👷</span></div><strong>{{ delivery_people_total }}</strong><p>{{ active_delivery_people_total }} active staff accounts</p></a>
+        {% elif third_party_shipping_enabled %}
+          <a class="ad-kpi blue" href="{{ url_for('admin_external_delivery_orders') }}" aria-label="Open Shiprocket courier orders"><div class="ad-kpi-top"><small>Courier mode</small><span class="ad-icon">📮</span></div><strong>Active</strong><p>Shiprocket/courier operations enabled</p></a>
+          <a class="ad-kpi" href="{{ url_for('admin_external_delivery_orders') }}" aria-label="Open courier tracking orders"><div class="ad-kpi-top"><small>Tracking</small><span class="ad-icon">🔎</span></div><strong>AWB</strong><p>Use courier orders for tracking updates</p></a>
+        {% else %}
+          <a class="ad-kpi blue" href="{{ url_for('admin_external_delivery_settings') }}" aria-label="Open external local delivery settings"><div class="ad-kpi-top"><small>External local</small><span class="ad-icon">⚡</span></div><strong>Active</strong><p>Uses NE Locals order reference</p></a>
+          <a class="ad-kpi" href="{{ url_for('admin_delivery_mode_settings') }}" aria-label="Open delivery mode settings"><div class="ad-kpi-top"><small>Delivery staff</small><span class="ad-icon">—</span></div><strong>Hidden</strong><p>In-house delivery screens are not shown</p></a>
         {% endif %}
+        <a class="ad-kpi" href="{{ url_for('admin_store_overview') }}" aria-label="Open completed orders overview"><div class="ad-kpi-top"><small>Delivered</small><span class="ad-icon">✅</span></div><strong>{{ delivered_orders_total }}</strong><p>Completed orders</p></a>
+        <a class="ad-kpi danger" href="{{ url_for('admin_store_overview') }}" aria-label="Open cancelled order records"><div class="ad-kpi-top"><small>Cancelled</small><span class="ad-icon">✕</span></div><strong>{{ cancelled_orders_total }}</strong><p>Cancelled order records</p></a>
+      </div>
+    </div>
+  </section>
 
-        <div class="gd-card gd-list-card">
-          <div class="gd-list-head">
-            <h3 class="gd-list-title">Customer Order Summary</h3>
-            <a href="#" class="gd-view-link">View All</a>
-          </div>
+  {% if return_refund_enabled %}
+  <section class="ad-section">
+    <div class="ad-section-head">
+      <div>
+        <h2>Returns, refunds and adjustment work</h2>
+        <p>Hidden automatically when the return/refund module is disabled.</p>
+      </div>
+      <a class="ad-section-link" href="{{ url_for('admin_refund_processing') }}">Open refunds</a>
+    </div>
+    <div class="ad-body">
+      <div class="ad-kpi-grid">
+        <a class="ad-kpi warn" href="{{ url_for('admin_refund_processing') }}" aria-label="Open pending refunds"><div class="ad-kpi-top"><small>Refunds pending</small><span class="ad-icon">⏳</span></div><strong>{{ refund_pending_total }}</strong><p>₹ {{ '%.2f'|format(ready_for_refund_amount|float) }} waiting</p></a>
+        <a class="ad-kpi danger" href="{{ url_for('admin_refund_processing') }}" aria-label="Open return refund admin review"><div class="ad-kpi-top"><small>Admin review</small><span class="ad-icon">⚠️</span></div><strong>{{ admin_review_needed_total }}</strong><p>Return/refund decisions pending</p></a>
+        <a class="ad-kpi" href="{{ url_for('admin_refund_processing') }}" aria-label="Open processed refunds"><div class="ad-kpi-top"><small>Processed</small><span class="ad-icon">✅</span></div><strong>{{ refund_processed_total }}</strong><p>₹ {{ '%.2f'|format(refund_processed_amount|float) }} processed</p></a>
+        <a class="ad-kpi warn" href="{{ url_for('admin_returns_settlements') }}" aria-label="Open return refund settlement impact"><div class="ad-kpi-top"><small>Store deduction</small><span class="ad-icon">🏪</span></div><strong>₹ {{ '%.2f'|format(store_refund_deduction_amount|float) }}</strong><p>Deducted from store payout</p></a>
+        <a class="ad-kpi danger" href="{{ url_for('admin_returns_settlements') }}" aria-label="Open store adjustment due details"><div class="ad-kpi-top"><small>Adjustment due</small><span class="ad-icon">🧾</span></div><strong>₹ {{ '%.2f'|format(store_adjustment_due_amount|float) }}</strong><p>Recover from next payout</p></a>
+      </div>
+    </div>
+  </section>
+  {% endif %}
 
-          <div class="gd-list-body">
-            {% set customers_list = top_customers|default([]) %}
-            {% for c in customers_list[:6] %}
-              <div class="gd-row">
-                <div class="gd-row-left">
-                  <div class="gd-thumb round">👤</div>
-                  <div style="min-width:0;">
-                    <div class="gd-name">{{ c.name|default('Customer') }}</div>
-                    <div class="gd-meta">{{ c.phone|default('+**********') }}</div>
-                  </div>
-                </div>
-                <div class="gd-pill">Orders : {{ c.orders|default(0) }}</div>
-              </div>
-            {% else %}
-              <div class="gd-empty">No customers found.</div>
-            {% endfor %}
-          </div>
-        </div>
-      </section>
+  <section class="ad-grid-2">
+    <div class="ad-section">
+      <div class="ad-section-head">
+        <div><h2>Gross order value</h2><p>Monthly delivered order value.</p></div>
+        <span class="ad-section-link">₹ {{ '%.2f'|format(gmv_total|float) }}</span>
+      </div>
+      <div class="ad-body"><div class="ad-chart" id="adminGrossSaleChart"></div></div>
+    </div>
 
-      <section class="gd-list-grid">
-        <div class="gd-card gd-list-card">
-          <div class="gd-list-head">
-            <h3 class="gd-list-title">Store Review Summary</h3>
-            <a href="#" class="gd-view-link">View All</a>
-          </div>
-
-          <div class="gd-list-body">
-            {% set rated_stores = top_rated_stores|default([]) %}
-            {% for s in rated_stores[:6] %}
-              <div class="gd-row">
-                <div class="gd-row-left">
-                  <div class="gd-thumb">
-                    {% if s.image_url %}
-                      <img src="{{ s.image_url }}" alt="{{ s.store_name|default('Store') }}">
-                    {% else %}
-                      🏪
-                    {% endif %}
-                  </div>
-                  <div style="min-width:0;">
-                    <div class="gd-name">{{ s.store_name|default('Store') }}</div>
-                    <div class="gd-meta">{{ s.rating_count|default(0) }} ratings</div>
-                  </div>
-                </div>
-                <div class="gd-heart">{{ s.avg_rating|default(0) }} ★</div>
-              </div>
-            {% else %}
-              <div class="gd-empty">No store ratings yet.</div>
-            {% endfor %}
-          </div>
-        </div>
-
-        <div class="gd-card gd-list-card">
-          <div class="gd-list-head">
-            <h3 class="gd-list-title">Customer Complaints Involving Stores</h3>
-            <a href="#" class="gd-view-link">View All</a>
-          </div>
-
-          <div class="gd-list-body">
-            {% set store_complaints = top_store_complaints|default([]) %}
-            {% for s in store_complaints[:6] %}
-              <div class="gd-row">
-                <div class="gd-row-left">
-                  <div class="gd-thumb">🏬</div>
-                  <div style="min-width:0;">
-                    <div class="gd-name">{{ s.store_name or ('ID ' ~ s.store_id) }}</div>
-                    <div class="gd-meta">Store-related complaints</div>
-                  </div>
-                </div>
-                <div class="gd-pill gd-complaint-pill">{{ s.cnt|default(0) }}</div>
-              </div>
-            {% else %}
-              <div class="gd-empty">No store complaints found.</div>
-            {% endfor %}
-          </div>
-        </div>
-
-        <div class="gd-card gd-list-card">
-          <div class="gd-list-head">
-            <h3 class="gd-list-title">Customer Complaints Involving Delivery</h3>
-            <a href="#" class="gd-view-link">View All</a>
-          </div>
-
-          <div class="gd-list-body">
-            {% set delivery_complaints = top_delivery_complaints|default([]) %}
-            {% for d in delivery_complaints[:6] %}
-              <div class="gd-row">
-                <div class="gd-row-left">
-                  <div class="gd-thumb">🚚</div>
-                  <div style="min-width:0;">
-                    <div class="gd-name">{{ d.delivery_name or d.name or ('ID ' ~ d.user_id) }}</div>
-                    <div class="gd-meta">{{ d.phone|default('Delivery complaints') }}</div>
-                  </div>
-                </div>
-                <div class="gd-pill gd-complaint-pill">{{ d.cnt|default(0) }}</div>
-              </div>
-            {% else %}
-              <div class="gd-empty">No delivery complaints found.</div>
-            {% endfor %}
-          </div>
-        </div>
-      </section>
-
-      <section class="gd-card">
-        <div class="gd-list-head">
-          <h3 class="gd-list-title">Store Admin Performance Summary</h3>
-          <a href="#" class="gd-view-link">View All</a>
-        </div>
-
-        <div class="gd-table-wrap">
-          <table class="gd-table" id="storesTable">
-            <thead>
-              <tr>
-                <th>Store</th>
-                <th>Orders</th>
-                <th>Delivered</th>
-                <th>Revenue</th>
-                <th>Avg Rating</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% set store_rows = by_store|default([]) %}
-              {% for s in store_rows %}
-                <tr {% if s.store_id %}data-store-id="{{ s.store_id }}"{% endif %}>
-                  <td>{{ s.store_name|default('Store') }}</td>
-                  <td>{{ s.orders|default(0) }}</td>
-                  <td>{{ s.delivered_orders|default(0) }}</td>
-                  <td>₹ {{ '%.2f'|format(s.revenue|default(0) or 0) }}</td>
-                  <td class="rating-cell"><span style="color:#9AA6B5;">—</span></td>
-                </tr>
-              {% else %}
-                <tr>
-                  <td colspan="5">
-                    <div class="gd-empty">No store performance found.</div>
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="gd-card">
-        <div class="gd-list-head">
-          <h3 class="gd-list-title">Admin Quick Actions</h3>
-          <span class="gd-view-link">Admin Shortcuts</span>
-        </div>
-
-        <div class="gd-quick-links">
-          {% for link in quick_links|default([]) %}
-            <a href="{{ url_for(link.endpoint) }}">{{ link.label }}</a>
-          {% else %}
-            <a href="{{ url_for('admin_approvals') }}">Review Pending Items</a>
-            <a href="{{ url_for('admin_users') }}">Manage Admin/Staff Users</a>
-            <a href="{{ url_for('admin_complaints') }}">Complaints</a>
-            <a href="{{ url_for('admin_create_store') }}">Create Store Admin Profile</a>
-            {% if in_house_delivery_enabled %}<a href="{{ url_for('admin_create_delivery') }}">Create In-house Delivery Account</a>{% endif %}
-            <a href="{{ url_for('admin_transactions_csv') }}">Export Order Transactions CSV</a>
-          {% endfor %}
-        </div>
-      </section>
-
-      <div class="gd-footer">
-        <span>© NE FRESH Admin.</span>
-        <div class="gd-footer-links">
-          <span>•</span>
-          <span>Admin setup</span>
-          <span>•</span>
-          <span>Profile</span>
-          <span>•</span>
-          <span>Home</span>
-          <span>•</span>
-          <span class="gd-version">NE FRESH Admin Console</span>
+    <div class="ad-section">
+      <div class="ad-section-head"><div><h2>User mix</h2><p>Clean account split.</p></div></div>
+      <div class="ad-body">
+        <div class="ad-list">
+          <div class="ad-row"><div class="ad-row-left"><span class="ad-thumb">👥</span><div><div class="ad-name">Customers</div><div class="ad-meta">Customer login accounts</div></div></div><span class="ad-pill">{{ customers_total }}</span></div>
+          <div class="ad-row"><div class="ad-row-left"><span class="ad-thumb">🏪</span><div><div class="ad-name">Stores</div><div class="ad-meta">Store admin records</div></div></div><span class="ad-pill">{{ stores_total }}</span></div>
+          {% if in_house_delivery_enabled %}<div class="ad-row"><div class="ad-row-left"><span class="ad-thumb">🛵</span><div><div class="ad-name">Delivery staff</div><div class="ad-meta">In-house accounts only</div></div></div><span class="ad-pill">{{ delivery_people_total }}</span></div>{% endif %}
+          <div class="ad-row"><div class="ad-row-left"><span class="ad-thumb">🛡️</span><div><div class="ad-name">Admin/Staff Users</div><div class="ad-meta">All user records</div></div></div><span class="ad-pill">{{ users_total }}</span></div>
         </div>
       </div>
     </div>
-  </div>
+  </section>
+
+  <section class="ad-section">
+    <div class="ad-section-head">
+      <div><h2>Store performance</h2><p>Revenue-first store overview.</p></div>
+      <a class="ad-section-link" href="{{ url_for('admin_store_overview') }}">View store dashboard</a>
+    </div>
+    <div class="ad-body ad-table-wrap">
+      <table class="ad-table" id="adminStoresTable">
+        <thead><tr><th>Store</th><th>Orders</th><th>Delivered</th><th>Revenue</th><th>Rating</th></tr></thead>
+        <tbody>
+          {% for s in by_store|default([]) %}
+            <tr {% if s.store_id %}data-store-id="{{ s.store_id }}"{% endif %}>
+              <td>{{ s.store_name|default('Store') }}</td>
+              <td>{{ s.orders|default(0) }}</td>
+              <td>{{ s.delivered_orders|default(0) }}</td>
+              <td>₹ {{ '%.2f'|format(s.revenue|default(0)|float) }}</td>
+              <td class="rating-cell">—</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5"><div class="ad-empty">No store performance found.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ad-grid-2">
+    <div class="ad-section">
+      <div class="ad-section-head"><div><h2>Top products</h2><p>Best selling product records.</p></div></div>
+      <div class="ad-body ad-list">
+        {% set selling_items = top_selling_items|default([]) %}
+        {% for p in selling_items[:6] %}
+          <div class="ad-row"><div class="ad-row-left"><span class="ad-thumb">{% if p.image_url %}<img src="{{ p.image_url }}" alt="{{ p.product_name|default('Item') }}">{% else %}🛍️{% endif %}</span><div><div class="ad-name">{{ p.product_name|default('Item') }}</div><div class="ad-meta">₹ {{ '%.2f'|format(p.revenue|default(0)|float) }} revenue</div></div></div><span class="ad-pill">{{ p.sold|default(0) }} sold</span></div>
+        {% else %}<div class="ad-empty">No selling items found.</div>{% endfor %}
+      </div>
+    </div>
+
+    <div class="ad-section">
+      <div class="ad-section-head"><div><h2>Customer complaints</h2><p>Store and delivery complaint signals.</p></div><a class="ad-section-link" href="{{ url_for('admin_complaints') }}">Open</a></div>
+      <div class="ad-body ad-list">
+        {% set store_complaints = top_store_complaints|default([]) %}
+        {% for s in store_complaints[:3] %}
+          <div class="ad-row"><div class="ad-row-left"><span class="ad-thumb">🏬</span><div><div class="ad-name">{{ s.store_name or ('ID ' ~ s.store_id) }}</div><div class="ad-meta">Store-related complaints</div></div></div><span class="ad-pill">{{ s.cnt|default(0) }}</span></div>
+        {% endfor %}
+        {% if in_house_delivery_enabled %}
+          {% set delivery_complaints = top_delivery_complaints|default([]) %}
+          {% for d in delivery_complaints[:3] %}
+            <div class="ad-row"><div class="ad-row-left"><span class="ad-thumb">🚚</span><div><div class="ad-name">{{ d.delivery_name or d.name or ('ID ' ~ d.user_id) }}</div><div class="ad-meta">Delivery complaint</div></div></div><span class="ad-pill">{{ d.cnt|default(0) }}</span></div>
+          {% endfor %}
+        {% endif %}
+        {% if not store_complaints and (not in_house_delivery_enabled or not delivery_complaints|default([])) %}<div class="ad-empty">No complaint summary found.</div>{% endif %}
+      </div>
+    </div>
+  </section>
 
   <script>
     (function(){
-      const el = document.getElementById('grossSaleChart');
+      const el = document.getElementById('adminGrossSaleChart');
       if (!el) return;
 
-      const labels = {{ sales_labels|default([])|tojson }};
-      const grossValues = {{ sales_values|default([])|tojson }};
-
-      const adminValues = grossValues.map(v => Number(v || 0) * 0.04);
-      const deliveryValues = grossValues.map(v => Number(v || 0) * 0.025);
+      const rawLabels = {{ sales_labels|default([])|tojson }} || [];
+      const rawValues = {{ sales_values|default([])|tojson }} || [];
+      const labels = Array.isArray(rawLabels) ? rawLabels : [];
+      const values = Array.isArray(rawValues) ? rawValues.map(function(v){ return Number(v || 0); }) : [];
+      const safeLabels = labels.length ? labels : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const safeValues = safeLabels.map(function(_, i){ return Number(values[i] || 0); });
 
       const width = 1000;
-      const height = 315;
-      const padL = 52;
-      const padR = 24;
-      const padT = 18;
-      const padB = 36;
+      const height = 340;
+      const padL = 82;
+      const padR = 34;
+      const padT = 42;
+      const padB = 58;
       const innerW = width - padL - padR;
       const innerH = height - padT - padB;
+      const dataMax = Math.max.apply(null, safeValues.concat([0]));
 
-      const safeLabels = labels.length ? labels : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      const safeGross = grossValues.length ? grossValues.map(v => Number(v || 0)) : new Array(safeLabels.length).fill(0);
-
-      const maxV = Math.max(...safeGross, ...adminValues, ...deliveryValues, 1);
-      const stepX = safeGross.length > 1 ? innerW / (safeGross.length - 1) : innerW;
-
-      function points(values){
-        return values.map((v, i) => {
-          const x = padL + (i * stepX);
-          const y = padT + innerH - ((Number(v || 0) / maxV) * innerH);
-          return [x, y];
-        });
+      function esc(value){
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
       }
 
-      function pathFrom(pts){
-        if (!pts.length) return '';
-        return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ');
+      function niceMax(value){
+        if (!isFinite(value) || value <= 0) return 1;
+        const pow = Math.pow(10, Math.floor(Math.log10(value)));
+        const step = value / pow;
+        const nice = step <= 1 ? 1 : step <= 2 ? 2 : step <= 3 ? 3 : step <= 5 ? 5 : step <= 6 ? 6 : step <= 8 ? 8 : 10;
+        return nice * pow;
       }
 
-      const grossPts = points(safeGross);
-      const adminPts = points(adminValues);
-      const deliveryPts = points(deliveryValues);
+      function formatMoney(value, compact){
+        const n = Number(value || 0);
+        const abs = Math.abs(n);
+        if (compact && abs >= 10000000) return '₹ ' + (n / 10000000).toFixed(abs >= 100000000 ? 0 : 1).replace(/\.0$/, '') + 'Cr';
+        if (compact && abs >= 100000) return '₹ ' + (n / 100000).toFixed(abs >= 1000000 ? 0 : 1).replace(/\.0$/, '') + 'L';
+        if (compact && abs >= 1000) return '₹ ' + (n / 1000).toFixed(abs >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'K';
+        return '₹ ' + n.toLocaleString('en-IN', { maximumFractionDigits: n % 1 ? 2 : 0 });
+      }
 
-      const grossPath = pathFrom(grossPts);
-      const adminPath = pathFrom(adminPts);
-      const deliveryPath = pathFrom(deliveryPts);
+      const maxScale = niceMax(dataMax * 1.18);
+      const stepX = safeValues.length > 1 ? innerW / (safeValues.length - 1) : innerW;
+      const yFor = function(v){ return padT + innerH - ((Number(v || 0) / maxScale) * innerH); };
+      const pts = safeValues.map(function(v, i){
+        return { x: padL + i * stepX, y: yFor(v), value: Number(v || 0), label: safeLabels[i] };
+      });
 
-      const areaPath = grossPts.length
-        ? `${grossPath} L ${padL + innerW} ${padT + innerH} L ${padL} ${padT + innerH} Z`
-        : '';
+      const linePath = pts.map(function(p, i){ return (i ? 'L ' : 'M ') + p.x.toFixed(2) + ' ' + p.y.toFixed(2); }).join(' ');
+      const areaPath = pts.length ? linePath + ' L ' + (padL + innerW) + ' ' + (padT + innerH) + ' L ' + padL + ' ' + (padT + innerH) + ' Z' : '';
 
-      const gridLines = [0, .25, .5, .75, 1].map(frac => {
-        const y = padT + innerH - (innerH * frac);
-        return `<line x1="${padL}" y1="${y}" x2="${padL + innerW}" y2="${y}" stroke="#EEF3F7" stroke-width="1"/>`;
+      const ticks = [0, .25, .5, .75, 1].map(function(frac){ return maxScale * frac; });
+      const grid = ticks.map(function(value){
+        const y = yFor(value);
+        return '<line class="ad-chart-grid-line" x1="'+padL+'" y1="'+y.toFixed(2)+'" x2="'+(padL+innerW)+'" y2="'+y.toFixed(2)+'"/>' +
+          '<text class="ad-chart-axis-label" x="'+(padL-14)+'" y="'+(y+4).toFixed(2)+'" text-anchor="end">'+esc(formatMoney(value, true))+'</text>';
       }).join('');
 
-      const yLabels = [0, .25, .5, .75, 1].map(frac => {
-        const y = padT + innerH - (innerH * frac);
-        const val = Math.round(maxV * frac);
-        return `<text x="8" y="${y + 4}" fill="#1F2937" font-size="12" font-family="Inter, Arial">${val.toLocaleString()}</text>`;
+      const xLabels = pts.map(function(p){
+        return '<text class="ad-chart-month-label" x="'+p.x.toFixed(2)+'" y="'+(height-16)+'" text-anchor="middle">'+esc(String(p.label).slice(0,3))+'</text>';
       }).join('');
 
-      const xLabels = safeLabels.map((label, i) => {
-        const x = padL + (i * stepX);
-        return `<text x="${x}" y="${height - 8}" text-anchor="middle" fill="#1F2937" font-size="12" font-family="Inter, Arial">${label}</text>`;
+      const points = pts.map(function(p){
+        const isPositive = p.value > 0;
+        const r = isPositive ? 6 : 4;
+        return '<g>' +
+          '<circle class="ad-chart-point" cx="'+p.x.toFixed(2)+'" cy="'+p.y.toFixed(2)+'" r="'+r+'" fill="#FFFFFF" stroke="#00A859" stroke-width="3"/>' +
+          '<circle cx="'+p.x.toFixed(2)+'" cy="'+p.y.toFixed(2)+'" r="18" fill="transparent"><title>'+esc(p.label + ': ' + formatMoney(p.value, false))+'</title></circle>' +
+        '</g>';
       }).join('');
 
-      el.innerHTML = `
-        <svg viewBox="0 0 ${width} ${height}" width="100%" height="100%" preserveAspectRatio="none" role="img" aria-label="Gross sale chart">
-          <defs>
-            <linearGradient id="gdSaleFill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stop-color="#32E7CE" stop-opacity="0.42"/>
-              <stop offset="100%" stop-color="#32E7CE" stop-opacity="0.05"/>
-            </linearGradient>
-          </defs>
-          <rect width="${width}" height="${height}" fill="#ffffff"></rect>
-          ${gridLines}
-          ${yLabels}
-          <path d="${areaPath}" fill="url(#gdSaleFill)" stroke="none"></path>
-          <path d="${grossPath}" fill="none" stroke="#32E7CE" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
-          <path d="${adminPath}" fill="none" stroke="#F15B66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-          <path d="${deliveryPath}" fill="none" stroke="#005F5B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
-          ${xLabels}
-        </svg>
-      `;
+      const valueLabels = pts.map(function(p, i){
+        if (p.value <= 0 && dataMax > 0) return '';
+        const text = formatMoney(p.value, true);
+        const w = Math.max(52, text.length * 8.2 + 18);
+        const h = 25;
+        const x = Math.max(padL, Math.min(width - padR - w, p.x - (w / 2)));
+        const y = Math.max(8, p.y - 38 - (i % 2 ? 2 : 0));
+        return '<g>' +
+          '<rect x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" width="'+w.toFixed(2)+'" height="'+h+'" rx="12.5" fill="#00A859" opacity=".96"/>' +
+          '<text class="ad-chart-value-label" x="'+(x + w / 2).toFixed(2)+'" y="'+(y + 16.5).toFixed(2)+'" text-anchor="middle">'+esc(text)+'</text>' +
+        '</g>';
+      }).join('');
+
+      const peakIndex = safeValues.indexOf(dataMax);
+      const peak = pts[peakIndex] || null;
+      const peakLabel = peak && dataMax > 0 ? '<text x="'+peak.x.toFixed(2)+'" y="'+Math.max(20, peak.y - 50).toFixed(2)+'" text-anchor="middle" fill="#008A48" font-size="11" font-weight="950" font-family="Inter,Arial,sans-serif">PEAK</text>' : '';
+
+      el.innerHTML = '<svg viewBox="0 0 '+width+' '+height+'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Gross order value chart with monthly values">' +
+        '<defs>' +
+          '<linearGradient id="adFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#00A859" stop-opacity=".28"/><stop offset="58%" stop-color="#00A859" stop-opacity=".10"/><stop offset="100%" stop-color="#00A859" stop-opacity=".02"/></linearGradient>' +
+          '<linearGradient id="adStroke" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#00A859"/><stop offset="100%" stop-color="#008A48"/></linearGradient>' +
+        '</defs>' +
+        '<rect width="'+width+'" height="'+height+'" rx="18" fill="#FFFFFF"/>' +
+        grid +
+        '<line class="ad-chart-axis-line" x1="'+padL+'" y1="'+(padT+innerH)+'" x2="'+(padL+innerW)+'" y2="'+(padT+innerH)+'"/>' +
+        '<path d="'+areaPath+'" fill="url(#adFill)"/>' +
+        '<path class="ad-chart-line" d="'+linePath+'" fill="none" stroke="url(#adStroke)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>' +
+        points + valueLabels + peakLabel + xLabels +
+      '</svg>';
     })();
 
     (async function(){
-      const rows = document.querySelectorAll('#storesTable tbody tr[data-store-id]');
+      const rows = document.querySelectorAll('#adminStoresTable tbody tr[data-store-id]');
       if (!rows.length) return;
-
       for (const tr of rows) {
         const sid = tr.getAttribute('data-store-id');
         const cell = tr.querySelector('.rating-cell');
         if (!sid || !cell) continue;
-
         try {
-          const res = await fetch(`/api/ratings/store/${encodeURIComponent(sid)}`, { cache: 'no-store' });
+          const res = await fetch('/api/ratings/store/' + encodeURIComponent(sid), { cache: 'no-store' });
           if (!res.ok) continue;
-
           const data = await res.json();
           if (!data || !data.ok) continue;
-
           const avg = Number(data.avg || 0);
           const count = Number(data.count || 0);
           const filled = Math.max(0, Math.min(5, Math.floor(avg)));
-          const stars = '★'.repeat(filled).padEnd(5, '☆');
-
-          cell.innerHTML = `
-            <span style="color:#12B8A6;font-weight:900;letter-spacing:1px;">${stars}</span>
-            <span style="color:#8A98AA;">(${count})</span>
-          `;
+          cell.innerHTML = '<span style="color:#00A859;font-weight:950;letter-spacing:1px;">' + '★'.repeat(filled).padEnd(5, '☆') + '</span> <span style="color:#8A9890;">(' + count + ')</span>';
         } catch (_) {}
       }
     })();
