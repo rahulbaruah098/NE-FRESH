@@ -3,20 +3,19 @@
 {% set active_group = "store" %}
 {% set active_page = "store_list" %}
 
-{% block title %}Store Admin Profiles | NE FRESH Admin{% endblock %}
+{% block title %}Store Admin Profiles | NE Locals Admin{% endblock %}
 
 {% block page_title %}Store Admin Profiles{% endblock %}
-{% block page_subtitle %}View, search, export and manage internal NE FRESH store admin profiles.{% endblock %}
+{% block page_subtitle %}View, search, export and manage internal NE Locals store admin profiles.{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   .nf-store-list-page {
     --sl-green: var(--nf-green, #00A859);
     --sl-green-dark: var(--nf-green-dark, #007A43);
     --sl-green-deep: var(--nf-green-deep, #075C3B);
     --sl-green-soft: var(--nf-green-soft, #E9FFF3);
-    --sl-orange: var(--nf-orange, #FF8A1F);
-    --sl-orange-soft: var(--nf-orange-soft, #FFF3E7);
     --sl-bg: var(--nf-bg, #F8FFFB);
     --sl-surface: var(--nf-surface, #FFFFFF);
     --sl-surface-2: var(--nf-surface-2, #F4F9F6);
@@ -25,11 +24,17 @@
     --sl-line: var(--nf-line, #DDECE4);
     --sl-danger: var(--nf-danger, #EF4444);
     --sl-info: var(--nf-info, #0284C7);
-    --sl-shadow: var(--nf-shadow, 0 16px 40px rgba(17, 64, 38, .08));
-    --sl-shadow-heavy: var(--nf-shadow-heavy, 0 24px 70px rgba(17, 64, 38, .18));
+    --sl-warning: var(--nf-warning, #F59E0B);
+    --sl-shadow: var(--nf-shadow, 0 14px 36px rgba(17, 64, 38, .08));
+    --sl-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17, 64, 38, .06));
+    --sl-shadow-heavy: var(--nf-shadow-heavy, 0 24px 70px rgba(17, 64, 38, .16));
 
+    width: 100%;
     display: grid;
-    gap: 18px;
+    gap: clamp(14px, 2vw, 20px);
+    color: var(--sl-text);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   .nf-store-list-page,
@@ -37,46 +42,57 @@
     box-sizing: border-box;
   }
 
-  .sl-hero {
-    position: relative;
-    overflow: hidden;
-    border: 1px solid var(--sl-line);
-    border-radius: 26px;
-    background:
-      radial-gradient(circle at 90% 20%, rgba(255, 138, 31, .16), transparent 32%),
-      radial-gradient(circle at 8% 0%, rgba(0, 168, 89, .18), transparent 35%),
-      linear-gradient(135deg, var(--sl-surface), var(--sl-surface-2));
-    box-shadow: var(--sl-shadow);
-    padding: clamp(18px, 3vw, 30px);
+  .nf-store-list-page a {
+    color: inherit;
+    text-decoration: none;
   }
 
-  .sl-hero-inner {
+  .sl-hero,
+  .sl-panel,
+  .sl-modal,
+  .sl-kpi-card,
+  .sl-detail-box,
+  .sl-edit-map-card {
+    border: 1px solid var(--sl-line);
+    background: var(--sl-surface);
+    box-shadow: var(--sl-shadow);
+  }
+
+  .sl-hero {
+    border-radius: 24px;
+    overflow: hidden;
+    padding: clamp(18px, 2.6vw, 28px);
+  }
+
+  .sl-hero-top {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 18px;
-    align-items: center;
+    align-items: start;
   }
 
   .sl-kicker {
+    width: fit-content;
+    max-width: 100%;
+    min-height: 34px;
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    width: fit-content;
     padding: 7px 12px;
     border-radius: 999px;
     background: var(--sl-green-soft);
     color: var(--sl-green-dark);
     border: 1px solid rgba(0, 168, 89, .18);
-    font-size: .78rem;
-    font-weight: 850;
-    letter-spacing: .04em;
+    font-size: .76rem;
+    font-weight: 900;
+    letter-spacing: .045em;
     text-transform: uppercase;
   }
 
   .sl-hero h2 {
-    margin: 12px 0 8px;
+    margin: 13px 0 8px;
     color: var(--sl-text);
-    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    font-size: clamp(1.55rem, 3.2vw, 2.35rem);
     line-height: 1.08;
     letter-spacing: -.05em;
     font-weight: 950;
@@ -84,51 +100,61 @@
 
   .sl-hero p {
     margin: 0;
-    max-width: 780px;
+    max-width: 820px;
     color: var(--sl-muted);
-    font-size: .96rem;
+    font-size: .95rem;
     line-height: 1.65;
-    font-weight: 600;
+    font-weight: 650;
   }
 
   .sl-hero-actions {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
-    margin-top: 18px;
+    justify-content: flex-end;
+    align-items: center;
+    min-width: min(420px, 100%);
   }
 
-  .sl-hero-card {
-    min-width: 190px;
-    border-radius: 22px;
-    border: 1px solid var(--sl-line);
-    background: rgba(255,255,255,.74);
+  .sl-kpi-grid {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .sl-kpi-card {
+    min-width: 0;
+    border-radius: 18px;
     padding: 16px;
-    box-shadow: 0 16px 42px rgba(17,64,38,.08);
+    box-shadow: none;
+    background: var(--sl-surface-2);
   }
 
-  .sl-hero-card span {
+  .sl-kpi-card span {
     display: block;
     color: var(--sl-muted);
-    font-size: .78rem;
-    font-weight: 850;
+    font-size: .72rem;
+    font-weight: 900;
     letter-spacing: .04em;
     text-transform: uppercase;
+    line-height: 1.35;
   }
 
-  .sl-hero-card strong {
+  .sl-kpi-card strong {
     display: block;
     margin-top: 8px;
     color: var(--sl-text);
-    font-size: 1.8rem;
+    font-size: clamp(1.45rem, 2.3vw, 1.95rem);
     font-weight: 950;
     line-height: 1;
+    letter-spacing: -.035em;
   }
 
   .sl-btn,
   .nf-store-list-page button,
   .nf-store-list-page .sl-action {
-    min-height: 40px;
+    min-height: 42px;
     border: 1px solid var(--sl-line);
     border-radius: 13px;
     background: var(--sl-surface);
@@ -137,30 +163,33 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 9px 13px;
+    padding: 9px 14px;
     font-size: .83rem;
-    font-weight: 850;
+    font-weight: 900;
     text-decoration: none;
     cursor: pointer;
-    transition: .22s ease;
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
     white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
   }
 
   .sl-btn:hover,
   .nf-store-list-page button:hover,
   .nf-store-list-page .sl-action:hover {
     transform: translateY(-1px);
-    box-shadow: var(--sl-shadow);
+    box-shadow: var(--sl-shadow-soft);
     border-color: rgba(0, 168, 89, .32);
   }
 
-  .sl-btn-primary {
+  .sl-btn-primary,
+  .sl-map-btn.primary {
     background: var(--sl-green);
     color: #fff;
     border-color: var(--sl-green);
   }
 
-  .sl-btn-primary:hover {
+  .sl-btn-primary:hover,
+  .sl-map-btn.primary:hover {
     background: var(--sl-green-dark);
     border-color: var(--sl-green-dark);
   }
@@ -171,41 +200,39 @@
     border-color: rgba(0,168,89,.18);
   }
 
-  .sl-btn-danger {
+  .sl-btn-danger,
+  .sl-map-btn.danger,
+  .sl-icon-delete {
     background: #FFF1F1;
     color: #B91C1C;
     border-color: rgba(239,68,68,.24);
   }
 
   .sl-panel {
-    border: 1px solid var(--sl-line);
     border-radius: 22px;
-    background: var(--sl-surface);
-    box-shadow: var(--sl-shadow);
     overflow: hidden;
   }
 
   .sl-toolbar {
-    padding: 18px;
+    padding: clamp(14px, 2vw, 18px);
     display: grid;
-    grid-template-columns: minmax(260px, 1fr) auto;
+    grid-template-columns: minmax(260px, 1.45fr) minmax(180px, .75fr) minmax(120px, .45fr) auto;
     gap: 12px;
     align-items: end;
     border-bottom: 1px solid var(--sl-line);
-    background:
-      radial-gradient(circle at top left, rgba(0,168,89,.07), transparent 35%),
-      var(--sl-surface);
+    background: var(--sl-surface);
   }
 
   .sl-field {
     display: grid;
     gap: 7px;
+    min-width: 0;
   }
 
   .sl-field label {
     color: var(--sl-muted);
-    font-size: .76rem;
-    font-weight: 850;
+    font-size: .75rem;
+    font-weight: 900;
     letter-spacing: .04em;
     text-transform: uppercase;
   }
@@ -217,7 +244,7 @@
     border: 1px solid var(--sl-line);
     background: var(--sl-surface-2);
     overflow: hidden;
-    transition: .22s ease;
+    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
   }
 
   .sl-search-wrap:focus-within {
@@ -235,7 +262,7 @@
     color: var(--sl-text);
     padding: 0 14px;
     font-size: .92rem;
-    font-weight: 700;
+    font-weight: 750;
   }
 
   .sl-search-wrap input::placeholder {
@@ -251,15 +278,90 @@
     font-weight: 900;
   }
 
+  .sl-select {
+    width: 100%;
+    height: 46px;
+    border: 1px solid var(--sl-line);
+    border-radius: 14px;
+    background: var(--sl-surface-2);
+    color: var(--sl-text);
+    outline: 0;
+    padding: 0 13px;
+    font-size: .88rem;
+    font-weight: 850;
+    cursor: pointer;
+  }
+
+  .sl-select:focus {
+    border-color: rgba(0,168,89,.42);
+    background: var(--sl-surface);
+    box-shadow: 0 0 0 4px rgba(0,168,89,.10);
+  }
+
   .sl-toolbar-actions {
     display: flex;
     gap: 10px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
+    align-items: center;
+  }
+
+  .sl-filter-pills {
+    padding: 14px clamp(14px, 2vw, 18px);
+    border-bottom: 1px solid var(--sl-line);
+    background: var(--sl-surface);
+    display: flex;
+    gap: 9px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .sl-filter-pill {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--sl-line);
+    background: var(--sl-surface-2);
+    color: var(--sl-muted);
+    font-size: .76rem;
+    font-weight: 900;
+    text-decoration: none;
+    transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease;
+  }
+
+  .sl-filter-pill:hover {
+    transform: translateY(-1px);
+    color: var(--sl-green-dark);
+    border-color: rgba(0,168,89,.24);
+  }
+
+  .sl-filter-pill.active {
+    background: var(--sl-green-soft);
+    color: var(--sl-green-dark);
+    border-color: rgba(0,168,89,.24);
+  }
+
+  .sl-filter-pill span {
+    min-width: 24px;
+    min-height: 22px;
+    padding: 3px 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--sl-surface);
+    border: 1px solid var(--sl-line);
+    color: var(--sl-text);
+    font-size: .72rem;
+    font-weight: 950;
   }
 
   .sl-summary {
-    padding: 14px 18px;
+    padding: 14px clamp(14px, 2vw, 18px);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -277,10 +379,11 @@
   }
 
   .sl-summary p {
-    margin: 4px 0 0;
+    margin: 5px 0 0;
     color: var(--sl-muted);
     font-size: .82rem;
-    font-weight: 650;
+    font-weight: 700;
+    line-height: 1.45;
   }
 
   .sl-count-pill {
@@ -302,20 +405,20 @@
   }
 
   .sl-table {
-  width: 100%;
-  min-width: 1260px;
-  border-collapse: separate;
-  border-spacing: 0;
-}
+    width: 100%;
+    min-width: 1180px;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
 
   .sl-table th {
     background: var(--sl-surface-2);
     color: var(--sl-text);
     padding: 14px 16px;
     text-align: left;
-    font-size: .78rem;
+    font-size: .76rem;
     font-weight: 950;
-    letter-spacing: .035em;
+    letter-spacing: .04em;
     text-transform: uppercase;
     border-bottom: 1px solid var(--sl-line);
     white-space: nowrap;
@@ -326,12 +429,12 @@
     border-bottom: 1px solid var(--sl-line);
     color: var(--sl-text);
     font-size: .9rem;
-    font-weight: 650;
+    font-weight: 700;
     vertical-align: middle;
   }
 
   .sl-table tbody tr {
-    transition: .18s ease;
+    transition: background .18s ease;
   }
 
   .sl-table tbody tr:hover {
@@ -345,36 +448,31 @@
   .sl-store-info,
   .sl-owner-info {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     min-width: 0;
   }
 
   .sl-avatar {
-    width: 52px;
-    height: 52px;
-    border-radius: 18px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     display: grid;
     place-items: center;
     flex: 0 0 auto;
-    background: var(--sl-green-soft);
+    background: transparent;
     color: var(--sl-green-dark);
-    border: 1px solid rgba(0,168,89,.16);
-    font-size: 1.35rem;
+    border: 0;
+    font-size: 1.15rem;
     font-weight: 950;
     overflow: hidden;
-  }
-
-  .sl-avatar.owner {
-    background: var(--sl-orange-soft);
-    color: var(--sl-orange);
-    border-color: rgba(255,138,31,.22);
   }
 
   .sl-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 12px;
   }
 
   .sl-main-text {
@@ -396,232 +494,202 @@
     margin-top: 4px;
     color: var(--sl-muted);
     font-size: .8rem;
-    font-weight: 650;
+    font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
+  .sl-mini-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 7px;
+  }
+
+  .sl-mini-chip,
   .sl-status {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    min-width: 96px;
     justify-content: center;
-    padding: 7px 11px;
+    gap: 6px;
     border-radius: 999px;
-    font-size: .76rem;
-    font-weight: 950;
-    border: 1px solid transparent;
+    border: 1px solid var(--sl-line);
+    font-weight: 900;
+    white-space: nowrap;
   }
 
-  .sl-status.active {
+  .sl-mini-chip {
+    min-height: 23px;
+    padding: 4px 8px;
+    background: var(--sl-surface-2);
+    color: var(--sl-muted);
+    font-size: .7rem;
+  }
+
+  .sl-status {
+    min-width: 96px;
+    padding: 7px 11px;
+    font-size: .76rem;
+  }
+
+  .sl-status.active,
+  .sl-status.online,
+  .sl-status.zone-ok {
     background: #ECFDF5;
     color: #047857;
     border-color: rgba(5,150,105,.18);
   }
 
-  .sl-status.inactive {
-    background: #FFF1F1;
+  .sl-status.inactive,
+  .sl-status.zone-missing {
+    background: #FEF2F2;
     color: #B91C1C;
     border-color: rgba(239,68,68,.22);
   }
 
-  .sl-status.online {
-  background: #ECFDF5;
-  color: #047857;
-  border-color: rgba(5,150,105,.18);
-}
+  .sl-status.offline,
+  .sl-status.delivery-off {
+    background: #F1F5F9;
+    color: #475569;
+    border-color: rgba(100,116,139,.24);
+  }
 
-.sl-status.offline {
-  background: #F1F5F9;
-  color: #475569;
-  border-color: rgba(100,116,139,.24);
-}
+  .sl-status.delivery-on {
+    background: #EFF6FF;
+    color: #1D4ED8;
+    border-color: rgba(59,130,246,.22);
+  }
 
-.sl-status.delivery-on {
-  background: #EFF6FF;
-  color: #1D4ED8;
-  border-color: rgba(59,130,246,.22);
-}
+  .sl-status-stack,
+  .sl-action-stack {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+  }
 
-.sl-status.delivery-off {
-  background: #FFF7ED;
-  color: #C2410C;
-  border-color: rgba(249,115,22,.24);
-}
+  .sl-action-stack {
+    min-width: 178px;
+  }
 
-.sl-status.zone-ok {
-  background: #F0FDF4;
-  color: #15803D;
-  border-color: rgba(34,197,94,.22);
-}
+  .sl-action-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
 
-.sl-status.zone-missing {
-  background: #FEF2F2;
-  color: #B91C1C;
-  border-color: rgba(239,68,68,.22);
-}
+  .sl-small-form,
+  .sl-switch-form {
+    display: inline-flex;
+    min-width: 0;
+  }
 
-.sl-status-stack {
-  display: grid;
-  gap: 7px;
-  min-width: 150px;
-}
+  .sl-pill-action {
+    min-height: 34px !important;
+    padding: 7px 10px !important;
+    border-radius: 999px !important;
+    font-size: .72rem !important;
+  }
 
-.sl-mini-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
+  .sl-pill-action.online {
+    background: #ECFDF5 !important;
+    color: #047857 !important;
+    border-color: rgba(5,150,105,.20) !important;
+  }
 
-.sl-mini-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 23px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: var(--sl-surface-2);
-  border: 1px solid var(--sl-line);
-  color: var(--sl-muted);
-  font-size: .7rem;
-  font-weight: 850;
-}
+  .sl-pill-action.offline,
+  .sl-pill-action.delivery-off {
+    background: #F1F5F9 !important;
+    color: #475569 !important;
+    border-color: rgba(100,116,139,.24) !important;
+  }
 
-.sl-action-stack {
-  display: grid;
-  gap: 8px;
-  min-width: 180px;
-}
+  .sl-pill-action.delivery {
+    background: #EFF6FF !important;
+    color: #1D4ED8 !important;
+    border-color: rgba(59,130,246,.22) !important;
+  }
 
-.sl-action-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
+  .sl-state-toggle {
+    width: 150px !important;
+    min-height: 42px !important;
+    padding: 4px !important;
+    border-radius: 999px !important;
+    font-size: .76rem !important;
+    font-weight: 950 !important;
+    display: grid !important;
+    grid-template-columns: 34px 1fr !important;
+    align-items: center !important;
+    gap: 8px !important;
+    position: relative !important;
+    text-align: center !important;
+  }
 
-.sl-small-form {
-  display: inline-flex;
-}
+  .sl-toggle-knob {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 5px 14px rgba(15,23,42,.18);
+    transition: .2s ease;
+    grid-column: 1;
+    grid-row: 1;
+  }
 
-.sl-pill-action {
-  min-height: 34px !important;
-  padding: 7px 10px !important;
-  border-radius: 999px !important;
-  font-size: .72rem !important;
-}
+  .sl-toggle-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    display: block;
+    background: currentColor;
+  }
 
-.sl-pill-action.online {
-  background: #ECFDF5 !important;
-  color: #047857 !important;
-  border-color: rgba(5,150,105,.20) !important;
-}
+  .sl-toggle-text {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    grid-column: 2;
+    grid-row: 1;
+  }
 
-.sl-pill-action.offline {
-  background: #F1F5F9 !important;
-  color: #475569 !important;
-  border-color: rgba(100,116,139,.24) !important;
-}
+  .sl-state-toggle.is-on,
+  .sl-state-toggle.delivery-on {
+    grid-template-columns: 1fr 34px !important;
+  }
 
-.sl-pill-action.delivery {
-  background: #EFF6FF !important;
-  color: #1D4ED8 !important;
-  border-color: rgba(59,130,246,.22) !important;
-}
+  .sl-state-toggle.is-on .sl-toggle-text,
+  .sl-state-toggle.delivery-on .sl-toggle-text {
+    grid-column: 1;
+  }
 
-.sl-pill-action.delivery-off {
-  background: #FFF7ED !important;
-  color: #C2410C !important;
-  border-color: rgba(249,115,22,.24) !important;
-}
+  .sl-state-toggle.is-on .sl-toggle-knob,
+  .sl-state-toggle.delivery-on .sl-toggle-knob {
+    grid-column: 2;
+  }
 
-.sl-state-toggle{
-  width:150px !important;
-  min-height:42px !important;
-  padding:4px !important;
-  border-radius:999px !important;
-  font-size:.76rem !important;
-  font-weight:950 !important;
-  display:grid !important;
-  grid-template-columns:34px 1fr !important;
-  align-items:center !important;
-  gap:8px !important;
-  position:relative !important;
-  text-align:center !important;
-}
+  .sl-state-toggle.is-on {
+    background: #ECFDF5 !important;
+    color: #047857 !important;
+    border-color: rgba(5,150,105,.22) !important;
+  }
 
-.sl-toggle-knob{
-  width:34px;
-  height:34px;
-  border-radius:999px;
-  background:#fff;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 5px 14px rgba(15,23,42,.18);
-  transition:.2s ease;
-  grid-column:1;
-  grid-row:1;
-}
+  .sl-state-toggle.is-off,
+  .sl-state-toggle.delivery-off {
+    background: #F1F5F9 !important;
+    color: #475569 !important;
+    border-color: rgba(100,116,139,.24) !important;
+  }
 
-.sl-toggle-dot{
-  width:11px;
-  height:11px;
-  border-radius:50%;
-  display:block;
-  background:currentColor;
-}
-
-.sl-toggle-text{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  white-space:nowrap;
-  grid-column:2;
-  grid-row:1;
-}
-
-.sl-state-toggle.is-on,
-.sl-state-toggle.delivery-on{
-  grid-template-columns:1fr 34px !important;
-}
-
-.sl-state-toggle.is-on .sl-toggle-text,
-.sl-state-toggle.delivery-on .sl-toggle-text{
-  grid-column:1;
-}
-
-.sl-state-toggle.is-on .sl-toggle-knob,
-.sl-state-toggle.delivery-on .sl-toggle-knob{
-  grid-column:2;
-}
-
-.sl-state-toggle.is-on{
-  background:#ECFDF5 !important;
-  color:#047857 !important;
-  border-color:rgba(5,150,105,.22) !important;
-}
-
-.sl-state-toggle.is-off{
-  background:#F1F5F9 !important;
-  color:#475569 !important;
-  border-color:rgba(100,116,139,.24) !important;
-}
-
-.sl-state-toggle.delivery-on{
-  background:#EFF6FF !important;
-  color:#1D4ED8 !important;
-  border-color:rgba(59,130,246,.24) !important;
-}
-
-.sl-state-toggle.delivery-off{
-  background:#FFF7ED !important;
-  color:#C2410C !important;
-  border-color:rgba(249,115,22,.26) !important;
-}
+  .sl-state-toggle.delivery-on {
+    background: #EFF6FF !important;
+    color: #1D4ED8 !important;
+    border-color: rgba(59,130,246,.24) !important;
+  }
 
   .sl-actions {
     display: flex;
@@ -639,25 +707,15 @@
   }
 
   .sl-icon-view {
-    background: var(--sl-orange-soft);
-    color: var(--sl-orange);
-    border-color: rgba(255,138,31,.22);
+    background: var(--sl-green-soft);
+    color: var(--sl-green-dark);
+    border-color: rgba(0,168,89,.20);
   }
 
   .sl-icon-edit {
     background: #E0F2FE;
     color: #0369A1;
     border-color: rgba(2,132,199,.18);
-  }
-
-  .sl-icon-delete {
-    background: #FFF1F1;
-    color: #B91C1C;
-    border-color: rgba(239,68,68,.22);
-  }
-
-  .sl-switch-form {
-    display: inline-flex;
   }
 
   .sl-switch {
@@ -693,25 +751,77 @@
   }
 
   .sl-empty {
-    padding: 28px 18px;
+    padding: 30px 18px;
     text-align: center;
     color: var(--sl-muted);
-    font-weight: 800;
+    font-weight: 850;
   }
 
   .sl-hidden {
     display: none !important;
   }
 
+  .sl-pagination {
+    padding: 16px clamp(14px, 2vw, 18px);
+    border-top: 1px solid var(--sl-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: var(--sl-surface);
+  }
+
+  .sl-page-info {
+    color: var(--sl-muted);
+    font-size: .82rem;
+    font-weight: 800;
+  }
+
+  .sl-page-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .sl-page-link {
+    min-width: 38px;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--sl-line);
+    border-radius: 12px;
+    background: var(--sl-surface);
+    color: var(--sl-text);
+    font-size: .82rem;
+    font-weight: 900;
+    text-decoration: none;
+    padding: 0 11px;
+  }
+
+  .sl-page-link.active {
+    background: var(--sl-green);
+    color: #fff;
+    border-color: var(--sl-green);
+  }
+
+  .sl-page-link.disabled {
+    opacity: .45;
+    pointer-events: none;
+  }
+
   .sl-modal-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 200;
+    z-index: 2000;
     display: none;
     place-items: center;
-    padding: 18px;
+    padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
     background: rgba(3, 31, 22, .52);
     backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
   }
 
   .sl-modal-backdrop.open {
@@ -720,12 +830,14 @@
 
   .sl-modal {
     width: min(720px, 100%);
-    max-height: 88vh;
+    max-height: min(88vh, 880px);
+    max-height: min(88dvh, 880px);
     overflow: auto;
     border-radius: 24px;
-    background: var(--sl-surface);
-    border: 1px solid var(--sl-line);
-    box-shadow: var(--sl-shadow-heavy);
+  }
+
+  .sl-modal-wide {
+    width: min(980px, 100%);
   }
 
   .sl-modal-head {
@@ -735,9 +847,10 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
-    background:
-      radial-gradient(circle at top left, rgba(0,168,89,.08), transparent 36%),
-      var(--sl-surface);
+    background: var(--sl-surface);
+    position: sticky;
+    top: 0;
+    z-index: 2;
   }
 
   .sl-modal-head h3 {
@@ -759,6 +872,7 @@
     width: 38px;
     height: 38px;
     padding: 0;
+    flex: 0 0 auto;
   }
 
   .sl-modal-body {
@@ -772,17 +886,17 @@
   }
 
   .sl-detail-box {
-    border: 1px solid var(--sl-line);
     border-radius: 16px;
     background: var(--sl-surface-2);
     padding: 13px;
+    box-shadow: none;
   }
 
   .sl-detail-box span {
     display: block;
     color: var(--sl-muted);
     font-size: .74rem;
-    font-weight: 850;
+    font-weight: 900;
     text-transform: uppercase;
     letter-spacing: .04em;
   }
@@ -798,7 +912,12 @@
 
   .sl-form-grid {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 13px;
+  }
+
+  .sl-form-grid + .sl-form-grid {
+    margin-top: 16px;
   }
 
   .sl-form-grid label {
@@ -806,9 +925,13 @@
     gap: 7px;
     color: var(--sl-muted);
     font-size: .76rem;
-    font-weight: 850;
+    font-weight: 900;
     letter-spacing: .04em;
     text-transform: uppercase;
+  }
+
+  .sl-form-grid label:nth-child(2) {
+    grid-column: 1 / -1;
   }
 
   .sl-form-grid input,
@@ -821,7 +944,21 @@
     padding: 12px 13px;
     outline: 0;
     font-size: .92rem;
-    font-weight: 700;
+    font-weight: 750;
+    min-width: 0;
+  }
+
+  .sl-form-grid input:focus,
+  .sl-form-grid textarea:focus {
+    border-color: rgba(0,168,89,.42);
+    background: var(--sl-surface);
+    box-shadow: 0 0 0 4px rgba(0,168,89,.10);
+  }
+
+  .sl-form-grid input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--sl-green);
   }
 
   .sl-form-grid textarea {
@@ -837,13 +974,289 @@
     flex-wrap: wrap;
   }
 
+  .sl-edit-map-card {
+    margin-top: 16px;
+    border-radius: 18px;
+    background: var(--sl-surface);
+    overflow: hidden;
+    box-shadow: none;
+  }
+
+  .sl-edit-map-head {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--sl-line);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: var(--sl-surface-2);
+  }
+
+  .sl-edit-map-title {
+    color: var(--sl-text);
+    font-size: .92rem;
+    font-weight: 950;
+  }
+
+  .sl-edit-map-sub {
+    margin-top: 4px;
+    color: var(--sl-muted);
+    font-size: .78rem;
+    line-height: 1.45;
+    font-weight: 700;
+  }
+
+  .sl-edit-map-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .sl-map-btn {
+    min-height: 36px;
+    border: 1px solid var(--sl-line);
+    border-radius: 12px;
+    background: var(--sl-surface);
+    color: var(--sl-green-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 11px;
+    font-size: .74rem;
+    font-weight: 900;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .sl-map-btn[disabled] {
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  #editStoreDeliveryMap {
+    width: 100%;
+    height: clamp(310px, 42vw, 380px);
+    background: var(--sl-surface-2);
+  }
+
+  .sl-edit-zone-tools {
+    padding: 12px 16px;
+    border-top: 1px solid var(--sl-line);
+    display: grid;
+    gap: 8px;
+  }
+
+  .sl-edit-zone-status {
+    color: var(--sl-muted);
+    font-size: .8rem;
+    line-height: 1.45;
+    font-weight: 850;
+  }
+
+  .sl-edit-zone-status.ok {
+    color: #047857;
+  }
+
+  .sl-edit-zone-status.bad {
+    color: #B91C1C;
+  }
+
+  .sl-edit-zone-counter {
+    color: var(--sl-muted);
+    font-size: .76rem;
+    font-weight: 800;
+  }
+
+
+
+  .sl-action-btn {
+    min-height: 40px;
+    border: 1px solid var(--sl-line);
+    border-radius: 13px;
+    background: var(--sl-surface);
+    color: var(--sl-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 12px;
+    font-size: .8rem;
+    font-weight: 950;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease, color .2s ease;
+    width: 100%;
+  }
+
+  .sl-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--sl-shadow-soft);
+    border-color: rgba(0,168,89,.28);
+  }
+
+  .sl-action-icon {
+    width: 20px;
+    height: 20px;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    font-size: .9rem;
+  }
+
+  .sl-action-edit {
+    background: var(--sl-green-soft);
+    color: var(--sl-green-dark);
+    border-color: rgba(0,168,89,.20);
+  }
+
+  .sl-action-account.is-active {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5,150,105,.20);
+  }
+
+  .sl-action-account.is-inactive {
+    background: #F1F5F9;
+    color: #475569;
+    border-color: rgba(100,116,139,.24);
+  }
+
+  .sl-action-delete {
+    background: #FFF1F1;
+    color: #B91C1C;
+    border-color: rgba(239,68,68,.24);
+  }
+
+  .sl-primary-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .sl-toggle-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+
+  .sl-manage-stack {
+    min-width: 150px;
+  }
+
+  .sl-manage-profile {
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .sl-action-note {
+    color: var(--sl-muted);
+    font-size: .72rem;
+    line-height: 1.45;
+    font-weight: 800;
+    text-align: center;
+  }
+
+  .sl-action-hidden {
+    display: none !important;
+  }
+
+  .sl-row-busy {
+    opacity: .68;
+    pointer-events: none;
+  }
+
+  .sl-delete-warning {
+    border: 1px solid rgba(239,68,68,.18);
+    background: #FFF7F7;
+    color: #991B1B;
+    border-radius: 16px;
+    padding: 14px;
+    font-size: .86rem;
+    line-height: 1.55;
+    font-weight: 800;
+  }
+
+  .sl-page-toast {
+    position: fixed;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 2600;
+    max-width: min(360px, calc(100vw - 32px));
+    border: 1px solid var(--sl-line);
+    border-radius: 16px;
+    background: var(--sl-surface);
+    color: var(--sl-text);
+    box-shadow: var(--sl-shadow-heavy);
+    padding: 13px 15px;
+    font-size: .86rem;
+    line-height: 1.45;
+    font-weight: 850;
+  }
+
+  .sl-page-toast.success {
+    border-color: rgba(5,150,105,.22);
+    background: #ECFDF5;
+    color: #047857;
+  }
+
+  .sl-page-toast.warning {
+    border-color: rgba(245,158,11,.22);
+    background: #FFFBEB;
+    color: #92400E;
+  }
+
+  .sl-page-toast.danger,
+  .sl-page-toast.error {
+    border-color: rgba(239,68,68,.22);
+    background: #FEF2F2;
+    color: #B91C1C;
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    .nf-store-list-page,
+    .sl-modal,
+    .sl-btn,
+    .sl-select,
+    .sl-search-wrap input,
+    .sl-form-grid input,
+    .sl-form-grid textarea {
+      -webkit-tap-highlight-color: transparent;
+    }
+  }
+
+  @media (max-width: 1180px) {
+    .sl-kpi-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .sl-toolbar {
+      grid-template-columns: minmax(240px, 1fr) minmax(170px, .72fr) minmax(120px, .45fr);
+    }
+
+    .sl-toolbar-actions {
+      grid-column: 1 / -1;
+      justify-content: flex-start;
+    }
+  }
+
   @media (max-width: 980px) {
-    .sl-hero-inner {
+    .sl-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sl-hero-top {
       grid-template-columns: 1fr;
     }
 
-    .sl-hero-card {
-      width: 100%;
+    .sl-hero-actions {
+      justify-content: flex-start;
+      min-width: 0;
     }
 
     .sl-toolbar {
@@ -851,94 +1264,373 @@
     }
 
     .sl-toolbar-actions {
-      justify-content: flex-start;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 900px) {
+    .sl-table-wrap {
+      overflow: visible;
+    }
+
+    .sl-table {
+      display: block;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .sl-table thead {
+      display: none;
+    }
+
+    .sl-table tbody {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .sl-table tbody tr {
+      display: grid;
+      gap: 0;
+      border: 1px solid var(--sl-line);
+      border-radius: 18px;
+      background: var(--sl-surface);
+      box-shadow: var(--sl-shadow-soft);
+      padding: 14px;
+    }
+
+    .sl-table tbody tr:hover {
+      background: var(--sl-surface);
+    }
+
+    .sl-table td {
+      display: grid;
+      grid-template-columns: minmax(108px, .34fr) minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      border-bottom: 1px solid var(--sl-line);
+      padding: 11px 0;
+      font-size: .86rem;
+    }
+
+    .sl-table td::before {
+      color: var(--sl-muted);
+      font-size: .72rem;
+      font-weight: 950;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      line-height: 1.35;
+    }
+
+    .sl-table td:nth-child(1)::before { content: "SL"; }
+    .sl-table td:nth-child(2)::before { content: "Store"; }
+    .sl-table td:nth-child(3)::before { content: "Owner"; }
+    .sl-table td:nth-child(4)::before { content: "Account"; }
+    .sl-table td:nth-child(5)::before { content: "Operation"; }
+    .sl-table td:nth-child(6)::before { content: "Delivery"; }
+    .sl-table td:nth-child(7)::before { content: "Action"; }
+
+    .sl-table td:last-child {
+      border-bottom: 0;
+      grid-template-columns: 1fr;
+    }
+
+    .sl-table td:last-child::before {
+      margin-bottom: 4px;
+    }
+
+    .sl-store-info,
+    .sl-owner-info {
+      align-items: flex-start;
+    }
+
+    .sl-main-text strong,
+    .sl-main-text span {
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    .sl-action-stack,
+    .sl-status-stack {
+      min-width: 0;
+      width: 100%;
+    }
+
+    .sl-action-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sl-primary-actions {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .sl-small-form,
+    .sl-state-toggle,
+    .sl-switch-form,
+    .sl-switch {
+      width: 100% !important;
+    }
+
+    .sl-icon-btn {
+      width: 100%;
     }
   }
 
   @media (max-width: 720px) {
+    .nf-store-list-page {
+      gap: 14px;
+    }
+
     .sl-hero,
     .sl-panel,
     .sl-modal {
       border-radius: 18px;
     }
 
+    .sl-hero {
+      padding: 16px;
+    }
+
+    .sl-kicker {
+      width: 100%;
+      justify-content: center;
+      text-align: center;
+      white-space: normal;
+    }
+
     .sl-hero-actions,
     .sl-toolbar-actions,
-    .sl-modal-actions {
-      flex-direction: column;
+    .sl-modal-actions,
+    .sl-edit-map-actions {
+      display: grid;
+      grid-template-columns: 1fr;
       align-items: stretch;
+      width: 100%;
     }
 
     .sl-btn,
     .sl-action,
-    .nf-store-list-page button {
+    .nf-store-list-page button,
+    .sl-page-link {
       width: 100%;
     }
 
-    .sl-icon-btn,
-    .sl-switch {
+    .sl-kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .sl-kpi-card {
+      padding: 13px 11px;
+      border-radius: 15px;
+    }
+
+    .sl-kpi-card span {
+      font-size: .66rem;
+    }
+
+    .sl-kpi-card strong {
+      font-size: 1.55rem;
+    }
+
+    .sl-filter-pills {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .sl-filter-pill {
       width: 100%;
     }
 
-    .sl-detail-grid {
+    .sl-summary,
+    .sl-pagination {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .sl-page-links {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      width: 100%;
+    }
+
+    .sl-detail-grid,
+    .sl-form-grid {
       grid-template-columns: 1fr;
+    }
+
+    .sl-form-grid label:nth-child(2) {
+      grid-column: auto;
+    }
+
+    .sl-modal-body,
+    .sl-modal-head {
+      padding: 15px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .sl-hero h2 {
+      font-size: 1.55rem;
+    }
+
+    .sl-hero p,
+    .sl-summary p {
+      font-size: .84rem;
+    }
+
+    .sl-table tbody {
+      padding: 10px;
+    }
+
+    .sl-table tbody tr {
+      padding: 12px;
+      border-radius: 16px;
+    }
+
+    .sl-table td {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    .sl-table td::before {
+      margin-bottom: 2px;
+    }
+
+    .sl-filter-pills,
+    .sl-kpi-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .sl-primary-actions {
+      grid-template-columns: 1fr;
+    }
+
+    .sl-search-wrap input,
+    .sl-select,
+    .sl-form-grid input,
+    .sl-form-grid textarea {
+      font-size: 16px;
+    }
+
+    #editStoreDeliveryMap {
+      height: 300px;
     }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<section class="nf-store-list-page">
+<section class="nf-store-list-page" data-current-status="{{ current_status|default('all') }}">
+  {% set list_filters = list_filters|default({}) %}
+  {% set pagination = pagination|default({}) %}
+  {% set store_counts = store_counts|default({}) %}
+  {% set current_q = list_filters.q|default('') %}
+  {% set current_status = list_filters.status|default('all') %}
+  {% set current_per_page = list_filters.per_page|default(20) %}
+  {% set visible_total = pagination.total|default(stores|length) %}
 
   <div class="sl-hero">
-    <div class="sl-hero-inner">
+    <div class="sl-hero-top">
       <div>
         <span class="sl-kicker">📋 Admin Store Management</span>
 
         <h2>Store Admin Profile List</h2>
 
-        <p>
-          View all internal store admin profiles, check owner details, update operation information,
-          activate or deactivate stores, export records and safely manage store admin actions without losing order history.
-        </p>
-
-        <div class="sl-hero-actions">
-          <a href="{{ url_for('admin_store_overview') }}" class="sl-btn sl-btn-soft">← Admin Store Overview</a>
-          <a href="{{ url_for('admin_create_store') }}" class="sl-btn sl-btn-primary">+ Create Store Admin Profile</a>
-          <a href="{{ url_for('admin_stores_export_csv') }}" class="sl-btn">⬇ Export CSV</a>
-        </div>
+        <p>View, search, filter, export and manage store admin profiles with operational, delivery and zone status in one clean admin view.</p>
       </div>
 
-      <div class="sl-hero-card">
-        <span>Total Store Admin Profiles</span>
-        <strong>{{ stores|length }}</strong>
+      <div class="sl-hero-actions">
+        <a href="{{ url_for('admin_store_overview') }}" class="sl-btn sl-btn-soft">← Admin Store Overview</a>
+        <a href="{{ url_for('admin_create_store') }}" class="sl-btn sl-btn-primary">+ Create Store Admin Profile</a>
+        <a href="{{ url_for('admin_stores_export_csv', q=current_q, status=current_status) }}" class="sl-btn">⬇ Export CSV</a>
       </div>
+    </div>
+
+    <div class="sl-kpi-grid">
+      <div class="sl-kpi-card">
+        <span>Matching Profiles</span>
+        <strong data-store-count="matching">{{ visible_total }}</strong>
+      </div>
+
+      <div class="sl-kpi-card">
+        <span>Active Profiles</span>
+        <strong data-store-count="active">{{ store_counts.get('active', 0) if store_counts else 0 }}</strong>
+      </div>
+
+      <div class="sl-kpi-card">
+        <span>Online Stores</span>
+        <strong data-store-count="online">{{ store_counts.get('online', 0) if store_counts else 0 }}</strong>
+      </div>
+
+      <div class="sl-kpi-card">
+        <span>Delivery On</span>
+        <strong data-store-count="delivery_on">{{ store_counts.get('delivery_on', 0) if store_counts else 0 }}</strong>
+      </div>
+
     </div>
   </div>
 
   <section class="sl-panel">
-    <div class="sl-toolbar">
+    <form method="get" action="{{ url_for('admin_store_list') }}" class="sl-toolbar">
       <div class="sl-field">
-        <label for="storeSearchInput">Search by store admin name</label>
+        <label for="storeSearchInput">Search store / owner / location</label>
         <div class="sl-search-wrap">
-          <input id="storeSearchInput" type="search" placeholder="Ex: Supermarket, Country Fair, Organic Shop...">
+          <input id="storeSearchInput" name="q" type="search" value="{{ current_q }}" placeholder="Store, owner, phone, city, pincode...">
           <span class="sl-search-icon">🔍</span>
         </div>
       </div>
 
-      <div class="sl-toolbar-actions">
-        <button type="button" class="sl-btn" id="clearStoreSearch">Reset</button>
-        <a href="{{ url_for('admin_stores_export_csv') }}" class="sl-btn sl-btn-primary">⬇ Export</a>
+      <div class="sl-field">
+        <label for="storeStatusFilter">Status Filter</label>
+        <select id="storeStatusFilter" name="status" class="sl-select">
+          {% for option in status_options|default([]) %}
+            <option value="{{ option.value }}" {% if current_status == option.value %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
       </div>
+
+      <div class="sl-field">
+        <label for="storePerPage">Per Page</label>
+        <select id="storePerPage" name="per_page" class="sl-select">
+          {% for size in [10, 20, 50, 100] %}
+            <option value="{{ size }}" {% if current_per_page|int == size %}selected{% endif %}>{{ size }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="sl-toolbar-actions">
+        <button type="submit" class="sl-btn sl-btn-primary">Apply</button>
+        <a href="{{ url_for('admin_store_list') }}" class="sl-btn">Reset</a>
+        <a href="{{ url_for('admin_stores_export_csv', q=current_q, status=current_status) }}" class="sl-btn">⬇ Export</a>
+      </div>
+    </form>
+
+    <div class="sl-filter-pills">
+      {% for option in status_options|default([]) %}
+        <a
+          href="{{ url_for('admin_store_list', q=current_q, status=option.value, per_page=current_per_page) }}"
+          class="sl-filter-pill {% if current_status == option.value %}active{% endif %}"
+        >
+          {{ option.label }}
+          <span data-store-filter-count="{{ option.value }}">{{ store_counts.get(option.value, 0) if store_counts else 0 }}</span>
+        </a>
+      {% endfor %}
     </div>
 
     <div class="sl-summary">
       <div>
         <h3>
           Store Admin Profile List
-          <span class="sl-count-pill" id="storeVisibleCount">{{ stores|length }}</span>
+          <span class="sl-count-pill" id="storeVisibleCount">{{ visible_total }}</span>
         </h3>
-        <p>Customer-facing store catalog columns are hidden here; this list focuses on admin/operation data.</p>
+        <p>
+          Showing {{ pagination.start_index|default(0) }}–{{ pagination.end_index|default(stores|length) }} of {{ visible_total }} matching store admin profiles.
+        </p>
       </div>
     </div>
 
@@ -971,19 +1663,20 @@
               data-store-products="{{ store.products|default(0) }}"
               data-store-revenue="{{ store.revenue|default(0) }}"
               data-store-rating="{{ store.rating|default(0) }}"
-             data-store-active="{{ store.is_active|default(0)|int }}"
-data-store-online="{{ store.is_online|default(store.is_open|default(1))|int }}"
-data-delivery-enabled="{{ store.delivery_enabled|default(1 if store.delivery_available else 0)|int }}"
-data-zone-configured="{{ store.delivery_zone_configured|default(1 if store.delivery_zone_polygon else 0)|int }}"
-data-store-city="{{ store.city|default('')|e }}"
-data-store-state="{{ store.state|default('')|e }}"
-data-store-pincode="{{ store.pincode|default('')|e }}"
-data-store-latitude="{{ store.latitude|default('') }}"
-data-store-longitude="{{ store.longitude|default('') }}"
-data-delivery-base-fee="{{ store.delivery_base_fee|default(40) }}"
+              data-store-active="{{ store.is_active|default(0)|int }}"
+              data-store-online="{{ store.is_online|default(store.is_open|default(1))|int }}"
+              data-delivery-enabled="{{ store.delivery_enabled|default(1 if store.delivery_available else 0)|int }}"
+              data-zone-configured="{{ store.delivery_zone_configured|default(1 if store.delivery_zone_polygon else 0)|int }}"
+              data-delivery-zone-polygon='{{ store.delivery_zone_polygon|default([])|tojson|forceescape }}'
+              data-store-city="{{ store.city|default('')|e }}"
+              data-store-state="{{ store.state|default('')|e }}"
+              data-store-pincode="{{ store.pincode|default('')|e }}"
+              data-store-latitude="{{ store.latitude|default('') }}"
+              data-store-longitude="{{ store.longitude|default('') }}"
+              data-delivery-base-fee="{{ store.delivery_base_fee|default(40) }}"
               data-store-created="{{ store.created_at|default('')|e }}"
             >
-              <td>{{ loop.index }}</td>
+              <td>{{ pagination.start_index|default(1) + loop.index0 }}</td>
 
               <td>
                 <div class="sl-store-info">
@@ -1021,34 +1714,30 @@ data-delivery-base-fee="{{ store.delivery_base_fee|default(40) }}"
                 </div>
               </td>
 
-              <td>
-                <div class="sl-owner-info">
-                  <div class="sl-avatar owner">
-                    {{ (store.owner_name[0] if store.owner_name else 'O')|upper }}
-                  </div>
-
-                  <div class="sl-main-text">
-                    <strong>{{ store.owner_name }}</strong>
-                    <span>{{ store.owner_email }}</span>
-                    <span>{{ store.owner_phone }}</span>
-                  </div>
-                </div>
-              </td>
+            <td>
+  <div class="sl-owner-info">
+    <div class="sl-main-text">
+      <strong>{{ store.owner_name }}</strong>
+      <span>{{ store.owner_email }}</span>
+      <span>{{ store.owner_phone }}</span>
+    </div>
+  </div>
+</td>
 
              <td>
   {% if store.is_active == 1 %}
-    <span class="sl-status active">● Active</span>
+    <span class="sl-status active" data-status-account>● Active</span>
   {% else %}
-    <span class="sl-status inactive">● Inactive</span>
+    <span class="sl-status inactive" data-status-account>● Inactive</span>
   {% endif %}
 </td>
 
 <td>
   {% set store_online = store.is_online|default(store.is_open|default(1))|int %}
 {% if store_online == 1 %}
-  <span class="sl-status online">● Online</span>
+  <span class="sl-status online" data-status-operation>● Online</span>
 {% else %}
-  <span class="sl-status offline">● Offline</span>
+  <span class="sl-status offline" data-status-operation>● Offline</span>
 {% endif %}
 </td>
 
@@ -1058,97 +1747,33 @@ data-delivery-base-fee="{{ store.delivery_base_fee|default(40) }}"
 
   <div class="sl-status-stack">
     {% if delivery_on == 1 %}
-      <span class="sl-status delivery-on">● Delivery On</span>
+      <span class="sl-status delivery-on" data-status-delivery>● Delivery On</span>
     {% else %}
-      <span class="sl-status delivery-off">● Delivery Off</span>
+      <span class="sl-status delivery-off" data-status-delivery>● Delivery Off</span>
     {% endif %}
 
     {% if zone_ready == 1 %}
-      <span class="sl-status zone-ok">● Zone Ready</span>
+      <span class="sl-status zone-ok" data-status-zone>● Zone Ready</span>
     {% else %}
-      <span class="sl-status zone-missing">● Zone Missing</span>
+      <span class="sl-status zone-missing" data-status-zone>● Zone Missing</span>
     {% endif %}
   </div>
-</td>
+</td>              <td>
+                <div class="sl-action-stack sl-manage-stack" data-action-stack>
+                  <a
+                    href="{{ url_for('admin_store_edit', store_id=store.id) }}"
+                    class="sl-action-btn sl-action-edit sl-manage-profile"
+                    title="Manage all store profile, account, operation and delivery controls"
+                  >
+                    <span class="sl-action-icon">✎</span>
+                    <span class="sl-action-text">Manage / Edit</span>
+                  </a>
 
-              <td>
-  <div class="sl-action-stack">
-
-    <div class="sl-action-row">
-      <button type="button" class="sl-icon-btn sl-icon-view" title="View Store" data-view-store>
-        👁
-      </button>
-
-      <button type="button" class="sl-icon-btn sl-icon-edit" title="Edit Store Admin Data" data-edit-store>
-        ✎
-      </button>
-
-      <form method="post" action="{{ url_for('admin_store_toggle', store_id=store.id) }}" class="sl-switch-form">
-        <button
-          type="submit"
-          class="sl-switch {% if store.is_active == 1 %}is-active{% endif %}"
-          title="{% if store.is_active == 1 %}Deactivate Store Account{% else %}Activate Store Account{% endif %}"
-          aria-label="{% if store.is_active == 1 %}Deactivate Store Account{% else %}Activate Store Account{% endif %}"
-        ></button>
-      </form>
-
-      <form
-        method="post"
-        action="{{ url_for('admin_store_delete', store_id=store.id) }}"
-        onsubmit="return confirm('Delete {{ store.store_name|e }}? If this store has orders, it will be disabled instead of deleted.');"
-      >
-        <button type="submit" class="sl-icon-btn sl-icon-delete" title="Delete Store">
-          🗑
-        </button>
-      </form>
-    </div>
-
-<div class="sl-action-row">
-  {% set store_online = store.is_online|default(store.is_open|default(1))|int %}
-  <form method="post" action="{{ url_for('admin_store_online_toggle', store_id=store.id) }}" class="sl-small-form">
-    <button
-      type="submit"
-      class="sl-state-toggle {% if store_online == 1 %}is-on{% else %}is-off{% endif %}"
-      title="{% if store_online == 1 %}Currently Online. Click to turn Offline.{% else %}Currently Offline. Click to turn Online.{% endif %}"
-    >
-      <span class="sl-toggle-knob">
-        <span class="sl-toggle-dot"></span>
-      </span>
-
-      <span class="sl-toggle-text">
-        {% if store_online == 1 %}
-          Online
-        {% else %}
-          Offline
-        {% endif %}
-      </span>
-    </button>
-  </form>
-
-  {% set delivery_on = store.delivery_enabled|default(1 if store.delivery_available else 0)|int %}
-  <form method="post" action="{{ url_for('admin_store_delivery_toggle', store_id=store.id) }}" class="sl-small-form">
-    <button
-      type="submit"
-      class="sl-state-toggle {% if delivery_on == 1 %}delivery-on{% else %}delivery-off{% endif %}"
-      title="{% if delivery_on == 1 %}Delivery is currently On. Click to turn Off.{% else %}Delivery is currently Off. Click to turn On.{% endif %}"
-    >
-      <span class="sl-toggle-knob">
-        <span class="sl-toggle-dot"></span>
-      </span>
-
-      <span class="sl-toggle-text">
-        {% if delivery_on == 1 %}
-          Delivery On
-        {% else %}
-          Delivery Off
-        {% endif %}
-      </span>
-    </button>
-  </form>
-</div>
-
-  </div>
-</td>
+                  <div class="sl-action-note">
+                    Account, online/offline, delivery and delete controls are inside edit.
+                  </div>
+                </div>
+              </td>
             </tr>
           {% else %}
             <tr>
@@ -1160,116 +1785,42 @@ data-delivery-base-fee="{{ store.delivery_base_fee|default(40) }}"
         </tbody>
       </table>
     </div>
+
+    <div class="sl-pagination">
+      <div class="sl-page-info">
+        Page {{ pagination.page|default(1) }} of {{ pagination.pages|default(1) }} • {{ visible_total }} matching records
+      </div>
+
+      <div class="sl-page-links">
+        <a
+          href="{{ url_for('admin_store_list', q=current_q, status=current_status, per_page=current_per_page, page=pagination.prev_page|default(1)) }}"
+          class="sl-page-link {% if not pagination.has_prev %}disabled{% endif %}"
+        >
+          Prev
+        </a>
+
+        {% if pagination.pages|default(1) > 1 %}
+          {% set start_page = pagination.page - 2 if pagination.page > 2 else 1 %}
+          {% set end_page = pagination.page + 2 if pagination.page + 2 < pagination.pages else pagination.pages %}
+          {% for p in range(start_page, end_page + 1) %}
+            <a
+              href="{{ url_for('admin_store_list', q=current_q, status=current_status, per_page=current_per_page, page=p) }}"
+              class="sl-page-link {% if p == pagination.page %}active{% endif %}"
+            >
+              {{ p }}
+            </a>
+          {% endfor %}
+        {% endif %}
+
+        <a
+          href="{{ url_for('admin_store_list', q=current_q, status=current_status, per_page=current_per_page, page=pagination.next_page|default(1)) }}"
+          class="sl-page-link {% if not pagination.has_next %}disabled{% endif %}"
+        >
+          Next
+        </a>
+      </div>
+    </div>
   </section>
-
-  <div class="sl-modal-backdrop" id="viewStoreModal" aria-hidden="true">
-    <div class="sl-modal" role="dialog" aria-modal="true">
-      <div class="sl-modal-head">
-        <div>
-          <h3 id="viewStoreTitle">Store Admin Details</h3>
-          <p>Complete internal store admin and owner information.</p>
-        </div>
-
-        <button type="button" class="sl-modal-close" data-close-modal>✕</button>
-      </div>
-
-      <div class="sl-modal-body">
-        <div class="sl-detail-grid" id="viewStoreDetails"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="sl-modal-backdrop" id="editStoreModal" aria-hidden="true">
-    <div class="sl-modal" role="dialog" aria-modal="true">
-      <div class="sl-modal-head">
-        <div>
-          <h3>Edit Store Admin Data</h3>
-          <p>Update internal store admin and owner details.</p>
-        </div>
-
-        <button type="button" class="sl-modal-close" data-close-modal>✕</button>
-      </div>
-
-      <div class="sl-modal-body">
-        <form method="post" id="editStoreForm">
-          <div class="sl-form-grid">
-            <label>
-              Store Admin Name
-              <input type="text" name="store_name" id="editStoreName" required>
-            </label>
-
-            <label>
-              Store Address
-              <textarea name="address" id="editStoreAddress"></textarea>
-            </label>
-
-            <label>
-  City / Area
-  <input type="text" name="city" id="editStoreCity">
-</label>
-
-<label>
-  State
-  <input type="text" name="state" id="editStoreState">
-</label>
-
-<label>
-  Pincode
-  <input type="text" name="pincode" id="editStorePincode" maxlength="6" inputmode="numeric">
-</label>
-
-<label>
-  Latitude
-  <input type="text" name="latitude" id="editStoreLatitude">
-</label>
-
-<label>
-  Longitude
-  <input type="text" name="longitude" id="editStoreLongitude">
-</label>
-
-<label>
-  Admin Delivery Fee Rule
-  <input type="number" name="delivery_base_fee" id="editDeliveryBaseFee" min="0" step="1">
-</label>
-
-<input type="hidden" name="delivery_mode" value="polygon">
-<input type="hidden" name="delivery_zone_polygon" id="editDeliveryZonePolygon" value="[]">
-
-<label>
-  Store Operational Status
-  <input type="checkbox" name="is_online" id="editStoreOnline" value="1">
-</label>
-
-<label>
-  Delivery Service Enabled
-  <input type="checkbox" name="delivery_enabled" id="editDeliveryEnabled" value="1">
-</label>
-
-            <label>
-              Owner Name
-              <input type="text" name="owner_name" id="editOwnerName">
-            </label>
-
-            <label>
-              Owner Email
-              <input type="email" name="owner_email" id="editOwnerEmail">
-            </label>
-
-            <label>
-              Owner Phone
-              <input type="text" name="owner_phone" id="editOwnerPhone">
-            </label>
-          </div>
-
-          <div class="sl-modal-actions">
-            <button type="button" class="sl-btn" data-close-modal>Cancel</button>
-            <button type="submit" class="sl-btn sl-btn-primary">Save Store Admin Changes</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
 
 </section>
 {% endblock %}
@@ -1277,84 +1828,41 @@ data-delivery-base-fee="{{ store.delivery_base_fee|default(40) }}"
 {% block extra_js %}
 <script>
 (function () {
+  const page = document.querySelector('.nf-store-list-page');
+  if (!page || page.dataset.storeListBooted === '1') return;
+  page.dataset.storeListBooted = '1';
+
   const searchInput = document.getElementById('storeSearchInput');
-  const clearBtn = document.getElementById('clearStoreSearch');
   const rows = Array.from(document.querySelectorAll('[data-store-row]'));
   const visibleCount = document.getElementById('storeVisibleCount');
-
-  const viewModal = document.getElementById('viewStoreModal');
-  const editModal = document.getElementById('editStoreModal');
-  const viewDetails = document.getElementById('viewStoreDetails');
-  const viewTitle = document.getElementById('viewStoreTitle');
-
-  const editForm = document.getElementById('editStoreForm');
-  const editStoreName = document.getElementById('editStoreName');
-  const editStoreAddress = document.getElementById('editStoreAddress');
-  const editOwnerName = document.getElementById('editOwnerName');
-  const editOwnerEmail = document.getElementById('editOwnerEmail');
-  const editOwnerPhone = document.getElementById('editOwnerPhone');
-  const editStoreCity = document.getElementById('editStoreCity');
-const editStoreState = document.getElementById('editStoreState');
-const editStorePincode = document.getElementById('editStorePincode');
-const editStoreLatitude = document.getElementById('editStoreLatitude');
-const editStoreLongitude = document.getElementById('editStoreLongitude');
-const editDeliveryBaseFee = document.getElementById('editDeliveryBaseFee');
-const editStoreOnline = document.getElementById('editStoreOnline');
-const editDeliveryEnabled = document.getElementById('editDeliveryEnabled');
-
-  function text(value, fallback = '-') {
-    const clean = String(value || '').trim();
-    return clean || fallback;
-  }
 
   function numberValue(value, fallback = 0) {
     const num = Number(value);
     return Number.isFinite(num) ? num : fallback;
   }
 
-  function money(value) {
-    return '₹ ' + numberValue(value, 0).toFixed(2);
+  function currentStatusFilter(){
+    return '{{ current_status|default("all") }}';
   }
 
-  function escapeHtml(value) {
-    return String(value || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
+  function rowMatchesStatus(row){
+    const status = currentStatusFilter();
+    if (!status || status === 'all') return true;
 
-  function getStoreFromRow(row) {
-    const d = row.dataset;
+    const isActive = numberValue(row.dataset.storeActive, 0) === 1;
+    const isOnline = numberValue(row.dataset.storeOnline, 1) === 1;
+    const deliveryOn = numberValue(row.dataset.deliveryEnabled, 0) === 1;
+    const zoneReady = numberValue(row.dataset.zoneConfigured, 0) === 1;
 
-   return {
-  id: text(d.storeId, ''),
-  store_name: text(d.storeFullName, ''),
-  address: text(d.storeAddress, ''),
-  city: text(d.storeCity, ''),
-  state: text(d.storeState, ''),
-  pincode: text(d.storePincode, ''),
-  latitude: text(d.storeLatitude, ''),
-  longitude: text(d.storeLongitude, ''),
-  delivery_base_fee: numberValue(d.deliveryBaseFee, 40),
-
-  owner_name: text(d.ownerName, ''),
-  owner_email: text(d.ownerEmail, ''),
-  owner_phone: text(d.ownerPhone, ''),
-
-  orders: numberValue(d.storeOrders, 0),
-  products: numberValue(d.storeProducts, 0),
-  revenue: numberValue(d.storeRevenue, 0),
-  rating: numberValue(d.storeRating, 0),
-
-  is_active: numberValue(d.storeActive, 0),
-  is_online: numberValue(d.storeOnline, 1),
-  delivery_enabled: numberValue(d.deliveryEnabled, 0),
-  zone_configured: numberValue(d.zoneConfigured, 0),
-
-  created_at: text(d.storeCreated, '')
-};
+    if (status === 'active') return isActive;
+    if (status === 'inactive') return !isActive;
+    if (status === 'online') return isOnline;
+    if (status === 'offline') return !isOnline;
+    if (status === 'delivery_on') return deliveryOn;
+    if (status === 'delivery_off') return !deliveryOn;
+    if (status === 'zone_ready') return zoneReady;
+    if (status === 'zone_missing') return !zoneReady;
+    return true;
   }
 
   function filterRows() {
@@ -1362,157 +1870,29 @@ const editDeliveryEnabled = document.getElementById('editDeliveryEnabled');
     let count = 0;
 
     rows.forEach(function (row) {
-      const store = getStoreFromRow(row);
       const haystack = [
-        store.store_name,
-        store.id,
-        store.address,
-        store.owner_name,
-        store.owner_email,
-        store.owner_phone
+        row.dataset.storeFullName,
+        row.dataset.storeId,
+        row.dataset.storeAddress,
+        row.dataset.storeCity,
+        row.dataset.storeState,
+        row.dataset.storePincode,
+        row.dataset.ownerName,
+        row.dataset.ownerEmail,
+        row.dataset.ownerPhone
       ].join(' ').toLowerCase();
 
-      const matched = !query || haystack.includes(query);
-
+      const matched = (!query || haystack.includes(query)) && rowMatchesStatus(row);
       row.classList.toggle('sl-hidden', !matched);
-
-      if (matched) {
-        count += 1;
-      }
+      if (matched) count += 1;
     });
 
-    if (visibleCount) {
-      visibleCount.textContent = count;
-    }
+    if (visibleCount) visibleCount.textContent = count;
   }
-
-  function openModal(modal) {
-    if (!modal) return;
-
-    modal.classList.add('open');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('sl-modal-open');
-  }
-
-  function closeModals() {
-    document.querySelectorAll('.sl-modal-backdrop').forEach(function (modal) {
-      modal.classList.remove('open');
-      modal.setAttribute('aria-hidden', 'true');
-    });
-
-    document.body.classList.remove('sl-modal-open');
-  }
-
-  function detailBox(label, value) {
-    return `
-      <div class="sl-detail-box">
-        <span>${escapeHtml(label)}</span>
-        <strong>${escapeHtml(text(value))}</strong>
-      </div>
-    `;
-  }
-
-  rows.forEach(function (row) {
-    const viewBtn = row.querySelector('[data-view-store]');
-    const editBtn = row.querySelector('[data-edit-store]');
-
-    if (viewBtn) {
-      viewBtn.addEventListener('click', function () {
-        const store = getStoreFromRow(row);
-
-        if (viewTitle) {
-          viewTitle.textContent = store.store_name || 'Store Admin Details';
-        }
-
-        if (viewDetails) {
-          viewDetails.innerHTML = [
-  detailBox('Store Admin Name', store.store_name),
-  detailBox('Store ID', store.id),
-  detailBox('Address', store.address),
-  detailBox('City / Area', store.city),
-  detailBox('State', store.state),
-  detailBox('Pincode', store.pincode),
-  detailBox('Latitude', store.latitude),
-  detailBox('Longitude', store.longitude),
-  detailBox('Account Status', store.is_active === 1 ? 'Active' : 'Inactive'),
-  detailBox('Store Operation', store.is_online === 1 ? 'Online' : 'Offline'),
-  detailBox('Delivery', store.delivery_enabled === 1 ? 'Enabled' : 'Disabled'),
-  detailBox('Delivery Zone', store.zone_configured === 1 ? 'Configured' : 'Missing'),
-  detailBox('Admin Delivery Fee Rule', money(store.delivery_base_fee)),
-  detailBox('Owner Name', store.owner_name),
-  detailBox('Owner Email', store.owner_email),
-  detailBox('Owner Phone', store.owner_phone),
-  detailBox('Orders', store.orders),
-  detailBox('Products', store.products),
-  detailBox('Revenue', money(store.revenue)),
-  detailBox('Rating', '⭐ ' + store.rating.toFixed(1)),
-  detailBox('Created At', store.created_at)
-].join('');
-        }
-
-        openModal(viewModal);
-      });
-    }
-
-    if (editBtn) {
-      editBtn.addEventListener('click', function () {
-        const store = getStoreFromRow(row);
-
-        if (!store.id) {
-          alert('Store ID missing. Cannot edit this store.');
-          return;
-        }
-
-        editForm.action = `/admin/stores/${store.id}/update`;
-        editStoreName.value = store.store_name || '';
-        editStoreAddress.value = store.address || '';
-        editOwnerName.value = store.owner_name || '';
-        editOwnerEmail.value = store.owner_email || '';
-        editOwnerPhone.value = store.owner_phone || '';
-        editStoreCity.value = store.city || '';
-editStoreState.value = store.state || 'Assam';
-editStorePincode.value = store.pincode || '';
-editStoreLatitude.value = store.latitude || '';
-editStoreLongitude.value = store.longitude || '';
-editDeliveryBaseFee.value = store.delivery_base_fee || 40;
-
-editStoreOnline.checked = store.is_online === 1;
-editDeliveryEnabled.checked = store.delivery_enabled === 1;
-
-        openModal(editModal);
-      });
-    }
-  });
 
   if (searchInput) {
     searchInput.addEventListener('input', filterRows);
   }
-
-  if (clearBtn) {
-    clearBtn.addEventListener('click', function () {
-      searchInput.value = '';
-      filterRows();
-      searchInput.focus();
-    });
-  }
-
-  document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
-    btn.addEventListener('click', closeModals);
-  });
-
-  document.querySelectorAll('.sl-modal-backdrop').forEach(function (modal) {
-    modal.addEventListener('click', function (event) {
-      if (event.target === modal) {
-        closeModals();
-      }
-    });
-  });
-
-  document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape') {
-      closeModals();
-    }
-  });
 
   filterRows();
 })();

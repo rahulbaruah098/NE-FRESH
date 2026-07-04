@@ -5,6 +5,7 @@ Only the file location changed.
 """
 
 from app_core import *
+from flask import jsonify
 
 ADMIN_IN_HOUSE_DELIVERY_ENDPOINTS = {
     "admin_delivery_fee_settings",
@@ -16,7 +17,6 @@ ADMIN_IN_HOUSE_DELIVERY_ENDPOINTS = {
     "admin_delivery_users",
     "admin_delivery_export_csv",
     "admin_delivery_reviews_export_csv",
-    "admin_store_delivery_toggle",
 }
 
 ADMIN_RETURN_REFUND_ENDPOINTS = {
@@ -453,7 +453,7 @@ def _admin_is_store_complaint_doc(complaint):
     - assigned_to / target_type
     - old target_kind
     - store_id / store_id_str / real store_name
-    - excludes direct Admin complaints saved with store_name = NE FRESH Admin
+    - excludes direct Admin complaints saved with store_name = NE Locals Admin
     """
     complaint = complaint or {}
 
@@ -524,7 +524,7 @@ def _admin_prepare_complaint_row(c):
     else:
         c["assigned_to"] = "admin"
         c["target_type"] = "admin"
-        c["assigned_label"] = "NE FRESH Admin"
+        c["assigned_label"] = "NE Locals Admin"
         c["admin_can_update"] = True
 
     status = str(c.get("status") or "open").strip().lower()
@@ -807,7 +807,7 @@ def admin_delivery_mode_settings():
             {
                 "field": "external_local_delivery_enabled",
                 "title": "External Local Delivery",
-                "subtitle": "For Rapido/Ola/Uber-style local delivery. NE FRESH stores only the order reference and charges the hard-coded local fare; rider payment/tracking stays outside NE FRESH.",
+                "subtitle": "For Rapido/Ola/Uber-style local delivery. NE Locals stores only the order reference and charges the hard-coded local fare; rider payment/tracking stays outside NE Locals.",
                 "badge": f"Up to {external_settings.get('external_local_max_distance_km', 25)} km",
                 "icon": "⚡",
             },
@@ -4561,6 +4561,10 @@ def admin_create_store():
             flash("Store state must be Assam for delivery operations.", "warning")
             return redirect(url_for('admin_create_store'))
 
+        if latitude is None or longitude is None:
+            flash("Store pickup latitude and longitude are required.", "warning")
+            return redirect(url_for('admin_create_store'))
+
         if delivery_enabled and delivery_mode == "polygon" and not delivery_zone_polygon:
             flash("Delivery zone polygon is required when delivery is enabled.", "warning")
             return redirect(url_for('admin_create_store'))
@@ -4586,6 +4590,8 @@ def admin_create_store():
         # =========================
         # INSERT STORE USER
         # =========================
+        created_user_id = None
+
         try:
 
             result = mongo.users.insert_one({
@@ -4600,6 +4606,7 @@ def admin_create_store():
             })
 
             user_id = str(result.inserted_id)
+            created_user_id = result.inserted_id
 
             # =========================
             # INSERT STORE
@@ -4639,6 +4646,12 @@ def admin_create_store():
 
         except DuplicateKeyError:
 
+            if created_user_id:
+                try:
+                    mongo.users.delete_one({"_id": created_user_id})
+                except Exception:
+                    pass
+
             flash(
                 "Email or phone already exists. Please use different details.",
                 "danger"
@@ -4647,6 +4660,12 @@ def admin_create_store():
             return redirect(url_for('admin_create_store'))
 
         except Exception as e:
+
+            if created_user_id:
+                try:
+                    mongo.users.delete_one({"_id": created_user_id})
+                except Exception:
+                    pass
 
             flash(f"Store creation failed: {e}", "danger")
 
@@ -4675,48 +4694,376 @@ def admin_create_store():
         metrics=metrics
     )
 
+def _admin_store_overview_money(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return float(default)
+        return round(float(value), 2)
+    except Exception:
+        return float(default)
+
+
+def _admin_store_overview_dt(value):
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value
+
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day)
+
+    clean = str(value).strip()
+
+    if not clean:
+        return None
+
+    if clean.endswith("Z"):
+        clean = clean[:-1]
+
+    try:
+        return datetime.fromisoformat(clean)
+    except Exception:
+        pass
+
+    for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f"):
+        try:
+            return datetime.strptime(clean, fmt)
+        except Exception:
+            continue
+
+    return None
+
+
+def _admin_store_overview_date_filter():
+    raw_range = (request.args.get("range") or "all").strip().lower()
+    allowed_ranges = {"all", "today", "week", "month", "last30", "custom"}
+
+    if raw_range not in allowed_ranges:
+        raw_range = "all"
+
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    start_dt = None
+    end_dt = None
+    start_value = ""
+    end_value = ""
+    date_label = "All-time records"
+
+    if raw_range == "today":
+        start_dt = today
+        end_dt = today + timedelta(days=1)
+        start_value = today.strftime("%Y-%m-%d")
+        end_value = today.strftime("%Y-%m-%d")
+        date_label = "Today"
+
+    elif raw_range == "week":
+        start_dt = today - timedelta(days=today.weekday())
+        end_dt = today + timedelta(days=1)
+        start_value = start_dt.strftime("%Y-%m-%d")
+        end_value = today.strftime("%Y-%m-%d")
+        date_label = "This week"
+
+    elif raw_range == "month":
+        start_dt = today.replace(day=1)
+        end_dt = today + timedelta(days=1)
+        start_value = start_dt.strftime("%Y-%m-%d")
+        end_value = today.strftime("%Y-%m-%d")
+        date_label = "This month"
+
+    elif raw_range == "last30":
+        start_dt = today - timedelta(days=29)
+        end_dt = today + timedelta(days=1)
+        start_value = start_dt.strftime("%Y-%m-%d")
+        end_value = today.strftime("%Y-%m-%d")
+        date_label = "Last 30 days"
+
+    elif raw_range == "custom":
+        start_value = (request.args.get("start_date") or "").strip()
+        end_value = (request.args.get("end_date") or "").strip()
+
+        parsed_start = _admin_store_overview_dt(start_value)
+        parsed_end = _admin_store_overview_dt(end_value)
+
+        if parsed_start:
+            start_dt = parsed_start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        if parsed_end:
+            end_dt = parsed_end.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+
+        if start_dt and end_dt and start_dt >= end_dt:
+            start_dt = None
+            end_dt = None
+            start_value = ""
+            end_value = ""
+            raw_range = "all"
+            date_label = "All-time records"
+        elif start_dt and end_dt:
+            date_label = f"{start_value} to {end_value}"
+        elif start_dt:
+            date_label = f"From {start_value}"
+        elif end_dt:
+            date_label = f"Until {end_value}"
+        else:
+            raw_range = "all"
+            date_label = "All-time records"
+
+    filters = {
+        "range": raw_range,
+        "start_date": start_value,
+        "end_date": end_value,
+        "q": (request.args.get("q") or "").strip(),
+        "status": (request.args.get("status") or "all").strip().lower(),
+        "date_label": date_label,
+        "new_store_label": "Created in selected date range" if raw_range != "all" else "Created in the last 30 days",
+    }
+
+    if filters["status"] not in {"all", "active", "inactive", "online", "offline", "delivery_on", "delivery_off"}:
+        filters["status"] = "all"
+
+    return filters, start_dt, end_dt
+
+
+def _admin_store_overview_in_date_range(value, start_dt=None, end_dt=None):
+    if not start_dt and not end_dt:
+        return True
+
+    parsed = _admin_store_overview_dt(value)
+
+    if not parsed:
+        return False
+
+    if start_dt and parsed < start_dt:
+        return False
+
+    if end_dt and parsed >= end_dt:
+        return False
+
+    return True
+
+
+def _admin_store_overview_store_matches(row, filters):
+    q = (filters.get("q") or "").strip().lower()
+    status = (filters.get("status") or "all").strip().lower()
+
+    if q:
+        haystack = " ".join([
+            str(row.get("store_name") or ""),
+            str(row.get("owner_name") or ""),
+            str(row.get("owner_email") or ""),
+            str(row.get("owner_phone") or ""),
+            str(row.get("city") or ""),
+            str(row.get("state") or ""),
+            str(row.get("pincode") or ""),
+            str(row.get("id") or ""),
+        ]).lower()
+
+        if q not in haystack:
+            return False
+
+    is_active = int(row.get("is_active") or 0) == 1
+    is_online = int(row.get("is_online", row.get("is_open", 0)) or 0) == 1
+    delivery_on = int(row.get("delivery_enabled", 1 if row.get("delivery_available") else 0) or 0) == 1
+
+    if status == "active" and not is_active:
+        return False
+
+    if status == "inactive" and is_active:
+        return False
+
+    if status == "online" and not is_online:
+        return False
+
+    if status == "offline" and is_online:
+        return False
+
+    if status == "delivery_on" and not delivery_on:
+        return False
+
+    if status == "delivery_off" and delivery_on:
+        return False
+
+    return True
+
+
+def _admin_store_overview_order_total(order):
+    return _admin_store_overview_money(
+        order.get("total_payable"),
+        _admin_store_overview_money(
+            order.get("total_amount"),
+            (
+                _admin_store_overview_money(order.get("items_subtotal"))
+                + _admin_store_overview_money(order.get("delivery_fee_amount") if order.get("delivery_fee_amount") is not None else order.get("delivery_fee"))
+                + _admin_store_overview_money(order.get("platform_fee"))
+                + _admin_store_overview_money(order.get("tip_amount") if order.get("tip_amount") is not None else order.get("delivery_tip_amount"))
+            )
+        )
+    )
+
+
+def _admin_store_overview_items_value(order):
+    return _admin_store_overview_money(
+        order.get("items_subtotal"),
+        _admin_store_overview_money(order.get("store_earning"), order.get("total_amount") or 0)
+    )
+
+
+def _admin_store_overview_platform_fee(order):
+    return _admin_store_overview_money(
+        order.get("admin_platform_earning"),
+        _admin_store_overview_money(order.get("platform_fee"), 0)
+    )
+
+
+def _admin_store_overview_payout_amount(order):
+    return _admin_store_overview_money(
+        order.get("store_payout_amount"),
+        _admin_store_overview_money(order.get("store_earning"), order.get("items_subtotal") or 0)
+    )
+
+
+def _admin_store_overview_is_sale_order(order):
+    status = _norm_status(order.get("status"))
+    return status not in {"CANCELLED", "CANCELED", "RETURNED", "REFUNDED", "FAILED"}
+
+
+def _admin_store_overview_is_delivered_or_paid(order):
+    status = _norm_status(order.get("status"))
+    payment_status = _norm_status(order.get("payment_status"))
+    collection_status = _norm_status(order.get("payment_collection_status"))
+
+    return bool(
+        status in {"DELIVERED", "COMPLETED", "ORDER_DELIVERED"}
+        or payment_status in {"PAID", "SUCCESS", "COMPLETED", "CAPTURED"}
+        or collection_status in {"COLLECTED", "RECEIVED", "PAID"}
+    )
+
+
+def _admin_store_overview_is_payout_paid(order):
+    return _norm_status(order.get("store_payout_status")) in {
+        "PAID",
+        "PAID_TO_STORE",
+        "SETTLED",
+        "COMPLETED",
+        "RELEASED",
+    }
+
+
+def _admin_store_overview_build_rows():
+    filters, start_dt, end_dt = _admin_store_overview_date_filter()
+    base_rows = _admin_store_rows()
+    period_rows = {}
+
+    for row in base_rows:
+        period_rows[str(row.get("id"))] = {
+            "orders": 0,
+            "delivered_orders": 0,
+            "revenue": 0.0,
+            "items_revenue": 0.0,
+            "commission_earned": 0.0,
+            "store_withdrawals": 0.0,
+            "products": 0,
+        }
+
+    for order in mongo.orders.find({}):
+        if not _admin_store_overview_in_date_range(order.get("created_at") or order.get("updated_at"), start_dt, end_dt):
+            continue
+
+        store_id = str(order.get("store_id") or "")
+
+        if not store_id or store_id not in period_rows:
+            continue
+
+        if not _admin_store_overview_is_sale_order(order):
+            continue
+
+        period_rows[store_id]["orders"] += 1
+
+        if _admin_store_overview_is_delivered_or_paid(order):
+            period_rows[store_id]["delivered_orders"] += 1
+            period_rows[store_id]["revenue"] += _admin_store_overview_order_total(order)
+            period_rows[store_id]["items_revenue"] += _admin_store_overview_items_value(order)
+            period_rows[store_id]["commission_earned"] += _admin_store_overview_platform_fee(order)
+
+            if _admin_store_overview_is_payout_paid(order):
+                period_rows[store_id]["store_withdrawals"] += _admin_store_overview_payout_amount(order)
+
+    for product in mongo.products.find({}):
+        if not _admin_store_overview_in_date_range(product.get("created_at") or product.get("updated_at"), start_dt, end_dt):
+            continue
+
+        store_id = str(product.get("store_id") or "")
+
+        if store_id in period_rows:
+            period_rows[store_id]["products"] += 1
+
+    all_range = not start_dt and not end_dt
+    rows = []
+
+    for row in base_rows:
+        store_id = str(row.get("id") or "")
+        period = period_rows.get(store_id, {})
+        row = dict(row)
+
+        row["all_time_orders"] = row.get("orders", 0)
+        row["all_time_delivered_orders"] = row.get("delivered_orders", 0)
+        row["all_time_products"] = row.get("products", 0)
+        row["all_time_revenue"] = row.get("revenue", 0)
+
+        if not all_range:
+            row["orders"] = int(period.get("orders") or 0)
+            row["delivered_orders"] = int(period.get("delivered_orders") or 0)
+            row["products"] = int(period.get("products") or 0)
+            row["revenue"] = round(float(period.get("revenue") or 0), 2)
+        else:
+            row["orders"] = int(period.get("orders") if period.get("orders") is not None else row.get("orders") or 0)
+            row["delivered_orders"] = int(period.get("delivered_orders") if period.get("delivered_orders") is not None else row.get("delivered_orders") or 0)
+            row["products"] = int(period.get("products") if period.get("products") is not None else row.get("products") or 0)
+            row["revenue"] = round(float(period.get("revenue") if period.get("revenue") is not None else row.get("revenue") or 0), 2)
+
+        row["items_revenue"] = round(float(period.get("items_revenue") or 0), 2)
+        row["commission_earned"] = round(float(period.get("commission_earned") or 0), 2)
+        row["store_withdrawals"] = round(float(period.get("store_withdrawals") or 0), 2)
+        row["created_in_range"] = _admin_store_overview_in_date_range(row.get("created_at"), start_dt, end_dt)
+        row["created_in_last_30_days"] = _admin_store_overview_in_date_range(
+            row.get("created_at"),
+            datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=29),
+            datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1),
+        )
+
+        if _admin_store_overview_store_matches(row, filters):
+            rows.append(row)
+
+    return rows, filters
+
+
 @app.route("/admin/stores")
 @login_required(role="admin")
 def admin_store_overview():
-    stores = _admin_store_rows()
+    stores, filters = _admin_store_overview_build_rows()
 
     total_stores = len(stores)
-    active_stores = len([s for s in stores if s["is_active"] == 1])
-    inactive_stores = len([s for s in stores if s["is_active"] != 1])
-
-    total_transactions = mongo.transactions.count_documents({})
-    commission_earned = 0.0
-    total_store_withdrawals = 0.0
-
-    for txn in mongo.transactions.find({}):
-        amount = float(txn.get("amount") or 0)
-
-        if _norm_status(txn.get("status")) == "PAID":
-            commission_earned += float(txn.get("commission_amount") or 0)
-
-        txn_type = _norm_status(txn.get("type") or txn.get("transaction_type"))
-        if txn_type in ["STORE_WITHDRAWAL", "WITHDRAWAL"]:
-            total_store_withdrawals += amount
-
-        if commission_earned <= 0:
-        # fallback commission estimate if commission_amount is not stored
-            commission_earned = sum(float(s.get("revenue") or 0) for s in stores)
+    active_stores = len([s for s in stores if int(s.get("is_active") or 0) == 1])
+    inactive_stores = len([s for s in stores if int(s.get("is_active") or 0) != 1])
+    if filters.get("range") != "all":
+        new_stores = len([s for s in stores if s.get("created_in_range")])
+    else:
+        new_stores = len([s for s in stores if s.get("created_in_last_30_days")])
 
     top_selling_stores = sorted(
         stores,
-        key=lambda x: (x["revenue"], x["orders"]),
+        key=lambda x: (float(x.get("revenue") or 0), int(x.get("orders") or 0)),
         reverse=True
     )[:6]
 
     most_popular_stores = sorted(
         stores,
-        key=lambda x: (x["orders"], x["rating"]),
+        key=lambda x: (int(x.get("orders") or 0), float(x.get("rating") or 0)),
         reverse=True
     )[:6]
 
     top_product_stores = sorted(
         stores,
-        key=lambda x: (x["products"], x["orders"]),
+        key=lambda x: (int(x.get("products") or 0), int(x.get("orders") or 0)),
         reverse=True
     )[:6]
 
@@ -4724,10 +5071,10 @@ def admin_store_overview():
         "total_stores": total_stores,
         "active_stores": active_stores,
         "inactive_stores": inactive_stores,
-        "new_stores": mongo.stores.count_documents({}),
-        "total_transactions": total_transactions,
-        "commission_earned": round(commission_earned, 2),
-        "store_withdrawals": round(total_store_withdrawals, 2),
+        "new_stores": new_stores,
+        "total_transactions": sum(int(s.get("orders") or 0) for s in stores),
+        "commission_earned": round(sum(float(s.get("commission_earned") or 0) for s in stores), 2),
+        "store_withdrawals": round(sum(float(s.get("store_withdrawals") or 0) for s in stores), 2),
     }
 
     return render_template(
@@ -4735,6 +5082,7 @@ def admin_store_overview():
         user=current_user(),
         metrics=metrics,
         stores=stores,
+        filters=filters,
         top_selling_stores=top_selling_stores,
         most_popular_stores=most_popular_stores,
         top_product_stores=top_product_stores,
@@ -4742,15 +5090,279 @@ def admin_store_overview():
         active_page="store_overview",
     )
 
+
+
+ADMIN_STORE_LIST_STATUS_OPTIONS = [
+    {"value": "all", "label": "All statuses"},
+    {"value": "active", "label": "Active accounts"},
+    {"value": "inactive", "label": "Inactive accounts"},
+    {"value": "online", "label": "Online stores"},
+    {"value": "offline", "label": "Offline stores"},
+    {"value": "delivery_on", "label": "Delivery on"},
+    {"value": "delivery_off", "label": "Delivery off"},
+    {"value": "zone_ready", "label": "Zone ready"},
+    {"value": "zone_missing", "label": "Zone missing"},
+]
+
+
+def _admin_store_list_int(value, default=1, min_value=1, max_value=999999):
+    try:
+        number = int(float(value))
+    except Exception:
+        number = int(default)
+
+    if number < min_value:
+        number = min_value
+
+    if number > max_value:
+        number = max_value
+
+    return number
+
+
+def _admin_store_list_filters():
+    q = (request.args.get("q") or "").strip()
+    status = (request.args.get("status") or "all").strip().lower()
+
+    allowed_statuses = {item["value"] for item in ADMIN_STORE_LIST_STATUS_OPTIONS}
+
+    if status not in allowed_statuses:
+        status = "all"
+
+    page = _admin_store_list_int(request.args.get("page"), 1, 1, 999999)
+    per_page = _admin_store_list_int(request.args.get("per_page"), 20, 5, 100)
+
+    if per_page not in [10, 20, 50, 100]:
+        per_page = 20
+
+    return {
+        "q": q,
+        "status": status,
+        "page": page,
+        "per_page": per_page,
+    }
+
+
+def _admin_store_list_zone_ready(store):
+    try:
+        if int(store.get("delivery_zone_configured") or 0) == 1:
+            return True
+    except Exception:
+        pass
+
+    polygon = store.get("delivery_zone_polygon") or []
+
+    return bool(isinstance(polygon, list) and len(polygon) >= 3)
+
+
+def _admin_store_list_matches(store, filters):
+    q = (filters.get("q") or "").strip().lower()
+    status = (filters.get("status") or "all").strip().lower()
+
+    if q:
+        haystack = " ".join([
+            str(store.get("store_name") or ""),
+            str(store.get("id") or ""),
+            str(store.get("address") or ""),
+            str(store.get("city") or ""),
+            str(store.get("state") or ""),
+            str(store.get("pincode") or ""),
+            str(store.get("owner_name") or ""),
+            str(store.get("owner_email") or ""),
+            str(store.get("owner_phone") or ""),
+        ]).lower()
+
+        if q not in haystack:
+            return False
+
+    is_active = int(store.get("is_active") or 0) == 1
+    is_online = int(store.get("is_online", store.get("is_open", 1)) or 0) == 1
+    delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available") else 0) or 0) == 1
+    zone_ready = _admin_store_list_zone_ready(store)
+
+    if status == "active" and not is_active:
+        return False
+
+    if status == "inactive" and is_active:
+        return False
+
+    if status == "online" and not is_online:
+        return False
+
+    if status == "offline" and is_online:
+        return False
+
+    if status == "delivery_on" and not delivery_on:
+        return False
+
+    if status == "delivery_off" and delivery_on:
+        return False
+
+    if status == "zone_ready" and not zone_ready:
+        return False
+
+    if status == "zone_missing" and zone_ready:
+        return False
+
+    return True
+
+
+def _admin_store_list_counts(stores):
+    counts = {
+        "all": len(stores),
+        "active": 0,
+        "inactive": 0,
+        "online": 0,
+        "offline": 0,
+        "delivery_on": 0,
+        "delivery_off": 0,
+        "zone_ready": 0,
+        "zone_missing": 0,
+    }
+
+    for store in stores:
+        is_active = int(store.get("is_active") or 0) == 1
+        is_online = int(store.get("is_online", store.get("is_open", 1)) or 0) == 1
+        delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available") else 0) or 0) == 1
+        zone_ready = _admin_store_list_zone_ready(store)
+
+        counts["active" if is_active else "inactive"] += 1
+        counts["online" if is_online else "offline"] += 1
+        counts["delivery_on" if delivery_on else "delivery_off"] += 1
+        counts["zone_ready" if zone_ready else "zone_missing"] += 1
+
+    return counts
+
+
+def _admin_store_list_rows():
+    filters = _admin_store_list_filters()
+    stores = _admin_store_rows()
+    counts = _admin_store_list_counts(stores)
+    filtered_stores = [
+        store for store in stores
+        if _admin_store_list_matches(store, filters)
+    ]
+
+    return stores, filtered_stores, filters, counts
+
+
+def _admin_store_list_paginate(rows, filters):
+    total = len(rows)
+    per_page = int(filters.get("per_page") or 20)
+    pages = max(1, ((total + per_page - 1) // per_page))
+
+    page = int(filters.get("page") or 1)
+
+    if page > pages:
+        page = pages
+
+    start = (page - 1) * per_page
+    end = start + per_page
+
+    filters["page"] = page
+
+    return rows[start:end], {
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "pages": pages,
+        "has_prev": page > 1,
+        "has_next": page < pages,
+        "prev_page": page - 1 if page > 1 else 1,
+        "next_page": page + 1 if page < pages else pages,
+        "start_index": start + 1 if total else 0,
+        "end_index": min(end, total),
+    }
+
+
+
+def _admin_store_wants_json_response():
+    try:
+        return bool(
+            request.headers.get("X-Requested-With") == "XMLHttpRequest"
+            or "application/json" in (request.headers.get("Accept") or "")
+            or str(request.form.get("ajax") or "").strip() == "1"
+        )
+    except Exception:
+        return False
+
+
+def _admin_store_json_or_redirect(ok, message, category="success", status_code=200, **payload):
+    if _admin_store_wants_json_response():
+        data = {
+            "ok": bool(ok),
+            "message": message,
+            "category": category,
+        }
+        data.update(payload)
+        return jsonify(data), status_code
+
+    flash(message, category)
+    return redirect(url_for("admin_store_list"))
+
+
+def _admin_store_ajax_counts_payload():
+    try:
+        return _admin_store_list_counts(_admin_store_rows())
+    except Exception:
+        return {}
+
+
+def _admin_store_edit_row(store):
+    store = store or {}
+    row = dict(store)
+
+    sid = store.get("_id") or store.get("id") or ""
+    row["id"] = str(sid)
+
+    user = {}
+    user_id = store.get("user_id")
+    if user_id:
+        try:
+            user = mongo.users.find_one({"_id": ObjectId(str(user_id))}) or {}
+        except Exception:
+            user = {}
+
+    row["owner_name"] = store.get("owner_name") or user.get("name") or ""
+    row["owner_email"] = store.get("owner_email") or user.get("email") or ""
+    row["owner_phone"] = store.get("owner_phone") or user.get("phone") or ""
+
+    row["store_name"] = store.get("store_name") or ""
+    row["address"] = store.get("address") or ""
+    row["city"] = store.get("city") or ""
+    row["state"] = store.get("state") or "Assam"
+    row["pincode"] = store.get("pincode") or ""
+    row["latitude"] = store.get("latitude") if store.get("latitude") is not None else ""
+    row["longitude"] = store.get("longitude") if store.get("longitude") is not None else ""
+    row["delivery_base_fee"] = store.get("delivery_base_fee", 40)
+
+    polygon = store.get("delivery_zone_polygon") or []
+    if not isinstance(polygon, list):
+        polygon = []
+
+    row["delivery_zone_polygon"] = polygon
+    row["delivery_zone_configured"] = 1 if len(polygon) >= 3 or int(store.get("delivery_zone_configured") or 0) == 1 else 0
+    row["is_online"] = int(store.get("is_online", store.get("is_open", 1)) or 0)
+    row["delivery_enabled"] = int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0)
+    row["is_active"] = int(store.get("is_active", 1) or 0)
+
+    return row
+
 @app.route("/admin/stores/list")
 @login_required(role="admin")
 def admin_store_list():
-    stores = _admin_store_rows()
+    all_stores, filtered_stores, filters, store_counts = _admin_store_list_rows()
+    stores, pagination = _admin_store_list_paginate(filtered_stores, filters)
 
     return render_template(
         "admin_store_list.html",
         user=current_user(),
         stores=stores,
+        all_store_count=len(all_stores),
+        store_counts=store_counts,
+        list_filters=filters,
+        pagination=pagination,
+        status_options=ADMIN_STORE_LIST_STATUS_OPTIONS,
         active_group="store",
         active_page="store_list",
     )
@@ -4775,14 +5387,28 @@ def admin_store_reviews():
         active_page="store_reviews",
     )
 
-@app.route("/admin/stores/export.csv")
-@login_required(role="admin")
-def admin_stores_export_csv():
-    stores = _admin_store_rows()
-
-    rows = [
-        ["SL", "Store Name", "Store ID", "Owner Name", "Owner Email", "Owner Phone", "Status", "Created At"]
-    ]
+def _admin_store_overview_csv_response(stores, filename):
+    rows = [[
+        "SL",
+        "Store Name",
+        "Store ID",
+        "Owner Name",
+        "Owner Email",
+        "Owner Phone",
+        "City",
+        "State",
+        "Status",
+        "Online Status",
+        "Delivery Status",
+        "Orders",
+        "Delivered/Paid Orders",
+        "Revenue",
+        "Platform Fee / Commission",
+        "Store Payout Withdrawals",
+        "Products",
+        "Rating",
+        "Created At",
+    ]]
 
     for idx, store in enumerate(stores, start=1):
         rows.append([
@@ -4792,7 +5418,18 @@ def admin_stores_export_csv():
             store.get("owner_name", ""),
             store.get("owner_email", ""),
             store.get("owner_phone", ""),
-            "Active" if store.get("is_active") == 1 else "Inactive",
+            store.get("city", ""),
+            store.get("state", ""),
+            "Active" if int(store.get("is_active") or 0) == 1 else "Inactive",
+            "Online" if int(store.get("is_online", store.get("is_open", 0)) or 0) == 1 else "Offline",
+            "Delivery On" if int(store.get("delivery_enabled", 1 if store.get("delivery_available") else 0) or 0) == 1 else "Delivery Off",
+            store.get("orders", 0),
+            store.get("delivered_orders", 0),
+            "%.2f" % float(store.get("revenue") or 0),
+            "%.2f" % float(store.get("commission_earned") or 0),
+            "%.2f" % float(store.get("store_withdrawals") or 0),
+            store.get("products", 0),
+            store.get("rating", 0),
             store.get("created_at", ""),
         ])
 
@@ -4805,8 +5442,93 @@ def admin_stores_export_csv():
     return Response(
         csv_data,
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=nefresh_stores.csv"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+@app.route("/admin/stores/export.csv")
+@login_required(role="admin")
+def admin_stores_export_csv():
+    all_stores, stores, filters, store_counts = _admin_store_list_rows()
+
+    rows = [
+        [
+            "SL",
+            "Store Name",
+            "Store ID",
+            "Owner Name",
+            "Owner Email",
+            "Owner Phone",
+            "City",
+            "State",
+            "Pincode",
+            "Account Status",
+            "Online Status",
+            "Delivery Status",
+            "Delivery Zone",
+            "Orders",
+            "Products",
+            "Revenue",
+            "Rating",
+            "Created At",
+        ]
+    ]
+
+    for idx, store in enumerate(stores, start=1):
+        is_online = int(store.get("is_online", store.get("is_open", 1)) or 0) == 1
+        delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available") else 0) or 0) == 1
+        zone_ready = _admin_store_list_zone_ready(store)
+
+        rows.append([
+            idx,
+            store.get("store_name", ""),
+            store.get("id", ""),
+            store.get("owner_name", ""),
+            store.get("owner_email", ""),
+            store.get("owner_phone", ""),
+            store.get("city", ""),
+            store.get("state", ""),
+            store.get("pincode", ""),
+            "Active" if int(store.get("is_active") or 0) == 1 else "Inactive",
+            "Online" if is_online else "Offline",
+            "Delivery On" if delivery_on else "Delivery Off",
+            "Zone Ready" if zone_ready else "Zone Missing",
+            store.get("orders", 0),
+            store.get("products", 0),
+            "%.2f" % float(store.get("revenue") or 0),
+            store.get("rating", 0),
+            store.get("created_at", ""),
+        ])
+
+    def csv_escape(value):
+        value = "" if value is None else str(value)
+        return '"' + value.replace('"', '""') + '"'
+
+    csv_data = "\n".join(",".join(csv_escape(col) for col in row) for row in rows)
+
+    suffix_parts = [
+        (filters.get("status") or "all").replace(" ", "_"),
+    ]
+
+    if filters.get("q"):
+        suffix_parts.append("searched")
+
+    filename = "nelocals_stores_" + "_".join(suffix_parts) + ".csv"
+
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@app.route("/admin/stores/overview/export.csv")
+@login_required(role="admin")
+def admin_store_overview_export_csv():
+    stores, filters = _admin_store_overview_build_rows()
+    suffix = (filters.get("range") or "all").replace(" ", "_")
+    return _admin_store_overview_csv_response(stores, f"nelocals_store_overview_{suffix}.csv")
+
 
 @app.route("/admin/stores/<store_id>/toggle", methods=["POST"])
 @login_required(role="admin")
@@ -4814,14 +5536,12 @@ def admin_store_toggle(store_id):
     try:
         sid = ObjectId(store_id)
     except Exception:
-        flash("Invalid store.", "danger")
-        return redirect(url_for("admin_store_list"))
+        return _admin_store_json_or_redirect(False, "Invalid store.", "danger", 400)
 
     store = mongo.stores.find_one({"_id": sid})
 
     if not store:
-        flash("Store not found.", "warning")
-        return redirect(url_for("admin_store_list"))
+        return _admin_store_json_or_redirect(False, "Store not found.", "warning", 404)
 
     current_status = int(store.get("is_active", 1) or 0)
     next_status = 0 if current_status == 1 else 1
@@ -4841,9 +5561,15 @@ def admin_store_toggle(store_id):
         except Exception:
             pass
 
-    flash("Store status updated successfully.", "success")
-    return redirect(url_for("admin_store_list"))
-
+    return _admin_store_json_or_redirect(
+        True,
+        "Store status updated successfully.",
+        "success",
+        store_id=str(sid),
+        field="is_active",
+        value=next_status,
+        store_counts=_admin_store_ajax_counts_payload(),
+    )
 
 @app.route("/admin/stores/<store_id>/online-toggle", methods=["POST"])
 @login_required(role="admin")
@@ -4851,14 +5577,12 @@ def admin_store_online_toggle(store_id):
     try:
         sid = ObjectId(store_id)
     except Exception:
-        flash("Invalid store.", "danger")
-        return redirect(url_for("admin_store_list"))
+        return _admin_store_json_or_redirect(False, "Invalid store.", "danger", 400)
 
     store = mongo.stores.find_one({"_id": sid})
 
     if not store:
-        flash("Store not found.", "warning")
-        return redirect(url_for("admin_store_list"))
+        return _admin_store_json_or_redirect(False, "Store not found.", "warning", 404)
 
     current_status = int(store.get("is_online", store.get("is_open", 1)) or 0)
     next_status = 0 if current_status == 1 else 1
@@ -4877,9 +5601,15 @@ def admin_store_online_toggle(store_id):
         }
     )
 
-    flash("Store is now online." if next_status else "Store is now offline.", "success")
-    return redirect(url_for("admin_store_list"))
-
+    return _admin_store_json_or_redirect(
+        True,
+        "Store is now online." if next_status else "Store is now offline.",
+        "success",
+        store_id=str(sid),
+        field="is_online",
+        value=next_status,
+        store_counts=_admin_store_ajax_counts_payload(),
+    )
 
 @app.route("/admin/stores/<store_id>/delivery-toggle", methods=["POST"])
 @login_required(role="admin")
@@ -4887,14 +5617,12 @@ def admin_store_delivery_toggle(store_id):
     try:
         sid = ObjectId(store_id)
     except Exception:
-        flash("Invalid store.", "danger")
-        return redirect(url_for("admin_store_list"))
+        return _admin_store_json_or_redirect(False, "Invalid store.", "danger", 400)
 
     store = mongo.stores.find_one({"_id": sid})
 
     if not store:
-        flash("Store not found.", "warning")
-        return redirect(url_for("admin_store_list"))
+        return _admin_store_json_or_redirect(False, "Store not found.", "warning", 404)
 
     current_status = int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0)
     next_status = 0 if current_status == 1 else 1
@@ -4913,9 +5641,38 @@ def admin_store_delivery_toggle(store_id):
         }
     )
 
-    flash("Store delivery is now enabled." if next_status else "Store delivery is now disabled.", "success")
-    return redirect(url_for("admin_store_list"))
+    return _admin_store_json_or_redirect(
+        True,
+        "Store delivery is now enabled." if next_status else "Store delivery is now disabled.",
+        "success",
+        store_id=str(sid),
+        field="delivery_enabled",
+        value=next_status,
+        store_counts=_admin_store_ajax_counts_payload(),
+    )
 
+@app.route("/admin/stores/<store_id>/edit", methods=["GET"], endpoint="admin_store_edit")
+@login_required(role="admin")
+def admin_store_edit(store_id):
+    try:
+        sid = ObjectId(store_id)
+    except Exception:
+        flash("Invalid store.", "danger")
+        return redirect(url_for("admin_store_list"))
+
+    store = mongo.stores.find_one({"_id": sid})
+
+    if not store:
+        flash("Store not found.", "warning")
+        return redirect(url_for("admin_store_list"))
+
+    return render_template(
+        "admin_store_edit.html",
+        user=current_user(),
+        store=_admin_store_edit_row(store),
+        active_group="store",
+        active_page="store_list",
+    )
 
 @app.route("/admin/stores/<store_id>/update", methods=["POST"])
 @login_required(role="admin")
@@ -4938,15 +5695,29 @@ def admin_store_update(store_id):
     state = (request.form.get("state") or store.get("state") or "Assam").strip()
     pincode = _clean_pin(request.form.get("pincode") or store.get("pincode") or "")
 
+    latitude_raw = request.form.get("latitude")
+    longitude_raw = request.form.get("longitude")
+
     latitude = _admin_float_or_none(
-        request.form.get("latitude"),
+        latitude_raw,
         -90,
         90
     )
     longitude = _admin_float_or_none(
-        request.form.get("longitude"),
+        longitude_raw,
         -180,
         180
+    )
+
+    if latitude is None and str(latitude_raw or "").strip() == "":
+        latitude = _admin_float_or_none(store.get("latitude"), -90, 90)
+
+    if longitude is None and str(longitude_raw or "").strip() == "":
+        longitude = _admin_float_or_none(store.get("longitude"), -180, 180)
+
+    is_active = _admin_bool_from_form(
+        "is_active",
+        bool(int(store.get("is_active", 1) or 0))
     )
 
     is_online = _admin_bool_from_form(
@@ -4963,9 +5734,22 @@ def admin_store_update(store_id):
     if delivery_mode not in ["polygon"]:
         delivery_mode = "polygon"
 
-    delivery_zone_polygon = _admin_parse_delivery_zone_polygon(
-        request.form.get("delivery_zone_polygon") or json.dumps(store.get("delivery_zone_polygon") or [])
+    raw_delivery_zone_polygon = request.form.get("delivery_zone_polygon")
+    existing_delivery_zone_polygon = _admin_parse_delivery_zone_polygon(
+        json.dumps(store.get("delivery_zone_polygon") or [])
     )
+    submitted_delivery_zone_polygon = _admin_parse_delivery_zone_polygon(
+        raw_delivery_zone_polygon if raw_delivery_zone_polygon is not None else ""
+    )
+
+    if (
+        delivery_enabled
+        and not submitted_delivery_zone_polygon
+        and existing_delivery_zone_polygon
+    ):
+        delivery_zone_polygon = existing_delivery_zone_polygon
+    else:
+        delivery_zone_polygon = submitted_delivery_zone_polygon
 
     delivery_base_fee = _admin_money_or_default(
         request.form.get("delivery_base_fee"),
@@ -4988,6 +5772,10 @@ def admin_store_update(store_id):
         flash("Store state must be Assam for delivery operations.", "warning")
         return redirect(url_for("admin_store_list"))
 
+    if latitude is None or longitude is None:
+        flash("Store pickup latitude and longitude are required.", "warning")
+        return redirect(url_for("admin_store_list"))
+
     if delivery_enabled and delivery_mode == "polygon" and not delivery_zone_polygon:
         flash("Delivery zone polygon is required when delivery is enabled.", "warning")
         return redirect(url_for("admin_store_list"))
@@ -5006,6 +5794,7 @@ def admin_store_update(store_id):
                 "latitude": latitude,
                 "longitude": longitude,
 
+                "is_active": 1 if is_active else 0,
                 "is_online": 1 if is_online else 0,
                 "is_open": 1 if is_online else 0,
 
@@ -5025,6 +5814,7 @@ def admin_store_update(store_id):
 
     if user_id:
         update_user = {}
+        update_user["is_active"] = 1 if is_active else 0
 
         if owner_name:
             update_user["name"] = owner_name
@@ -5053,14 +5843,12 @@ def admin_store_delete(store_id):
     try:
         sid = ObjectId(store_id)
     except Exception:
-        flash("Invalid store.", "danger")
-        return redirect(url_for("admin_store_list"))
+        return _admin_store_json_or_redirect(False, "Invalid store.", "danger", 400)
 
     store = mongo.stores.find_one({"_id": sid})
 
     if not store:
-        flash("Store not found.", "warning")
-        return redirect(url_for("admin_store_list"))
+        return _admin_store_json_or_redirect(False, "Store not found.", "warning", 404)
 
     order_cnt = mongo.orders.count_documents({
         "$or": [
@@ -5086,8 +5874,16 @@ def admin_store_delete(store_id):
             except Exception:
                 pass
 
-        flash("Store has orders, so it was disabled instead of deleted.", "warning")
-        return redirect(url_for("admin_store_list"))
+        return _admin_store_json_or_redirect(
+            True,
+            "Store has orders, so it was disabled instead of deleted.",
+            "warning",
+            store_id=str(sid),
+            mode="disabled",
+            field="is_active",
+            value=0,
+            store_counts=_admin_store_ajax_counts_payload(),
+        )
 
     mongo.products.delete_many({
         "$or": [
@@ -5104,8 +5900,14 @@ def admin_store_delete(store_id):
         except Exception:
             pass
 
-    flash("Store deleted successfully.", "success")
-    return redirect(url_for("admin_store_list"))
+    return _admin_store_json_or_redirect(
+        True,
+        "Store deleted successfully.",
+        "success",
+        store_id=str(sid),
+        mode="deleted",
+        store_counts=_admin_store_ajax_counts_payload(),
+    )
 
 @app.route('/admin/delivery')
 @login_required(role='admin')

@@ -1,0 +1,975 @@
+{% extends "admin_base.html" %}
+
+{% set active_group = "store" %}
+{% set active_page = "store_list" %}
+
+{% block title %}Edit Store Admin Profile | NE Locals Admin{% endblock %}
+{% block page_title %}Edit Store Admin Profile{% endblock %}
+{% block page_subtitle %}Update store admin details, pickup location and delivery service area.{% endblock %}
+
+{% block content %}
+<section class="nf-store-edit-page">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+  .nf-store-edit-page{
+    --bg: var(--nf-bg, #F8FFFB);
+    --panel: var(--nf-surface, #FFFFFF);
+    --panel-soft: var(--nf-surface-2, #F2FBF6);
+    --line: var(--nf-line, #DDECE4);
+    --text: var(--nf-text, #1F332A);
+    --muted: var(--nf-muted, #66756D);
+    --green: var(--nf-green, #00A859);
+    --green-dark: var(--nf-green-dark, #008A48);
+    --green-soft: var(--nf-green-soft, #E9FFF3);
+    --danger: var(--nf-danger, #EF4444);
+    --shadow: var(--nf-shadow, 0 14px 36px rgba(17,64,38,.08));
+    --shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17,64,38,.06));
+
+    width:100%;
+    min-height:100%;
+    background:var(--bg);
+    padding:clamp(14px, 2.4vw, 24px);
+    color:var(--text);
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  .nf-store-edit-page *,
+  .nf-store-edit-page *::before,
+  .nf-store-edit-page *::after{ box-sizing:border-box; }
+
+  .se-shell{
+    width:100%;
+    max-width:1320px;
+    margin:0 auto;
+    display:grid;
+    gap:20px;
+  }
+
+  .se-hero,
+  .se-panel,
+  .se-location-card,
+  .se-map-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:22px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+
+  .se-hero{
+    padding:clamp(18px, 3vw, 30px);
+  }
+
+  .se-hero-top{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:16px;
+    align-items:start;
+  }
+
+  .se-badge{
+    width:fit-content;
+    max-width:100%;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:var(--green-soft);
+    border:1px solid rgba(0,168,89,.18);
+    color:var(--green-dark);
+    padding:8px 13px;
+    border-radius:999px;
+    font-size:.78rem;
+    font-weight:900;
+    letter-spacing:.045em;
+    text-transform:uppercase;
+    margin:0 0 12px;
+  }
+
+  .se-title{
+    margin:0;
+    color:var(--text);
+    font-size:clamp(1.65rem, 4vw, 2.55rem);
+    line-height:1.08;
+    font-weight:950;
+    letter-spacing:-.045em;
+  }
+
+  .se-desc{
+    margin-top:10px;
+    color:var(--muted);
+    font-size:.96rem;
+    line-height:1.65;
+    font-weight:650;
+    max-width:860px;
+  }
+
+  .se-actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+
+  .se-btn,
+  .se-map-btn{
+    min-height:44px;
+    border:1px solid var(--line);
+    border-radius:13px;
+    background:var(--panel);
+    color:var(--text);
+    padding:0 16px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    font-size:.84rem;
+    font-weight:900;
+    text-decoration:none;
+    cursor:pointer;
+    transition:transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+    white-space:nowrap;
+  }
+
+  .se-btn:hover,
+  .se-map-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:var(--shadow-soft);
+    border-color:rgba(0,168,89,.28);
+  }
+
+  .se-btn.primary,
+  .se-map-btn.primary{
+    background:var(--green);
+    color:#fff;
+    border-color:var(--green);
+  }
+
+  .se-btn.primary:hover,
+  .se-map-btn.primary:hover{
+    background:var(--green-dark);
+    border-color:var(--green-dark);
+  }
+
+  .se-panel-head,
+  .se-location-head,
+  .se-map-head{
+    padding:clamp(18px, 2.5vw, 24px);
+    border-bottom:1px solid var(--line);
+    background:var(--panel);
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+
+  .se-panel-title,
+  .se-location-title,
+  .se-map-title{
+    margin:0;
+    color:var(--text);
+    font-size:clamp(1.05rem, 2.2vw, 1.35rem);
+    line-height:1.2;
+    font-weight:950;
+    letter-spacing:-.025em;
+  }
+
+  .se-sub{
+    margin-top:6px;
+    color:var(--muted);
+    font-size:.88rem;
+    line-height:1.55;
+    font-weight:650;
+  }
+
+  .se-body{
+    padding:clamp(18px, 2.5vw, 26px);
+  }
+
+  .se-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:18px;
+  }
+
+  .se-field{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-width:0;
+  }
+
+  .se-field.full{ grid-column:1/-1; }
+
+  .se-label{
+    color:var(--text);
+    font-size:.8rem;
+    font-weight:900;
+    letter-spacing:.025em;
+  }
+
+  .se-label span{ color:var(--danger); }
+
+  .se-input,
+  .se-textarea{
+    width:100%;
+    border:1px solid var(--line);
+    background:var(--panel-soft);
+    min-height:52px;
+    border-radius:15px;
+    padding:0 16px;
+    font-size:.92rem;
+    color:var(--text);
+    font-weight:700;
+    outline:none;
+    transition:border-color .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+
+  .se-textarea{
+    min-height:112px;
+    padding-top:15px;
+    resize:vertical;
+    line-height:1.55;
+  }
+
+  .se-input:focus,
+  .se-textarea:focus{
+    border-color:rgba(0,168,89,.42);
+    background:var(--panel);
+    box-shadow:0 0 0 4px rgba(0,168,89,.10);
+  }
+
+  .se-location-card,
+  .se-map-card{ margin-top:20px; box-shadow:none; }
+
+  .se-switch-grid{
+    margin-top:18px;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:14px;
+  }
+
+  .se-switch-card{
+    border:1px solid var(--line);
+    background:var(--panel-soft);
+    border-radius:18px;
+    padding:16px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:14px;
+  }
+
+  .se-switch-card strong{
+    display:block;
+    color:var(--text);
+    font-size:.9rem;
+    font-weight:950;
+    margin-bottom:5px;
+  }
+
+  .se-switch-card span{
+    display:block;
+    color:var(--muted);
+    font-size:.78rem;
+    line-height:1.48;
+    font-weight:700;
+  }
+
+  .se-toggle{ position:relative; width:56px; height:32px; flex:0 0 auto; }
+  .se-toggle input{ opacity:0; width:0; height:0; }
+  .se-toggle-slider{ position:absolute; inset:0; border-radius:999px; background:#DCE8E1; border:1px solid var(--line); cursor:pointer; transition:.22s ease; }
+  .se-toggle-slider::before{ content:""; position:absolute; width:24px; height:24px; left:3px; top:3px; border-radius:50%; background:#fff; box-shadow:0 4px 10px rgba(15,23,42,.18); transition:.22s ease; }
+  .se-toggle input:checked + .se-toggle-slider{ background:var(--green); border-color:var(--green); }
+  .se-toggle input:checked + .se-toggle-slider::before{ transform:translateX(24px); }
+
+  .se-map-actions{ display:flex; gap:9px; flex-wrap:wrap; justify-content:flex-end; }
+  .se-map-btn{ min-height:40px; padding:0 13px; font-size:.76rem; }
+  .se-map-btn.danger{ background:#FFF1F1; border-color:rgba(239,68,68,.24); color:#B91C1C; }
+  .se-map-btn[disabled]{ opacity:.48; cursor:not-allowed; transform:none!important; box-shadow:none!important; }
+
+  #editStoreDeliveryMap{ width:100%; height:clamp(320px, 42vw, 430px); background:var(--panel-soft); z-index:1; }
+
+  .se-zone-tools{ padding:14px 18px; border-top:1px solid var(--line); background:var(--panel-soft); display:grid; gap:10px; }
+  .se-zone-status{ color:var(--muted); font-size:.83rem; font-weight:850; line-height:1.45; }
+  .se-zone-status.ok{ color:#15803d; }
+  .se-zone-status.bad{ color:#b91c1c; }
+  .se-zone-counter{ color:var(--muted); font-size:.78rem; font-weight:800; }
+
+  .se-submit-wrap{ margin-top:24px; display:flex; justify-content:flex-end; gap:12px; flex-wrap:wrap; }
+
+
+
+  .se-control-section{
+    margin-top:20px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    border-radius:20px;
+    overflow:hidden;
+    box-shadow:none;
+  }
+
+  .se-control-head{
+    padding:18px;
+    border-bottom:1px solid var(--line);
+    background:var(--panel);
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+
+  .se-control-title{
+    margin:0;
+    color:var(--text);
+    font-size:clamp(.98rem, 2vw, 1.08rem);
+    font-weight:950;
+    letter-spacing:-.015em;
+  }
+
+  .se-control-body{
+    padding:18px;
+  }
+
+  .se-control-grid{
+    margin-top:0;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+
+  .se-switch-card{
+    min-height:122px;
+    transition:border-color .2s ease, box-shadow .2s ease, transform .2s ease, background .2s ease;
+  }
+
+  .se-switch-card:hover{
+    border-color:rgba(0,168,89,.25);
+    box-shadow:var(--shadow-soft);
+    transform:translateY(-1px);
+  }
+
+  .se-control-tag{
+    margin-top:10px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:26px;
+    padding:5px 9px;
+    border-radius:999px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:.72rem;
+    font-weight:900;
+  }
+
+  .se-danger-zone{
+    margin-top:22px;
+    border:1px solid rgba(239,68,68,.24);
+    background:#FFF7F7;
+    border-radius:20px;
+    padding:18px;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:16px;
+    align-items:center;
+  }
+
+  .se-danger-title{
+    margin:0;
+    color:#991B1B;
+    font-size:1rem;
+    font-weight:950;
+    letter-spacing:-.01em;
+  }
+
+  .se-danger-text{
+    margin-top:6px;
+    color:#7F1D1D;
+    font-size:.84rem;
+    line-height:1.55;
+    font-weight:700;
+  }
+
+  .se-btn.danger{
+    background:#FFF1F1;
+    color:#B91C1C;
+    border-color:rgba(239,68,68,.28);
+  }
+
+  .se-btn.danger:hover{
+    background:#FEE2E2;
+    border-color:rgba(239,68,68,.38);
+  }
+
+  .se-confirm-backdrop{
+    position:fixed;
+    inset:0;
+    z-index:2500;
+    display:none;
+    place-items:center;
+    padding:max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+    background:rgba(3,31,22,.52);
+    backdrop-filter:blur(7px);
+    -webkit-backdrop-filter:blur(7px);
+  }
+
+  .se-confirm-backdrop.open{
+    display:grid;
+  }
+
+  .se-confirm-modal{
+    width:min(520px,100%);
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:22px;
+    box-shadow:0 24px 70px rgba(17,64,38,.18);
+    overflow:hidden;
+  }
+
+  .se-confirm-head{
+    padding:18px;
+    border-bottom:1px solid var(--line);
+  }
+
+  .se-confirm-head h3{
+    margin:0;
+    color:var(--text);
+    font-size:1.12rem;
+    font-weight:950;
+    letter-spacing:-.02em;
+  }
+
+  .se-confirm-head p{
+    margin:7px 0 0;
+    color:var(--muted);
+    font-size:.86rem;
+    line-height:1.55;
+    font-weight:700;
+  }
+
+  .se-confirm-actions{
+    padding:16px 18px;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+
+
+  @media(max-width:900px){
+    .se-hero-top,
+    .se-grid,
+    .se-switch-grid,
+    .se-control-grid,
+    .se-danger-zone{ grid-template-columns:1fr; }
+    .se-actions,.se-map-actions{ justify-content:flex-start; }
+  }
+
+  @media(max-width:720px){
+    .nf-store-edit-page{ padding:12px; }
+    .se-shell{ gap:14px; }
+    .se-hero,.se-panel,.se-location-card,.se-map-card{ border-radius:18px; }
+    .se-hero,.se-panel-head,.se-body,.se-location-head,.se-map-head{ padding:16px; }
+    .se-actions,.se-submit-wrap,.se-map-actions,.se-confirm-actions{ display:grid; grid-template-columns:1fr; width:100%; }
+    .se-btn,.se-map-btn{ width:100%; }
+    #editStoreDeliveryMap{ height:330px; }
+  }
+
+  @media(max-width:480px){
+    .nf-store-edit-page{ padding:10px; }
+    .se-badge{ width:100%; justify-content:center; text-align:center; white-space:normal; }
+    .se-input,.se-textarea{ font-size:16px; }
+    #editStoreDeliveryMap{ height:300px; }
+  }
+</style>
+
+<div class="se-shell">
+  <div class="se-hero">
+    <div class="se-hero-top">
+      <div>
+        <div class="se-badge">🏪 NE Locals Store Management</div>
+        <h1 class="se-title">Edit Store Admin Profile</h1>
+        <div class="se-desc">Update {{ store.store_name|default('store') }} profile details, pickup coordinates and delivery service area.</div>
+      </div>
+      <div class="se-actions">
+        <a href="{{ url_for('admin_store_list') }}" class="se-btn">← Back to Store List</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="se-panel">
+    <div class="se-panel-head">
+      <div>
+        <h2 class="se-panel-title">Store Admin Details</h2>
+        <div class="se-sub">Edit only the required details and save the profile.</div>
+      </div>
+    </div>
+
+    <div class="se-body">
+      <form method="post" id="editStorePageForm" action="{{ url_for('admin_store_update', store_id=store.id) }}">
+        <div class="se-grid">
+          <div class="se-field full">
+            <label class="se-label">Store Admin Name <span>*</span></label>
+            <input class="se-input" type="text" name="store_name" value="{{ store.store_name|default('') }}" required>
+          </div>
+
+          <div class="se-field full">
+            <label class="se-label">Store Address</label>
+            <textarea class="se-textarea" name="address">{{ store.address|default('') }}</textarea>
+          </div>
+
+          <div class="se-field">
+            <label class="se-label">Owner Name</label>
+            <input class="se-input" type="text" name="owner_name" value="{{ store.owner_name|default('') }}">
+          </div>
+
+          <div class="se-field">
+            <label class="se-label">Owner Email</label>
+            <input class="se-input" type="email" name="owner_email" value="{{ store.owner_email|default('') }}">
+          </div>
+
+          <div class="se-field">
+            <label class="se-label">Owner Phone</label>
+            <input class="se-input" type="text" name="owner_phone" value="{{ store.owner_phone|default('') }}">
+          </div>
+        </div>
+
+        <div class="se-location-card">
+          <div class="se-location-head">
+            <div>
+              <h2 class="se-location-title">Pickup Location & Delivery Setup</h2>
+              <div class="se-sub">Update pickup coordinates, delivery fee rule and delivery service area.</div>
+            </div>
+          </div>
+
+          <div class="se-body">
+            <div class="se-grid">
+              <div class="se-field">
+                <label class="se-label">City / Area</label>
+                <input class="se-input" id="editStoreCity" name="city" type="text" value="{{ store.city|default('') }}">
+              </div>
+
+              <div class="se-field">
+                <label class="se-label">State</label>
+                <input class="se-input" id="editStoreState" name="state" type="text" value="{{ store.state|default('Assam') }}">
+              </div>
+
+              <div class="se-field">
+                <label class="se-label">Pincode</label>
+                <input class="se-input" id="editStorePincode" name="pincode" type="text" inputmode="numeric" maxlength="6" value="{{ store.pincode|default('') }}">
+              </div>
+
+              <div class="se-field">
+                <label class="se-label">Admin Delivery Fee Rule</label>
+                <input class="se-input" id="editDeliveryBaseFee" name="delivery_base_fee" type="number" min="0" step="1" value="{{ store.delivery_base_fee|default(40) }}">
+              </div>
+
+              <div class="se-field">
+                <label class="se-label">Latitude <span>*</span></label>
+                <input class="se-input" id="editStoreLatitude" name="latitude" type="text" value="{{ store.latitude|default('') }}" required>
+              </div>
+
+              <div class="se-field">
+                <label class="se-label">Longitude <span>*</span></label>
+                <input class="se-input" id="editStoreLongitude" name="longitude" type="text" value="{{ store.longitude|default('') }}" required>
+              </div>
+            </div>
+
+            <div class="se-control-section">
+              <div class="se-control-head">
+                <div>
+                  <h3 class="se-control-title">Account & Store Controls</h3>
+                  <div class="se-sub">Manage account activation, daily store availability and delivery availability from this edit page.</div>
+                </div>
+              </div>
+
+              <div class="se-control-body">
+                <div class="se-switch-grid se-control-grid">
+                  <label class="se-switch-card">
+                    <div>
+                      <strong>Account Profile Status</strong>
+                      <span>Inactive disables the store admin profile and linked account access.</span>
+                      <em class="se-control-tag">Master control</em>
+                    </div>
+                    <span class="se-toggle">
+                      <input type="checkbox" id="editStoreActive" name="is_active" value="1" {% if store.is_active|int == 1 %}checked{% endif %}>
+                      <span class="se-toggle-slider"></span>
+                    </span>
+                  </label>
+
+                  <label class="se-switch-card">
+                    <div>
+                      <strong>Store Operational Status</strong>
+                      <span>Online stores can receive eligible customer orders. Offline is temporary closing.</span>
+                      <em class="se-control-tag">Daily operation</em>
+                    </div>
+                    <span class="se-toggle">
+                      <input type="checkbox" id="editStoreOnline" name="is_online" value="1" {% if store.is_online|int == 1 %}checked{% endif %}>
+                      <span class="se-toggle-slider"></span>
+                    </span>
+                  </label>
+
+                  <label class="se-switch-card">
+                    <div>
+                      <strong>Delivery Service Enabled</strong>
+                      <span>Enable only when a valid delivery service area is configured.</span>
+                      <em class="se-control-tag">Delivery control</em>
+                    </div>
+                    <span class="se-toggle">
+                      <input type="checkbox" id="editDeliveryEnabled" name="delivery_enabled" value="1" {% if store.delivery_enabled|int == 1 %}checked{% endif %}>
+                      <span class="se-toggle-slider"></span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <input type="hidden" name="delivery_mode" value="polygon">
+            <input type="hidden" id="editDeliveryZonePolygon" name="delivery_zone_polygon" value='{{ store.delivery_zone_polygon|default([])|tojson|forceescape }}'>
+
+            <div class="se-map-card">
+              <div class="se-map-head">
+                <div>
+                  <div class="se-map-title">Delivery Service Area Map</div>
+                  <div class="se-sub">Existing polygon is loaded automatically. Click map to add points or clear and redraw.</div>
+                </div>
+                <div class="se-map-actions">
+                  <button type="button" class="se-map-btn primary" id="editCenterMapBtn">Center Pickup</button>
+                  <button type="button" class="se-map-btn" id="editUndoZonePoint" disabled>Undo Point</button>
+                  <button type="button" class="se-map-btn" id="editFinishZone" disabled>Mark Area Ready</button>
+                  <button type="button" class="se-map-btn danger" id="editClearZone" disabled>Clear Area</button>
+                </div>
+              </div>
+
+              <div id="editStoreDeliveryMap"></div>
+              <div class="se-zone-tools">
+                <div class="se-zone-status bad" id="editZoneStatus">Delivery service area not configured.</div>
+                <div class="se-zone-counter" id="editZonePointCount">0 points added</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="se-submit-wrap">
+          <a href="{{ url_for('admin_store_list') }}" class="se-btn">Cancel</a>
+          <button type="submit" class="se-btn primary">Save Store Admin Changes</button>
+        </div>
+      </form>
+
+      <div class="se-danger-zone">
+        <div>
+          <h3 class="se-danger-title">Danger Zone</h3>
+          <div class="se-danger-text">
+            Delete this store only when it is no longer required. If this store has existing orders, the system will disable the store instead of permanently deleting it.
+          </div>
+        </div>
+
+        <form method="post" action="{{ url_for('admin_store_delete', store_id=store.id) }}" id="deleteStorePageForm">
+          <button type="button" class="se-btn danger" id="openDeleteStoreConfirm">Delete Store</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="se-confirm-backdrop" id="deleteStoreConfirmModal" aria-hidden="true">
+  <div class="se-confirm-modal" role="dialog" aria-modal="true">
+    <div class="se-confirm-head">
+      <h3>Confirm Store Delete</h3>
+      <p>Delete {{ store.store_name|default('this store') }}? If this store has orders, it will be disabled instead of deleted.</p>
+    </div>
+    <div class="se-confirm-actions">
+      <button type="button" class="se-btn" id="cancelDeleteStoreConfirm">Cancel</button>
+      <button type="button" class="se-btn danger" id="confirmDeleteStoreBtn">Confirm Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const page = document.querySelector('.nf-store-edit-page');
+  if (!page || page.dataset.editStoreBooted === '1') return;
+  page.dataset.editStoreBooted = '1';
+
+  const LEAFLET_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  const LEAFLET_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+
+  function ensureLeafletCss(){
+    try {
+      const exists = Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).some(function(link){
+        try { return new URL(link.getAttribute('href') || '', window.location.href).href === LEAFLET_CSS; } catch(e) { return false; }
+      });
+      if (!exists) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = LEAFLET_CSS;
+        document.head.appendChild(link);
+      }
+    } catch(e) {}
+  }
+
+  function ensureLeaflet(){
+    ensureLeafletCss();
+    if (window.L && typeof window.L.map === 'function') return Promise.resolve(window.L);
+    if (window.__NELOCALS_LEAFLET_LOADING__) return window.__NELOCALS_LEAFLET_LOADING__;
+
+    window.__NELOCALS_LEAFLET_LOADING__ = new Promise(function(resolve, reject){
+      let existing = null;
+      try {
+        existing = Array.prototype.slice.call(document.querySelectorAll('script[src]')).find(function(script){
+          try { return new URL(script.getAttribute('src') || '', window.location.href).href === LEAFLET_JS; } catch(e) { return false; }
+        }) || null;
+      } catch(e) {}
+
+      function finish(){
+        if (window.L && typeof window.L.map === 'function') resolve(window.L);
+        else reject(new Error('Leaflet could not be loaded.'));
+      }
+
+      if (existing) {
+        existing.addEventListener('load', finish, { once:true });
+        existing.addEventListener('error', function(){ reject(new Error('Leaflet script failed to load.')); }, { once:true });
+        window.setTimeout(finish, 3000);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = LEAFLET_JS;
+      script.async = true;
+      script.onload = finish;
+      script.onerror = function(){ reject(new Error('Leaflet script failed to load.')); };
+      document.body.appendChild(script);
+    });
+
+    return window.__NELOCALS_LEAFLET_LOADING__;
+  }
+
+  const form = document.getElementById('editStorePageForm');
+  const latInput = document.getElementById('editStoreLatitude');
+  const lngInput = document.getElementById('editStoreLongitude');
+  const pinInput = document.getElementById('editStorePincode');
+  const zoneInput = document.getElementById('editDeliveryZonePolygon');
+  const deliveryEnabled = document.getElementById('editDeliveryEnabled');
+  const storeActive = document.getElementById('editStoreActive');
+  const storeOnline = document.getElementById('editStoreOnline');
+  const zoneStatus = document.getElementById('editZoneStatus');
+  const pointCount = document.getElementById('editZonePointCount');
+  const centerBtn = document.getElementById('editCenterMapBtn');
+  const undoBtn = document.getElementById('editUndoZonePoint');
+  const finishBtn = document.getElementById('editFinishZone');
+  const clearBtn = document.getElementById('editClearZone');
+  const deleteForm = document.getElementById('deleteStorePageForm');
+  const deleteModal = document.getElementById('deleteStoreConfirmModal');
+  const openDeleteBtn = document.getElementById('openDeleteStoreConfirm');
+  const cancelDeleteBtn = document.getElementById('cancelDeleteStoreConfirm');
+  const confirmDeleteBtn = document.getElementById('confirmDeleteStoreBtn');
+
+  let map = null;
+  let storeMarker = null;
+  let zonePolygon = null;
+  let zoneMarkers = [];
+  let zonePoints = [];
+
+  function safeFloat(value){
+    if (value === null || value === undefined || String(value).trim() === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function cleanPin(value){ return String(value || '').replace(/\D+/g, '').slice(0, 6); }
+
+  function normalizePoint(point){
+    if (!Array.isArray(point) || point.length !== 2) return null;
+    const lat = safeFloat(point[0]);
+    const lng = safeFloat(point[1]);
+    if (lat === null || lng === null) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    return [Number(lat.toFixed(6)), Number(lng.toFixed(6))];
+  }
+
+  function readZone(){
+    try {
+      const raw = zoneInput ? String(zoneInput.value || '').trim() : '';
+      const data = raw ? JSON.parse(raw) : [];
+      return Array.isArray(data) ? data.map(normalizePoint).filter(Boolean) : [];
+    } catch(e) { return []; }
+  }
+
+  function setZoneMessage(text, ok){
+    if (!zoneStatus) return;
+    zoneStatus.textContent = text || '';
+    zoneStatus.classList.toggle('ok', !!ok);
+    zoneStatus.classList.toggle('bad', !ok);
+  }
+
+  function updateZoneInput(){
+    if (zoneInput) zoneInput.value = JSON.stringify(zonePoints);
+    const count = zonePoints.length;
+    if (pointCount) pointCount.textContent = `${count} point${count === 1 ? '' : 's'} added`;
+    if (undoBtn) undoBtn.disabled = count === 0;
+    if (clearBtn) clearBtn.disabled = count === 0;
+    if (finishBtn) finishBtn.disabled = count < 3;
+    if (deliveryEnabled && count < 3) deliveryEnabled.checked = false;
+
+    if (count >= 3) setZoneMessage(`Delivery zone ready with ${count} points.`, true);
+    else if (count > 0) setZoneMessage(`Add ${3 - count} more point${3 - count === 1 ? '' : 's'} to complete delivery zone.`, false);
+    else setZoneMessage('Delivery service area not configured. Click at least 3 points on the map.', false);
+  }
+
+  function redrawZone(){
+    if (!map || !window.L) { updateZoneInput(); return; }
+    if (zonePolygon) { zonePolygon.remove(); zonePolygon = null; }
+    zoneMarkers.forEach(function(marker){ marker.remove(); });
+    zoneMarkers = [];
+
+    zonePoints.forEach(function(point, index){
+      const marker = L.circleMarker(point, { radius:7, color:'#00A859', fillColor:'#00A859', fillOpacity:1, weight:2 }).addTo(map);
+      marker.bindTooltip(String(index + 1), { permanent:true, direction:'top', offset:[0,-7] });
+      marker.bindPopup(`Point ${index + 1}<br><button type="button" class="remove-edit-zone-point" data-index="${index}">Remove this point</button>`);
+      marker.on('popupopen', function(){
+        window.setTimeout(function(){
+          const btn = document.querySelector(`.remove-edit-zone-point[data-index="${index}"]`);
+          if (btn) btn.addEventListener('click', function(){ zonePoints.splice(index, 1); redrawZone(); });
+        }, 50);
+      });
+      zoneMarkers.push(marker);
+    });
+
+    if (zonePoints.length >= 2) {
+      zonePolygon = L.polygon(zonePoints, { color:'#00A859', fillColor:'#00A859', fillOpacity:.14, weight:3 }).addTo(map);
+    }
+    updateZoneInput();
+  }
+
+  function setStoreMarker(lat, lng){
+    if (!map || !window.L || lat === null || lng === null) return;
+    if (storeMarker) storeMarker.setLatLng([lat, lng]);
+    else storeMarker = L.marker([lat, lng]).addTo(map);
+    storeMarker.bindPopup('Store pickup location');
+  }
+
+  function fitMap(lat, lng){
+    if (!map || !window.L) return;
+    if (zonePoints.length >= 3) {
+      const bounds = L.latLngBounds(zonePoints);
+      if (lat !== null && lng !== null) bounds.extend([lat, lng]);
+      map.fitBounds(bounds.pad(.22));
+      return;
+    }
+    if (lat !== null && lng !== null) map.setView([lat, lng], 15);
+  }
+
+  function initMap(){
+    const mapEl = document.getElementById('editStoreDeliveryMap');
+    if (!mapEl || map) return;
+    if (!window.L || typeof window.L.map !== 'function') {
+      setZoneMessage('Map library failed to load. Check internet connection.', false);
+      updateZoneInput();
+      return;
+    }
+
+    const lat = safeFloat(latInput?.value) ?? 26.1445;
+    const lng = safeFloat(lngInput?.value) ?? 91.7362;
+    zonePoints = readZone();
+
+    map = L.map(mapEl, { scrollWheelZoom:true }).setView([lat, lng], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'&copy; OpenStreetMap' }).addTo(map);
+    map.on('click', function(e){
+      zonePoints.push([Number(e.latlng.lat.toFixed(6)), Number(e.latlng.lng.toFixed(6))]);
+      redrawZone();
+    });
+
+    setStoreMarker(lat, lng);
+    redrawZone();
+    window.setTimeout(function(){ map.invalidateSize(); fitMap(lat, lng); }, 200);
+  }
+
+  function centerMap(){
+    const lat = safeFloat(latInput?.value);
+    const lng = safeFloat(lngInput?.value);
+    if (lat === null || lng === null) { setZoneMessage('Enter valid latitude and longitude first.', false); return; }
+    setStoreMarker(lat, lng);
+    if (map) { map.setView([lat, lng], 15); map.invalidateSize(); }
+  }
+
+  if (centerBtn) centerBtn.addEventListener('click', centerMap);
+  if (undoBtn) undoBtn.addEventListener('click', function(){ if (zonePoints.length) { zonePoints.pop(); redrawZone(); } });
+  if (finishBtn) finishBtn.addEventListener('click', function(){ if (zonePoints.length >= 3) { if (deliveryEnabled) deliveryEnabled.checked = true; redrawZone(); } });
+  if (clearBtn) clearBtn.addEventListener('click', function(){ zonePoints = []; if (deliveryEnabled) deliveryEnabled.checked = false; redrawZone(); });
+  if (latInput) latInput.addEventListener('change', centerMap);
+  if (lngInput) lngInput.addEventListener('change', centerMap);
+  if (pinInput) pinInput.addEventListener('input', function(){ pinInput.value = cleanPin(pinInput.value); });
+
+  function addHiddenValue(targetForm, name, value){
+    if (!targetForm) return;
+    const old = targetForm.querySelector('input[data-generated-hidden="1"][name="' + name + '"]');
+    if (old) old.remove();
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = name;
+    hidden.value = value;
+    hidden.setAttribute('data-generated-hidden', '1');
+    targetForm.appendChild(hidden);
+  }
+
+  if (form) {
+    form.addEventListener('submit', function(event){
+      const lat = safeFloat(latInput?.value);
+      const lng = safeFloat(lngInput?.value);
+      if (lat === null || lng === null) {
+        event.preventDefault();
+        setZoneMessage('Store latitude and longitude are required.', false);
+        return;
+      }
+      if (deliveryEnabled && deliveryEnabled.checked && zonePoints.length < 3) {
+        event.preventDefault();
+        setZoneMessage('Delivery enabled requires at least 3 delivery zone points.', false);
+        return;
+      }
+      if (storeActive && !storeActive.checked) addHiddenValue(form, 'is_active', '0');
+      if (storeOnline && !storeOnline.checked) addHiddenValue(form, 'is_online', '0');
+      if (deliveryEnabled && !deliveryEnabled.checked) addHiddenValue(form, 'delivery_enabled', '0');
+      updateZoneInput();
+    });
+  }
+
+  if (openDeleteBtn && deleteModal) {
+    openDeleteBtn.addEventListener('click', function(){
+      deleteModal.classList.add('open');
+      deleteModal.setAttribute('aria-hidden', 'false');
+    });
+  }
+
+  if (cancelDeleteBtn && deleteModal) {
+    cancelDeleteBtn.addEventListener('click', function(){
+      deleteModal.classList.remove('open');
+      deleteModal.setAttribute('aria-hidden', 'true');
+    });
+  }
+
+  if (deleteModal) {
+    deleteModal.addEventListener('click', function(event){
+      if (event.target === deleteModal) {
+        deleteModal.classList.remove('open');
+        deleteModal.setAttribute('aria-hidden', 'true');
+      }
+    });
+  }
+
+  if (confirmDeleteBtn && deleteForm) {
+    confirmDeleteBtn.addEventListener('click', function(){
+      if (deleteForm.requestSubmit) deleteForm.requestSubmit();
+      else deleteForm.submit();
+    });
+  }
+
+  ensureLeaflet().then(initMap).catch(function(){ setZoneMessage('Map library failed to load. Check internet connection or allow Leaflet/OpenStreetMap CDN.', false); updateZoneInput(); });
+  updateZoneInput();
+})();
+</script>
+</section>
+{% endblock %}
