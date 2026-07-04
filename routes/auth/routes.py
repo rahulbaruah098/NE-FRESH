@@ -55,7 +55,7 @@ def send_registration_otp_email(email, otp, name=""):
               </div>
 
               <div style="margin-top:12px;padding:16px 16px;border-radius:18px;background:#FFF7E8;border:1px solid rgba(255,184,77,0.28);color:#8A5A00;font-size:13px;line-height:1.6;font-weight:600;">
-                This code is valid for <strong>2 minutes</strong>. Do not share it with anyone. If it expires, request a new one after 1 minute.
+                This code is valid for <strong>2 minutes</strong>. Do not share it with anyone. If it expires, request a new one after 30 seconds.
               </div>
             </td>
           </tr>
@@ -360,13 +360,239 @@ def reset_password(token):
 
 
 
+# Register email OTP mode:
+#   "inline" = Send/verify OTP inside register page before Create Account.
+#   "page"   = Old flow: Create Account first, then redirect to verify-email page.
+app.config.setdefault("REGISTER_EMAIL_OTP_MODE", "inline")
+app.config.setdefault("REGISTER_EMAIL_OTP_RESEND_SECONDS", 30)
+app.config.setdefault("REGISTER_EMAIL_OTP_EXPIRY_MINUTES", 2)
+
+
+def get_register_email_otp_mode():
+    mode = str(app.config.get("REGISTER_EMAIL_OTP_MODE", "inline") or "inline").strip().lower()
+    if mode not in ("inline", "page"):
+        mode = "inline"
+    return mode
+
+
+def is_inline_register_email_otp_enabled():
+    return get_register_email_otp_mode() == "inline"
+
+
+def get_register_email_otp_resend_seconds():
+    try:
+        return max(30, int(app.config.get("REGISTER_EMAIL_OTP_RESEND_SECONDS", 30)))
+    except Exception:
+        return 30
+
+
+def get_register_email_otp_expiry_minutes():
+    try:
+        return max(1, int(app.config.get("REGISTER_EMAIL_OTP_EXPIRY_MINUTES", 2)))
+    except Exception:
+        return 2
+
+
+def parse_otp_datetime(value):
+    try:
+        return datetime.fromisoformat(value)
+    except Exception:
+        return None
+
+
+def register_otp_json_data():
+    return request.get_json(silent=True) or request.form or {}
+
+
+def is_valid_email_address(email):
+    return bool(email and "@" in email and "." in email.rsplit("@", 1)[-1])
+
+
+@app.route('/register/send-email-otp', methods=['POST'])
+def register_send_email_otp():
+    if not is_inline_register_email_otp_enabled():
+        return jsonify({
+            "success": False,
+            "error": "Inline register OTP is disabled."
+        }), 400
+
+    data = register_otp_json_data()
+    email = (data.get('email') or '').lower().strip()
+    name = (data.get('name') or '').strip()
+
+    if not is_valid_email_address(email):
+        return jsonify({
+            "success": False,
+            "error": "Please enter a valid email address."
+        }), 400
+
+    existing = mongo.users.find_one({"email": email})
+    if existing and existing.get("email_verified", 1) == 1:
+        return jsonify({
+            "success": False,
+            "error": "This email is already registered. Please login instead."
+        }), 409
+
+    now = datetime.utcnow()
+    active_otp = mongo.register_email_otps.find_one(
+        {
+            "email": email,
+            "purpose": "customer_register_inline",
+            "consumed": 0
+        },
+        sort=[("created_at", -1)]
+    )
+
+    if active_otp:
+        resend_after = parse_otp_datetime(active_otp.get("resend_after"))
+        if resend_after and now < resend_after:
+            retry_after = int((resend_after - now).total_seconds()) + 1
+            return jsonify({
+                "success": False,
+                "error": f"Please wait {retry_after} seconds before requesting another OTP.",
+                "retry_after": retry_after
+            }), 429
+
+    otp = generate_6_digit_otp()
+    resend_seconds = get_register_email_otp_resend_seconds()
+    expiry_minutes = get_register_email_otp_expiry_minutes()
+
+    mongo.register_email_otps.update_many(
+        {
+            "email": email,
+            "purpose": "customer_register_inline",
+            "consumed": 0
+        },
+        {
+            "$set": {
+                "consumed": 1,
+                "consumed_at": now.isoformat(),
+                "consumed_reason": "new_otp_requested"
+            }
+        }
+    )
+
+    mongo.register_email_otps.insert_one({
+        "email": email,
+        "purpose": "customer_register_inline",
+        "otp_code": otp,
+        "otp_expires_at": (now + timedelta(minutes=expiry_minutes)).isoformat(),
+        "resend_after": (now + timedelta(seconds=resend_seconds)).isoformat(),
+        "attempts": 0,
+        "consumed": 0,
+        "created_at": now.isoformat()
+    })
+
+    session.pop('register_inline_email_verified', None)
+
+    threading.Thread(
+        target=send_registration_otp_email,
+        args=(email, otp, name),
+        daemon=True
+    ).start()
+
+    return jsonify({
+        "success": True,
+        "message": "OTP sent. Please check your email inbox, spam, or promotions folder.",
+        "resend_seconds": resend_seconds
+    })
+
+
+@app.route('/register/verify-email-otp', methods=['POST'])
+def register_verify_email_otp():
+    if not is_inline_register_email_otp_enabled():
+        return jsonify({
+            "success": False,
+            "error": "Inline register OTP is disabled."
+        }), 400
+
+    data = register_otp_json_data()
+    email = (data.get('email') or '').lower().strip()
+    otp = (data.get('otp') or '').strip()
+
+    if not is_valid_email_address(email):
+        return jsonify({
+            "success": False,
+            "error": "Please enter a valid email address."
+        }), 400
+
+    if not otp or len(otp) != 6 or not otp.isdigit():
+        return jsonify({
+            "success": False,
+            "error": "Please enter the 6-digit OTP."
+        }), 400
+
+    row = mongo.register_email_otps.find_one(
+        {
+            "email": email,
+            "purpose": "customer_register_inline",
+            "consumed": 0
+        },
+        sort=[("created_at", -1)]
+    )
+
+    if not row:
+        return jsonify({
+            "success": False,
+            "error": "Please send OTP first."
+        }), 404
+
+    expires_at = parse_otp_datetime(row.get("otp_expires_at"))
+    if not expires_at or datetime.utcnow() > expires_at:
+        return jsonify({
+            "success": False,
+            "error": "OTP has expired. Please resend OTP."
+        }), 400
+
+    if int(row.get("attempts", 0) or 0) >= 5:
+        return jsonify({
+            "success": False,
+            "error": "Too many incorrect attempts. Please resend OTP."
+        }), 429
+
+    if otp != str(row.get("otp_code", "")):
+        mongo.register_email_otps.update_one(
+            {"_id": row["_id"]},
+            {"$inc": {"attempts": 1}}
+        )
+        return jsonify({
+            "success": False,
+            "error": "Invalid OTP. Please try again."
+        }), 400
+
+    now = datetime.utcnow()
+    mongo.register_email_otps.update_one(
+        {"_id": row["_id"]},
+        {
+            "$set": {
+                "consumed": 1,
+                "verified": 1,
+                "verified_at": now.isoformat(),
+                "consumed_at": now.isoformat(),
+                "consumed_reason": "verified"
+            }
+        }
+    )
+
+    session['register_inline_email_verified'] = email
+    session['register_inline_email_verified_at'] = now.isoformat()
+
+    return jsonify({
+        "success": True,
+        "message": "Email verified successfully."
+    })
+
+
 @app.route('/register', methods=['GET','POST'])
 def register():
+    register_email_otp_mode = get_register_email_otp_mode()
+
     if request.method == 'POST':
         name = (request.form.get('name','') or '').strip()
         email = (request.form.get('email','') or '').lower().strip()
         phone = (request.form.get('phone','') or '').strip()
         password = request.form.get('password','') or ''
+        confirm_password = request.form.get('confirm_password','') or ''
 
         if not name or not email or not password:
             flash('Please fill all required fields.', 'warning')
@@ -376,8 +602,18 @@ def register():
             flash('Password must be at least 6 characters.', 'warning')
             return redirect(url_for('register'))
 
+        if confirm_password and password != confirm_password:
+            flash('Password and confirm password must be the same.', 'warning')
+            return redirect(url_for('register'))
+
         if phone:
             phone = normalize_phone(phone)
+
+        if is_inline_register_email_otp_enabled():
+            verified_email = (session.get('register_inline_email_verified') or '').lower().strip()
+            if verified_email != email:
+                flash('Please verify your email OTP before creating your account.', 'warning')
+                return redirect(url_for('register'))
 
         existing = mongo.users.find_one({
             "$or": [
@@ -386,10 +622,57 @@ def register():
             ]
         })
 
-        otp = generate_6_digit_otp()
         now = datetime.utcnow()
-        otp_expires_at = (now + timedelta(minutes=2)).isoformat()
-        otp_resend_after = (now + timedelta(minutes=1)).isoformat()
+
+        if is_inline_register_email_otp_enabled():
+            user_payload = {
+                "name": name,
+                "email": email,
+                "phone": phone,
+                "password_hash": generate_password_hash(password),
+                "role": "customer",
+                "phone_verified": 1,
+                "email_verified": 1,
+                "is_active": 1,
+                "verified_at": now.isoformat(),
+                "created_at": now.isoformat()
+            }
+
+            try:
+                if existing:
+                    if existing.get("email_verified", 1) == 1:
+                        flash('Email or phone already registered.', 'danger')
+                        return redirect(url_for('register'))
+
+                    mongo.users.update_one(
+                        {"_id": existing["_id"]},
+                        {
+                            "$set": user_payload,
+                            "$unset": {
+                                "otp_code": "",
+                                "otp_expires_at": "",
+                                "otp_resend_after": "",
+                                "otp_attempts": ""
+                            }
+                        }
+                    )
+                else:
+                    mongo.users.insert_one(user_payload)
+
+            except DuplicateKeyError:
+                flash('Email or phone already registered.', 'danger')
+                return redirect(url_for('register'))
+
+            session.pop('register_inline_email_verified', None)
+            session.pop('register_inline_email_verified_at', None)
+            session.pop('pending_verification_user_id', None)
+
+            flash('Account created successfully. Please login.', 'success')
+            return redirect(url_for('login'))
+
+        otp = generate_6_digit_otp()
+        otp_expires_at = (now + timedelta(minutes=get_register_email_otp_expiry_minutes())).isoformat()
+        otp_resend_after = (now + timedelta(seconds=get_register_email_otp_resend_seconds())).isoformat()
 
         user_payload = {
             "name": name,
@@ -446,9 +729,10 @@ def register():
             )
         )
 
-    return render_template('register.html')
-
-
+    return render_template(
+        'register.html',
+        register_email_otp_mode=register_email_otp_mode
+    )
 
 
 
@@ -629,7 +913,7 @@ def resend_otp(user_id):
                     now + timedelta(minutes=2)
                 ).isoformat(),
                 "otp_resend_after": (
-                    now + timedelta(minutes=1)
+                    now + timedelta(seconds=get_register_email_otp_resend_seconds())
                 ).isoformat(),
                 "otp_attempts": 0
             }

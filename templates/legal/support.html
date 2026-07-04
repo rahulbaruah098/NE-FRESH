@@ -1,15 +1,973 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Help &amp; Support</h2>
-<p class="muted">We’re here to help with orders, accounts, and deliveries.</p>
 
-<h3>Popular topics</h3>
-<ul>
-  <li>Where is my order? — Check <a href="{{ url_for('orders') }}">My Orders</a></li>
-  <li>Change address — Update in <a href="{{ url_for('profile') }}">Profile</a></li>
-  <li>Report a problem — Use <a href="{{ url_for('legal_report_fraud') }}">Report a Fraud</a> or file a complaint from an order</li>
-</ul>
+<section class="help-page" data-page="help">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-<h3>Contact us</h3>
-<p>Email <a href="mailto:{{ SUPPORT_EMAIL }}">{{ SUPPORT_EMAIL }}</a></p>
+    .help-page{
+      --ne-green:#00A859;
+      --ne-green-dark:#008A48;
+      --ne-green-deep:#063E25;
+      --ne-green-soft:#E9FFF3;
+      --ne-green-soft-2:#F3FFF8;
+      --ne-mint:#DDFBE9;
+      --ne-cream:#FFF8EA;
+      --ne-amber:#FFB84D;
+      --ne-red:#E54848;
+      --ne-red-soft:#FFF1F1;
+      --ne-ink:#1E2D25;
+      --ne-text:#5E6F65;
+      --ne-muted:#8A9890;
+      --ne-line:#DDEFE6;
+      --ne-card:#FFFFFF;
+      --ne-bg:#F8FFFB;
+      --ne-shadow:0 18px 48px rgba(17,64,38,.09);
+      --ne-shadow-soft:0 10px 28px rgba(17,64,38,.06);
+      --ne-shadow-hover:0 26px 64px rgba(17,64,38,.14);
+      --ne-radius:24px;
+      --ne-ease:cubic-bezier(.2,.75,.25,1);
+
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+      min-height:100vh;
+      position:relative;
+      overflow-x:clip;
+      overflow-y:visible;
+      background:
+        radial-gradient(circle at 8% 0%,rgba(0,168,89,.09),transparent 30%),
+        radial-gradient(circle at 92% 12%,rgba(255,184,77,.12),transparent 28%),
+        linear-gradient(180deg,#F7FFFB 0%,#FFFFFF 45%,#F8FFFB 100%);
+      color:var(--ne-text);
+      font-family:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      font-size:16px;
+      line-height:1.65;
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
+    }
+
+    @supports not (overflow:clip){
+      .help-page{overflow-x:hidden;}
+    }
+
+    .help-page,
+    .help-page *{
+      box-sizing:border-box;
+    }
+
+    .help-page *{
+      margin:0;
+      padding:0;
+    }
+
+    .help-page a{
+      color:inherit;
+      text-decoration:none;
+    }
+
+    .help-page svg{
+      max-width:100%;
+      display:block;
+    }
+
+    .help-page button,
+    .help-page a{
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .help-page .page-shell{
+      width:min(1180px,calc(100% - 36px));
+      margin:0 auto;
+    }
+
+    .help-page .top-bar{
+      position:sticky;
+      top:0;
+      z-index:90;
+      width:100%;
+      backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
+      background:rgba(248,255,251,.88);
+      border-bottom:1px solid rgba(221,239,230,.82);
+      box-shadow:0 10px 28px rgba(17,64,38,.045);
+    }
+
+    .help-page .top-bar-inner{
+      width:min(1180px,calc(100% - 36px));
+      margin:0 auto;
+      min-height:58px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+    }
+
+    .help-page .top-bar-text{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      color:var(--ne-green-dark);
+      font-size:.78rem;
+      line-height:1.2;
+      font-weight:900;
+      letter-spacing:.11em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+
+    .help-page .top-bar-text::before{
+      content:"";
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:var(--ne-green);
+      box-shadow:0 0 0 5px rgba(0,168,89,.12);
+    }
+
+    .help-page .hero-section{
+      position:relative;
+      overflow:hidden;
+      padding:clamp(48px,7vw,86px) 0 clamp(34px,5vw,58px);
+      border-bottom:1px solid rgba(221,239,230,.72);
+    }
+
+
+
+
+
+    .help-page .hero-grid{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:minmax(0,1.12fr) minmax(300px,.88fr);
+      gap:clamp(24px,4vw,52px);
+      align-items:center;
+    }
+
+    .help-page .hero-kicker{
+      width:max-content;
+      max-width:100%;
+      display:inline-flex;
+      align-items:center;
+      gap:9px;
+      min-height:34px;
+      padding:0 13px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid rgba(0,168,89,.17);
+      color:var(--ne-green-dark);
+      font-size:.8rem;
+      font-weight:900;
+      box-shadow:var(--ne-shadow-soft);
+      margin-bottom:16px;
+    }
+
+    .help-page .hero-kicker span{
+      width:9px;
+      height:9px;
+      border-radius:50%;
+      background:var(--ne-green);
+    }
+
+    .help-page .hero-title{
+      margin:0;
+      max-width:760px;
+      color:var(--ne-ink);
+      font-size:clamp(2.05rem,5.2vw,4.75rem);
+      line-height:1.03;
+      letter-spacing:-.06em;
+      font-weight:950;
+    }
+
+    .help-page .hero-title strong{
+      color:var(--ne-green-dark);
+      font-weight:950;
+    }
+
+    .help-page .hero-subtitle{
+      margin:18px 0 0;
+      max-width:720px;
+      color:var(--ne-text);
+      font-size:clamp(.98rem,1.45vw,1.14rem);
+      line-height:1.78;
+      font-weight:550;
+    }
+
+    .help-page .hero-actions{
+      margin-top:24px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
+    }
+
+    .help-page .hero-btn,
+    .help-page .contact-button{
+      min-height:48px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      padding:0 18px;
+      border-radius:14px;
+      border:1px solid rgba(0,168,89,.22);
+      background:var(--ne-green);
+      color:#fff;
+      font-size:.92rem;
+      font-weight:900;
+      line-height:1;
+      box-shadow:0 14px 28px rgba(0,168,89,.20);
+      transition:transform .22s var(--ne-ease),background .22s var(--ne-ease),box-shadow .22s var(--ne-ease),border-color .22s var(--ne-ease);
+      cursor:pointer;
+      appearance:none;
+      -webkit-appearance:none;
+    }
+
+    .help-page .hero-btn:hover,
+    .help-page .contact-button:hover{
+      transform:translateY(-2px);
+      background:var(--ne-green-dark);
+      box-shadow:0 18px 36px rgba(0,138,72,.24);
+    }
+
+    .help-page .hero-btn.secondary{
+      background:#fff;
+      color:var(--ne-green-dark);
+      box-shadow:var(--ne-shadow-soft);
+    }
+
+    .help-page .hero-btn.secondary:hover{
+      background:var(--ne-green-soft);
+      color:var(--ne-green-deep);
+    }
+
+    .help-page .hero-card{
+      position:relative;
+      min-height:310px;
+      border-radius:34px;
+      padding:24px;
+      background:
+        linear-gradient(145deg,rgba(255,255,255,.95),rgba(255,255,255,.72)),
+        linear-gradient(135deg,#E6FFF0,#FFF8E8);
+      border:1px solid rgba(221,239,230,.88);
+      box-shadow:var(--ne-shadow);
+      overflow:hidden;
+      isolation:isolate;
+    }
+
+
+
+    .help-page .hero-card-icon{
+      width:74px;
+      height:74px;
+      display:grid;
+      place-items:center;
+      border-radius:26px;
+      background:linear-gradient(145deg,#E9FFF3,#FFFFFF);
+      border:1px solid rgba(0,168,89,.14);
+      box-shadow:0 16px 34px rgba(17,64,38,.10);
+      font-size:2.3rem;
+      margin-bottom:18px;
+    }
+
+    .help-page .hero-card h2{
+      margin:0;
+      color:var(--ne-ink);
+      font-size:1.35rem;
+      line-height:1.25;
+      letter-spacing:-.025em;
+      font-weight:950;
+    }
+
+    .help-page .hero-card p{
+      margin:10px 0 0;
+      color:var(--ne-text);
+      font-size:.94rem;
+      line-height:1.66;
+      font-weight:600;
+    }
+
+    .help-page .trust-list{
+      margin-top:18px;
+      display:grid;
+      gap:10px;
+    }
+
+    .help-page .trust-list span{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-height:42px;
+      padding:9px 12px;
+      border-radius:14px;
+      background:rgba(255,255,255,.78);
+      border:1px solid rgba(221,239,230,.82);
+      color:var(--ne-ink);
+      font-size:.86rem;
+      font-weight:850;
+    }
+
+    .help-page .trust-list span::before{
+      content:"✓";
+      width:22px;
+      height:22px;
+      display:grid;
+      place-items:center;
+      flex:0 0 auto;
+      border-radius:50%;
+      background:var(--ne-green);
+      color:#fff;
+      font-size:.72rem;
+      font-weight:950;
+    }
+
+    .help-page .content-wrapper{
+      width:min(1180px,calc(100% - 36px));
+      margin:0 auto;
+      padding:clamp(32px,5vw,62px) 0;
+    }
+
+    .help-page .section-header{
+      max-width:760px;
+      margin:0 0 22px;
+    }
+
+    .help-page .section-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      color:var(--ne-green-dark);
+      font-size:.78rem;
+      line-height:1.2;
+      font-weight:950;
+      letter-spacing:.11em;
+      text-transform:uppercase;
+      margin-bottom:8px;
+    }
+
+    .help-page .section-kicker::before{
+      content:"";
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:var(--ne-green);
+      box-shadow:0 0 0 5px rgba(0,168,89,.12);
+    }
+
+    .help-page .section-title{
+      margin:0;
+      color:var(--ne-ink);
+      font-size:clamp(1.55rem,3vw,2.45rem);
+      line-height:1.12;
+      letter-spacing:-.05em;
+      font-weight:950;
+    }
+
+    .help-page .topics-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:18px;
+    }
+
+    .help-page .topic-card{
+      position:relative;
+      overflow:hidden;
+      min-height:230px;
+      border-radius:28px;
+      padding:24px;
+      background:#fff;
+      border:1px solid rgba(221,239,230,.95);
+      box-shadow:var(--ne-shadow-soft);
+      opacity:0;
+      transform:translateY(24px);
+      transition:opacity .58s var(--ne-ease),transform .58s var(--ne-ease),box-shadow .22s var(--ne-ease),border-color .22s var(--ne-ease);
+    }
+
+    .help-page .topic-card.visible{
+      opacity:1;
+      transform:none;
+    }
+
+    .help-page .topic-card:hover{
+      border-color:rgba(0,168,89,.20);
+      box-shadow:var(--ne-shadow);
+      transform:translateY(-3px);
+    }
+
+    .help-page .topic-number{
+      position:absolute;
+      right:18px;
+      top:10px;
+      color:rgba(0,168,89,.08);
+      font-size:4.4rem;
+      line-height:.8;
+      font-weight:950;
+      letter-spacing:-.08em;
+      pointer-events:none;
+    }
+
+    .help-page .topic-icon{
+      width:56px;
+      height:56px;
+      display:grid;
+      place-items:center;
+      border-radius:20px;
+      background:linear-gradient(145deg,#E9FFF3,#FFFFFF);
+      border:1px solid rgba(0,168,89,.14);
+      box-shadow:0 12px 26px rgba(17,64,38,.08);
+      color:var(--ne-green-dark);
+      margin-bottom:16px;
+      position:relative;
+      z-index:1;
+    }
+
+    .help-page .topic-icon svg{
+      width:28px;
+      height:28px;
+    }
+
+    .help-page .topic-card h3{
+      position:relative;
+      z-index:1;
+      margin:0 0 10px;
+      color:var(--ne-ink);
+      font-size:1.14rem;
+      line-height:1.25;
+      letter-spacing:-.025em;
+      font-weight:950;
+    }
+
+    .help-page .topic-card p{
+      position:relative;
+      z-index:1;
+      margin:0;
+      color:var(--ne-text);
+      font-size:.93rem;
+      line-height:1.65;
+      font-weight:600;
+    }
+
+    .help-page .topic-card a{
+      color:var(--ne-green-dark);
+      font-weight:950;
+      text-decoration:underline;
+      text-decoration-thickness:2px;
+      text-underline-offset:4px;
+    }
+
+    .help-page .contact-section{
+      position:relative;
+      overflow:hidden;
+      margin-top:24px;
+      padding:clamp(24px,3.4vw,40px);
+      border-radius:30px;
+      background:linear-gradient(135deg,#063E25 0%,#008A48 64%,#00A859 100%);
+      color:#fff;
+      box-shadow:0 24px 64px rgba(0,138,72,.22);
+    }
+
+  
+
+    .help-page .contact-title{
+      position:relative;
+      z-index:1;
+      margin:0;
+      font-size:clamp(1.35rem,2.5vw,2rem);
+      line-height:1.18;
+      letter-spacing:-.04em;
+      font-weight:950;
+    }
+
+    .help-page .contact-section p{
+      position:relative;
+      z-index:1;
+      margin:12px 0 18px;
+      color:rgba(255,255,255,.84);
+      font-size:.98rem;
+      line-height:1.65;
+      font-weight:600;
+    }
+
+    .help-page .contact-email{
+      color:#fff;
+      font-weight:950;
+      text-decoration:underline;
+      text-underline-offset:4px;
+      word-break:break-word;
+    }
+
+    .help-page .contact-button{
+      position:relative;
+      z-index:1;
+      background:#fff;
+      color:var(--ne-green-dark);
+      border-color:rgba(255,255,255,.65);
+      box-shadow:0 16px 34px rgba(0,0,0,.16);
+    }
+
+    .help-page .contact-button:hover{
+      background:var(--ne-cream);
+      color:var(--ne-green-deep);
+    }
+
+    .help-page .back-to-top{
+      position:fixed;
+      right:clamp(14px,2.2vw,28px);
+      bottom:clamp(14px,2.2vw,28px);
+      z-index:1000;
+      width:52px;
+      height:52px;
+      display:grid;
+      place-items:center;
+      border:0;
+      border-radius:18px;
+      background:var(--ne-green);
+      color:#fff;
+      box-shadow:0 16px 34px rgba(0,168,89,.24);
+      opacity:0;
+      visibility:hidden;
+      transform:translateY(10px);
+      transition:opacity .22s var(--ne-ease),visibility .22s var(--ne-ease),transform .22s var(--ne-ease),background .22s var(--ne-ease);
+      cursor:pointer;
+      appearance:none;
+      -webkit-appearance:none;
+    }
+
+    .help-page .back-to-top.visible{
+      opacity:1;
+      visibility:visible;
+      transform:none;
+    }
+
+    .help-page .back-to-top:hover{
+      background:var(--ne-green-dark);
+      transform:translateY(-2px);
+    }
+
+    .help-page .footer{
+      margin-top:clamp(30px,5vw,56px);
+      padding:clamp(34px,5vw,54px) 18px;
+      text-align:center;
+      background:#fff;
+      border-top:1px solid rgba(221,239,230,.9);
+    }
+
+    .help-page .footer-stars{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      margin-bottom:12px;
+      color:var(--ne-amber);
+      font-size:1.05rem;
+    }
+
+    .help-page .footer-title{
+      margin:0 auto 8px;
+      max-width:900px;
+      color:var(--ne-ink);
+      font-size:clamp(1.5rem,3.6vw,2.5rem);
+      line-height:1.1;
+      letter-spacing:-.05em;
+      font-weight:950;
+    }
+
+    .help-page .footer-subtitle{
+      margin:0 0 18px;
+      color:var(--ne-green-dark);
+      font-size:.78rem;
+      line-height:1.5;
+      font-weight:900;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+    }
+
+    .help-page .footer-nav{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .help-page .footer-link{
+      min-height:36px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 13px;
+      border-radius:999px;
+      background:var(--ne-green-soft-2);
+      border:1px solid rgba(0,168,89,.12);
+      color:var(--ne-text);
+      font-size:.82rem;
+      font-weight:850;
+      transition:background .2s var(--ne-ease),color .2s var(--ne-ease),transform .2s var(--ne-ease),border-color .2s var(--ne-ease);
+    }
+
+    .help-page .footer-link:hover{
+      transform:translateY(-2px);
+      color:var(--ne-green-dark);
+      background:var(--ne-green-soft);
+      border-color:rgba(0,168,89,.18);
+    }
+
+    @media(max-width:1024px){
+      .help-page .hero-grid{
+        grid-template-columns:1fr;
+      }
+
+      .help-page .hero-card{
+        min-height:auto;
+      }
+
+      .help-page .topics-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media(max-width:768px){
+      .help-page .page-shell,
+      .help-page .top-bar-inner,
+      .help-page .content-wrapper{
+        width:min(100% - 28px,1180px);
+      }
+
+      .help-page .top-bar-inner{
+        min-height:56px;
+        justify-content:center;
+        flex-wrap:wrap;
+        gap:8px 16px;
+        padding:8px 0;
+      }
+
+      .help-page .top-bar-text{
+        font-size:.68rem;
+        letter-spacing:.08em;
+      }
+
+      .help-page .hero-section{
+        padding-top:36px;
+      }
+
+      .help-page .hero-actions{
+        align-items:stretch;
+      }
+
+      .help-page .hero-btn{
+        flex:1 1 180px;
+      }
+
+      .help-page .topic-card{
+        min-height:auto;
+        border-radius:22px;
+      }
+    }
+
+    @media(max-width:520px){
+      .help-page .page-shell,
+      .help-page .top-bar-inner,
+      .help-page .content-wrapper{
+        width:min(100% - 22px,1180px);
+      }
+
+      .help-page .hero-card{
+        padding:18px;
+        border-radius:26px;
+      }
+
+      .help-page .hero-card-icon{
+        width:62px;
+        height:62px;
+        border-radius:22px;
+        font-size:2rem;
+      }
+
+      .help-page .hero-btn,
+      .help-page .contact-button{
+        width:100%;
+      }
+
+      .help-page .content-wrapper{
+        padding-top:24px;
+      }
+
+      .help-page .topic-card{
+        padding:22px 18px 22px 20px;
+      }
+
+      .help-page .contact-section{
+        border-radius:24px;
+      }
+
+      .help-page .back-to-top{
+        width:46px;
+        height:46px;
+        border-radius:16px;
+      }
+
+      .help-page .footer-nav{
+        gap:8px;
+      }
+
+      .help-page .footer-link{
+        width:100%;
+      }
+    }
+
+    @media(max-width:360px){
+      .help-page .top-bar-inner,
+      .help-page .page-shell,
+      .help-page .content-wrapper{
+        width:min(100% - 18px,1180px);
+      }
+
+      .help-page .top-bar-text{
+        font-size:.62rem;
+      }
+
+      .help-page .hero-title{
+        font-size:1.85rem;
+      }
+    }
+
+    @supports(-webkit-touch-callout:none){
+      .help-page .top-bar{
+        -webkit-transform:translateZ(0);
+        transform:translateZ(0);
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      .help-page *,
+      .help-page *::before,
+      .help-page *::after{
+        animation:none !important;
+        scroll-behavior:auto !important;
+        transition:none !important;
+      }
+
+      .help-page .topic-card{
+        opacity:1 !important;
+        transform:none !important;
+      }
+    }
+  </style>
+
+  <div class="top-bar">
+    <div class="top-bar-inner">
+      <div class="top-bar-text">NELOCALS Help</div>
+      <div class="top-bar-text">Orders • Accounts • Deliveries</div>
+    </div>
+  </div>
+
+  <header class="hero-section">
+    <div class="page-shell">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="hero-kicker"><span></span> Help &amp; Support</div>
+
+          <h1 class="hero-title">
+            We’re here to help with <strong>orders, accounts, and deliveries.</strong>
+          </h1>
+
+          <p class="hero-subtitle">
+            Find quick support for tracking orders, updating your address, reporting problems,
+            and contacting the NELOCALS support team.
+          </p>
+
+          <div class="hero-actions">
+            <a href="{{ url_for('orders') }}" class="hero-btn">Check My Orders</a>
+            <a href="mailto:{{ SUPPORT_EMAIL }}" class="hero-btn secondary">Contact Support</a>
+          </div>
+        </div>
+
+        <div class="hero-card" aria-label="Help summary">
+          <div class="hero-card-icon" aria-hidden="true">💬</div>
+
+          <h2>Quick support for everyday shopping</h2>
+
+          <p>
+            Get help with your current orders, account details, delivery issues, and safety-related concerns.
+          </p>
+
+          <div class="trust-list">
+            <span>Track order status</span>
+            <span>Update account details</span>
+            <span>Report problems quickly</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="content-wrapper">
+    <div class="section-header">
+      <div class="section-kicker">Popular topics</div>
+      <h2 class="section-title">What do you need help with?</h2>
+    </div>
+
+    <div class="topics-grid">
+      <article class="topic-card">
+        <div class="topic-number">01</div>
+
+        <div class="topic-icon" aria-hidden="true">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73L13 2.27a2 2 0 0 0-2 0L4 6.27A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+        </div>
+
+        <h3>Where is my order?</h3>
+
+        <p>
+          Check your latest order status, delivery progress, and order details from
+          <a href="{{ url_for('orders') }}">My Orders</a>.
+        </p>
+      </article>
+
+      <article class="topic-card">
+        <div class="topic-number">02</div>
+
+        <div class="topic-icon" aria-hidden="true">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </div>
+
+        <h3>Change address</h3>
+
+        <p>
+          Update your saved address, contact details, and account information from
+          <a href="{{ url_for('profile') }}">Profile</a>.
+        </p>
+      </article>
+
+      <article class="topic-card">
+        <div class="topic-number">03</div>
+
+        <div class="topic-icon" aria-hidden="true">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+
+        <h3>Report a problem</h3>
+
+        <p>
+          Report suspicious activity through
+          <a href="{{ url_for('legal_report_fraud') }}">Report a Fraud</a>
+          or file a complaint directly from an order.
+        </p>
+      </article>
+    </div>
+
+    <section class="contact-section">
+      <h2 class="contact-title">Need more help?</h2>
+
+      <p>
+        Email our support team at
+        <a href="mailto:{{ SUPPORT_EMAIL }}" class="contact-email">{{ SUPPORT_EMAIL }}</a>
+        and share your order ID, registered phone number, and a clear description of the issue.
+      </p>
+
+      <a href="mailto:{{ SUPPORT_EMAIL }}" class="contact-button">Email Support</a>
+    </section>
+  </main>
+
+  <button class="back-to-top" id="helpBackToTop" aria-label="Back to top" type="button">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="19" x2="12" y2="5"></line>
+      <polyline points="5 12 12 5 19 12"></polyline>
+    </svg>
+  </button>
+
+  <footer class="footer">
+    <div class="footer-stars" aria-hidden="true">
+      <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+    </div>
+
+    <h3 class="footer-title">NELOCALS</h3>
+
+    <p class="footer-subtitle">Fresh Northeast Goodness • Helpful Local Support</p>
+
+    <nav class="footer-nav" aria-label="Footer navigation">
+      <a href="/" class="footer-link">Home</a>
+      <a href="/about" class="footer-link">About</a>
+      <a href="/catalog" class="footer-link">Catalog</a>
+      <a href="/help" class="footer-link">Help</a>
+      <a href="/privacy" class="footer-link">Privacy</a>
+    </nav>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      initHelpReveal();
+      initHelpBackToTop();
+
+      function initHelpReveal() {
+        const cards = document.querySelectorAll('.help-page .topic-card');
+
+        if (!('IntersectionObserver' in window)) {
+          cards.forEach((card) => card.classList.add('visible'));
+          return;
+        }
+
+        const observerOptions = {
+          threshold: 0.1,
+          rootMargin: '0px 0px -80px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+            }
+          });
+        }, observerOptions);
+
+        cards.forEach((card) => observer.observe(card));
+      }
+
+      function initHelpBackToTop() {
+        const backToTopBtn = document.getElementById('helpBackToTop');
+        if (!backToTopBtn) return;
+
+        let scrollTimeout;
+
+        function checkScroll() {
+          if (window.pageYOffset > 500) {
+            backToTopBtn.classList.add('visible');
+          } else {
+            backToTopBtn.classList.remove('visible');
+          }
+        }
+
+        window.addEventListener('scroll', function() {
+          if (!scrollTimeout) {
+            scrollTimeout = setTimeout(function() {
+              checkScroll();
+              scrollTimeout = null;
+            }, 100);
+          }
+        });
+
+        backToTopBtn.addEventListener('click', function() {
+          window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+          });
+        });
+
+        checkScroll();
+      }
+    });
+  </script>
+</section>
+
 {% endblock %}
