@@ -135,7 +135,7 @@ def login():
 
 
 def send_password_reset_email(email, name, reset_link):
-    subject = "Reset your NE-Fresh password"
+    subject = "Reset your NE Locals password"
 
     html = f"""\
 <!doctype html>
@@ -205,11 +205,16 @@ def send_password_reset_email(email, name, reset_link):
 """
 
     mail_sender = globals().get("send_email")
-    if callable(mail_sender):
-        mail_sender(email, subject, html)
-        return
 
-    log_debug(f"[DEV RESET LINK] Send this to the user: {reset_link}")
+    if not callable(mail_sender):
+        raise RuntimeError("send_email function is not available from app_core.py")
+
+    result = mail_sender(email, subject, html)
+
+    if not result or not result.get("ok"):
+        raise RuntimeError(f"SMTP did not confirm email acceptance. Result: {result}")
+
+    return result
 
 
 
@@ -222,12 +227,7 @@ def forgot_password():
     if request.method == 'POST':
         identifier = request.form.get('identifier', '').strip().lower()
 
-        u = mongo.users.find_one({
-            "$or": [
-                {"email": identifier},
-                {"phone": identifier}
-            ]
-        })
+        u = mongo.users.find_one({"email": identifier})
 
         if u:
             token = secrets.token_urlsafe(32)
@@ -258,20 +258,48 @@ def forgot_password():
             reset_link = url_for('reset_password', token=token, _external=True)
 
             email_to_send = u.get('email', '')
-            if email_to_send:
-                threading.Thread(
-                    target=send_password_reset_email,
-                    args=(email_to_send, u.get('name', ''), reset_link),
-                    daemon=True
-                ).start()
-            else:
-                log_debug(f"[DEV RESET LINK] Send this to the user: {reset_link}")
 
-        flash("If the account exists, a reset link has been sent.", "info")
-        return redirect(url_for('login'))
+            if not email_to_send:
+                log_warning(f"[PASSWORD RESET EMAIL ERROR] User {str(u.get('_id'))} has no email address.")
 
-    return render_template('forgot_password.html')
+                session['forgot_notice'] = {
+                    "type": "danger",
+                    "message": "This account does not have an email address saved. Please contact support."
+                }
+                return redirect(url_for('forgot_password'))
 
+            try:
+                email_result = send_password_reset_email(
+                    email_to_send,
+                    u.get('name', ''),
+                    reset_link
+                )
+
+                print(f"[PASSWORD RESET EMAIL CONFIRMED] to={email_to_send} result={email_result}")
+
+                session['forgot_notice'] = {
+                    "type": "success",
+                    "message": "Reset link sent. Please check your email inbox, spam, or promotions folder."
+                }
+                return redirect(url_for('forgot_password'))
+
+            except Exception as e:
+                log_warning(f"[PASSWORD RESET EMAIL ERROR] {email_to_send}: {str(e)}")
+
+                session['forgot_notice'] = {
+                    "type": "danger",
+                    "message": "We could not send the reset email right now. Please try again later."
+                }
+                return redirect(url_for('forgot_password'))
+
+        session['forgot_notice'] = {
+            "type": "danger",
+            "message": "No account was found with this email address."
+        }
+        return redirect(url_for('forgot_password'))
+
+    forgot_notice = session.pop('forgot_notice', None)
+    return render_template('forgot_password.html', forgot_notice=forgot_notice)
 
 
 

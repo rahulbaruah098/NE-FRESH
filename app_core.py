@@ -7562,12 +7562,46 @@ def _sync_store_order_notifications(store):
 
 # ----------------EMAIL SETUP---------
 def send_email(to_email, subject, body):
+    """
+    Sends an HTML email through SMTP.
+
+    Important:
+    - This function returns success only when the SMTP server accepts the message.
+    - Final inbox delivery still depends on the SMTP provider, sender verification,
+      SPF/DKIM/DMARC, and the recipient mailbox spam rules.
+    """
+    from email.utils import formataddr, formatdate, make_msgid
+
+    def _mask_value(value):
+        value = str(value or "")
+        if not value:
+            return ""
+        if "@" in value:
+            left, right = value.split("@", 1)
+            if len(left) <= 2:
+                left_masked = left[:1] + "***"
+            else:
+                left_masked = left[:2] + "***" + left[-1:]
+            return f"{left_masked}@{right}"
+        if len(value) <= 6:
+            return value[:2] + "***"
+        return value[:4] + "***" + value[-3:]
+
     smtp_host = (os.getenv("SMTP_HOST") or "").strip()
-    smtp_port = int(os.getenv("SMTP_PORT", 587))
+
+    try:
+        smtp_port = int((os.getenv("SMTP_PORT") or "587").strip())
+    except Exception:
+        raise RuntimeError("SMTP_PORT must be a valid number.")
+
     smtp_user = (os.getenv("SMTP_USER") or "").strip()
     smtp_password = (os.getenv("SMTP_PASSWORD") or "").strip()
     smtp_from = (os.getenv("SMTP_FROM") or "").strip()
-    smtp_from_name = (os.getenv("SMTP_FROM_NAME") or "NELOCALS").strip()
+    smtp_from_name = (os.getenv("SMTP_FROM_NAME") or "NE Locals").strip()
+
+    smtp_use_ssl = _env_bool("SMTP_USE_SSL", smtp_port == 465)
+    smtp_use_tls = _env_bool("SMTP_USE_TLS", not smtp_use_ssl)
+    smtp_debug = _env_bool("SMTP_DEBUG", False)
 
     to_email = (to_email or "").strip()
     subject = (subject or "").strip()
@@ -7585,24 +7619,54 @@ def send_email(to_email, subject, body):
     if not smtp_from:
         raise RuntimeError("SMTP_FROM is missing in .env")
 
+    if "@" not in smtp_from:
+        raise RuntimeError("SMTP_FROM must be a valid sender email address.")
+
     if not to_email:
         raise RuntimeError("Recipient email is missing.")
 
+    if "@" not in to_email:
+        raise RuntimeError("Recipient email is invalid.")
+
     msg = MIMEMultipart("alternative")
-    msg["From"] = f"{smtp_from_name} <{smtp_from}>"
+    msg["From"] = formataddr((smtp_from_name, smtp_from))
     msg["To"] = to_email
     msg["Subject"] = subject
     msg["Reply-To"] = smtp_from
+    msg["Date"] = formatdate(localtime=True)
+
+    try:
+        sender_domain = smtp_from.split("@", 1)[1]
+        msg["Message-ID"] = make_msgid(domain=sender_domain)
+    except Exception:
+        msg["Message-ID"] = make_msgid()
 
     msg.attach(MIMEText(body, "html", "utf-8"))
 
     server = None
 
+    print(
+        "[EMAIL SMTP START] "
+        f"host={smtp_host} port={smtp_port} ssl={smtp_use_ssl} tls={smtp_use_tls} "
+        f"user={_mask_value(smtp_user)} from={smtp_from} to={_mask_value(to_email)}"
+    )
+
     try:
-        server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
+        if smtp_use_ssl:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30)
+            if smtp_debug:
+                server.set_debuglevel(1)
+            server.ehlo()
+        else:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=30)
+            if smtp_debug:
+                server.set_debuglevel(1)
+            server.ehlo()
+
+            if smtp_use_tls:
+                server.starttls()
+                server.ehlo()
+
         server.login(smtp_user, smtp_password)
 
         failed_recipients = server.sendmail(
@@ -7614,17 +7678,21 @@ def send_email(to_email, subject, body):
         if failed_recipients:
             raise RuntimeError(f"SMTP rejected recipient(s): {failed_recipients}")
 
-        log_debug(f"[EMAIL SENT] to={to_email} subject={subject}")
+        print(f"[EMAIL SMTP ACCEPTED] to={_mask_value(to_email)} subject={subject}")
 
         return {
             "ok": True,
             "to": to_email,
             "subject": subject,
+            "smtp_host": smtp_host,
+            "smtp_port": smtp_port,
+            "smtp_ssl": smtp_use_ssl,
+            "smtp_tls": smtp_use_tls,
             "error": ""
         }
 
     except Exception as exc:
-        log_warning(f"[EMAIL ERROR] to={to_email} subject={subject} error={exc}")
+        print(f"[EMAIL SMTP ERROR] to={_mask_value(to_email)} subject={subject} error={exc}")
         raise
 
     finally:
