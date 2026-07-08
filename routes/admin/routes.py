@@ -6,6 +6,8 @@ Only the file location changed.
 
 from app_core import *
 from flask import jsonify
+import re
+from datetime import timedelta
 
 ADMIN_IN_HOUSE_DELIVERY_ENDPOINTS = {
     "admin_delivery_fee_settings",
@@ -1954,33 +1956,181 @@ def admin_refund_process(oid):
 
 
 def _admin_parse_delivery_zone_polygon(raw):
-    try:
-        if not raw or not str(raw).strip():
+    """
+    Normalize saved delivery zone data into Leaflet-ready [[lat, lng], ...].
+
+    Supports the current list format, JSON strings, point objects and
+    GeoJSON-style Polygon / Feature data. This keeps old saved store zones
+    loadable in Admin edit without changing the database format.
+    """
+    def _as_float(value, min_value, max_value):
+        try:
+            if value is None or str(value).strip() == "":
+                return None
+            number = float(value)
+            if number < min_value or number > max_value:
+                return None
+            return number
+        except Exception:
+            return None
+
+    def _point_from_pair(pair, geojson=False):
+        if not isinstance(pair, (list, tuple)) or len(pair) < 2:
+            return None
+
+        if geojson:
+            lat = _as_float(pair[1], -90, 90)
+            lng = _as_float(pair[0], -180, 180)
+        else:
+            lat = _as_float(pair[0], -90, 90)
+            lng = _as_float(pair[1], -180, 180)
+
+        if lat is None or lng is None:
+            return None
+
+        return [round(float(lat), 6), round(float(lng), 6)]
+
+    def _point_from_dict(point):
+        if not isinstance(point, dict):
+            return None
+
+        lat = (
+            point.get("lat")
+            if point.get("lat") is not None
+            else point.get("latitude")
+            if point.get("latitude") is not None
+            else point.get("y")
+        )
+        lng = (
+            point.get("lng")
+            if point.get("lng") is not None
+            else point.get("lon")
+            if point.get("lon") is not None
+            else point.get("longitude")
+            if point.get("longitude") is not None
+            else point.get("x")
+        )
+
+        lat = _as_float(lat, -90, 90)
+        lng = _as_float(lng, -180, 180)
+
+        if lat is not None and lng is not None:
+            return [round(float(lat), 6), round(float(lng), 6)]
+
+        coords = point.get("coordinates")
+        if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+            return _point_from_pair(coords, geojson=True)
+
+        return None
+
+    def _walk(data, geojson=False, depth=0):
+        if depth > 8:
             return []
 
-        data = json.loads(raw)
-
-        if not isinstance(data, list):
+        if data is None:
             return []
 
-        cleaned = []
+        if isinstance(data, str):
+            clean = data.strip()
+            if not clean:
+                return []
+            try:
+                return _walk(json.loads(clean), geojson=geojson, depth=depth + 1)
+            except Exception:
+                return []
 
-        for point in data:
-            if not isinstance(point, (list, tuple)) or len(point) != 2:
-                continue
+        if isinstance(data, dict):
+            direct_point = _point_from_dict(data)
+            if direct_point:
+                return [direct_point]
 
-            lat = _admin_float_or_none(point[0], -90, 90)
-            lng = _admin_float_or_none(point[1], -180, 180)
+            dtype = str(data.get("type") or "").strip().lower()
 
-            if lat is not None and lng is not None:
-                cleaned.append([lat, lng])
+            if dtype == "feature":
+                return _walk(data.get("geometry"), geojson=True, depth=depth + 1)
 
-        if len(cleaned) < 3:
+            if dtype == "featurecollection":
+                for feature in data.get("features") or []:
+                    points = _walk(feature, geojson=True, depth=depth + 1)
+                    if len(points) >= 3:
+                        return points
+                return []
+
+            if dtype == "polygon":
+                coordinates = data.get("coordinates") or []
+                if coordinates and isinstance(coordinates, list):
+                    return _walk(coordinates[0], geojson=True, depth=depth + 1)
+
+            if dtype == "multipolygon":
+                coordinates = data.get("coordinates") or []
+                if coordinates and isinstance(coordinates, list) and coordinates[0]:
+                    return _walk(coordinates[0][0], geojson=True, depth=depth + 1)
+
+            for key in [
+                "delivery_zone_polygon",
+                "delivery_zone",
+                "zone_polygon",
+                "service_area_polygon",
+                "delivery_area_polygon",
+                "polygon",
+                "points",
+                "latlngs",
+                "lat_lngs",
+                "coordinates",
+            ]:
+                if key in data:
+                    points = _walk(data.get(key), geojson=(key == "coordinates"), depth=depth + 1)
+                    if points:
+                        return points
+
             return []
 
-        return cleaned
-    except Exception:
+        if isinstance(data, (list, tuple)):
+            direct_point = _point_from_pair(data, geojson=geojson)
+            if direct_point and not any(isinstance(item, (list, tuple, dict)) for item in data[:2]):
+                return [direct_point]
+
+            cleaned = []
+            for item in data:
+                if isinstance(item, dict):
+                    point = _point_from_dict(item)
+                    if point:
+                        cleaned.append(point)
+                        continue
+
+                    nested = _walk(item, geojson=geojson, depth=depth + 1)
+                    if nested:
+                        cleaned.extend(nested)
+                        continue
+
+                if isinstance(item, (list, tuple)):
+                    point = _point_from_pair(item, geojson=geojson)
+                    if point:
+                        cleaned.append(point)
+                        continue
+
+                    nested = _walk(item, geojson=geojson, depth=depth + 1)
+                    if nested:
+                        cleaned.extend(nested)
+
+            return cleaned
+
         return []
+
+    cleaned = _walk(raw)
+
+    if len(cleaned) > 1 and cleaned[0] == cleaned[-1]:
+        cleaned = cleaned[:-1]
+
+    unique_cleaned = []
+    for point in cleaned:
+        if point not in unique_cleaned:
+            unique_cleaned.append(point)
+
+    if len(unique_cleaned) < 3:
+        return []
+
+    return unique_cleaned
 
 
 # =========================================================
@@ -4862,7 +5012,7 @@ def _admin_store_overview_store_matches(row, filters):
 
     is_active = int(row.get("is_active") or 0) == 1
     is_online = int(row.get("is_online", row.get("is_open", 0)) or 0) == 1
-    delivery_on = int(row.get("delivery_enabled", 1 if row.get("delivery_available") else 0) or 0) == 1
+    delivery_on = int(row.get("delivery_enabled", 1 if row.get("delivery_available", True) else 0) or 0) == 1
 
     if status == "active" and not is_active:
         return False
@@ -5144,15 +5294,41 @@ def _admin_store_list_filters():
 
 
 def _admin_store_list_zone_ready(store):
+    """
+    Detect whether a store has a usable delivery/service zone saved.
+
+    Older store records may store the same polygon under different keys
+    or as JSON / GeoJSON-like data. This keeps Store List and Store Reviews
+    readiness display consistent with the Store Edit map loader.
+    """
+    store = store or {}
+
     try:
         if int(store.get("delivery_zone_configured") or 0) == 1:
             return True
     except Exception:
         pass
 
-    polygon = store.get("delivery_zone_polygon") or []
+    for zone_key in [
+        "delivery_zone_polygon",
+        "delivery_zone",
+        "zone_polygon",
+        "service_area_polygon",
+        "delivery_area_polygon",
+        "service_area",
+        "zone",
+    ]:
+        raw_polygon = store.get(zone_key)
 
-    return bool(isinstance(polygon, list) and len(polygon) >= 3)
+        try:
+            polygon = _admin_parse_delivery_zone_polygon(raw_polygon)
+            if isinstance(polygon, list) and len(polygon) >= 3:
+                return True
+        except Exception:
+            if isinstance(raw_polygon, list) and len(raw_polygon) >= 3:
+                return True
+
+    return False
 
 
 def _admin_store_list_matches(store, filters):
@@ -5177,7 +5353,7 @@ def _admin_store_list_matches(store, filters):
 
     is_active = int(store.get("is_active") or 0) == 1
     is_online = int(store.get("is_online", store.get("is_open", 1)) or 0) == 1
-    delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available") else 0) or 0) == 1
+    delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0) == 1
     zone_ready = _admin_store_list_zone_ready(store)
 
     if status == "active" and not is_active:
@@ -5223,7 +5399,7 @@ def _admin_store_list_counts(stores):
     for store in stores:
         is_active = int(store.get("is_active") or 0) == 1
         is_online = int(store.get("is_online", store.get("is_open", 1)) or 0) == 1
-        delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available") else 0) or 0) == 1
+        delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0) == 1
         zone_ready = _admin_store_list_zone_ready(store)
 
         counts["active" if is_active else "inactive"] += 1
@@ -5287,6 +5463,22 @@ def _admin_store_wants_json_response():
         return False
 
 
+def _admin_store_action_redirect(default_endpoint="admin_store_list"):
+    next_url = (request.form.get("next") or request.args.get("next") or "").strip()
+
+    if next_url and next_url.startswith("/") and not next_url.startswith("//"):
+        return redirect(next_url)
+
+    referrer = request.referrer or ""
+    try:
+        if referrer and referrer.startswith(request.host_url):
+            return redirect(referrer)
+    except Exception:
+        pass
+
+    return redirect(url_for(default_endpoint))
+
+
 def _admin_store_json_or_redirect(ok, message, category="success", status_code=200, **payload):
     if _admin_store_wants_json_response():
         data = {
@@ -5298,7 +5490,7 @@ def _admin_store_json_or_redirect(ok, message, category="success", status_code=2
         return jsonify(data), status_code
 
     flash(message, category)
-    return redirect(url_for("admin_store_list"))
+    return _admin_store_action_redirect("admin_store_list")
 
 
 def _admin_store_ajax_counts_payload():
@@ -5336,12 +5528,22 @@ def _admin_store_edit_row(store):
     row["longitude"] = store.get("longitude") if store.get("longitude") is not None else ""
     row["delivery_base_fee"] = store.get("delivery_base_fee", 40)
 
-    polygon = store.get("delivery_zone_polygon") or []
-    if not isinstance(polygon, list):
-        polygon = []
+    polygon = _admin_parse_delivery_zone_polygon(store.get("delivery_zone_polygon"))
+    if not polygon:
+        for zone_key in [
+            "delivery_zone",
+            "zone_polygon",
+            "service_area_polygon",
+            "delivery_area_polygon",
+            "service_area",
+            "zone",
+        ]:
+            polygon = _admin_parse_delivery_zone_polygon(store.get(zone_key))
+            if polygon:
+                break
 
     row["delivery_zone_polygon"] = polygon
-    row["delivery_zone_configured"] = 1 if len(polygon) >= 3 or int(store.get("delivery_zone_configured") or 0) == 1 else 0
+    row["delivery_zone_configured"] = 1 if len(polygon) >= 3 else 0
     row["is_online"] = int(store.get("is_online", store.get("is_open", 1)) or 0)
     row["delivery_enabled"] = int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0)
     row["is_active"] = int(store.get("is_active", 1) or 0)
@@ -5367,22 +5569,391 @@ def admin_store_list():
         active_page="store_list",
     )
 
+ADMIN_STORE_REVIEW_STATUS_OPTIONS = [
+    {"value": "all", "label": "All stores"},
+    {"value": "recommended", "label": "Recommended ready"},
+    {"value": "active", "label": "Active accounts"},
+    {"value": "inactive", "label": "Inactive accounts"},
+    {"value": "online", "label": "Online stores"},
+    {"value": "offline", "label": "Offline stores"},
+    {"value": "delivery_on", "label": "Delivery on"},
+    {"value": "delivery_off", "label": "Delivery off"},
+    {"value": "zone_ready", "label": "Zone ready"},
+    {"value": "zone_missing", "label": "Zone missing"},
+    {"value": "has_products", "label": "Has products"},
+    {"value": "no_products", "label": "No products"},
+]
+
+
+ADMIN_STORE_REVIEW_SORT_OPTIONS = [
+    {"value": "score", "label": "Recommendation score"},
+    {"value": "rating", "label": "Highest rating"},
+    {"value": "orders", "label": "Most orders"},
+    {"value": "products", "label": "Most products"},
+    {"value": "name", "label": "Store name A-Z"},
+]
+
+
+def _admin_store_review_int(value, default=0, min_value=None, max_value=None):
+    try:
+        number = int(float(value))
+    except Exception:
+        number = int(default)
+
+    if min_value is not None and number < min_value:
+        number = int(min_value)
+
+    if max_value is not None and number > max_value:
+        number = int(max_value)
+
+    return number
+
+
+def _admin_store_review_float(value, default=0.0, min_value=None, max_value=None):
+    try:
+        number = float(value)
+    except Exception:
+        number = float(default)
+
+    if min_value is not None and number < min_value:
+        number = float(min_value)
+
+    if max_value is not None and number > max_value:
+        number = float(max_value)
+
+    return number
+
+
+def _admin_store_review_filters():
+    q = (request.args.get("q") or "").strip()
+    status = (request.args.get("status") or "all").strip().lower()
+    sort_by = (request.args.get("sort_by") or "score").strip().lower()
+
+    allowed_statuses = {item["value"] for item in ADMIN_STORE_REVIEW_STATUS_OPTIONS}
+    allowed_sorts = {item["value"] for item in ADMIN_STORE_REVIEW_SORT_OPTIONS}
+
+    if status not in allowed_statuses:
+        status = "all"
+
+    if sort_by not in allowed_sorts:
+        sort_by = "score"
+
+    page = _admin_store_list_int(request.args.get("page"), 1, 1, 999999)
+    per_page = _admin_store_list_int(request.args.get("per_page"), 20, 5, 100)
+
+    if per_page not in [10, 20, 50, 100]:
+        per_page = 20
+
+    return {
+        "q": q,
+        "status": status,
+        "sort_by": sort_by,
+        "page": page,
+        "per_page": per_page,
+    }
+
+
+def _admin_store_review_return_url():
+    full_path = request.full_path or request.path
+
+    if full_path.endswith("?"):
+        full_path = full_path[:-1]
+
+    return full_path or url_for("admin_store_reviews")
+
+
+def _admin_store_review_enrich(store):
+    row = dict(store or {})
+    row["id"] = str(row.get("id") or row.get("_id") or "")
+
+    row["is_active"] = 1 if _admin_store_review_int(row.get("is_active"), 0) == 1 else 0
+    row["is_online"] = 1 if _admin_store_review_int(row.get("is_online", row.get("is_open", 1)), 0) == 1 else 0
+    row["delivery_enabled"] = 1 if _admin_store_review_int(row.get("delivery_enabled", 1 if row.get("delivery_available", True) else 0), 0) == 1 else 0
+
+    row["products"] = _admin_store_review_int(row.get("products"), 0, 0)
+    row["orders"] = _admin_store_review_int(row.get("orders"), 0, 0)
+    row["rating"] = round(_admin_store_review_float(row.get("rating"), 0.0, 0, 5), 2)
+    row["rating_count"] = _admin_store_review_int(
+        row.get("rating_count")
+        if row.get("rating_count") is not None
+        else row.get("reviews_count")
+        if row.get("reviews_count") is not None
+        else row.get("ratings_count")
+        if row.get("ratings_count") is not None
+        else row.get("review_count"),
+        0,
+        0,
+    )
+
+    row["zone_ready"] = bool(_admin_store_list_zone_ready(row))
+    row["delivery_zone_configured"] = 1 if row["zone_ready"] else 0
+
+    reasons = []
+
+    if row["is_active"] != 1:
+        reasons.append("Inactive")
+
+    if row["products"] <= 0:
+        reasons.append("No products")
+
+    if row["delivery_enabled"] != 1:
+        reasons.append("Delivery off")
+
+    if not row["zone_ready"]:
+        reasons.append("Zone missing")
+
+    row["recommendation_ready"] = not reasons
+    row["recommendation_reason"] = "Ready" if not reasons else ", ".join(reasons)
+    row["recommendation_badge_class"] = "ready" if row["recommendation_ready"] else "warning"
+
+    effective_rating_count = row["rating_count"] if row["rating_count"] > 0 else (1 if row["rating"] > 0 else 0)
+    rating_confidence = min(effective_rating_count, 50) / 50
+    orders_score = min(row["orders"], 500) / 500
+    products_score = min(row["products"], 200) / 200
+    readiness_score = 1 if row["recommendation_ready"] else 0
+
+    row["recommendation_score"] = round(
+        (row["rating"] * 35)
+        + (orders_score * 30)
+        + (products_score * 20)
+        + (rating_confidence * 10)
+        + (readiness_score * 5),
+        2
+    )
+
+    return row
+
+
+def _admin_store_review_matches(store, filters):
+    q = (filters.get("q") or "").strip().lower()
+    status = (filters.get("status") or "all").strip().lower()
+
+    if q:
+        haystack = " ".join([
+            str(store.get("store_name") or ""),
+            str(store.get("id") or ""),
+            str(store.get("address") or ""),
+            str(store.get("city") or ""),
+            str(store.get("state") or ""),
+            str(store.get("pincode") or ""),
+            str(store.get("owner_name") or ""),
+            str(store.get("owner_email") or ""),
+            str(store.get("owner_phone") or ""),
+        ]).lower()
+
+        if q not in haystack:
+            return False
+
+    is_active = int(store.get("is_active") or 0) == 1
+    is_online = int(store.get("is_online", store.get("is_open", 1)) or 0) == 1
+    delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0) == 1
+    zone_ready = bool(store.get("zone_ready"))
+    has_products = int(store.get("products") or 0) > 0
+    recommended_ready = bool(store.get("recommendation_ready"))
+
+    if status == "recommended" and not recommended_ready:
+        return False
+
+    if status == "active" and not is_active:
+        return False
+
+    if status == "inactive" and is_active:
+        return False
+
+    if status == "online" and not is_online:
+        return False
+
+    if status == "offline" and is_online:
+        return False
+
+    if status == "delivery_on" and not delivery_on:
+        return False
+
+    if status == "delivery_off" and delivery_on:
+        return False
+
+    if status == "zone_ready" and not zone_ready:
+        return False
+
+    if status == "zone_missing" and zone_ready:
+        return False
+
+    if status == "has_products" and not has_products:
+        return False
+
+    if status == "no_products" and has_products:
+        return False
+
+    return True
+
+
+def _admin_store_review_sort(rows, filters):
+    sort_by = (filters.get("sort_by") or "score").strip().lower()
+
+    if sort_by == "name":
+        return sorted(rows, key=lambda row: (str(row.get("store_name") or "").lower(), str(row.get("id") or "")))
+
+    if sort_by == "rating":
+        return sorted(
+            rows,
+            key=lambda row: (
+                float(row.get("rating") or 0),
+                int(row.get("rating_count") or 0),
+                int(row.get("orders") or 0),
+                int(row.get("products") or 0),
+            ),
+            reverse=True,
+        )
+
+    if sort_by == "orders":
+        return sorted(
+            rows,
+            key=lambda row: (
+                int(row.get("orders") or 0),
+                float(row.get("rating") or 0),
+                int(row.get("products") or 0),
+            ),
+            reverse=True,
+        )
+
+    if sort_by == "products":
+        return sorted(
+            rows,
+            key=lambda row: (
+                int(row.get("products") or 0),
+                int(row.get("orders") or 0),
+                float(row.get("rating") or 0),
+            ),
+            reverse=True,
+        )
+
+    return sorted(
+        rows,
+        key=lambda row: (
+            1 if row.get("recommendation_ready") else 0,
+            float(row.get("recommendation_score") or 0),
+            float(row.get("rating") or 0),
+            int(row.get("orders") or 0),
+            int(row.get("products") or 0),
+        ),
+        reverse=True,
+    )
+
+
+def _admin_store_review_counts(stores):
+    counts = {
+        "all": len(stores),
+        "recommended": 0,
+        "active": 0,
+        "inactive": 0,
+        "online": 0,
+        "offline": 0,
+        "delivery_on": 0,
+        "delivery_off": 0,
+        "zone_ready": 0,
+        "zone_missing": 0,
+        "has_products": 0,
+        "no_products": 0,
+    }
+
+    for store in stores:
+        is_active = int(store.get("is_active") or 0) == 1
+        is_online = int(store.get("is_online", store.get("is_open", 1)) or 0) == 1
+        delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0) == 1
+        zone_ready = bool(store.get("zone_ready"))
+        has_products = int(store.get("products") or 0) > 0
+
+        if store.get("recommendation_ready"):
+            counts["recommended"] += 1
+
+        counts["active" if is_active else "inactive"] += 1
+        counts["online" if is_online else "offline"] += 1
+        counts["delivery_on" if delivery_on else "delivery_off"] += 1
+        counts["zone_ready" if zone_ready else "zone_missing"] += 1
+        counts["has_products" if has_products else "no_products"] += 1
+
+    return counts
+
+
+def _admin_store_review_average_rating(stores):
+    weighted_rating_total = 0.0
+    rating_count_total = 0
+    simple_ratings = []
+
+    for store in stores:
+        rating = _admin_store_review_float(store.get("rating"), 0.0, 0, 5)
+        rating_count = _admin_store_review_int(store.get("rating_count"), 0, 0)
+
+        if rating_count > 0:
+            weighted_rating_total += rating * rating_count
+            rating_count_total += rating_count
+        elif rating > 0:
+            simple_ratings.append(rating)
+
+    if rating_count_total > 0:
+        return round(weighted_rating_total / rating_count_total, 2)
+
+    if simple_ratings:
+        return round(sum(simple_ratings) / len(simple_ratings), 2)
+
+    return 0.0
+
+
 @app.route("/admin/stores/reviews")
 @login_required(role="admin")
 def admin_store_reviews():
-    stores = _admin_store_rows()
+    filters = _admin_store_review_filters()
 
-    recommended_stores = sorted(
+    stores = [
+        _admin_store_review_enrich(store)
+        for store in _admin_store_rows()
+    ]
+
+    recommended_ready_stores = [
+        store for store in stores
+        if store.get("recommendation_ready")
+    ]
+
+    recommended_stores = _admin_store_review_sort(
         stores,
-        key=lambda x: (x["rating"], x["orders"], x["products"]),
-        reverse=True
+        {"sort_by": "score"}
     )
+
+    filtered_stores = [
+        store for store in stores
+        if _admin_store_review_matches(store, filters)
+    ]
+    filtered_stores = _admin_store_review_sort(filtered_stores, filters)
+    review_stores, pagination = _admin_store_list_paginate(filtered_stores, filters)
+
+    review_counts = _admin_store_review_counts(stores)
+    active_stores = len([store for store in stores if int(store.get("is_active") or 0) == 1])
+    inactive_stores = len(stores) - active_stores
+
+    review_metrics = {
+        "total_stores": len(stores),
+        "filtered_stores": len(filtered_stores),
+        "recommended_stores": len(recommended_ready_stores),
+        "active_stores": active_stores,
+        "inactive_stores": inactive_stores,
+        "total_products": sum(int(store.get("products") or 0) for store in stores),
+        "total_orders": sum(int(store.get("orders") or 0) for store in stores),
+        "avg_rating": _admin_store_review_average_rating(stores),
+    }
 
     return render_template(
         "admin_store_reviews.html",
         user=current_user(),
         stores=stores,
         recommended_stores=recommended_stores,
+        review_stores=review_stores,
+        review_filters=filters,
+        review_status_options=ADMIN_STORE_REVIEW_STATUS_OPTIONS,
+        review_sort_options=ADMIN_STORE_REVIEW_SORT_OPTIONS,
+        review_counts=review_counts,
+        review_metrics=review_metrics,
+        pagination=pagination,
+        review_return_url=_admin_store_review_return_url(),
         active_group="store",
         active_page="store_reviews",
     )
@@ -5422,7 +5993,7 @@ def _admin_store_overview_csv_response(stores, filename):
             store.get("state", ""),
             "Active" if int(store.get("is_active") or 0) == 1 else "Inactive",
             "Online" if int(store.get("is_online", store.get("is_open", 0)) or 0) == 1 else "Offline",
-            "Delivery On" if int(store.get("delivery_enabled", 1 if store.get("delivery_available") else 0) or 0) == 1 else "Delivery Off",
+            "Delivery On" if int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0) == 1 else "Delivery Off",
             store.get("orders", 0),
             store.get("delivered_orders", 0),
             "%.2f" % float(store.get("revenue") or 0),
@@ -5476,7 +6047,7 @@ def admin_stores_export_csv():
 
     for idx, store in enumerate(stores, start=1):
         is_online = int(store.get("is_online", store.get("is_open", 1)) or 0) == 1
-        delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available") else 0) or 0) == 1
+        delivery_on = int(store.get("delivery_enabled", 1 if store.get("delivery_available", True) else 0) or 0) == 1
         zone_ready = _admin_store_list_zone_ready(store)
 
         rows.append([
@@ -5736,8 +6307,20 @@ def admin_store_update(store_id):
 
     raw_delivery_zone_polygon = request.form.get("delivery_zone_polygon")
     existing_delivery_zone_polygon = _admin_parse_delivery_zone_polygon(
-        json.dumps(store.get("delivery_zone_polygon") or [])
+        store.get("delivery_zone_polygon")
     )
+    if not existing_delivery_zone_polygon:
+        for zone_key in [
+            "delivery_zone",
+            "zone_polygon",
+            "service_area_polygon",
+            "delivery_area_polygon",
+            "service_area",
+            "zone",
+        ]:
+            existing_delivery_zone_polygon = _admin_parse_delivery_zone_polygon(store.get(zone_key))
+            if existing_delivery_zone_polygon:
+                break
     submitted_delivery_zone_polygon = _admin_parse_delivery_zone_polygon(
         raw_delivery_zone_polygon if raw_delivery_zone_polygon is not None else ""
     )
@@ -7115,10 +7698,713 @@ def admin_complaint_takeover(cid):
     flash("Store complaint has been taken over by Admin.", "success")
     return redirect(url_for("admin_complaints"))
 
+
+
+# =========================================================
+# ADMIN USERS OVERVIEW - SAFE DATA HELPERS
+# =========================================================
+# These helpers are intentionally guarded. If app_core already provides the
+# original helpers, those existing helpers remain untouched. The fallback block
+# only prevents this extracted admin route file from crashing when the helpers
+# are not available in the loaded module.
+
+if "_au_safe_int" not in globals():
+    def _au_safe_int(value, default=0):
+        try:
+            if value is None or str(value).strip() == "":
+                return int(default)
+            return int(float(value))
+        except Exception:
+            return int(default)
+
+if "_au_safe_float" not in globals():
+    def _au_safe_float(value, default=0.0):
+        try:
+            if value is None or str(value).strip() == "":
+                return float(default)
+            return float(value)
+        except Exception:
+            return float(default)
+
+if "_au_money" not in globals():
+    def _au_money(value):
+        return round(_au_safe_float(value), 2)
+
+if "_au_parse_date" not in globals():
+    def _au_parse_date(value):
+        try:
+            if isinstance(value, datetime):
+                return value
+            if not value:
+                return None
+            text = str(value).strip().replace("Z", "")
+            if not text:
+                return None
+            return datetime.fromisoformat(text)
+        except Exception:
+            return None
+
+if "_au_format_datetime" not in globals():
+    def _au_format_datetime(value):
+        dt_obj = _au_parse_date(value)
+        if not dt_obj:
+            return ""
+        try:
+            return dt_obj.strftime("%d %b %Y, %I:%M %p")
+        except Exception:
+            return str(value or "")
+
+if "_au_mask_email" not in globals():
+    def _au_mask_email(email):
+        email = str(email or "").strip()
+        if not email or "@" not in email:
+            return email
+        name, domain = email.split("@", 1)
+        if len(name) <= 2:
+            masked_name = name[:1] + "*"
+        else:
+            masked_name = name[:2] + "*" * min(max(len(name) - 2, 1), 5)
+        return masked_name + "@" + domain
+
+if "_au_mask_phone" not in globals():
+    def _au_mask_phone(phone):
+        phone = str(phone or "").strip()
+        if not phone:
+            return ""
+        if len(phone) <= 4:
+            return phone
+        return "*" * max(len(phone) - 4, 0) + phone[-4:]
+
+if "_au_user_display_name" not in globals():
+    def _au_user_display_name(user_doc):
+        user_doc = user_doc or {}
+        return (
+            user_doc.get("name")
+            or user_doc.get("full_name")
+            or user_doc.get("store_name")
+            or user_doc.get("email")
+            or user_doc.get("phone")
+            or "User"
+        )
+
+if "_au_all_users" not in globals():
+    def _au_all_users():
+        try:
+            return list(mongo.users.find({}).sort("created_at", -1))
+        except Exception:
+            return []
+
+if "_au_user_base_row" not in globals():
+    def _au_user_base_row(user_doc):
+        user_doc = user_doc or {}
+        uid = str(user_doc.get("_id") or user_doc.get("id") or "")
+        role = str(user_doc.get("role") or "").strip().lower() or "user"
+        is_active = bool(_au_safe_int(user_doc.get("is_active"), 1))
+        return {
+            "id": uid,
+            "_id": uid,
+            "user_id": uid,
+            "name": _au_user_display_name(user_doc),
+            "email": user_doc.get("email") or "",
+            "phone": user_doc.get("phone") or "",
+            "email_masked": _au_mask_email(user_doc.get("email") or ""),
+            "phone_masked": _au_mask_phone(user_doc.get("phone") or ""),
+            "role": role,
+            "is_active": is_active,
+            "created_at": user_doc.get("created_at") or "",
+            "created_at_display": _au_format_datetime(user_doc.get("created_at")),
+        }
+
+
+
+def _admin_full_user_row(user_doc):
+    user_doc = user_doc or {}
+    row = _au_user_base_row(user_doc)
+    email = str(user_doc.get("email") or row.get("email") or "").strip()
+    phone = str(user_doc.get("phone") or row.get("phone") or "").strip()
+    role = str(user_doc.get("role") or row.get("role") or "user").strip().lower() or "user"
+    row.update({
+        "email": email,
+        "phone": phone,
+        "email_display": email,
+        "phone_display": phone,
+        "role": role,
+        "status_label": "Active" if row.get("is_active") else "Disabled",
+    })
+    return row
+
+if "_au_filter_rows_by_status" not in globals():
+    def _au_filter_rows_by_status(rows, status):
+        status = str(status or "").strip().lower()
+        if not status:
+            return list(rows or [])
+        if status in ["active", "enabled"]:
+            return [row for row in rows if row.get("is_active")]
+        if status in ["inactive", "disabled", "blocked"]:
+            return [row for row in rows if not row.get("is_active")]
+        return list(rows or [])
+
+if "_au_filter_rows_by_search" not in globals():
+    def _au_filter_rows_by_search(rows, search):
+        q = str(search or "").strip().lower()
+        if not q:
+            return list(rows or [])
+        filtered = []
+        for row in rows or []:
+            haystack = " ".join([
+                str(row.get("name") or ""),
+                str(row.get("store_name") or ""),
+                str(row.get("email") or ""),
+                str(row.get("phone") or ""),
+                str(row.get("role") or ""),
+                str(row.get("zone") or ""),
+            ]).lower()
+            if q in haystack:
+                filtered.append(row)
+        return filtered
+
+if "_au_store_user_rows" not in globals():
+    def _au_store_user_rows():
+        rows = []
+        try:
+            store_users = list(mongo.users.find({"role": "store"}).sort("created_at", -1))
+        except Exception:
+            store_users = []
+
+        for user_doc in store_users:
+            row = _au_user_base_row(user_doc)
+            uid = row.get("id")
+            store = None
+            try:
+                store = mongo.stores.find_one({
+                    "$or": [
+                        {"user_id": uid},
+                        {"owner_id": uid},
+                        {"owner_user_id": uid},
+                        {"user_id": user_doc.get("_id")},
+                    ]
+                }) or {}
+            except Exception:
+                store = {}
+
+            store_id = store.get("_id") if store else None
+            orders = 0
+            revenue = 0.0
+            try:
+                order_query = {"$or": [{"store_id": store_id}, {"store_id": str(store_id)}]} if store_id else {"store_user_id": uid}
+                orders = mongo.orders.count_documents(order_query)
+                pipeline = [
+                    {"$match": order_query},
+                    {"$group": {"_id": None, "amount": {"$sum": {"$ifNull": ["$total_amount", 0]}}}}
+                ]
+                agg = list(mongo.orders.aggregate(pipeline))
+                revenue = _au_safe_float(agg[0].get("amount")) if agg else 0.0
+            except Exception:
+                pass
+
+            products = 0
+            try:
+                if store_id:
+                    products = mongo.products.count_documents({"$or": [{"store_id": store_id}, {"store_id": str(store_id)}]})
+            except Exception:
+                pass
+
+            row.update({
+                "store_name": store.get("store_name") or store.get("name") or row.get("name"),
+                "orders": orders,
+                "revenue": _au_money(revenue),
+                "products": products,
+            })
+            rows.append(row)
+        return rows
+
+if "_au_extract_lat_lng" not in globals():
+    def _au_extract_lat_lng(*sources):
+        def to_float(value):
+            try:
+                if value is None or str(value).strip() == "":
+                    return None
+                return float(value)
+            except Exception:
+                return None
+
+        for source in sources:
+            source = source or {}
+            candidate_pairs = [
+                (source.get("latitude"), source.get("longitude")),
+                (source.get("lat"), source.get("lng")),
+                (source.get("lat"), source.get("lon")),
+                (source.get("current_lat"), source.get("current_lng")),
+                (source.get("current_latitude"), source.get("current_longitude")),
+                (source.get("last_lat"), source.get("last_lng")),
+                (source.get("last_latitude"), source.get("last_longitude")),
+                (source.get("live_lat"), source.get("live_lng")),
+            ]
+
+            for lat_raw, lng_raw in candidate_pairs:
+                lat = to_float(lat_raw)
+                lng = to_float(lng_raw)
+                if lat is not None and lng is not None and abs(lat) <= 90 and abs(lng) <= 180:
+                    return lat, lng
+
+            for key in ["current_location", "last_location", "location", "coordinates", "geo"]:
+                loc = source.get(key)
+                if isinstance(loc, dict):
+                    lat = to_float(loc.get("latitude") or loc.get("lat"))
+                    lng = to_float(loc.get("longitude") or loc.get("lng") or loc.get("lon"))
+                    if lat is not None and lng is not None and abs(lat) <= 90 and abs(lng) <= 180:
+                        return lat, lng
+
+                    coords = loc.get("coordinates")
+                    if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                        lng = to_float(coords[0])
+                        lat = to_float(coords[1])
+                        if lat is not None and lng is not None and abs(lat) <= 90 and abs(lng) <= 180:
+                            return lat, lng
+
+                if isinstance(loc, (list, tuple)) and len(loc) >= 2:
+                    first = to_float(loc[0])
+                    second = to_float(loc[1])
+                    if first is not None and second is not None:
+                        # Prefer [lat, lng] when it looks valid, otherwise GeoJSON [lng, lat].
+                        if abs(first) <= 90 and abs(second) <= 180:
+                            return first, second
+                        if abs(second) <= 90 and abs(first) <= 180:
+                            return second, first
+
+        return None, None
+
+if "_au_clean_zone_name" not in globals():
+    def _au_clean_zone_name(zone):
+        zone = str(zone or "").strip()
+        return zone if zone else "Main Zone"
+
+if "_au_delivery_user_rows" not in globals():
+    def _au_delivery_user_rows():
+        rows = []
+        try:
+            delivery_users = list(mongo.users.find({"role": {"$in": ["delivery", "delivery_boy", "delivery_partner"]}}).sort("created_at", -1))
+        except Exception:
+            delivery_users = []
+
+        for user_doc in delivery_users:
+            row = _au_user_base_row(user_doc)
+            uid = row.get("id")
+            availability = {}
+            try:
+                availability = mongo.delivery_availability.find_one({"user_id": uid}) or {}
+            except Exception:
+                availability = {}
+
+            total_completed_orders = 0
+            currently_assigned_orders = 0
+            try:
+                total_completed_orders = mongo.orders.count_documents({
+                    "$or": [
+                        {"delivery_partner_id": uid},
+                        {"delivery_user_id": uid},
+                        {"delivery_boy_id": uid},
+                    ],
+                    "status": {"$in": ["DELIVERED", "delivered", "completed", "COMPLETED"]}
+                })
+                currently_assigned_orders = mongo.orders.count_documents({
+                    "$or": [
+                        {"delivery_partner_id": uid},
+                        {"delivery_user_id": uid},
+                        {"delivery_boy_id": uid},
+                    ],
+                    "status": {"$in": ["ASSIGNED", "assigned", "OUT_FOR_DELIVERY", "out_for_delivery", "picked_up", "PICKED_UP"]}
+                })
+            except Exception:
+                pass
+
+            lat, lng = _au_extract_lat_lng(availability, user_doc)
+            zone = _au_clean_zone_name(availability.get("zone") or user_doc.get("zone"))
+            is_online = bool(
+                availability.get("active")
+                or availability.get("is_online")
+                or availability.get("online")
+                or availability.get("available")
+                or availability.get("is_available")
+                or str(availability.get("status") or "").strip().lower() == "online"
+            )
+
+            row.update({
+                "zone": zone,
+                "is_online": is_online,
+                "latitude": lat,
+                "longitude": lng,
+                "rating": _au_safe_float(availability.get("rating") or user_doc.get("rating"), 0),
+                "total_completed_orders": total_completed_orders,
+                "currently_assigned_orders": currently_assigned_orders,
+                "assigned_orders": currently_assigned_orders,
+            })
+            rows.append(row)
+        return rows
+
+if "_au_customer_rows" not in globals():
+    def _au_customer_rows():
+        try:
+            customer_users = list(mongo.users.find({"role": {"$in": ["customer", "user"]}}).sort("created_at", -1))
+        except Exception:
+            customer_users = []
+
+        rows = []
+        for user_doc in customer_users:
+            row = _au_user_base_row(user_doc)
+            uid = row.get("id")
+            total_order = 0
+            total_amount = 0.0
+            try:
+                order_query = {"$or": [{"user_id": uid}, {"customer_id": uid}, {"customer_user_id": uid}]}
+                total_order = mongo.orders.count_documents(order_query)
+                pipeline = [
+                    {"$match": order_query},
+                    {"$group": {"_id": None, "amount": {"$sum": {"$ifNull": ["$total_amount", 0]}}}}
+                ]
+                agg = list(mongo.orders.aggregate(pipeline))
+                total_amount = _au_safe_float(agg[0].get("amount")) if agg else 0.0
+            except Exception:
+                pass
+            row.update({
+                "total_order": total_order,
+                "total_order_amount": _au_money(total_amount),
+            })
+            rows.append(row)
+        return rows
+
+if "_au_review_metrics" not in globals():
+    def _au_review_metrics():
+        rating_values = []
+        for collection_name in ["customer_reviews", "reviews", "product_reviews", "store_reviews"]:
+            try:
+                collection = getattr(mongo, collection_name)
+                for review in collection.find({}, {"rating": 1, "stars": 1, "score": 1}):
+                    rating = _au_safe_float(review.get("rating") or review.get("stars") or review.get("score"), 0)
+                    if rating > 0:
+                        rating_values.append(rating)
+            except Exception:
+                pass
+
+        total = len(rating_values)
+        if total <= 0:
+            return {
+                "review_received": 0,
+                "positive_pct": 0,
+                "good_pct": 0,
+                "neutral_pct": 0,
+                "negative_pct": 0,
+            }
+
+        positive = sum(1 for rating in rating_values if rating >= 4.5)
+        good = sum(1 for rating in rating_values if 4.0 <= rating < 4.5)
+        neutral = sum(1 for rating in rating_values if 3.0 <= rating < 4.0)
+        negative = max(total - positive - good - neutral, 0)
+
+        def pct(value):
+            return round((value / total) * 100)
+
+        return {
+            "review_received": total,
+            "positive_pct": pct(positive),
+            "good_pct": pct(good),
+            "neutral_pct": pct(neutral),
+            "negative_pct": pct(negative),
+        }
+
+if "_au_user_overview_data" not in globals():
+    def _au_user_overview_data():
+        all_users = [_au_user_base_row(user_doc) for user_doc in _au_all_users()]
+        customers = _au_customer_rows()
+        delivery_users = _au_delivery_user_rows()
+        store_users = _au_store_user_rows()
+
+        now = datetime.utcnow()
+        current_year = now.year
+        new_cutoff = now - timedelta(days=30)
+
+        month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        customer_growth_values = [0] * 12
+        for row in customers:
+            dt_obj = _au_parse_date(row.get("created_at"))
+            if dt_obj and dt_obj.year == current_year and 1 <= dt_obj.month <= 12:
+                customer_growth_values[dt_obj.month - 1] += 1
+
+        def is_new(row):
+            dt_obj = _au_parse_date(row.get("created_at"))
+            return bool(dt_obj and dt_obj >= new_cutoff)
+
+        metrics = {
+            "total_users": len(all_users),
+            "total_customers": len(customers),
+            "active_customers": sum(1 for row in customers if row.get("is_active")),
+            "blocked_customers": sum(1 for row in customers if not row.get("is_active")),
+            "new_customers": sum(1 for row in customers if is_new(row)),
+            "total_delivery_users": len(delivery_users),
+            "active_delivery_users": sum(1 for row in delivery_users if row.get("is_active")),
+            "inactive_delivery_users": sum(1 for row in delivery_users if not row.get("is_active")),
+            "blocked_delivery_users": sum(1 for row in delivery_users if not row.get("is_active")),
+            "new_delivery_users": sum(1 for row in delivery_users if is_new(row)),
+            "total_store_users": len(store_users),
+            "active_store_users": sum(1 for row in store_users if row.get("is_active")),
+            "blocked_store_users": sum(1 for row in store_users if not row.get("is_active")),
+            "new_store_users": sum(1 for row in store_users if is_new(row)),
+        }
+        metrics.update(_au_review_metrics())
+
+        return {
+            "metrics": metrics,
+            "month_labels": month_labels,
+            "customer_growth_values": customer_growth_values,
+            "top_deliverymen": sorted(delivery_users, key=lambda row: _au_safe_int(row.get("total_completed_orders")), reverse=True)[:6],
+            "top_store_users": sorted(store_users, key=lambda row: _au_safe_int(row.get("orders")), reverse=True)[:6],
+            "recent_users": all_users[:5],
+            "current_year": current_year,
+        }
+
+if "_au_export_users_csv_response" not in globals():
+    def _au_export_users_csv_response(rows, filename):
+        export_rows = [["Name", "Email", "Phone", "Role", "Status", "Joined"]]
+        for row in rows or []:
+            export_rows.append([
+                row.get("store_name") or row.get("name") or "",
+                row.get("email") or "",
+                row.get("phone") or "",
+                row.get("role") or "",
+                "Active" if row.get("is_active") else "Disabled",
+                row.get("created_at") or "",
+            ])
+        return _admin_csv_response(export_rows, filename)
+
+
+
+def _admin_attach_full_contact_rows(rows):
+    hydrated = []
+    for row in rows or []:
+        row = dict(row or {})
+        email = str(row.get("email") or row.get("email_display") or "").strip()
+        phone = str(row.get("phone") or row.get("phone_display") or "").strip()
+
+        if not email or not phone:
+            uid = str(row.get("id") or row.get("_id") or row.get("user_id") or row.get("owner_id") or "").strip()
+            user_doc = None
+            if uid:
+                try:
+                    user_doc = mongo.users.find_one({"_id": ObjectId(uid)})
+                except Exception:
+                    try:
+                        user_doc = mongo.users.find_one({"_id": uid})
+                    except Exception:
+                        user_doc = None
+
+            user_doc = user_doc or {}
+            email = email or str(user_doc.get("email") or "").strip()
+            phone = phone or str(user_doc.get("phone") or "").strip()
+
+        row["email"] = email
+        row["phone"] = phone
+        row["email_display"] = email
+        row["phone_display"] = phone
+        hydrated.append(row)
+    return hydrated
+
+def _admin_user_overview_selected_zone():
+    return str(request.args.get("zone") or "").strip()
+
+
+def _admin_user_overview_delivery_zone_options(seed_rows=None):
+    zones = []
+
+    def add_zone(value):
+        value = str(value or "").strip()
+        if value and value.lower() not in [z.lower() for z in zones]:
+            zones.append(value)
+
+    for row in seed_rows or []:
+        add_zone(row.get("zone"))
+
+    try:
+        for zone in mongo.delivery_availability.distinct("zone"):
+            add_zone(zone)
+    except Exception:
+        pass
+
+    try:
+        for store in mongo.stores.find({}, {"zone": 1, "zone_name": 1, "delivery_zone_name": 1, "service_zone_name": 1}):
+            add_zone(store.get("delivery_zone_name") or store.get("service_zone_name") or store.get("zone_name") or store.get("zone"))
+    except Exception:
+        pass
+
+    return sorted(zones, key=lambda item: item.lower())
+
+
+def _admin_user_overview_delivery_rows_for_zone(selected_zone):
+    selected_zone = str(selected_zone or "").strip().lower()
+    try:
+        rows = list(_au_delivery_user_rows())
+    except Exception:
+        rows = []
+
+    if not selected_zone:
+        return rows
+
+    availability_by_user_id = {}
+    try:
+        for availability in mongo.delivery_availability.find({}, {"user_id": 1, "zone": 1}):
+            availability_by_user_id[str(availability.get("user_id") or "")] = availability
+    except Exception:
+        pass
+
+    filtered = []
+    for row in rows:
+        uid = str(row.get("id") or row.get("_id") or row.get("user_id") or "")
+        availability = availability_by_user_id.get(uid) or {}
+        row_zone = str(row.get("zone") or availability.get("zone") or "").strip()
+        if row_zone.lower() == selected_zone:
+            row["zone"] = row_zone
+            filtered.append(row)
+    return filtered
+
+
+def _admin_user_overview_active_delivery_locations(selected_zone=""):
+    selected_zone_lower = str(selected_zone or "").strip().lower()
+    rows = []
+
+    try:
+        availability_rows = list(mongo.delivery_availability.find({}))
+    except Exception:
+        availability_rows = []
+
+    for availability in availability_rows:
+        user_id = str(availability.get("user_id") or availability.get("delivery_user_id") or availability.get("delivery_partner_id") or "").strip()
+        if not user_id:
+            continue
+
+        is_online = bool(
+            availability.get("active")
+            or availability.get("is_online")
+            or availability.get("online")
+            or availability.get("available")
+            or availability.get("is_available")
+            or str(availability.get("status") or "").strip().lower() in ["online", "active", "available"]
+        )
+
+        if not is_online:
+            continue
+
+        zone = _au_clean_zone_name(availability.get("zone"))
+        if selected_zone_lower and zone.lower() != selected_zone_lower:
+            continue
+
+        user_doc = None
+        try:
+            user_doc = mongo.users.find_one({"_id": ObjectId(user_id)})
+        except Exception:
+            try:
+                user_doc = mongo.users.find_one({"_id": user_id})
+            except Exception:
+                user_doc = None
+
+        user_doc = user_doc or {}
+        if user_doc and str(user_doc.get("role") or "").strip().lower() not in ["delivery", "delivery_boy", "delivery_partner"]:
+            continue
+
+        lat, lng = _au_extract_lat_lng(availability, user_doc)
+        if lat is None or lng is None:
+            continue
+
+        assigned_orders = 0
+        completed_orders = 0
+        try:
+            assigned_orders = mongo.orders.count_documents({
+                "$or": [
+                    {"delivery_partner_id": user_id},
+                    {"delivery_user_id": user_id},
+                    {"delivery_boy_id": user_id},
+                ],
+                "status": {"$in": ["ASSIGNED", "assigned", "OUT_FOR_DELIVERY", "out_for_delivery", "picked_up", "PICKED_UP"]}
+            })
+            completed_orders = mongo.orders.count_documents({
+                "$or": [
+                    {"delivery_partner_id": user_id},
+                    {"delivery_user_id": user_id},
+                    {"delivery_boy_id": user_id},
+                ],
+                "status": {"$in": ["DELIVERED", "delivered", "completed", "COMPLETED"]}
+            })
+        except Exception:
+            assigned_orders = _au_safe_int(availability.get("assigned_orders") or availability.get("currently_assigned_orders"), 0)
+            completed_orders = _au_safe_int(availability.get("completed_orders") or availability.get("total_completed_orders"), 0)
+
+        phone_value = str(user_doc.get("phone") or availability.get("phone") or "").strip()
+        email_value = str(user_doc.get("email") or availability.get("email") or "").strip()
+
+        rows.append({
+            "id": user_id,
+            "name": _au_user_display_name(user_doc) if user_doc else (availability.get("name") or "Delivery Staff"),
+            "phone": phone_value,
+            "email": email_value,
+            "phone_masked": _au_mask_phone(phone_value),
+            "email_masked": _au_mask_email(email_value),
+            "zone": zone,
+            "latitude": lat,
+            "longitude": lng,
+            "rating": _au_safe_float(availability.get("rating") or user_doc.get("rating"), 0),
+            "assigned_orders": assigned_orders,
+            "total_completed_orders": completed_orders,
+        })
+
+    rows.sort(key=lambda row: (_au_safe_int(row.get("assigned_orders")), _au_safe_int(row.get("total_completed_orders"))), reverse=True)
+    return rows
+
+
 @app.route('/admin/users')
 @login_required(role='admin')
 def admin_users():
+    selected_delivery_zone = _admin_user_overview_selected_zone()
+    delivery_settings = get_delivery_mode_settings()
+    in_house_delivery_enabled = bool(delivery_settings.get("in_house_delivery_enabled", True))
+
     data = _au_user_overview_data()
+
+    try:
+        data["recent_users"] = [_admin_full_user_row(user_doc) for user_doc in _au_all_users()[:5]]
+    except Exception:
+        data["recent_users"] = (data.get("recent_users") or [])[:5]
+
+    data["top_deliverymen"] = _admin_attach_full_contact_rows(data.get("top_deliverymen") or [])
+    data["top_store_users"] = _admin_attach_full_contact_rows(data.get("top_store_users") or [])
+
+    delivery_zone_options = _admin_user_overview_delivery_zone_options(
+        data.get("top_deliverymen") or []
+    )
+
+    if selected_delivery_zone and selected_delivery_zone.lower() not in [zone.lower() for zone in delivery_zone_options]:
+        selected_delivery_zone = ""
+
+    if selected_delivery_zone:
+        zone_delivery_rows = _admin_user_overview_delivery_rows_for_zone(selected_delivery_zone)
+        data["top_deliverymen"] = sorted(
+            zone_delivery_rows,
+            key=lambda row: _au_safe_int(row.get("total_completed_orders")),
+            reverse=True
+        )[:6]
+
+        data["top_deliverymen"] = _admin_attach_full_contact_rows(data.get("top_deliverymen") or [])
+
+        data["metrics"].update({
+            "total_delivery_users": len(zone_delivery_rows),
+            "active_delivery_users": sum(1 for row in zone_delivery_rows if row.get("is_active")),
+            "inactive_delivery_users": sum(1 for row in zone_delivery_rows if not row.get("is_active")),
+            "blocked_delivery_users": sum(1 for row in zone_delivery_rows if not row.get("is_active")),
+            "new_delivery_users": sum(
+                1
+                for row in zone_delivery_rows
+                if (_au_parse_date(row.get("created_at")) or datetime.min) >= (datetime.utcnow() - timedelta(days=30))
+            ),
+        })
+
+    active_delivery_locations = _admin_user_overview_active_delivery_locations(selected_delivery_zone)
 
     return render_template(
         "admin_users_overview.html",
@@ -7132,6 +8418,54 @@ def admin_users():
         top_store_users=data["top_store_users"],
         recent_users=data["recent_users"],
         current_year=data["current_year"],
+        in_house_delivery_enabled=in_house_delivery_enabled,
+        delivery_zone_options=delivery_zone_options,
+        selected_delivery_zone=selected_delivery_zone,
+        active_delivery_locations=active_delivery_locations,
+    )
+
+
+@app.route('/admin/users/all')
+@login_required(role='admin')
+def admin_all_users():
+    search = request.args.get("search", "").strip()
+    role_filter = request.args.get("role", "").strip().lower()
+    status_filter = request.args.get("status", "").strip().lower()
+
+    try:
+        rows = [_admin_full_user_row(user_doc) for user_doc in _au_all_users()]
+    except Exception:
+        rows = []
+
+    role_options = sorted(
+        {str(row.get("role") or "user").strip().lower() for row in rows if str(row.get("role") or "").strip()},
+        key=lambda item: item.lower()
+    )
+
+    if role_filter:
+        rows = [row for row in rows if str(row.get("role") or "").strip().lower() == role_filter]
+
+    rows = _au_filter_rows_by_status(rows, status_filter)
+    rows = _au_filter_rows_by_search(rows, search)
+
+    metrics = {
+        "total": len(rows),
+        "active": sum(1 for row in rows if row.get("is_active")),
+        "disabled": sum(1 for row in rows if not row.get("is_active")),
+        "roles": len(role_options),
+    }
+
+    return render_template(
+        "admin_all_users.html",
+        user=current_user(),
+        active_group="users",
+       active_page="all_users",
+        users=rows,
+        metrics=metrics,
+        search=search,
+        role_filter=role_filter,
+        status_filter=status_filter,
+        role_options=role_options,
     )
 
 @app.route('/admin/users/store-users')
@@ -7211,10 +8545,18 @@ def admin_customers():
     status = request.args.get("status", "").strip()
     sort_by = request.args.get("sort_by", "").strip()
     limit_raw = request.args.get("limit", "").strip()
+    new_only = request.args.get("new", "").strip().lower()
 
     rows = _au_customer_rows()
     rows = _au_filter_rows_by_status(rows, status)
     rows = _au_filter_rows_by_search(rows, search)
+
+    if new_only in ["1", "true", "yes"]:
+        new_cutoff = datetime.utcnow() - timedelta(days=30)
+        rows = [
+            row for row in rows
+            if (_au_parse_date(row.get("created_at")) or datetime.min) >= new_cutoff
+        ]
 
     if sort_by == "orders_desc":
         rows = sorted(rows, key=lambda row: _au_safe_int(row.get("total_order")), reverse=True)
@@ -7253,6 +8595,7 @@ def admin_customers():
         status=status,
         sort_by=sort_by,
         limit=limit_raw,
+        new_only=new_only,
     )
 
 @app.route('/admin/users/export.csv')
@@ -7664,6 +9007,114 @@ def admin_contact_message_reply(mid):
 
 
 
+def _admin_profile_clean_email(value):
+    return (value or "").strip().lower()
+
+
+def _admin_profile_email_is_valid(email):
+    email = _admin_profile_clean_email(email)
+
+    if not email:
+        return False
+
+    if len(email) > 254:
+        return False
+
+    if " " in email or "\t" in email or "\n" in email:
+        return False
+
+    if email.count("@") != 1:
+        return False
+
+    local, domain = email.split("@", 1)
+
+    if not local or not domain:
+        return False
+
+    if len(local) > 64:
+        return False
+
+    if "." not in domain:
+        return False
+
+    if domain.startswith(".") or domain.endswith("."):
+        return False
+
+    if ".." in email:
+        return False
+
+    return bool(re.match(r"^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$", email, re.IGNORECASE))
+
+
+def _admin_profile_email_exists_for_other_user(email, user_oid):
+    email = _admin_profile_clean_email(email)
+
+    if not email:
+        return False
+
+    existing = mongo.users.find_one({
+        "_id": {"$ne": user_oid},
+        "email": {
+            "$regex": "^" + re.escape(email) + "$",
+            "$options": "i"
+        }
+    })
+
+    return bool(existing)
+
+
+def _admin_profile_password_error(new_password, admin_user):
+    password = new_password or ""
+
+    if not password:
+        return "Please enter a new password."
+
+    if len(password) < 8:
+        return "New password must be at least 8 characters long."
+
+    if len(password) > 128:
+        return "New password cannot be more than 128 characters long."
+
+    if re.search(r"\s", password):
+        return "New password cannot contain spaces."
+
+    if not re.search(r"[A-Za-z]", password):
+        return "New password must include at least one letter."
+
+    if not re.search(r"\d", password):
+        return "New password must include at least one number."
+
+    password_lower = password.lower()
+    email = (admin_user.get("email") or "").strip().lower()
+    name = (admin_user.get("name") or "").strip().lower()
+    phone = str(admin_user.get("phone") or "").strip().lower()
+
+    if email and password_lower == email:
+        return "New password cannot be the same as your email."
+
+    if name and len(name) >= 3 and password_lower == name:
+        return "New password cannot be the same as your name."
+
+    if phone and len(phone) >= 6 and phone in password_lower:
+        return "New password cannot contain your phone number."
+
+    common_passwords = {
+        "password",
+        "password123",
+        "admin123",
+        "admin1234",
+        "12345678",
+        "123456789",
+        "qwerty123",
+        "welcome123",
+    }
+
+    if password_lower in common_passwords:
+        return "Please choose a stronger password."
+
+    return ""
+
+
 @app.route('/admin/profile', methods=['GET', 'POST'])
 @login_required(role='admin')
 def admin_profile():
@@ -7680,14 +9131,27 @@ def admin_profile():
 
         if action == "profile_details":
             name = (request.form.get("name") or "").strip()
-            phone = normalize_phone(request.form.get("phone") or "")
+            phone_raw = request.form.get("phone") or ""
+            phone = normalize_phone(phone_raw)
+
+            if not name:
+                flash("Admin name is required.", "warning")
+                return redirect(url_for("admin_profile"))
+
+            if len(name) > 120:
+                flash("Admin name cannot be more than 120 characters.", "warning")
+                return redirect(url_for("admin_profile"))
+
+            if phone_raw.strip() and (len(phone) < 7 or len(phone) > 15):
+                flash("Please enter a valid phone number.", "warning")
+                return redirect(url_for("admin_profile"))
 
             update_data = {
+                "name": name,
                 "updated_at": now,
                 "profile_updated_at": now,
             }
-            if name:
-                update_data["name"] = name
+
             if phone:
                 update_data["phone"] = phone
 
@@ -7697,25 +9161,26 @@ def admin_profile():
 
         if action == "change_email":
             current_password = request.form.get("current_password") or ""
-            new_email = (request.form.get("new_email") or "").lower().strip()
+            new_email = _admin_profile_clean_email(request.form.get("new_email") or "")
+            current_email = _admin_profile_clean_email(admin_user.get("email") or "")
+
+            if not current_password:
+                flash("Current password is required to change email.", "warning")
+                return redirect(url_for("admin_profile"))
 
             if not check_password_hash(admin_user.get("password_hash", ""), current_password):
                 flash("Current password is incorrect. Email was not changed.", "danger")
                 return redirect(url_for("admin_profile"))
 
-            if not new_email or "@" not in new_email:
+            if not _admin_profile_email_is_valid(new_email):
                 flash("Please enter a valid new email address.", "warning")
                 return redirect(url_for("admin_profile"))
 
-            if new_email == (admin_user.get("email") or "").lower().strip():
-                flash("This email is already linked to your admin account.", "info")
+            if new_email == current_email:
+                flash("Current email cannot be used as the new email.", "warning")
                 return redirect(url_for("admin_profile"))
 
-            existing = mongo.users.find_one({
-                "email": new_email,
-                "_id": {"$ne": user_oid}
-            })
-            if existing:
+            if _admin_profile_email_exists_for_other_user(new_email, user_oid):
                 flash("This email is already used by another account.", "danger")
                 return redirect(url_for("admin_profile"))
 
@@ -7736,17 +9201,31 @@ def admin_profile():
             current_password = request.form.get("current_password") or ""
             new_password = request.form.get("new_password") or ""
             confirm_password = request.form.get("confirm_password") or ""
+            password_hash = admin_user.get("password_hash", "")
 
-            if not check_password_hash(admin_user.get("password_hash", ""), current_password):
+            if not current_password:
+                flash("Current password is required to change password.", "warning")
+                return redirect(url_for("admin_profile"))
+
+            if not check_password_hash(password_hash, current_password):
                 flash("Current password is incorrect. Password was not changed.", "danger")
                 return redirect(url_for("admin_profile"))
 
-            if len(new_password) < 8:
-                flash("New password must be at least 8 characters long.", "warning")
+            if not new_password or not confirm_password:
+                flash("Please enter and confirm the new password.", "warning")
                 return redirect(url_for("admin_profile"))
 
             if new_password != confirm_password:
                 flash("New password and confirm password do not match.", "warning")
+                return redirect(url_for("admin_profile"))
+
+            if check_password_hash(password_hash, new_password):
+                flash("New password cannot be the same as your current password.", "warning")
+                return redirect(url_for("admin_profile"))
+
+            password_error = _admin_profile_password_error(new_password, admin_user)
+            if password_error:
+                flash(password_error, "warning")
                 return redirect(url_for("admin_profile"))
 
             mongo.users.update_one(
@@ -7769,4 +9248,3 @@ def admin_profile():
         active_group="account",
         active_page="admin_profile",
     )
-

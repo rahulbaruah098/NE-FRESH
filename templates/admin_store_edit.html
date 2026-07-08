@@ -630,6 +630,7 @@
 
             <input type="hidden" name="delivery_mode" value="polygon">
             <input type="hidden" id="editDeliveryZonePolygon" name="delivery_zone_polygon" value='{{ store.delivery_zone_polygon|default([])|tojson|forceescape }}'>
+            <script type="application/json" id="editDeliveryZonePolygonData">{{ store.delivery_zone_polygon|default([])|tojson }}</script>
 
             <div class="se-map-card">
               <div class="se-map-head">
@@ -782,21 +783,133 @@
 
   function cleanPin(value){ return String(value || '').replace(/\D+/g, '').slice(0, 6); }
 
-  function normalizePoint(point){
-    if (!Array.isArray(point) || point.length !== 2) return null;
-    const lat = safeFloat(point[0]);
-    const lng = safeFloat(point[1]);
+  function normalizePoint(point, geojson){
+    let lat = null;
+    let lng = null;
+
+    if (Array.isArray(point) && point.length >= 2) {
+      lat = safeFloat(geojson ? point[1] : point[0]);
+      lng = safeFloat(geojson ? point[0] : point[1]);
+    } else if (point && typeof point === 'object') {
+      lat = safeFloat(point.lat ?? point.latitude ?? point.y);
+      lng = safeFloat(point.lng ?? point.lon ?? point.longitude ?? point.x);
+
+      if ((lat === null || lng === null) && Array.isArray(point.coordinates) && point.coordinates.length >= 2) {
+        lat = safeFloat(point.coordinates[1]);
+        lng = safeFloat(point.coordinates[0]);
+      }
+    }
+
     if (lat === null || lng === null) return null;
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
     return [Number(lat.toFixed(6)), Number(lng.toFixed(6))];
   }
 
+  function collectZonePoints(data, geojson, depth){
+    depth = depth || 0;
+    if (depth > 8 || data === null || data === undefined) return [];
+
+    if (typeof data === 'string') {
+      const clean = data.trim();
+      if (!clean) return [];
+      try { return collectZonePoints(JSON.parse(clean), geojson, depth + 1); }
+      catch(e) { return []; }
+    }
+
+    if (Array.isArray(data)) {
+      const direct = normalizePoint(data, geojson);
+      if (direct && !Array.isArray(data[0]) && typeof data[0] !== 'object') return [direct];
+
+      let points = [];
+      data.forEach(function(item){
+        const point = normalizePoint(item, geojson);
+        if (point) points.push(point);
+        else points = points.concat(collectZonePoints(item, geojson, depth + 1));
+      });
+      return points;
+    }
+
+    if (typeof data === 'object') {
+      const direct = normalizePoint(data, geojson);
+      if (direct) return [direct];
+
+      const type = String(data.type || '').toLowerCase();
+
+      if (type === 'feature') return collectZonePoints(data.geometry, true, depth + 1);
+
+      if (type === 'featurecollection') {
+        const features = Array.isArray(data.features) ? data.features : [];
+        for (let i = 0; i < features.length; i += 1) {
+          const points = collectZonePoints(features[i], true, depth + 1);
+          if (points.length >= 3) return points;
+        }
+        return [];
+      }
+
+      if (type === 'polygon') {
+        const coords = Array.isArray(data.coordinates) ? data.coordinates : [];
+        return collectZonePoints(coords[0] || [], true, depth + 1);
+      }
+
+      if (type === 'multipolygon') {
+        const coords = Array.isArray(data.coordinates) ? data.coordinates : [];
+        return collectZonePoints((coords[0] && coords[0][0]) || [], true, depth + 1);
+      }
+
+      const keys = [
+        'delivery_zone_polygon',
+        'delivery_zone',
+        'zone_polygon',
+        'service_area_polygon',
+        'delivery_area_polygon',
+        'service_area',
+        'zone',
+        'polygon',
+        'points',
+        'latlngs',
+        'lat_lngs',
+        'coordinates'
+      ];
+
+      for (let i = 0; i < keys.length; i += 1) {
+        if (Object.prototype.hasOwnProperty.call(data, keys[i])) {
+          const points = collectZonePoints(data[keys[i]], keys[i] === 'coordinates', depth + 1);
+          if (points.length) return points;
+        }
+      }
+    }
+
+    return [];
+  }
+
+  function uniqueZonePoints(points){
+    const seen = new Set();
+    const cleaned = [];
+    points.forEach(function(point){
+      if (!Array.isArray(point) || point.length !== 2) return;
+      const key = point[0] + ',' + point[1];
+      if (seen.has(key)) return;
+      seen.add(key);
+      cleaned.push(point);
+    });
+    return cleaned;
+  }
+
   function readZone(){
-    try {
-      const raw = zoneInput ? String(zoneInput.value || '').trim() : '';
-      const data = raw ? JSON.parse(raw) : [];
-      return Array.isArray(data) ? data.map(normalizePoint).filter(Boolean) : [];
-    } catch(e) { return []; }
+    const scriptData = document.getElementById('editDeliveryZonePolygonData');
+    const candidates = [];
+
+    if (scriptData) candidates.push(String(scriptData.textContent || '').trim());
+    if (zoneInput) candidates.push(String(zoneInput.value || '').trim());
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const raw = candidates[i];
+      if (!raw) continue;
+      const points = uniqueZonePoints(collectZonePoints(raw, false, 0));
+      if (points.length >= 3) return points;
+    }
+
+    return [];
   }
 
   function setZoneMessage(text, ok){

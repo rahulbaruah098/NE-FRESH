@@ -3,10 +3,10 @@
 {% set active_group = "users" %}
 {% set active_page = "users_overview" %}
 
-{% block title %}User Overview | NE FRESH Admin{% endblock %}
+{% block title %}User Overview | NE Locals Admin{% endblock %}
 
 {% block page_title %}User Overview{% endblock %}
-{% block page_subtitle %}Manage customers, store users and delivery partners from one dashboard.{% endblock %}
+{% block page_subtitle %}{% endblock %}
 
 {% block extra_css %}
 <link
@@ -17,126 +17,200 @@
 <style>
   .nf-user-overview {
     --uo-green: var(--nf-green, #00A859);
-    --uo-green-dark: var(--nf-green-dark, #008A48);
+    --uo-green-dark: var(--nf-green-dark, #007A43);
     --uo-green-deep: var(--nf-green-deep, #075C3B);
     --uo-green-soft: var(--nf-green-soft, #E9FFF3);
-    --uo-orange: var(--nf-orange, #FFB84D);
-    --uo-orange-soft: var(--nf-orange-soft, #FFF7E8);
-    --uo-red: var(--nf-red, #EF4444);
-    --uo-blue: var(--nf-blue, #0284C7);
+    --uo-orange: var(--nf-orange, #FF8A1F);
+    --uo-orange-soft: var(--nf-orange-soft, #FFF3E7);
+    --uo-red: var(--nf-danger, #EF4444);
+    --uo-blue: var(--nf-info, #0284C7);
     --uo-bg: var(--nf-bg, #F8FFFB);
     --uo-card: var(--nf-surface, #FFFFFF);
-    --uo-card-2: var(--nf-surface-2, #F2FBF6);
-    --uo-text: var(--nf-text, #1F332A);
-    --uo-muted: var(--nf-muted, #66756D);
+    --uo-card-2: var(--nf-surface-2, #F4F9F6);
+    --uo-text: var(--nf-text, #1F2D26);
+    --uo-muted: var(--nf-muted, #6A7A72);
     --uo-muted-2: var(--nf-muted-2, #8A9890);
     --uo-line: var(--nf-line, #DDECE4);
-    --uo-shadow: var(--nf-shadow, 0 14px 36px rgba(17, 64, 38, .08));
-    --uo-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17, 64, 38, .06));
+    --uo-shadow: var(--nf-shadow, 0 16px 40px rgba(17, 64, 38, .08));
+    --uo-shadow-soft: var(--nf-shadow-soft, 0 12px 30px rgba(17, 64, 38, .06));
 
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     display: grid;
-    gap: 22px;
+    gap: 18px;
+    color: var(--uo-text);
+    overflow-x: clip;
+    padding-left: max(0px, env(safe-area-inset-left, 0px));
+    padding-right: max(0px, env(safe-area-inset-right, 0px));
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   .nf-user-overview,
   .nf-user-overview * {
     box-sizing: border-box;
+    min-width: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .nf-user-overview.is-loading {
+    opacity: .72;
+    cursor: progress;
+    pointer-events: none;
+  }
+
+  .uo-page-head,
+  .uo-card,
+  .uo-kpi-card,
+  .uo-mini-stat,
+  .uo-delivery-kpi {
+    background: var(--uo-card);
+    border: 1px solid var(--uo-line);
+    box-shadow: var(--uo-shadow-soft);
   }
 
   .uo-page-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
     gap: 18px;
-    flex-wrap: wrap;
+    align-items: center;
+    padding: clamp(18px, 3vw, 30px);
+    border-radius: 26px;
+    overflow: hidden;
   }
 
   .uo-title-wrap {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 12px;
     min-width: 0;
   }
 
-  .uo-title-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 16px;
+  .uo-title-wrap > div:last-child {
+    min-width: 0;
+  }
+
+  .uo-title-icon,
+  .uo-mini-icon,
+  .uo-delivery-kpi-icon,
+  .uo-person-img,
+  .uo-avatar {
     display: grid;
     place-items: center;
-    background: linear-gradient(135deg, var(--uo-green-soft), #fff);
-    border: 1px solid rgba(0, 168, 89, .18);
-    box-shadow: var(--uo-shadow-soft);
+    background: var(--uo-green-soft);
+    color: var(--uo-green-dark);
+    border: 1px solid rgba(0, 168, 89, .16);
+    box-shadow: none;
+    flex: 0 0 auto;
+  }
+
+  .uo-title-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 16px;
     font-size: 1.35rem;
   }
 
   .uo-title-wrap h2 {
     margin: 0;
     color: var(--uo-text);
-    font-size: clamp(1.35rem, 2vw, 1.9rem);
-    font-weight: 900;
-    letter-spacing: -.035em;
+    font-size: clamp(1.45rem, 3vw, 2.25rem);
+    font-weight: 950;
+    letter-spacing: -.045em;
     line-height: 1.1;
   }
 
   .uo-title-wrap p {
-    margin: 5px 0 0;
+    max-width: 760px;
+    margin: 6px 0 0;
     color: var(--uo-muted);
-    font-size: .92rem;
+    font-size: .94rem;
+    line-height: 1.55;
     font-weight: 650;
   }
 
-  .uo-zone-select {
-    width: min(280px, 100%);
-    height: 46px;
-    border: 1px solid var(--uo-line);
-    border-radius: 14px;
-    background: var(--uo-card);
-    color: var(--uo-text);
-    padding: 0 14px;
-    outline: none;
-    font-size: .92rem;
-    font-weight: 750;
-    box-shadow: var(--uo-shadow-soft);
+  .uo-zone-form {
+    width: 100%;
+    max-width: 320px;
+    display: grid;
+    gap: 6px;
+    justify-self: end;
   }
 
-  .uo-kpi-grid {
+  .uo-zone-label {
+    color: var(--uo-muted);
+    font-size: .75rem;
+    font-weight: 850;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+
+  .uo-zone-select,
+  .uo-zone-apply,
+  .uo-map-toolbar input {
+    width: 100%;
+    max-width: 100%;
+    min-height: 44px;
+    border: 1px solid var(--uo-line);
+    border-radius: 14px;
+    background: var(--uo-card-2);
+    color: var(--uo-text);
+    box-shadow: none;
+    outline: none;
+  }
+
+  .uo-zone-select {
+    height: 46px;
+    padding: 0 14px;
+    font-size: .92rem;
+    font-weight: 750;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .uo-zone-apply {
+    color: #fff;
+    background: var(--uo-green-dark);
+    font-weight: 900;
+    cursor: pointer;
+  }
+
+  .uo-zone-select:focus,
+  .uo-map-toolbar input:focus {
+    background: var(--uo-card);
+    border-color: rgba(0, 168, 89, .42);
+    box-shadow: 0 0 0 4px rgba(0, 168, 89, .10);
+  }
+
+  .uo-kpi-grid,
+  .uo-delivery-kpis {
+    width: 100%;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: 14px;
+  }
+
+  .uo-kpi-card,
+  .uo-delivery-kpi,
+  .uo-mini-stat {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    text-decoration: none;
   }
 
   .uo-kpi-card {
     min-height: 142px;
-    border-radius: 20px;
-    background: var(--uo-card);
-    border: 1px solid var(--uo-line);
-    box-shadow: var(--uo-shadow-soft);
     padding: 18px;
     display: grid;
     align-content: space-between;
-    overflow: hidden;
-    position: relative;
-    text-decoration: none;
   }
 
   .uo-kpi-card::after {
-    content: "";
-    position: absolute;
-    width: 110px;
-    height: 110px;
-    border-radius: 999px;
-    right: -44px;
-    top: -48px;
-    background: rgba(0, 168, 89, .08);
-  }
-
-  .uo-kpi-card.delivery::after {
-    background: rgba(2, 132, 199, .10);
-  }
-
-  .uo-kpi-card.store::after {
-    background: rgba(255, 184, 77, .16);
+    display: none;
+    content: none;
   }
 
   .uo-avatar-strip {
@@ -160,147 +234,112 @@
     z-index: 2;
   }
 
-  .uo-kpi-card.delivery .uo-mini-badge {
-    background: var(--uo-blue);
-  }
-
-  .uo-kpi-card.store .uo-mini-badge {
-    background: var(--uo-orange);
-    color: #fff;
-  }
-
   .uo-avatar {
     width: 32px;
     height: 32px;
     border-radius: 999px;
-    display: grid;
-    place-items: center;
-    background: var(--uo-green-soft);
-    border: 2px solid var(--uo-card);
-    color: var(--uo-green-dark);
     font-size: .95rem;
     margin-left: -6px;
-    box-shadow: 0 8px 16px rgba(17, 64, 38, .08);
   }
 
-  .uo-kpi-value {
-    margin-top: 12px;
-    color: var(--uo-green-deep);
-    font-size: 1.75rem;
-    font-weight: 900;
-    letter-spacing: -.04em;
-  }
-
-  .uo-kpi-card.delivery .uo-kpi-value {
-    color: var(--uo-blue);
-  }
-
-  .uo-kpi-card.store .uo-kpi-value {
-    color: var(--uo-orange);
-  }
-
-  .uo-kpi-label {
-    color: var(--uo-text);
-    font-size: .92rem;
-    font-weight: 850;
-    margin-top: 6px;
-  }
-
-  .uo-section-title {
-    margin: 8px 0 0;
-    color: var(--uo-text);
-    font-size: 1.12rem;
-    font-weight: 900;
-    letter-spacing: -.025em;
-  }
-
-  .uo-customer-grid {
-    display: grid;
-    grid-template-columns: 235px minmax(0, 1fr) 360px;
-    gap: 16px;
-    align-items: stretch;
-  }
-
-  .uo-mini-stack {
-    display: grid;
-    gap: 12px;
-  }
-
-  .uo-mini-stat {
-    min-height: 100px;
-    border-radius: 18px;
-    background: var(--uo-card);
-    border: 1px solid var(--uo-line);
-    box-shadow: var(--uo-shadow-soft);
-    padding: 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    text-decoration: none;
-  }
-
-  .uo-mini-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 15px;
-    display: grid;
-    place-items: center;
-    background: var(--uo-green-soft);
-    color: var(--uo-green-dark);
-    font-size: 1.35rem;
-    flex: 0 0 auto;
-  }
-
-  .uo-mini-stat.orange .uo-mini-icon {
-    background: var(--uo-orange-soft);
-    color: #B45309;
-  }
-
-  .uo-mini-stat.red .uo-mini-icon {
-    background: #FFF1F2;
-    color: var(--uo-red);
-  }
-
-  .uo-mini-content strong {
+  .uo-kpi-value,
+  .uo-mini-content strong,
+  .uo-delivery-kpi strong {
     display: block;
     color: var(--uo-green-dark);
-    font-size: 1.55rem;
     font-weight: 900;
     letter-spacing: -.04em;
     line-height: 1;
   }
 
-  .uo-mini-stat.orange .uo-mini-content strong {
-    color: var(--uo-blue);
+  .uo-kpi-value {
+    margin-top: 12px;
+    font-size: 1.75rem;
   }
 
-  .uo-mini-stat.red .uo-mini-content strong {
-    color: var(--uo-red);
+  .uo-kpi-label,
+  .uo-mini-content span,
+  .uo-delivery-kpi span {
+    display: block;
+    max-width: 100%;
+    color: var(--uo-text);
+    overflow-wrap: anywhere;
+  }
+
+  .uo-kpi-label {
+    margin-top: 6px;
+    font-size: .92rem;
+    font-weight: 850;
+  }
+
+  .uo-section-title {
+    margin: 2px 0 0;
+    color: var(--uo-text);
+    font-size: 1.08rem;
+    font-weight: 950;
+    letter-spacing: -.02em;
+  }
+
+  .uo-customer-grid,
+  .uo-delivery-grid,
+  .uo-bottom-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .uo-mini-stack {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+    gap: 14px;
+  }
+
+  .uo-mini-stat {
+    min-height: 100px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .uo-mini-icon,
+  .uo-delivery-kpi-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 15px;
+    font-size: 1.25rem;
+  }
+
+  .uo-mini-icon {
+    font-size: 1.35rem;
+  }
+
+  .uo-mini-content strong {
+    font-size: 1.55rem;
   }
 
   .uo-mini-content span {
-    display: block;
     margin-top: 8px;
-    color: var(--uo-text);
     font-size: .9rem;
     font-weight: 850;
   }
 
   .uo-card {
-    border-radius: 20px;
-    background: var(--uo-card);
-    border: 1px solid var(--uo-line);
-    box-shadow: var(--uo-shadow-soft);
+    border-radius: 22px;
     overflow: hidden;
   }
 
   .uo-card-head {
-    min-height: 58px;
+    min-height: auto;
     padding: 16px 18px;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
+    background: var(--uo-card);
     border-bottom: 1px solid var(--uo-line);
   }
 
@@ -308,66 +347,122 @@
     margin: 0;
     color: var(--uo-text);
     font-size: .98rem;
-    font-weight: 900;
+    font-weight: 950;
     letter-spacing: -.02em;
   }
 
   .uo-card-head span,
-  .uo-card-head a {
+  .uo-card-head a,
+  .uo-person-row span,
+  .uo-review-count span,
+  .uo-person-contact + .uo-person-contact,
+  .uo-contact-cell span + span {
     color: var(--uo-muted);
-    font-size: .86rem;
-    font-weight: 750;
   }
 
   .uo-card-head a {
     color: var(--uo-green-dark);
+    font-size: .86rem;
+    font-weight: 900;
     text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .uo-card-footer {
+    padding: 14px 18px 16px;
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px solid var(--uo-line);
+    background: var(--uo-card);
+  }
+
+  .uo-card-footer a {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--uo-green-dark);
+    color: #fff;
+    font-size: .84rem;
+    font-weight: 900;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .uo-card-head-actions {
+    align-items: center;
+  }
+
+  .uo-card-head-actions > div {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  .uo-growth-card,
+  .uo-satisfaction,
+  .uo-map-card {
+    min-height: auto;
   }
 
   .uo-growth-card {
-    min-height: 322px;
+    overflow: visible;
+  }
+
+  .uo-growth-card .uo-card-head {
+    position: relative;
+    z-index: 3;
   }
 
   .uo-chart {
-    height: 242px;
-    padding: 18px 18px 12px;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    min-height: 290px;
+    padding: 34px 18px 12px;
     display: grid;
     grid-template-rows: 1fr auto;
     gap: 10px;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
 
   .uo-chart-area {
     position: relative;
+    min-height: 220px;
     height: 100%;
-    border-left: 1px solid var(--uo-line);
-    border-bottom: 1px solid var(--uo-line);
-    background:
-      linear-gradient(to bottom, transparent 0, transparent calc(20% - 1px), var(--uo-line) calc(20% - 1px), transparent 20%),
-      linear-gradient(to bottom, transparent 0, transparent calc(40% - 1px), var(--uo-line) calc(40% - 1px), transparent 40%),
-      linear-gradient(to bottom, transparent 0, transparent calc(60% - 1px), var(--uo-line) calc(60% - 1px), transparent 60%),
-      linear-gradient(to bottom, transparent 0, transparent calc(80% - 1px), var(--uo-line) calc(80% - 1px), transparent 80%);
     display: flex;
     align-items: end;
     gap: 12px;
-    padding: 0 12px;
+    padding: 28px 14px 0;
+    overflow: visible;
+    background: var(--uo-card-2);
+    border: 1px solid var(--uo-line);
+    border-radius: 18px;
   }
 
   .uo-bar {
     flex: 1;
     min-width: 12px;
-    border-radius: 9px 9px 0 0;
-    background: linear-gradient(180deg, var(--uo-green), var(--uo-green-dark));
-    height: calc(var(--bar-height, 0) * 1%);
     min-height: 2px;
+    height: calc(var(--bar-height, 0) * 1%);
     position: relative;
-    box-shadow: 0 10px 22px rgba(0, 168, 89, .14);
+    overflow: visible;
+    border-radius: 9px 9px 0 0;
+    background: var(--uo-green);
+    box-shadow: 0 10px 20px rgba(0, 168, 89, .14);
   }
 
   .uo-bar:hover::after {
     content: attr(data-value);
     position: absolute;
+    z-index: 20;
     left: 50%;
-    bottom: calc(100% + 8px);
+    bottom: calc(100% + 10px);
     transform: translateX(-50%);
     background: var(--uo-green-deep);
     color: #fff;
@@ -388,8 +483,11 @@
     text-align: center;
   }
 
+  .uo-chart-labels span {
+    white-space: nowrap;
+  }
+
   .uo-satisfaction {
-    min-height: 322px;
     padding-bottom: 12px;
   }
 
@@ -405,7 +503,6 @@
   }
 
   .uo-review-count span {
-    color: var(--uo-muted);
     font-size: .85rem;
     font-weight: 700;
   }
@@ -422,9 +519,10 @@
     gap: 10px;
     align-items: center;
     min-height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--uo-line);
     border-radius: 12px;
     background: var(--uo-card-2);
-    padding: 0 12px;
   }
 
   .uo-sat-row span:first-child {
@@ -461,128 +559,29 @@
     text-align: right;
   }
 
-  .uo-delivery-kpis {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
-  }
-
   .uo-delivery-kpi {
     min-height: 106px;
-    border-radius: 18px;
-    background: var(--uo-card);
-    border: 1px solid var(--uo-line);
-    box-shadow: var(--uo-shadow-soft);
     padding: 16px;
     display: flex;
     align-items: center;
     gap: 12px;
-    text-decoration: none;
-  }
-
-  .uo-delivery-kpi-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 15px;
-    display: grid;
-    place-items: center;
-    background: var(--uo-green-soft);
-    color: var(--uo-green-dark);
-    font-size: 1.25rem;
-    flex: 0 0 auto;
-  }
-
-  .uo-delivery-kpi.blue .uo-delivery-kpi-icon {
-    background: #E0F2FE;
-    color: var(--uo-blue);
-  }
-
-  .uo-delivery-kpi.orange .uo-delivery-kpi-icon {
-    background: var(--uo-orange-soft);
-    color: #B45309;
-  }
-
-  .uo-delivery-kpi.red .uo-delivery-kpi-icon {
-    background: #FFF1F2;
-    color: var(--uo-red);
   }
 
   .uo-delivery-kpi strong {
-    display: block;
-    color: var(--uo-green-dark);
     font-size: 1.55rem;
-    line-height: 1;
-    font-weight: 900;
-  }
-
-  .uo-delivery-kpi.blue strong {
-    color: var(--uo-blue);
-  }
-
-  .uo-delivery-kpi.orange strong,
-  .uo-delivery-kpi.red strong {
-    color: var(--uo-red);
   }
 
   .uo-delivery-kpi span {
-    display: block;
     margin-top: 8px;
-    color: var(--uo-text);
     font-size: .86rem;
     line-height: 1.28;
     font-weight: 850;
   }
 
-  .uo-delivery-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 356px;
-    gap: 16px;
-    align-items: stretch;
-  }
-
   .uo-map-card {
-    min-height: 360px;
+    width: 100%;
+    min-height: 420px;
     position: relative;
-    overflow: hidden;
-  }
-
-  .uo-map-toolbar {
-    padding: 12px;
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    position: relative;
-    z-index: 4;
-    pointer-events: none;
-  }
-
-  .uo-map-toolbar strong {
-    min-height: 42px;
-    border-radius: 13px;
-    background: rgba(255, 255, 255, .96);
-    border: 1px solid var(--uo-line);
-    display: inline-flex;
-    align-items: center;
-    padding: 0 14px;
-    color: var(--uo-text);
-    font-size: .86rem;
-    font-weight: 900;
-    box-shadow: var(--uo-shadow-soft);
-    pointer-events: auto;
-  }
-
-  .uo-map-toolbar input {
-    width: min(380px, 50%);
-    height: 42px;
-    border-radius: 13px;
-    border: 1px solid var(--uo-line);
-    background: rgba(255, 255, 255, .96);
-    color: var(--uo-text);
-    outline: none;
-    padding: 0 14px;
-    font-weight: 700;
-    box-shadow: var(--uo-shadow-soft);
-    pointer-events: auto;
   }
 
   .uo-map-bg {
@@ -597,7 +596,7 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    min-height: 360px;
+    min-height: 420px;
     z-index: 1;
   }
 
@@ -635,17 +634,55 @@
     margin-top: 4px;
   }
 
+  .uo-map-toolbar {
+    width: 100%;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(240px, 420px);
+    align-items: start;
+    gap: 10px;
+    position: relative;
+    z-index: 4;
+    pointer-events: none;
+  }
+
+  .uo-map-toolbar strong,
+  .uo-map-empty-note {
+    background: rgba(255, 255, 255, .96);
+    border: 1px solid var(--uo-line);
+    box-shadow: var(--uo-shadow-soft);
+    color: var(--uo-text);
+  }
+
+  .uo-map-toolbar strong {
+    min-height: 42px;
+    border-radius: 13px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 14px;
+    font-size: .86rem;
+    font-weight: 900;
+    pointer-events: auto;
+  }
+
+  .uo-map-toolbar input {
+    height: 42px;
+    padding: 0 14px;
+    font-weight: 700;
+    pointer-events: auto;
+  }
+
   .uo-live-marker {
     width: 42px;
     height: 42px;
     border-radius: 999px 999px 999px 10px;
     display: grid;
     place-items: center;
-    background: var(--uo-green);
+    background: var(--uo-green-deep);
     color: #fff;
     transform: rotate(-45deg);
-    box-shadow: 0 18px 34px rgba(0, 168, 89, .28);
     border: 3px solid #fff;
+    box-shadow: 0 18px 34px rgba(0, 168, 89, .28);
   }
 
   .uo-live-marker span {
@@ -661,11 +698,7 @@
     z-index: 4;
     max-width: 360px;
     border-radius: 14px;
-    border: 1px solid rgba(221, 236, 228, .9);
-    background: rgba(255, 255, 255, .96);
-    color: var(--uo-text);
     padding: 12px 14px;
-    box-shadow: var(--uo-shadow-soft);
   }
 
   .uo-map-empty-note strong {
@@ -684,28 +717,29 @@
   }
 
   .uo-top-list {
-    padding: 12px 16px 18px;
     display: grid;
-    gap: 13px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+    gap: 12px;
+    padding: 16px;
   }
 
   .uo-person-row {
+    width: 100%;
+    min-height: 70px;
     display: grid;
-    grid-template-columns: 50px minmax(0, 1fr) auto;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
     gap: 12px;
     align-items: center;
-    min-height: 58px;
+    padding: 12px;
+    border: 1px solid var(--uo-line);
+    border-radius: 18px;
+    background: var(--uo-card-2);
   }
 
   .uo-person-img {
     width: 48px;
     height: 48px;
     border-radius: 14px;
-    display: grid;
-    place-items: center;
-    background: var(--uo-green-soft);
-    color: var(--uo-green-dark);
-    border: 1px solid rgba(0, 168, 89, .18);
     font-size: 1.3rem;
   }
 
@@ -714,17 +748,24 @@
     color: var(--uo-text);
     font-size: .92rem;
     font-weight: 900;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
   }
 
-  .uo-person-row span {
+  .uo-person-row span,
+  .uo-person-contact {
     display: block;
-    color: var(--uo-muted);
+    max-width: 100%;
     font-size: .78rem;
     font-weight: 700;
     margin-top: 3px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .uo-order-pill {
@@ -733,21 +774,37 @@
     padding: 0 10px;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     background: var(--uo-card-2);
+    border: 1px solid var(--uo-line);
     color: var(--uo-green-dark);
     font-size: .75rem;
     font-weight: 900;
     white-space: nowrap;
   }
 
-  .uo-bottom-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 16px;
+  .uo-recent-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 168, 89, .42) transparent;
   }
 
-  .uo-recent-table-wrap {
-    overflow-x: auto;
+  .uo-recent-table-wrap::-webkit-scrollbar {
+    height: 9px;
+  }
+
+  .uo-recent-table-wrap::-webkit-scrollbar-track {
+    background: #EFF7F5;
+    border-radius: 999px;
+  }
+
+  .uo-recent-table-wrap::-webkit-scrollbar-thumb {
+    background: rgba(0, 168, 89, .42);
+    border-radius: 999px;
+    border: 2px solid #EFF7F5;
   }
 
   .uo-recent-table {
@@ -759,14 +816,14 @@
 
   .uo-recent-table th {
     padding: 13px 15px;
-    background: var(--uo-card-2);
-    color: var(--uo-muted);
+    background: var(--uo-green-deep);
+    color: #fff;
     text-align: left;
     font-size: .72rem;
     text-transform: uppercase;
     letter-spacing: .07em;
     font-weight: 900;
-    border-bottom: 1px solid var(--uo-line);
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
   }
 
   .uo-recent-table td {
@@ -778,8 +835,26 @@
     vertical-align: middle;
   }
 
+  .uo-recent-table th:nth-child(2),
+  .uo-recent-table td:nth-child(2) {
+    min-width: 260px;
+    white-space: normal;
+  }
+
   .uo-recent-table tbody tr:last-child td {
     border-bottom: 0;
+  }
+
+  .uo-contact-cell {
+    display: grid;
+    gap: 4px;
+    max-width: 100%;
+    line-height: 1.35;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .uo-role-badge,
@@ -797,40 +872,20 @@
     border: 1px solid transparent;
   }
 
-  .uo-role-admin {
-    background: #ECFDF5;
-    color: #047857;
-    border-color: rgba(5, 150, 105, .18);
-  }
-
-  .uo-role-store {
-    background: #E0F2FE;
-    color: #0369A1;
-    border-color: rgba(2, 132, 199, .18);
-  }
-
-  .uo-role-delivery {
-    background: #FFF7ED;
-    color: #C2410C;
-    border-color: rgba(255, 138, 31, .22);
-  }
-
-  .uo-role-customer {
-    background: #F5F3FF;
-    color: #6D28D9;
-    border-color: rgba(109, 40, 217, .18);
-  }
-
+  .uo-role-admin,
+  .uo-role-store,
+  .uo-role-delivery,
+  .uo-role-customer,
   .uo-status-active {
-    background: #ECFDF5;
-    color: #047857;
-    border-color: rgba(5, 150, 105, .18);
+    background: var(--uo-green-soft);
+    color: var(--uo-green-dark);
+    border-color: rgba(0, 168, 89, .18);
   }
 
   .uo-status-disabled {
-    background: #FFF1F2;
+    background: #FFF1F1;
     color: #B91C1C;
-    border-color: rgba(239, 68, 68, .20);
+    border-color: rgba(239, 68, 68, .22);
   }
 
   .uo-empty {
@@ -841,74 +896,410 @@
     font-weight: 800;
   }
 
+  @media (hover: hover) and (pointer: fine) {
+    .uo-kpi-card:hover,
+    .uo-mini-stat:hover,
+    .uo-delivery-kpi:hover,
+    .uo-card:hover {
+      border-color: rgba(0, 168, 89, .24);
+      box-shadow: 0 18px 46px rgba(17, 64, 38, .10);
+    }
+  }
+
   @media (max-width: 1180px) {
-    .uo-customer-grid {
+    .uo-page-head {
       grid-template-columns: 1fr;
     }
 
-    .uo-mini-stack {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+    .uo-zone-form {
+      max-width: 100%;
+      justify-self: stretch;
     }
 
-    .uo-delivery-grid,
-    .uo-bottom-grid {
+    .uo-map-toolbar {
       grid-template-columns: 1fr;
+      pointer-events: auto;
     }
   }
 
   @media (max-width: 900px) {
+    .nf-user-overview {
+      gap: 16px;
+    }
+
+    .uo-page-head,
+    .uo-card,
+    .uo-kpi-card,
+    .uo-mini-stat,
+    .uo-delivery-kpi {
+      border-radius: 18px;
+    }
+
+    .uo-page-head {
+      padding: 18px;
+    }
+
     .uo-kpi-grid,
     .uo-delivery-kpis {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .uo-mini-stack {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .uo-top-list {
+      grid-template-columns: 1fr;
+    }
+
+    .uo-recent-table-wrap {
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x mandatory;
+      padding-bottom: 4px;
+    }
+
+    .uo-recent-table,
+    .uo-recent-table thead,
+    .uo-recent-table tbody,
+    .uo-recent-table tr,
+    .uo-recent-table th,
+    .uo-recent-table td {
+      display: block;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .uo-recent-table {
+      width: max-content;
+      min-width: 100%;
+      border-spacing: 0;
+      background: transparent;
+    }
+
+    .uo-recent-table thead {
+      display: none;
+    }
+
+    .uo-recent-table tbody {
+      width: max-content;
+      min-width: 100%;
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      background: var(--uo-card-2);
+    }
+
+    .uo-recent-table tbody tr {
+      flex: 0 0 min(82vw, 360px);
+      display: grid;
+      border: 1px solid var(--uo-line);
+      border-radius: 18px;
+      background: var(--uo-card);
+      overflow: hidden;
+      box-shadow: 0 12px 28px rgba(17, 64, 38, .06);
+      scroll-snap-align: start;
+    }
+
+    .uo-recent-table td {
+      display: grid;
+      grid-template-columns: minmax(116px, .8fr) minmax(0, 1.2fr);
+      gap: 10px;
+      align-items: start;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--uo-line);
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .uo-recent-table td:last-child {
+      border-bottom: 0;
+    }
+
+    .uo-recent-table td::before {
+      color: var(--uo-muted);
+      font-size: .72rem;
+      font-weight: 950;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      line-height: 1.25;
+    }
+
+    .uo-recent-table td:nth-child(1)::before { content: "Name"; }
+    .uo-recent-table td:nth-child(2)::before { content: "Email / Phone"; }
+    .uo-recent-table td:nth-child(3)::before { content: "Role"; }
+    .uo-recent-table td:nth-child(4)::before { content: "Status"; }
+    .uo-recent-table td:nth-child(5)::before { content: "Joined"; }
+
+    .uo-recent-table td[colspan] {
+      display: block;
+      padding: 0;
+    }
+
+    .uo-recent-table td[colspan]::before {
+      content: none;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .uo-title-wrap {
+      gap: 10px;
+    }
+
+    .uo-title-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+    }
+
+    .uo-title-wrap h2 {
+      font-size: 1.28rem;
+    }
+
+    .uo-title-wrap p {
+      font-size: .84rem;
+    }
+
+    .uo-kpi-card,
+    .uo-delivery-kpi {
+      min-height: 118px;
+      padding: 13px;
+    }
+
+    .uo-avatar-strip {
+      min-height: 28px;
+    }
+
+    .uo-avatar {
+      width: 27px;
+      height: 27px;
+      font-size: .78rem;
+    }
+
+    .uo-mini-badge {
+      min-width: 30px;
+      height: 27px;
+      padding: 0 7px;
+      font-size: .72rem;
+    }
+
+    .uo-kpi-value,
+    .uo-delivery-kpi strong {
+      font-size: 1.24rem;
+      line-height: 1.05;
+    }
+
+    .uo-kpi-label,
+    .uo-delivery-kpi span {
+      font-size: .76rem;
+      line-height: 1.25;
+    }
+
+    .uo-customer-grid,
+    .uo-delivery-grid,
+    .uo-bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      overflow: visible;
+      padding-bottom: 0;
     }
 
     .uo-mini-stack {
       grid-template-columns: 1fr;
     }
-  }
 
-  @media (max-width: 640px) {
-    .nf-user-overview {
-      gap: 16px;
+    .uo-chart {
+      min-height: 280px;
+      padding: 32px 12px 12px;
+      overflow-x: auto;
+      overflow-y: visible;
     }
 
-    .uo-page-head {
-      align-items: stretch;
-    }
-
-    .uo-title-wrap {
-      align-items: flex-start;
-    }
-
-    .uo-title-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 14px;
-    }
-
-    .uo-zone-select,
-    .uo-kpi-grid,
-    .uo-delivery-kpis {
-      width: 100%;
-      grid-template-columns: 1fr;
-    }
-
-    .uo-map-toolbar {
-      display: grid;
-    }
-
-    .uo-map-toolbar input {
-      width: 100%;
+    .uo-chart-area,
+    .uo-chart-labels {
+      min-width: 560px;
     }
 
     .uo-chart-area {
-      gap: 5px;
-      padding: 0 8px;
+      min-height: 205px;
+      gap: 7px;
     }
 
     .uo-chart-labels {
       font-size: .68rem;
+    }
+
+    .uo-map-card,
+    #uoLiveDeliveryMap {
+      min-height: 340px;
+    }
+
+    .uo-map-empty-note {
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      max-width: none;
+    }
+
+    .uo-person-row {
+      grid-template-columns: 44px minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .uo-order-pill {
+      grid-column: 2;
+      justify-self: start;
+      min-height: 30px;
+      margin-top: 2px;
+      white-space: normal;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .nf-user-overview {
+      gap: 14px;
+    }
+
+    .uo-page-head {
+      padding: 15px;
+    }
+
+    .uo-kpi-grid,
+    .uo-delivery-kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .uo-kpi-card,
+    .uo-delivery-kpi,
+    .uo-mini-stat,
+    .uo-card-head {
+      padding: 12px;
+    }
+
+    .uo-kpi-card,
+    .uo-delivery-kpi {
+      border-radius: 17px;
+    }
+
+    .uo-kpi-value,
+    .uo-delivery-kpi strong {
+      font-size: 1.12rem;
+    }
+
+    .uo-kpi-label,
+    .uo-delivery-kpi span {
+      font-size: .7rem;
+    }
+
+    .uo-mini-content strong {
+      font-size: 1.35rem;
+    }
+
+    .uo-chart {
+      min-height: 270px;
+    }
+
+    .uo-chart-area,
+    .uo-chart-labels {
+      min-width: 520px;
+    }
+
+    .uo-chart-area {
+      min-height: 195px;
+      gap: 5px;
+      padding-inline: 8px;
+    }
+
+    .uo-chart-labels {
+      font-size: .66rem;
       gap: 2px;
+    }
+
+    .uo-sat-row {
+      grid-template-columns: 1fr;
+      gap: 6px;
+      min-height: auto;
+      padding: 10px;
+    }
+
+    .uo-sat-row strong {
+      text-align: left;
+    }
+
+    .uo-recent-table tbody {
+      padding: 10px;
+      gap: 10px;
+    }
+
+    .uo-recent-table tbody tr {
+      flex-basis: min(86vw, 340px);
+    }
+
+    .uo-recent-table td {
+      grid-template-columns: 1fr;
+      gap: 5px;
+      padding: 12px;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .uo-page-head {
+      padding: 13px;
+    }
+
+    .uo-kpi-grid,
+    .uo-delivery-kpis {
+      gap: 7px;
+    }
+
+    .uo-kpi-card,
+    .uo-delivery-kpi {
+      padding: 10px;
+    }
+
+    .uo-avatar:nth-child(n+3) {
+      display: none;
+    }
+
+    .uo-kpi-value,
+    .uo-delivery-kpi strong {
+      font-size: 1.04rem;
+    }
+
+    .uo-kpi-label,
+    .uo-delivery-kpi span {
+      font-size: .66rem;
+    }
+  }
+
+  @media (orientation: landscape) and (max-height: 540px) and (max-width: 980px) {
+    .uo-map-card,
+    #uoLiveDeliveryMap {
+      min-height: 300px;
+    }
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    .uo-kpi-card:hover,
+    .uo-mini-stat:hover,
+    .uo-delivery-kpi:hover,
+    .uo-card:hover {
+      box-shadow: var(--uo-shadow-soft);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nf-user-overview *,
+    .nf-user-overview *::before,
+    .nf-user-overview *::after {
+      transition: none;
+      animation: none;
+      scroll-behavior: auto;
     }
   }
 </style>
@@ -922,16 +1313,26 @@
       <div class="uo-title-icon" aria-hidden="true">👥</div>
       <div>
         <h2>User Overview</h2>
-        <p>Hello here you can manage your users by role and account status.</p>
+        <p>User accounts grouped by role, status and latest activity.</p>
       </div>
     </div>
 
-    <select class="uo-zone-select" aria-label="Zone filter">
-      <option>All Zones</option>
-      <option>Default Zone</option>
-      <option>North Guwahati</option>
-      <option>South Guwahati</option>
-    </select>
+    <form class="uo-zone-form" method="get" action="{{ url_for('admin_users') }}">
+      <label class="uo-zone-label" for="uoDeliveryZoneFilter">Delivery Zone</label>
+      <select
+        id="uoDeliveryZoneFilter"
+        class="uo-zone-select"
+        name="zone"
+        aria-label="Delivery zone filter"
+        onchange="this.form.submit()"
+      >
+        <option value="" {% if not selected_delivery_zone %}selected{% endif %}>All Zones</option>
+        {% for zone in delivery_zone_options %}
+          <option value="{{ zone }}" {% if selected_delivery_zone == zone %}selected{% endif %}>{{ zone }}</option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit" class="uo-zone-apply">Apply Zone</button></noscript>
+    </form>
   </div>
 
   <div class="uo-kpi-grid">
@@ -944,7 +1345,7 @@
       </div>
       <div>
         <div class="uo-kpi-value">{{ metrics.total_customers|default(0) }}</div>
-        <div class="uo-kpi-label">Total Customer</div>
+        <div class="uo-kpi-label">Customers</div>
       </div>
     </a>
 
@@ -958,7 +1359,7 @@
       </div>
       <div>
         <div class="uo-kpi-value">{{ metrics.total_delivery_users|default(0) }}</div>
-        <div class="uo-kpi-label">Total In-house Delivery Staff</div>
+        <div class="uo-kpi-label">In-house Delivery Staff</div>
       </div>
     </a>
     {% endif %}
@@ -972,12 +1373,12 @@
       </div>
       <div>
         <div class="uo-kpi-value">{{ metrics.total_store_users|default(0) }}</div>
-        <div class="uo-kpi-label">Total Store Admin Login Accounts</div>
+        <div class="uo-kpi-label">Store Admin Accounts</div>
       </div>
     </a>
   </div>
 
-  <h3 class="uo-section-title">Customer Statistics</h3>
+  <h3 class="uo-section-title">Customer Accounts</h3>
 
   <div class="uo-customer-grid">
     <div class="uo-mini-stack">
@@ -985,11 +1386,11 @@
         <div class="uo-mini-icon">👨‍👩‍👧</div>
         <div class="uo-mini-content">
           <strong>{{ metrics.active_customers|default(0) }}</strong>
-          <span>Active Customer</span>
+          <span>Active Customers</span>
         </div>
       </a>
 
-      <a href="{{ url_for('admin_customers', sort_by='joining_new') }}" class="uo-mini-stat orange">
+      <a href="{{ url_for('admin_customers', sort_by='joining_new', new='1') }}" class="uo-mini-stat orange">
         <div class="uo-mini-icon">🆕</div>
         <div class="uo-mini-content">
           <strong>{{ metrics.new_customers|default(0) }}</strong>
@@ -1001,7 +1402,7 @@
         <div class="uo-mini-icon">🚫</div>
         <div class="uo-mini-content">
           <strong>{{ metrics.blocked_customers|default(0) }}</strong>
-          <span>Blocked Customer</span>
+          <span>Blocked Customers</span>
         </div>
       </a>
     </div>
@@ -1009,20 +1410,20 @@
     <div class="uo-card uo-growth-card">
       <div class="uo-card-head">
         <h3>Customer Growth</h3>
-        <span>● This year ({{ current_year|default(2026) }})</span>
+        <span>{{ current_year|default(2026) }}</span>
       </div>
 
       <div class="uo-chart">
         <div class="uo-chart-area">
-          {% set max_growth = customer_growth_values|max if customer_growth_values else 0 %}
-          {% for value in customer_growth_values %}
-            {% if max_growth and max_growth > 0 %}
-              {% set height = (value / max_growth * 100)|round(0, 'floor') %}
-            {% else %}
-              {% set height = 0 %}
-            {% endif %}
-            <div class="uo-bar" style="--bar-height: {{ height }};" data-value="{{ value }}"></div>
-          {% endfor %}
+        {% set max_growth = customer_growth_values|max if customer_growth_values else 0 %}
+{% for value in customer_growth_values %}
+  {% if max_growth and max_growth > 0 %}
+    {% set height = (value / max_growth * 82)|round(0, 'floor') %}
+  {% else %}
+    {% set height = 0 %}
+  {% endif %}
+  <div class="uo-bar" style="--bar-height: {{ height }};" data-value="{{ value }}"></div>
+{% endfor %}
         </div>
 
         <div class="uo-chart-labels">
@@ -1081,14 +1482,14 @@
   </div>
 
   {% if in_house_delivery_enabled %}
-  <h3 class="uo-section-title">In-house Delivery Staff Account Statistics</h3>
+  <h3 class="uo-section-title">In-house Delivery Staff</h3>
 
   <div class="uo-delivery-kpis">
     <a href="{{ url_for('admin_delivery_users', status='active') }}" class="uo-delivery-kpi">
       <div class="uo-delivery-kpi-icon">🛵</div>
       <div>
         <strong>{{ metrics.active_delivery_users|default(0) }}</strong>
-        <span>Active In-house Delivery Staff Accounts</span>
+        <span>Active Staff</span>
       </div>
     </a>
 
@@ -1096,7 +1497,7 @@
       <div class="uo-delivery-kpi-icon">👷</div>
       <div>
         <strong>{{ metrics.new_delivery_users|default(0) }}</strong>
-        <span>New In-house Delivery Staff Accounts</span>
+        <span>New Staff</span>
       </div>
     </a>
 
@@ -1104,7 +1505,7 @@
       <div class="uo-delivery-kpi-icon">📦</div>
       <div>
         <strong>{{ metrics.inactive_delivery_users|default(0) }}</strong>
-        <span>Inactive In-house Delivery Staff Accounts</span>
+        <span>Inactive Staff</span>
       </div>
     </a>
 
@@ -1112,7 +1513,7 @@
       <div class="uo-delivery-kpi-icon">🚫</div>
       <div>
         <strong>{{ metrics.blocked_delivery_users|default(0) }}</strong>
-        <span>Blocked In-house Delivery Staff Accounts</span>
+        <span>Blocked Staff</span>
       </div>
     </a>
   </div>
@@ -1126,15 +1527,13 @@
       </div>
 
       <div class="uo-map-toolbar">
-        <strong>Currently Active Delivery Men</strong>
-        <input id="uoDeliveryMapSearch" type="search" placeholder="Search Delivery Man ..." aria-label="Search delivery man">
+        <strong>Active Delivery Staff</strong>
+        <input id="uoDeliveryMapSearch" type="search" placeholder="Search Delivery Staff ..." aria-label="Search delivery staff">
       </div>
 
       <div id="uoMapEmptyNote" class="uo-map-empty-note" style="display:none;">
-        <strong>No live coordinates found</strong>
-        <span>
-          The real map is loaded. Delivery markers will appear when delivery users have latitude and longitude saved in delivery availability data.
-        </span>
+        <strong>No live staff location yet</strong>
+        <span></span>
       </div>
     </div>
 
@@ -1150,12 +1549,13 @@
             <div class="uo-person-img">🛵</div>
             <div>
               <strong>{{ d.name }}</strong>
-              <span>{{ d.phone_masked or d.email_masked }}</span>
+              <span class="uo-person-contact">{{ d.phone or d.phone_masked or '' }}</span>
+              <span class="uo-person-contact">{{ d.email or d.email_masked or '' }}</span>
             </div>
             <span class="uo-order-pill">Orders : {{ d.total_completed_orders|default(0) }}</span>
           </div>
         {% else %}
-          <div class="uo-empty">No in-house delivery-boy accounts found.</div>
+          <div class="uo-empty">No in-house delivery staff accounts found.</div>
         {% endfor %}
       </div>
     </div>
@@ -1175,7 +1575,8 @@
             <div class="uo-person-img">🏪</div>
             <div>
               <strong>{{ s.store_name or s.name }}</strong>
-              <span>{{ s.email_masked or s.phone_masked }}</span>
+              <span class="uo-person-contact">{{ s.email or s.email_masked or '' }}</span>
+              <span class="uo-person-contact">{{ s.phone or s.phone_masked or '' }}</span>
             </div>
             <span class="uo-order-pill">Orders : {{ s.orders|default(0) }}</span>
           </div>
@@ -1186,9 +1587,11 @@
     </div>
 
     <div class="uo-card">
-      <div class="uo-card-head">
-        <h3>Recent Users</h3>
-        <span>Total : {{ metrics.total_users|default(0) }}</span>
+      <div class="uo-card-head uo-card-head-actions">
+        <div>
+          <h3>Recent Users</h3>
+          <span>Total : {{ metrics.total_users|default(0) }}</span>
+        </div>
       </div>
 
       <div class="uo-recent-table-wrap">
@@ -1207,8 +1610,10 @@
               <tr>
                 <td>{{ u.name }}</td>
                 <td>
-                  <div>{{ u.email_masked }}</div>
-                  <div style="color:var(--uo-muted);font-size:.78rem;margin-top:3px;">{{ u.phone_masked }}</div>
+                  <div class="uo-contact-cell">
+                    <span>{{ u.email or u.email_display or u.email_masked or '—' }}</span>
+                    <span>{{ u.phone or u.phone_display or u.phone_masked or '—' }}</span>
+                  </div>
                 </td>
                 <td>
                   <span class="uo-role-badge uo-role-{{ u.role }}">{{ u.role }}</span>
@@ -1229,6 +1634,10 @@
             {% endfor %}
           </tbody>
         </table>
+      </div>
+
+      <div class="uo-card-footer uo-recent-footer">
+        <a href="{{ url_for('admin_all_users') }}">View All</a>
       </div>
     </div>
   </div>
@@ -1258,18 +1667,27 @@
   const searchEl = document.getElementById('uoDeliveryMapSearch');
   const emptyNote = document.getElementById('uoMapEmptyNote');
 
-  if (!mapEl || typeof L === 'undefined') {
+  if (!mapEl) {
+    return;
+  }
+
+  if (typeof L === 'undefined') {
+    if (emptyNote) {
+      emptyNote.style.display = 'block';
+      emptyNote.querySelector('strong').textContent = 'Map library could not load';
+      emptyNote.querySelector('span').textContent = '';
+    }
     return;
   }
 
   const fallbackCenter = [26.1445, 91.7362];
 
   const rawDeliveryPoints = [
-    {% for d in top_deliverymen %}
+    {% for d in active_delivery_locations %}
       {
-        name: {{ (d.name or 'Delivery Man')|tojson }},
-        phone: {{ (d.phone_masked or '')|tojson }},
-        email: {{ (d.email_masked or '')|tojson }},
+        name: {{ (d.name or 'Delivery Staff')|tojson }},
+        phone: {{ (d.phone or d.phone_masked or '')|tojson }},
+        email: {{ (d.email or d.email_masked or '')|tojson }},
         zone: {{ (d.zone or 'Default Zone')|tojson }},
         completedOrders: {{ d.total_completed_orders|default(0)|tojson }},
         assignedOrders: {{ d.assigned_orders|default(0)|tojson }},
@@ -1283,7 +1701,7 @@
   const deliveryPoints = rawDeliveryPoints
     .map(function (item) {
       return {
-        name: item.name || 'Delivery Man',
+        name: item.name || 'Delivery Staff',
         phone: item.phone || '',
         email: item.email || '',
         zone: item.zone || 'Default Zone',
@@ -1354,6 +1772,7 @@
     marker.__deliveryName = String(point.name || '').toLowerCase();
     marker.__deliveryPhone = String(point.phone || '').toLowerCase();
     marker.__deliveryEmail = String(point.email || '').toLowerCase();
+    marker.__deliveryZone = String(point.zone || '').toLowerCase();
 
     markers.push(marker);
     bounds.push([point.latitude, point.longitude]);
@@ -1372,7 +1791,7 @@
     L.popup()
       .setLatLng(fallbackCenter)
       .setContent(
-        '<div class="uo-map-popup"><strong>Map ready</strong><span>No active delivery location available yet.</span></div>'
+        '<div class="uo-map-popup"><strong>Map ready</strong><span>No live staff location yet.</span></div>'
       )
       .openOn(map);
   }
@@ -1396,7 +1815,8 @@
       const matchedMarker = markers.find(function (marker) {
         return marker.__deliveryName.includes(q) ||
                marker.__deliveryPhone.includes(q) ||
-               marker.__deliveryEmail.includes(q);
+               marker.__deliveryEmail.includes(q) ||
+               marker.__deliveryZone.includes(q);
       });
 
       if (matchedMarker) {
@@ -1413,4 +1833,135 @@
   }, 250);
 })();
 </script>
+
+
+<script>
+(function () {
+  if (window.__neLocalsUserOverviewAjax) return;
+  window.__neLocalsUserOverviewAjax = true;
+
+  const STATE_KEY = 'neLocalsUserOverviewQueryState';
+
+  function getPageRoot() {
+    return document.querySelector('.nf-user-overview');
+  }
+
+  function samePath(url) {
+    return url.origin === window.location.origin && url.pathname === window.location.pathname;
+  }
+
+  function runInlineOverviewScripts(doc) {
+    const scripts = Array.from(doc.querySelectorAll('script'));
+    scripts.forEach(function (script) {
+      const code = script.textContent || '';
+      if (!code.trim()) return;
+      if (
+        code.includes('const bars = document.querySelectorAll') ||
+        code.includes('uoLiveDeliveryMap') ||
+        code.includes('neLocalsUserOverviewQueryState')
+      ) {
+        try {
+          (new Function(code))();
+        } catch (err) {
+          console.warn('User overview script refresh skipped:', err);
+        }
+      }
+    });
+  }
+
+  async function loadOverview(url, shouldPush) {
+    const nextUrl = url instanceof URL ? url : new URL(url, window.location.href);
+    if (!samePath(nextUrl)) {
+      window.location.href = nextUrl.toString();
+      return;
+    }
+
+    const root = getPageRoot();
+    if (!root) return;
+
+    root.classList.add('is-loading');
+
+    try {
+      const response = await fetch(nextUrl.toString(), {
+        method: 'GET',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'text/html'
+        },
+        credentials: 'same-origin'
+      });
+
+      if (!response.ok) throw new Error('Request failed');
+
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const freshRoot = doc.querySelector('.nf-user-overview');
+
+      if (!freshRoot) {
+        window.location.href = nextUrl.toString();
+        return;
+      }
+
+      root.replaceWith(freshRoot);
+
+      if (shouldPush) {
+        window.history.pushState({ neLocalsUserOverview: true }, '', nextUrl.toString());
+      } else {
+        window.history.replaceState({ neLocalsUserOverview: true }, '', nextUrl.toString());
+      }
+
+      localStorage.setItem(STATE_KEY, nextUrl.search || '');
+      bindOverviewControls();
+      runInlineOverviewScripts(doc);
+    } catch (err) {
+      console.warn('User overview inline update failed, opening normally:', err);
+      window.location.href = nextUrl.toString();
+    } finally {
+      const activeRoot = getPageRoot();
+      if (activeRoot) activeRoot.classList.remove('is-loading');
+    }
+  }
+
+  function bindOverviewControls() {
+    const form = document.querySelector('.uo-zone-form');
+    if (!form || form.dataset.ajaxReady === '1') return;
+
+    form.dataset.ajaxReady = '1';
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const url = new URL(form.action || window.location.href, window.location.origin);
+      const params = new URLSearchParams(new FormData(form));
+      url.search = params.toString();
+      loadOverview(url, true);
+    });
+
+    const select = form.querySelector('select[name="zone"]');
+    if (select) {
+      select.removeAttribute('onchange');
+      select.addEventListener('change', function () {
+        form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true }));
+      });
+    }
+  }
+
+  bindOverviewControls();
+
+  if (window.location.search) {
+    localStorage.setItem(STATE_KEY, window.location.search);
+  } else {
+    const savedQuery = localStorage.getItem(STATE_KEY);
+    if (savedQuery) {
+      const savedUrl = new URL(window.location.href);
+      savedUrl.search = savedQuery;
+      loadOverview(savedUrl, false);
+    }
+  }
+
+  window.addEventListener('popstate', function () {
+    loadOverview(new URL(window.location.href), false);
+  });
+})();
+</script>
+
 {% endblock %}

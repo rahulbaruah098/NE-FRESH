@@ -3,7 +3,7 @@
 {% set active_group = "store" %}
 {% set active_page = "store_reviews" %}
 
-{% block title %}Store Reviews | NE FRESH Admin{% endblock %}
+{% block title %}Store Reviews | NE Locals Admin{% endblock %}
 
 {% block page_title %}Store Reviews{% endblock %}
 {% block page_subtitle %}Review recommended stores, ratings, product strength and order activity.{% endblock %}
@@ -773,7 +773,171 @@
     font-weight: 800;
   }
 
+
+
+  .sr-toolbar-form {
+    padding: 18px;
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) 190px 190px auto;
+    gap: 12px;
+    align-items: end;
+    border-bottom: 1px solid var(--sr-line);
+    background:
+      radial-gradient(circle at top left, rgba(0,168,89,.07), transparent 35%),
+      var(--sr-surface);
+  }
+
+  .sr-select-wrap {
+    height: 46px;
+    border-radius: 14px;
+    border: 1px solid var(--sr-line);
+    background: var(--sr-surface-2);
+    overflow: hidden;
+    transition: .22s ease;
+  }
+
+  .sr-select-wrap:focus-within {
+    border-color: rgba(0,168,89,.42);
+    box-shadow: 0 0 0 4px rgba(0,168,89,.10);
+    background: var(--sr-surface);
+  }
+
+  .sr-select-wrap select {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--sr-text);
+    padding: 0 12px;
+    font-size: .9rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .sr-filter-note {
+    color: var(--sr-muted);
+    font-size: .78rem;
+    font-weight: 750;
+  }
+
+  .sr-readiness {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 110px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    font-size: .74rem;
+    font-weight: 950;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .sr-readiness.ready {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5,150,105,.18);
+  }
+
+  .sr-readiness.warning {
+    background: #FFF7ED;
+    color: #C2410C;
+    border-color: rgba(249,115,22,.22);
+  }
+
+  .sr-zone-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: .73rem;
+    font-weight: 900;
+    background: var(--sr-surface-2);
+    color: var(--sr-muted);
+    border: 1px solid var(--sr-line);
+    white-space: nowrap;
+  }
+
+  .sr-zone-pill.ready {
+    background: #ECFDF5;
+    color: #047857;
+    border-color: rgba(5,150,105,.18);
+  }
+
+  .sr-zone-pill.missing {
+    background: #FFF1F1;
+    color: #B91C1C;
+    border-color: rgba(239,68,68,.22);
+  }
+
+  .sr-score {
+    color: var(--sr-green-dark);
+    font-weight: 950;
+    white-space: nowrap;
+  }
+
+  .sr-pagination {
+    padding: 14px 18px;
+    border-top: 1px solid var(--sr-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: var(--sr-surface);
+  }
+
+  .sr-pagination-info {
+    color: var(--sr-muted);
+    font-size: .82rem;
+    font-weight: 800;
+  }
+
+  .sr-pagination-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .sr-page-btn {
+    min-height: 36px;
+    border-radius: 11px;
+    border: 1px solid var(--sr-line);
+    background: var(--sr-surface-2);
+    color: var(--sr-text);
+    padding: 8px 11px;
+    font-size: .78rem;
+    font-weight: 900;
+    text-decoration: none;
+  }
+
+  .sr-page-btn.is-disabled {
+    pointer-events: none;
+    opacity: .45;
+  }
+
+  .sr-page-current {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 11px;
+    border-radius: 11px;
+    background: var(--sr-green-soft);
+    color: var(--sr-green-dark);
+    font-size: .78rem;
+    font-weight: 950;
+    border: 1px solid rgba(0,168,89,.18);
+  }
+
   @media (max-width: 1180px) {
+    .sr-toolbar-form {
+      grid-template-columns: 1fr 1fr;
+    }
+
     .sr-kpi-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -796,7 +960,8 @@
   }
 
   @media (max-width: 820px) {
-    .sr-toolbar {
+    .sr-toolbar,
+    .sr-toolbar-form {
       grid-template-columns: 1fr;
     }
 
@@ -819,13 +984,15 @@
     }
 
     .sr-hero-actions,
-    .sr-toolbar-actions {
+    .sr-toolbar-actions,
+    .sr-pagination-actions {
       flex-direction: column;
       align-items: stretch;
     }
 
     .sr-btn,
     .sr-action,
+    .sr-page-btn,
     .nf-store-reviews-page button {
       width: 100%;
     }
@@ -835,17 +1002,948 @@
       width: 100%;
     }
   }
+
+  /* Display and responsiveness fixes only: preserves existing layout/design structure. */
+  .nf-store-reviews-page {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .sr-hero,
+  .sr-panel,
+  .sr-kpi,
+  .sr-reco-card,
+  .sr-toolbar-form,
+  .sr-summary,
+  .sr-pagination,
+  .sr-table-wrap {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .sr-hero-inner,
+  .sr-panel-head,
+  .sr-store-cell,
+  .sr-chart-meta,
+  .sr-summary,
+  .sr-pagination {
+    min-width: 0;
+  }
+
+  .sr-hero-inner {
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 230px);
+  }
+
+  .sr-hero-card {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .sr-kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  }
+
+  .sr-analytics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sr-recommended-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  }
+
+  .sr-toolbar-form {
+    grid-template-columns: minmax(240px, 1fr) minmax(150px, 190px) minmax(150px, 190px) auto;
+  }
+
+  .sr-field,
+  .sr-search-wrap,
+  .sr-select-wrap,
+  .sr-toolbar-actions {
+    min-width: 0;
+  }
+
+  .sr-table-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sr-table {
+    min-width: 1080px;
+  }
+
+  .sr-table th,
+  .sr-table td {
+    overflow-wrap: normal;
+  }
+
+  .sr-store-text,
+  .sr-store-text strong,
+  .sr-store-text span,
+  .sr-reco-card h4,
+  .sr-chart-meta span:first-child,
+  .sr-kpi-meta {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .sr-filter-note {
+    overflow-wrap: anywhere;
+  }
+
+  .sr-actions,
+  .sr-switch-form {
+    flex: 0 0 auto;
+  }
+
+  @media (max-width: 1280px) {
+    .sr-toolbar-form {
+      grid-template-columns: minmax(240px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr);
+    }
+
+    .sr-toolbar-actions {
+      grid-column: 1 / -1;
+      justify-content: flex-end;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .sr-hero-inner,
+    .sr-analytics-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .sr-hero-card {
+      max-width: 260px;
+    }
+
+    .sr-toolbar-form {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .sr-toolbar-actions {
+      grid-column: auto;
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .nf-store-reviews-page {
+      gap: 14px;
+    }
+
+    .sr-hero,
+    .sr-panel,
+    .sr-kpi,
+    .sr-reco-card {
+      border-radius: 18px;
+    }
+
+    .sr-hero {
+      padding: 18px;
+    }
+
+    .sr-hero h2 {
+      font-size: clamp(1.25rem, 6vw, 1.75rem);
+      letter-spacing: -.03em;
+    }
+
+    .sr-hero p {
+      font-size: .88rem;
+      line-height: 1.5;
+    }
+
+    .sr-hero-card {
+      max-width: 100%;
+    }
+
+    .sr-toolbar-form {
+      grid-template-columns: 1fr;
+      padding: 14px;
+    }
+
+    .sr-toolbar-actions,
+    .sr-hero-actions,
+    .sr-pagination-actions {
+      width: 100%;
+      justify-content: stretch;
+    }
+
+    .sr-toolbar-actions .sr-btn,
+    .sr-hero-actions .sr-btn,
+    .sr-pagination-actions .sr-page-btn,
+    .sr-pagination-actions .sr-page-current,
+    .sr-toolbar-actions button {
+      flex: 1 1 140px;
+      width: auto;
+    }
+
+    .sr-panel-head,
+    .sr-summary,
+    .sr-pagination {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .sr-panel-body {
+      padding: 14px;
+    }
+
+    .sr-chart-meta {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sr-table {
+      min-width: 1020px;
+    }
+
+    .sr-actions {
+      flex-wrap: nowrap;
+    }
+
+    .sr-actions .sr-switch {
+      width: 48px;
+      min-width: 48px;
+    }
+
+    .sr-actions .sr-icon-btn {
+      width: 38px;
+      min-width: 38px;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .sr-hero-actions,
+    .sr-toolbar-actions,
+    .sr-pagination-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .sr-hero-actions .sr-btn,
+    .sr-toolbar-actions .sr-btn,
+    .sr-toolbar-actions button,
+    .sr-pagination-actions .sr-page-btn,
+    .sr-pagination-actions .sr-page-current {
+      width: 100%;
+      flex: 1 1 auto;
+    }
+
+    .sr-search-wrap,
+    .sr-select-wrap {
+      height: 44px;
+    }
+
+    .sr-table {
+      min-width: 980px;
+    }
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    .sr-table-wrap {
+      transform: translateZ(0);
+    }
+  }
+
+
+
+  /* =========================================================
+     NELOCALS STORE REVIEWS AJAX + FULL RESPONSIVE FINAL
+     UI/page-behaviour update only:
+     - search/filter/pagination/actions work inside this page
+     - current view persists through URL/session state
+     - buttons no longer crop/overflow
+     - mobile/app/tablet table becomes readable cards
+     Existing backend routes, Jinja variables, real actions and logic unchanged.
+     ========================================================= */
+
+  .nf-store-reviews-page{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    overflow-x:clip !important;
+    padding-left:max(0px,env(safe-area-inset-left,0px));
+    padding-right:max(0px,env(safe-area-inset-right,0px));
+    -webkit-text-size-adjust:100%;
+    text-size-adjust:100%;
+  }
+
+  .nf-store-reviews-page,
+  .nf-store-reviews-page *{
+    min-width:0;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  .nf-store-reviews-page.is-loading{
+    pointer-events:none;
+    opacity:.72;
+    cursor:progress;
+  }
+
+  .sr-hero,
+  .sr-panel,
+  .sr-kpi,
+  .sr-reco-card{
+    max-width:100% !important;
+    overflow:hidden !important;
+  }
+
+  .sr-hero-inner{
+    grid-template-columns:minmax(0,1fr) minmax(190px,240px) !important;
+    align-items:stretch !important;
+  }
+
+  .sr-hero-card{
+    display:grid;
+    align-content:center;
+  }
+
+  .sr-btn,
+  .nf-store-reviews-page button,
+  .nf-store-reviews-page .sr-action,
+  .sr-page-btn,
+  .sr-page-current{
+    max-width:100% !important;
+    min-width:0;
+    white-space:normal !important;
+    line-height:1.2;
+    text-align:center;
+  }
+
+  .sr-toolbar-form{
+    grid-template-columns:minmax(260px,1.1fr) minmax(170px,.45fr) minmax(170px,.45fr) minmax(210px,.55fr) !important;
+    align-items:end !important;
+    gap:12px !important;
+  }
+
+  .sr-toolbar-actions{
+    width:100%;
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+    justify-content:stretch !important;
+  }
+
+  .sr-toolbar-actions .sr-btn,
+  .sr-toolbar-actions button{
+    width:100%;
+    min-height:46px;
+  }
+
+  .sr-summary{
+    align-items:flex-start !important;
+  }
+
+  .sr-summary p,
+  .sr-filter-note,
+  .sr-store-text span,
+  .sr-reco-card p,
+  .sr-kpi-meta{
+    overflow-wrap:anywhere;
+  }
+
+  .sr-table-wrap{
+    width:100% !important;
+    max-width:100% !important;
+    overflow-x:auto !important;
+    overflow-y:visible !important;
+    -webkit-overflow-scrolling:touch !important;
+    overscroll-behavior-x:contain;
+    scrollbar-width:thin;
+    scrollbar-color:rgba(42,127,131,.42) transparent;
+  }
+
+  .sr-table-wrap::-webkit-scrollbar{height:9px;}
+  .sr-table-wrap::-webkit-scrollbar-track{background:#EFF7F5;border-radius:999px;}
+  .sr-table-wrap::-webkit-scrollbar-thumb{background:rgba(42,127,131,.42);border-radius:999px;border:2px solid #EFF7F5;}
+
+  .sr-table{
+    min-width:1120px !important;
+    table-layout:fixed;
+  }
+
+  .sr-table th,
+  .sr-table td{
+    overflow-wrap:anywhere !important;
+    vertical-align:top !important;
+  }
+
+  .sr-table th:nth-child(1),
+  .sr-table td:nth-child(1){width:60px;text-align:center;}
+  .sr-table th:nth-child(2),
+  .sr-table td:nth-child(2){width:250px;}
+  .sr-table th:nth-child(3),
+  .sr-table td:nth-child(3){width:130px;}
+  .sr-table th:nth-child(4),
+  .sr-table td:nth-child(4){width:120px;}
+  .sr-table th:nth-child(5),
+  .sr-table td:nth-child(5){width:115px;}
+  .sr-table th:nth-child(6),
+  .sr-table td:nth-child(6){width:140px;}
+  .sr-table th:nth-child(7),
+  .sr-table td:nth-child(7){width:190px;}
+  .sr-table th:nth-child(8),
+  .sr-table td:nth-child(8){width:95px;}
+  .sr-table th:nth-child(9),
+  .sr-table td:nth-child(9){width:125px;}
+  .sr-table th:nth-child(10),
+  .sr-table td:nth-child(10){width:120px;}
+
+  .sr-store-cell{
+    max-width:100%;
+    align-items:flex-start !important;
+  }
+
+  .sr-store-text strong,
+  .sr-store-text span{
+    white-space:normal !important;
+  }
+
+  .sr-rating,
+  .sr-status,
+  .sr-readiness,
+  .sr-zone-pill{
+    max-width:100%;
+    white-space:normal !important;
+    text-align:center;
+  }
+
+  .sr-actions{
+    width:100%;
+    max-width:100%;
+    display:grid !important;
+    grid-template-columns:52px 52px;
+    justify-content:start;
+    align-items:center;
+    gap:8px !important;
+    flex-wrap:nowrap !important;
+  }
+
+  .sr-actions form{
+    width:52px;
+    max-width:52px;
+    min-width:0;
+    display:block;
+  }
+
+  .sr-actions .sr-switch,
+  .sr-actions .sr-icon-btn{
+    width:52px !important;
+    min-width:52px !important;
+    max-width:52px !important;
+    height:38px !important;
+    min-height:38px !important;
+    padding:0 !important;
+    flex:0 0 52px !important;
+  }
+
+  .sr-actions .sr-icon-btn{
+    display:inline-grid !important;
+    place-items:center !important;
+  }
+
+  .sr-switch::after{
+    top:3px;
+  }
+
+  .sr-switch.is-active::after{
+    transform:translateX(24px);
+  }
+
+  .sr-pagination{
+    align-items:center !important;
+  }
+
+  .sr-pagination-actions{
+    display:grid !important;
+    grid-template-columns:repeat(5,minmax(0,auto));
+    gap:8px;
+    justify-content:end;
+  }
+
+  .sr-page-current,
+  .sr-page-btn{
+    min-width:58px;
+    justify-content:center;
+  }
+
+  .sr-ajax-toast{
+    position:fixed;
+    right:max(16px,env(safe-area-inset-right,0px));
+    bottom:max(16px,env(safe-area-inset-bottom,0px));
+    z-index:99999;
+    max-width:min(420px,calc(100vw - 28px));
+    border:1px solid rgba(42,127,131,.22);
+    border-radius:16px;
+    background:rgba(255,255,255,.96);
+    color:var(--sr-text);
+    box-shadow:0 18px 46px rgba(17,64,38,.18);
+    padding:12px 14px;
+    font-size:.86rem;
+    font-weight:850;
+    line-height:1.35;
+    opacity:0;
+    transform:translateY(12px);
+    pointer-events:none;
+    transition:opacity .22s ease, transform .22s ease;
+    backdrop-filter:blur(14px);
+    -webkit-backdrop-filter:blur(14px);
+  }
+
+  .sr-ajax-toast.is-visible{
+    opacity:1;
+    transform:translateY(0);
+  }
+
+  .sr-ajax-toast.error{
+    border-color:rgba(239,68,68,.28);
+    color:#991B1B;
+  }
+
+  @media (max-width:1280px){
+    .sr-toolbar-form{
+      grid-template-columns:minmax(0,1fr) minmax(170px,.45fr) minmax(170px,.45fr) !important;
+    }
+
+    .sr-toolbar-actions{
+      grid-column:1 / -1;
+      grid-template-columns:repeat(2,minmax(160px,220px));
+      justify-content:end !important;
+    }
+  }
+
+  @media (max-width:1024px){
+    .sr-hero-inner{
+      grid-template-columns:1fr !important;
+    }
+
+    .sr-hero-card{
+      max-width:none !important;
+    }
+
+    .sr-toolbar-form{
+      grid-template-columns:1fr 1fr !important;
+    }
+
+    .sr-toolbar-actions{
+      grid-column:1 / -1;
+      justify-content:start !important;
+    }
+  }
+
+  @media (max-width:860px){
+    .sr-toolbar-form{
+      grid-template-columns:1fr !important;
+      padding:14px !important;
+    }
+
+    .sr-toolbar-actions{
+      grid-template-columns:1fr 1fr;
+      width:100%;
+    }
+
+    .sr-table-wrap{
+      overflow:visible !important;
+      padding:0 12px 14px;
+    }
+
+    .sr-table,
+    .sr-table tbody,
+    .sr-table tr,
+    .sr-table td{
+      display:block;
+      width:100% !important;
+      min-width:0 !important;
+    }
+
+    .sr-table{
+      border:0;
+      background:transparent;
+      table-layout:auto;
+    }
+
+    .sr-table thead{
+      display:none;
+    }
+
+    .sr-table tbody{
+      display:grid;
+      gap:14px;
+    }
+
+    .sr-table tr{
+      border:1px solid var(--sr-line);
+      border-radius:20px;
+      overflow:hidden;
+      background:var(--sr-surface);
+      box-shadow:0 12px 30px rgba(17,64,38,.08);
+    }
+
+    .sr-table td{
+      display:grid;
+      grid-template-columns:118px minmax(0,1fr);
+      gap:10px;
+      align-items:start;
+      padding:12px 14px !important;
+      border-bottom:1px dashed var(--sr-line);
+      font-size:.86rem;
+    }
+
+    .sr-table td:last-child{
+      border-bottom:0;
+    }
+
+    .sr-table td::before{
+      display:block;
+      color:var(--sr-green-dark);
+      font-size:.7rem;
+      line-height:1.35;
+      font-weight:950;
+      letter-spacing:.055em;
+      text-transform:uppercase;
+    }
+
+    .sr-table td:nth-child(1)::before{content:"SL";}
+    .sr-table td:nth-child(2)::before{content:"Store";}
+    .sr-table td:nth-child(3)::before{content:"Rating";}
+    .sr-table td:nth-child(4)::before{content:"Products";}
+    .sr-table td:nth-child(5)::before{content:"Orders";}
+    .sr-table td:nth-child(6)::before{content:"Zone";}
+    .sr-table td:nth-child(7)::before{content:"Readiness";}
+    .sr-table td:nth-child(8)::before{content:"Score";}
+    .sr-table td:nth-child(9)::before{content:"Status";}
+    .sr-table td:nth-child(10)::before{content:"Action";}
+
+    .sr-store-cell{
+      align-items:flex-start;
+    }
+
+    .sr-actions{
+      grid-template-columns:52px 52px;
+    }
+
+    .sr-pagination{
+      margin-top:0;
+      align-items:flex-start !important;
+      flex-direction:column;
+    }
+
+    .sr-pagination-actions{
+      width:100%;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      justify-content:stretch;
+    }
+
+    .sr-page-current,
+    .sr-page-btn{
+      width:100%;
+      min-width:0;
+    }
+  }
+
+  @media (max-width:560px){
+    .nf-store-reviews-page{
+      gap:12px;
+    }
+
+    .sr-hero{
+      padding:15px !important;
+    }
+
+    .sr-kpi-grid,
+    .sr-recommended-grid{
+      grid-template-columns:1fr !important;
+      gap:12px;
+    }
+
+    .sr-toolbar-actions,
+    .sr-hero-actions,
+    .sr-pagination-actions{
+      grid-template-columns:1fr !important;
+      display:grid !important;
+    }
+
+    .sr-table-wrap{
+      padding:0 10px 12px;
+    }
+
+    .sr-table tr{
+      border-radius:18px;
+    }
+
+    .sr-table td{
+      grid-template-columns:1fr;
+      gap:6px;
+      padding:11px 12px !important;
+    }
+
+    .sr-actions{
+      grid-template-columns:52px 52px;
+    }
+
+    .sr-reco-stats{
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:6px;
+    }
+
+    .sr-reco-stat{
+      padding:7px 5px;
+    }
+  }
+
+  @media (max-width:380px){
+    .sr-reco-stats{
+      grid-template-columns:1fr;
+    }
+
+    .sr-hero-card strong{
+      font-size:1.45rem;
+    }
+  }
+
+  @supports (-webkit-touch-callout:none){
+    .sr-table-wrap{
+      -webkit-overflow-scrolling:touch !important;
+      transform:translateZ(0);
+    }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .nf-store-reviews-page *,
+    .nf-store-reviews-page *::before,
+    .nf-store-reviews-page *::after{
+      transition:none !important;
+      animation:none !important;
+      scroll-behavior:auto !important;
+    }
+  }
+
+
+  /* =========================================================
+     NELOCALS STORE REVIEWS OVERVIEW COLOR MATCH FINAL
+     Color-only update. Matches Admin Store Overview palette.
+     Existing layout, routes, forms, AJAX, pagination, actions,
+     Jinja variables and functionality are untouched.
+     ========================================================= */
+
+  .nf-store-reviews-page{
+    --sr-green: var(--nf-green, #00A859) !important;
+    --sr-green-dark: var(--nf-green-dark, #007A43) !important;
+    --sr-green-deep: var(--nf-green-deep, #075C3B) !important;
+    --sr-green-soft: var(--nf-green-soft, #E9FFF3) !important;
+    --sr-orange: var(--nf-orange, #FF8A1F) !important;
+    --sr-orange-soft: var(--nf-orange-soft, #FFF3E7) !important;
+    --sr-bg: var(--nf-bg, #F8FFFB) !important;
+    --sr-surface: var(--nf-surface, #FFFFFF) !important;
+    --sr-surface-2: var(--nf-surface-2, #F4F9F6) !important;
+    --sr-text: var(--nf-text, #1F2D26) !important;
+    --sr-muted: var(--nf-muted, #6A7A72) !important;
+    --sr-line: var(--nf-line, #DDECE4) !important;
+    --sr-danger: var(--nf-danger, #EF4444) !important;
+    --sr-warning: var(--nf-warning, #F59E0B) !important;
+    --sr-info: var(--nf-info, #0284C7) !important;
+    --sr-shadow: var(--nf-shadow, 0 16px 40px rgba(17, 64, 38, .08)) !important;
+    --sr-shadow-heavy: var(--nf-shadow-heavy, 0 24px 70px rgba(17, 64, 38, .18)) !important;
+  }
+
+  .sr-hero,
+  .sr-panel-head,
+  .sr-toolbar-form,
+  .sr-summary,
+  .sr-pagination,
+  .sr-reco-card,
+  .sr-panel,
+  .sr-kpi{
+    background: var(--sr-surface) !important;
+    border-color: var(--sr-line) !important;
+  }
+
+  .sr-hero{
+    box-shadow: var(--sr-shadow) !important;
+  }
+
+  .sr-kicker,
+  .sr-btn-soft,
+  .sr-count-pill,
+  .sr-page-current,
+  .sr-filter-note-badge,
+  .sr-zone-pill.ready,
+  .sr-readiness.ready{
+    background: var(--sr-green-soft) !important;
+    color: var(--sr-green-dark) !important;
+    border-color: rgba(0,168,89,.18) !important;
+  }
+
+  .sr-btn-primary,
+  .sr-search-icon,
+  .sr-switch.is-active{
+    background: var(--sr-green) !important;
+    border-color: var(--sr-green) !important;
+    color: #fff !important;
+  }
+
+  .sr-btn-primary:hover{
+    background: var(--sr-green-dark) !important;
+    border-color: var(--sr-green-dark) !important;
+    color: #fff !important;
+  }
+
+  .sr-btn,
+  .nf-store-reviews-page button,
+  .nf-store-reviews-page .sr-action,
+  .sr-page-btn,
+  .sr-search-wrap,
+  .sr-select-wrap,
+  .sr-reco-stat,
+  .sr-bar-track,
+  .sr-zone-pill,
+  .sr-switch,
+  .sr-icon-btn,
+  .sr-table td,
+  .sr-table th{
+    border-color: var(--sr-line) !important;
+  }
+
+  .sr-search-wrap,
+  .sr-select-wrap,
+  .sr-page-btn,
+  .sr-reco-stat,
+  .sr-bar-track,
+  .sr-zone-pill{
+    background: var(--sr-surface-2) !important;
+  }
+
+  .sr-search-wrap:focus-within,
+  .sr-select-wrap:focus-within{
+    background: var(--sr-surface) !important;
+    border-color: rgba(0,168,89,.42) !important;
+    box-shadow: 0 0 0 4px rgba(0,168,89,.10) !important;
+  }
+
+  .sr-kpi::after,
+  .sr-kpi.orange::after,
+  .sr-kpi.blue::after,
+  .sr-kpi.red::after{
+    display: none !important;
+    content: none !important;
+  }
+
+  .sr-kpi-icon,
+  .sr-kpi.orange .sr-kpi-icon,
+  .sr-kpi.blue .sr-kpi-icon,
+  .sr-kpi.red .sr-kpi-icon,
+  .sr-avatar{
+    background: var(--sr-green-soft) !important;
+    color: var(--sr-green-dark) !important;
+    border-color: rgba(0,168,89,.16) !important;
+  }
+
+  .sr-bar-fill{
+    background: var(--sr-green) !important;
+  }
+
+  .sr-table th{
+    background: var(--sr-green-deep) !important;
+    color: #fff !important;
+  }
+
+  .sr-table tbody tr:hover{
+    background: var(--sr-green-soft) !important;
+  }
+
+  .sr-score,
+  .sr-store-text strong,
+  .sr-reco-card h4,
+  .sr-panel-head h3,
+  .sr-summary h3,
+  .sr-kpi-value,
+  .sr-hero h2,
+  .sr-hero-card strong{
+    color: var(--sr-text) !important;
+  }
+
+  .sr-store-text span,
+  .sr-reco-card p,
+  .sr-panel-head p,
+  .sr-summary p,
+  .sr-kpi-meta,
+  .sr-hero p,
+  .sr-hero-card span,
+  .sr-field label,
+  .sr-filter-note,
+  .sr-pagination-info{
+    color: var(--sr-muted) !important;
+  }
+
+  .sr-score{
+    color: var(--sr-green-dark) !important;
+  }
+
+  .sr-rating,
+  .sr-rank,
+  .sr-readiness.warning{
+    background: var(--sr-orange-soft) !important;
+    color: var(--sr-orange) !important;
+    border-color: rgba(255,138,31,.24) !important;
+  }
+
+  .sr-status.active{
+    background: #ECFDF5 !important;
+    color: #047857 !important;
+    border-color: rgba(5,150,105,.18) !important;
+  }
+
+  .sr-status.inactive,
+  .sr-zone-pill.missing,
+  .sr-btn-danger,
+  .sr-icon-delete{
+    background: #FFF1F1 !important;
+    color: #B91C1C !important;
+    border-color: rgba(239,68,68,.22) !important;
+  }
+
+  .sr-table-wrap{
+    scrollbar-color: rgba(0,168,89,.42) transparent !important;
+  }
+
+  .sr-table-wrap::-webkit-scrollbar-track{
+    background: #F1F8F4 !important;
+  }
+
+  .sr-table-wrap::-webkit-scrollbar-thumb{
+    background: rgba(0,168,89,.42) !important;
+    border-color: #F1F8F4 !important;
+  }
+
+  @media (max-width:820px){
+    .sr-table tbody{
+      background: var(--sr-surface-2) !important;
+    }
+
+    .sr-table tbody tr,
+    .sr-table tbody tr:hover{
+      background: var(--sr-surface) !important;
+    }
+  }
+
+
 </style>
 {% endblock %}
 
 {% block content %}
-{% set total_stores = stores|length %}
-{% set active_stores = stores|selectattr("is_active", "equalto", 1)|list|length %}
-{% set inactive_stores = total_stores - active_stores %}
-{% set total_products = stores|sum(attribute="products") %}
-{% set total_orders = stores|sum(attribute="orders") %}
-{% set rating_total = stores|sum(attribute="rating") %}
-{% set avg_rating = (rating_total / total_stores) if total_stores else 0 %}
+{% set total_stores = review_metrics.total_stores|default(stores|length) %}
+{% set active_stores = review_metrics.active_stores|default(0) %}
+{% set inactive_stores = review_metrics.inactive_stores|default(0) %}
+{% set total_products = review_metrics.total_products|default(0) %}
+{% set total_orders = review_metrics.total_orders|default(0) %}
+{% set avg_rating = review_metrics.avg_rating|default(0) %}
+{% set filtered_total = review_metrics.filtered_stores|default(review_stores|length) %}
+{% set recommended_total = review_metrics.recommended_stores|default(review_counts.get('recommended', 0) if review_counts else 0) %}
+{% set active_review_status = review_filters.status|default('all') %}
 
 <section class="nf-store-reviews-page">
 
@@ -857,8 +1955,8 @@
         <h2>Recommended Stores & Review Intelligence</h2>
 
         <p>
-          Review store ratings, products, order volume and recommendation strength.
-          This page helps the admin identify strong stores, inactive stores, and stores that need attention.
+          Review store readiness using rating, customer order activity, product strength,
+          delivery status and delivery zone availability.
         </p>
 
         <div class="sr-hero-actions">
@@ -878,23 +1976,23 @@
   <div class="sr-kpi-grid">
     <div class="sr-kpi blue">
       <div class="sr-kpi-icon">🏪</div>
-      <div class="sr-kpi-label">Reviewed Stores</div>
+      <div class="sr-kpi-label">Total Stores</div>
       <div class="sr-kpi-value">{{ total_stores }}</div>
-      <div class="sr-kpi-meta">Stores available for recommendation</div>
+      <div class="sr-kpi-meta">Stores available for review</div>
+    </div>
+
+    <div class="sr-kpi">
+      <div class="sr-kpi-icon">✅</div>
+      <div class="sr-kpi-label">Recommended Ready</div>
+      <div class="sr-kpi-value">{{ recommended_total }}</div>
+      <div class="sr-kpi-meta">Active, stocked, delivery-on and zone-ready</div>
     </div>
 
     <div class="sr-kpi orange">
       <div class="sr-kpi-icon">⭐</div>
       <div class="sr-kpi-label">Average Rating</div>
       <div class="sr-kpi-value">{{ "%.1f"|format(avg_rating|default(0)) }}</div>
-      <div class="sr-kpi-meta">Overall store rating average</div>
-    </div>
-
-    <div class="sr-kpi">
-      <div class="sr-kpi-icon">📦</div>
-      <div class="sr-kpi-label">Total Products</div>
-      <div class="sr-kpi-value">{{ total_products|default(0) }}</div>
-      <div class="sr-kpi-meta">Products listed by all stores</div>
+      <div class="sr-kpi-meta">Weighted by available rating count</div>
     </div>
 
     <div class="sr-kpi blue">
@@ -905,7 +2003,14 @@
     </div>
 
     <div class="sr-kpi">
-      <div class="sr-kpi-icon">✅</div>
+      <div class="sr-kpi-icon">📦</div>
+      <div class="sr-kpi-label">Total Products</div>
+      <div class="sr-kpi-value">{{ total_products|default(0) }}</div>
+      <div class="sr-kpi-meta">Products listed by stores</div>
+    </div>
+
+    <div class="sr-kpi blue">
+      <div class="sr-kpi-icon">🟢</div>
       <div class="sr-kpi-label">Active Stores</div>
       <div class="sr-kpi-value">{{ active_stores }}</div>
       <div class="sr-kpi-meta">Currently active and visible</div>
@@ -920,10 +2025,10 @@
 
     <div class="sr-kpi orange">
       <div class="sr-kpi-icon">🔥</div>
-      <div class="sr-kpi-label">Top Rated Store</div>
+      <div class="sr-kpi-label">Top Ranked</div>
       <div class="sr-kpi-value">
         {% if recommended_stores and recommended_stores[0] %}
-          {{ "%.1f"|format(recommended_stores[0].rating|default(0)) }}
+          {{ "%.1f"|format(recommended_stores[0].recommendation_score|default(0)) }}
         {% else %}
           0.0
         {% endif %}
@@ -932,22 +2037,9 @@
         {% if recommended_stores and recommended_stores[0] %}
           {{ recommended_stores[0].store_name }}
         {% else %}
-          No store found
+          No ranked store found
         {% endif %}
       </div>
-    </div>
-
-    <div class="sr-kpi blue">
-      <div class="sr-kpi-icon">📈</div>
-      <div class="sr-kpi-label">Store Health</div>
-      <div class="sr-kpi-value">
-        {% if total_stores > 0 %}
-          {{ ((active_stores / total_stores) * 100)|round(0)|int }}%
-        {% else %}
-          0%
-        {% endif %}
-      </div>
-      <div class="sr-kpi-meta">Active store percentage</div>
     </div>
   </div>
 
@@ -956,7 +2048,7 @@
       <div class="sr-panel-head">
         <div>
           <h3>Ratings Graph</h3>
-          <p>Top stores ranked by average rating.</p>
+          <p>Top ranked store candidates by rating strength.</p>
         </div>
       </div>
 
@@ -981,7 +2073,7 @@
             {% endfor %}
           </div>
         {% else %}
-          <div class="sr-empty">No rating graph data available yet.</div>
+          <div class="sr-empty">No ranked store candidate is available yet.</div>
         {% endif %}
       </div>
     </section>
@@ -990,7 +2082,7 @@
       <div class="sr-panel-head">
         <div>
           <h3>Orders Graph</h3>
-          <p>Most ordered stores from customer activity.</p>
+          <p>Most ordered store candidates from customer activity.</p>
         </div>
       </div>
 
@@ -1027,13 +2119,13 @@
   <section class="sr-panel">
     <div class="sr-panel-head">
       <div>
-        <h3>Recommended Stores</h3>
-        <p>Top stores based on rating, orders and product availability.</p>
+        <h3>Top Review Candidates</h3>
+        <p>Fully ready stores appear first. Other stores remain visible with readiness notes, so Admin can fix missing items.</p>
       </div>
 
       <label class="sr-checkbox">
         <input type="checkbox" id="shuffleStoresOnReload">
-        Shuffle store when page reload
+        Shuffle Top Cards
       </label>
     </div>
 
@@ -1060,9 +2152,15 @@
 
               <h4>{{ store.store_name }}</h4>
 
+              <span class="sr-readiness {{ store.recommendation_badge_class }}">
+                {% if store.recommendation_ready %}● Ready{% else %}● Needs Fix{% endif %}
+              </span>
+
               <p>
                 {{ store.address or "No address added yet." }}
               </p>
+
+              <div class="sr-filter-note">{{ store.recommendation_reason }}</div>
 
               <div class="sr-reco-stats">
                 <div class="sr-reco-stat">
@@ -1084,36 +2182,75 @@
           {% endfor %}
         </div>
       {% else %}
-        <div class="sr-empty">No recommended stores found.</div>
+        <div class="sr-empty">No store candidates found yet.</div>
       {% endif %}
     </div>
   </section>
 
   <section class="sr-panel">
-    <div class="sr-toolbar">
+    <form class="sr-toolbar-form" method="get" action="{{ url_for('admin_store_reviews') }}">
       <div class="sr-field">
         <label for="storeReviewSearchInput">Search Stores</label>
 
         <div class="sr-search-wrap">
-          <input id="storeReviewSearchInput" type="search" placeholder="Search by store name...">
+          <input
+            id="storeReviewSearchInput"
+            name="q"
+            type="search"
+            value="{{ review_filters.q }}"
+            placeholder="Search name, owner, phone, email, city, pincode or store ID..."
+          >
           <span class="sr-search-icon">🔍</span>
         </div>
       </div>
 
-      <div class="sr-toolbar-actions">
-        <button type="button" class="sr-btn" id="resetStoreReviewSearch">Reset</button>
-        <button type="button" class="sr-btn sr-btn-primary" id="submitStoreReviewSearch">Submit</button>
+      <div class="sr-field">
+        <label for="storeReviewStatusFilter">Filter</label>
+        <div class="sr-select-wrap">
+          <select id="storeReviewStatusFilter" name="status">
+            {% for option in review_status_options %}
+              <option value="{{ option.value }}" {% if active_review_status == option.value %}selected{% endif %}>
+                {{ option.label }}{% if review_counts %} ({{ review_counts.get(option.value, 0) }}){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
-    </div>
+
+      <div class="sr-field">
+        <label for="storeReviewSortFilter">Sort By</label>
+        <div class="sr-select-wrap">
+          <select id="storeReviewSortFilter" name="sort_by">
+            {% for option in review_sort_options %}
+              <option value="{{ option.value }}" {% if review_filters.sort_by == option.value %}selected{% endif %}>
+                {{ option.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="sr-toolbar-actions">
+        <input type="hidden" name="per_page" value="{{ review_filters.per_page }}">
+        <a href="{{ url_for('admin_store_reviews', status='all') }}" class="sr-btn">Reset</a>
+        <button type="submit" class="sr-btn sr-btn-primary">Search</button>
+      </div>
+    </form>
 
     <div class="sr-summary">
       <div>
         <h3>
-          Recommended Stores List
-          <span class="sr-count-pill" id="storeReviewVisibleCount">{{ recommended_stores|length }}</span>
+          Store Review List
+          <span class="sr-count-pill">{{ filtered_total }}</span>
         </h3>
 
-        <p>Manage status and remove stores safely from the recommended review list.</p>
+        <p>
+          Status toggle and delete/disable actions affect the real store account.
+          This page does not delete only a recommendation entry.
+        </p>
+        <div class="sr-filter-note">
+          Showing {{ pagination.start_index }}-{{ pagination.end_index }} of {{ pagination.total }} result(s).
+        </div>
       </div>
     </div>
 
@@ -1126,18 +2263,18 @@
             <th>Ratings</th>
             <th>Total Products</th>
             <th>Total Orders</th>
+            <th>Zone</th>
+            <th>Readiness</th>
+            <th>Score</th>
             <th>Status</th>
             <th>Action</th>
           </tr>
         </thead>
 
         <tbody>
-          {% for store in recommended_stores %}
-            <tr
-              data-store-review-row
-              data-store-name="{{ store.store_name|lower }}"
-            >
-              <td>{{ loop.index }}</td>
+          {% for store in review_stores %}
+            <tr>
+              <td>{{ pagination.start_index + loop.index0 }}</td>
 
               <td>
                 <div class="sr-store-cell">
@@ -1151,7 +2288,7 @@
 
                   <div class="sr-store-text">
                     <strong>{{ store.store_name }}</strong>
-                    <span>{{ store.address or "No address available" }}</span>
+                    <span>{{ store.owner_name or store.owner_phone or store.address or "No owner/address available" }}</span>
                   </div>
                 </div>
               </td>
@@ -1168,6 +2305,25 @@
               <td>{{ store.orders|default(0) }}</td>
 
               <td>
+                {% if store.zone_ready %}
+                  <span class="sr-zone-pill ready">● Zone Ready</span>
+                {% else %}
+                  <span class="sr-zone-pill missing">● Zone Missing</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <span class="sr-readiness {{ store.recommendation_badge_class }}">
+                  {% if store.recommendation_ready %}● Ready{% else %}● Needs Fix{% endif %}
+                </span>
+                <div class="sr-filter-note">{{ store.recommendation_reason }}</div>
+              </td>
+
+              <td>
+                <span class="sr-score">{{ "%.1f"|format(store.recommendation_score|default(0)) }}</span>
+              </td>
+
+              <td>
                 {% if store.is_active == 1 %}
                   <span class="sr-status active">● Active</span>
                 {% else %}
@@ -1178,6 +2334,7 @@
               <td>
                 <div class="sr-actions">
                   <form method="post" action="{{ url_for('admin_store_toggle', store_id=store.id) }}" class="sr-switch-form">
+                    <input type="hidden" name="next" value="{{ review_return_url }}">
                     <button
                       type="submit"
                       class="sr-switch {% if store.is_active == 1 %}is-active{% endif %}"
@@ -1191,7 +2348,8 @@
                     action="{{ url_for('admin_store_delete', store_id=store.id) }}"
                     onsubmit="return confirm('Delete {{ store.store_name|e }}? If this store has orders, it will be disabled instead of deleted.');"
                   >
-                    <button type="submit" class="sr-icon-btn sr-icon-delete" title="Delete Store">
+                    <input type="hidden" name="next" value="{{ review_return_url }}">
+                    <button type="submit" class="sr-icon-btn sr-icon-delete" title="Delete / Disable Store">
                       🗑
                     </button>
                   </form>
@@ -1200,13 +2358,43 @@
             </tr>
           {% else %}
             <tr>
-              <td colspan="7">
-                <div class="sr-empty">No recommended stores found.</div>
+              <td colspan="10">
+                <div class="sr-empty">No stores found for the selected search or filter.</div>
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
+    </div>
+
+    <div class="sr-pagination">
+      <div class="sr-pagination-info">
+        Page {{ pagination.page }} of {{ pagination.pages }} · {{ pagination.total }} result(s)
+      </div>
+
+      <div class="sr-pagination-actions">
+        <a
+          class="sr-page-btn {% if not pagination.has_prev %}is-disabled{% endif %}"
+          href="{{ url_for('admin_store_reviews', q=review_filters.q, status=review_filters.status, sort_by=review_filters.sort_by, per_page=review_filters.per_page, page=1) }}"
+        >First</a>
+
+        <a
+          class="sr-page-btn {% if not pagination.has_prev %}is-disabled{% endif %}"
+          href="{{ url_for('admin_store_reviews', q=review_filters.q, status=review_filters.status, sort_by=review_filters.sort_by, per_page=review_filters.per_page, page=pagination.prev_page) }}"
+        >Prev</a>
+
+        <span class="sr-page-current">{{ pagination.page }} / {{ pagination.pages }}</span>
+
+        <a
+          class="sr-page-btn {% if not pagination.has_next %}is-disabled{% endif %}"
+          href="{{ url_for('admin_store_reviews', q=review_filters.q, status=review_filters.status, sort_by=review_filters.sort_by, per_page=review_filters.per_page, page=pagination.next_page) }}"
+        >Next</a>
+
+        <a
+          class="sr-page-btn {% if not pagination.has_next %}is-disabled{% endif %}"
+          href="{{ url_for('admin_store_reviews', q=review_filters.q, status=review_filters.status, sort_by=review_filters.sort_by, per_page=review_filters.per_page, page=pagination.pages) }}"
+        >Last</a>
+      </div>
     </div>
   </section>
 
@@ -1216,76 +2404,53 @@
 {% block extra_js %}
 <script>
 (function () {
-  const bars = document.querySelectorAll('.sr-bar-fill');
+  const VIEW_KEY = 'neLocalsStoreReviewsCurrentView';
+  const SHUFFLE_KEY = 'neLocalsShuffleRecommendedStores';
+  let toastTimer = null;
 
-  bars.forEach(function (bar) {
-    const value = Number(bar.dataset.value || 0);
-    const max = Number(bar.dataset.max || 1);
-    const width = max > 0 ? Math.max(6, Math.min(100, (value / max) * 100)) : 0;
+  function pageRoot() {
+    return document.querySelector('.nf-store-reviews-page');
+  }
 
-    window.requestAnimationFrame(function () {
-      bar.style.width = width + '%';
-    });
-  });
+  function showToast(message, type) {
+    let toast = document.querySelector('.sr-ajax-toast');
 
-  const searchInput = document.getElementById('storeReviewSearchInput');
-  const resetBtn = document.getElementById('resetStoreReviewSearch');
-  const submitBtn = document.getElementById('submitStoreReviewSearch');
-  const rows = Array.from(document.querySelectorAll('[data-store-review-row]'));
-  const visibleCount = document.getElementById('storeReviewVisibleCount');
-
-  function filterRows() {
-    const query = (searchInput?.value || '').trim().toLowerCase();
-    let count = 0;
-
-    rows.forEach(function (row) {
-      const name = row.dataset.storeName || '';
-      const matched = !query || name.includes(query);
-
-      row.classList.toggle('sr-hidden', !matched);
-
-      if (matched) count += 1;
-    });
-
-    if (visibleCount) {
-      visibleCount.textContent = count;
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.className = 'sr-ajax-toast';
+      document.body.appendChild(toast);
     }
+
+    toast.textContent = message;
+    toast.classList.toggle('error', type === 'error');
+    toast.classList.add('is-visible');
+
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(function () {
+      toast.classList.remove('is-visible');
+    }, 2600);
   }
 
-  if (submitBtn) {
-    submitBtn.addEventListener('click', filterRows);
-  }
+  function animateBars(scope) {
+    const root = scope || document;
+    const bars = root.querySelectorAll('.sr-bar-fill');
 
-  if (searchInput) {
-    searchInput.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        filterRows();
-      }
+    bars.forEach(function (bar) {
+      const value = Number(bar.dataset.value || 0);
+      const max = Number(bar.dataset.max || 1);
+      const width = max > 0 ? Math.max(6, Math.min(100, (value / max) * 100)) : 0;
+      bar.style.width = '0%';
+
+      window.requestAnimationFrame(function () {
+        bar.style.width = width + '%';
+      });
     });
   }
 
-  if (resetBtn) {
-    resetBtn.addEventListener('click', function () {
-      searchInput.value = '';
-      filterRows();
-      searchInput.focus();
-    });
-  }
+  function shuffleCards(scope) {
+    const root = scope || document;
+    const recoGrid = root.querySelector('#recommendedStoresGrid');
 
-  const shuffleCheckbox = document.getElementById('shuffleStoresOnReload');
-  const recoGrid = document.getElementById('recommendedStoresGrid');
-  const SHUFFLE_KEY = 'neFreshShuffleRecommendedStores';
-
-  if (shuffleCheckbox) {
-    shuffleCheckbox.checked = localStorage.getItem(SHUFFLE_KEY) === '1';
-
-    shuffleCheckbox.addEventListener('change', function () {
-      localStorage.setItem(SHUFFLE_KEY, shuffleCheckbox.checked ? '1' : '0');
-    });
-  }
-
-  function shuffleCards() {
     if (!recoGrid) return;
 
     const cards = Array.from(recoGrid.querySelectorAll('[data-reco-card]'));
@@ -1306,11 +2471,173 @@
     });
   }
 
-  if (localStorage.getItem(SHUFFLE_KEY) === '1') {
-    shuffleCards();
+  function initLocalControls(scope) {
+    const root = scope || document;
+    const shuffleCheckbox = root.querySelector('#shuffleStoresOnReload');
+
+    if (shuffleCheckbox) {
+      shuffleCheckbox.checked = localStorage.getItem(SHUFFLE_KEY) === '1';
+
+      shuffleCheckbox.addEventListener('change', function () {
+        localStorage.setItem(SHUFFLE_KEY, shuffleCheckbox.checked ? '1' : '0');
+        if (shuffleCheckbox.checked) {
+          shuffleCards(root);
+          showToast('Top review cards shuffled on this page.');
+        }
+      }, { once: false });
+    }
+
+    if (localStorage.getItem(SHUFFLE_KEY) === '1') {
+      shuffleCards(root);
+    }
+
+    animateBars(root);
   }
 
-  filterRows();
+  function extractPage(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    return doc.querySelector('.nf-store-reviews-page');
+  }
+
+  function replacePageFromHtml(html, url, options) {
+    const current = pageRoot();
+    const next = extractPage(html);
+
+    if (!current || !next) {
+      throw new Error('Updated page content was not found.');
+    }
+
+    current.replaceWith(next);
+    initLocalControls(next);
+
+    if (url) {
+      const target = new URL(url, window.location.origin);
+      history.pushState({ storeReviewsAjax: true }, '', target.pathname + target.search + target.hash);
+      sessionStorage.setItem(VIEW_KEY, target.pathname + target.search + target.hash);
+    }
+
+    if (!options || !options.keepScroll) {
+      next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  async function fetchAndReplace(url, options) {
+    const current = pageRoot();
+    if (!current) return;
+
+    current.classList.add('is-loading');
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+      });
+
+      const html = await response.text();
+      if (!response.ok) throw new Error('Request failed.');
+      replacePageFromHtml(html, response.url || url, options);
+    } catch (error) {
+      showToast('Could not update inside the page. Loading normally.', 'error');
+      window.location.href = url;
+    } finally {
+      const root = pageRoot();
+      if (root) root.classList.remove('is-loading');
+    }
+  }
+
+  async function submitActionForm(form) {
+    const current = pageRoot();
+    if (!current) return;
+
+    current.classList.add('is-loading');
+
+    try {
+      const response = await fetch(form.action, {
+        method: (form.method || 'POST').toUpperCase(),
+        body: new FormData(form),
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+      });
+
+      const html = await response.text();
+      if (!response.ok) throw new Error('Action failed.');
+
+      replacePageFromHtml(html, response.url || window.location.href, { keepScroll: true });
+      showToast('Store review action updated.');
+    } catch (error) {
+      showToast('Could not complete action inside the page. Loading normally.', 'error');
+      form.submit();
+    } finally {
+      const root = pageRoot();
+      if (root) root.classList.remove('is-loading');
+    }
+  }
+
+  document.addEventListener('submit', function (event) {
+    const form = event.target;
+    if (!form || !form.closest || !form.closest('.nf-store-reviews-page')) return;
+
+    if (event.defaultPrevented) return;
+
+    if (form.classList.contains('sr-toolbar-form')) {
+      event.preventDefault();
+      const url = new URL(form.action || window.location.href, window.location.origin);
+      const data = new FormData(form);
+
+      data.forEach(function (value, key) {
+        if (value !== null && String(value).length) {
+          url.searchParams.set(key, value);
+        } else {
+          url.searchParams.delete(key);
+        }
+      });
+
+      url.searchParams.set('page', '1');
+      sessionStorage.setItem(VIEW_KEY, url.pathname + url.search + url.hash);
+      fetchAndReplace(url.toString());
+      return;
+    }
+
+    if (form.classList.contains('sr-switch-form') || form.action.includes('/delete') || form.querySelector('.sr-icon-delete')) {
+      event.preventDefault();
+      submitActionForm(form);
+    }
+  });
+
+  document.addEventListener('click', function (event) {
+    const link = event.target.closest('.nf-store-reviews-page .sr-pagination a, .nf-store-reviews-page .sr-toolbar-actions a');
+    if (!link || link.classList.contains('is-disabled')) return;
+    if (link.target && link.target !== '_self') return;
+
+    const href = link.getAttribute('href');
+    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+    const url = new URL(href, window.location.origin);
+    if (url.origin !== window.location.origin) return;
+
+    event.preventDefault();
+    sessionStorage.setItem(VIEW_KEY, url.pathname + url.search + url.hash);
+    fetchAndReplace(url.toString());
+  });
+
+  window.addEventListener('popstate', function () {
+    fetchAndReplace(window.location.href, { keepScroll: true });
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    initLocalControls(document);
+
+    const saved = sessionStorage.getItem(VIEW_KEY);
+    const current = window.location.pathname + window.location.search + window.location.hash;
+
+    if (saved && saved !== current && saved.split('?')[0] === window.location.pathname && !window.location.search) {
+      const url = new URL(saved, window.location.origin);
+      history.replaceState({ storeReviewsAjax: true }, '', url.pathname + url.search + url.hash);
+      fetchAndReplace(url.toString(), { keepScroll: true });
+    }
+  });
 })();
 </script>
 {% endblock %}

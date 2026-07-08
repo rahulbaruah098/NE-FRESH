@@ -1,96 +1,1034 @@
 {% extends "admin_base.html" %}
 {% set active_group = "account" %}
 {% set active_page = "admin_profile" %}
-{% block title %}Admin Profile | NE FRESH Admin{% endblock %}
+{% block title %}Admin Profile | NE Locals Admin{% endblock %}
 {% block page_title %}Admin Profile{% endblock %}
-{% block page_subtitle %}Manage your admin account details, login email and password securely.{% endblock %}
+{% block page_subtitle %}{% endblock %}
 
 {% block content %}
 <section class="ap-page">
+  <script>
+    (function(){
+      var messages = [];
+      document.querySelectorAll('.nf-flash, .flash, .alert, [class*="flash"]').forEach(function(node){
+        var text = String(node.textContent || '').trim();
+        if (text) messages.push(text);
+      });
+      window.__apProfileFlashMessages = messages;
+      document.querySelectorAll('.nf-flash-wrap').forEach(function(node){
+        node.remove();
+      });
+    })();
+  </script>
   <style>
-    .ap-page{display:grid;gap:18px}.ap-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.ap-card{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:24px;box-shadow:var(--nf-shadow);padding:22px}.ap-head{display:flex;align-items:center;gap:14px;margin-bottom:14px}.ap-avatar{width:62px;height:62px;border-radius:20px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(0,168,89,.14),rgba(255,255,255,.9));border:1px solid rgba(0,168,89,.18);color:var(--nf-green-dark);font-size:1.5rem;font-weight:950}.ap-title h2{margin:0;color:var(--nf-ink);font-size:1.15rem;font-weight:950}.ap-title p{margin:4px 0 0;color:var(--nf-muted);font-size:.9rem;line-height:1.5;font-weight:650}.ap-form{display:grid;gap:13px}.ap-field{display:grid;gap:7px}.ap-field label{font-size:.76rem;font-weight:950;color:var(--nf-muted);text-transform:uppercase;letter-spacing:.05em}.ap-field input{width:100%;height:46px;border:1px solid var(--nf-line);border-radius:15px;background:#fff;padding:0 13px;color:var(--nf-ink);font-weight:750;outline:none}.ap-field input:focus{border-color:rgba(0,168,89,.5);box-shadow:0 0 0 4px rgba(0,168,89,.1)}.ap-note{margin:0;color:var(--nf-muted);line-height:1.6;font-size:.9rem;font-weight:650}.ap-btn{min-height:46px;border:0;border-radius:15px;background:var(--nf-green);color:#fff;padding:0 16px;font-weight:950;cursor:pointer;box-shadow:0 14px 26px rgba(0,168,89,.18)}.ap-btn.secondary{background:#fff;color:var(--nf-green-dark);border:1px solid var(--nf-line);box-shadow:none}.ap-muted-box{padding:14px;border-radius:18px;background:rgba(0,168,89,.06);border:1px solid rgba(0,168,89,.14);color:var(--nf-muted);font-weight:700;line-height:1.55}.ap-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:980px){.ap-grid,.ap-row{grid-template-columns:1fr}.ap-card{padding:18px}}
+    body:has(.ap-page) .nf-flash-wrap,
+    body:has(.ap-page) .nf-flash {
+      display: none !important;
+    }
+
+    .ap-page,
+    .ap-page * {
+      box-sizing: border-box;
+    }
+
+    .ap-page {
+      --ap-green: var(--nf-green, #00A859);
+      --ap-green-dark: var(--nf-green-dark, #008A48);
+      --ap-green-soft: var(--nf-green-soft, #E9FFF3);
+      --ap-bg-soft: var(--nf-surface-2, #F2FBF6);
+      --ap-surface: var(--nf-surface, #FFFFFF);
+      --ap-text: var(--nf-text, #1F332A);
+      --ap-muted: var(--nf-muted, #66756D);
+      --ap-line: var(--nf-line, #DDECE4);
+      --ap-danger: var(--nf-danger, #EF4444);
+      --ap-shadow: var(--nf-shadow, 0 14px 36px rgba(17,64,38,.08));
+      --ap-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17,64,38,.06));
+
+      width: 100%;
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: clamp(14px, 2vw, 20px);
+      color: var(--ap-text);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .ap-card,
+    .ap-hero {
+      width: 100%;
+      min-width: 0;
+      background: var(--ap-surface);
+      border: 1px solid var(--ap-line);
+      border-radius: clamp(18px, 2.4vw, 24px);
+      box-shadow: var(--ap-shadow);
+      overflow: hidden;
+    }
+
+    .ap-hero {
+      padding: clamp(18px, 3vw, 28px);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .ap-avatar {
+      width: clamp(54px, 8vw, 68px);
+      height: clamp(54px, 8vw, 68px);
+      min-width: clamp(54px, 8vw, 68px);
+      border-radius: 20px;
+      display: grid;
+      place-items: center;
+      background: var(--ap-green-soft);
+      border: 1px solid rgba(0,168,89,.18);
+      color: var(--ap-green-dark);
+      font-size: clamp(1.35rem, 2.8vw, 1.75rem);
+      font-weight: 950;
+      line-height: 1;
+    }
+
+    .ap-title,
+    .ap-card-title {
+      min-width: 0;
+    }
+
+    .ap-title h2,
+    .ap-card-title h2 {
+      margin: 0;
+      color: var(--ap-text);
+      font-size: clamp(1.05rem, 2.5vw, 1.35rem);
+      font-weight: 950;
+      line-height: 1.2;
+      letter-spacing: -.025em;
+      overflow-wrap: anywhere;
+    }
+
+    .ap-title p {
+      margin: 6px 0 0;
+      color: var(--ap-muted);
+      font-size: .9rem;
+      line-height: 1.45;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .ap-stack {
+      width: 100%;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: clamp(14px, 2vw, 18px);
+    }
+
+    .ap-card {
+      padding: clamp(18px, 2.6vw, 24px);
+      display: grid;
+      gap: 18px;
+    }
+
+    .ap-card-title {
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--ap-line);
+    }
+
+    .ap-form {
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .ap-field {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .ap-field label {
+      color: var(--ap-muted);
+      font-size: .75rem;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      line-height: 1.35;
+    }
+
+    .ap-field input {
+      width: 100%;
+      min-width: 0;
+      height: 50px;
+      border: 1px solid var(--ap-line);
+      border-radius: 15px;
+      background: var(--ap-bg-soft);
+      padding: 0 14px;
+      color: var(--ap-text);
+      font-size: .94rem;
+      font-weight: 750;
+      outline: none;
+      transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+    .ap-field input:focus {
+      border-color: rgba(0,168,89,.48);
+      background: var(--ap-surface);
+      box-shadow: 0 0 0 4px rgba(0,168,89,.10);
+    }
+
+    .ap-field input[disabled] {
+      cursor: not-allowed;
+      color: var(--ap-muted);
+      background: color-mix(in srgb, var(--ap-bg-soft) 78%, #fff);
+      opacity: .88;
+    }
+
+    .ap-password-wrap {
+      width: 100%;
+      min-width: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .ap-password-wrap input {
+      padding-right: 50px;
+    }
+
+    .ap-password-wrap input::-ms-reveal,
+    .ap-password-wrap input::-ms-clear {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+      pointer-events: none !important;
+    }
+
+    .ap-password-toggle {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 36px;
+      height: 36px;
+      min-width: 36px;
+      border: 1px solid rgba(0,168,89,.18);
+      border-radius: 12px;
+      background: var(--ap-surface);
+      color: var(--ap-green-dark);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+    }
+
+    .ap-password-toggle:hover,
+    .ap-password-toggle:focus-visible {
+      background: var(--ap-green-soft);
+      border-color: rgba(0,168,89,.30);
+      box-shadow: 0 0 0 4px rgba(0,168,89,.08);
+      outline: none;
+    }
+
+    .ap-password-toggle svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      display: block;
+    }
+
+    .ap-password-toggle .ap-eye-off {
+      display: none;
+    }
+
+    .ap-password-toggle.is-visible .ap-eye-on {
+      display: none;
+    }
+
+    .ap-password-toggle.is-visible .ap-eye-off {
+      display: block;
+    }
+
+    .ap-error {
+      display: none;
+      margin: 0;
+      color: #B91C1C;
+      font-size: .76rem;
+      line-height: 1.45;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .ap-field.has-error input {
+      border-color: rgba(239,68,68,.55);
+      background: #FFF7F7;
+      box-shadow: 0 0 0 4px rgba(239,68,68,.08);
+    }
+
+    .ap-field.has-error .ap-error {
+      display: block;
+    }
+
+    .ap-form-status {
+      display: none;
+      width: 100%;
+      margin: 0;
+      padding: 11px 13px;
+      border-radius: 14px;
+      border: 1px solid transparent;
+      font-size: .82rem;
+      line-height: 1.45;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+
+    .ap-form-status.show {
+      display: block;
+    }
+
+    .ap-form-status.success {
+      color: var(--ap-green-dark);
+      background: var(--ap-green-soft);
+      border-color: rgba(0,168,89,.20);
+    }
+
+    .ap-form-status.danger {
+      color: #B91C1C;
+      background: #FFF1F2;
+      border-color: rgba(239,68,68,.24);
+    }
+
+    .ap-form-status.warning {
+      color: #92400E;
+      background: #FFFBEB;
+      border-color: rgba(245,158,11,.26);
+    }
+
+    .ap-actions + .ap-form-status {
+      margin-top: -4px;
+    }
+
+    .ap-actions {
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-top: 2px;
+    }
+
+    .ap-btn {
+      min-height: 48px;
+      width: fit-content;
+      max-width: 100%;
+      border: 1px solid var(--ap-green);
+      border-radius: 15px;
+      background: var(--ap-green);
+      color: #fff;
+      padding: 0 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: .88rem;
+      font-weight: 950;
+      cursor: pointer;
+      box-shadow: 0 14px 26px rgba(0,168,89,.18);
+      transition: transform .2s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .ap-btn:hover {
+      transform: translateY(-1px);
+      background: var(--ap-green-dark);
+      border-color: var(--ap-green-dark);
+      box-shadow: var(--ap-shadow-soft);
+    }
+
+    @media (max-width: 1100px) {
+      .ap-page {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .ap-page {
+        gap: 14px;
+      }
+
+      .ap-hero,
+      .ap-card {
+        border-radius: 18px;
+        padding: 16px;
+      }
+
+      .ap-hero {
+        align-items: flex-start;
+      }
+
+      .ap-title p {
+        font-size: .84rem;
+      }
+
+      .ap-actions,
+      .ap-btn {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .ap-hero {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .ap-avatar {
+        width: 58px;
+        height: 58px;
+        min-width: 58px;
+        border-radius: 18px;
+      }
+
+      .ap-field input {
+        height: 50px;
+        font-size: 16px;
+      }
+
+      .ap-password-wrap input {
+        padding-right: 48px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .ap-page {
+        gap: 12px;
+      }
+
+      .ap-hero,
+      .ap-card {
+        padding: 14px;
+        border-radius: 16px;
+      }
+
+      .ap-title h2,
+      .ap-card-title h2 {
+        font-size: 1rem;
+      }
+
+      .ap-title p {
+        font-size: .8rem;
+      }
+
+      .ap-btn {
+        min-height: 46px;
+        padding: 0 14px;
+        font-size: .82rem;
+      }
+
+      .ap-form-status {
+        font-size: .78rem;
+      }
+    }
   </style>
 
-  <div class="ap-card">
-    <div class="ap-head">
-      <div class="ap-avatar">{{ (user.name[0] if user and user.name else 'A')|upper }}</div>
-      <div class="ap-title">
-        <h2>{{ user.name or 'Admin' }}</h2>
-        <p>{{ user.email or 'No email found' }} · Administrator Account</p>
-      </div>
-    </div>
-    <div class="ap-muted-box">
-      Use this page only for your own Admin login account. Store, delivery-boy and customer accounts are managed from User Management.
+  <div class="ap-hero">
+    <div class="ap-avatar">{{ (user.name[0] if user and user.name else 'A')|upper }}</div>
+    <div class="ap-title">
+      <h2>{{ user.name or 'Admin' }}</h2>
+      <p>{{ user.email or 'No email found' }} · Administrator Account</p>
     </div>
   </div>
 
-  <div class="ap-grid">
+  <div class="ap-stack">
     <div class="ap-card">
-      <div class="ap-title" style="margin-bottom:14px;">
+      <div class="ap-card-title">
         <h2>Profile Details</h2>
-        <p>Update display name and contact phone shown inside Admin panel.</p>
       </div>
-      <form method="post" class="ap-form">
+
+      <form method="post" class="ap-form" data-ap-form="profile" novalidate>
         <input type="hidden" name="action" value="profile_details">
+
         <div class="ap-field">
-          <label>Name</label>
-          <input type="text" name="name" value="{{ user.name or '' }}" required>
+          <label for="apName">Name</label>
+          <input id="apName" type="text" name="name" value="{{ user.name or '' }}" maxlength="120" autocomplete="name" required>
+          <p class="ap-error" data-error-for="apName"></p>
         </div>
+
         <div class="ap-field">
-          <label>Phone</label>
-          <input type="text" name="phone" value="{{ user.phone or '' }}" placeholder="Optional admin phone">
+          <label for="apPhone">Phone</label>
+          <input id="apPhone" type="tel" name="phone" value="{{ user.phone or '' }}" inputmode="tel" autocomplete="tel">
+          <p class="ap-error" data-error-for="apPhone"></p>
         </div>
-        <button class="ap-btn" type="submit">Save Profile Details</button>
+
+        <div class="ap-actions">
+          <button class="ap-btn" type="submit">Save Profile Details</button>
+        </div>
+        <p class="ap-form-status" data-form-status="profile" aria-live="polite"></p>
       </form>
     </div>
 
     <div class="ap-card">
-      <div class="ap-title" style="margin-bottom:14px;">
+      <div class="ap-card-title">
         <h2>Change Login Email</h2>
-        <p>Current password is required before changing the Admin login email.</p>
       </div>
-      <form method="post" class="ap-form">
+
+      <form method="post" class="ap-form" data-ap-form="email" novalidate>
         <input type="hidden" name="action" value="change_email">
+
         <div class="ap-field">
-          <label>Current Email</label>
-          <input type="email" value="{{ user.email or '' }}" disabled>
+          <label for="apCurrentEmail">Current Email</label>
+          <input id="apCurrentEmail" type="email" value="{{ user.email or '' }}" disabled>
         </div>
+
         <div class="ap-field">
-          <label>New Email</label>
-          <input type="email" name="new_email" placeholder="admin@example.com" required>
+          <label for="apNewEmail">New Email</label>
+          <input id="apNewEmail" type="email" name="new_email" autocomplete="email" data-current-email="{{ (user.email or '')|lower }}" required>
+          <p class="ap-error" data-error-for="apNewEmail"></p>
         </div>
+
         <div class="ap-field">
-          <label>Current Password</label>
-          <input type="password" name="current_password" autocomplete="current-password" required>
+          <label for="apEmailCurrentPassword">Current Password</label>
+          <div class="ap-password-wrap">
+            <input id="apEmailCurrentPassword" type="password" name="current_password" autocomplete="current-password" required>
+            <button type="button" class="ap-password-toggle" data-ap-password-toggle="apEmailCurrentPassword" aria-label="Show password" aria-pressed="false" title="Show password">
+              <svg class="ap-eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <svg class="ap-eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.6A2 2 0 0 0 12 14a2 2 0 0 0 1.4-.6"></path><path d="M9.9 5.2A10.5 10.5 0 0 1 12 5c6 0 9.5 7 9.5 7a16.4 16.4 0 0 1-3.1 4.1"></path><path d="M6.6 6.7C3.9 8.5 2.5 12 2.5 12s3.5 7 9.5 7a9.8 9.8 0 0 0 4.1-.9"></path></svg>
+            </button>
+          </div>
+          <p class="ap-error" data-error-for="apEmailCurrentPassword"></p>
         </div>
-        <button class="ap-btn" type="submit">Change Admin Email</button>
+
+        <div class="ap-actions">
+          <button class="ap-btn" type="submit">Change Admin Email</button>
+        </div>
+        <p class="ap-form-status" data-form-status="email" aria-live="polite"></p>
+      </form>
+    </div>
+
+    <div class="ap-card" id="change-password">
+      <div class="ap-card-title">
+        <h2>Change Password</h2>
+      </div>
+
+      <form method="post" class="ap-form" data-ap-form="password" novalidate>
+        <input type="hidden" name="action" value="change_password">
+
+        <div class="ap-field">
+          <label for="apCurrentPassword">Current Password</label>
+          <div class="ap-password-wrap">
+            <input id="apCurrentPassword" type="password" name="current_password" autocomplete="current-password" required>
+            <button type="button" class="ap-password-toggle" data-ap-password-toggle="apCurrentPassword" aria-label="Show password" aria-pressed="false" title="Show password">
+              <svg class="ap-eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <svg class="ap-eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.6A2 2 0 0 0 12 14a2 2 0 0 0 1.4-.6"></path><path d="M9.9 5.2A10.5 10.5 0 0 1 12 5c6 0 9.5 7 9.5 7a16.4 16.4 0 0 1-3.1 4.1"></path><path d="M6.6 6.7C3.9 8.5 2.5 12 2.5 12s3.5 7 9.5 7a9.8 9.8 0 0 0 4.1-.9"></path></svg>
+            </button>
+          </div>
+          <p class="ap-error" data-error-for="apCurrentPassword"></p>
+        </div>
+
+        <div class="ap-field">
+          <label for="apNewPassword">New Password</label>
+          <div class="ap-password-wrap">
+            <input id="apNewPassword" type="password" name="new_password" minlength="8" maxlength="128" autocomplete="new-password" required>
+            <button type="button" class="ap-password-toggle" data-ap-password-toggle="apNewPassword" aria-label="Show password" aria-pressed="false" title="Show password">
+              <svg class="ap-eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <svg class="ap-eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.6A2 2 0 0 0 12 14a2 2 0 0 0 1.4-.6"></path><path d="M9.9 5.2A10.5 10.5 0 0 1 12 5c6 0 9.5 7 9.5 7a16.4 16.4 0 0 1-3.1 4.1"></path><path d="M6.6 6.7C3.9 8.5 2.5 12 2.5 12s3.5 7 9.5 7a9.8 9.8 0 0 0 4.1-.9"></path></svg>
+            </button>
+          </div>
+          <p class="ap-error" data-error-for="apNewPassword"></p>
+        </div>
+
+        <div class="ap-field">
+          <label for="apConfirmPassword">Confirm New Password</label>
+          <div class="ap-password-wrap">
+            <input id="apConfirmPassword" type="password" name="confirm_password" minlength="8" maxlength="128" autocomplete="new-password" required>
+            <button type="button" class="ap-password-toggle" data-ap-password-toggle="apConfirmPassword" aria-label="Show password" aria-pressed="false" title="Show password">
+              <svg class="ap-eye-on" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <svg class="ap-eye-off" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M10.6 10.6A2 2 0 0 0 12 14a2 2 0 0 0 1.4-.6"></path><path d="M9.9 5.2A10.5 10.5 0 0 1 12 5c6 0 9.5 7 9.5 7a16.4 16.4 0 0 1-3.1 4.1"></path><path d="M6.6 6.7C3.9 8.5 2.5 12 2.5 12s3.5 7 9.5 7a9.8 9.8 0 0 0 4.1-.9"></path></svg>
+            </button>
+          </div>
+          <p class="ap-error" data-error-for="apConfirmPassword"></p>
+        </div>
+
+        <div class="ap-actions">
+          <button class="ap-btn" type="submit">Change Password</button>
+        </div>
+        <p class="ap-form-status" data-form-status="password" aria-live="polite"></p>
       </form>
     </div>
   </div>
 
-  <div class="ap-card" id="change-password">
-    <div class="ap-title" style="margin-bottom:14px;">
-      <h2>Change Password</h2>
-      <p>Use a strong password. This changes only your current Admin account password.</p>
-    </div>
-    <form method="post" class="ap-form">
-      <input type="hidden" name="action" value="change_password">
-      <div class="ap-row">
-        <div class="ap-field">
-          <label>Current Password</label>
-          <input type="password" name="current_password" autocomplete="current-password" required>
-        </div>
-        <div class="ap-field">
-          <label>New Password</label>
-          <input type="password" name="new_password" minlength="8" autocomplete="new-password" required>
-        </div>
-      </div>
-      <div class="ap-field">
-        <label>Confirm New Password</label>
-        <input type="password" name="confirm_password" minlength="8" autocomplete="new-password" required>
-      </div>
-      <button class="ap-btn" type="submit">Change Password</button>
-    </form>
-  </div>
+  <script>
+    (function(){
+      var page = document.currentScript.closest('.ap-page');
+      if (!page) return;
+
+      function trim(value){
+        return String(value || '').trim();
+      }
+
+      var ACTION_STATE_KEY = 'neLocalsAdminProfileActionState:' + window.location.pathname;
+      var ACTION_STATE_MAX_AGE = 1000 * 60 * 10;
+
+      function now(){
+        return Date.now ? Date.now() : new Date().getTime();
+      }
+
+      function getScrollTop(){
+        return window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      }
+
+      function saveActionDisplay(form){
+        try {
+          if (!form || !window.sessionStorage) return;
+          var state = {
+            form: form.getAttribute('data-ap-form') || '',
+            y: getScrollTop(),
+            t: now()
+          };
+          sessionStorage.setItem(ACTION_STATE_KEY, JSON.stringify(state));
+        } catch (_) {}
+      }
+
+      function readActionDisplay(){
+        try {
+          if (!window.sessionStorage) return null;
+          var raw = sessionStorage.getItem(ACTION_STATE_KEY);
+          if (!raw) return null;
+          var state = JSON.parse(raw);
+          if (!state || !state.t || (now() - Number(state.t)) > ACTION_STATE_MAX_AGE) {
+            sessionStorage.removeItem(ACTION_STATE_KEY);
+            return null;
+          }
+          return state;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function clearActionDisplay(){
+        try {
+          if (window.sessionStorage) sessionStorage.removeItem(ACTION_STATE_KEY);
+        } catch (_) {}
+      }
+
+      function restoreActionDisplay(){
+        var state = readActionDisplay();
+        if (!state) return;
+
+        var targetForm = state.form ? page.querySelector('[data-ap-form="' + state.form + '"]') : null;
+        var y = Number(state.y || 0);
+
+        window.setTimeout(function(){
+          if (Number.isFinite(y) && y >= 0) {
+            window.scrollTo(0, y);
+          } else if (targetForm && targetForm.scrollIntoView) {
+            targetForm.scrollIntoView({ block: 'center', inline: 'nearest' });
+          }
+          window.setTimeout(clearActionDisplay, 400);
+        }, 80);
+      }
+
+      function emailValid(value){
+        var email = trim(value).toLowerCase();
+        if (!email || email.length > 254) return false;
+        if (/\s/.test(email)) return false;
+        if ((email.match(/@/g) || []).length !== 1) return false;
+        var parts = email.split('@');
+        if (!parts[0] || !parts[1] || parts[0].length > 64) return false;
+        if (parts[1].indexOf('.') === -1 || parts[1].startsWith('.') || parts[1].endsWith('.')) return false;
+        if (email.indexOf('..') !== -1) return false;
+        return /^[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}$/i.test(email);
+      }
+
+      function phoneValid(value){
+        var raw = trim(value);
+        if (!raw) return true;
+        var digits = raw.replace(/\D/g, '');
+        return digits.length >= 7 && digits.length <= 15;
+      }
+
+      function setError(input, message){
+        if (!input) return;
+        var field = input.closest('.ap-field');
+        var error = page.querySelector('[data-error-for="' + input.id + '"]');
+        if (field) field.classList.toggle('has-error', !!message);
+        if (error) error.textContent = message || '';
+      }
+
+      function clearFormErrors(form){
+        form.querySelectorAll('input').forEach(function(input){
+          setError(input, '');
+        });
+        setStatus(form, '', '');
+      }
+
+      function setStatus(form, message, type){
+        if (!form) return;
+        var status = form.querySelector('[data-form-status]');
+        if (!status) return;
+        status.textContent = message || '';
+        status.classList.remove('show', 'success', 'danger', 'warning');
+        if (message) {
+          status.classList.add('show');
+          status.classList.add(type || 'warning');
+        }
+      }
+
+      function collectFlashMessagesFromDocument(doc){
+        var messages = [];
+        if (!doc) return messages;
+        doc.querySelectorAll('.nf-flash, .flash, .alert, [class*="flash"]').forEach(function(node){
+          var text = trim(node.textContent);
+          if (text) messages.push(text);
+        });
+        return messages;
+      }
+
+      function copyReturnedProfileState(doc){
+        if (!doc) return;
+
+        var returnedHero = doc.querySelector('.ap-hero');
+        var currentHero = page.querySelector('.ap-hero');
+        if (returnedHero && currentHero) {
+          currentHero.innerHTML = returnedHero.innerHTML;
+        }
+
+        ['apName', 'apPhone', 'apCurrentEmail'].forEach(function(id){
+          var currentInput = page.querySelector('#' + id);
+          var returnedInput = doc.querySelector('#' + id);
+          if (currentInput && returnedInput) currentInput.value = returnedInput.value || '';
+        });
+
+        var returnedNewEmail = doc.querySelector('#apNewEmail');
+        var currentNewEmail = page.querySelector('#apNewEmail');
+        if (returnedNewEmail && currentNewEmail) {
+          currentNewEmail.setAttribute('data-current-email', returnedNewEmail.getAttribute('data-current-email') || '');
+        }
+      }
+
+      function normalizeServerMessages(messages){
+        messages = Array.isArray(messages) ? messages : [];
+        var emailForm = page.querySelector('[data-ap-form="email"]');
+        var passwordForm = page.querySelector('[data-ap-form="password"]');
+        var profileForm = page.querySelector('[data-ap-form="profile"]');
+        var matched = false;
+
+        messages.forEach(function(text){
+          var lower = trim(text).toLowerCase();
+          if (!lower) return;
+
+          if (lower.indexOf('current password is incorrect') !== -1 && lower.indexOf('email') !== -1) {
+            setStatus(emailForm, 'Incorrect current password entered. Email was not changed.', 'danger');
+            var emailPassword = page.querySelector('#apEmailCurrentPassword');
+            if (emailPassword) emailPassword.value = '';
+            matched = true;
+          } else if (lower.indexOf('current password is incorrect') !== -1 && lower.indexOf('password') !== -1) {
+            setStatus(passwordForm, 'Incorrect current password entered. Password was not changed.', 'danger');
+            var currentPassword = page.querySelector('#apCurrentPassword');
+            if (currentPassword) currentPassword.value = '';
+            matched = true;
+          } else if (lower.indexOf('new password and confirm password do not match') !== -1) {
+            setStatus(passwordForm, 'Passwords do not match.', 'danger');
+            matched = true;
+          } else if (lower.indexOf('admin password changed successfully') !== -1) {
+            setStatus(passwordForm, 'Password changed successfully.', 'success');
+            ['apCurrentPassword', 'apNewPassword', 'apConfirmPassword'].forEach(function(id){
+              var input = page.querySelector('#' + id);
+              if (input) input.value = '';
+            });
+            matched = true;
+          } else if (lower.indexOf('admin email changed successfully') !== -1) {
+            setStatus(emailForm, 'Admin email changed successfully.', 'success');
+            var newEmail = page.querySelector('#apNewEmail');
+            var emailPassword = page.querySelector('#apEmailCurrentPassword');
+            var currentEmail = page.querySelector('#apCurrentEmail');
+            if (currentEmail && newEmail && newEmail.value) currentEmail.value = trim(newEmail.value).toLowerCase();
+            if (newEmail && currentEmail) newEmail.setAttribute('data-current-email', trim(currentEmail.value).toLowerCase());
+            if (newEmail) newEmail.value = '';
+            if (emailPassword) emailPassword.value = '';
+            matched = true;
+          } else if (lower.indexOf('email is already') !== -1 || lower.indexOf('email address') !== -1) {
+            setStatus(emailForm, text, lower.indexOf('already used') !== -1 ? 'danger' : 'warning');
+            matched = true;
+          } else if (lower.indexOf('admin profile updated successfully') !== -1) {
+            setStatus(profileForm, 'Profile details saved successfully.', 'success');
+            matched = true;
+          }
+        });
+
+        return matched;
+      }
+
+      function setSubmitting(form, submitting){
+        if (!form) return;
+        var button = form.querySelector('.ap-btn');
+        if (!button) return;
+        button.disabled = !!submitting;
+        button.setAttribute('aria-busy', submitting ? 'true' : 'false');
+      }
+
+      function ajaxSubmitForm(form){
+        if (!form || !window.fetch || !window.FormData || !window.DOMParser) {
+          form.submit();
+          return;
+        }
+
+        saveActionDisplay(form);
+        setSubmitting(form, true);
+
+        var action = form.getAttribute('action') || window.location.href;
+        var formData = new FormData(form);
+
+        fetch(action, {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        }).then(function(response){
+          return response.text();
+        }).then(function(html){
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          copyReturnedProfileState(doc);
+          var messages = collectFlashMessagesFromDocument(doc);
+          if (!normalizeServerMessages(messages)) {
+            setStatus(form, 'Action completed. Please check the details above.', 'success');
+          }
+          document.querySelectorAll('.nf-flash-wrap').forEach(function(node){
+            node.remove();
+          });
+          restoreActionDisplay();
+        }).catch(function(){
+          setStatus(form, 'Unable to complete this action right now. Please try again.', 'danger');
+        }).finally(function(){
+          setSubmitting(form, false);
+        });
+      }
+
+      function setupPasswordToggles(){
+        page.querySelectorAll('[data-ap-password-toggle]').forEach(function(button){
+          button.addEventListener('click', function(){
+            var input = page.querySelector('#' + button.getAttribute('data-ap-password-toggle'));
+            if (!input) return;
+            var show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            button.classList.toggle('is-visible', show);
+            button.setAttribute('aria-pressed', show ? 'true' : 'false');
+            button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+            button.setAttribute('title', show ? 'Hide password' : 'Show password');
+            try {
+              input.focus({ preventScroll: true });
+            } catch (_) {
+              input.focus();
+            }
+          });
+        });
+      }
+
+      function updatePasswordMatchMessage(){
+        var newPassword = page.querySelector('#apNewPassword');
+        var confirmPassword = page.querySelector('#apConfirmPassword');
+        var passwordForm = page.querySelector('[data-ap-form="password"]');
+        if (!newPassword || !confirmPassword || !passwordForm) return;
+
+        var newValue = newPassword.value || '';
+        var confirmValue = confirmPassword.value || '';
+
+        if (!newValue && !confirmValue) {
+          setStatus(passwordForm, '', '');
+          return;
+        }
+
+        if (newValue && confirmValue && newValue === confirmValue) {
+          setStatus(passwordForm, 'Passwords match.', 'success');
+          return;
+        }
+
+        if (confirmValue) {
+          setStatus(passwordForm, 'Passwords do not match.', 'danger');
+          return;
+        }
+
+        setStatus(passwordForm, '', '');
+      }
+
+      function applyServerFlashStatus(){
+        var flashNodes = document.querySelectorAll('.nf-flash, .flash, .alert, [class*="flash"]');
+        var messages = Array.isArray(window.__apProfileFlashMessages) ? window.__apProfileFlashMessages.slice() : [];
+
+        if (flashNodes && flashNodes.length) {
+          flashNodes.forEach(function(node){
+            var nodeText = trim(node.textContent);
+            if (nodeText) messages.push(nodeText);
+          });
+        }
+
+        normalizeServerMessages(messages);
+
+        document.querySelectorAll('.nf-flash-wrap').forEach(function(node){
+          node.remove();
+        });
+      }
+
+      page.querySelectorAll('input').forEach(function(input){
+        input.addEventListener('input', function(){
+          setError(input, '');
+          var form = input.closest('form');
+          if (form && input.id !== 'apNewPassword' && input.id !== 'apConfirmPassword') {
+            setStatus(form, '', '');
+          }
+          if (input.id === 'apNewPassword' || input.id === 'apConfirmPassword') {
+            updatePasswordMatchMessage();
+          }
+        });
+      });
+
+      page.querySelectorAll('.ap-btn').forEach(function(button){
+        button.addEventListener('click', function(){
+          var form = button.closest('form');
+          saveActionDisplay(form);
+        });
+      });
+
+      var profileForm = page.querySelector('[data-ap-form="profile"]');
+      if (profileForm) {
+        profileForm.addEventListener('submit', function(event){
+          clearFormErrors(profileForm);
+
+          var name = page.querySelector('#apName');
+          var phone = page.querySelector('#apPhone');
+          var hasError = false;
+
+          if (!trim(name.value)) {
+            setError(name, 'Admin name is required.');
+            hasError = true;
+          } else if (trim(name.value).length > 120) {
+            setError(name, 'Admin name cannot be more than 120 characters.');
+            hasError = true;
+          }
+
+          if (!phoneValid(phone.value)) {
+            setError(phone, 'Please enter a valid phone number with 7 to 15 digits.');
+            hasError = true;
+          }
+
+          if (hasError) {
+            event.preventDefault();
+            setStatus(profileForm, 'Please correct the highlighted details and try again.', 'danger');
+            var firstError = profileForm.querySelector('.has-error input');
+            if (firstError) firstError.focus();
+          } else {
+            event.preventDefault();
+            ajaxSubmitForm(profileForm);
+          }
+        });
+      }
+
+      var emailForm = page.querySelector('[data-ap-form="email"]');
+      if (emailForm) {
+        emailForm.addEventListener('submit', function(event){
+          clearFormErrors(emailForm);
+
+          var newEmail = page.querySelector('#apNewEmail');
+          var password = page.querySelector('#apEmailCurrentPassword');
+          var currentEmail = trim(newEmail.getAttribute('data-current-email')).toLowerCase();
+          var value = trim(newEmail.value).toLowerCase();
+          var hasError = false;
+
+          if (!emailValid(value)) {
+            setError(newEmail, 'Please enter a valid email address.');
+            hasError = true;
+          } else if (value === currentEmail) {
+            setError(newEmail, 'Current email cannot be used as the new email.');
+            hasError = true;
+          }
+
+          if (!trim(password.value)) {
+            setError(password, 'Current password is required.');
+            hasError = true;
+          }
+
+          if (hasError) {
+            event.preventDefault();
+            setStatus(emailForm, 'Please correct the highlighted details and try again.', 'danger');
+            var firstError = emailForm.querySelector('.has-error input');
+            if (firstError) firstError.focus();
+          } else {
+            event.preventDefault();
+            ajaxSubmitForm(emailForm);
+          }
+        });
+      }
+
+      var passwordForm = page.querySelector('[data-ap-form="password"]');
+      if (passwordForm) {
+        passwordForm.addEventListener('submit', function(event){
+          clearFormErrors(passwordForm);
+
+          var currentPassword = page.querySelector('#apCurrentPassword');
+          var newPassword = page.querySelector('#apNewPassword');
+          var confirmPassword = page.querySelector('#apConfirmPassword');
+          var hasError = false;
+
+          if (!trim(currentPassword.value)) {
+            setError(currentPassword, 'Current password is required.');
+            hasError = true;
+          }
+
+          if (!newPassword.value) {
+            setError(newPassword, 'Please enter a new password.');
+            hasError = true;
+          } else if (newPassword.value.length < 8) {
+            setError(newPassword, 'New password must be at least 8 characters.');
+            hasError = true;
+          } else if (newPassword.value.length > 128) {
+            setError(newPassword, 'New password cannot be more than 128 characters.');
+            hasError = true;
+          } else if (/\s/.test(newPassword.value)) {
+            setError(newPassword, 'New password cannot contain spaces.');
+            hasError = true;
+          } else if (!/[A-Za-z]/.test(newPassword.value)) {
+            setError(newPassword, 'New password must include at least one letter.');
+            hasError = true;
+          } else if (!/\d/.test(newPassword.value)) {
+            setError(newPassword, 'New password must include at least one number.');
+            hasError = true;
+          } else if (currentPassword.value && newPassword.value === currentPassword.value) {
+            setError(newPassword, 'New password cannot be the same as current password.');
+            hasError = true;
+          }
+
+          if (!confirmPassword.value) {
+            setError(confirmPassword, 'Please confirm the new password.');
+            hasError = true;
+          } else if (newPassword.value !== confirmPassword.value) {
+            setError(confirmPassword, 'New password and confirm password do not match.');
+            hasError = true;
+          } else {
+          }
+
+          if (hasError) {
+            event.preventDefault();
+            var currentMessage = newPassword.value && confirmPassword.value && newPassword.value !== confirmPassword.value ? 'Passwords do not match.' : '';
+            setStatus(passwordForm, currentMessage || 'Please correct the highlighted password details and try again.', 'danger');
+            var firstError = passwordForm.querySelector('.has-error input');
+            if (firstError) firstError.focus();
+          } else {
+            event.preventDefault();
+            ajaxSubmitForm(passwordForm);
+          }
+        });
+      }
+
+      setupPasswordToggles();
+      updatePasswordMatchMessage();
+      applyServerFlashStatus();
+      restoreActionDisplay();
+    })();
+  </script>
 </section>
 {% endblock %}
