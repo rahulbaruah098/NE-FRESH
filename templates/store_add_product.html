@@ -6,36 +6,6 @@
 {% block page_subtitle %}Create a new product with price, stock, category and image.{% endblock %}
 
 {% block content %}
-{% set products_total = products|length if products else 0 %}
-{% set orders_total = metrics.total_orders|default(orders|length if orders else 0) %}
-{% set earnings_total = metrics.paid_total|default(0) %}
-{% set gmv_total = metrics.gmv_total|default(0) %}
-{% set txn_count_total = metrics.txn_count|default(0) %}
-{% set unique_customers_total = metrics.unique_customers|default(0) %}
-{% set delivery_people_total = metrics.delivery_people|default(0) %}
-{% set active_delivery_people_total = metrics.active_delivery_people|default(delivery_people_total) %}
-{% set accepted_delivery_total = metrics.accepted_by_delivery|default(metrics.delivery_accepted|default(0)) %}
-{% set ready_for_pickup_total = metrics.ready_for_pickup_orders|default(0) %}
-{% set delivered_orders_total = metrics.delivered_orders|default(0) %}
-{% set available_delivery_people_list = available_delivery_people if available_delivery_people is defined else [] %}
-
-{% set ns = namespace(placed=0, confirmed=0, out_for_delivery=0, delivered=0, cancelled=0, low_stock=0, active_products=0, inactive_products=0) %}
-{% if orders %}
-  {% for o in orders %}
-    {% set st = (o.status or '')|upper %}
-    {% if st == 'PLACED' %}{% set ns.placed = ns.placed + 1 %}{% endif %}
-    {% if st == 'CONFIRMED' %}{% set ns.confirmed = ns.confirmed + 1 %}{% endif %}
-    {% if st == 'OUT_FOR_DELIVERY' %}{% set ns.out_for_delivery = ns.out_for_delivery + 1 %}{% endif %}
-    {% if st == 'DELIVERED' %}{% set ns.delivered = ns.delivered + 1 %}{% endif %}
-    {% if st == 'CANCELLED' %}{% set ns.cancelled = ns.cancelled + 1 %}{% endif %}
-  {% endfor %}
-{% endif %}
-{% if products %}
-  {% for p in products %}
-    {% if p.is_active %}{% set ns.active_products = ns.active_products + 1 %}{% else %}{% set ns.inactive_products = ns.inactive_products + 1 %}{% endif %}
-    {% if p.stock_quantity is not none and p.stock_quantity <= 5.0 %}{% set ns.low_stock = ns.low_stock + 1 %}{% endif %}
-  {% endfor %}
-{% endif %}
 
 <section class="nf-add-product-page" data-page="store-add-product">
   <style>
@@ -61,20 +31,19 @@
       --orange-soft:#FFF8E8;
       --red:#DC2626;
       --red-soft:#FFF1F2;
-      --blue:#0EA5A3;
-      --blue-soft:#E8FFFA;
       --shadow:0 10px 28px rgba(17,64,38,.055);
       --shadow2:0 18px 50px rgba(17,64,38,.085);
       --radius:24px;
       --ease:cubic-bezier(.2,.75,.25,1);
+
       width:100%;
       min-height:100%;
-      color:var(--ink);
-      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-      background:
-        radial-gradient(circle at 0% 0%, rgba(0,168,89,.055), transparent 34%),
-        linear-gradient(180deg,#F7FFFA 0%,#FFFFFF 44%,#F8FFFB 100%);
       overflow-x:hidden;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 0% 0%,rgba(0,168,89,.055),transparent 34%),
+        linear-gradient(180deg,#F7FFFA 0%,#FFFFFF 42%,#F8FFFB 100%);
+      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
       -webkit-text-size-adjust:100%;
       text-size-adjust:100%;
     }
@@ -88,11 +57,11 @@
 
     .ap-shell{
       width:100%;
-      max-width:1720px;
+      max-width:1760px;
       margin:0 auto;
       padding:clamp(12px,1.6vw,28px);
-      padding-left:max(clamp(12px,1.6vw,28px), env(safe-area-inset-left,0px));
-      padding-right:max(clamp(12px,1.6vw,28px), env(safe-area-inset-right,0px));
+      padding-left:max(clamp(12px,1.6vw,28px),env(safe-area-inset-left,0px));
+      padding-right:max(clamp(12px,1.6vw,28px),env(safe-area-inset-right,0px));
     }
 
     .ap-stack{
@@ -102,22 +71,24 @@
 
     .ap-card,
     .ap-hero{
-      background:rgba(255,255,255,.98);
+      width:100%;
+      overflow:hidden;
       border:1px solid var(--line);
       border-radius:var(--radius);
+      background:rgba(255,255,255,.98);
       box-shadow:var(--shadow);
-      overflow:hidden;
     }
 
+    /* Hero */
     .ap-hero{
       display:grid;
       grid-template-columns:minmax(0,1fr) auto;
       align-items:center;
-      gap:clamp(14px,1.5vw,24px);
+      gap:18px;
       padding:clamp(18px,2vw,30px);
       border-radius:30px;
       background:
-        radial-gradient(circle at 100% 0%, rgba(0,168,89,.10), transparent 30%),
+        radial-gradient(circle at 100% 0%,rgba(0,168,89,.10),transparent 30%),
         linear-gradient(135deg,#FFFFFF 0%,#F2FFF8 100%);
       box-shadow:var(--shadow2);
     }
@@ -125,30 +96,34 @@
     .ap-kicker{
       display:inline-flex;
       align-items:center;
-      gap:8px;
+      justify-content:center;
+      width:max-content;
+      max-width:100%;
       min-height:30px;
-      padding:0 11px;
+      padding:0 12px;
+      border:1px solid rgba(0,168,89,.22);
       border-radius:999px;
       background:var(--green-soft);
-      border:1px solid rgba(0,168,89,.20);
       color:var(--green-dark);
       font-size:12px;
       font-weight:900;
+      line-height:1.2;
       letter-spacing:.08em;
       text-transform:uppercase;
     }
 
     .ap-title{
-      margin:12px 0 6px;
+      margin:14px 0 6px;
       color:var(--ink);
-      font-size:clamp(28px,3.2vw,48px);
+      font-size:clamp(30px,3.4vw,50px);
       line-height:1.02;
-      font-weight:950;
+      font-weight:900;
       letter-spacing:-.055em;
+      overflow-wrap:anywhere;
     }
 
     .ap-copy{
-      max-width:940px;
+      max-width:850px;
       margin:0;
       color:var(--muted);
       font-size:clamp(13.5px,1vw,15px);
@@ -160,79 +135,93 @@
       display:flex;
       align-items:center;
       justify-content:flex-end;
-      flex-wrap:wrap;
       gap:10px;
+      flex-wrap:wrap;
     }
 
+    /* Shared buttons */
     .ap-btn,
     .ap-form-actions button{
-      min-height:44px;
+      min-height:48px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
       gap:8px;
-      padding:10px 15px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:#fff;
-      color:var(--text);
+      max-width:100%;
+      padding:11px 20px;
+      border:1.5px solid #CFE8DC;
+      border-radius:18px;
+      background:#FFFFFF;
+      color:#30443A;
       text-decoration:none;
-      font-size:13px;
+      font:inherit;
+      font-size:clamp(12px,.85vw,14px);
       font-weight:900;
-      transition:.2s var(--ease);
+      line-height:1.15;
+      text-align:center;
       cursor:pointer;
-      white-space:nowrap;
-      font-family:inherit;
-      line-height:1.2;
-    }
-
-    .ap-btn-primary,
-    .ap-form-actions button{
-      background:linear-gradient(135deg,var(--green),var(--green-dark))!important;
-      border-color:var(--green)!important;
-      color:#fff!important;
-      box-shadow:0 12px 26px rgba(0,168,89,.16);
+      touch-action:manipulation;
+      box-shadow:0 5px 13px rgba(17,64,38,.035);
+      transition:
+        transform .18s var(--ease),
+        border-color .18s var(--ease),
+        background-color .18s var(--ease),
+        box-shadow .18s var(--ease);
     }
 
     .ap-btn:hover,
     .ap-form-actions button:hover{
       transform:translateY(-1px);
-      background:var(--soft);
-      border-color:rgba(0,168,89,.30);
-      color:var(--green-dark);
-      box-shadow:0 12px 24px rgba(17,64,38,.09);
+      border-color:#A9D7C1;
+      background:#FBFFFD;
+      color:#243D32;
+      box-shadow:0 8px 17px rgba(17,64,38,.06);
     }
 
-    .ap-btn-primary:hover,
+    .ap-btn:focus-visible,
+    .ap-form-actions button:focus-visible{
+      outline:3px solid rgba(0,168,89,.14);
+      outline-offset:3px;
+    }
+
+    .ap-form-actions button{
+      border-color:#9ED8BA;
+      background:#ECFFF4;
+      color:#08713F;
+      box-shadow:0 5px 13px rgba(0,168,89,.07);
+    }
+
     .ap-form-actions button:hover{
-      color:#fff!important;
+      border-color:#74C99D;
+      background:#DFFFF0;
+      color:#065F35;
+      box-shadow:0 8px 17px rgba(0,168,89,.11);
     }
 
+    /* Main form */
     .ap-layout{
-      display:grid;
-      grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);
-      gap:clamp(14px,1.5vw,22px);
-      align-items:start;
+      width:100%;
+      display:block;
     }
 
     .ap-card-head{
-      padding:clamp(16px,1.35vw,22px);
-      border-bottom:1px solid var(--line2);
-      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
       display:flex;
       align-items:flex-start;
       justify-content:space-between;
       gap:14px;
       flex-wrap:wrap;
+      padding:clamp(16px,1.35vw,22px);
+      border-bottom:1px solid var(--line2);
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
     }
 
     .ap-card-title{
       margin:0;
       color:var(--ink);
-      font-size:clamp(18px,1.25vw,22px);
-      line-height:1.18;
-      font-weight:950;
-      letter-spacing:-.035em;
+      font-size:19px;
+      font-weight:900;
+      line-height:1.2;
+      letter-spacing:-.03em;
     }
 
     .ap-card-sub{
@@ -240,56 +229,80 @@
       color:var(--muted);
       font-size:13px;
       font-weight:700;
-      line-height:1.45;
+      line-height:1.42;
+    }
+
+    .ap-pill{
+      min-height:30px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      max-width:100%;
+      padding:5px 10px;
+      border:1px solid rgba(0,168,89,.18);
+      border-radius:999px;
+      background:var(--green-soft);
+      color:var(--green-dark);
+      font-size:11px;
+      font-weight:900;
+      line-height:1.2;
+      text-align:center;
     }
 
     .ap-form{
       display:grid;
       gap:16px;
-      padding:clamp(16px,1.45vw,22px);
+      padding:clamp(16px,1.35vw,22px);
     }
 
-    .ap-form-section{
-      border:1px solid var(--line);
-      border-radius:22px;
-      background:#fff;
+    .ap-form-section,
+    .sd-discount-panel{
       overflow:hidden;
+      border:1px solid var(--line);
+      border-radius:20px;
+      background:#FFFFFF;
     }
 
-    .ap-section-title{
+    .ap-section-title,
+    .sd-discount-head{
       display:flex;
-      align-items:center;
+      align-items:flex-start;
       justify-content:space-between;
       gap:12px;
+      flex-wrap:wrap;
       padding:14px 16px;
       border-bottom:1px solid var(--line2);
-      background:var(--soft2);
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
     }
 
-    .ap-section-title h3{
+    .ap-section-title h3,
+    .sd-discount-title{
       margin:0;
       color:var(--ink);
       font-size:15px;
-      font-weight:950;
-      letter-spacing:-.025em;
+      font-weight:900;
+      line-height:1.25;
+      letter-spacing:-.02em;
     }
 
-    .ap-section-title span{
+    .ap-section-title span,
+    .sd-discount-sub{
+      margin:0;
       color:var(--muted);
       font-size:12px;
-      font-weight:850;
+      font-weight:700;
+      line-height:1.4;
     }
 
-    .ap-form-grid{
+    /* Two-column input layout for non-mobile views */
+    .ap-form-grid,
+    .ap-form-grid.two,
+    .sd-discount-grid{
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:14px;
       padding:16px;
       align-items:start;
-    }
-
-    .ap-form-grid.two{
-      grid-template-columns:repeat(2,minmax(0,1fr));
     }
 
     .ap-field,
@@ -300,14 +313,14 @@
       color:var(--text);
       font-size:12px;
       font-weight:900;
+      line-height:1.3;
       text-transform:uppercase;
-      letter-spacing:.055em;
-      min-width:0;
+      letter-spacing:.045em;
     }
 
     .ap-field.full,
     .nf-unit-aware-field.full{
-      grid-column:1/-1;
+      grid-column:1 / -1;
     }
 
     .ap-field input,
@@ -316,26 +329,34 @@
     .sd-discount-grid input,
     .sd-discount-grid select{
       width:100%;
-      min-width:0;
-      height:46px;
+      min-height:46px;
       border:1px solid var(--line);
       border-radius:14px;
-      background:#fff;
+      background:#FFFFFF;
       color:var(--ink);
-      padding:0 13px;
+      padding:11px 13px;
       outline:none;
       font:inherit;
       font-size:14px;
       font-weight:800;
+      line-height:1.35;
       letter-spacing:0;
       text-transform:none;
+      box-shadow:none;
+      transition:border-color .18s var(--ease),box-shadow .18s var(--ease);
+    }
+
+    .ap-field select,
+    .sd-discount-grid select{
+      height:46px;
+      padding-top:0;
+      padding-bottom:0;
     }
 
     .ap-field input[type="file"]{
       height:auto;
       min-height:46px;
-      padding:11px 13px;
-      line-height:1.35;
+      padding:10px 12px;
     }
 
     .ap-field input:focus,
@@ -347,47 +368,46 @@
       box-shadow:0 0 0 4px rgba(0,168,89,.08);
     }
 
+    .ap-field input::placeholder,
+    .nf-unit-aware-field input::placeholder,
+    .sd-discount-grid input::placeholder{
+      color:var(--muted2);
+      font-weight:600;
+      opacity:.72;
+    }
+
     .ap-help,
     .nf-unit-aware-field small{
       color:var(--muted);
-      font-size:12px;
+      font-size:11.5px;
       font-weight:700;
       line-height:1.4;
       letter-spacing:0;
       text-transform:none;
+      opacity:.75;
     }
 
+    .ap-image-help{
+  color:var(--muted);
+  font-size:11.5px;
+  font-weight:700;
+  line-height:1.4;
+  letter-spacing:0;
+  text-transform:none;
+  opacity:.82;
+}
+
+    /* Discount */
     .sd-discount-panel{
-      border:1px solid var(--line);
-      border-radius:22px;
-      background:linear-gradient(135deg,#FFFFFF,var(--green-soft));
-      overflow:hidden;
+      background:linear-gradient(135deg,#FFFFFF 0%,#F6FFF9 100%);
     }
 
     .sd-discount-head{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:14px;
-      padding:16px;
-      border-bottom:1px solid rgba(0,168,89,.12);
-      flex-wrap:wrap;
+      border-bottom-color:rgba(0,168,89,.12);
     }
 
-    .sd-discount-title{
-      margin:0;
-      color:var(--ink);
-      font-size:16px;
-      font-weight:950;
-      letter-spacing:-.03em;
-    }
-
-    .sd-discount-sub{
-      margin:4px 0 0;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:700;
-      line-height:1.45;
+    .sd-discount-head > div{
+      flex:1 1 240px;
     }
 
     .sd-discount-toggle{
@@ -395,13 +415,14 @@
       display:inline-flex;
       align-items:center;
       gap:9px;
+      padding:0 12px;
       border:1px solid rgba(0,168,89,.20);
       border-radius:999px;
-      background:#fff;
+      background:#FFFFFF;
       color:var(--green-dark);
-      padding:0 12px;
       font-size:12px;
       font-weight:900;
+      line-height:1.2;
       cursor:pointer;
       user-select:none;
       white-space:nowrap;
@@ -415,13 +436,6 @@
       accent-color:var(--green);
     }
 
-    .sd-discount-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:14px;
-      padding:16px;
-    }
-
     .sd-discount-preview{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
@@ -430,20 +444,21 @@
     }
 
     .sd-preview-box{
+      min-width:0;
+      padding:13px;
       border:1px solid var(--line2);
       border-radius:16px;
-      background:#fff;
-      padding:13px;
-      min-width:0;
+      background:#FFFFFF;
     }
 
     .sd-preview-box span{
       display:block;
       color:var(--muted);
-      font-size:11px;
+      font-size:10.5px;
       font-weight:900;
-      letter-spacing:.07em;
+      line-height:1.25;
       text-transform:uppercase;
+      letter-spacing:.055em;
     }
 
     .sd-preview-box strong{
@@ -451,9 +466,9 @@
       margin-top:6px;
       color:var(--ink);
       font-size:clamp(16px,1.2vw,20px);
-      font-weight:950;
-      line-height:1;
-      word-break:break-word;
+      font-weight:900;
+      line-height:1.1;
+      overflow-wrap:anywhere;
     }
 
     .sd-preview-box.is-final strong{color:var(--green-dark);}
@@ -464,157 +479,49 @@
       align-items:center;
       gap:10px;
       flex-wrap:wrap;
-      padding-top:4px;
+      padding-top:2px;
     }
 
-    .ap-side{
-      display:grid;
-      gap:16px;
-      position:sticky;
-      top:16px;
-    }
-
-    .ap-summary-card{
-      padding:18px;
-      border:1px solid var(--line);
-      border-radius:22px;
-      background:
-        radial-gradient(circle at 100% 0%, rgba(0,168,89,.08), transparent 32%),
-        #fff;
-      box-shadow:var(--shadow);
-    }
-
-    .ap-summary-icon{
-      width:54px;
-      height:54px;
-      border-radius:18px;
-      display:grid;
-      place-items:center;
-      background:var(--green-soft);
-      color:var(--green-dark);
-      font-size:26px;
-      margin-bottom:14px;
-      border:1px solid rgba(0,168,89,.16);
-    }
-
-    .ap-summary-title{
-      margin:0;
-      color:var(--ink);
-      font-size:18px;
-      font-weight:950;
-      letter-spacing:-.03em;
-    }
-
-    .ap-summary-text{
-      margin:7px 0 0;
-      color:var(--muted);
-      font-size:13px;
-      font-weight:700;
-      line-height:1.5;
-    }
-
-    .ap-summary-list{
-      display:grid;
-      gap:10px;
-      margin-top:15px;
-    }
-
-    .ap-summary-item{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      min-height:42px;
-      padding:10px 0;
-      border-top:1px solid var(--line2);
-      color:var(--muted);
-      font-size:12px;
-      font-weight:850;
-    }
-
-    .ap-summary-item strong{
-      color:var(--ink);
-      font-size:13px;
-      font-weight:950;
-      text-align:right;
-    }
-
-    .ap-pill{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:28px;
-      border-radius:999px;
-      padding:0 10px;
-      background:var(--green-soft);
-      color:var(--green-dark);
-      border:1px solid rgba(0,168,89,.18);
-      font-size:12px;
-      font-weight:900;
-      white-space:nowrap;
-    }
-
-    @media(max-width:1280px){
-      .ap-layout{
+    /* Tablet / iPad */
+    @media(max-width:1100px){
+      .ap-hero{
         grid-template-columns:1fr;
       }
 
-      .ap-side{
-        position:static;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .ap-form-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
+      .ap-hero-actions{
+        justify-content:flex-start;
       }
     }
 
     @media(max-width:900px){
       .ap-shell{
         padding:14px;
-        padding-left:max(14px, env(safe-area-inset-left,0px));
-        padding-right:max(14px, env(safe-area-inset-right,0px));
+        padding-left:max(14px,env(safe-area-inset-left,0px));
+        padding-right:max(14px,env(safe-area-inset-right,0px));
       }
 
       .ap-hero{
-        grid-template-columns:1fr;
-        border-radius:22px;
         padding:18px;
+        border-radius:22px;
       }
 
       .ap-hero-actions{
-        justify-content:flex-start;
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        width:100%;
       }
 
       .ap-hero-actions .ap-btn{
-        flex:1 1 150px;
-      }
-
-      .ap-copy,
-      .ap-card-sub,
-      .sd-discount-sub{
-        display:none;
-      }
-
-      .ap-side{
-        grid-template-columns:1fr;
-      }
-
-      .ap-summary-card{
-        display:none;
-      }
-
-      .sd-discount-grid,
-      .sd-discount-preview{
-        grid-template-columns:1fr;
+        width:100%;
       }
     }
 
+    /* App / mobile */
     @media(max-width:640px){
       .ap-shell{
         padding:10px;
-        padding-left:max(10px, env(safe-area-inset-left,0px));
-        padding-right:max(10px, env(safe-area-inset-right,0px));
+        padding-left:max(10px,env(safe-area-inset-left,0px));
+        padding-right:max(10px,env(safe-area-inset-right,0px));
       }
 
       .ap-hero,
@@ -624,12 +531,26 @@
         border-radius:18px;
       }
 
+      .ap-hero{
+        padding:16px;
+      }
+
+      .ap-kicker{
+        width:100%;
+      }
+
       .ap-title{
         font-size:clamp(24px,8vw,34px);
       }
 
+      .ap-copy,
+      .ap-card-sub,
+      .ap-section-title span,
+      .sd-discount-sub{
+        display:none;
+      }
+
       .ap-hero-actions{
-        display:grid;
         grid-template-columns:1fr;
       }
 
@@ -645,16 +566,14 @@
       }
 
       .ap-form-grid,
-      .ap-form-grid.two{
+      .ap-form-grid.two,
+      .sd-discount-grid{
         grid-template-columns:1fr;
         padding:14px;
       }
 
-      .sd-discount-grid{
-        padding:14px;
-      }
-
       .sd-discount-preview{
+        grid-template-columns:1fr;
         padding:0 14px 14px;
       }
 
@@ -677,17 +596,17 @@
     @media(max-width:420px){
       .ap-shell{
         padding:8px;
-        padding-left:max(8px, env(safe-area-inset-left,0px));
-        padding-right:max(8px, env(safe-area-inset-right,0px));
-      }
-
-      .ap-kicker{
-        width:100%;
-        justify-content:center;
-        text-align:center;
+        padding-left:max(8px,env(safe-area-inset-left,0px));
+        padding-right:max(8px,env(safe-area-inset-right,0px));
       }
 
       .ap-form{
+        padding:12px;
+      }
+
+      .ap-card-head,
+      .ap-section-title,
+      .sd-discount-head{
         padding:12px;
       }
 
@@ -701,11 +620,16 @@
       .sd-discount-preview{
         padding:0 12px 12px;
       }
+    }
 
-      .ap-card-head,
-      .ap-section-title,
-      .sd-discount-head{
-        padding:12px;
+    @media(orientation:landscape) and (max-height:560px) and (max-width:980px){
+      .ap-shell{
+        padding-top:8px;
+        padding-bottom:8px;
+      }
+
+      .ap-hero{
+        padding:14px;
       }
     }
 
@@ -722,7 +646,6 @@
       .ap-btn:hover,
       .ap-form-actions button:hover{
         transform:none;
-        box-shadow:var(--shadow);
       }
     }
 
@@ -730,9 +653,9 @@
       .nf-add-product-page *,
       .nf-add-product-page *::before,
       .nf-add-product-page *::after{
-        transition:none!important;
-        animation:none!important;
-        scroll-behavior:auto!important;
+        transition:none;
+        animation:none;
+        scroll-behavior:auto;
       }
     }
   </style>
@@ -743,7 +666,7 @@
         <div>
           <span class="ap-kicker">＋ New Product</span>
           <h1 class="ap-title">Add Product</h1>
-          <p class="ap-copy">Add product details, pricing, stock, package size and image in one clean flow.</p>
+          <p class="ap-copy">Add product details, pricing, stock and image in one clean flow.</p>
         </div>
         <div class="ap-hero-actions">
           <a class="ap-btn" href="{{ url_for('store_products') }}">Back to Products</a>
@@ -799,10 +722,13 @@
                   </select>
                 </label>
 
-                <label class="ap-field">
-                  Image
-                  <input type="file" name="image" accept="image/*" capture="environment">
-                </label>
+               <label class="ap-field">
+  Image
+  <input type="file" name="image" accept="image/*" capture="environment">
+  <small class="ap-image-help">
+    Recommended: 960 × 600 px (16:10), JPG/PNG/WEBP, ideally under 1 MB for the best product card fit and faster loading.
+  </small>
+</label>
               </div>
             </div>
 
@@ -972,35 +898,6 @@
               </div>
             </div>
 
-            <div class="ap-form-section">
-              <div class="ap-section-title">
-                <h3>Package Details</h3>
-                <span>External delivery dimensions</span>
-              </div>
-
-              <div class="ap-form-grid">
-                <label class="ap-field">
-                  Shipping Weight per Unit (KG)
-                  <input name="shipping_weight_kg" type="number" step="0.001" min="0" placeholder="Example: 1.00">
-                </label>
-
-                <label class="ap-field">
-                  Package Length (CM)
-                  <input name="shipping_length_cm" type="number" step="0.01" min="0" placeholder="Example: 10">
-                </label>
-
-                <label class="ap-field">
-                  Package Breadth (CM)
-                  <input name="shipping_breadth_cm" type="number" step="0.01" min="0" placeholder="Example: 10">
-                </label>
-
-                <label class="ap-field">
-                  Package Height (CM)
-                  <input name="shipping_height_cm" type="number" step="0.01" min="0" placeholder="Example: 10">
-                </label>
-              </div>
-            </div>
-
             <div class="ap-form-actions">
               <button type="submit">Add Product</button>
               <a class="ap-btn" href="{{ url_for('store_products') }}">Cancel</a>
@@ -1008,34 +905,7 @@
           </form>
         </div>
 
-        <aside class="ap-side" aria-label="Add product summary">
-          <div class="ap-summary-card">
-            <div class="ap-summary-icon">🛒</div>
-            <h3 class="ap-summary-title">Clean Product Setup</h3>
-            <p class="ap-summary-text">Use clear product details, correct unit labels, enough stock and a product image for a better customer view.</p>
 
-            <div class="ap-summary-list">
-              <div class="ap-summary-item">
-                <span>Products</span>
-                <strong>{{ products_total }}</strong>
-              </div>
-              <div class="ap-summary-item">
-                <span>Active</span>
-                <strong>{{ ns.active_products }}</strong>
-              </div>
-              <div class="ap-summary-item">
-                <span>Low stock</span>
-                <strong>{{ ns.low_stock }}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div class="ap-summary-card">
-            <div class="ap-summary-icon">₹</div>
-            <h3 class="ap-summary-title">Before Saving</h3>
-            <p class="ap-summary-text">Check price, stock, minimum buy quantity and image once before submitting.</p>
-          </div>
-        </aside>
       </section>
     </div>
   </div>
@@ -1209,15 +1079,6 @@ function syncUnitFields(){
     minimumBuyQuantityInput.min = String(defaultMin);
     minimumBuyQuantityInput.step = String(defaultMin);
 
-    if (!minimumBuyQuantityInput.value) {
-      minimumBuyQuantityInput.value = String(defaultMin);
-    }
-
-    const currentValue = parseFloat(minimumBuyQuantityInput.value || '0');
-
-    if (!Number.isFinite(currentValue) || currentValue < defaultMin) {
-      minimumBuyQuantityInput.value = String(defaultMin);
-    }
   }
 
   if (minimumBuyQuantityLabel) {
@@ -1273,14 +1134,12 @@ function calculateDiscountPrice(){
     if (type === 'percent') {
       if (dValue > 100) {
         dValue = 100;
-        discountValue.value = '100';
       }
 
       discountAmount = original * (dValue / 100);
     } else {
       if (dValue > original) {
         dValue = original;
-        discountValue.value = original.toFixed(2);
       }
 
       discountAmount = dValue;
@@ -1296,10 +1155,6 @@ finalPriceDisplay.value = finalPrice.toFixed(2);
 
 if (finalPriceHidden) {
   finalPriceHidden.value = finalPrice.toFixed(2);
-}
-
-if (originalPriceInput) {
-  originalPriceInput.value = original.toFixed(2);
 }
 
   if (previewOriginal) previewOriginal.textContent = toMoney(original);

@@ -1627,9 +1627,9 @@
 </div>
         </div>
 
-        <div class="nf-dropdown {% if active_page in ['products', 'add_product', 'inventory', 'categories'] %}open{% endif %}" data-menu-item>
+        <div class="nf-dropdown {% if active_page in ['products', 'product_bundles', 'add_product', 'inventory', 'categories'] %}open{% endif %}" data-menu-item>
           <div class="nf-dropdown-row">
-            <a href="{{ url_for('store_products') }}" class="nf-menu-parent {% if active_page in ['products', 'add_product', 'inventory', 'categories'] %}active{% endif %}" {% if active_page in ['products', 'add_product', 'inventory', 'categories'] %}data-active-page-link{% endif %}>
+            <a href="{{ url_for('store_products') }}" class="nf-menu-parent {% if active_page in ['products', 'product_bundles', 'add_product', 'inventory', 'categories'] %}active{% endif %}" {% if active_page in ['products', 'product_bundles', 'add_product', 'inventory', 'categories'] %}data-active-page-link{% endif %}>
               <span class="nf-menu-icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M7 8h10"></path>
@@ -1647,6 +1647,7 @@
 
           <div class="nf-submenu">
             <a href="{{ url_for('store_products') }}" class="{% if active_page == 'products' %}active{% endif %}"><span class="nf-submenu-icon">🛍</span><span class="nf-submenu-label">All Products</span></a>
+            <a href="{{ url_for('store_product_bundles') }}" class="{% if active_page == 'product_bundles' %}active{% endif %}"><span class="nf-submenu-icon">🎁</span><span class="nf-submenu-label">Product Bundles</span></a>
             <a href="{{ url_for('store_add_product') }}" class="{% if active_page == 'add_product' %}active{% endif %}"><span class="nf-submenu-icon">＋</span><span class="nf-submenu-label">Add Product</span></a>
             <a href="{{ url_for('store_inventory') }}" class="{% if active_page == 'inventory' %}active{% endif %}"><span class="nf-submenu-icon">📊</span><span class="nf-submenu-label">Stock & Inventory</span></a>
             <a href="{{ url_for('store_categories') }}" class="{% if active_page == 'categories' %}active{% endif %}"><span class="nf-submenu-icon">🏷</span><span class="nf-submenu-label">Categories</span></a>
@@ -2518,23 +2519,32 @@
 
             const scriptText = scriptNode.textContent || '';
             if (!scriptText.trim()) return;
-            clone.text = `
-              (function(){
-                const __nfOldAddEventListener = document.addEventListener.bind(document);
-                document.addEventListener = function(type, callback, options){
-                  if (type === 'DOMContentLoaded' && document.readyState !== 'loading' && typeof callback === 'function') {
-                    window.setTimeout(function(){ callback.call(document, new Event('DOMContentLoaded')); }, 0);
-                    return;
-                  }
-                  return __nfOldAddEventListener(type, callback, options);
-                };
-                try {
-                  ${scriptText}
-                } finally {
-                  document.addEventListener = __nfOldAddEventListener;
-                }
-              })();
-            `;
+
+            /*
+              IMPORTANT:
+              Never interpolate page script text into a template literal here.
+              Page scripts may themselves contain backticks/template literals.
+              Concatenating plain strings preserves the original script exactly.
+            */
+            const wrapperStart =
+              '(function(){\n' +
+              '  const __nfOldAddEventListener = document.addEventListener.bind(document);\n' +
+              '  document.addEventListener = function(type, callback, options){\n' +
+              '    if (type === "DOMContentLoaded" && document.readyState !== "loading" && typeof callback === "function") {\n' +
+              '      window.setTimeout(function(){ callback.call(document, new Event("DOMContentLoaded")); }, 0);\n' +
+              '      return;\n' +
+              '    }\n' +
+              '    return __nfOldAddEventListener(type, callback, options);\n' +
+              '  };\n' +
+              '  try {\n';
+
+            const wrapperEnd =
+              '\n  } finally {\n' +
+              '    document.addEventListener = __nfOldAddEventListener;\n' +
+              '  }\n' +
+              '})();\n';
+
+            clone.textContent = wrapperStart + scriptText + wrapperEnd;
             document.body.appendChild(clone);
             document.body.removeChild(clone);
           });
@@ -2607,6 +2617,47 @@
         }
       }
 
+      function cleanupSoftNavPageArtifacts() {
+        try {
+          /*
+            Some page templates intentionally move their modal/backdrop from
+            .nf-content to document.body so it can cover the whole viewport.
+            Because soft navigation only replaces .nf-content, those elements
+            would otherwise survive into the next page and keep stale listeners.
+          */
+          document.querySelectorAll('[data-nf-softnav-page-artifact="true"]').forEach(function(node){
+            if (node && node.parentNode) node.parentNode.removeChild(node);
+          });
+
+          /*
+            Backward-compatible cleanup for Edit Product pages rendered before
+            the data attribute existed.
+          */
+          document.querySelectorAll('body > #epConfirmBackdrop, body > .ep-confirm-backdrop').forEach(function(node){
+            if (node && node.parentNode) node.parentNode.removeChild(node);
+          });
+
+          document.documentElement.classList.remove('ep-modal-open');
+          document.body.classList.remove('ep-modal-open');
+
+          if (document.body.style.position === 'fixed') {
+            document.body.style.position = '';
+          }
+          if (document.body.style.top) {
+            document.body.style.top = '';
+          }
+          if (document.body.style.left) {
+            document.body.style.left = '';
+          }
+          if (document.body.style.right) {
+            document.body.style.right = '';
+          }
+          if (document.body.style.width) {
+            document.body.style.width = '';
+          }
+        } catch (err) {}
+      }
+
       async function softNavigateTo(url, options) {
         options = options || {};
         if (nfSoftNavBusy) return;
@@ -2657,6 +2708,7 @@
           const currentCsrf = document.querySelector('meta[name="csrf-token"]');
           if (nextCsrf && currentCsrf) currentCsrf.setAttribute('content', nextCsrf.getAttribute('content') || '');
 
+          cleanupSoftNavPageArtifacts();
           currentContent.innerHTML = nextContent.innerHTML;
 
           if (options.replace) {

@@ -3237,7 +3237,26 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
               <tr>
                 <td class="prod-cell">
                   <img class="thumb" src="{{ '/' + i.image_path if i.image_path else url_for('static', filename='placeholder.png') }}" alt="">
-                  <div class="prod-name">{{ i.name }}</div>
+                  <div>
+                    <div class="prod-name">
+                      {% if i.is_bundle %}
+                        <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;background:#E9FFF3;color:#008A48;font-size:.72rem;font-weight:950;text-transform:uppercase;margin-right:6px;">Bundle</span>
+                      {% endif %}
+                      {{ i.name }}
+                    </div>
+
+                    {% if i.is_bundle and i.bundle_items_snapshot %}
+                      <div style="margin-top:6px;color:#66756D;font-size:.78rem;font-weight:750;line-height:1.45;">
+                        {% for child in i.bundle_items_snapshot %}
+                          <div>{{ child.product_name_snapshot or 'Product' }} × {{ '%g'|format(child.quantity|default(1)) }} {{ child.unit_label_snapshot|default('unit') }}</div>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+
+                    {% if i.is_bundle and i.bundle_savings_snapshot and i.bundle_savings_snapshot > 0 %}
+                      <div style="margin-top:6px;color:#008A48;font-size:.78rem;font-weight:900;">Bundle savings ₹{{ '%.2f'|format(i.bundle_savings_snapshot) }}</div>
+                    {% endif %}
+                  </div>
                 </td>
               {% set qty = i.quantity or i.cart_quantity or 0 %}
 {% set unit_label = i.unit_label or 'unit' %}
@@ -3260,7 +3279,21 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
               <img class="thumb" src="{{ '/' + i.image_path if i.image_path else url_for('static', filename='placeholder.png') }}" alt="">
             </div>
             <div class="right">
-              <div class="name">{{ i.name }}</div>
+              <div class="name">
+                {% if i.is_bundle %}
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;background:#E9FFF3;color:#008A48;font-size:.72rem;font-weight:950;text-transform:uppercase;margin-right:6px;">Bundle</span>
+                {% endif %}
+                {{ i.name }}
+              </div>
+
+              {% if i.is_bundle and i.bundle_items_snapshot %}
+                <div class="meta" style="display:block;line-height:1.45;">
+                  {% for child in i.bundle_items_snapshot %}
+                    <span style="display:block;">{{ child.product_name_snapshot or 'Product' }} × {{ '%g'|format(child.quantity|default(1)) }} {{ child.unit_label_snapshot|default('unit') }}</span>
+                  {% endfor %}
+                </div>
+              {% endif %}
+
               <div class="meta">
                {% set qty = i.quantity or i.cart_quantity or 0 %}
 {% set unit_label = i.unit_label or 'unit' %}
@@ -3270,6 +3303,11 @@ style="display: {% if order.delivery_rescheduled and order.status in ['SHIPMENT_
 <span>•</span>
 <span>₹{{ '%.2f'|format(price) }}/{{ unit_label }}</span>
               </div>
+
+              {% if i.is_bundle and i.bundle_savings_snapshot and i.bundle_savings_snapshot > 0 %}
+                <div class="meta" style="color:#008A48;font-weight:900;">Bundle savings ₹{{ '%.2f'|format(i.bundle_savings_snapshot) }}</div>
+              {% endif %}
+
               <div class="price">₹{{ '%.2f'|format(i.line_total) }}</div>
             </div>
           </article>

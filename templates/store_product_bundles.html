@@ -1,0 +1,2337 @@
+{% extends "store_base.html" %}
+{% set active_page = "product_bundles" %}
+
+{% block title %}Product Bundles | NE Locals Store{% endblock %}
+{% block page_title %}Product Bundles{% endblock %}
+{% block page_subtitle %}Create grouped offers from your existing products with safe product selection, stock validation and bundle discounts.{% endblock %}
+
+{% block content %}
+{% set products_list = products if products is defined else [] %}
+{% set bundles_list = bundles if bundles is defined else [] %}
+{% set bm = bundle_metrics if bundle_metrics is defined else {} %}
+{% set selected_ids = selected_product_ids if selected_product_ids is defined else [] %}
+{% set is_editing = edit_bundle is defined and edit_bundle %}
+{% set form_action = url_for('store_product_bundle_update', bundle_id=edit_bundle.id) if is_editing else url_for('store_product_bundle_create') %}
+
+<section class="nf-store-bundles-page" data-editing="{{ '1' if is_editing else '0' }}">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    .nf-store-bundles-page{
+      --nb-bg:#F7FFFA;
+      --nb-card:#FFFFFF;
+      --nb-card2:#FBFFFD;
+      --nb-soft:#F1FFF7;
+      --nb-soft2:#F8FFFB;
+      --nb-line:#D9EDE3;
+      --nb-line2:#EDF6F1;
+      --nb-ink:#10251B;
+      --nb-text:#30443A;
+      --nb-muted:#65766D;
+      --nb-muted2:#85978E;
+      --nb-green:#00A859;
+      --nb-green-dark:#075C3B;
+      --nb-green-deep:#06482F;
+      --nb-green-soft:#E9FFF3;
+      --nb-orange:#F59E0B;
+      --nb-orange-soft:#FFF8E8;
+      --nb-red:#DC2626;
+      --nb-red-soft:#FFF1F2;
+      --nb-blue:#0EA5A3;
+      --nb-blue-soft:#E8FFFA;
+      --nb-shadow:0 10px 28px rgba(17,64,38,.055);
+      --nb-shadow2:0 18px 50px rgba(17,64,38,.085);
+      --nb-radius:24px;
+      --nb-ease:cubic-bezier(.2,.75,.25,1);
+
+      width:100%;
+      min-height:100%;
+      overflow-x:hidden;
+      color:var(--nb-ink);
+      background:
+        radial-gradient(circle at 0% 0%,rgba(0,168,89,.055),transparent 34%),
+        linear-gradient(180deg,#F7FFFA 0%,#FFFFFF 42%,#F8FFFB 100%);
+      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      -webkit-text-size-adjust:100%;
+      text-size-adjust:100%;
+    }
+
+    .nf-store-bundles-page,
+    .nf-store-bundles-page *{
+      box-sizing:border-box;
+      min-width:0;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .nb-shell{
+      width:100%;
+      max-width:1760px;
+      margin:0 auto;
+      padding:clamp(12px,1.6vw,28px);
+      padding-left:max(clamp(12px,1.6vw,28px),env(safe-area-inset-left,0px));
+      padding-right:max(clamp(12px,1.6vw,28px),env(safe-area-inset-right,0px));
+      display:grid;
+      gap:clamp(14px,1.35vw,22px);
+    }
+
+    .nb-hero,
+    .nb-card,
+    .nb-mode-switcher,
+    .nb-kpi{
+      border:1px solid var(--nb-line);
+      background:rgba(255,255,255,.985);
+      box-shadow:var(--nb-shadow);
+    }
+
+    .nb-hero{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(250px,320px);
+      align-items:center;
+      gap:clamp(16px,2vw,28px);
+      padding:clamp(18px,2vw,30px);
+      border-radius:30px;
+      background:
+        radial-gradient(circle at 100% 0%,rgba(0,168,89,.10),transparent 30%),
+        linear-gradient(135deg,#FFFFFF 0%,#F2FFF8 100%);
+      box-shadow:var(--nb-shadow2);
+      overflow:hidden;
+    }
+
+    .nb-kicker{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:max-content;
+      max-width:100%;
+      min-height:30px;
+      padding:0 12px;
+      border:1px solid rgba(0,168,89,.22);
+      border-radius:999px;
+      background:var(--nb-green-soft);
+      color:var(--nb-green-dark);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.2;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+
+    .nb-title{
+      margin:14px 0 6px;
+      color:var(--nb-ink);
+      font-size:clamp(30px,3.4vw,50px);
+      line-height:1.02;
+      font-weight:900;
+      letter-spacing:-.055em;
+      overflow-wrap:anywhere;
+    }
+
+    .nb-copy{
+      max-width:900px;
+      margin:0;
+      color:var(--nb-muted);
+      font-size:clamp(13.5px,1vw,15px);
+      font-weight:700;
+      line-height:1.55;
+    }
+
+    .nb-actions{
+      display:flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+
+    .nb-btn,
+    .nb-form button,
+    .nb-table button,
+    .nb-small-btn{
+      min-height:46px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      max-width:100%;
+      padding:10px 16px;
+      border:1.5px solid #CFE8DC;
+      border-radius:16px;
+      background:#FFFFFF;
+      color:#30443A;
+      text-decoration:none;
+      font:inherit;
+      font-size:13px;
+      font-weight:900;
+      line-height:1.15;
+      text-align:center;
+      cursor:pointer;
+      touch-action:manipulation;
+      white-space:nowrap;
+      box-shadow:0 5px 13px rgba(17,64,38,.035);
+      transition:
+        transform .18s var(--nb-ease),
+        border-color .18s var(--nb-ease),
+        background-color .18s var(--nb-ease),
+        box-shadow .18s var(--nb-ease);
+    }
+
+    .nb-btn:hover,
+    .nb-small-btn:hover,
+    .nb-form button:hover,
+    .nb-table button:hover{
+      transform:translateY(-1px);
+      border-color:#A9D7C1;
+      background:#FBFFFD;
+      color:#243D32;
+      box-shadow:0 8px 17px rgba(17,64,38,.06);
+    }
+
+    .nb-btn:focus-visible,
+    .nb-small-btn:focus-visible,
+    .nb-form button:focus-visible,
+    .nb-table button:focus-visible,
+    .nb-mode-toggle:focus-visible{
+      outline:3px solid rgba(0,168,89,.14);
+      outline-offset:3px;
+    }
+
+    .nb-btn.primary,
+    .nb-form button.primary{
+      border-color:#9ED8BA;
+      background:#ECFFF4;
+      color:#08713F;
+      box-shadow:0 5px 13px rgba(0,168,89,.07);
+    }
+
+    .nb-btn.primary:hover,
+    .nb-form button.primary:hover{
+      border-color:#74C99D;
+      background:#DFFFF0;
+      color:#065F35;
+      box-shadow:0 8px 17px rgba(0,168,89,.11);
+    }
+
+    .nb-btn.blue,
+    .nb-form button.blue,
+    .nb-table button.blue{
+      background:var(--nb-blue-soft);
+      border-color:rgba(14,165,163,.22);
+      color:#0F766E;
+    }
+
+    .nb-form button.danger,
+    .nb-small-btn.danger{
+      background:var(--nb-red-soft);
+      border-color:#FECACA;
+      color:#B91C1C;
+    }
+
+    .nb-hero-side{
+      min-width:0;
+      display:grid;
+      gap:0;
+      border:1px solid var(--nb-line);
+      border-radius:20px;
+      background:#FFFFFF;
+      overflow:hidden;
+      box-shadow:0 8px 20px rgba(17,64,38,.04);
+    }
+
+    .nb-hero-stat{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:12px;
+      padding:13px 15px;
+      border-bottom:1px solid var(--nb-line2);
+    }
+
+    .nb-hero-stat:last-child{border-bottom:0;}
+    .nb-hero-stat span{color:var(--nb-muted);font-size:12px;font-weight:850;}
+    .nb-hero-stat strong{color:var(--nb-ink);font-size:17px;font-weight:900;text-align:right;}
+
+    .nb-kpi-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .nb-kpi{
+      min-height:112px;
+      position:relative;
+      display:flex;
+      justify-content:space-between;
+      gap:14px;
+      padding:17px;
+      border-radius:20px;
+      overflow:hidden;
+    }
+
+    .nb-kpi-label{color:var(--nb-muted);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;}
+    .nb-kpi-value{margin-top:7px;color:var(--nb-ink);font-size:30px;line-height:1;font-weight:900;letter-spacing:-.045em;}
+    .nb-kpi-meta{margin-top:7px;color:var(--nb-muted2);font-size:11.5px;font-weight:700;line-height:1.35;}
+
+    .nb-kpi-icon{
+      width:44px;
+      height:44px;
+      border-radius:15px;
+      display:grid;
+      place-items:center;
+      background:var(--nb-green-soft);
+      font-size:21px;
+      flex:0 0 auto;
+    }
+
+    /* Create / Existing toggle */
+    .nb-mode-switcher{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px;
+      padding:8px;
+      border-radius:20px;
+      background:#FFFFFF;
+    }
+
+    .nb-mode-toggle{
+      min-height:52px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:9px;
+      width:100%;
+      border:1px solid transparent;
+      border-radius:15px;
+      background:transparent;
+      color:var(--nb-muted);
+      font:inherit;
+      font-size:13px;
+      font-weight:900;
+      cursor:pointer;
+      touch-action:manipulation;
+      transition:
+        color .18s var(--nb-ease),
+        background-color .18s var(--nb-ease),
+        border-color .18s var(--nb-ease),
+        box-shadow .18s var(--nb-ease),
+        transform .18s var(--nb-ease);
+    }
+
+    .nb-mode-toggle:hover{
+      color:var(--nb-green-dark);
+      background:var(--nb-soft2);
+    }
+
+    .nb-mode-toggle.is-active{
+      border-color:#BFE4D0;
+      background:linear-gradient(135deg,#E9FFF3,#F7FFFA);
+      color:var(--nb-green-dark);
+      box-shadow:0 7px 18px rgba(0,168,89,.08);
+    }
+
+    .nb-mode-count{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:26px;
+      height:24px;
+      padding:0 7px;
+      border-radius:999px;
+      background:#FFFFFF;
+      border:1px solid var(--nb-line);
+      color:var(--nb-green-dark);
+      font-size:11px;
+      font-weight:900;
+    }
+
+    .nb-layout{
+      width:100%;
+      display:block;
+    }
+
+    .nb-panel[hidden]{
+      display:none !important;
+    }
+
+    .nb-card{
+      width:100%;
+      border-radius:var(--nb-radius);
+      overflow:hidden;
+    }
+
+    .nb-card-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+      padding:clamp(16px,1.35vw,22px);
+      border-bottom:1px solid var(--nb-line2);
+      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
+    }
+
+    .nb-card-title{
+      margin:0;
+      color:var(--nb-ink);
+      font-size:19px;
+      font-weight:900;
+      line-height:1.2;
+      letter-spacing:-.03em;
+    }
+
+    .nb-card-sub{
+      margin:5px 0 0;
+      color:var(--nb-muted);
+      font-size:13px;
+      font-weight:700;
+      line-height:1.42;
+    }
+
+    .nb-form{
+      display:grid;
+      gap:16px;
+      padding:clamp(16px,1.35vw,22px);
+    }
+
+    .nb-field{display:grid;gap:7px;}
+    .nb-label{
+      color:var(--nb-text);
+      font-size:12px;
+      font-weight:900;
+      line-height:1.3;
+      text-transform:uppercase;
+      letter-spacing:.045em;
+    }
+
+    .nb-help{
+      color:var(--nb-muted);
+      font-size:11.5px;
+      font-weight:700;
+      line-height:1.4;
+      opacity:.82;
+    }
+
+    .nb-form input,
+    .nb-form select,
+    .nb-form textarea{
+      width:100%;
+      min-height:46px;
+      border:1px solid var(--nb-line);
+      border-radius:14px;
+      background:#FFFFFF;
+      color:var(--nb-ink);
+      padding:11px 13px;
+      outline:none;
+      font:inherit;
+      font-size:14px;
+      font-weight:800;
+      line-height:1.35;
+      box-shadow:none;
+      transition:border-color .18s var(--nb-ease),box-shadow .18s var(--nb-ease);
+    }
+
+    .nb-form select{
+      height:46px;
+      padding-top:0;
+      padding-bottom:0;
+    }
+
+    .nb-form input[type="file"]{
+      height:auto;
+      padding:10px 12px;
+    }
+
+    .nb-form textarea{
+      min-height:100px;
+      resize:vertical;
+    }
+
+    .nb-form input:focus,
+    .nb-form select:focus,
+    .nb-form textarea:focus{
+      border-color:rgba(0,168,89,.42);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .nb-row{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .nb-switch-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding:13px 14px;
+      border:1px solid var(--nb-line);
+      border-radius:16px;
+      background:linear-gradient(135deg,#FFFFFF,#F7FFFA);
+    }
+
+    .nb-switch-row input{
+      width:18px;
+      height:18px;
+      min-height:0;
+      flex:0 0 auto;
+      accent-color:var(--nb-green);
+    }
+
+    .nb-picker{
+      border:1px solid var(--nb-line);
+      border-radius:18px;
+      background:#FFFFFF;
+      overflow:hidden;
+    }
+
+    .nb-picker-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px 14px;
+      background:var(--nb-soft);
+      border-bottom:1px solid var(--nb-line2);
+    }
+
+    .nb-picker-title{color:var(--nb-ink);font-size:13px;font-weight:900;}
+
+    .nb-picker-search{
+      width:100%;
+      min-height:42px !important;
+      border-radius:12px !important;
+      background:#fff !important;
+    }
+
+    .nb-product-list{
+      max-height:310px;
+      overflow:auto;
+      overscroll-behavior:contain;
+      display:grid;
+      gap:0;
+      scrollbar-width:thin;
+    }
+
+    .nb-product-option{
+      display:grid;
+      grid-template-columns:auto minmax(0,1fr) auto;
+      gap:11px;
+      align-items:center;
+      padding:11px 13px;
+      border-bottom:1px solid var(--nb-line2);
+      color:var(--nb-text);
+      font-size:13px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .nb-product-option:last-child{border-bottom:0;}
+    .nb-product-option:hover{background:#FBFFFD;}
+    .nb-product-option.locked{background:#F8FAF9;color:var(--nb-muted);cursor:default;}
+    .nb-product-option input{width:17px;height:17px;min-height:0;accent-color:var(--nb-green);}
+    .nb-product-meta{display:block;margin-top:4px;color:var(--nb-muted);font-size:11.5px;font-weight:700;line-height:1.4;}
+
+    .nb-locked-pill,
+    .nb-pill{
+      min-height:26px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:5px 9px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .nb-locked-pill{background:var(--nb-orange-soft);color:#9A3412;border:1px solid #FED7AA;}
+    .nb-pill{background:var(--nb-green-soft);color:var(--nb-green-dark);border:1px solid rgba(0,168,89,.18);}
+    .nb-pill.red{background:var(--nb-red-soft);color:#B91C1C;border-color:#FECACA;}
+    .nb-pill.blue{background:var(--nb-blue-soft);color:#0F766E;border-color:rgba(14,165,163,.22);}
+    .nb-pill.orange{background:var(--nb-orange-soft);color:#9A3412;border-color:#FED7AA;}
+
+    .nb-selected-wrap{
+      display:grid;
+      gap:10px;
+      padding:13px;
+      border:1px dashed #CFE4D8;
+      border-radius:18px;
+      background:#FBFFFD;
+    }
+
+    .nb-selected-title{color:var(--nb-ink);font-size:13px;font-weight:900;}
+    .nb-selected-list{display:grid;gap:8px;}
+
+    .nb-selected-item{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(100px,130px);
+      gap:12px;
+      align-items:center;
+      padding:11px;
+      border:1px solid var(--nb-line2);
+      border-radius:14px;
+      background:#FFFFFF;
+    }
+
+    .nb-selected-name{color:var(--nb-ink);font-size:13px;font-weight:900;}
+    .nb-selected-meta{margin-top:3px;color:var(--nb-muted);font-size:11.5px;font-weight:700;line-height:1.35;}
+
+    .nb-empty{
+      padding:18px;
+      border-radius:16px;
+      border:1px dashed #CFE4D8;
+      background:var(--nb-soft);
+      color:var(--nb-muted);
+      font-size:13px;
+      font-weight:800;
+      text-align:center;
+      line-height:1.45;
+    }
+
+    .nb-price-summary{
+      display:grid;
+      gap:11px;
+      padding:15px;
+      border:1px solid rgba(0,168,89,.18);
+      border-radius:18px;
+      background:
+        radial-gradient(circle at 100% 0%,rgba(0,168,89,.07),transparent 28%),
+        linear-gradient(135deg,#FFFFFF,#F7FFFA);
+    }
+
+    .nb-price-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      color:var(--nb-muted);
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .nb-price-row strong{
+      color:var(--nb-ink);
+      font-size:18px;
+      font-weight:900;
+      text-align:right;
+    }
+
+    .nb-price-row.final{
+      padding-top:11px;
+      border-top:1px solid var(--nb-line2);
+      color:var(--nb-green-dark);
+    }
+
+    .nb-price-row.final strong{
+      color:var(--nb-green-dark);
+      font-size:22px;
+    }
+
+    .nb-price-note{
+      color:var(--nb-muted);
+      font-size:11.5px;
+      font-weight:700;
+      line-height:1.45;
+    }
+
+    /* Existing Bundles */
+    .nb-table-wrap{
+      width:100%;
+      padding:0 clamp(16px,1.35vw,22px) clamp(16px,1.35vw,22px);
+      overflow-x:auto;
+      overflow-y:visible;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:thin;
+    }
+
+    .nb-table{
+      width:100%;
+      min-width:980px;
+      table-layout:fixed;
+      border-collapse:separate;
+      border-spacing:0;
+      border:1px solid var(--nb-line);
+      border-radius:18px;
+      overflow:hidden;
+      background:#FFFFFF;
+    }
+
+    .nb-table thead{
+      background:#C4D8B7;
+      color:#10251B;
+    }
+
+    .nb-table th{
+      padding:15px 14px;
+      text-align:left;
+      vertical-align:middle;
+      font-size:11px;
+      font-weight:900;
+      line-height:1.25;
+      text-transform:uppercase;
+      letter-spacing:.065em;
+      white-space:normal;
+      overflow-wrap:anywhere;
+    }
+
+    .nb-table th:nth-child(1),
+    .nb-table td:nth-child(1){width:6%;text-align:center;}
+
+    .nb-table th:nth-child(2),
+    .nb-table td:nth-child(2){width:18%;}
+
+    .nb-table th:nth-child(3),
+    .nb-table td:nth-child(3){width:18%;}
+
+    .nb-table th:nth-child(4),
+    .nb-table td:nth-child(4){width:21%;}
+
+    .nb-table th:nth-child(5),
+    .nb-table td:nth-child(5){width:11%;}
+
+    .nb-table th:nth-child(6),
+    .nb-table td:nth-child(6){width:10%;}
+
+    .nb-table th:nth-child(7),
+    .nb-table td:nth-child(7){width:16%;}
+
+    .nb-table td{
+      padding:15px 14px;
+      border-bottom:1px solid var(--nb-line2);
+      color:var(--nb-text);
+      font-size:13px;
+      font-weight:750;
+      line-height:1.45;
+      vertical-align:middle;
+      background:#FFFFFF;
+      white-space:normal;
+      overflow-wrap:anywhere;
+      word-break:normal;
+    }
+
+    .nb-table td > *{
+      max-width:100%;
+    }
+
+    .nb-table tbody tr{
+      transition:background-color .18s var(--nb-ease);
+    }
+
+    .nb-table tbody tr:hover td{background:#FBFFFD;}
+    .nb-table tbody tr:last-child td{border-bottom:0;}
+
+    .nb-table td:nth-child(2) > div{
+      align-items:center !important;
+    }
+
+    .nb-table td:nth-child(3) > div{
+      padding:3px 0;
+    }
+
+    .nb-table td:nth-child(3) > div + div{
+      margin-top:6px;
+      padding-top:6px;
+      border-top:1px dashed var(--nb-line2);
+    }
+
+    .nb-table td:nth-child(5),
+    .nb-table td:nth-child(6){
+      text-align:left;
+    }
+
+    .nb-bundle-title{
+      color:var(--nb-ink);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.35;
+      overflow-wrap:anywhere;
+    }
+
+    .nb-muted{
+      margin-top:4px;
+      color:var(--nb-muted);
+      font-size:11.5px;
+      font-weight:700;
+      line-height:1.42;
+      overflow-wrap:anywhere;
+    }
+
+    .nb-money{
+      width:100%;
+      max-width:100%;
+      display:grid;
+      gap:0;
+      overflow:hidden;
+      border:1px solid var(--nb-line2);
+      border-radius:14px;
+      background:#FBFFFD;
+      color:var(--nb-muted);
+      font-size:11.5px;
+      font-weight:800;
+    }
+
+    .nb-money > div{
+      width:100%;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(88px,auto);
+      align-items:center;
+      gap:12px;
+      padding:9px 10px;
+      border-bottom:1px solid var(--nb-line2);
+    }
+
+    .nb-money > div:last-child{
+      border-bottom:0;
+    }
+
+    .nb-money span{
+      min-width:0;
+      color:var(--nb-muted);
+      line-height:1.3;
+      overflow-wrap:anywhere;
+    }
+
+    .nb-money strong{
+      min-width:0;
+      color:var(--nb-ink);
+      font-weight:900;
+      text-align:right;
+      line-height:1.3;
+      white-space:normal;
+      overflow-wrap:anywhere;
+    }
+
+    .nb-old-price{
+      text-decoration:line-through;
+      color:var(--nb-muted);
+      margin-right:0;
+    }
+
+    .nb-actions-inline{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:7px;
+      width:100%;
+      max-width:150px;
+    }
+
+    .nb-actions-inline form{
+      width:100%;
+      margin:0;
+    }
+
+    .nb-actions-inline .nb-small-btn,
+    .nb-actions-inline button{
+      width:100%;
+      min-height:38px;
+      padding:8px 10px;
+      border-radius:12px;
+      font-size:12px;
+      white-space:normal;
+      line-height:1.2;
+    }
+
+    .nb-slno-value{
+      width:clamp(30px,2.4vw,38px);
+      height:clamp(30px,2.4vw,38px);
+      display:inline-grid;
+      place-items:center;
+      border-radius:999px;
+      background:var(--nb-green-soft);
+      border:1px solid rgba(0,168,89,.20);
+      color:var(--nb-green-dark);
+      font-size:clamp(11px,.8vw,14px);
+      font-weight:950;
+    }
+
+    .nb-table-toolbar{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:12px;
+      padding:clamp(14px,1.2vw,18px) clamp(14px,1.35vw,22px);
+      background:#FFFFFF;
+      border-bottom:1px solid var(--nb-line2);
+    }
+
+    .nb-table-toolbar-spacer{
+      min-height:1px;
+    }
+
+    .nb-table-tools{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .nb-page-size-select{
+      height:44px;
+      min-width:140px;
+      border:1px solid var(--nb-line);
+      border-radius:14px;
+      background:#FFFFFF;
+      color:var(--nb-ink);
+      padding:0 34px 0 12px;
+      outline:none;
+      font:inherit;
+      font-size:13px;
+      font-weight:850;
+      appearance:none;
+      -webkit-appearance:none;
+      background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20"><path d="M5 7l5 6 5-6z" fill="%23075C3B"/></svg>');
+      background-repeat:no-repeat;
+      background-position:right 11px center;
+    }
+
+    .nb-page-size-select:focus{
+      border-color:rgba(0,168,89,.42);
+      box-shadow:0 0 0 4px rgba(0,168,89,.08);
+    }
+
+    .nb-bundle-meta{
+      color:var(--nb-muted);
+      font-size:13px;
+      font-weight:800;
+      overflow-wrap:anywhere;
+    }
+
+    .nb-pagination-box{
+      margin:0 clamp(14px,1.35vw,22px) clamp(16px,1.35vw,22px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      border:1px solid var(--nb-line);
+      border-radius:18px;
+      background:#FFFFFF;
+      padding:12px 14px;
+      box-shadow:0 10px 26px rgba(17,64,38,.045);
+    }
+
+    .nb-pagination-box[hidden]{
+      display:none !important;
+    }
+
+    .nb-page-info{
+      color:var(--nb-muted);
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .nb-page-controls,
+    .nb-page-numbers{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:7px;
+      flex-wrap:wrap;
+    }
+
+    .nb-page-btn{
+      min-width:38px;
+      min-height:38px;
+      border-radius:12px;
+      border:1px solid var(--nb-line);
+      background:#FFFFFF;
+      color:var(--nb-ink);
+      font:inherit;
+      font-size:12px;
+      font-weight:950;
+      cursor:pointer;
+      transition:.2s var(--nb-ease);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 10px;
+    }
+
+    .nb-page-btn:hover:not(:disabled),
+    .nb-page-btn.active{
+      background:#ECFFF4;
+      border-color:#9ED8BA;
+      color:#08713F;
+      box-shadow:0 5px 13px rgba(0,168,89,.07);
+    }
+
+    .nb-page-btn:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+    }
+
+    .nb-page-btn:focus-visible,
+    .nb-page-size-select:focus-visible{
+      outline:3px solid rgba(0,168,89,.14);
+      outline-offset:2px;
+    }
+
+    .nb-table tbody tr[hidden]{
+      display:none !important;
+    }
+
+    .nb-thumb{
+      width:48px;
+      height:48px;
+      border-radius:14px;
+      object-fit:cover;
+      border:1px solid var(--nb-line2);
+      background:var(--nb-soft);
+      flex:0 0 auto;
+    }
+
+    @media(max-width:1180px){
+      .nb-hero{
+        grid-template-columns:1fr;
+      }
+
+      .nb-hero-side{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .nb-hero-stat{
+        border-bottom:0;
+        border-right:1px solid var(--nb-line2);
+      }
+
+      .nb-hero-stat:last-child{border-right:0;}
+      .nb-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+
+      .nb-table{
+        min-width:940px;
+      }
+
+      .nb-table th,
+      .nb-table td{
+        padding-left:12px;
+        padding-right:12px;
+      }
+    }
+
+    @media(max-width:920px){
+      .nb-table-toolbar{
+        grid-template-columns:1fr;
+        padding:14px;
+      }
+
+      .nb-table-tools{
+        display:grid;
+        width:100%;
+        grid-template-columns:1fr 1fr;
+      }
+
+      .nb-table-tools .nb-bundle-meta{
+        grid-column:1 / -1;
+      }
+
+      .nb-page-size-select{
+        width:100%;
+      }
+
+      .nb-table-wrap{
+        overflow-x:auto;
+        overflow-y:visible;
+        padding:0 14px 16px;
+        scroll-snap-type:x mandatory;
+        overscroll-behavior-x:contain;
+        -webkit-overflow-scrolling:touch;
+        scrollbar-width:thin;
+        scrollbar-color:rgba(0,168,89,.38) transparent;
+      }
+
+      .nb-table-wrap::-webkit-scrollbar{height:8px;}
+      .nb-table-wrap::-webkit-scrollbar-track{background:#F1F8F4;border-radius:999px;}
+      .nb-table-wrap::-webkit-scrollbar-thumb{background:rgba(0,168,89,.38);border-radius:999px;border:2px solid #F1F8F4;}
+
+      .nb-table{
+        min-width:0;
+        width:100%;
+        display:block;
+        border:0;
+        border-radius:0;
+        box-shadow:none;
+        background:transparent;
+        overflow:visible;
+      }
+
+      .nb-table thead{display:none;}
+
+      .nb-table tbody{
+        display:flex;
+        flex-wrap:nowrap;
+        gap:14px;
+        width:max-content;
+        min-width:100%;
+      }
+
+      .nb-table tbody tr{
+        width:min(86vw,420px);
+        min-width:min(86vw,420px);
+        max-width:min(86vw,420px);
+        flex:0 0 min(86vw,420px);
+        display:grid;
+        grid-template-columns:1fr;
+        gap:0;
+        border:1px solid var(--nb-line);
+        border-radius:22px;
+        background:#FFFFFF;
+        box-shadow:0 10px 28px rgba(17,64,38,.06);
+        overflow:hidden;
+        scroll-snap-align:start;
+      }
+
+      .nb-table td{
+        width:100% !important;
+        display:grid;
+        grid-template-columns:112px minmax(0,1fr);
+        gap:10px;
+        align-items:start;
+        padding:12px;
+        border:0;
+        border-bottom:1px dashed var(--nb-line2);
+        background:#FFFFFF !important;
+        color:var(--nb-text);
+        font-size:13px;
+        line-height:1.42;
+        word-break:normal;
+        overflow-wrap:anywhere;
+        text-align:left !important;
+      }
+
+      .nb-table td::before{
+        color:var(--nb-green-dark);
+        font-size:10.2px;
+        line-height:1.25;
+        font-weight:950;
+        text-transform:uppercase;
+        letter-spacing:.06em;
+        white-space:normal;
+      }
+
+      .nb-table td:nth-child(1)::before{content:"SL No";}
+      .nb-table td:nth-child(2)::before{content:"Bundle";}
+      .nb-table td:nth-child(3)::before{content:"Products";}
+      .nb-table td:nth-child(4)::before{content:"Price & Discount";}
+      .nb-table td:nth-child(5)::before{content:"Stock";}
+      .nb-table td:nth-child(6)::before{content:"Status";}
+      .nb-table td:nth-child(7)::before{content:"Actions";}
+
+      .nb-table td:nth-child(1),
+      .nb-table td:nth-child(7){
+        grid-template-columns:1fr;
+      }
+
+      .nb-table td:nth-child(1){
+        justify-items:center;
+        text-align:center !important;
+        background:#F8FFFB !important;
+      }
+
+      .nb-table td:nth-child(7){
+        border-bottom:0;
+        background:#FBFFFD !important;
+      }
+
+      .nb-table td:nth-child(2) > div{
+        align-items:flex-start !important;
+      }
+
+      .nb-table td:nth-child(3) > div + div{
+        margin-top:7px;
+        padding-top:7px;
+      }
+
+      .nb-slno-value{
+        width:42px;
+        height:42px;
+      }
+
+      .nb-money{
+        border-radius:12px;
+      }
+
+      .nb-money > div{
+        grid-template-columns:minmax(0,1fr) auto;
+        gap:10px;
+        padding:8px 9px;
+      }
+
+      .nb-money strong{
+        text-align:right;
+        white-space:normal;
+      }
+
+      .nb-actions-inline{
+        width:100%;
+        max-width:none;
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:7px;
+      }
+
+      .nb-actions-inline .nb-small-btn,
+      .nb-actions-inline form,
+      .nb-actions-inline button{
+        width:100%;
+      }
+    }
+
+    @media(max-width:820px){
+      .nb-shell{
+        padding:14px;
+        padding-left:max(14px,env(safe-area-inset-left,0px));
+        padding-right:max(14px,env(safe-area-inset-right,0px));
+      }
+
+      .nb-hero{
+        padding:18px;
+        border-radius:22px;
+      }
+
+      .nb-actions{
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        width:100%;
+      }
+
+      .nb-actions .nb-btn{width:100%;}
+
+      .nb-mode-switcher{
+        position:sticky;
+        top:8px;
+        z-index:5;
+        box-shadow:0 10px 24px rgba(17,64,38,.08);
+      }
+
+      .nb-row{grid-template-columns:1fr;}
+    }
+
+    /* App / mobile / iPhone */
+    @media(max-width:640px){
+      .nb-shell{
+        padding:10px;
+        padding-left:max(10px,env(safe-area-inset-left,0px));
+        padding-right:max(10px,env(safe-area-inset-right,0px));
+      }
+
+      .nb-hero,
+      .nb-card,
+      .nb-mode-switcher,
+      .nb-kpi{
+        border-radius:18px;
+      }
+
+      .nb-hero{padding:16px;}
+      .nb-kicker{width:100%;}
+      .nb-title{font-size:clamp(25px,8vw,35px);}
+
+      .nb-copy,
+      .nb-card-sub,
+      .nb-kpi-meta,
+      .nb-help{
+        display:none;
+      }
+
+      .nb-actions{
+        grid-template-columns:1fr;
+        margin-top:14px;
+      }
+
+      .nb-hero-side{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        border-radius:16px;
+      }
+
+      .nb-hero-stat{
+        display:block;
+        padding:11px 9px;
+        text-align:center;
+      }
+
+      .nb-hero-stat span,
+      .nb-hero-stat strong{
+        display:block;
+        text-align:center;
+      }
+
+      .nb-hero-stat strong{margin-top:4px;}
+
+      .nb-kpi-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:10px;
+      }
+
+      .nb-kpi{
+        min-height:98px;
+        padding:14px;
+      }
+
+      .nb-kpi-value{font-size:26px;}
+      .nb-kpi-icon{
+        width:38px;
+        height:38px;
+        font-size:18px;
+      }
+
+      .nb-mode-switcher{
+        gap:6px;
+        padding:6px;
+      }
+
+      .nb-mode-toggle{
+        min-height:48px;
+        padding:8px;
+        font-size:12px;
+      }
+
+      .nb-card-head,
+      .nb-form{
+        padding:14px;
+      }
+
+      .nb-form{gap:14px;}
+      .nb-picker-top{padding:11px 12px;}
+      .nb-product-option{
+        grid-template-columns:auto minmax(0,1fr);
+        padding:11px 12px;
+      }
+
+      .nb-product-option > .nb-pill,
+      .nb-product-option > .nb-locked-pill{
+        grid-column:2;
+        width:max-content;
+      }
+
+      .nb-selected-item{grid-template-columns:1fr;}
+      .nb-selected-item input{width:100%;}
+
+      .nb-price-row{
+        align-items:flex-start;
+      }
+
+      .nb-price-row strong{
+        font-size:16px;
+      }
+
+      .nb-price-row.final strong{font-size:19px;}
+
+      .nb-table-toolbar{
+        padding:12px;
+      }
+
+      .nb-table-tools{
+        grid-template-columns:1fr;
+      }
+
+      .nb-table tbody tr{
+        width:min(88vw,380px);
+        min-width:min(88vw,380px);
+        max-width:min(88vw,380px);
+        flex-basis:min(88vw,380px);
+      }
+
+      .nb-table td{
+        grid-template-columns:104px minmax(0,1fr);
+        padding:11px;
+      }
+
+      .nb-pagination-box{
+        justify-content:center;
+        text-align:center;
+      }
+
+      .nb-page-info,
+      .nb-page-controls{
+        width:100%;
+        justify-content:center;
+      }
+
+    }
+
+    @media(max-width:420px){
+      .nb-shell{
+        padding:8px;
+        padding-left:max(8px,env(safe-area-inset-left,0px));
+        padding-right:max(8px,env(safe-area-inset-right,0px));
+      }
+
+      .nb-hero,
+      .nb-card-head,
+      .nb-form{
+        padding:12px;
+      }
+
+      .nb-mode-switcher{
+        grid-template-columns:1fr;
+        position:static;
+      }
+
+      .nb-kpi{
+        padding:12px;
+      }
+
+      .nb-kpi-label{font-size:10px;}
+      .nb-kpi-value{font-size:24px;}
+
+      .nb-table tbody tr{
+        width:86vw;
+        min-width:86vw;
+        max-width:86vw;
+        flex-basis:86vw;
+      }
+
+      .nb-table td{
+        grid-template-columns:1fr;
+        gap:6px;
+      }
+
+      .nb-table td::before{
+        padding-top:0;
+        margin-bottom:1px;
+      }
+
+      .nb-money > div{
+        grid-template-columns:1fr;
+        gap:3px;
+      }
+
+      .nb-money strong{
+        text-align:left;
+      }
+
+      .nb-actions-inline{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media(max-width:350px){
+      .nb-kpi-grid{grid-template-columns:1fr;}
+      .nb-hero-side{grid-template-columns:1fr;}
+      .nb-hero-stat{
+        border-right:0;
+        border-bottom:1px solid var(--nb-line2);
+      }
+      .nb-hero-stat:last-child{border-bottom:0;}
+    }
+
+    @media(orientation:landscape) and (max-height:560px) and (max-width:980px){
+      .nb-shell{
+        padding-top:8px;
+        padding-bottom:8px;
+      }
+
+      .nb-hero{padding:14px;}
+
+      .nb-mode-switcher{
+        position:static;
+      }
+    }
+
+    @supports (-webkit-touch-callout:none){
+      .nf-store-bundles-page,
+      .nb-shell,
+      .nb-card,
+      .nb-hero{
+        -webkit-font-smoothing:antialiased;
+      }
+    }
+
+    @media(hover:none) and (pointer:coarse){
+      .nb-btn:hover,
+      .nb-small-btn:hover,
+      .nb-form button:hover,
+      .nb-table button:hover{
+        transform:none;
+      }
+    }
+
+    @media(prefers-reduced-motion:reduce){
+      .nf-store-bundles-page *,
+      .nf-store-bundles-page *::before,
+      .nf-store-bundles-page *::after{
+        transition:none !important;
+        animation:none !important;
+        scroll-behavior:auto !important;
+      }
+    }
+  </style>
+
+  <div class="nb-shell">
+    <section class="nb-hero">
+      <div>
+        <span class="nb-kicker">🎁 Product Bundle Builder</span>
+        <h1 class="nb-title">Product Bundles</h1>
+        <p class="nb-copy">
+          Create bundle offers from your existing products. Choose multiple products, lock already-selected products during edit,
+          set quantities, add bundle discounts, and control activation safely.
+        </p>
+
+        <div class="nb-actions">
+          <a class="nb-btn primary" href="#bundle-form" data-nb-open="create">{{ 'Edit Current Bundle' if is_editing else 'Create Bundle' }}</a>
+          <a class="nb-btn" href="{{ url_for('store_products') }}">All Products</a>
+          <a class="nb-btn blue" href="{{ url_for('store_add_product') }}">Add Product</a>
+        </div>
+      </div>
+
+      <div class="nb-hero-side">
+        <div class="nb-hero-stat">
+          <span>Total Bundles</span>
+          <strong>{{ bm.total|default(bundles_list|length) }}</strong>
+        </div>
+        <div class="nb-hero-stat">
+          <span>Active</span>
+          <strong>{{ bm.active|default(0) }}</strong>
+        </div>
+        <div class="nb-hero-stat">
+          <span>Out of Stock</span>
+          <strong>{{ bm.out_of_stock|default(0) }}</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="nb-kpi-grid">
+      <div class="nb-kpi">
+        <div>
+          <div class="nb-kpi-label">Total Bundles</div>
+          <div class="nb-kpi-value">{{ bm.total|default(bundles_list|length) }}</div>
+          <div class="nb-kpi-meta">All non-deleted bundles created by this store.</div>
+        </div>
+        <div class="nb-kpi-icon">🧺</div>
+      </div>
+
+      <div class="nb-kpi blue">
+        <div>
+          <div class="nb-kpi-label">Active</div>
+          <div class="nb-kpi-value">{{ bm.active|default(0) }}</div>
+          <div class="nb-kpi-meta">Visible to customers after cart phase integration.</div>
+        </div>
+        <div class="nb-kpi-icon">✅</div>
+      </div>
+
+      <div class="nb-kpi orange">
+        <div>
+          <div class="nb-kpi-label">Inactive</div>
+          <div class="nb-kpi-value">{{ bm.inactive|default(0) }}</div>
+          <div class="nb-kpi-meta">Saved but hidden from customers.</div>
+        </div>
+        <div class="nb-kpi-icon">⏸️</div>
+      </div>
+
+      <div class="nb-kpi red">
+        <div>
+          <div class="nb-kpi-label">Out of Stock</div>
+          <div class="nb-kpi-value">{{ bm.out_of_stock|default(0) }}</div>
+          <div class="nb-kpi-meta">Bundle stock is limited by child products.</div>
+        </div>
+        <div class="nb-kpi-icon">⚠️</div>
+      </div>
+    </section>
+
+    <section class="nb-mode-switcher" aria-label="Product bundle sections">
+      <button class="nb-mode-toggle is-active" type="button" data-nb-tab="create" aria-controls="bundle-form" aria-selected="true">
+        <span>＋</span>
+        <span>{{ 'Edit Bundle' if is_editing else 'Create New Bundle' }}</span>
+      </button>
+      <button class="nb-mode-toggle" type="button" data-nb-tab="existing" aria-controls="existing-bundles" aria-selected="false">
+        <span>▦</span>
+        <span>Existing Bundles</span>
+        <span class="nb-mode-count">{{ bm.total|default(bundles_list|length) }}</span>
+      </button>
+    </section>
+
+    <section class="nb-layout" id="nbBundlePanels">
+      <div class="nb-card nb-panel" id="bundle-form" data-nb-panel="create">
+        <div class="nb-card-head">
+          <div>
+            <h2 class="nb-card-title">{{ 'Edit Product Bundle' if is_editing else 'Create Product Bundle' }}</h2>
+            <p class="nb-card-sub">
+              {% if is_editing %}
+                Already-added products are locked and cannot be added again. Their quantities can still be adjusted.
+              {% else %}
+                Select at least 2 existing products to create a bundle.
+              {% endif %}
+            </p>
+          </div>
+
+          {% if is_editing %}
+            <a class="nb-btn" href="{{ url_for('store_product_bundles') }}">Cancel Edit</a>
+          {% endif %}
+        </div>
+
+        <form class="nb-form" method="post" action="{{ form_action }}" enctype="multipart/form-data">
+          <div class="nb-field">
+            <label class="nb-label" for="bundle_name">Bundle Name</label>
+            <input id="bundle_name" name="bundle_name" type="text" maxlength="160" required value="{{ edit_bundle.bundle_name if is_editing else '' }}" placeholder="Example: Weekly Veg Combo">
+          </div>
+
+          <div class="nb-field">
+            <label class="nb-label" for="description">Description</label>
+            <textarea id="description" name="description" maxlength="700" placeholder="Short description for this bundle...">{{ edit_bundle.description if is_editing else '' }}</textarea>
+          </div>
+
+          <div class="nb-field">
+            <label class="nb-label" for="image">Bundle Image</label>
+            <input id="image" name="image" type="file" accept="image/*">
+            {% if is_editing and edit_bundle.image_path %}
+              <div class="nb-help">Existing image will remain if no new image is uploaded.</div>
+            {% endif %}
+          </div>
+
+          <div class="nb-row">
+            <div class="nb-field">
+              <label class="nb-label" for="start_date">Offer Start Date</label>
+              <input id="start_date" name="start_date" type="date" value="{{ edit_bundle.start_date if is_editing else '' }}">
+            </div>
+
+            <div class="nb-field">
+              <label class="nb-label" for="end_date">Offer End Date</label>
+              <input id="end_date" name="end_date" type="date" value="{{ edit_bundle.end_date if is_editing else '' }}">
+            </div>
+          </div>
+
+          <label class="nb-switch-row">
+            <span>
+              <strong>Active Bundle</strong>
+              <span class="nb-help" style="display:block;margin-top:3px;">Inactive bundles stay saved but hidden from customer purchase.</span>
+            </span>
+            <input type="checkbox" name="is_active" value="1" {{ 'checked' if (not is_editing) or (edit_bundle.is_active|default(1)|int == 1) else '' }}>
+          </label>
+
+          <div class="nb-field">
+            <label class="nb-label">Select Products</label>
+            <div class="nb-picker">
+              <div class="nb-picker-top">
+                <div class="nb-picker-title">Choose existing products</div>
+                <span class="nb-pill" id="nbSelectedCount">0 Selected</span>
+              </div>
+              <div style="padding:12px;border-bottom:1px solid var(--nb-line2);">
+                <input class="nb-picker-search" type="search" id="nbProductSearch" placeholder="Search product name/category...">
+              </div>
+
+              <div class="nb-product-list" id="nbProductList">
+                {% for p in products_list %}
+                  {% set pid = p.id or p._id|string %}
+                  {% set is_locked = pid in selected_ids %}
+                  {% set p_name = p.name or 'Product' %}
+                  {% set p_price = p.price_per_unit|default(p.final_price|default(0)) %}
+                  {% set p_original_price = p.original_price_per_unit or p.original_price or p.mrp or p_price %}
+                  {% set p_stock = p.stock_quantity|default(0) %}
+                  <label class="nb-product-option {{ 'locked' if is_locked else '' }}" data-product-row data-product-name="{{ p_name|lower }} {{ p.category|default('')|lower }} {{ p.sub_category|default('')|lower }}">
+                    <input
+                      type="checkbox"
+                      name="bundle_product_ids[]"
+                      value="{{ pid }}"
+                      data-product-check
+                      data-product-id="{{ pid }}"
+                      data-product-name="{{ p_name }}"
+                      data-product-unit="{{ p.unit_label|default('unit') }}"
+                      data-product-price="{{ '%.2f'|format(p_original_price or 0) }}"
+                      {% if is_locked %}checked disabled{% endif %}
+                    >
+
+                    {% if is_locked %}
+                      <input type="hidden" name="bundle_product_ids[]" value="{{ pid }}">
+                    {% endif %}
+
+                    <span>
+                      <strong>{{ p_name }}</strong>
+                      <span class="nb-product-meta">
+                        Original ₹{{ '%.2f'|format(p_original_price or 0) }} / {{ p.unit_label|default('unit') }}
+                        · Current ₹{{ '%.2f'|format(p_price or 0) }}
+                        · Stock {{ p_stock }} {{ p.unit_label|default('') }}
+                      </span>
+                    </span>
+
+                    {% if is_locked %}
+                      <span class="nb-locked-pill">Locked</span>
+                    {% else %}
+                      <span class="nb-pill blue">Select</span>
+                    {% endif %}
+                  </label>
+                {% else %}
+                  <div class="nb-empty">No products found. Please add products first before creating bundles.</div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="nb-help">Locked products are already part of the bundle. They are submitted safely through hidden fields and cannot be duplicated.</div>
+          </div>
+
+          <div class="nb-selected-wrap">
+            <div class="nb-selected-title">Selected Products & Bundle Quantity</div>
+            <div class="nb-selected-list" id="nbSelectedList">
+              {% if is_editing %}
+                {% for item in edit_bundle["items"] %}
+                  {% set pid = item.product_id_str %}
+                  <div class="nb-selected-item" data-selected-item="{{ pid }}" data-selected-price="{{ item.price_per_unit_snapshot|default(0) }}">
+                    <div>
+                      <div class="nb-selected-name">{{ item.product_name_snapshot or 'Product' }}</div>
+                      <div class="nb-selected-meta">Original price ₹{{ '%.2f'|format(item.price_per_unit_snapshot|default(0)) }} · locked from duplicate selection</div>
+                      <div class="nb-selected-meta" data-line-total>Line total: ₹0.00</div>
+                    </div>
+                    <input type="number" step="0.001" min="0.001" name="bundle_quantity_{{ pid }}" value="{{ item.quantity|default(1) }}" data-quantity-input required>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            </div>
+            <div class="nb-empty" id="nbSelectedEmpty" style="{{ 'display:none;' if is_editing and edit_bundle["items"] else '' }}">Select at least 2 products from the list above.</div>
+          </div>
+
+          <div class="nb-price-summary" id="nbPriceSummary" style="display:none;">
+            <div class="nb-price-row">
+              <span>Total Normal Price of Selected Products</span>
+              <strong id="nbNormalTotal">₹0.00</strong>
+            </div>
+
+            <div class="nb-price-note">
+              This total is calculated automatically only after products are selected. It uses product original/base prices and excludes product-level offer prices to avoid double discounting.
+            </div>
+
+            <div class="nb-row">
+              <div class="nb-field">
+                <label class="nb-label" for="discount_type">Bundle Offer / Discount Type</label>
+                <select id="discount_type" name="discount_type">
+                  {% set dt = edit_bundle.discount_type if is_editing else 'none' %}
+                  <option value="none" {{ 'selected' if dt == 'none' else '' }}>No Discount</option>
+                  <option value="fixed_price" {{ 'selected' if dt == 'fixed_price' else '' }}>Manual Final Bundle Price</option>
+                  <option value="percent" {{ 'selected' if dt == 'percent' else '' }}>Percentage Discount</option>
+                  <option value="amount" {{ 'selected' if dt == 'amount' else '' }}>Fixed Amount Discount</option>
+                </select>
+              </div>
+
+              <div class="nb-field" id="nbDiscountValueField">
+                <label class="nb-label" for="discount_value">Discount Value</label>
+                <input id="discount_value" name="discount_value" type="number" step="0.01" min="0" value="{{ edit_bundle.discount_value if is_editing and edit_bundle.discount_type != 'fixed_price' else '' }}" placeholder="Percent or fixed amount">
+                <div class="nb-help">Used only for percentage or fixed amount discount.</div>
+              </div>
+            </div>
+
+            <div class="nb-field" id="nbBundlePriceField">
+              <label class="nb-label" for="bundle_price">Manual Final Bundle Amount</label>
+              <input id="bundle_price" name="bundle_price" type="number" step="0.01" min="0" value="{{ edit_bundle.bundle_price if is_editing and edit_bundle.discount_type == 'fixed_price' else '' }}" placeholder="Enter final bundle price">
+              <div class="nb-help">Use this only when you want to manually set the final bundle amount.</div>
+            </div>
+
+            <div class="nb-price-row">
+              <span>Bundle Discount / Savings</span>
+              <strong id="nbSavingsTotal">₹0.00</strong>
+            </div>
+
+            <div class="nb-price-row final">
+              <span>Final Bundle Amount</span>
+              <strong id="nbFinalTotal">₹0.00</strong>
+            </div>
+          </div>
+
+          <button class="primary" type="submit">
+            {{ 'Update Product Bundle' if is_editing else 'Create Product Bundle' }}
+          </button>
+        </form>
+      </div>
+
+      <div class="nb-card nb-panel" id="existing-bundles" data-nb-panel="existing" hidden>
+        <div class="nb-card-head">
+          <div>
+            <h2 class="nb-card-title">Existing Bundles</h2>
+            <p class="nb-card-sub">Edit, activate/deactivate or delete product bundles created by this store.</p>
+          </div>
+        </div>
+
+        {% if bundles_list and bundles_list|length %}
+          <div class="nb-table-toolbar">
+            <div class="nb-table-toolbar-spacer" aria-hidden="true"></div>
+
+            <div class="nb-table-tools">
+              <select class="nb-page-size-select" id="nbBundlePageSize" aria-label="Bundles per page">
+                <option value="10">10 / page</option>
+                <option value="20">20 / page</option>
+                <option value="50">50 / page</option>
+                <option value="100">100 / page</option>
+              </select>
+              <span class="nb-bundle-meta" id="nbBundleMeta">{{ bundles_list|length }} bundles</span>
+            </div>
+          </div>
+
+          <div class="nb-table-wrap">
+            <table class="nb-table" id="nbBundleTable">
+              <thead>
+                <tr>
+                  <th>SL No</th>
+                  <th>Bundle</th>
+                  <th>Products</th>
+                  <th>Price & Discount</th>
+                  <th>Stock</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for b in bundles_list %}
+                  <tr data-bundle-row>
+                    <td><span class="nb-slno-value" data-bundle-row-number>{{ loop.index }}</span></td>
+                    <td>
+                      <div style="display:flex;gap:10px;align-items:flex-start;">
+                        {% if b.image_path %}
+                          <img class="nb-thumb" src="{{ url_for('static', filename=b.image_path) }}" alt="">
+                        {% else %}
+                          <div class="nb-thumb" style="display:grid;place-items:center;">🎁</div>
+                        {% endif %}
+                        <div>
+                          <div class="nb-bundle-title">{{ b.bundle_name or 'Bundle' }}</div>
+                          {% if b.description %}
+                            <div class="nb-muted">{{ b.description }}</div>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </td>
+
+                    <td>
+                      {% for item in b["items"] %}
+                        <div>
+                          <strong>{{ item.product_name_snapshot or 'Product' }}</strong>
+                          <div class="nb-muted">{{ item.quantity|default(1) }} {{ item.unit_label_snapshot|default('unit') }}</div>
+                        </div>
+                      {% endfor %}
+                    </td>
+
+                    <td>
+                      <div class="nb-money">
+                        <div>
+                          <span>Original Products Total:</span>
+                          <strong class="{{ 'nb-old-price' if (b.savings_amount or 0) > 0 else '' }}">₹{{ '%.2f'|format(b.items_total or 0) }}</strong>
+                        </div>
+                        <div>
+                          <span>Final Bundle Price:</span>
+                          <strong>₹{{ '%.2f'|format(b.bundle_price or 0) }}</strong>
+                        </div>
+                        <div>
+                          <span>Bundle Savings:</span>
+                          <strong>₹{{ '%.2f'|format(b.savings_amount or 0) }}{% if b.discount_percent %} · {{ '%.0f'|format(b.discount_percent or 0) }}%{% endif %}</strong>
+                        </div>
+                        <div>
+                          <span>Type:</span>
+                          <strong>{{ (b.discount_type or 'none').replace('_',' ').title() }}</strong>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td>
+                      {% if b.stock_status == 'OUT_OF_STOCK' %}
+                        <span class="nb-pill red">Out of Stock</span>
+                      {% elif b.stock_status == 'LOW_STOCK' %}
+                        <span class="nb-pill orange">Low Stock</span>
+                      {% else %}
+                        <span class="nb-pill">In Stock</span>
+                      {% endif %}
+                      <div class="nb-muted">Max bundles: {{ b.max_bundle_stock|default(0) }}</div>
+                      {% if b.stock_blockers %}
+                        {% for blocker in b.stock_blockers %}
+                          <div class="nb-muted">{{ blocker }}</div>
+                        {% endfor %}
+                      {% endif %}
+                    </td>
+
+                    <td>
+                      {% if b.is_active|int == 1 %}
+                        <span class="nb-pill">Active</span>
+                      {% else %}
+                        <span class="nb-pill orange">Inactive</span>
+                      {% endif %}
+                      {% if b.start_date or b.end_date %}
+                        <div class="nb-muted">{{ b.start_date or '—' }} to {{ b.end_date or '—' }}</div>
+                      {% endif %}
+                    </td>
+
+                    <td>
+                      <div class="nb-actions-inline">
+                        <a class="nb-small-btn" href="{{ url_for('store_product_bundle_edit', bundle_id=b.id) }}">Edit</a>
+
+                        <form method="post" action="{{ url_for('store_product_bundle_toggle', bundle_id=b.id) }}">
+                          <button class="blue" type="submit">{{ 'Deactivate' if b.is_active|int == 1 else 'Activate' }}</button>
+                        </form>
+
+                        <form method="post" action="{{ url_for('store_product_bundle_delete', bundle_id=b.id) }}" onsubmit="return confirm('Delete this product bundle? If it has order history, it will be safely disabled instead.');">
+                          <button class="danger" type="submit">Delete</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="nb-pagination-box" id="nbBundlePagination" hidden>
+            <div class="nb-page-info" id="nbBundlePageInfo">Showing 0 bundles</div>
+            <div class="nb-page-controls">
+              <button type="button" class="nb-page-btn" id="nbBundlePrev">Prev</button>
+              <div class="nb-page-numbers" id="nbBundlePageNumbers"></div>
+              <button type="button" class="nb-page-btn" id="nbBundleNext">Next</button>
+            </div>
+          </div>
+        {% else %}
+          <div class="nb-empty">
+            No product bundles created yet. Use the form to create your first bundle from existing products.
+          </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</section>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const bundlePage = document.querySelector(".nf-store-bundles-page");
+    const modeButtons = Array.from(document.querySelectorAll("[data-nb-tab]"));
+    const modePanels = Array.from(document.querySelectorAll("[data-nb-panel]"));
+    const openCreateLinks = Array.from(document.querySelectorAll('[data-nb-open="create"]'));
+
+    function setBundleMode(mode, options) {
+      const nextMode = mode === "existing" ? "existing" : "create";
+      const opts = options || {};
+
+      modeButtons.forEach(function (button) {
+        const active = button.getAttribute("data-nb-tab") === nextMode;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+      });
+
+      modePanels.forEach(function (panel) {
+        const active = panel.getAttribute("data-nb-panel") === nextMode;
+        panel.hidden = !active;
+      });
+
+      if (opts.updateHash) {
+        const nextHash = nextMode === "existing" ? "#existing-bundles" : "#bundle-form";
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, "", nextHash);
+        } else {
+          window.location.hash = nextHash;
+        }
+      }
+
+      if (opts.scroll) {
+        const panel = document.querySelector('[data-nb-panel="' + nextMode + '"]');
+        if (panel) {
+          panel.scrollIntoView({
+            behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+            block: "start"
+          });
+        }
+      }
+    }
+
+    modeButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        setBundleMode(button.getAttribute("data-nb-tab"), { updateHash: true, scroll: false });
+      });
+    });
+
+    openCreateLinks.forEach(function (link) {
+      link.addEventListener("click", function (event) {
+        event.preventDefault();
+        setBundleMode("create", { updateHash: true, scroll: true });
+      });
+    });
+
+    const isEditingBundle = bundlePage && bundlePage.getAttribute("data-editing") === "1";
+    const initialMode = (!isEditingBundle && window.location.hash === "#existing-bundles") ? "existing" : "create";
+    setBundleMode(initialMode, { updateHash: false, scroll: false });
+
+    const productSearch = document.getElementById("nbProductSearch");
+    const productRows = Array.from(document.querySelectorAll("[data-product-row]"));
+    const productChecks = Array.from(document.querySelectorAll("[data-product-check]"));
+    const selectedList = document.getElementById("nbSelectedList");
+    const selectedEmpty = document.getElementById("nbSelectedEmpty");
+    const selectedCount = document.getElementById("nbSelectedCount");
+
+    const priceSummary = document.getElementById("nbPriceSummary");
+    const normalTotalEl = document.getElementById("nbNormalTotal");
+    const savingsTotalEl = document.getElementById("nbSavingsTotal");
+    const finalTotalEl = document.getElementById("nbFinalTotal");
+    const discountTypeEl = document.getElementById("discount_type");
+    const discountValueEl = document.getElementById("discount_value");
+    const bundlePriceEl = document.getElementById("bundle_price");
+    const discountValueField = document.getElementById("nbDiscountValueField");
+    const bundlePriceField = document.getElementById("nbBundlePriceField");
+
+    function money(value) {
+      const number = Number(value || 0);
+      return "₹" + number.toFixed(2);
+    }
+
+    function ensureSelectedItem(check) {
+      if (!selectedList || !check || !check.checked) return;
+
+      const pid = check.getAttribute("data-product-id");
+      if (!pid || selectedList.querySelector('[data-selected-item="' + pid + '"]')) return;
+
+      const name = check.getAttribute("data-product-name") || "Product";
+      const unit = check.getAttribute("data-product-unit") || "unit";
+      const price = Number(check.getAttribute("data-product-price") || 0);
+
+      const row = document.createElement("div");
+      row.className = "nb-selected-item";
+      row.setAttribute("data-selected-item", pid);
+      row.setAttribute("data-selected-price", price.toFixed(2));
+      row.innerHTML =
+        '<div>' +
+          '<div class="nb-selected-name"></div>' +
+          '<div class="nb-selected-meta"></div>' +
+        '</div>' +
+        '<input type="number" step="0.001" min="0.001" name="bundle_quantity_' + pid + '" value="1" data-quantity-input required>';
+
+      row.querySelector(".nb-selected-name").textContent = name + " (" + unit + ")";
+      row.querySelector(".nb-selected-meta").textContent = "Original price " + money(price) + " · newly selected";
+      selectedList.appendChild(row);
+
+      const qtyInput = row.querySelector("[data-quantity-input]");
+      if (qtyInput) {
+        qtyInput.addEventListener("input", refreshSelectedState);
+        qtyInput.addEventListener("keyup", refreshSelectedState);
+        qtyInput.addEventListener("change", refreshSelectedState);
+      }
+    }
+
+    function removeSelectedItem(check) {
+      if (!selectedList || !check) return;
+      const pid = check.getAttribute("data-product-id");
+      const existing = selectedList.querySelector('[data-selected-item="' + pid + '"]');
+      if (existing) existing.remove();
+    }
+
+    function calculateNormalTotal() {
+      let total = 0;
+
+      if (!selectedList) {
+        return total;
+      }
+
+      selectedList.querySelectorAll("[data-selected-item]").forEach(function (row) {
+        const price = Number(row.getAttribute("data-selected-price") || 0);
+        const qtyInput = row.querySelector("[data-quantity-input]");
+        const qty = Number(qtyInput ? qtyInput.value : 1) || 0;
+        const lineTotal = price * qty;
+
+        total += lineTotal;
+
+        const lineTotalEl = row.querySelector("[data-line-total]");
+        if (lineTotalEl) {
+          lineTotalEl.textContent = "Line total: " + money(lineTotal);
+        }
+      });
+
+      return total;
+    }
+
+    function refreshDiscountFieldDisplay() {
+      const type = discountTypeEl ? discountTypeEl.value : "none";
+
+      if (discountValueField) {
+        discountValueField.style.display = (type === "percent" || type === "amount") ? "" : "none";
+      }
+
+      if (bundlePriceField) {
+        bundlePriceField.style.display = type === "fixed_price" ? "" : "none";
+      }
+    }
+
+    function refreshPriceSummary() {
+      const selectedRows = selectedList ? selectedList.querySelectorAll("[data-selected-item]") : [];
+      const normalTotal = calculateNormalTotal();
+      const type = discountTypeEl ? discountTypeEl.value : "none";
+      let finalTotal = normalTotal;
+      let savings = 0;
+
+      if (type === "fixed_price") {
+        const manualPrice = Number(bundlePriceEl ? bundlePriceEl.value : 0);
+
+        if (manualPrice > 0) {
+          finalTotal = Math.min(manualPrice, normalTotal);
+          savings = Math.max(normalTotal - finalTotal, 0);
+        }
+      } else if (type === "percent") {
+        let percent = Number(discountValueEl ? discountValueEl.value : 0);
+
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
+
+        savings = normalTotal * (percent / 100);
+        finalTotal = normalTotal - savings;
+      } else if (type === "amount") {
+        let amount = Number(discountValueEl ? discountValueEl.value : 0);
+
+        if (amount < 0) amount = 0;
+        if (amount > normalTotal) amount = normalTotal;
+
+        savings = amount;
+        finalTotal = normalTotal - savings;
+      }
+
+      if (normalTotalEl) normalTotalEl.textContent = money(normalTotal);
+      if (savingsTotalEl) savingsTotalEl.textContent = money(savings);
+      if (finalTotalEl) finalTotalEl.textContent = money(finalTotal);
+
+      if (priceSummary) {
+        priceSummary.style.display = selectedRows.length > 0 ? "" : "none";
+      }
+
+      refreshDiscountFieldDisplay();
+    }
+
+    function refreshSelectedState() {
+      let checkedCount = 0;
+
+      productChecks.forEach(function (check) {
+        if (check.checked) {
+          checkedCount += 1;
+          ensureSelectedItem(check);
+        }
+      });
+
+      selectedList && selectedList.querySelectorAll("[data-quantity-input]").forEach(function (input) {
+        if (!input.dataset.nbBound) {
+          input.dataset.nbBound = "1";
+          input.addEventListener("input", refreshSelectedState);
+          input.addEventListener("keyup", refreshSelectedState);
+          input.addEventListener("change", refreshSelectedState);
+        }
+      });
+
+      if (selectedCount) {
+        selectedCount.textContent = checkedCount + " Selected";
+      }
+
+      if (selectedEmpty) {
+        selectedEmpty.style.display = checkedCount > 0 ? "none" : "";
+      }
+
+      refreshPriceSummary();
+    }
+
+    productChecks.forEach(function (check) {
+      check.addEventListener("change", function () {
+        if (check.checked) {
+          ensureSelectedItem(check);
+        } else {
+          removeSelectedItem(check);
+        }
+        refreshSelectedState();
+      });
+    });
+
+    [discountTypeEl, discountValueEl, bundlePriceEl].forEach(function (input) {
+      if (input) {
+        input.addEventListener("input", refreshSelectedState);
+        input.addEventListener("change", refreshSelectedState);
+      }
+    });
+
+    if (productSearch) {
+      productSearch.addEventListener("input", function () {
+        const q = productSearch.value.trim().toLowerCase();
+
+        productRows.forEach(function (row) {
+          const text = row.getAttribute("data-product-name") || "";
+          row.style.display = !q || text.indexOf(q) !== -1 ? "" : "none";
+        });
+      });
+    }
+
+    if (selectedList) {
+      selectedList.addEventListener("input", function (event) {
+        if (event.target && event.target.matches("[data-quantity-input]")) {
+          refreshSelectedState();
+        }
+      });
+
+      selectedList.addEventListener("change", function (event) {
+        if (event.target && event.target.matches("[data-quantity-input]")) {
+          refreshSelectedState();
+        }
+      });
+
+      selectedList.addEventListener("keyup", function (event) {
+        if (event.target && event.target.matches("[data-quantity-input]")) {
+          refreshSelectedState();
+        }
+      });
+    }
+
+
+    const existingBundleRows = Array.from(document.querySelectorAll("[data-bundle-row]"));
+    const bundlePageSizeSelect = document.getElementById("nbBundlePageSize");
+    const bundleMeta = document.getElementById("nbBundleMeta");
+    const bundlePaginationBox = document.getElementById("nbBundlePagination");
+    const bundlePageInfo = document.getElementById("nbBundlePageInfo");
+    const bundlePageNumbers = document.getElementById("nbBundlePageNumbers");
+    const bundlePrevBtn = document.getElementById("nbBundlePrev");
+    const bundleNextBtn = document.getElementById("nbBundleNext");
+    const bundleTableWrap = document.querySelector("#existing-bundles .nb-table-wrap");
+
+    let currentBundlePage = 1;
+    let currentBundlePageSize = parseInt(
+      bundlePageSizeSelect ? bundlePageSizeSelect.value : "10",
+      10
+    ) || 10;
+
+    function buildExistingBundlePageButton(label, targetPage, isActive, disabled) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "nb-page-btn" + (isActive ? " active" : "");
+      button.textContent = label;
+      button.disabled = !!disabled;
+
+      if (!disabled) {
+        button.addEventListener("click", function () {
+          currentBundlePage = targetPage;
+          renderExistingBundlePagination(true);
+        });
+      }
+
+      return button;
+    }
+
+    function renderExistingBundlePageNumbers(totalPages) {
+      if (!bundlePageNumbers) return;
+
+      bundlePageNumbers.innerHTML = "";
+
+      if (totalPages <= 1) return;
+
+      const pages = [];
+      const start = Math.max(1, currentBundlePage - 1);
+      const end = Math.min(totalPages, currentBundlePage + 1);
+
+      if (start > 1) {
+        pages.push(1);
+        if (start > 2) pages.push("...");
+      }
+
+      for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
+        pages.push(pageNumber);
+      }
+
+      if (end < totalPages) {
+        if (end < totalPages - 1) pages.push("...");
+        pages.push(totalPages);
+      }
+
+      pages.forEach(function (item) {
+        if (item === "...") {
+          bundlePageNumbers.appendChild(
+            buildExistingBundlePageButton("...", currentBundlePage, false, true)
+          );
+        } else {
+          bundlePageNumbers.appendChild(
+            buildExistingBundlePageButton(
+              String(item),
+              item,
+              item === currentBundlePage,
+              false
+            )
+          );
+        }
+      });
+    }
+
+    function renderExistingBundlePagination(resetSwipePosition) {
+      if (!existingBundleRows.length) return;
+
+      currentBundlePageSize = parseInt(
+        bundlePageSizeSelect
+          ? bundlePageSizeSelect.value
+          : String(currentBundlePageSize),
+        10
+      ) || 10;
+
+      const total = existingBundleRows.length;
+      const totalPages = Math.max(
+        1,
+        Math.ceil(total / currentBundlePageSize)
+      );
+
+      if (currentBundlePage > totalPages) {
+        currentBundlePage = totalPages;
+      }
+
+      const start = (currentBundlePage - 1) * currentBundlePageSize;
+      const end = start + currentBundlePageSize;
+
+      existingBundleRows.forEach(function (row, index) {
+        row.hidden = index < start || index >= end;
+
+        const serialNumber = row.querySelector("[data-bundle-row-number]");
+        if (serialNumber) {
+          serialNumber.textContent = String(index + 1);
+        }
+      });
+
+      if (bundleMeta) {
+        bundleMeta.textContent = total + " bundles";
+      }
+
+      if (bundlePaginationBox) {
+        bundlePaginationBox.hidden = total === 0;
+      }
+
+      if (bundlePageInfo) {
+        if (total === 0) {
+          bundlePageInfo.textContent = "Showing 0 bundles";
+        } else {
+          bundlePageInfo.textContent =
+            "Showing " +
+            (start + 1) +
+            "–" +
+            Math.min(end, total) +
+            " of " +
+            total +
+            " bundles";
+        }
+      }
+
+      if (bundlePrevBtn) {
+        bundlePrevBtn.disabled = currentBundlePage <= 1;
+        bundlePrevBtn.onclick = function () {
+          if (currentBundlePage > 1) {
+            currentBundlePage -= 1;
+            renderExistingBundlePagination(true);
+          }
+        };
+      }
+
+      if (bundleNextBtn) {
+        bundleNextBtn.disabled = currentBundlePage >= totalPages;
+        bundleNextBtn.onclick = function () {
+          if (currentBundlePage < totalPages) {
+            currentBundlePage += 1;
+            renderExistingBundlePagination(true);
+          }
+        };
+      }
+
+      renderExistingBundlePageNumbers(totalPages);
+
+      if (resetSwipePosition && bundleTableWrap) {
+        bundleTableWrap.scrollTo({
+          left: 0,
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "auto"
+            : "smooth"
+        });
+      }
+    }
+
+    if (bundlePageSizeSelect) {
+      bundlePageSizeSelect.addEventListener("change", function () {
+        currentBundlePage = 1;
+        renderExistingBundlePagination(true);
+      });
+    }
+
+    renderExistingBundlePagination(false);
+
+    refreshSelectedState();
+  });
+</script>
+{% endblock %}

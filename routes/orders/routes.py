@@ -16,43 +16,108 @@ def _money_float(value, default=0.0):
         return default
 
 
+def _order_item_reserved_products(item):
+    """
+    Returns the real product stock movements for one order item.
+
+    Normal product item:
+    - reserve/release the product itself.
+
+    Bundle item:
+    - reserve/release every child product in bundle_items_snapshot multiplied
+      by the ordered bundle quantity.
+    """
+    reserved = []
+
+    item_type = (item.get("item_type") or "product").strip().lower()
+
+    if item_type == "bundle" or item.get("bundle_id"):
+        bundle_quantity = _money_float(
+            item.get("quantity") if item.get("quantity") is not None else item.get("cart_quantity"),
+            1.0
+        )
+
+        if bundle_quantity <= 0:
+            bundle_quantity = 1.0
+
+        for child in item.get("bundle_items_snapshot") or []:
+            if not isinstance(child, dict):
+                continue
+
+            child_product_id = child.get("product_id")
+            child_product_id_str = str(child.get("product_id_str") or child_product_id or "").strip()
+
+            if not child_product_id:
+                try:
+                    child_product_id = ObjectId(child_product_id_str)
+                except Exception:
+                    child_product_id = None
+
+            child_qty = _money_float(child.get("quantity"), 0.0) * bundle_quantity
+
+            if child_product_id and child_qty > 0:
+                reserved.append({
+                    "product_id": child_product_id,
+                    "quantity": child_qty,
+                    "product_name": child.get("product_name_snapshot") or item.get("bundle_name_snapshot") or "Bundle product"
+                })
+
+        return reserved
+
+    product_id = item.get("product_id")
+    qty = _money_float(
+        item.get("quantity") if item.get("quantity") is not None else item.get("cart_quantity"),
+        0.0
+    )
+
+    if product_id and qty > 0:
+        reserved.append({
+            "product_id": product_id,
+            "quantity": qty,
+            "product_name": item.get("product_name") or "One product"
+        })
+
+    return reserved
+
+
 def _reserve_order_stock_items(order_items):
     """Atomically reserve product stock for an order.
 
-    This prevents two simultaneous checkouts/payment confirmations from pushing
-    stock below zero. If any product cannot be reserved, already reserved items
-    are rolled back immediately.
+    Bundle orders reserve stock from every child product inside the bundle.
+    This prevents stale bundle stock from being sold when any child product is
+    missing, inactive, or lower than required bundle quantity.
     """
     reserved_items = []
 
     for item in order_items or []:
-        product_id = item.get("product_id")
-        qty = _money_float(item.get("quantity") if item.get("quantity") is not None else item.get("cart_quantity"), 0.0)
+        for stock_item in _order_item_reserved_products(item):
+            product_id = stock_item.get("product_id")
+            qty = _money_float(stock_item.get("quantity"), 0.0)
 
-        if not product_id or qty <= 0:
-            continue
+            if not product_id or qty <= 0:
+                continue
 
-        result = mongo.products.update_one(
-            {
-                "_id": product_id,
-                "is_active": 1,
-                "stock_quantity": {"$gte": qty},
-            },
-            {"$inc": {"stock_quantity": -qty}}
-        )
-
-        if result.modified_count != 1:
-            _release_order_stock_items(reserved_items)
-            return False, f"{item.get('product_name') or 'One product'} is out of stock or quantity is no longer available."
-
-        reserved_items.append({"product_id": product_id, "quantity": qty})
-
-        updated_product = mongo.products.find_one({"_id": product_id})
-        if updated_product and float(updated_product.get("stock_quantity") or 0) <= 0:
-            mongo.products.update_one(
-                {"_id": product_id},
-                {"$set": {"stock_quantity": 0, "is_active": 0}}
+            result = mongo.products.update_one(
+                {
+                    "_id": product_id,
+                    "is_active": 1,
+                    "stock_quantity": {"$gte": qty},
+                },
+                {"$inc": {"stock_quantity": -qty}}
             )
+
+            if result.modified_count != 1:
+                _release_order_stock_items(reserved_items)
+                return False, f"{stock_item.get('product_name') or 'One product'} is out of stock or quantity is no longer available."
+
+            reserved_items.append({"product_id": product_id, "quantity": qty})
+
+            updated_product = mongo.products.find_one({"_id": product_id})
+            if updated_product and float(updated_product.get("stock_quantity") or 0) <= 0:
+                mongo.products.update_one(
+                    {"_id": product_id},
+                    {"$set": {"stock_quantity": 0, "is_active": 0}}
+                )
 
     return True, ""
 
@@ -60,17 +125,18 @@ def _reserve_order_stock_items(order_items):
 def _release_order_stock_items(order_items):
     """Return stock for a cancelled/expired/rolled-back order attempt."""
     for item in order_items or []:
-        product_id = item.get("product_id")
-        qty = _money_float(item.get("quantity") if item.get("quantity") is not None else item.get("cart_quantity"), 0.0)
+        for stock_item in _order_item_reserved_products(item):
+            product_id = stock_item.get("product_id")
+            qty = _money_float(stock_item.get("quantity"), 0.0)
 
-        if product_id and qty > 0:
-            mongo.products.update_one(
-                {"_id": product_id},
-                {
-                    "$inc": {"stock_quantity": qty},
-                    "$set": {"is_active": 1},
-                }
-            )
+            if product_id and qty > 0:
+                mongo.products.update_one(
+                    {"_id": product_id},
+                    {
+                        "$inc": {"stock_quantity": qty},
+                        "$set": {"is_active": 1},
+                    }
+                )
 
 
 def normalize_order_money_fields(order_doc):
@@ -617,22 +683,7 @@ def order_cancel(oid):
 
     order_items = list(mongo.order_items.find({"order_id": oid_obj}))
 
-    for line in order_items:
-        product_id = line.get("product_id")
-        restore_qty = float(line.get("quantity") or line.get("cart_quantity") or 0)
-
-        if product_id and restore_qty > 0:
-            mongo.products.update_one(
-                {"_id": product_id},
-                {
-                    "$inc": {
-                        "stock_quantity": restore_qty
-                    },
-                    "$set": {
-                        "is_active": 1
-                    }
-                }
-            )
+    _release_order_stock_items(order_items)
 
     now = datetime.utcnow().isoformat()
 
@@ -1017,6 +1068,208 @@ def order_return_request(oid):
     return redirect(url_for("order_track", oid=oid))
 
 
+
+def _checkout_safe_object_id(value):
+    try:
+        if ObjectId.is_valid(str(value)):
+            return ObjectId(str(value))
+    except Exception:
+        pass
+
+    return None
+
+
+def _checkout_hydrate_cart_product_item(ci):
+    product = mongo.products.find_one({"_id": ci.get("product_id")})
+
+    if not product and ci.get("product_id"):
+        product_obj_id = _checkout_safe_object_id(ci.get("product_id"))
+        if product_obj_id:
+            product = mongo.products.find_one({"_id": product_obj_id})
+
+    if not product:
+        return None
+
+    hydrate_product_unit_fields(product)
+
+    quantity = cart_item_quantity(ci)
+    unit_type = ci.get("unit_type") or product.get("unit_type") or "WEIGHT"
+    unit_label = ci.get("unit_label") or product.get("unit_label") or "kg"
+
+    price_per_unit = float(
+        ci.get("price_per_unit_snapshot")
+        if ci.get("price_per_unit_snapshot") is not None
+        else product.get("price_per_unit") or 0
+    )
+
+    stock_quantity = float(product.get("stock_quantity") or 0)
+    line_total = float(quantity or 0) * float(price_per_unit or 0)
+
+    return {
+        "item_type": "product",
+        "is_bundle": False,
+        "product_id": product["_id"],
+        "product_id_str": str(product["_id"]),
+        "bundle_id": "",
+        "bundle_id_str": "",
+        "quantity": quantity,
+        "cart_quantity": quantity,
+        "unit_type": unit_type,
+        "unit_label": unit_label,
+        "price_per_unit": price_per_unit,
+        "stock_quantity": stock_quantity,
+        "quantity_min": float(product.get("quantity_min") or 1),
+        "quantity_step": float(product.get("quantity_step") or 1),
+        "line_total": line_total,
+        "store_id": product.get("store_id"),
+        "is_active": int(product.get("is_active") or 0),
+        "name": product.get("name", ""),
+        "product_name": product.get("name", ""),
+        "image_path": product.get("image_path", ""),
+        "shipping_weight_kg": product.get("shipping_weight_kg"),
+        "shipping_length_cm": product.get("shipping_length_cm"),
+        "shipping_breadth_cm": product.get("shipping_breadth_cm"),
+        "shipping_height_cm": product.get("shipping_height_cm")
+    }
+
+
+def _checkout_hydrate_cart_bundle_item(ci):
+    bundle_id_raw = ci.get("bundle_id") or ci.get("bundle_id_str")
+    bundle_obj_id = _checkout_safe_object_id(bundle_id_raw)
+
+    bundle = None
+
+    if bundle_obj_id:
+        bundle = mongo.product_bundles.find_one({"_id": bundle_obj_id})
+
+    if not bundle and bundle_id_raw:
+        bundle = mongo.product_bundles.find_one({"bundle_id_str": str(bundle_id_raw)})
+
+    if not bundle:
+        return None
+
+    bundle = build_live_product_bundle(
+        bundle,
+        notify_store=True,
+        notification_context="checkout"
+    ) or bundle
+
+    quantity = int(cart_item_quantity(ci) or 1)
+
+    ok, error = validate_product_bundle_for_cart(bundle, quantity=quantity)
+
+    if not ok:
+        return {
+            "item_type": "bundle",
+            "is_bundle": True,
+            "invalid_bundle": True,
+            "bundle_error": error,
+            "name": bundle.get("bundle_name") or "Product Bundle",
+            "bundle_name_snapshot": bundle.get("bundle_name") or "Product Bundle",
+            "store_id": bundle.get("store_id"),
+            "is_active": int(bundle.get("is_active", 0) or 0),
+            "stock_quantity": int(bundle.get("max_bundle_stock") or 0),
+            "quantity": quantity,
+            "cart_quantity": quantity,
+            "line_total": 0,
+        }
+
+    bundle_price = float(bundle.get("bundle_price") or 0)
+    line_total = round(bundle_price * quantity, 2)
+
+    return {
+        "item_type": "bundle",
+        "is_bundle": True,
+        "invalid_bundle": False,
+        "product_id": None,
+        "product_id_str": "",
+        "bundle_id": bundle.get("_id"),
+        "bundle_id_str": str(bundle.get("_id")),
+        "bundle_name_snapshot": bundle.get("bundle_name") or "Product Bundle",
+        "name": bundle.get("bundle_name") or "Product Bundle",
+        "product_name": bundle.get("bundle_name") or "Product Bundle",
+        "description": bundle.get("description") or "",
+        "bundle_items_snapshot": bundle.get("items") or [],
+        "bundle_savings_snapshot": float(bundle.get("savings_amount") or 0),
+        "items_total_snapshot": float(bundle.get("items_total") or 0),
+        "quantity": quantity,
+        "cart_quantity": quantity,
+        "unit_type": "COUNT",
+        "unit_label": "bundle",
+        "price_per_unit": bundle_price,
+        "stock_quantity": int(bundle.get("max_bundle_stock") or 0),
+        "quantity_min": 1,
+        "quantity_step": 1,
+        "line_total": line_total,
+        "store_id": bundle.get("store_id"),
+        "is_active": int(bundle.get("is_active", 1) or 0),
+        "image_path": bundle.get("image_path", ""),
+        "shipping_weight_kg": None,
+        "shipping_length_cm": None,
+        "shipping_breadth_cm": None,
+        "shipping_height_cm": None
+    }
+
+
+def _checkout_hydrate_cart_item(ci):
+    item_type = (ci.get("item_type") or "product").strip().lower()
+
+    if item_type == "bundle" or ci.get("bundle_id"):
+        return _checkout_hydrate_cart_bundle_item(ci)
+
+    return _checkout_hydrate_cart_product_item(ci)
+
+
+def _checkout_order_item_doc_from_item(it):
+    if it.get("is_bundle"):
+        return {
+            "item_type": "bundle",
+            "product_id": None,
+            "bundle_id": it.get("bundle_id"),
+            "bundle_id_str": it.get("bundle_id_str"),
+            "bundle_name_snapshot": it.get("bundle_name_snapshot") or it.get("name") or "Product Bundle",
+            "product_name": it.get("bundle_name_snapshot") or it.get("name") or "Product Bundle",
+            "name": it.get("bundle_name_snapshot") or it.get("name") or "Product Bundle",
+            "quantity": int(it.get("quantity") or 1),
+            "cart_quantity": int(it.get("quantity") or 1),
+            "unit_type": "COUNT",
+            "unit_label": "bundle",
+            "quantity_min": 1,
+            "quantity_step": 1,
+            "price_per_unit": float(it.get("price_per_unit") or 0),
+            "unit_price": float(it.get("price_per_unit") or 0),
+            "line_total": float(it.get("line_total") or 0),
+            "image_path": it.get("image_path", ""),
+            "bundle_items_snapshot": it.get("bundle_items_snapshot") or [],
+            "bundle_savings_snapshot": float(it.get("bundle_savings_snapshot") or 0),
+            "items_total_snapshot": float(it.get("items_total_snapshot") or 0),
+            "shipping_weight_kg": it.get("shipping_weight_kg"),
+            "shipping_length_cm": it.get("shipping_length_cm"),
+            "shipping_breadth_cm": it.get("shipping_breadth_cm"),
+            "shipping_height_cm": it.get("shipping_height_cm")
+        }
+
+    return {
+        "item_type": "product",
+        "product_id": it["product_id"],
+        "product_name": it.get("name", ""),
+        "quantity": float(it["quantity"]),
+        "cart_quantity": float(it["quantity"]),
+        "unit_type": it.get("unit_type") or "WEIGHT",
+        "unit_label": it.get("unit_label") or "kg",
+        "quantity_min": float(it.get("quantity_min") or 1),
+        "quantity_step": float(it.get("quantity_step") or 1),
+        "price_per_unit": float(it["price_per_unit"]),
+        "unit_price": float(it["price_per_unit"]),
+        "line_total": float(it.get("line_total") or (float(it["quantity"]) * float(it["price_per_unit"]))),
+        "image_path": it.get("image_path", ""),
+        "shipping_weight_kg": it.get("shipping_weight_kg"),
+        "shipping_length_cm": it.get("shipping_length_cm"),
+        "shipping_breadth_cm": it.get("shipping_breadth_cm"),
+        "shipping_height_cm": it.get("shipping_height_cm")
+    }
+
+
 @app.route('/checkout', methods=['GET', 'POST'])
 @login_required()
 def checkout():
@@ -1038,46 +1291,14 @@ def checkout():
     items = []
 
     for ci in cart_items:
-        product = mongo.products.find_one({"_id": ci.get("product_id")})
-        if not product:
+        item = _checkout_hydrate_cart_item(ci)
+
+        if not item:
             continue
 
-        hydrate_product_unit_fields(product)
-
-        quantity = cart_item_quantity(ci)
-        unit_type = ci.get("unit_type") or product.get("unit_type") or "WEIGHT"
-        unit_label = ci.get("unit_label") or product.get("unit_label") or "kg"
-
-        price_per_unit = float(
-            ci.get("price_per_unit_snapshot")
-            if ci.get("price_per_unit_snapshot") is not None
-            else product.get("price_per_unit") or 0
-        )
-
-        stock_quantity = float(product.get("stock_quantity") or 0)
-        line_total = float(quantity or 0) * float(price_per_unit or 0)
-
-        item = {
-            "product_id": product["_id"],
-            "product_id_str": str(product["_id"]),
-            "quantity": quantity,
-            "cart_quantity": quantity,
-            "unit_type": unit_type,
-            "unit_label": unit_label,
-            "price_per_unit": price_per_unit,
-            "stock_quantity": stock_quantity,
-            "quantity_min": float(product.get("quantity_min") or 1),
-            "quantity_step": float(product.get("quantity_step") or 1),
-            "line_total": line_total,
-            "store_id": product.get("store_id"),
-            "is_active": int(product.get("is_active") or 0),
-            "name": product.get("name", ""),
-            "image_path": product.get("image_path", ""),
-            "shipping_weight_kg": product.get("shipping_weight_kg"),
-            "shipping_length_cm": product.get("shipping_length_cm"),
-            "shipping_breadth_cm": product.get("shipping_breadth_cm"),
-            "shipping_height_cm": product.get("shipping_height_cm")
-        }
+        if item.get("invalid_bundle"):
+            flash(item.get("bundle_error") or "One product bundle is no longer available. Please update your cart.", "danger")
+            return redirect(url_for("cart_page"))
 
         items.append(item)
 
@@ -1443,26 +1664,7 @@ def checkout():
         order_items_docs = []
 
         for it in items:
-            line_total = float(it["quantity"]) * float(it["price_per_unit"])
-
-            order_items_docs.append({
-                "product_id": it["product_id"],
-                "product_name": it.get("name", ""),
-                "quantity": float(it["quantity"]),
-                "cart_quantity": float(it["quantity"]),
-                "unit_type": it.get("unit_type") or "WEIGHT",
-                "unit_label": it.get("unit_label") or "kg",
-                "quantity_min": float(it.get("quantity_min") or 1),
-                "quantity_step": float(it.get("quantity_step") or 1),
-                "price_per_unit": float(it["price_per_unit"]),
-                "unit_price": float(it["price_per_unit"]),
-                "line_total": line_total,
-                "image_path": it.get("image_path", ""),
-                "shipping_weight_kg": it.get("shipping_weight_kg"),
-                "shipping_length_cm": it.get("shipping_length_cm"),
-                "shipping_breadth_cm": it.get("shipping_breadth_cm"),
-                "shipping_height_cm": it.get("shipping_height_cm")
-            })
+            order_items_docs.append(_checkout_order_item_doc_from_item(it))
 
         order_result = mongo.orders.insert_one({
             "user_id": u["id"],
@@ -2364,36 +2566,32 @@ def api_checkout_serviceability():
     quote_items = []
 
     for ci in cart_items:
-        product = mongo.products.find_one({"_id": ci.get("product_id")})
+        item = _checkout_hydrate_cart_item(ci)
 
-        if not product:
+        if not item or item.get("invalid_bundle"):
             continue
 
-        hydrate_product_unit_fields(product)
-
-        store_id = product.get("store_id")
+        store_id = item.get("store_id")
 
         if store_id:
             store_ids.append(str(store_id))
 
-        quantity = cart_item_quantity(ci)
-
-        price_per_unit = float(
-            ci.get("price_per_unit_snapshot")
-            if ci.get("price_per_unit_snapshot") is not None
-            else product.get("price_per_unit") or 0
-        )
+        quantity = item.get("quantity") or item.get("cart_quantity") or 1
+        price_per_unit = float(item.get("price_per_unit") or 0)
 
         items_total += float(quantity or 0) * float(price_per_unit or 0)
 
         quote_items.append({
-            "product_id": product.get("_id"),
+            "item_type": item.get("item_type") or "product",
+            "is_bundle": bool(item.get("is_bundle")),
+            "product_id": item.get("product_id"),
+            "bundle_id": item.get("bundle_id"),
             "quantity": quantity,
             "cart_quantity": quantity,
-            "shipping_weight_kg": product.get("shipping_weight_kg"),
-            "shipping_length_cm": product.get("shipping_length_cm"),
-            "shipping_breadth_cm": product.get("shipping_breadth_cm"),
-            "shipping_height_cm": product.get("shipping_height_cm"),
+            "shipping_weight_kg": item.get("shipping_weight_kg"),
+            "shipping_length_cm": item.get("shipping_length_cm"),
+            "shipping_breadth_cm": item.get("shipping_breadth_cm"),
+            "shipping_height_cm": item.get("shipping_height_cm"),
         })
 
     unique_store_ids = sorted(set(store_ids))

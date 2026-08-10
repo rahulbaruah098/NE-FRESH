@@ -14,14 +14,36 @@ def products():
     if session.get("service_area") and not allow:
         flash("Please enter a valid 6-digit pincode.", "warning")
         products = []
+        product_bundles = []
     else:
         products = list(mongo.products.find({
         "is_active": 1
         }).sort("created_at", -1))
 
+        product_bundles = list(
+            mongo.product_bundles.find({
+                "$and": [
+                    {
+                        "$or": [
+                            {"is_active": 1},
+                            {"is_active": True}
+                        ]
+                    },
+                    {
+                        "$or": [
+                            {"is_deleted": {"$exists": False}},
+                            {"is_deleted": 0},
+                            {"is_deleted": False}
+                        ]
+                    }
+                ]
+            }).sort("updated_at", -1)
+        )
+
     u = current_user()
 
     cart_lookup = {}
+    bundle_cart_lookup = {}
 
     if u and u.get("role") == "customer":
         cid = get_or_create_cart(u["id"])
@@ -31,6 +53,19 @@ def products():
         }))
 
         for ci in cart_items:
+            item_type = (ci.get("item_type") or "product").strip().lower()
+
+            if item_type == "bundle" or ci.get("bundle_id"):
+                bundle_id_value = ci.get("bundle_id") or ci.get("bundle_id_str")
+
+                if bundle_id_value:
+                    bundle_cart_lookup[str(bundle_id_value)] = {
+                        "cart_item_id": str(ci.get("_id")),
+                        "cart_quantity": cart_item_quantity(ci)
+                    }
+
+                continue
+
             product_id_value = ci.get("product_id")
 
             if product_id_value:
@@ -130,11 +165,293 @@ def products():
         p["store_avg_rating"] = store_rating_avg
         p["store_rating_count"] = store_rating_count
 
+    visible_product_bundles = []
+
+    for b in product_bundles:
+        b = build_live_product_bundle(
+            b,
+            notify_store=True,
+            notification_context="public_products"
+        ) or b
+
+        if not is_product_bundle_customer_available(b):
+            continue
+
+        b["id"] = str(b.get("_id"))
+
+        bundle_cart_info = bundle_cart_lookup.get(str(b.get("_id")))
+
+        if bundle_cart_info:
+            b["in_cart"] = True
+            b["cart_item_id"] = bundle_cart_info.get("cart_item_id", "")
+            b["cart_quantity"] = bundle_cart_info.get("cart_quantity", 1)
+        else:
+            b["in_cart"] = False
+            b["cart_item_id"] = ""
+            b["cart_quantity"] = 0
+
+        store = None
+        store_id = b.get("store_id")
+
+        if store_id:
+            try:
+                store = mongo.stores.find_one({"_id": store_id})
+            except Exception:
+                store = None
+
+        if not store and store_id:
+            try:
+                store = mongo.stores.find_one({"_id": ObjectId(str(store_id))})
+            except Exception:
+                store = None
+
+        b["store_name"] = b.get("store_name") or (store.get("store_name") if store else "")
+        b["store_id"] = str(store_id) if store_id else b.get("store_id_str", "")
+
+        visible_product_bundles.append(b)
+
+    product_bundles = visible_product_bundles
+
     return render_template(
         'products.html',
         products=products,
+        product_bundles=product_bundles,
         user=u
     )
+
+
+def _suggestion_safe_object_id(value):
+    try:
+        if ObjectId.is_valid(str(value)):
+            return ObjectId(str(value))
+    except Exception:
+        pass
+    return None
+
+
+def _suggestion_store_values(store_id):
+    values = []
+    seen = set()
+
+    for value in [store_id, str(store_id or "")]:
+        if value in (None, ""):
+            continue
+
+        key = str(value)
+        if key not in seen:
+            values.append(value)
+            seen.add(key)
+
+    obj_id = _suggestion_safe_object_id(store_id)
+    if obj_id is not None and str(obj_id) not in seen:
+        values.append(obj_id)
+
+    return values
+
+
+@app.route('/api/products/suggestions', methods=['GET'], endpoint='api_product_suggestions')
+def api_product_suggestions():
+    """
+    Suggested products shown only after a successful Add to Cart.
+
+    Rules:
+    - same store only
+    - active and in-stock products only
+    - same sub-category first, then same category
+    - exclude the product just added
+    - for a bundle, exclude all child products already inside that bundle
+    - exclude products already present in the customer's cart
+    """
+    item_type = (request.args.get("item_type") or "product").strip().lower()
+    product_id_raw = (request.args.get("product_id") or "").strip()
+    bundle_id_raw = (request.args.get("bundle_id") or "").strip()
+
+    try:
+        limit = int(request.args.get("limit") or 4)
+    except (TypeError, ValueError):
+        limit = 4
+
+    limit = max(1, min(limit, 5))
+
+    store_id = None
+    preferred_category = ""
+    preferred_sub_category = ""
+    excluded_ids = set()
+
+    if item_type == "bundle" or bundle_id_raw:
+        bundle_obj_id = _suggestion_safe_object_id(bundle_id_raw)
+
+        if not bundle_obj_id:
+            return jsonify({"ok": False, "suggestions": [], "msg": "Invalid bundle"}), 400
+
+        bundle = mongo.product_bundles.find_one({"_id": bundle_obj_id})
+
+        if not bundle:
+            return jsonify({"ok": False, "suggestions": [], "msg": "Product bundle not found"}), 404
+
+        bundle = build_live_product_bundle(
+            bundle,
+            notify_store=False,
+            notification_context="suggestions"
+        ) or bundle
+
+        store_id = bundle.get("store_id") or bundle.get("store_id_str")
+
+        child_categories = []
+        child_sub_categories = []
+
+        for child in bundle.get("items") or []:
+            child_product_id = child.get("product_id") or child.get("product_id_str")
+            child_obj_id = _suggestion_safe_object_id(child_product_id)
+
+            if child_obj_id:
+                excluded_ids.add(child_obj_id)
+
+                child_product = mongo.products.find_one({"_id": child_obj_id})
+                if child_product:
+                    category = (child_product.get("category") or "").strip()
+                    sub_category = (child_product.get("sub_category") or "").strip()
+
+                    if category:
+                        child_categories.append(category)
+
+                    if sub_category:
+                        child_sub_categories.append(sub_category)
+
+        if child_sub_categories:
+            preferred_sub_category = child_sub_categories[0]
+
+        if child_categories:
+            preferred_category = child_categories[0]
+
+    else:
+        product_obj_id = _suggestion_safe_object_id(product_id_raw)
+
+        if not product_obj_id:
+            return jsonify({"ok": False, "suggestions": [], "msg": "Invalid product"}), 400
+
+        source_product = mongo.products.find_one({"_id": product_obj_id})
+
+        if not source_product:
+            return jsonify({"ok": False, "suggestions": [], "msg": "Product not found"}), 404
+
+        excluded_ids.add(product_obj_id)
+        store_id = source_product.get("store_id") or source_product.get("store_id_str")
+        preferred_category = (source_product.get("category") or "").strip()
+        preferred_sub_category = (source_product.get("sub_category") or "").strip()
+
+    if not store_id:
+        return jsonify({"ok": True, "suggestions": []}), 200
+
+    user = current_user()
+
+    if user and user.get("role") == "customer":
+        cid = get_or_create_cart(user["id"])
+
+        for cart_item in mongo.cart_items.find({"cart_id": cid}, {"product_id": 1, "item_type": 1}):
+            cart_item_type = (cart_item.get("item_type") or "product").strip().lower()
+
+            if cart_item_type == "bundle":
+                continue
+
+            cart_product_id = _suggestion_safe_object_id(cart_item.get("product_id"))
+            if cart_product_id:
+                excluded_ids.add(cart_product_id)
+
+    store_values = _suggestion_store_values(store_id)
+    store_string_values = list({
+        str(value)
+        for value in store_values
+        if value not in (None, "")
+    })
+
+    query = {
+        "$and": [
+            {
+                "$or": [
+                    {"store_id": {"$in": store_values}},
+                    {"store_id_str": {"$in": store_string_values}}
+                ]
+            },
+            {
+                "$or": [
+                    {"is_active": 1},
+                    {"is_active": True}
+                ]
+            },
+            {"stock_quantity": {"$gt": 0}}
+        ]
+    }
+
+    if excluded_ids:
+        query["$and"].append({"_id": {"$nin": list(excluded_ids)}})
+
+    candidates = list(
+        mongo.products.find(query).sort("created_at", -1).limit(40)
+    )
+
+    def suggestion_rank(product):
+        category = (product.get("category") or "").strip()
+        sub_category = (product.get("sub_category") or "").strip()
+
+        same_sub = bool(
+            preferred_sub_category
+            and sub_category
+            and sub_category.casefold() == preferred_sub_category.casefold()
+        )
+        same_category = bool(
+            preferred_category
+            and category
+            and category.casefold() == preferred_category.casefold()
+        )
+
+        if same_sub:
+            return 0
+
+        if same_category:
+            return 1
+
+        return 2
+
+    candidates.sort(key=suggestion_rank)
+
+    suggestions = []
+
+    for product in candidates[:limit]:
+        hydrate_product_unit_fields(product)
+
+        price = float(product.get("price_per_unit") or 0)
+        original_price = float(product.get("original_price_per_unit") or price)
+        quantity_min = float(product.get("quantity_min") or 1)
+        quantity_step = float(product.get("quantity_step") or quantity_min or 1)
+        stock_quantity = float(product.get("stock_quantity") or 0)
+
+        suggestions.append({
+            "id": str(product["_id"]),
+            "name": product.get("name") or "Product",
+            "image_path": product.get("image_path") or "",
+            "category": (product.get("category") or "").strip(),
+            "sub_category": (product.get("sub_category") or "").strip(),
+            "store_id": str(product.get("store_id") or product.get("store_id_str") or ""),
+            "store_name": product.get("store_name") or "",
+            "unit_type": product.get("unit_type") or "WEIGHT",
+            "unit_label": product.get("unit_label") or "kg",
+            "quantity_min": quantity_min,
+            "quantity_step": quantity_step,
+            "stock_quantity": stock_quantity,
+            "price_per_unit": price,
+            "original_price_per_unit": original_price,
+            "has_discount": bool(
+                product.get("discount_enabled")
+                and original_price > price
+            )
+        })
+
+    return jsonify({
+        "ok": True,
+        "suggestions": suggestions
+    }), 200
+
 
 @app.route('/api/ratings/product/<pid>')
 def api_product_rating(pid):

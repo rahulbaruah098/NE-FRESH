@@ -144,15 +144,35 @@
     top:-8px;
     width:18px;
     height:18px;
+    border:0;
+    padding:0;
     border-radius:50%;
     display:grid;
     place-items:center;
     background:#111;
     color:#fff;
+    font:inherit;
     font-size:.66rem;
     font-weight:900;
     line-height:1;
     box-shadow:0 4px 10px rgba(0,0,0,.12);
+    cursor:pointer;
+    z-index:4;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  .summary-remove:hover{
+    background:#B91C1C;
+  }
+
+  .summary-remove:focus-visible{
+    outline:3px solid rgba(0,168,89,.24);
+    outline-offset:2px;
+  }
+
+  .summary-remove:disabled{
+    opacity:.5;
+    cursor:not-allowed;
   }
 
   .summary-thumb{
@@ -3325,6 +3345,139 @@
     }
   }
 
+
+
+  /* ==========================================================
+     NELOCALS CHECKOUT CART QUANTITY CONTROLS
+     Only affects quantity controls and their inline feedback.
+     Existing checkout/payment/delivery styling remains unchanged.
+  ========================================================== */
+  .checkout-page .checkout-qty-wrap{
+    display:grid;
+    grid-template-columns:34px minmax(70px,110px) 34px;
+    align-items:center;
+    gap:6px;
+    width:max-content;
+    max-width:100%;
+    margin-top:10px;
+  }
+
+  .checkout-page .checkout-qty-btn{
+    width:34px;
+    height:34px;
+    display:grid;
+    place-items:center;
+    border:1px solid rgba(0,168,89,.16);
+    border-radius:10px;
+    background:#fff;
+    color:var(--nf-green-dark);
+    font:inherit;
+    font-size:1rem;
+    font-weight:950;
+    line-height:1;
+    cursor:pointer;
+    transition:background .18s var(--nf-ease),border-color .18s var(--nf-ease),transform .18s var(--nf-ease),opacity .18s var(--nf-ease);
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  .checkout-page .checkout-qty-btn:hover:not(:disabled){
+    background:var(--nf-green-soft);
+    border-color:rgba(0,168,89,.30);
+    transform:translateY(-1px);
+  }
+
+  .checkout-page .checkout-qty-btn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+    transform:none;
+  }
+
+  .checkout-page .checkout-qty-input{
+    width:100%;
+    min-width:0;
+    height:34px;
+    border:1px solid rgba(0,168,89,.16);
+    border-radius:10px;
+    background:#fff;
+    color:var(--nf-ink);
+    outline:none;
+    padding:0 8px;
+    text-align:center;
+    font:inherit;
+    font-size:.78rem;
+    font-weight:950;
+    appearance:textfield;
+    -moz-appearance:textfield;
+  }
+
+  .checkout-page .checkout-qty-input::-webkit-outer-spin-button,
+  .checkout-page .checkout-qty-input::-webkit-inner-spin-button{
+    margin:0;
+    -webkit-appearance:none;
+  }
+
+  .checkout-page .checkout-qty-input:focus{
+    border-color:rgba(0,168,89,.45);
+    box-shadow:0 0 0 4px rgba(0,168,89,.08);
+  }
+
+  .checkout-page .checkout-qty-hint{
+    display:none;
+    width:100%;
+    max-width:360px;
+    margin-top:6px;
+    padding:7px 9px;
+    border-radius:10px;
+    font-size:.68rem;
+    line-height:1.4;
+    font-weight:850;
+    overflow-wrap:anywhere;
+  }
+
+  .checkout-page .checkout-qty-hint.show{ display:block; }
+  .checkout-page .checkout-qty-hint.error{
+    color:#B91C1C;
+    background:#FFF1F2;
+    border:1px solid rgba(185,28,28,.14);
+  }
+  .checkout-page .checkout-qty-hint.success{
+    color:var(--nf-green-dark);
+    background:var(--nf-green-soft);
+    border:1px solid rgba(0,168,89,.14);
+  }
+
+  .checkout-page .summary-item.is-qty-updating,
+  .checkout-page .summary-item.is-removing{
+    opacity:.72;
+    pointer-events:none;
+  }
+
+  .checkout-page .summary-item.is-removing{
+    transition:opacity .18s var(--nf-ease);
+  }
+
+  @media(max-width:720px){
+    .checkout-page .checkout-qty-wrap{
+      grid-template-columns:34px minmax(70px,100px) 34px;
+      margin-top:9px;
+    }
+  }
+
+  @media(max-width:390px){
+    .checkout-page .checkout-qty-wrap{
+      grid-template-columns:32px minmax(62px,92px) 32px;
+      gap:5px;
+    }
+
+    .checkout-page .checkout-qty-btn,
+    .checkout-page .checkout-qty-input{
+      height:32px;
+    }
+
+    .checkout-page .checkout-qty-btn{
+      width:32px;
+    }
+  }
 </style>
 
 <section class="checkout-page" data-page="checkout"
@@ -3372,22 +3525,75 @@
               {% set price = item.price_per_unit or 0 %}
               {% set line_total = item.line_total if item.line_total is not none else (qty * price) %}
 
-              <article class="summary-item">
-                <span class="summary-remove" aria-hidden="true">×</span>
-                <a class="summary-thumb" href="{{ url_for('product_detail', pid=item.product_id_str) }}" aria-label="{{ item.name }}">
-                  <img src="{{ img }}" alt="{{ item.name }}">
-                  <span class="summary-qty-badge">{{ '%g'|format(qty) }}</span>
-                 
-                </a>
+              <article class="summary-item"
+                       data-checkout-item="1"
+                       data-cart-item-id=""
+                       data-item-type="{{ 'bundle' if item.is_bundle else 'product' }}"
+                       data-product-id="{{ item.product_id_str if not item.is_bundle else '' }}"
+                       data-bundle-id="{{ item.bundle_id_str if item.is_bundle else '' }}"
+                       data-quantity="{{ '%g'|format(qty) }}"
+                       data-line-total="{{ '%.2f'|format(line_total) }}"
+                       data-stock="{{ item.stock_quantity or 0 }}"
+                       data-min="{{ item.quantity_min or 1 }}"
+                       data-step="{{ item.quantity_step or 1 }}"
+                       data-unit-label="{{ unit_label if not item.is_bundle else 'bundle' }}">
+                <button type="button" class="summary-remove" data-remove-cart-item aria-label="Remove {{ item.name }} from checkout">×</button>
+
+                {% if item.is_bundle %}
+                  <span class="summary-thumb" aria-label="{{ item.name }}">
+                    <img src="{{ img }}" alt="{{ item.name }}">
+                  </span>
+                {% else %}
+                  <a class="summary-thumb" href="{{ url_for('product_detail', pid=item.product_id_str) }}" aria-label="{{ item.name }}">
+                    <img src="{{ img }}" alt="{{ item.name }}">
+                  </a>
+                {% endif %}
 
                 <div class="summary-info">
-                  <h2 class="summary-name">{{ item.name }}</h2>
-                  <p class="summary-desc">{{ item.store_name or item.category_name or 'Selected product' }}</p>
-                  <div class="summary-meta" aria-label="Item details">
-                    <span>Qty&nbsp; {{ '%g'|format(qty) }}</span>
-                    <span>{{ unit_label }}</span>
-                    <span>₹{{ '%.2f'|format(price) }}</span>
+                  <h2 class="summary-name">
+                    {% if item.is_bundle %}
+                      <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border-radius:999px;background:#E9FFF3;color:#008A48;font-size:.72rem;font-weight:950;text-transform:uppercase;margin-right:6px;">Bundle</span>
+                    {% endif %}
+                    {{ item.name }}
+                  </h2>
+
+                  {% if item.is_bundle %}
+                    <p class="summary-desc">Product bundle · {{ item.bundle_items_snapshot|length }} included product{% if item.bundle_items_snapshot|length != 1 %}s{% endif %}</p>
+
+                    {% if item.bundle_items_snapshot %}
+                      <div class="summary-meta" aria-label="Bundle included products" style="flex-wrap:wrap;">
+                        {% for child in item.bundle_items_snapshot %}
+                          <span>{{ child.product_name_snapshot or 'Product' }} × {{ '%g'|format(child.quantity|default(1)) }} {{ child.unit_label_snapshot|default('unit') }}</span>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+
+                    {% if item.bundle_savings_snapshot and item.bundle_savings_snapshot > 0 %}
+                      <p class="summary-desc" style="color:#008A48;font-weight:900;">Bundle savings ₹{{ '%.2f'|format(item.bundle_savings_snapshot) }}</p>
+                    {% endif %}
+                  {% else %}
+                    <p class="summary-desc">{{ item.store_name or item.category_name or 'Selected product' }}</p>
+                    <div class="summary-meta" aria-label="Item details">
+                      <span>{{ unit_label }}</span>
+                      <span>₹{{ '%.2f'|format(price) }}</span>
+                    </div>
+                  {% endif %}
+
+                  <div class="checkout-qty-wrap" aria-label="Change quantity">
+                    <button type="button" class="checkout-qty-btn" data-qty-minus aria-label="Decrease quantity">−</button>
+                    <input
+                      class="checkout-qty-input"
+                      data-qty-input
+                      type="number"
+                      value="{{ '%g'|format(qty) }}"
+                      min="{{ item.quantity_min or 1 }}"
+                      step="{{ item.quantity_step or 1 }}"
+                      inputmode="decimal"
+                      aria-label="Quantity for {{ item.name }}"
+                    >
+                    <button type="button" class="checkout-qty-btn" data-qty-plus aria-label="Increase quantity">+</button>
                   </div>
+                  <div class="checkout-qty-hint" data-qty-hint role="status" aria-live="polite"></div>
                 </div>
 
                 <div class="summary-price">₹{{ '%.2f'|format(line_total) }}</div>
@@ -3678,7 +3884,7 @@
               </button>
               <div id="checkoutDisabledReason" class="checkout-disabled-reason" role="alert" aria-live="polite"></div>
               <div class="powered-row">
-                <span>Powered by NE FRESH</span>
+                <span>Powered by NE LOCALS</span>
                 <span>Terms</span>
                 <span>Privacy</span>
               </div>
@@ -3759,11 +3965,12 @@
 </div>
 
     <script>
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const BASE_DELIVERY_FEE = Number({{ (base_fee|default(40))|tojson }});
   const MAX_DELIVERY_KM   = Number({{ (max_km|default(10.0))|tojson }});
   const SLABS_RAW         = {{ (slabs|default([(0,2,0),(2,5,15),(5,7,25),(7,10,35)]))|tojson }};
-  const ITEMS_TOTAL       = Number({{ (total|default(0))|tojson }}) || 0;
+  const INITIAL_ITEMS_TOTAL = Number({{ (total|default(0))|tojson }}) || 0;
+  let checkoutItemsTotal = INITIAL_ITEMS_TOTAL;
   const ONLINE_PAYMENT_ENABLED = Boolean({{ (online_payment_enabled|default(false))|tojson }});
   const DELIVERY_MODE_COD_ALLOWED = Boolean({{ (mode_cod_allowed|default(true))|tojson }});
   const DELIVERY_MODE_ONLINE_ALLOWED = Boolean({{ (mode_online_allowed|default(true))|tojson }});
@@ -3782,6 +3989,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const totalPayableEl = document.getElementById('total-payable');
   const totalBreakdown = document.getElementById('total-breakdown');
+  const summaryItemsTotalValue = document.getElementById('summary-items-total-value');
 
 const payItemsTotal = document.getElementById('pay-items-total');
 const payDeliveryFee = document.getElementById('pay-delivery-fee');
@@ -3833,7 +4041,7 @@ const checkoutDeliveryModeNote = document.getElementById('checkoutDeliveryModeNo
 
   let pendingDetectedAddress = null;
 
-  const cartStoreCount = (() => {
+  let cartStoreCount = (() => {
     const v = page?.getAttribute('data-cart-store-count');
     const n = parseInt(v || "0", 10);
     return Number.isFinite(n) ? n : 0;
@@ -3881,7 +4089,472 @@ const checkoutDeliveryModeNote = document.getElementById('checkoutDeliveryModeNo
 
   let gpsCache = null;
 
+
     let lastServiceability = null;
+    let checkoutCartMap = new Map();
+    let checkoutQtyRequestSerial = 0;
+
+    function checkoutItemKey(item){
+      if (!item) return "";
+      if (item.is_bundle || item.item_type === "bundle") {
+        return `bundle:${String(item.bundle_id || "")}`;
+      }
+      return `product:${String(item.product_id || "")}`;
+    }
+
+    function checkoutCardKey(card){
+      if (!card) return "";
+      const type = card.dataset.itemType || "product";
+      if (type === "bundle") return `bundle:${String(card.dataset.bundleId || "")}`;
+      return `product:${String(card.dataset.productId || "")}`;
+    }
+
+    function checkoutFormatQuantity(value){
+      const n = Number(value);
+      if (!Number.isFinite(n)) return "0";
+      return Number.isInteger(n) ? String(n) : String(Number(n.toFixed(3)));
+    }
+
+    function checkoutGetCardQuantity(card){
+      const input = card?.querySelector('[data-qty-input]');
+      const value = Number(input?.value ?? card?.dataset.quantity ?? 0);
+      return Number.isFinite(value) ? value : 0;
+    }
+
+    function checkoutSetQtyHint(card, message, type = "error"){
+      const hint = card?.querySelector('[data-qty-hint]');
+      if (!hint) return;
+
+      hint.classList.remove("show", "error", "success");
+      hint.textContent = String(message || "");
+
+      if (message) {
+        hint.classList.add("show", type === "success" ? "success" : "error");
+      }
+    }
+
+    function checkoutSetQtyBusy(card, busy){
+      if (!card) return;
+      card.classList.toggle("is-qty-updating", !!busy);
+      card.querySelectorAll('[data-qty-minus], [data-qty-plus], [data-qty-input]').forEach(el => {
+        el.disabled = !!busy;
+      });
+    }
+
+    function checkoutSyncQtyButtons(card){
+      if (!card) return;
+      const input = card.querySelector('[data-qty-input]');
+      const minus = card.querySelector('[data-qty-minus]');
+      const plus = card.querySelector('[data-qty-plus]');
+      if (!input) return;
+
+      const quantity = checkoutGetCardQuantity(card);
+      const min = Number(card.dataset.min || input.min || 1) || 1;
+      const step = Number(card.dataset.step || input.step || 1) || 1;
+      const stock = Number(card.dataset.stock || 0);
+
+      if (minus) minus.disabled = quantity <= min + 1e-9;
+      // Keep + clickable at the stock limit so the customer receives the
+      // same clear stock-limit hint used on the product cards.
+      if (plus) plus.disabled = stock <= 0;
+
+      input.min = String(min);
+      input.step = String(step);
+    }
+
+    function checkoutApplyItemState(card, quantity, lineTotal, stockQuantity){
+      if (!card) return;
+
+      const input = card.querySelector('[data-qty-input]');
+      const price = card.querySelector('.summary-price');
+
+      if (Number.isFinite(Number(quantity))) {
+        const formatted = checkoutFormatQuantity(quantity);
+        card.dataset.quantity = formatted;
+        if (input) input.value = formatted;
+        if (card.dataset.checkoutControlsBound === '1') {
+          card.dataset.lastCommittedQuantity = formatted;
+        }
+      }
+
+      if (Number.isFinite(Number(stockQuantity))) {
+        card.dataset.stock = String(stockQuantity);
+      }
+
+      if (Number.isFinite(Number(lineTotal))) {
+        card.dataset.lineTotal = String(Number(lineTotal));
+        if (price) price.textContent = formatMoneyDisplay(Number(lineTotal));
+      }
+
+      checkoutSyncQtyButtons(card);
+    }
+
+    async function checkoutLoadCartMap(options = {}){
+      const refreshUi = options.refreshUi !== false;
+      try {
+        const res = await fetch('/api/cart', {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store'
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) return;
+
+        const liveItems = Array.isArray(data.items) ? data.items : [];
+        const liveStoreIds = new Set(
+          liveItems
+            .map(item => String(item?.store_id ?? '').trim())
+            .filter(Boolean)
+        );
+        cartStoreCount = liveStoreIds.size;
+        if (page) page.dataset.cartStoreCount = String(cartStoreCount);
+
+        checkoutCartMap = new Map();
+        liveItems.forEach(item => {
+          const key = checkoutItemKey(item);
+          if (key) checkoutCartMap.set(key, item);
+        });
+
+        document.querySelectorAll('[data-checkout-item="1"]').forEach(card => {
+          const live = checkoutCartMap.get(checkoutCardKey(card));
+          if (!live) return;
+
+          card.dataset.cartItemId = String(live.cart_item_id || live.id || '');
+          card.dataset.quantity = String(live.cart_quantity ?? live.quantity ?? card.dataset.quantity ?? '1');
+          card.dataset.stock = String(live.stock_quantity ?? card.dataset.stock ?? '0');
+          card.dataset.min = String(live.quantity_min ?? card.dataset.min ?? '1');
+          card.dataset.step = String(live.quantity_step ?? card.dataset.step ?? '1');
+
+          checkoutApplyItemState(
+            card,
+            Number(live.cart_quantity ?? live.quantity),
+            Number(live.line_total ?? 0),
+            Number(live.stock_quantity ?? card.dataset.stock ?? 0)
+          );
+        });
+
+        checkoutItemsTotal = Number(data.total || 0);
+        if (!Number.isFinite(checkoutItemsTotal)) checkoutItemsTotal = INITIAL_ITEMS_TOTAL;
+        if (refreshUi) {
+          updateUI(
+            BASE_DELIVERY_FEE,
+            clampTip(tipInput ? tipInput.value : 0),
+            "",
+            0,
+            "Platform Fee",
+            null
+          );
+        }
+      } catch (error) {
+        console.warn('Checkout cart hydration failed:', error);
+      }
+    }
+
+    function checkoutValidateQuantity(card, rawValue, options = {}){
+      const input = card?.querySelector('[data-qty-input]');
+      const currentQuantity = checkoutGetCardQuantity(card);
+      const min = Number(card?.dataset.min || input?.min || 1) || 1;
+      const step = Number(card?.dataset.step || input?.step || 1) || 1;
+      const stock = Number(card?.dataset.stock || 0);
+      const unitLabel = card?.dataset.unitLabel || 'unit';
+      const restoreOnError = options.restoreOnError === true;
+      const raw = String(rawValue ?? '').trim();
+
+      const fail = (message) => {
+        if (restoreOnError && input) {
+          input.value = checkoutFormatQuantity(currentQuantity);
+        }
+        checkoutSetQtyHint(card, message);
+        checkoutSyncQtyButtons(card);
+        return null;
+      };
+
+      if (!raw) {
+        return fail('Please enter a quantity.');
+      }
+
+      const quantity = Number(raw);
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        return fail('Please enter a valid quantity.');
+      }
+
+      if (quantity < min - 1e-9) {
+        return fail(`Minimum order quantity is ${checkoutFormatQuantity(min)} ${unitLabel}.`);
+      }
+
+      if (stock > 0 && quantity > stock + 1e-9) {
+        return fail(`Only ${checkoutFormatQuantity(stock)} ${unitLabel} stock is available.`);
+      }
+
+      const stepsFromMin = (quantity - min) / step;
+      if (Math.abs(stepsFromMin - Math.round(stepsFromMin)) > 1e-7) {
+        return fail(`Quantity must follow the ${checkoutFormatQuantity(step)} ${unitLabel} step.`);
+      }
+
+      return quantity;
+    }
+
+    async function checkoutUpdateQuantity(card, requestedQuantity){
+      if (!card || card.classList.contains('is-qty-updating')) return false;
+
+      const input = card.querySelector('[data-qty-input]');
+      const cartItemId = String(card.dataset.cartItemId || '').trim();
+      const currentQuantity = checkoutGetCardQuantity(card);
+      const quantity = checkoutValidateQuantity(card, requestedQuantity, { restoreOnError:true });
+
+      if (quantity === null) return false;
+
+      if (!cartItemId) {
+        checkoutSetQtyHint(card, 'Cart item is still loading. Please try again.');
+        return false;
+      }
+
+      const serial = ++checkoutQtyRequestSerial;
+      const previousLineTotal = Number(card.dataset.lineTotal || 0);
+      checkoutSetQtyBusy(card, true);
+      checkoutSetQtyHint(card, 'Updating quantity…', 'success');
+
+      try {
+        const res = await fetch('/api/cart/update', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({
+            item_id: cartItemId,
+            quantity: quantity
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.ok) {
+          if (input) input.value = checkoutFormatQuantity(currentQuantity);
+          checkoutSetQtyHint(card, data.msg || 'Unable to update this quantity.');
+          return false;
+        }
+
+        checkoutApplyItemState(
+          card,
+          Number(data.cart_quantity),
+          Number(data.line_total),
+          Number(data.stock_quantity ?? card.dataset.stock ?? 0)
+        );
+
+        const newLineTotal = Number(data.line_total || 0);
+        if (Number.isFinite(previousLineTotal) && Number.isFinite(newLineTotal)) {
+          checkoutItemsTotal = Math.max(0, checkoutItemsTotal - previousLineTotal + newLineTotal);
+        }
+
+        // Re-read the cart so the checkout subtotal and store state remain authoritative.
+        try {
+          await checkoutLoadCartMap({refreshUi:false});
+        } catch (cartReadError) {
+          console.warn('Checkout cart refresh failed; using updated line total.', cartReadError);
+        }
+
+        checkoutSetQtyHint(card, 'Quantity updated.', 'success');
+        await recalc();
+
+        if (serial === checkoutQtyRequestSerial) {
+          setTimeout(() => checkoutSetQtyHint(card, ''), 1800);
+        }
+
+        return true;
+      } catch (error) {
+        if (input) input.value = checkoutFormatQuantity(currentQuantity);
+        checkoutSetQtyHint(card, error?.message || 'Unable to update this quantity.');
+        return false;
+      } finally {
+        checkoutSetQtyBusy(card, false);
+        checkoutSyncQtyButtons(card);
+      }
+    }
+
+    async function checkoutRemoveItem(card){
+      if (!card || card.classList.contains('is-qty-updating') || card.classList.contains('is-removing')) return;
+
+      const cartItemId = String(card.dataset.cartItemId || '').trim();
+      const removeBtn = card.querySelector('[data-remove-cart-item]');
+
+      if (!cartItemId) {
+        checkoutSetQtyHint(card, 'Cart item is still loading. Please try again.');
+        return;
+      }
+
+      card.classList.add('is-removing');
+      if (removeBtn) {
+        removeBtn.disabled = true;
+        removeBtn.setAttribute('aria-busy', 'true');
+      }
+
+      try {
+        const res = await fetch('/api/cart/remove', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify({ item_id: cartItemId })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          throw new Error(data.msg || 'Unable to remove this item.');
+        }
+
+        card.remove();
+
+        const remainingCards = Array.from(document.querySelectorAll('[data-checkout-item="1"]'));
+        const summaryPanel = document.querySelector('.summary-panel');
+        const orderCount = document.querySelector('.order-count');
+
+        if (orderCount) {
+          const count = remainingCards.length;
+          orderCount.textContent = `${count} item${count === 1 ? '' : 's'}`;
+        }
+
+        if (!remainingCards.length && summaryPanel) {
+          summaryPanel.innerHTML = `
+            <div class="address-empty-card" style="margin:12px;">
+              <h4 class="address-empty-title">Your cart is empty.</h4>
+              <p class="address-empty-text">Please add products to your cart before checkout.</p>
+              <a class="add-address-btn" href="{{ url_for('products') }}">Continue Shopping</a>
+            </div>
+          `;
+        }
+
+        document.dispatchEvent(new CustomEvent('cart:updated', {
+          detail:{ count:data.cart_count ?? data.count ?? 0 }
+        }));
+
+        await checkoutLoadCartMap();
+        await recalc();
+      } catch (error) {
+        checkoutSetQtyHint(card, error?.message || 'Unable to remove this item.');
+      } finally {
+        card.classList.remove('is-removing');
+        if (removeBtn) {
+          removeBtn.disabled = false;
+          removeBtn.removeAttribute('aria-busy');
+        }
+      }
+    }
+
+    function bindCheckoutQuantityControls(){
+      document.querySelectorAll('[data-checkout-item="1"]').forEach(card => {
+        if (card.dataset.checkoutControlsBound === '1') return;
+
+        const input = card.querySelector('[data-qty-input]');
+        const minus = card.querySelector('[data-qty-minus]');
+        const plus = card.querySelector('[data-qty-plus]');
+        const removeBtn = card.querySelector('[data-remove-cart-item]');
+        if (!input) return;
+
+        card.dataset.checkoutControlsBound = '1';
+        card._checkoutQtyTimer = null;
+        card.dataset.lastCommittedQuantity = checkoutFormatQuantity(card.dataset.quantity || input.value || 0);
+
+        checkoutSyncQtyButtons(card);
+
+        const clearQtyTimer = () => {
+          if (card._checkoutQtyTimer) {
+            clearTimeout(card._checkoutQtyTimer);
+            card._checkoutQtyTimer = null;
+          }
+        };
+
+        const commitManualQuantity = (restoreOnError = false) => {
+          clearQtyTimer();
+          if (card.classList.contains('is-qty-updating')) return;
+
+          const quantity = checkoutValidateQuantity(card, input.value, { restoreOnError });
+          if (quantity === null) return;
+
+          const committed = Number(card.dataset.lastCommittedQuantity || card.dataset.quantity || 0);
+          if (Math.abs(quantity - committed) <= 1e-9) {
+            checkoutSetQtyHint(card, '');
+            checkoutSyncQtyButtons(card);
+            return;
+          }
+
+          checkoutUpdateQuantity(card, quantity).then(ok => {
+            if (ok) {
+              card.dataset.lastCommittedQuantity = checkoutFormatQuantity(quantity);
+            }
+          });
+        };
+
+        minus?.addEventListener('click', () => {
+          clearQtyTimer();
+          const current = checkoutGetCardQuantity(card);
+          const step = Number(card.dataset.step || input.step || 1) || 1;
+          checkoutUpdateQuantity(card, current - step).then(ok => {
+            if (ok) card.dataset.lastCommittedQuantity = checkoutFormatQuantity(checkoutGetCardQuantity(card));
+          });
+        });
+
+        plus?.addEventListener('click', () => {
+          clearQtyTimer();
+          const current = checkoutGetCardQuantity(card);
+          const step = Number(card.dataset.step || input.step || 1) || 1;
+          const stock = Number(card.dataset.stock || 0);
+
+          if (stock > 0 && current + step > stock + 1e-9) {
+            checkoutSetQtyHint(card, `Only ${checkoutFormatQuantity(stock)} ${card.dataset.unitLabel || 'unit'} stock is available.`);
+            checkoutSyncQtyButtons(card);
+            return;
+          }
+
+          checkoutUpdateQuantity(card, current + step).then(ok => {
+            if (ok) card.dataset.lastCommittedQuantity = checkoutFormatQuantity(checkoutGetCardQuantity(card));
+          });
+        });
+
+        input.addEventListener('input', () => {
+          clearQtyTimer();
+
+          // Validate immediately so minimum, stock and step messages appear while typing.
+          const quantity = checkoutValidateQuantity(card, input.value, { restoreOnError:false });
+          if (quantity === null) return;
+
+          const committed = Number(card.dataset.lastCommittedQuantity || card.dataset.quantity || 0);
+          if (Math.abs(quantity - committed) <= 1e-9) {
+            checkoutSetQtyHint(card, '');
+            checkoutSyncQtyButtons(card);
+            return;
+          }
+
+          // Valid manual values are persisted automatically after a short pause.
+          card._checkoutQtyTimer = setTimeout(() => {
+            card._checkoutQtyTimer = null;
+            commitManualQuantity(false);
+          }, 350);
+        });
+
+        input.addEventListener('keydown', event => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            commitManualQuantity(true);
+          }
+        });
+
+        input.addEventListener('blur', () => {
+          clearQtyTimer();
+          if (!card.classList.contains('is-qty-updating')) {
+            commitManualQuantity(true);
+          }
+        });
+
+        removeBtn?.addEventListener('click', () => {
+          clearQtyTimer();
+          checkoutRemoveItem(card);
+        });
+      });
+    }
 
   function radios(){
     return Array.from(document.querySelectorAll('input[name="address_id"]'));
@@ -4188,14 +4861,14 @@ function formatDeliveryModeName(value){
 
   if (mode === "THIRD_PARTY_SHIPPING") return "📦 Shiprocket / Courier";
   if (mode === "EXTERNAL_LOCAL_DELIVERY") return "⚡ External Local Delivery";
-  return "🛵 NE FRESH In-house Delivery";
+  return "🛵 NE LOCALS In-house Delivery";
 }
 
 function formatPaymentRule(value){
   const rule = String(value || "").toUpperCase();
 
   if (rule === "ONLINE_ONLY") return "Online payment only";
-  if (rule === "COD_STORE_COLLECTION") return "Pay Online on Delivery by store/NE FRESH";
+  if (rule === "COD_STORE_COLLECTION") return "Pay Online on Delivery by store/NE LOCALS";
   if (rule === "COD_PARTNER_COLLECTION") return "Partner collection";
   return "Online + Pay Online on Delivery allowed";
 }
@@ -4240,7 +4913,7 @@ function syncDeliveryModeCard(result){
   platformFee = Number(platformFee || 0);
   const info = feeInfo || {};
 
-  const payable = ITEMS_TOTAL + deliveryFee + platformFee + tip;
+  const payable = checkoutItemsTotal + deliveryFee + platformFee + tip;
   const deliveryDisplay = buildDeliveryDisplayInfo(deliveryFee, feeInfo);
 
   const deliveryAmountHtml = deliveryDisplay.freeApplied
@@ -4265,8 +4938,12 @@ function syncDeliveryModeCard(result){
     totalPayableEl.textContent = `${formatMoneyDisplay(payable)}`;
   }
 
+  if (summaryItemsTotalValue) {
+    summaryItemsTotalValue.textContent = `${formatMoneyDisplay(checkoutItemsTotal)}`;
+  }
+
   if (payItemsTotal) {
-    payItemsTotal.textContent = `${formatMoneyDisplay(ITEMS_TOTAL)}`;
+    payItemsTotal.textContent = `${formatMoneyDisplay(checkoutItemsTotal)}`;
   }
 
   if (payDeliveryFee) {
@@ -4311,7 +4988,7 @@ function syncDeliveryModeCard(result){
       : "";
 
     totalBreakdown.innerHTML =
-      `<div class="pay-line"><span>Product subtotal</span><strong>${formatMoneyDisplay(ITEMS_TOTAL)}</strong></div>` +
+      `<div class="pay-line"><span>Product subtotal</span><strong>${formatMoneyDisplay(checkoutItemsTotal)}</strong></div>` +
       deliveryBreakdownLine +
       `<div class="pay-line"><span>${escapeHtml(platformFeeLabel || "Platform Fee")}</span><strong>${formatMoneyDisplay(platformFee)}</strong></div>` +
       `<div class="pay-line"><span>Rider tip</span><strong>${formatMoneyDisplay(tip)}</strong></div>` +
@@ -4556,6 +5233,15 @@ function syncDeliveryModeCard(result){
   }
 
    async function recalc(){
+    const hasCheckoutItems = Boolean(document.querySelector('[data-checkout-item="1"]'));
+    if (!hasCheckoutItems){
+      lastServiceability = null;
+      setWarn("Your cart is empty. Please add products before checkout.");
+      setButtonEnabled(false);
+      updateUI(0, clampTip(tipInput ? tipInput.value : 0), "");
+      return;
+    }
+
     if (cartStoreCount > 1){
       lastServiceability = null;
       setWarn("Your cart has items from multiple stores. Please order from one store at a time.");
@@ -5307,7 +5993,10 @@ async function usePincode(){
   }
 
     syncPaymentUI();
-  recalc();
+
+    bindCheckoutQuantityControls();
+    await checkoutLoadCartMap();
+    await recalc();
 });
 </script>
 

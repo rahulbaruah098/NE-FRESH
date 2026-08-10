@@ -6,6 +6,7 @@ Only the file location changed.
 
 from app_core import *
 from bson.binary import Binary
+from PIL import Image, ImageOps
 
 
 
@@ -26,6 +27,95 @@ STORE_RETURN_REFUND_ENDPOINTS = {
     "store_returns",
     "store_return_review",
 }
+
+
+STORE_PRODUCT_CARD_THUMBNAIL_MAX_SIZE = (960, 1440)
+STORE_PRODUCT_CARD_THUMBNAIL_QUALITY = 84
+
+
+def _store_generate_product_card_thumbnail(image_path):
+    """
+    Generate one optimized WebP thumbnail for product catalogue cards.
+
+    - Keeps the original upload untouched.
+    - Preserves the complete source image.
+    - Preserves the original aspect ratio.
+    - Never crops, stretches, distorts or adds a blurred background.
+    - Limits thumbnail dimensions for faster catalogue loading.
+    - Applies EXIF orientation before resizing.
+    - Returns a relative uploads/... path, or None if generation fails.
+    """
+    if not image_path:
+        return None
+
+    normalized_path = str(image_path).replace("\\", "/").lstrip("/")
+
+    if normalized_path.startswith("uploads/"):
+        relative_from_upload_root = normalized_path[len("uploads/"):]
+    else:
+        relative_from_upload_root = normalized_path
+
+    source_path = os.path.join(
+        app.config["UPLOAD_FOLDER"],
+        relative_from_upload_root
+    )
+
+    if not os.path.isfile(source_path):
+        app.logger.warning(
+            "Product thumbnail source image not found: %s",
+            source_path
+        )
+        return None
+
+    thumbnail_folder = os.path.join(
+        app.config["UPLOAD_FOLDER"],
+        "product_thumbnails"
+    )
+    os.makedirs(thumbnail_folder, exist_ok=True)
+
+    source_stem = os.path.splitext(os.path.basename(source_path))[0]
+    thumbnail_name = f"{source_stem}_960x600.webp"
+    thumbnail_path = os.path.join(thumbnail_folder, thumbnail_name)
+
+    try:
+        with Image.open(source_path) as source_image:
+            image = ImageOps.exif_transpose(source_image)
+
+            if image.mode in ("RGBA", "LA") or (
+                image.mode == "P" and "transparency" in image.info
+            ):
+                rgba = image.convert("RGBA")
+                white_background = Image.new(
+                    "RGBA",
+                    rgba.size,
+                    (255, 255, 255, 255)
+                )
+                white_background.alpha_composite(rgba)
+                image = white_background.convert("RGB")
+            else:
+                image = image.convert("RGB")
+
+            thumbnail = image.copy()
+            thumbnail.thumbnail(
+                STORE_PRODUCT_CARD_THUMBNAIL_MAX_SIZE,
+                Image.Resampling.LANCZOS
+            )
+
+            thumbnail.save(
+                thumbnail_path,
+                format="WEBP",
+                quality=STORE_PRODUCT_CARD_THUMBNAIL_QUALITY,
+                method=6
+            )
+
+        return f"uploads/product_thumbnails/{thumbnail_name}"
+
+    except Exception:
+        app.logger.exception(
+            "Failed to generate product card thumbnail for %s",
+            source_path
+        )
+        return None
 
 
 @app.before_request
@@ -521,6 +611,7 @@ def store_catalog(sid):
     allow, pin = _session_pin_is_serviceable()
 
     products = []
+    product_bundles = []
     categories = []
     category_counts = {}
     store_reviews = []
@@ -551,6 +642,7 @@ def store_catalog(sid):
         )
 
         cart_lookup = {}
+        bundle_cart_lookup = {}
 
         if user and user.get("role") == "customer":
             cid = get_or_create_cart(user["id"])
@@ -560,6 +652,19 @@ def store_catalog(sid):
             }))
 
             for ci in cart_items:
+                item_type = (ci.get("item_type") or "product").strip().lower()
+
+                if item_type == "bundle":
+                    bundle_id_value = ci.get("bundle_id") or ci.get("bundle_id_str")
+
+                    if bundle_id_value:
+                        bundle_cart_lookup[str(bundle_id_value)] = {
+                            "cart_item_id": str(ci.get("_id")),
+                            "cart_quantity": cart_item_quantity(ci),
+                        }
+
+                    continue
+
                 product_id_value = ci.get("product_id")
 
                 if product_id_value:
@@ -618,6 +723,59 @@ def store_catalog(sid):
 
             category_counts[cat] += 1
 
+        raw_bundles = list(
+            mongo.product_bundles.find({
+                "$and": [
+                    {
+                        "$or": [
+                            {"store_id": sid_obj},
+                            {"store_id": str(sid_obj)},
+                            {"store_id_str": str(sid_obj)}
+                        ]
+                    },
+                    {
+                        "$or": [
+                            {"is_deleted": {"$exists": False}},
+                            {"is_deleted": 0},
+                            {"is_deleted": False}
+                        ]
+                    },
+                    {
+                        "is_active": 1
+                    }
+                ]
+            }).sort("updated_at", -1)
+        )
+
+        for bundle in raw_bundles:
+            bundle = build_live_product_bundle(
+                bundle,
+                notify_store=True,
+                notification_context="store_catalog"
+            ) or bundle
+
+            if not is_product_bundle_customer_available(bundle):
+                continue
+
+            bundle["id"] = str(bundle.get("_id"))
+            bundle["bundle_name"] = bundle.get("bundle_name") or "Product Bundle"
+            bundle["description"] = bundle.get("description") or ""
+            bundle["store_name"] = bundle.get("store_name") or store.get("store_name", "Store")
+            bundle["image_path"] = bundle.get("image_path") or ""
+
+            cart_info = bundle_cart_lookup.get(str(bundle.get("_id")))
+
+            if cart_info:
+                bundle["in_cart"] = True
+                bundle["cart_item_id"] = cart_info.get("cart_item_id", "")
+                bundle["cart_quantity"] = cart_info.get("cart_quantity", 1)
+            else:
+                bundle["in_cart"] = False
+                bundle["cart_item_id"] = ""
+                bundle["cart_quantity"] = 0
+
+            product_bundles.append(bundle)
+
         categories = [
             {
                 "name": name,
@@ -664,12 +822,14 @@ def store_catalog(sid):
     store["avg_rating"] = store_avg_rating
     store["rating_count"] = store_rating_count
     store["product_count"] = len(products)
+    store["bundle_count"] = len(product_bundles)
 
     return render_template(
         "store_catalog.html",
         user=user,
         store=store,
         products=products,
+        product_bundles=product_bundles,
         categories=categories,
         store_reviews=store_reviews,
         store_avg_rating=store_avg_rating,
@@ -1415,10 +1575,39 @@ def store_products_page():
 
     page_context = _build_store_split_page_context(store)
 
+    store_id = store.get("_id")
+    store_id_str = str(store_id)
+
+    active_bundles_count = mongo.product_bundles.count_documents({
+        "$and": [
+            {
+                "$or": [
+                    {"store_id": store_id},
+                    {"store_id": store_id_str},
+                    {"store_id_str": store_id_str}
+                ]
+            },
+            {
+                "$or": [
+                    {"is_deleted": {"$exists": False}},
+                    {"is_deleted": 0},
+                    {"is_deleted": False}
+                ]
+            },
+            {
+                "$or": [
+                    {"is_active": 1},
+                    {"is_active": True}
+                ]
+            }
+        ]
+    })
+
     return render_template(
         "store_products.html",
         user=u,
         store=store,
+        active_bundles_count=active_bundles_count,
         **page_context
     )
 
@@ -4479,26 +4668,105 @@ def store_notifications_mark_all_read():
         "stats": _store_notification_stats(store["_id"])
     })
 
+def _store_category_ajax_request():
+    """Return True only for the Store Categories page AJAX actions."""
+    return (
+        request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or request.args.get("_format") == "json"
+    )
+
+
+def _store_category_response(
+    message,
+    feedback_type="success",
+    status_code=200,
+    payload=None,
+    redirect_endpoint="store_categories"
+):
+    """
+    Preserve the original flash + redirect behaviour for normal requests,
+    while returning JSON to the updated categories page.
+
+    `feedback_type` is intentionally separate from the `category` payload key.
+    This prevents the category object from overwriting the alert CSS class name.
+    """
+    if _store_category_ajax_request():
+        response_data = {
+            "ok": status_code < 400,
+            "message": message,
+            "feedback_type": feedback_type,
+        }
+
+        if payload:
+            response_data.update(payload)
+
+        return jsonify(response_data), status_code
+
+    flash(message, feedback_type)
+    return redirect(url_for(redirect_endpoint))
+
+
+def _store_category_payload(category_doc, store_id):
+    """Create the JSON-safe category shape used by the categories page."""
+    if not category_doc:
+        return None
+
+    category_id = str(category_doc.get("_id") or "")
+    category_name = (category_doc.get("name") or "").strip()
+    image_path = (
+        category_doc.get("category_image_path")
+        or category_doc.get("image_path")
+        or ""
+    )
+
+    return {
+        "id": category_id,
+        "name": category_name,
+        "slug": category_doc.get("slug") or _category_slug(category_name),
+        "sub_categories": category_doc.get("sub_categories") or [],
+        "image_path": image_path,
+        "category_image_path": image_path,
+        "is_active": 1 if int(category_doc.get("is_active") or 0) == 1 else 0,
+        "product_count": _get_category_product_count(store_id, category_name),
+        "update_url": url_for("store_category_update", cid=category_id),
+        "toggle_url": url_for("store_category_toggle", cid=category_id),
+        "delete_url": url_for("store_category_delete", cid=category_id),
+    }
+
+
 @app.route('/store/categories/new', methods=['POST'], endpoint='store_category_new')
 @login_required(role='store')
 def store_category_new():
     u, store = _get_current_store_or_redirect()
 
     if not store:
+        if _store_category_ajax_request():
+            return jsonify({
+                "ok": False,
+                "message": "Store not found.",
+                "feedback_type": "danger"
+            }), 404
+
         return redirect(url_for("store_dashboard"))
 
     name = (request.form.get("name") or "").strip()
     sub_categories_raw = (request.form.get("sub_categories") or "").strip()
 
     if not name:
-        flash("Category name is required.", "warning")
-        return redirect(url_for("store_categories"))
+        return _store_category_response(
+            "Category name is required.",
+            "warning",
+            400
+        )
 
     slug = _category_slug(name)
 
     if not slug:
-        flash("Enter a valid category name.", "warning")
-        return redirect(url_for("store_categories"))
+        return _store_category_response(
+            "Enter a valid category name.",
+            "warning",
+            400
+        )
 
     existing = mongo.store_categories.find_one({
         "store_id": store["_id"],
@@ -4506,8 +4774,11 @@ def store_category_new():
     })
 
     if existing:
-        flash("This category already exists.", "warning")
-        return redirect(url_for("store_categories"))
+        return _store_category_response(
+            "This category already exists.",
+            "warning",
+            409
+        )
 
     sub_categories = [
         item.strip()
@@ -4522,8 +4793,11 @@ def store_category_new():
 
     if category_image and category_image.filename:
         if not allowed_file(category_image.filename):
-            flash("Only JPG, JPEG, PNG or WEBP images are allowed for category image.", "warning")
-            return redirect(url_for("store_categories"))
+            return _store_category_response(
+                "Only JPG, JPEG, PNG or WEBP images are allowed for category image.",
+                "warning",
+                400
+            )
 
         category_image_path = _save_store_category_image(
             category_image,
@@ -4531,22 +4805,37 @@ def store_category_new():
             slug
         )
 
-    mongo.store_categories.insert_one({
-    "store_id": store["_id"],
-    "name": name,
-    "slug": slug,
-    "sub_categories": sub_categories,
-    "image_path": category_image_path,
-    "category_image_path": category_image_path,
-    "emoji": "🛒",
-    "is_active": 1,
-    "is_default": 0,
-    "created_at": now,
-    "updated_at": now,
-})
+    insert_result = mongo.store_categories.insert_one({
+        "store_id": store["_id"],
+        "name": name,
+        "slug": slug,
+        "sub_categories": sub_categories,
+        "image_path": category_image_path,
+        "category_image_path": category_image_path,
+        "emoji": "🛒",
+        "is_active": 1,
+        "is_default": 0,
+        "created_at": now,
+        "updated_at": now,
+    })
 
-    flash("Category added.", "success")
-    return redirect(url_for("store_categories"))
+    created_category = mongo.store_categories.find_one({
+        "_id": insert_result.inserted_id,
+        "store_id": store["_id"]
+    })
+
+    return _store_category_response(
+        "Category added.",
+        "success",
+        200,
+        {
+            "category": _store_category_payload(
+                created_category,
+                store["_id"]
+            )
+        }
+    )
+
 
 @app.route('/store/categories/<cid>/update', methods=['POST'], endpoint='store_category_update')
 @login_required(role='store')
@@ -4554,21 +4843,34 @@ def store_category_update(cid):
     u, store = _get_current_store_or_redirect()
 
     if not store:
+        if _store_category_ajax_request():
+            return jsonify({
+                "ok": False,
+                "message": "Store not found.",
+                "feedback_type": "danger"
+            }), 404
+
         return redirect(url_for("store_dashboard"))
 
     cat = _get_store_category_by_id(store["_id"], cid)
 
     if not cat:
-        flash("Category not found.", "danger")
-        return redirect(url_for("store_categories"))
+        return _store_category_response(
+            "Category not found.",
+            "danger",
+            404
+        )
 
     old_name = cat.get("name", "")
     name = (request.form.get("name") or "").strip()
     sub_categories_raw = (request.form.get("sub_categories") or "").strip()
 
     if not name:
-        flash("Category name is required.", "warning")
-        return redirect(url_for("store_categories"))
+        return _store_category_response(
+            "Category name is required.",
+            "warning",
+            400
+        )
 
     slug = _category_slug(name)
 
@@ -4579,8 +4881,11 @@ def store_category_update(cid):
     })
 
     if duplicate:
-        flash("Another category with this name already exists.", "warning")
-        return redirect(url_for("store_categories"))
+        return _store_category_response(
+            "Another category with this name already exists.",
+            "warning",
+            409
+        )
 
     sub_categories = [
         item.strip()
@@ -4601,8 +4906,11 @@ def store_category_update(cid):
 
     if category_image and category_image.filename:
         if not allowed_file(category_image.filename):
-            flash("Only JPG, JPEG, PNG or WEBP images are allowed for category image.", "warning")
-            return redirect(url_for("store_categories"))
+            return _store_category_response(
+                "Only JPG, JPEG, PNG or WEBP images are allowed for category image.",
+                "warning",
+                400
+            )
 
         category_image_path = _save_store_category_image(
             category_image,
@@ -4614,11 +4922,11 @@ def store_category_update(cid):
         update_data["category_image_path"] = category_image_path
 
     mongo.store_categories.update_one(
-    {"_id": cat["_id"]},
-    {
-        "$set": update_data
-    }
-)
+        {"_id": cat["_id"]},
+        {
+            "$set": update_data
+        }
+    )
 
     if old_name and old_name != name:
         mongo.products.update_many(
@@ -4634,8 +4942,23 @@ def store_category_update(cid):
             }
         )
 
-    flash("Category updated.", "success")
-    return redirect(url_for("store_categories"))
+    updated_category = mongo.store_categories.find_one({
+        "_id": cat["_id"],
+        "store_id": store["_id"]
+    })
+
+    return _store_category_response(
+        "Category updated.",
+        "success",
+        200,
+        {
+            "category": _store_category_payload(
+                updated_category,
+                store["_id"]
+            )
+        }
+    )
+
 
 @app.route('/store/categories/<cid>/toggle', methods=['POST'], endpoint='store_category_toggle')
 @login_required(role='store')
@@ -4643,28 +4966,54 @@ def store_category_toggle(cid):
     u, store = _get_current_store_or_redirect()
 
     if not store:
+        if _store_category_ajax_request():
+            return jsonify({
+                "ok": False,
+                "message": "Store not found.",
+                "feedback_type": "danger"
+            }), 404
+
         return redirect(url_for("store_dashboard"))
 
     cat = _get_store_category_by_id(store["_id"], cid)
 
     if not cat:
-        flash("Category not found.", "danger")
-        return redirect(url_for("store_categories"))
+        return _store_category_response(
+            "Category not found.",
+            "danger",
+            404
+        )
 
     new_status = 0 if int(cat.get("is_active") or 0) == 1 else 1
+    now = datetime.utcnow().isoformat()
 
     mongo.store_categories.update_one(
         {"_id": cat["_id"]},
         {
             "$set": {
                 "is_active": new_status,
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": now
             }
         }
     )
 
-    flash("Category enabled." if new_status else "Category disabled.", "success")
-    return redirect(url_for("store_categories"))
+    updated_category = mongo.store_categories.find_one({
+        "_id": cat["_id"],
+        "store_id": store["_id"]
+    })
+
+    return _store_category_response(
+        "Category enabled." if new_status else "Category disabled.",
+        "success",
+        200,
+        {
+            "category": _store_category_payload(
+                updated_category,
+                store["_id"]
+            )
+        }
+    )
+
 
 @app.route('/store/categories/<cid>/delete', methods=['POST'], endpoint='store_category_delete')
 @login_required(role='store')
@@ -4672,15 +5021,28 @@ def store_category_delete(cid):
     u, store = _get_current_store_or_redirect()
 
     if not store:
+        if _store_category_ajax_request():
+            return jsonify({
+                "ok": False,
+                "message": "Store not found.",
+                "feedback_type": "danger"
+            }), 404
+
         return redirect(url_for("store_dashboard"))
 
     cat = _get_store_category_by_id(store["_id"], cid)
 
     if not cat:
-        flash("Category not found.", "danger")
-        return redirect(url_for("store_categories"))
+        return _store_category_response(
+            "Category not found.",
+            "danger",
+            404
+        )
 
-    product_count = _get_category_product_count(store["_id"], cat.get("name"))
+    product_count = _get_category_product_count(
+        store["_id"],
+        cat.get("name")
+    )
 
     if product_count > 0:
         mongo.store_categories.update_one(
@@ -4693,13 +5055,486 @@ def store_category_delete(cid):
             }
         )
 
-        flash("This category has products, so it was disabled instead of deleted.", "warning")
-        return redirect(url_for("store_categories"))
+        updated_category = mongo.store_categories.find_one({
+            "_id": cat["_id"],
+            "store_id": store["_id"]
+        })
+
+        return _store_category_response(
+            "This category has products, so it was disabled instead of deleted.",
+            "warning",
+            200,
+            {
+                "deleted": False,
+                "disabled": True,
+                "category": _store_category_payload(
+                    updated_category,
+                    store["_id"]
+                )
+            }
+        )
 
     mongo.store_categories.delete_one({"_id": cat["_id"]})
 
-    flash("Category deleted.", "success")
-    return redirect(url_for("store_categories"))
+    return _store_category_response(
+        "Category deleted.",
+        "success",
+        200,
+        {
+            "deleted": True,
+            "disabled": False,
+            "category_id": str(cat["_id"])
+        }
+    )
+
+
+# =========================================================
+# STORE PRODUCT BUNDLES
+# =========================================================
+def _store_bundle_get_current_store():
+    u = current_user()
+    store = mongo.stores.find_one({"user_id": u["id"]})
+    return u, store
+
+
+def _store_bundle_product_ids_from_form(form):
+    raw_ids = []
+
+    for key in [
+        "bundle_product_ids[]",
+        "product_ids[]",
+        "products[]",
+        "bundle_product_ids",
+        "product_ids",
+        "products",
+    ]:
+        values = form.getlist(key)
+        if values:
+            raw_ids.extend(values)
+
+    # Supports comma-separated fallback from a hidden input.
+    if not raw_ids:
+        hidden_raw = form.get("selected_product_ids") or form.get("bundle_products") or ""
+        raw_ids = [x.strip() for x in str(hidden_raw).split(",") if x.strip()]
+
+    return normalize_bundle_product_ids(raw_ids)
+
+
+def _store_bundle_quantities_from_form(form, product_ids):
+    quantities = {}
+
+    for pid in product_ids:
+        qty_value = (
+            form.get(f"bundle_quantity_{pid}")
+            or form.get(f"quantity_{pid}")
+            or form.get(f"qty_{pid}")
+            or form.get(f"bundle_qty_{pid}")
+            or 1
+        )
+
+        quantities[pid] = _bundle_quantity_float(qty_value, 1)
+
+    return quantities
+
+
+def _store_bundle_products_for_store(store, product_ids):
+    if not product_ids:
+        return []
+
+    object_ids = [ObjectId(pid) for pid in product_ids if ObjectId.is_valid(str(pid))]
+
+    products = list(
+        mongo.products.find({
+            "$and": [
+                {"_id": {"$in": object_ids}},
+                {
+                    "$or": [
+                        {"store_id": store["_id"]},
+                        {"store_id": str(store["_id"])}
+                    ]
+                },
+                {
+                    "$or": [
+                        {"is_deleted": {"$exists": False}},
+                        {"is_deleted": 0},
+                        {"is_deleted": False}
+                    ]
+                }
+            ]
+        })
+    )
+
+    product_map = {str(p.get("_id")): p for p in products}
+    return [product_map[pid] for pid in product_ids if pid in product_map]
+
+
+def _store_bundle_upload_image(field_name="image"):
+    image = request.files.get(field_name)
+
+    if not image or not image.filename:
+        image = request.files.get("bundle_image")
+
+    if not image or not image.filename:
+        return None, None
+
+    if not allowed_file(image.filename):
+        return None, "Invalid image file type."
+
+    fn = secure_filename(image.filename)
+    save_as = datetime.utcnow().strftime("%Y%m%d%H%M%S_") + fn
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    image.save(os.path.join(app.config["UPLOAD_FOLDER"], save_as))
+
+    return f"uploads/{save_as}", None
+
+
+def _store_bundle_find(store, bundle_id):
+    try:
+        bid_obj = ObjectId(str(bundle_id))
+    except Exception:
+        return None, None
+
+    bundle = mongo.product_bundles.find_one({
+        "_id": bid_obj,
+        "$or": [
+            {"store_id": store["_id"]},
+            {"store_id": str(store["_id"])},
+            {"store_id_str": str(store["_id"])}
+        ]
+    })
+
+    return bid_obj, bundle
+
+
+def _store_bundle_page_context(store, edit_bundle=None):
+    page_context = _build_store_split_page_context(store) or {}
+
+    store_id = store["_id"]
+    store_id_str = str(store_id)
+
+    products = list(
+        mongo.products.find({
+            "$or": [
+                {"store_id": store_id},
+                {"store_id": store_id_str}
+            ],
+            "$and": [
+                {
+                    "$or": [
+                        {"is_deleted": {"$exists": False}},
+                        {"is_deleted": 0},
+                        {"is_deleted": False}
+                    ]
+                }
+            ]
+        }).sort("name", 1)
+    )
+
+    for product in products:
+        product["id"] = str(product["_id"])
+        hydrate_product_unit_fields(product)
+
+    bundles = list(
+        mongo.product_bundles.find({
+            "$and": [
+                {
+                    "$or": [
+                        {"store_id": store_id},
+                        {"store_id": store_id_str},
+                        {"store_id_str": store_id_str}
+                    ]
+                },
+                {
+                    "$or": [
+                        {"is_deleted": {"$exists": False}},
+                        {"is_deleted": 0},
+                        {"is_deleted": False}
+                    ]
+                }
+            ]
+        }).sort("updated_at", -1)
+    )
+
+    for bundle in bundles:
+        bundle["id"] = str(bundle["_id"])
+        bundle_stock = calculate_bundle_stock(bundle.get("items") or [])
+        bundle["max_bundle_stock"] = bundle_stock.get("max_bundle_stock", 0)
+        bundle["stock_status"] = bundle_stock.get("stock_status", "OUT_OF_STOCK")
+        bundle["stock_blockers"] = bundle_stock.get("stock_blockers", [])
+
+    selected_product_ids = set()
+
+    if edit_bundle:
+        edit_bundle["id"] = str(edit_bundle["_id"])
+        for item in edit_bundle.get("items") or []:
+            if item.get("product_id_str"):
+                selected_product_ids.add(str(item.get("product_id_str")))
+
+    active_categories = _get_store_categories(store_id, active_only=True)
+
+    bundle_metrics = {
+        "total": len(bundles),
+        "active": sum(1 for b in bundles if int(b.get("is_active", 0) or 0) == 1),
+        "inactive": sum(1 for b in bundles if int(b.get("is_active", 0) or 0) != 1),
+        "out_of_stock": sum(1 for b in bundles if (b.get("stock_status") or "") == "OUT_OF_STOCK"),
+    }
+
+    page_context.update({
+        "products": products,
+        "bundles": bundles,
+        "edit_bundle": edit_bundle,
+        "selected_product_ids": selected_product_ids,
+        "active_categories": active_categories,
+        "bundle_metrics": bundle_metrics,
+    })
+
+    return page_context
+
+
+@app.route('/store/product-bundles', methods=['GET'], endpoint='store_product_bundles')
+@login_required(role='store')
+def store_product_bundles_page():
+    u, store = _store_bundle_get_current_store()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    page_context = _store_bundle_page_context(store)
+
+    return render_template(
+        "store_product_bundles.html",
+        user=u,
+        store=store,
+        **page_context
+    )
+
+
+@app.route('/store/product-bundles/new', methods=['POST'], endpoint='store_product_bundle_create')
+@login_required(role='store')
+def store_product_bundle_create():
+    u, store = _store_bundle_get_current_store()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    product_ids = _store_bundle_product_ids_from_form(request.form)
+
+    if len(product_ids) < 2:
+        flash("Please select at least 2 products to create a bundle.", "warning")
+        return redirect(url_for("store_product_bundles"))
+
+    products = _store_bundle_products_for_store(store, product_ids)
+
+    if len(products) != len(product_ids):
+        flash("One or more selected products are invalid for this store.", "warning")
+        return redirect(url_for("store_product_bundles"))
+
+    image_path, image_error = _store_bundle_upload_image()
+
+    if image_error:
+        flash(image_error, "warning")
+        return redirect(url_for("store_product_bundles"))
+
+    quantities = _store_bundle_quantities_from_form(request.form, product_ids)
+    bundle_doc = build_product_bundle_document(
+        store,
+        request.form,
+        products,
+        quantities_by_product_id=quantities,
+        image_path=image_path or "",
+        actor=u
+    )
+
+    if not bundle_doc.get("bundle_name"):
+        flash("Bundle name is required.", "warning")
+        return redirect(url_for("store_product_bundles"))
+
+    if not bundle_doc.get("items") or len(bundle_doc.get("items")) < 2:
+        flash("A bundle must contain at least 2 valid products.", "warning")
+        return redirect(url_for("store_product_bundles"))
+
+    mongo.product_bundles.insert_one(bundle_doc)
+
+    flash("Product bundle created successfully.", "success")
+    return redirect(url_for("store_product_bundles"))
+
+
+@app.route('/store/product-bundles/<bundle_id>/edit', methods=['GET'], endpoint='store_product_bundle_edit')
+@login_required(role='store')
+def store_product_bundle_edit(bundle_id):
+    u, store = _store_bundle_get_current_store()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    bid_obj, bundle = _store_bundle_find(store, bundle_id)
+
+    if not bid_obj or not bundle:
+        flash("Product bundle not found for your store.", "warning")
+        return redirect(url_for("store_product_bundles"))
+
+    page_context = _store_bundle_page_context(store, edit_bundle=bundle)
+
+    return render_template(
+        "store_product_bundles.html",
+        user=u,
+        store=store,
+        **page_context
+    )
+
+
+@app.route('/store/product-bundles/<bundle_id>/edit', methods=['POST'], endpoint='store_product_bundle_update')
+@login_required(role='store')
+def store_product_bundle_update(bundle_id):
+    u, store = _store_bundle_get_current_store()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    bid_obj, bundle = _store_bundle_find(store, bundle_id)
+
+    if not bid_obj or not bundle:
+        flash("Product bundle not found for your store.", "warning")
+        return redirect(url_for("store_product_bundles"))
+
+    product_ids = _store_bundle_product_ids_from_form(request.form)
+
+    if not product_ids:
+        product_ids = [
+            str(item.get("product_id_str"))
+            for item in bundle.get("items") or []
+            if item.get("product_id_str")
+        ]
+
+    product_ids = normalize_bundle_product_ids(product_ids)
+
+    if len(product_ids) < 2:
+        flash("A bundle must contain at least 2 products.", "warning")
+        return redirect(url_for("store_product_bundle_edit", bundle_id=bundle_id))
+
+    products = _store_bundle_products_for_store(store, product_ids)
+
+    if len(products) != len(product_ids):
+        flash("One or more selected products are invalid for this store.", "warning")
+        return redirect(url_for("store_product_bundle_edit", bundle_id=bundle_id))
+
+    image_path, image_error = _store_bundle_upload_image()
+
+    if image_error:
+        flash(image_error, "warning")
+        return redirect(url_for("store_product_bundle_edit", bundle_id=bundle_id))
+
+    quantities = _store_bundle_quantities_from_form(request.form, product_ids)
+    bundle_doc = build_product_bundle_document(
+        store,
+        request.form,
+        products,
+        quantities_by_product_id=quantities,
+        existing_bundle=bundle,
+        image_path=image_path,
+        actor=u
+    )
+
+    if not bundle_doc.get("bundle_name"):
+        flash("Bundle name is required.", "warning")
+        return redirect(url_for("store_product_bundle_edit", bundle_id=bundle_id))
+
+    mongo.product_bundles.update_one(
+        {"_id": bid_obj},
+        {"$set": bundle_doc}
+    )
+
+    flash("Product bundle updated successfully.", "success")
+    return redirect(url_for("store_product_bundles"))
+
+
+@app.route('/store/product-bundles/<bundle_id>/toggle', methods=['POST'], endpoint='store_product_bundle_toggle')
+@login_required(role='store')
+def store_product_bundle_toggle(bundle_id):
+    u, store = _store_bundle_get_current_store()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    bid_obj, bundle = _store_bundle_find(store, bundle_id)
+
+    if not bid_obj or not bundle:
+        flash("Product bundle not found for your store.", "warning")
+        return redirect(url_for("store_product_bundles"))
+
+    current = int(bundle.get("is_active", 0) or 0)
+    next_status = 0 if current == 1 else 1
+
+    if next_status == 1:
+        stock = calculate_bundle_stock(bundle.get("items") or [])
+        if int(stock.get("max_bundle_stock") or 0) <= 0:
+            flash("This bundle cannot be activated because one or more products are out of stock/inactive.", "warning")
+            return redirect(url_for("store_product_bundles"))
+
+    mongo.product_bundles.update_one(
+        {"_id": bid_obj},
+        {
+            "$set": {
+                "is_active": next_status,
+                "updated_at": datetime.utcnow().isoformat(),
+                "updated_by": str(u.get("_id") or u.get("id") or ""),
+                "updated_by_name": u.get("name") or "Store User"
+            }
+        }
+    )
+
+    flash("Product bundle activated." if next_status else "Product bundle deactivated.", "success")
+    return redirect(url_for("store_product_bundles"))
+
+
+@app.route('/store/product-bundles/<bundle_id>/delete', methods=['POST'], endpoint='store_product_bundle_delete')
+@login_required(role='store')
+def store_product_bundle_delete(bundle_id):
+    u, store = _store_bundle_get_current_store()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    bid_obj, bundle = _store_bundle_find(store, bundle_id)
+
+    if not bid_obj or not bundle:
+        flash("Product bundle not found for your store.", "warning")
+        return redirect(url_for("store_product_bundles"))
+
+    order_item_exists = mongo.order_items.find_one({
+        "$or": [
+            {"bundle_id": bid_obj},
+            {"bundle_id": str(bid_obj)},
+            {"bundle_id_str": str(bid_obj)}
+        ]
+    })
+
+    if order_item_exists:
+        mongo.product_bundles.update_one(
+            {"_id": bid_obj},
+            {
+                "$set": {
+                    "is_active": 0,
+                    "is_deleted": 1,
+                    "deleted_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat(),
+                    "deleted_by": str(u.get("_id") or u.get("id") or ""),
+                    "deleted_by_name": u.get("name") or "Store User"
+                }
+            }
+        )
+        flash("This bundle has order history, so it was disabled instead of permanently deleted.", "warning")
+    else:
+        mongo.product_bundles.delete_one({"_id": bid_obj})
+        flash("Product bundle deleted.", "success")
+
+    return redirect(url_for("store_product_bundles"))
 
 @app.route('/store/product/new', methods=['POST'])
 @app.route('/store/products/new', methods=['POST'])
@@ -4768,6 +5603,7 @@ def store_product_new():
 
     image = request.files.get('image')
     image_path = None
+    thumbnail_path = None
 
     if image and image.filename:
         if allowed_file(image.filename):
@@ -4776,6 +5612,7 @@ def store_product_new():
             os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
             image.save(os.path.join(app.config["UPLOAD_FOLDER"], save_as))
             image_path = f"uploads/{save_as}"
+            thumbnail_path = _store_generate_product_card_thumbnail(image_path)
         else:
             flash("Invalid image file type.", "warning")
             return redirect(url_for("store_add_product"))
@@ -4822,6 +5659,7 @@ def store_product_new():
         "sub_category": sub_category,
 
         "image_path": image_path,
+        "thumbnail_path": thumbnail_path,
         "is_active": 1 if stock_quantity > 0 else 0,
 
         "created_at": now,
@@ -5033,32 +5871,105 @@ def store_product_update(pid):
 
     name = (request.form.get("name") or "").strip()
 
-    category_id = (request.form.get("category_id") or product.get("category_id") or "").strip()
-    raw_category = (request.form.get("category") or product.get("category") or "").strip()
-    sub_category = (request.form.get("sub_category") or product.get("sub_category") or "").strip()
+    submitted_category_id = (request.form.get("category_id") or "").strip()
+    submitted_category_name = (request.form.get("category") or "").strip()
+    submitted_sub_category = (request.form.get("sub_category") or "").strip()
+
+    current_category_id = str(product.get("category_id") or "").strip()
+    current_category_name = (product.get("category") or "").strip()
+    current_sub_category = (product.get("sub_category") or "").strip()
 
     category_doc = None
 
-    if category_id:
-        category_doc = _get_store_category_by_id(store["_id"], category_id, active_only=True)
+    if submitted_category_id:
+        category_doc = _get_store_category_by_id(
+            store["_id"],
+            submitted_category_id,
+            active_only=True
+        )
 
-    if not category_doc and raw_category:
-        category_doc = _get_store_category_by_name(store["_id"], raw_category, active_only=True)
+    if not category_doc and submitted_category_name:
+        category_doc = _get_store_category_by_name(
+            store["_id"],
+            submitted_category_name,
+            active_only=True
+        )
+
+    category_was_changed = bool(
+        submitted_category_id
+        and submitted_category_id != current_category_id
+    )
+
+    # Preserve an unchanged existing category even if that category was
+    # disabled later. Unrelated edits must still be saveable.
+    if not category_doc and not category_was_changed:
+        category_or_conditions = []
+
+        if current_category_id:
+            try:
+                category_or_conditions.append({
+                    "_id": ObjectId(current_category_id)
+                })
+            except Exception:
+                category_or_conditions.append({
+                    "_id": current_category_id
+                })
+
+        if current_category_name:
+            category_or_conditions.append({
+                "name": {
+                    "$regex": f"^{re.escape(current_category_name)}$",
+                    "$options": "i"
+                }
+            })
+
+        if category_or_conditions:
+            category_doc = mongo.store_categories.find_one({
+                "store_id": store["_id"],
+                "$or": category_or_conditions
+            })
 
     if not category_doc:
-        flash("Please select a valid active category.", "warning")
+        flash("Please select a valid category before saving.", "warning")
         return redirect(url_for("store_product_edit", pid=pid))
 
-    category = category_doc.get("name")
-    category_id = str(category_doc["_id"])
+    category = (
+        category_doc.get("name")
+        or current_category_name
+    ).strip()
+
+    category_id = str(
+        category_doc.get("_id")
+        or current_category_id
+    )
+
     allowed_subs = category_doc.get("sub_categories") or []
+    sub_category = submitted_sub_category or current_sub_category
+
+    if allowed_subs:
+        if sub_category not in allowed_subs:
+            flash("Please select a valid sub-category.", "warning")
+            return redirect(url_for("store_product_edit", pid=pid))
+    else:
+        sub_category = None
 
     fallback_original_price = product_original_price_per_unit(product)
 
-    pricing = build_unit_product_update_from_form(
-        request.form,
-        fallback_original_price=fallback_original_price
-    )
+    try:
+        pricing = build_unit_product_update_from_form(
+            request.form,
+            fallback_original_price=fallback_original_price
+        )
+    except Exception:
+        app.logger.exception(
+            "Failed to parse product update form for product %s",
+            pid
+        )
+        flash(
+            "The product values could not be processed. Please check the entered values.",
+            "danger"
+        )
+        return redirect(url_for("store_product_edit", pid=pid))
 
     price = pricing["price_per_unit"]
     original_price = pricing["original_price_per_unit"]
@@ -5084,53 +5995,34 @@ def store_product_update(pid):
         flash("Enter a valid non-negative stock.", "warning")
         return redirect(url_for("store_product_edit", pid=pid))
 
-    if allowed_subs:
-        if not sub_category:
-            sub_category = product.get("sub_category") or ""
-
-        if sub_category not in allowed_subs:
-            flash("Please select a valid sub-category.", "warning")
-            return redirect(url_for("store_product_edit", pid=pid))
-    else:
-        sub_category = None
-
-    shipping_package = parse_product_shipping_package_from_form(request.form, product)
+    shipping_package = parse_product_shipping_package_from_form(
+        request.form,
+        product
+    )
 
     update_data = {
         "name": name,
-
         "unit_type": pricing["unit_type"],
         "unit_label": pricing["unit_label"],
-
-        "original_price_per_unit": pricing["original_price_per_unit"],
-        "price_per_unit": pricing["price_per_unit"],
-        "mrp_per_unit": pricing["mrp_per_unit"],
-        "stock_quantity": pricing["stock_quantity"],
-
         "original_price_per_unit": original_price,
         "price_per_unit": price,
         "mrp_per_unit": pricing["mrp_per_unit"],
-
         "discount_enabled": pricing["discount_enabled"],
         "discount_type": pricing["discount_type"],
         "discount_value": pricing["discount_value"],
         "discount_amount_per_unit": pricing["discount_amount_per_unit"],
         "discount_percent": pricing["discount_percent"],
-
         "stock_quantity": stock,
         "quantity_min": pricing["quantity_min"],
         "quantity_step": pricing["quantity_step"],
         "quantity_message": pricing["quantity_message"],
-
         "shipping_weight_kg": shipping_package["shipping_weight_kg"],
         "shipping_length_cm": shipping_package["shipping_length_cm"],
         "shipping_breadth_cm": shipping_package["shipping_breadth_cm"],
         "shipping_height_cm": shipping_package["shipping_height_cm"],
-
         "category_id": category_id,
         "category": category,
         "sub_category": sub_category,
-
         "is_active": 1 if stock > 0 else int(product.get("is_active") or 0),
         "updated_at": datetime.utcnow().isoformat()
     }
@@ -5147,12 +6039,44 @@ def store_product_update(pid):
         image.save(os.path.join(app.config["UPLOAD_FOLDER"], save_as))
         update_data["image_path"] = f"uploads/{save_as}"
 
-    mongo.products.update_one(
-        {"_id": pid_obj},
-        {"$set": update_data}
-    )
+        generated_thumbnail_path = _store_generate_product_card_thumbnail(
+            update_data["image_path"]
+        )
 
-    flash("Product updated.", "success")
+        if generated_thumbnail_path:
+            update_data["thumbnail_path"] = generated_thumbnail_path
+
+    try:
+        update_result = mongo.products.update_one(
+            {
+                "_id": pid_obj,
+                "store_id": store["_id"]
+            },
+            {
+                "$set": update_data
+            }
+        )
+    except Exception:
+        app.logger.exception(
+            "Failed to update product %s for store %s",
+            pid,
+            store.get("_id")
+        )
+        flash(
+            "The product could not be saved because of a database error.",
+            "danger"
+        )
+        return redirect(url_for("store_product_edit", pid=pid))
+
+    if update_result.matched_count != 1:
+        flash("The product could not be found while saving.", "danger")
+        return redirect(url_for("store_products"))
+
+    if update_result.modified_count == 0:
+        flash("No product values were changed.", "info")
+    else:
+        flash("Product updated successfully.", "success")
+
     return redirect(url_for("store_product_edit", pid=pid))
 
 @app.route('/store/transactions.csv')
