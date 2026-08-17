@@ -4896,17 +4896,18 @@ padding-right:clamp(42px,6vw,118px) !important;
 </section>
 
 
-<!-- NEW PRODUCTS -->
-<section class="nf-new-stores-section nf-home-products-section" id="new-on-nefresh">
+{% if recently_viewed_products and recently_viewed_products|length > 0 %}
+<!-- RECENTLY VIEWED PRODUCTS -->
+<section class="nf-new-stores-section nf-home-products-section" id="recently-viewed-products">
   <div class="nf-wrap">
     <div class="nf-section-head nf-reveal">
-      <h2>New on NELOCALS</h2>
+      <h2>Recently Viewed Products</h2>
       <a href="{{ url_for('products') }}" class="nf-see-all">See All</a>
     </div>
 
     <div class="nf-home-product-grid nf-reveal">
-      {% if new_products and new_products|length > 0 %}
-        {% for p in new_products[:10] %}
+      {% if recently_viewed_products and recently_viewed_products|length > 0 %}
+        {% for p in recently_viewed_products[:10] %}
           {% set unit_type = p.unit_type or 'WEIGHT' %}
           {% set unit_label = p.unit_label or 'kg' %}
           {% set final_price = p.price_per_unit or 0 %}
@@ -4917,9 +4918,9 @@ padding-right:clamp(42px,6vw,118px) !important;
           {% set stock_value = p.stock_quantity or 0 %}
           {% set qty_min = p.quantity_min or 1 %}
           {% set qty_step = p.quantity_step or 1 %}
-          {% set in_stock = stock_value > 0 %}
+          {% set in_stock = stock_value >= qty_min %}
           {% set low_limit = 500 if unit_label in ['gram', 'ml'] else 5 %}
-          {% set low_stock = stock_value > 0 and stock_value <= low_limit %}
+          {% set low_stock = in_stock and stock_value <= low_limit %}
 
           <article class="nf-home-product-card"
                    data-product-id="{{ p.id }}"
@@ -5023,7 +5024,253 @@ padding-right:clamp(42px,6vw,118px) !important;
             </div>
 
             <div class="nf-card-actions">
-              {% if user and user.role == 'customer' %}
+              {% if not in_stock %}
+                <button type="button" class="nf-login-purchase" disabled>
+                  Out of Stock
+                </button>
+              {% elif user and user.role == 'customer' %}
+                {% if p.in_cart %}
+                  <div class="nf-cart-added"
+                       data-cart-added
+                       data-product-id="{{ p.id }}"
+                       data-cart-item-id="{{ p.cart_item_id }}"
+                       data-unit-label="{{ unit_label }}"
+                       data-min-qty="{{ qty_min }}"
+                       data-step-qty="{{ qty_step }}"
+                       data-stock-qty="{{ '%.2f'|format(stock_value) }}">
+
+                    <div class="nf-added-title">Added to Cart</div>
+
+                    <div class="nf-cart-stepper">
+                      <button type="button" class="nf-cart-minus" data-cart-minus>-</button>
+
+                      <input type="number"
+                             data-cart-added-quantity
+                             min="{{ qty_min }}"
+                             max="{{ '%.2f'|format(stock_value) }}"
+                             step="{{ qty_step }}"
+                             value="{{ p.cart_quantity }}">
+
+                      <button type="button" class="nf-cart-plus" data-cart-plus>+</button>
+                    </div>
+
+                    <button type="button" class="nf-cart-remove" data-cart-remove>
+                      Remove
+                    </button>
+
+                    <div class="nf-stock-warning" data-stock-warning role="status" aria-live="polite">
+                      Requested amount is not available in stock. Please change the amount.
+                    </div>
+                  </div>
+                {% else %}
+                  <form class="nf-cart-add"
+                        method="post"
+                        action="{{ url_for('api_cart_add') }}"
+                        data-available-stock="{{ '%.2f'|format(stock_value) }}"
+                        data-unit-label="{{ unit_label }}"
+                        novalidate>
+
+                    <input type="hidden" name="product_id" value="{{ p.id }}">
+                    <input type="hidden" name="unit_type" value="{{ unit_type }}">
+                    <input type="hidden" name="unit_label" value="{{ unit_label }}">
+
+                    <div class="nf-weight-row">
+                      <label>Quantity ({{ unit_label }})</label>
+                      <input type="number"
+                             name="quantity"
+                             data-cart-quantity
+                             min="{{ qty_min }}"
+                             max="{{ '%.2f'|format(stock_value) }}"
+                             step="{{ qty_step }}"
+                             value="{{ qty_min }}">
+                    </div>
+
+                    <div class="nf-stock-warning" data-stock-warning role="status" aria-live="polite">
+                      Requested amount is not available in stock. Please change the amount.
+                    </div>
+
+                    <div class="nf-action-row">
+                      <button type="submit"
+                              class="nf-add-cart"
+                              {% if not in_stock %}disabled{% endif %}>
+                        Add Cart
+                      </button>
+
+                      <a href="{{ url_for('product_detail', pid=p.id) }}"
+                         class="nf-buy-now {% if not in_stock %}is-disabled{% endif %}">
+                        Details
+                      </a>
+                    </div>
+                  </form>
+                {% endif %}
+              {% elif user %}
+                <a class="nf-login-purchase" href="{{ url_for('product_detail', pid=p.id) }}">
+                  View Product
+                </a>
+              {% else %}
+                <a class="nf-login-purchase" href="{{ url_for('login') }}">
+                  Login to Add
+                </a>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      {% else %}
+        <div class="nf-empty-state">
+          <div class="nf-empty-card">
+            <div class="nf-empty-icon">🛒</div>
+            <h3>No recently viewed products</h3>
+            <p>Products you view will appear here.</p>
+          </div>
+        </div>
+            {% endif %}
+    </div>
+
+    {% if recently_viewed_products and recently_viewed_products|length > 4 %}
+      <div class="nf-home-load-more-wrap">
+        <button type="button"
+                class="nf-home-load-more-btn"
+                data-recent-products-load-more>
+          Load More
+        </button>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+<!-- NEW PRODUCTS -->
+<section class="nf-new-stores-section nf-home-products-section" id="new-on-nefresh">
+  <div class="nf-wrap">
+    <div class="nf-section-head nf-reveal">
+      <h2>New on NELOCALS</h2>
+      <a href="{{ url_for('products') }}" class="nf-see-all">See All</a>
+    </div>
+
+    <div class="nf-home-product-grid nf-reveal">
+      {% if new_products and new_products|length > 0 %}
+        {% for p in new_products[:10] %}
+          {% set unit_type = p.unit_type or 'WEIGHT' %}
+          {% set unit_label = p.unit_label or 'kg' %}
+          {% set final_price = p.price_per_unit or 0 %}
+          {% set original_price = p.mrp_per_unit or p.original_price_per_unit or final_price %}
+          {% set discount_amount = p.discount_amount_per_unit or 0 %}
+          {% set discount_percent = p.discount_percent or 0 %}
+          {% set has_discount = p.discount_enabled and discount_amount > 0 and original_price > final_price %}
+          {% set stock_value = p.stock_quantity or 0 %}
+          {% set qty_min = p.quantity_min or 1 %}
+          {% set qty_step = p.quantity_step or 1 %}
+          {% set in_stock = stock_value >= qty_min %}
+          {% set low_limit = 500 if unit_label in ['gram', 'ml'] else 5 %}
+          {% set low_stock = in_stock and stock_value <= low_limit %}
+
+          <article class="nf-home-product-card"
+                   data-product-id="{{ p.id }}"
+                   data-stock="{{ '%.2f'|format(stock_value) }}"
+                   data-unit="{{ unit_label }}"
+                   data-discount-enabled="{{ '1' if has_discount else '0' }}">
+
+            <a class="nf-home-product-img" href="{{ url_for('product_detail', pid=p.id) }}">
+              {% if has_discount %}
+                <span class="nf-discount-badge">
+                  {{ (discount_percent | round(0, 'floor') | int) }}% OFF
+                </span>
+              {% endif %}
+
+              {% if low_stock %}
+                <span class="nf-stock-badge low">
+                  Low: {{ '%.2f'|format(stock_value) }} {{ unit_label }}
+                </span>
+              {% elif in_stock %}
+                <span class="nf-stock-badge">
+                  {{ '%.2f'|format(stock_value) }} {{ unit_label }}
+                </span>
+              {% else %}
+                <span class="nf-stock-badge out">
+                  Out of stock
+                </span>
+              {% endif %}
+
+              {% if p.image_path %}
+                {% set img_path = p.image_path|string %}
+
+                {% if img_path.startswith('/uploads/') %}
+                  <img src="{{ img_path }}" alt="{{ p.name }}" loading="lazy">
+                {% elif img_path.startswith('uploads/') %}
+                  <img src="/{{ img_path }}" alt="{{ p.name }}" loading="lazy">
+                {% elif img_path.startswith('/static/') %}
+                  <img src="{{ img_path }}" alt="{{ p.name }}" loading="lazy">
+                {% elif img_path.startswith('static/') %}
+                  <img src="/{{ img_path }}" alt="{{ p.name }}" loading="lazy">
+                {% else %}
+                  <img src="/uploads/{{ img_path }}" alt="{{ p.name }}" loading="lazy">
+                {% endif %}
+              {% else %}
+                <div class="nf-home-product-empty-img">🛒</div>
+              {% endif %}
+            </a>
+
+            <div class="nf-home-product-body">
+              <span class="nf-store-name">
+                <b>Store:</b> {{ p.store_name or 'NE-LOCAL Store' }}
+              </span>
+
+              <h3 class="nf-product-title">
+                <a href="{{ url_for('product_detail', pid=p.id) }}">
+                  {{ p.name or 'Product' }}
+                </a>
+              </h3>
+
+              <div class="nf-product-meta">
+                {% if p.category %}
+                  <span class="nf-meta-chip">{{ p.category }}</span>
+                {% endif %}
+
+                {% if p.sub_category %}
+                  <span class="nf-meta-chip">{{ p.sub_category }}</span>
+                {% endif %}
+
+                <span class="nf-meta-chip">
+                  Min {{ qty_min }} {{ unit_label }}
+                </span>
+              </div>
+
+              <div class="nf-rating-pill">
+                ★ {{ '%.1f'|format(p.avg_rating or 0) }}
+                <span>({{ p.rating_count or 0 }})</span>
+              </div>
+
+              <div class="nf-price-row">
+                <div class="nf-price-block">
+                  <span class="nf-price-main">
+                    ₹{{ '%.2f'|format(final_price) }} / {{ unit_label }}
+                  </span>
+
+                  {% if has_discount %}
+                    <span class="nf-mrp">
+                      ₹{{ '%.2f'|format(original_price) }} / {{ unit_label }}
+                    </span>
+                  {% endif %}
+                </div>
+
+                {% if has_discount %}
+                  <span class="nf-discount-line">
+                    Save ₹{{ '%.2f'|format(discount_amount) }}/{{ unit_label }}
+                  </span>
+                {% endif %}
+
+                <a class="nf-quick-view" href="{{ url_for('product_detail', pid=p.id) }}">
+                  View Details
+                </a>
+              </div>
+            </div>
+
+            <div class="nf-card-actions">
+              {% if not in_stock %}
+                <button type="button" class="nf-login-purchase" disabled>
+                  Out of Stock
+                </button>
+              {% elif user and user.role == 'customer' %}
                 {% if p.in_cart %}
                   <div class="nf-cart-added"
                        data-cart-added
@@ -5163,9 +5410,9 @@ padding-right:clamp(42px,6vw,118px) !important;
           {% set stock_value = p.stock_quantity or 0 %}
           {% set qty_min = p.quantity_min or 1 %}
           {% set qty_step = p.quantity_step or 1 %}
-          {% set in_stock = stock_value > 0 %}
+          {% set in_stock = stock_value >= qty_min %}
           {% set low_limit = 500 if unit_label in ['gram', 'ml'] else 5 %}
-          {% set low_stock = stock_value > 0 and stock_value <= low_limit %}
+          {% set low_stock = in_stock and stock_value <= low_limit %}
 
           <article class="nf-popular-product-card"
                    data-product-id="{{ p.id }}"
@@ -5259,7 +5506,11 @@ padding-right:clamp(42px,6vw,118px) !important;
               </div>
 
               <div class="nf-card-actions">
-                {% if user and user.role == 'customer' %}
+                {% if not in_stock %}
+                  <button type="button" class="nf-login-purchase" disabled>
+                    Out of Stock
+                  </button>
+                {% elif user and user.role == 'customer' %}
                   {% if p.in_cart %}
                     <div class="nf-cart-added"
                          data-cart-added
@@ -5397,16 +5648,16 @@ padding-right:clamp(42px,6vw,118px) !important;
   </div>
 </section>
 
-  <!-- BEST REVIEWED ITEMS -->
-<section id="best-reviewed-items" class="nf-section nf-reviewed-products-section">
+  <!-- BEST RATED PRODUCTS -->
+<section id="best-rated-products" class="nf-section nf-reviewed-products-section">
   <div class="nf-wrap">
     <div class="nf-section-head nf-reveal">
-      <h2>Best Reviewed Items</h2>
+      <h2>Best Rated Products</h2>
       <a href="{{ url_for('products') }}" class="nf-see-all">See all →</a>
     </div>
 
     <div class="nf-reviewed-product-grid nf-reveal">
-      {% set best_items = featured_products if featured_products else popular_products %}
+      {% set best_items = best_rated_products %}
 
       {% if best_items and best_items|length > 0 %}
         {% for p in best_items[:10] %}
@@ -5420,9 +5671,9 @@ padding-right:clamp(42px,6vw,118px) !important;
           {% set stock_value = p.stock_quantity or 0 %}
           {% set qty_min = p.quantity_min or 1 %}
           {% set qty_step = p.quantity_step or 1 %}
-          {% set in_stock = stock_value > 0 %}
+          {% set in_stock = stock_value >= qty_min %}
           {% set low_limit = 500 if unit_label in ['gram', 'ml'] else 5 %}
-          {% set low_stock = stock_value > 0 and stock_value <= low_limit %}
+          {% set low_stock = in_stock and stock_value <= low_limit %}
 
           <article class="nf-reviewed-product-card"
                    data-product-id="{{ p.id }}"
@@ -5516,7 +5767,11 @@ padding-right:clamp(42px,6vw,118px) !important;
               </div>
 
               <div class="nf-card-actions">
-                {% if user and user.role == 'customer' %}
+                {% if not in_stock %}
+                  <button type="button" class="nf-login-purchase" disabled>
+                    Out of Stock
+                  </button>
+                {% elif user and user.role == 'customer' %}
                   {% if p.in_cart %}
                     <div class="nf-cart-added"
                          data-cart-added
@@ -5617,7 +5872,7 @@ padding-right:clamp(42px,6vw,118px) !important;
             </div>
 
             <h3 class="nf-product-title">
-              <span>No reviewed products available</span>
+              <span>No rated products available</span>
             </h3>
 
             <div class="nf-rating-pill">★ 0.0</div>
@@ -6862,6 +7117,12 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
+  bindLoadMore(
+    "[data-recent-products-load-more]",
+    "#recently-viewed-products .nf-home-product-grid",
+    "#recently-viewed-products"
+  );
 
   bindLoadMore(
     "[data-home-products-load-more]",

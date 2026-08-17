@@ -3293,6 +3293,48 @@
       font-weight:550;
     }
 
+    .my-orders-page .history-delivery-status,
+    .my-orders-page .history-delivery-time{
+      width:100%;
+      min-width:0;
+
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+
+      padding-bottom:8px;
+      border-bottom:1px solid #E5F0E9;
+    }
+
+    .my-orders-page .history-delivery-time{
+      padding-bottom:0;
+      border-bottom:0;
+    }
+
+    .my-orders-page .history-delivery-label{
+      flex:0 0 auto;
+      color:#8A9890;
+      font-size:.68rem;
+      line-height:1.25;
+      font-weight:700;
+    }
+
+    .my-orders-page .history-delivery-time strong{
+      min-width:0;
+      color:#23332A;
+      font-size:.78rem;
+      line-height:1.3;
+      font-weight:850;
+      text-align:right;
+      white-space:nowrap;
+    }
+
+    .my-orders-page .history-delivery-status .order-history-status{
+      min-width:0;
+      text-align:right;
+    }
+
     .my-orders-page .order-history-notice{
       margin:0 18px 14px;
       padding:10px 12px;
@@ -3490,13 +3532,22 @@
 
     @media(max-width:720px){
       .my-orders-page .hero-section{
-        padding:12px 10px 0 !important;
+        width:100% !important;
+        margin:0 !important;
+        padding:0 !important;
       }
 
       .my-orders-page .orders-hero-card{
+        width:100% !important;
         min-height:100px !important;
+        margin:0 !important;
         padding:16px 14px !important;
-        border-radius:18px !important;
+
+        border-radius:0 !important;
+        border-left:0 !important;
+        border-right:0 !important;
+
+        box-shadow:0 8px 24px rgba(17,64,38,.05) !important;
       }
 
       .my-orders-page .orders-pill{
@@ -3579,8 +3630,36 @@
         line-height:1.35 !important;
       }
 
+      .my-orders-page .order-history-list{
+        width:calc(100% + 10px);
+        margin-right:-10px;
+
+        display:flex;
+        gap:10px;
+
+        overflow-x:auto;
+        overflow-y:hidden;
+
+        scroll-snap-type:x mandatory;
+        scroll-padding-left:0;
+        overscroll-behavior-x:contain;
+        -webkit-overflow-scrolling:touch;
+
+        scrollbar-width:none;
+      }
+
+      .my-orders-page .order-history-list::-webkit-scrollbar{
+        display:none;
+      }
+
       .my-orders-page .order-history-card{
+        flex:0 0 88vw;
+        width:88vw;
+        max-width:88vw;
+
         border-radius:18px;
+        scroll-snap-align:start;
+        scroll-snap-stop:always;
       }
 
       .my-orders-page .order-history-head{
@@ -3641,8 +3720,13 @@
 
     @media(max-width:480px){
       .my-orders-page .orders-hero-card{
+        width:100% !important;
         min-height:92px !important;
+        margin:0 !important;
         padding:14px 12px !important;
+        border-radius:0 !important;
+        border-left:0 !important;
+        border-right:0 !important;
       }
 
       .my-orders-page .hero-title{
@@ -3659,6 +3743,12 @@
         height:38px !important;
         min-height:38px !important;
         font-size:.74rem !important;
+      }
+
+      .my-orders-page .order-history-card{
+        flex-basis:89vw;
+        width:89vw;
+        max-width:89vw;
       }
 
       .my-orders-page .order-history-number{
@@ -3688,6 +3778,20 @@
 
       .my-orders-page .history-primary-value{
         font-size:.84rem;
+      }
+
+      .my-orders-page .history-delivery-status,
+      .my-orders-page .history-delivery-time{
+        gap:8px;
+      }
+
+      .my-orders-page .history-delivery-label{
+        font-size:.64rem;
+      }
+
+      .my-orders-page .history-delivery-time strong,
+      .my-orders-page .history-delivery-status .order-history-status{
+        font-size:.72rem;
       }
 
       .my-orders-page .order-history-index{
@@ -3722,6 +3826,12 @@
     }
 
     @media(max-width:360px){
+      .my-orders-page .order-history-card{
+        flex-basis:90vw;
+        width:90vw;
+        max-width:90vw;
+      }
+
       .my-orders-page .order-history-actions{
         grid-template-columns:1fr;
       }
@@ -3842,26 +3952,6 @@
               </div>
             </div>
 
-            <div class="order-history-head-meta">
-              <div class="order-history-placed">
-                <span class="history-meta-label">Placed</span>
-                <strong>{{ o.created_at_display|default(o.created_at, true) }}</strong>
-              </div>
-
-              {% if is_failed_delivery %}
-                <span class="order-history-status history-status-danger">Delivery Failed</span>
-              {% elif is_rescheduled_delivery %}
-                <span class="order-history-status history-status-info">Rescheduled</span>
-              {% elif is_cancelled_after_failed %}
-                <span class="order-history-status history-status-danger">Cancelled After Failed Delivery</span>
-              {% elif is_reassigning %}
-                <span class="order-history-status history-status-warning">Reassigning Rider</span>
-              {% else %}
-                <span class="order-history-status history-status-{{ (o.status or '')|lower|replace(' ', '-')|replace('_','-') }}">
-                  {{ order_status_label(o.status) }}
-                </span>
-              {% endif %}
-            </div>
           </div>
 
           <div class="order-history-main">
@@ -3923,9 +4013,28 @@
             <section class="history-info-panel" aria-label="Delivery details">
               <span class="history-section-label">Delivery</span>
 
-              <span class="delivery-mode-chip {% if order_mode == 'THIRD_PARTY_SHIPPING' %}third-party{% elif order_mode == 'EXTERNAL_LOCAL_DELIVERY' %}external-local{% endif %}">
-                {{ o.delivery_mode_short_label|default(o.delivery_mode_label|default('In-house Delivery')) }}
-              </span>
+              <div class="history-delivery-status">
+                <span class="history-delivery-label">Order Status</span>
+
+                {% if is_failed_delivery %}
+                  <span class="order-history-status history-status-danger">Delivery Failed</span>
+                {% elif is_rescheduled_delivery %}
+                  <span class="order-history-status history-status-info">Rescheduled</span>
+                {% elif is_cancelled_after_failed %}
+                  <span class="order-history-status history-status-danger">Cancelled After Failed Delivery</span>
+                {% elif is_reassigning %}
+                  <span class="order-history-status history-status-warning">Reassigning Rider</span>
+                {% else %}
+                  <span class="order-history-status history-status-{{ (o.status or '')|lower|replace(' ', '-')|replace('_','-') }}">
+                    {{ order_status_label(o.status) }}
+                  </span>
+                {% endif %}
+              </div>
+
+              <div class="history-delivery-time">
+                <span class="history-delivery-label">Placed</span>
+                <strong>{{ o.created_at_display|default(o.created_at, true) }}</strong>
+              </div>
 
               {% if is_rescheduled_delivery and o.delivery_rescheduled_for %}
               <div class="history-support-line">

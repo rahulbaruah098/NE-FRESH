@@ -5,6 +5,7 @@ Only the file location changed.
 """
 
 from app_core import *
+import secrets
 
 
 @app.route('/products')
@@ -484,6 +485,114 @@ def api_product_rating(pid):
         "count": count
     })
 
+
+# =========================================================
+# RECENTLY VIEWED PRODUCTS
+# =========================================================
+
+_RECENT_PRODUCT_VIEW_DAYS = 30
+
+
+def _recent_product_viewer_key(user=None, create_guest=False):
+    """
+    Stable viewer identity for Recently Viewed Products.
+
+    Signed-in customers:
+      user:<user id>
+
+    Guests:
+      guest:<browser/session token>
+
+    Staff accounts are intentionally not tracked because their product-detail
+    activity is administrative rather than shopper browsing.
+    """
+    if user:
+        role = str(user.get("role") or "").strip().lower()
+
+        if role == "customer":
+            user_id = str(user.get("id") or user.get("_id") or "").strip()
+
+            if user_id:
+                return f"user:{user_id}"
+
+        return ""
+
+    token = str(session.get("_recent_product_viewer_key") or "").strip()
+
+    if not token and create_guest:
+        token = secrets.token_urlsafe(18)
+        session["_recent_product_viewer_key"] = token
+
+    return f"guest:{token}" if token else ""
+
+
+def _record_recent_product_view(product, user=None):
+    """
+    Record one shopper's most recent view of a product.
+
+    Repeated views of the same product update the existing row instead of
+    creating duplicates. The newest view therefore moves that product back to
+    the front of the homepage Recently Viewed section.
+    """
+    if not product:
+        return
+
+    if int(product.get("is_active") or 0) != 1:
+        return
+
+    viewer_key = _recent_product_viewer_key(
+        user=user,
+        create_guest=(user is None)
+    )
+
+    if not viewer_key:
+        return
+
+    product_id = product.get("_id")
+
+    if not product_id:
+        return
+
+    now_dt = datetime.utcnow()
+    cutoff_dt = now_dt - timedelta(days=_RECENT_PRODUCT_VIEW_DAYS)
+
+    store_id = product.get("store_id")
+
+    mongo.product_view_events.update_one(
+        {
+            "viewer_key": viewer_key,
+            "product_id": product_id
+        },
+        {
+            "$setOnInsert": {
+                "first_viewed_at": now_dt
+            },
+            "$set": {
+                "product_id": product_id,
+                "product_id_str": str(product_id),
+                "store_id": store_id,
+                "store_id_str": str(store_id) if store_id else "",
+                "last_viewed_at": now_dt,
+                "viewer_type": (
+                    "customer"
+                    if user and str(user.get("role") or "").lower() == "customer"
+                    else "guest"
+                )
+            },
+            "$inc": {
+                "view_count": 1
+            }
+        },
+        upsert=True
+    )
+
+    # Keep each viewer's history genuinely recent and bounded.
+    mongo.product_view_events.delete_many({
+        "viewer_key": viewer_key,
+        "last_viewed_at": {"$lt": cutoff_dt}
+    })
+
+
 @app.route('/product/<pid>')
 def product_detail(pid):
     try:
@@ -559,6 +668,11 @@ def product_detail(pid):
         abort(404)
 
         cart_info = None
+
+    # Shopper-facing Recent Views:
+    # record only guests and customer accounts, never admin/store previews.
+    if not u or u.get("role") == "customer":
+        _record_recent_product_view(p, user=u)
 
     if u and u.get("role") == "customer":
         cid = get_or_create_cart(u["id"])

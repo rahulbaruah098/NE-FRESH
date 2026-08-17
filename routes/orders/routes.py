@@ -3304,17 +3304,91 @@ def api_orders_list(user_id):
 
 
 
+def _notification_user_key(user_doc):
+    role = str((user_doc or {}).get("role") or "").strip().lower()
+    raw_id = str((user_doc or {}).get("id") or (user_doc or {}).get("_id") or "").strip()
+    return f"{role}:{raw_id}" if role and raw_id else ""
+
+
+def _notification_state_for(user_key):
+    if not user_key:
+        return {
+            "read_keys": [],
+            "cleared_keys": []
+        }
+
+    state = mongo.user_notification_states.find_one(
+        {"_id": user_key},
+        {
+            "read_keys": 1,
+            "cleared_keys": 1
+        }
+    ) or {}
+
+    return {
+        "read_keys": [
+            str(v).strip()
+            for v in (state.get("read_keys") or [])
+            if str(v).strip()
+        ],
+        "cleared_keys": [
+            str(v).strip()
+            for v in (state.get("cleared_keys") or [])
+            if str(v).strip()
+        ]
+    }
+
+
+def _save_notification_keys(user_key, field_name, keys):
+    if not user_key:
+        return
+
+    clean_keys = []
+
+    for key in keys or []:
+        key = str(key or "").strip()
+
+        if key and key not in clean_keys:
+            clean_keys.append(key)
+
+    if not clean_keys:
+        return
+
+    mongo.user_notification_states.update_one(
+        {"_id": user_key},
+        {
+            "$addToSet": {
+                field_name: {
+                    "$each": clean_keys
+                }
+            },
+            "$set": {
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        },
+        upsert=True
+    )
+
+
 @app.route("/api/customer/order-alerts", methods=["GET"], endpoint="api_customer_order_alerts")
 @login_required()
 def api_customer_order_alerts():
     u = current_user()
 
-    if not u or u.get("role") != "customer":
+    if not u:
         return jsonify({
             "ok": True,
             "alerts": [],
-            "count": 0
+            "count": 0,
+            "unread_count": 0
         })
+
+    role = (u.get("role") or "").strip().lower()
+    user_key = _notification_user_key(u)
+    state = _notification_state_for(user_key)
+
+    read_keys = set(state.get("read_keys") or [])
+    cleared_keys = set(state.get("cleared_keys") or [])
 
     active_statuses = [
         "PLACED",
@@ -3328,66 +3402,337 @@ def api_customer_order_alerts():
         "DELIVERY_FAILED"
     ]
 
-    orders = list(
-        mongo.orders.find({
-            "user_id": u["id"],
-            "status": {"$in": active_statuses}
-        }).sort("updated_at", -1).limit(8)
+    def _id_variants(value):
+        values = []
+
+        if value in (None, ""):
+            return values
+
+        values.append(value)
+        raw = str(value).strip()
+
+        if raw:
+            values.append(raw)
+
+            try:
+                if ObjectId.is_valid(raw):
+                    values.append(ObjectId(raw))
+            except Exception:
+                pass
+
+        unique = []
+        seen = set()
+
+        for item in values:
+            marker = f"{type(item).__name__}:{item}"
+
+            if marker not in seen:
+                seen.add(marker)
+                unique.append(item)
+
+        return unique
+
+    order_query = {
+        "status": {"$in": active_statuses}
+    }
+
+    if role == "customer":
+        # Customer sees only their own active-order notifications.
+        order_query["user_id"] = u["id"]
+
+    elif role == "delivery":
+        delivery_values = _id_variants(u.get("id") or u.get("_id"))
+
+        if not delivery_values:
+            return jsonify({
+                "ok": True,
+                "alerts": [],
+                "count": 0,
+                "unread_count": 0
+            })
+
+        order_query["delivery_partner_id"] = {"$in": delivery_values}
+
+    elif role == "store":
+        store_values = []
+        store_values.extend(_id_variants(u.get("store_id")))
+
+        if not store_values:
+            user_values = _id_variants(u.get("id") or u.get("_id"))
+
+            if user_values:
+                store_doc = mongo.stores.find_one(
+                    {
+                        "$or": [
+                            {"user_id": {"$in": user_values}},
+                            {"owner_id": {"$in": user_values}},
+                            {"store_user_id": {"$in": user_values}},
+                            {"account_id": {"$in": user_values}},
+                            {"created_by_user_id": {"$in": user_values}}
+                        ]
+                    },
+                    {"_id": 1}
+                )
+
+                if store_doc:
+                    store_values.extend(_id_variants(store_doc.get("_id")))
+
+        if not store_values:
+            return jsonify({
+                "ok": True,
+                "alerts": [],
+                "count": 0,
+                "unread_count": 0
+            })
+
+        order_query["store_id"] = {"$in": store_values}
+
+    elif role == "admin":
+        # Admin sees current active platform-order notifications.
+        pass
+
+    else:
+        return jsonify({
+            "ok": True,
+            "alerts": [],
+            "count": 0,
+            "unread_count": 0
+        })
+
+    scoped_orders = list(
+        mongo.orders.find(order_query).sort("updated_at", -1).limit(12)
     )
 
     alerts = []
 
-    for o in orders:
+    for o in scoped_orders:
         oid = str(o["_id"])
         status = (o.get("status") or "").strip().upper()
+        public_order_number = (
+            o.get("order_number")
+            or o.get("display_order_number")
+            or f"#{oid[-6:]}"
+        )
 
         needs_reassignment = bool(
             o.get("needs_reassignment")
             or o.get("delivery_cancelled_by_partner")
         )
 
-        if status == "DELIVERY_FAILED":
-            title = "Delivery attempt failed"
-            message = f"Order #{oid[-6:]} could not be delivered. The store will reschedule or contact you shortly."
-            alert_type = "delivery_failed"
+        if role == "customer":
+            if status == "DELIVERY_FAILED":
+                title = "Delivery attempt failed"
+                message = f"Order #{oid[-6:]} could not be delivered. The store will reschedule or contact you shortly."
+                alert_type = "delivery_failed"
 
-        elif needs_reassignment:
-            title = "Delivery partner is being reassigned"
-            message = f"Order #{oid[-6:]} is safe. The store is assigning another delivery partner."
-            alert_type = "reassigning"
+            elif needs_reassignment:
+                title = "Delivery partner is being reassigned"
+                message = f"Order #{oid[-6:]} is safe. The store is assigning another delivery partner."
+                alert_type = "reassigning"
 
-        elif status == "ASSIGNED_TO_DELIVERY":
-            title = "Delivery partner assigned"
-            message = f"Order #{oid[-6:]} has been assigned to {o.get('delivery_partner_name') or 'a delivery partner'}."
-            alert_type = "assigned"
+            elif status == "ASSIGNED_TO_DELIVERY":
+                title = "Delivery partner assigned"
+                message = f"Order #{oid[-6:]} has been assigned to {o.get('delivery_partner_name') or 'a delivery partner'}."
+                alert_type = "assigned"
 
-        elif status == "OUT_FOR_DELIVERY":
-            title = "Order is out for delivery"
-            message = f"Order #{oid[-6:]} is on the way."
-            alert_type = "out_for_delivery"
+            elif status == "OUT_FOR_DELIVERY":
+                title = "Order is out for delivery"
+                message = f"Order #{oid[-6:]} is on the way."
+                alert_type = "out_for_delivery"
 
-        elif status == "READY_FOR_PICKUP":
-            title = "Order ready for pickup"
-            message = f"Order #{oid[-6:]} is ready and waiting for delivery assignment."
-            alert_type = "ready"
+            elif status == "READY_FOR_PICKUP":
+                title = "Order ready for pickup"
+                message = f"Order #{oid[-6:]} is ready and waiting for delivery assignment."
+                alert_type = "ready"
 
-        else:
+            else:
+                continue
+
+        elif role == "store":
+            if status == "DELIVERY_FAILED":
+                title = "Delivery attempt failed"
+                message = f"{public_order_number} needs store attention after a failed delivery attempt."
+                alert_type = "delivery_failed"
+
+            elif needs_reassignment:
+                title = "Delivery partner needs reassignment"
+                message = f"{public_order_number} is waiting for another delivery partner."
+                alert_type = "reassigning"
+
+            elif status == "PLACED":
+                title = "New order received"
+                message = f"{public_order_number} has been placed."
+                alert_type = "new_order"
+
+            elif status == "READY_FOR_PICKUP":
+                title = "Order ready for delivery"
+                message = f"{public_order_number} is ready for delivery assignment."
+                alert_type = "ready"
+
+            elif status == "OUT_FOR_DELIVERY":
+                title = "Order out for delivery"
+                message = f"{public_order_number} is currently out for delivery."
+                alert_type = "out_for_delivery"
+
+            else:
+                continue
+
+        elif role == "delivery":
+            if status == "DELIVERY_FAILED":
+                title = "Delivery attempt failed"
+                message = f"{public_order_number} is marked as a failed delivery attempt."
+                alert_type = "delivery_failed"
+
+            elif status == "ASSIGNED_TO_DELIVERY":
+                title = "Order assigned to you"
+                message = f"{public_order_number} has been assigned for delivery."
+                alert_type = "assigned"
+
+            elif status == "REACHED_STORE":
+                title = "Store reached"
+                message = f"{public_order_number} is currently at the store stage."
+                alert_type = "reached_store"
+
+            elif status == "PICKED_UP":
+                title = "Order picked up"
+                message = f"{public_order_number} has been picked up for delivery."
+                alert_type = "picked_up"
+
+            elif status == "OUT_FOR_DELIVERY":
+                title = "Order out for delivery"
+                message = f"{public_order_number} is currently out for delivery."
+                alert_type = "out_for_delivery"
+
+            else:
+                continue
+
+        else:  # admin
+            if status == "DELIVERY_FAILED":
+                title = "Delivery attempt failed"
+                message = f"{public_order_number} has a failed delivery attempt."
+                alert_type = "delivery_failed"
+
+            elif needs_reassignment:
+                title = "Delivery reassignment required"
+                message = f"{public_order_number} is waiting for another delivery partner."
+                alert_type = "reassigning"
+
+            elif status == "PLACED":
+                title = "New order placed"
+                message = f"{public_order_number} has been placed."
+                alert_type = "new_order"
+
+            elif status == "READY_FOR_PICKUP":
+                title = "Order ready for delivery"
+                message = f"{public_order_number} is ready for delivery assignment."
+                alert_type = "ready"
+
+            elif status == "ASSIGNED_TO_DELIVERY":
+                title = "Delivery partner assigned"
+                message = f"{public_order_number} has a delivery partner assigned."
+                alert_type = "assigned"
+
+            elif status == "OUT_FOR_DELIVERY":
+                title = "Order out for delivery"
+                message = f"{public_order_number} is currently out for delivery."
+                alert_type = "out_for_delivery"
+
+            else:
+                continue
+
+        # A status/reassignment change creates a different key, so a genuinely
+        # new order event becomes visible even if an older alert was cleared.
+        alert_key = f"{role}:{oid}:{status}:{alert_type}"
+
+        if alert_key in cleared_keys:
             continue
 
         alerts.append({
             "id": oid,
+            "key": alert_key,
             "title": title,
             "message": message,
             "type": alert_type,
             "status": status,
+            "is_read": alert_key in read_keys,
             "track_url": url_for("order_track", oid=oid),
             "created_at": o.get("updated_at") or o.get("created_at") or ""
         })
 
+    unread_count = sum(1 for alert in alerts if not alert.get("is_read"))
+
     return jsonify({
         "ok": True,
         "alerts": alerts,
-        "count": len(alerts)
+        "count": len(alerts),
+        "unread_count": unread_count
+    })
+
+
+@app.route(
+    "/api/customer/order-alerts/read",
+    methods=["POST"],
+    endpoint="api_customer_order_alerts_read"
+)
+@login_required()
+def api_customer_order_alerts_read():
+    u = current_user()
+
+    if not u:
+        return jsonify({
+            "ok": False,
+            "message": "Authentication required."
+        }), 401
+
+    payload = request.get_json(silent=True) or {}
+    keys = payload.get("keys") or []
+
+    _save_notification_keys(
+        _notification_user_key(u),
+        "read_keys",
+        keys
+    )
+
+    return jsonify({
+        "ok": True
+    })
+
+
+@app.route(
+    "/api/customer/order-alerts/clear",
+    methods=["POST"],
+    endpoint="api_customer_order_alerts_clear"
+)
+@login_required()
+def api_customer_order_alerts_clear():
+    u = current_user()
+
+    if not u:
+        return jsonify({
+            "ok": False,
+            "message": "Authentication required."
+        }), 401
+
+    payload = request.get_json(silent=True) or {}
+    keys = payload.get("keys") or []
+
+    user_key = _notification_user_key(u)
+
+    _save_notification_keys(
+        user_key,
+        "cleared_keys",
+        keys
+    )
+
+    # A cleared notification is also treated as read.
+    _save_notification_keys(
+        user_key,
+        "read_keys",
+        keys
+    )
+
+    return jsonify({
+        "ok": True
     })
 
 
