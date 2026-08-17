@@ -1,0 +1,269 @@
+{% extends "store_base.html" %}
+{% set active_page = "promotions" %}
+
+{% block title %}Combination Discounts | NE Locals{% endblock %}
+{% block page_title %}Combination Discounts{% endblock %}
+{% block page_subtitle %}Create tiered “buy together” offers from products already listed by your store.{% endblock %}
+
+{% block content %}
+<section class="promo-page">
+  <style>
+    .promo-page{--green:#00a859;--green-dark:#087443;--ink:#20332a;--muted:#687970;--line:#dcebe3;--soft:#f5fbf7;--danger:#c62828;--warn:#9a5d00;padding:24px;background:#f8fffb;min-height:100%;color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .promo-shell{max-width:1500px;margin:0 auto;display:grid;gap:20px}.promo-card{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 14px 34px rgba(20,70,43,.07);overflow:hidden}
+    .promo-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:22px;border-bottom:1px solid var(--line);background:#fbfffd}.promo-head h2{margin:0;font-size:21px;font-weight:900;letter-spacing:-.03em}.promo-head p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.55}
+    .promo-form{padding:22px;display:grid;gap:18px}.promo-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:16px}.promo-field{display:grid;gap:7px}.promo-field.full{grid-column:1/-1}.promo-field label{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#50645a}
+    .promo-field input,.promo-field textarea,.promo-field select{width:100%;border:1px solid var(--line);border-radius:13px;background:#fff;color:var(--ink);padding:12px 13px;font:inherit;font-size:14px;outline:none}.promo-field textarea{min-height:88px;resize:vertical}.promo-field input:focus,.promo-field textarea:focus,.promo-field select:focus{border-color:rgba(0,168,89,.55);box-shadow:0 0 0 4px rgba(0,168,89,.08)}
+    .promo-note{border:1px solid #cdebd9;background:#effcf4;border-radius:14px;padding:13px 15px;color:#315c43;font-size:13px;line-height:1.55}.promo-note strong{color:var(--green-dark)}
+    .tiers-box{border:1px solid var(--line);border-radius:16px;overflow:hidden}.tiers-title{padding:14px 16px;background:var(--soft);border-bottom:1px solid var(--line);font-size:14px;font-weight:900}.tier-row{display:grid;grid-template-columns:minmax(0,1fr) 180px 48px;gap:12px;align-items:end;padding:14px;border-bottom:1px solid #edf4f0}.tier-row:last-child{border-bottom:0}.tier-products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:13px;padding:10px;background:#fff}.tier-product{display:flex;gap:8px;align-items:flex-start;padding:9px;border-radius:10px;background:var(--soft);font-size:12px;cursor:pointer}.tier-product input{margin-top:2px}.tier-product span{display:grid;gap:2px}.tier-product strong{font-size:12px}.tier-product small{color:var(--muted)}
+    .remove-tier{height:44px;border:1px solid #ffd2d2;background:#fff5f5;color:var(--danger);border-radius:12px;font-weight:900;cursor:pointer}.remove-tier:disabled{opacity:.4;cursor:not-allowed}
+    .promo-actions{display:flex;gap:10px;flex-wrap:wrap}.promo-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border-radius:13px;border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:900;font-size:13px;text-decoration:none;cursor:pointer}.promo-btn.primary{background:var(--green);border-color:var(--green);color:#fff}.promo-btn.warning{background:#fff8eb;border-color:#ffe0a6;color:var(--warn)}.promo-btn.danger{background:#fff5f5;border-color:#ffd2d2;color:var(--danger)}.promo-btn:disabled{opacity:.5;cursor:not-allowed}
+    .promotion-list{padding:20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.promotion-tile{border:1px solid var(--line);border-radius:18px;padding:17px;display:grid;gap:14px}.promotion-top{display:flex;justify-content:space-between;gap:14px}.promotion-name{font-size:18px;font-weight:900}.promotion-desc{margin-top:5px;color:var(--muted);font-size:13px;line-height:1.5}.status{align-self:flex-start;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:900}.status.active{background:#e9fff3;color:#087443}.status.inactive{background:#f2f3f3;color:#66756d}
+    .trigger-box{display:flex;align-items:center;gap:12px;border:1px solid #edf4f0;border-radius:14px;padding:11px;background:var(--soft)}.trigger-box img{width:48px;height:48px;border-radius:11px;object-fit:cover;background:#fff}.trigger-box strong{display:block}.trigger-box small{display:block;margin-top:3px;color:var(--muted)}
+    .tier-list{display:grid;gap:9px}.tier-card{border:1px solid #edf4f0;border-radius:13px;padding:11px}.tier-card-head{display:flex;justify-content:space-between;gap:10px}.tier-card-head strong{font-size:13px}.discount-pill{border-radius:999px;padding:5px 9px;background:#e9fff3;color:var(--green-dark);font-size:11px;font-weight:900}.tier-card p{margin:8px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+    .promotion-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.promotion-meta div{padding:10px;border:1px solid #edf4f0;border-radius:12px}.promotion-meta small{display:block;color:var(--muted);font-size:10px;font-weight:900;text-transform:uppercase}.promotion-meta strong{display:block;margin-top:5px;font-size:12px}.empty-state{grid-column:1/-1;padding:44px 20px;text-align:center;color:var(--muted)}
+    @media(max-width:1050px){.promo-grid{grid-template-columns:1fr 1fr}.promotion-list{grid-template-columns:1fr}.tier-products{grid-template-columns:1fr}}
+    @media(max-width:700px){.promo-page{padding:14px}.promo-grid{grid-template-columns:1fr}.promo-field.full{grid-column:auto}.tier-row{grid-template-columns:1fr 105px 44px}.promotion-meta{grid-template-columns:1fr}.promo-head{padding:18px}.promo-form{padding:16px}.promotion-list{padding:14px}.promo-actions .promo-btn{flex:1}.tier-products{max-height:230px}}
+  </style>
+
+  <div class="promo-shell">
+    <article class="promo-card">
+      <header class="promo-head">
+        <div>
+          <h2>Create a combination discount</h2>
+          <p>Select the first product that triggers the popup, then create one or more increasing discount tiers.</p>
+        </div>
+      </header>
+
+      <form class="promo-form" method="post" action="{{ url_for('store_promotion_create') }}" id="promotionForm">
+        <div class="promo-note">
+          <strong>Example:</strong> Product A alone receives no extra discount. Add Product B for 5% off. Add Products B and C for 10% off.
+        </div>
+
+        <div class="promo-grid">
+          <div class="promo-field">
+            <label for="promotionName">Promotion name</label>
+            <input id="promotionName" name="name" type="text" maxlength="120" required placeholder="Example: Complete Your Basket">
+          </div>
+          <div class="promo-field">
+            <label for="triggerProduct">Trigger product</label>
+            <select id="triggerProduct" name="trigger_product_id" required>
+              <option value="">Select product</option>
+              {% for product in products %}
+              <option value="{{ product._id }}">{{ product.name }} — ₹{{ '%.2f'|format(product.price|default(0)|float) }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="promo-field">
+            <label for="discountType">Discount type</label>
+            <select id="discountType" name="discount_type" required>
+              <option value="PERCENT">Percentage (%)</option>
+              <option value="FIXED">Fixed amount (₹)</option>
+            </select>
+          </div>
+          <div class="promo-field">
+            <label for="discountScope">Apply discount to</label>
+            <select id="discountScope" name="discount_scope" required>
+              <option value="ALL_MATCHED_PRODUCTS">All matched products</option>
+              <option value="REQUIRED_PRODUCTS">Suggested products only</option>
+              <option value="TRIGGER_PRODUCT">Trigger product only</option>
+            </select>
+          </div>
+          <div class="promo-field">
+            <label for="startsAt">Start date and time</label>
+            <input id="startsAt" name="starts_at" type="datetime-local">
+          </div>
+          <div class="promo-field">
+            <label for="endsAt">End date and time</label>
+            <input id="endsAt" name="ends_at" type="datetime-local">
+          </div>
+          <div class="promo-field full">
+            <label for="promotionDescription">Description</label>
+            <textarea id="promotionDescription" name="description" maxlength="500" placeholder="Explain the offer shown to customers."></textarea>
+          </div>
+        </div>
+
+        <div class="tiers-box">
+          <div class="tiers-title">Discount tiers</div>
+          <div id="tierRows">
+            <div class="tier-row">
+              <div class="promo-field">
+                <label>Products required with trigger product</label>
+                <div class="tier-products">
+                  {% for product in products %}
+                  <label class="tier-product">
+                    <input type="checkbox" class="tier-product-checkbox" value="{{ product._id }}">
+                    <span><strong>{{ product.name }}</strong><small>₹{{ '%.2f'|format(product.price|default(0)|float) }} · Stock {{ product.stock|default(0) }}</small></span>
+                  </label>
+                  {% endfor %}
+                </div>
+                <input type="hidden" name="tier_required_product_ids[]" class="tier-product-ids">
+              </div>
+              <div class="promo-field">
+                <label>Discount value</label>
+                <input name="tier_discount_values[]" type="number" min="0.01" step="0.01" required placeholder="5">
+              </div>
+              <button class="remove-tier" type="button" aria-label="Remove tier">×</button>
+            </div>
+          </div>
+        </div>
+
+        <label class="tier-product" style="max-width:330px">
+          <input type="checkbox" name="is_active" value="1" checked>
+          <span><strong>Activate immediately</strong><small>The rule can be deactivated later.</small></span>
+        </label>
+
+        <div class="promo-actions">
+          <button class="promo-btn" type="button" id="addTier">+ Add another tier</button>
+          <button class="promo-btn primary" type="submit" {% if products|length < 2 %}disabled title="At least two active products are required"{% endif %}>Create promotion</button>
+        </div>
+      </form>
+    </article>
+
+    <article class="promo-card">
+      <header class="promo-head">
+        <div>
+          <h2>Existing combination discounts</h2>
+          <p>The customer receives only the highest eligible tier from each trigger-product rule.</p>
+        </div>
+      </header>
+
+      <div class="promotion-list">
+        {% if promotion_rules %}
+          {% for rule in promotion_rules %}
+          <section class="promotion-tile">
+            <div class="promotion-top">
+              <div>
+                <div class="promotion-name">{{ rule.name }}</div>
+                {% if rule.description %}<div class="promotion-desc">{{ rule.description }}</div>{% endif %}
+              </div>
+              <span class="status {{ 'active' if rule.is_active else 'inactive' }}">{{ 'Active' if rule.is_active else 'Inactive' }}</span>
+            </div>
+
+            <div class="trigger-box">
+              {% if rule.trigger_product.image_url %}<img src="{{ rule.trigger_product.image_url }}" alt="">{% endif %}
+              <div><small>Trigger product</small><strong>{{ rule.trigger_product.name|default('Unavailable product') }}</strong></div>
+            </div>
+
+            <div class="tier-list">
+              {% for tier in rule.tiers %}
+              <div class="tier-card">
+                <div class="tier-card-head">
+                  <strong>Tier {{ loop.index }}</strong>
+                  <span class="discount-pill">
+                    {% if rule.discount_type == 'PERCENT' %}{{ '%.2f'|format(tier.discount_value|float) }}% off{% else %}₹{{ '%.2f'|format(tier.discount_value|float) }} off{% endif %}
+                  </span>
+                </div>
+                <p>
+                  Add
+                  {% for product in tier.required_products %}
+                    <strong>{{ product.name }}</strong>{% if not loop.last %}, {% endif %}
+                  {% endfor %}
+                </p>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="promotion-meta">
+              <div><small>Discount applies to</small><strong>{{ rule.discount_scope|replace('_',' ')|title }}</strong></div>
+              <div><small>Starts</small><strong>{{ rule.starts_at.strftime('%d %b %Y, %I:%M %p') if rule.starts_at else 'Immediately' }}</strong></div>
+              <div><small>Ends</small><strong>{{ rule.ends_at.strftime('%d %b %Y, %I:%M %p') if rule.ends_at else 'No expiry' }}</strong></div>
+            </div>
+
+            <div class="promo-actions">
+              <form method="post" action="{{ url_for('store_promotion_toggle', promotion_id=rule.id) }}">
+                <button class="promo-btn {{ 'warning' if rule.is_active else 'primary' }}" type="submit">{{ 'Deactivate' if rule.is_active else 'Activate' }}</button>
+              </form>
+              <form method="post" action="{{ url_for('store_promotion_delete', promotion_id=rule.id) }}" onsubmit="return confirm('Delete this promotion? Rules with order history will only be deactivated.');">
+                <button class="promo-btn danger" type="submit">Delete</button>
+              </form>
+            </div>
+          </section>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state"><strong>No combination discounts created yet.</strong><br>Create the first tiered product suggestion offer above.</div>
+        {% endif %}
+      </div>
+    </article>
+  </div>
+
+  <template id="tierTemplate">
+    <div class="tier-row">
+      <div class="promo-field">
+        <label>Products required with trigger product</label>
+        <div class="tier-products">
+          {% for product in products %}
+          <label class="tier-product">
+            <input type="checkbox" class="tier-product-checkbox" value="{{ product._id }}">
+            <span><strong>{{ product.name }}</strong><small>₹{{ '%.2f'|format(product.price|default(0)|float) }} · Stock {{ product.stock|default(0) }}</small></span>
+          </label>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="tier_required_product_ids[]" class="tier-product-ids">
+      </div>
+      <div class="promo-field">
+        <label>Discount value</label>
+        <input name="tier_discount_values[]" type="number" min="0.01" step="0.01" required placeholder="10">
+      </div>
+      <button class="remove-tier" type="button" aria-label="Remove tier">×</button>
+    </div>
+  </template>
+
+  <script>
+    (function(){
+      const rows = document.getElementById('tierRows');
+      const template = document.getElementById('tierTemplate');
+      const trigger = document.getElementById('triggerProduct');
+
+      function syncRow(row){
+        const selected = Array.from(row.querySelectorAll('.tier-product-checkbox:checked')).map(input => input.value);
+        row.querySelector('.tier-product-ids').value = selected.join(',');
+      }
+
+      function refreshRows(){
+        const allRows = rows.querySelectorAll('.tier-row');
+        allRows.forEach(row => {
+          row.querySelector('.remove-tier').disabled = allRows.length <= 1;
+          row.querySelectorAll('.tier-product-checkbox').forEach(input => {
+            input.disabled = Boolean(trigger.value && input.value === trigger.value);
+            if (input.disabled) input.checked = false;
+          });
+          syncRow(row);
+        });
+      }
+
+      document.getElementById('addTier').addEventListener('click', function(){
+        rows.appendChild(template.content.cloneNode(true));
+        refreshRows();
+      });
+
+      rows.addEventListener('change', function(event){
+        const row = event.target.closest('.tier-row');
+        if (row) syncRow(row);
+      });
+
+      rows.addEventListener('click', function(event){
+        const button = event.target.closest('.remove-tier');
+        if (!button || button.disabled) return;
+        button.closest('.tier-row').remove();
+        refreshRows();
+      });
+
+      trigger.addEventListener('change', refreshRows);
+
+      document.getElementById('promotionForm').addEventListener('submit', function(event){
+        let valid = true;
+        rows.querySelectorAll('.tier-row').forEach(row => {
+          syncRow(row);
+          if (!row.querySelector('.tier-product-ids').value) valid = false;
+        });
+        if (!valid) {
+          event.preventDefault();
+          alert('Select at least one suggested product in every discount tier.');
+        }
+      });
+
+      refreshRows();
+    })();
+  </script>
+</section>
+{% endblock %}

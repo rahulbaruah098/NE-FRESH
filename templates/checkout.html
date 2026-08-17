@@ -843,7 +843,8 @@
 
   .loc-row{
     display:grid;
-    grid-template-columns:minmax(0,1fr) 82px;
+    grid-template-columns:minmax(140px,220px) 82px 72px;
+    justify-content:start;
     gap:8px;
   }
 
@@ -1136,7 +1137,10 @@
     .wallet-row{ grid-template-columns:repeat(2,1fr); }
     .field-two,
     .field-two.city-pin{ grid-template-columns:1fr; }
-    .loc-row{ grid-template-columns:1fr; }
+    .loc-row{
+      grid-template-columns:minmax(0,1fr) 68px 62px !important;
+      gap:6px !important;
+    }
     .recommend-card{ grid-template-columns:66px minmax(0,1fr); }
     .recommend-price{ grid-column:2; justify-self:end; }
   }
@@ -1537,8 +1541,7 @@
   .address-text,
   .muted,
   .fee-meta-line,
-  .loc-msg,
-  #total-breakdown{
+  .loc-msg{
     overflow-wrap:anywhere;
     word-break:normal;
   }
@@ -1590,7 +1593,8 @@
   }
 
   .loc-row{
-    grid-template-columns:minmax(0,1fr) 82px !important;
+    grid-template-columns:minmax(140px,220px) 82px 72px !important;
+    justify-content:start !important;
   }
 
   .pay-line{
@@ -1755,12 +1759,13 @@
     }
 
     .loc-row{
-      grid-template-columns:1fr !important;
+      grid-template-columns:minmax(0,1fr) 68px 62px !important;
+      gap:6px !important;
     }
 
     .loc-btn,
     .loc-btn-outline{
-      width:100%;
+      width:auto;
       min-height:38px;
     }
 
@@ -2627,6 +2632,23 @@
     box-shadow:0 0 0 4px rgba(0,168,89,.08) !important;
   }
 
+  #pinInput.pin-deliverable,
+  #pinInput.pin-deliverable:focus{
+    border-color:rgba(0,168,89,.85) !important;
+    box-shadow:0 0 0 4px rgba(0,168,89,.11) !important;
+  }
+
+  #pinInput.pin-not-deliverable,
+  #pinInput.pin-not-deliverable:focus{
+    border-color:rgba(239,68,68,.88) !important;
+    box-shadow:0 0 0 4px rgba(239,68,68,.11) !important;
+  }
+
+  #btnPinClear:disabled{
+    opacity:.48 !important;
+    cursor:not-allowed !important;
+  }
+
   .card-brand-row{
     right:9px !important;
     bottom:9px !important;
@@ -2693,8 +2715,9 @@
   }
 
   .loc-row{
-    grid-template-columns:minmax(0,1fr) 96px !important;
-    gap:10px !important;
+    grid-template-columns:minmax(140px,220px) 82px 72px !important;
+    justify-content:start !important;
+    gap:8px !important;
   }
 
   #fee-preview{
@@ -2851,9 +2874,21 @@
     .payment-method-grid,
     .checkout-delivery-mode-grid,
     .field-two,
-    .field-two.city-pin,
-    .loc-row{
+    .field-two.city-pin{
       grid-template-columns:1fr !important;
+    }
+
+    .loc-row{
+      grid-template-columns:minmax(0,1fr) 68px 62px !important;
+      gap:6px !important;
+      align-items:center !important;
+    }
+
+    .loc-row .loc-btn-outline{
+      width:auto !important;
+      min-width:0 !important;
+      padding-left:7px !important;
+      padding-right:7px !important;
     }
 
     .summary-item{
@@ -3302,6 +3337,10 @@
   }
 
   @media(max-width:760px){
+    .checkout-page .recommend-block{
+      margin-top:14px !important;
+    }
+
     .checkout-page .recommend-card{
       grid-template-columns:70px minmax(0,1fr) !important;
       padding-right:13px !important;
@@ -3621,58 +3660,7 @@
 </div>
 #}
 
-        <div class="compact-total-card" aria-label="Order total">
-          <div class="pay-line">
-            <span>Subtotal</span>
-            <strong id="summary-items-total-value">₹{{ '%.2f'|format(total) }}</strong>
-          </div>
-          <div class="pay-line">
-            <span>Shipping</span>
-            <strong id="pay-delivery-fee">₹{{ '%.2f'|format(base_fee|default(40)) }}</strong>
-          </div>
-          <div class="pay-line muted-charge">
-            <span class="tax-hint">Tax</span>
-            <strong>Included</strong>
-          </div>
-          <div class="pay-divider"></div>
-          <div class="pay-line total-line">
-            <span>Total</span>
-            <strong id="pay-grand-total">₹0.00</strong>
-          </div>
-        </div>
-
-
         <div class="checkout-left-delivery-stack" aria-label="Delivery details">
-            <div class="checkout-delivery-mode-card" id="checkoutDeliveryModeCard" aria-live="polite">
-              <div class="checkout-delivery-mode-head">
-                <div class="checkout-delivery-mode-title">Delivery mode</div>
-                <div class="checkout-delivery-mode-pill" id="checkoutDeliveryModePill">
-                  {{ delivery_mode_ui.icon }} {{ delivery_mode_ui.short_label }}
-                </div>
-              </div>
-
-              <div class="checkout-delivery-mode-grid">
-                <div class="checkout-delivery-mode-item">
-                  <span>Provider</span>
-                  <strong id="checkoutDeliveryProvider">{{ delivery_mode_ui.provider_label }}</strong>
-                </div>
-                <div class="checkout-delivery-mode-item">
-                  <span>Charge Label</span>
-                  <strong id="checkoutDeliveryChargeLabel">{{ delivery_mode_ui.fee_label }}</strong>
-                </div>
-                <div class="checkout-delivery-mode-item">
-                  <span>Payment Rule</span>
-                  <strong id="checkoutDeliveryPaymentRule">{{ delivery_mode_ui.payment_rule_label }}</strong>
-                </div>
-                <div class="checkout-delivery-mode-item">
-                  <span>ETA</span>
-                  <strong id="checkoutDeliveryEta">Calculated after location</strong>
-                </div>
-              </div>
-
-            
-            </div>
-
            <div class="address-mini-card">
   {% set address_ns = namespace(has_default=false) %}
   {% if addresses %}
@@ -3742,7 +3730,8 @@
                 <span class="loc-or">or check pincode availability</span>
                 <div class="loc-row">
                   <input id="pinInput" inputmode="numeric" maxlength="6" placeholder="Enter pincode" />
-                  <button type="button" id="btnPin" class="loc-btn-outline">Clear</button>
+                  <button type="button" id="btnPin" class="loc-btn-outline">Apply</button>
+                  <button type="button" id="btnPinClear" class="loc-btn-outline" disabled>Clear</button>
                 </div>
               </div>
               <div id="locMsg" class="loc-msg"></div>
@@ -3756,6 +3745,7 @@
 
         </div>
 
+        <span id="recommendOriginalPosition" hidden></span>
         <div class="recommend-block" aria-label="Recommended products">
           <h3 class="recommend-title">Recommended for you</h3>
           <div class="recommend-card">
@@ -3786,8 +3776,8 @@
               <div class="payment-method-grid">
                 <label class="payment-method-option {% if not mode_cod_allowed %}disabled{% endif %}">
                   <input type="radio" name="payment_method" value="COD" {% if default_payment_method == 'COD' %}checked{% endif %} {% if not mode_cod_allowed %}disabled{% endif %}>
-                  <strong>📲 Pay Online on Delivery</strong>
-<span>{% if mode_cod_allowed %}Pay online/UPI when your order is delivered.{% else %}Pay Online on Delivery is currently disabled for this delivery route.{% endif %}</span>
+                  <strong>💵 Cash on Delivery (COD)</strong>
+<span>{% if mode_cod_allowed %}Pay with cash when your order is delivered.{% else %}Cash on Delivery (COD) is currently disabled for this delivery route.{% endif %}</span>
                 </label>
 
                 <label class="payment-method-option {% if not online_option_available %}disabled{% endif %}">
@@ -3811,16 +3801,16 @@
 
               <div class="secure-row">
                 <span id="payment-secure-label">Secure order confirmation</span>
-                <span id="payment-mode-label">{% if default_payment_method == 'ONLINE' %}Online Payment{% else %}Pay Online on Delivery{% endif %}</span>
+                <span id="payment-mode-label">{% if default_payment_method == 'ONLINE' %}Online Payment{% else %}Cash on Delivery (COD){% endif %}</span>
               </div>
             </div>
 
             <div class="field-grid" aria-label="Customer details preview">
               <label class="field-label readonly-card-number">
                                 Payment method
-                <input type="text" id="payment-method-preview" value="{% if default_payment_method == 'ONLINE' %}Online Payment{% else %}Pay Online on Delivery{% endif %}" readonly aria-readonly="true">
+                <input type="text" id="payment-method-preview" value="{% if default_payment_method == 'ONLINE' %}Online Payment{% else %}Cash on Delivery (COD){% endif %}" readonly aria-readonly="true">
                 <span class="card-brand-row" aria-hidden="true">
-                  <span class="card-brand">POD</span>
+                  <span class="card-brand">COD</span>
                   <span class="card-brand">₹</span>
                 </span>
               </label>
@@ -3863,7 +3853,6 @@
     <strong id="total-payable">₹0.00</strong>
   </div>
 
-  <span id="total-breakdown" class="muted"></span>
 </div>
 
             <p id="total-preview">
@@ -3988,7 +3977,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const feeWarn = document.getElementById('fee-warn');
 
   const totalPayableEl = document.getElementById('total-payable');
-  const totalBreakdown = document.getElementById('total-breakdown');
   const summaryItemsTotalValue = document.getElementById('summary-items-total-value');
 
 const payItemsTotal = document.getElementById('pay-items-total');
@@ -4001,10 +3989,7 @@ const payGrandTotal = document.getElementById('pay-grand-total');
 
 const checkoutDeliveryModePill = document.getElementById('checkoutDeliveryModePill');
 const checkoutDeliveryProvider = document.getElementById('checkoutDeliveryProvider');
-const checkoutDeliveryChargeLabel = document.getElementById('checkoutDeliveryChargeLabel');
-const checkoutDeliveryPaymentRule = document.getElementById('checkoutDeliveryPaymentRule');
 const checkoutDeliveryEta = document.getElementById('checkoutDeliveryEta');
-const checkoutDeliveryModeNote = document.getElementById('checkoutDeliveryModeNote');
 
   const btn = document.getElementById('place-order-btn');
   const checkoutDisabledReason = document.getElementById('checkoutDisabledReason');
@@ -4018,6 +4003,7 @@ const checkoutDeliveryModeNote = document.getElementById('checkoutDeliveryModeNo
   const locMsg = document.getElementById("locMsg");
   const btnGps = document.getElementById("btnGps");
   const btnPin = document.getElementById("btnPin");
+  const btnPinClear = document.getElementById("btnPinClear");
   const pinInput = document.getElementById("pinInput");
     const addressListEl = document.getElementById("checkoutAddressList");
   const addressEmptyCard = document.getElementById("addressEmptyCard");
@@ -4667,6 +4653,27 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
     return Math.round(tip * 100) / 100;
   }
 
+  function updateTipLive(){
+    const tip = clampTip(tipInput ? tipInput.value : 0);
+    const currentFeeInfo = lastServiceability || null;
+    const currentDeliveryFee = currentFeeInfo
+      ? Number(currentFeeInfo.delivery_fee || 0)
+      : BASE_DELIVERY_FEE;
+    const currentPlatformFee = currentFeeInfo
+      ? Number(currentFeeInfo.platform_fee || 0)
+      : 0;
+    const currentPlatformFeeLabel = currentFeeInfo?.platform_fee_label || "Platform Fee";
+
+    updateUI(
+      currentDeliveryFee,
+      tip,
+      "",
+      currentPlatformFee,
+      currentPlatformFeeLabel,
+      currentFeeInfo
+    );
+  }
+
     function isPinServiceable(pin){
     const p = cleanPin(pin);
 
@@ -4745,7 +4752,7 @@ function buildDeliveryDisplayInfo(deliveryFee, feeInfo){
     }
 
     const isOnline = method === "ONLINE";
-    const label = isOnline ? "Online Payment" : "Pay Online on Delivery";
+    const label = isOnline ? "Online Payment" : "Cash on Delivery (COD)";
 
     if (paymentMethodPreview) {
       paymentMethodPreview.value = label;
@@ -4864,40 +4871,18 @@ function formatDeliveryModeName(value){
   return "🛵 NE LOCALS In-house Delivery";
 }
 
-function formatPaymentRule(value){
-  const rule = String(value || "").toUpperCase();
-
-  if (rule === "ONLINE_ONLY") return "Online payment only";
-  if (rule === "COD_STORE_COLLECTION") return "Pay Online on Delivery by store/NE LOCALS";
-  if (rule === "COD_PARTNER_COLLECTION") return "Partner collection";
-  return "Online + Pay Online on Delivery allowed";
-}
-
 function syncDeliveryModeCard(result){
   if (!result) return;
 
   const mode = result.active_delivery_mode || "IN_HOUSE";
   const provider = result.external_delivery_provider || (mode === "IN_HOUSE" ? "NE FRESH Delivery" : "External Partner");
-  const providerType = result.external_delivery_provider_type || (mode === "IN_HOUSE" ? "In-house" : "External");
-  const paymentRule = result.external_payment_rule || (mode === "IN_HOUSE" ? "IN_HOUSE" : "");
-  const eta = result.eta_minutes ? `${result.eta_minutes} min approx.` : "Calculated after location";
+  const eta = result.eta_minutes
+    ? `${result.eta_minutes} min approx.`
+    : "Shown after you set your delivery location";
 
   if (checkoutDeliveryModePill) checkoutDeliveryModePill.textContent = formatDeliveryModeName(mode);
   if (checkoutDeliveryProvider) checkoutDeliveryProvider.textContent = String(provider || "").replaceAll("_", " ");
-  if (checkoutDeliveryChargeLabel) {
-    checkoutDeliveryChargeLabel.textContent = mode === "THIRD_PARTY_SHIPPING"
-      ? "Courier Delivery Charge"
-      : (mode === "EXTERNAL_LOCAL_DELIVERY" ? "External Local Delivery Charge" : "Delivery Charge");
-  }
-  if (checkoutDeliveryPaymentRule) checkoutDeliveryPaymentRule.textContent = formatPaymentRule(paymentRule);
   if (checkoutDeliveryEta) checkoutDeliveryEta.textContent = eta;
-  if (checkoutDeliveryModeNote) {
-    checkoutDeliveryModeNote.textContent = mode === "THIRD_PARTY_SHIPPING"
-      ? "Shiprocket/courier fee is added separately from item subtotal. Shiprocket shipping requires online payment."
-      : (mode === "EXTERNAL_LOCAL_DELIVERY"
-        ? "External local delivery fee is hard-coded from Admin fare rules. Customer receives the NE FRESH order ID as delivery reference; no Rapido/Ola/Uber booking is stored."
-        : "In-house delivery fee is calculated using NE FRESH serviceability and delivery fee settings.");
-  }
 }
 
   function updateUI(
@@ -4976,23 +4961,6 @@ function syncDeliveryModeCard(result){
     const method = selectedPaymentMethod();
     const prefix = method === "ONLINE" ? "Continue to Pay" : "Place Order";
     btn.textContent = `${prefix} ${formatMoneyDisplay(payable)}`;
-  }
-
-  if (totalBreakdown){
-    const deliveryBreakdownLine = deliveryDisplay.freeApplied
-      ? `<div class="pay-line free-delivery"><span>Delivery charge</span><strong>${deliveryAmountHtml}</strong></div>`
-      : `<div class="pay-line"><span>Delivery charge</span><strong>${formatMoneyDisplay(deliveryFee)}</strong></div>`;
-
-    const savingNote = deliveryDisplay.freeApplied
-      ? `<div class="checkout-saving-note">🎉 Free delivery applied. You saved ₹${format2(deliveryDisplay.savings || deliveryDisplay.originalFee)}${deliveryDisplay.freeAbove > 0 ? ` because your order is above ₹${format2(deliveryDisplay.freeAbove)}` : ""}.</div>`
-      : "";
-
-    totalBreakdown.innerHTML =
-      `<div class="pay-line"><span>Product subtotal</span><strong>${formatMoneyDisplay(checkoutItemsTotal)}</strong></div>` +
-      deliveryBreakdownLine +
-      `<div class="pay-line"><span>${escapeHtml(platformFeeLabel || "Platform Fee")}</span><strong>${formatMoneyDisplay(platformFee)}</strong></div>` +
-      `<div class="pay-line"><span>Rider tip</span><strong>${formatMoneyDisplay(tip)}</strong></div>` +
-      savingNote;
   }
 
     if (feeMeta) {
@@ -5721,6 +5689,35 @@ updateUI(
   }
 
 
+function setPincodeOutline(state){
+  if (!pinInput) return;
+
+  pinInput.classList.remove("pin-deliverable", "pin-not-deliverable");
+
+  if (state === "deliverable"){
+    pinInput.classList.add("pin-deliverable");
+  } else if (state === "not-deliverable"){
+    pinInput.classList.add("pin-not-deliverable");
+  }
+}
+
+function clearPincodeDisplay(){
+  if (pinInput){
+    pinInput.value = "";
+    setPincodeOutline("");
+  }
+
+  if (locMsg){
+    locMsg.textContent = "";
+    locMsg.style.color = "";
+  }
+
+  if (btnPinClear){
+    btnPinClear.disabled = true;
+  }
+}
+
+
 async function usePincode(){
   if (cartStoreCount > 1){
     setLocMsg("Checkout blocked: Multiple stores in cart. Please clear cart to one store.", false);
@@ -5731,6 +5728,7 @@ async function usePincode(){
   const p = cleanPin(pinInput?.value || "");
 
   if (!/^\d{6}$/.test(p)){
+    setPincodeOutline("not-deliverable");
     setLocMsg("Please enter a valid 6-digit pincode.", false);
     setButtonEnabled(false);
     setWarn("Please enter a valid 6-digit pincode.");
@@ -5750,6 +5748,7 @@ async function usePincode(){
 
     if (!resolvedPin.assam) {
       setButtonEnabled(false);
+      setPincodeOutline("not-deliverable");
       setLocMsg("Delivery is not available for this pincode. NE FRESH delivery is currently available only within Assam.", false);
       setWarn("Delivery is not available for this pincode.");
       updateUI(BASE_DELIVERY_FEE, clampTip(tipInput ? tipInput.value : 0), "");
@@ -5766,6 +5765,7 @@ async function usePincode(){
 
     if (!Number.isFinite(pinLat) || !Number.isFinite(pinLng)) {
       setButtonEnabled(false);
+      setPincodeOutline("not-deliverable");
       setLocMsg("Pincode is valid, but exact delivery check needs current location. Please use Current Location.", false);
       setWarn("Please use current location for exact delivery availability.");
       updateUI(BASE_DELIVERY_FEE, clampTip(tipInput ? tipInput.value : 0), "");
@@ -5834,6 +5834,7 @@ async function usePincode(){
 
       const notAvailableMessage = result.message || "Delivery is not available for this pincode.";
 
+      setPincodeOutline("not-deliverable");
       setLocMsg(notAvailableMessage, false);
       setWarn(notAvailableMessage);
       return;
@@ -5844,6 +5845,7 @@ async function usePincode(){
     if (!selectedAddress) {
       setButtonEnabled(false);
       setWarn("Delivery is available for this pincode. Please add/select a delivery address to continue.");
+      setPincodeOutline("deliverable");
       setLocMsg("Delivery is available for this pincode. Please add/select a delivery address to continue.", true);
       return;
     }
@@ -5855,11 +5857,13 @@ async function usePincode(){
       ? ` Distance: ${Number(result.distance_km).toFixed(2)} km.`
       : "";
 
+    setPincodeOutline("deliverable");
     setLocMsg(`Delivery is available for this pincode.${distanceText}`, true);
 
   } catch (e) {
     lastServiceability = null;
     setButtonEnabled(false);
+    setPincodeOutline("not-deliverable");
     setLocMsg(e.message || "Could not check this pincode.", false);
     setWarn(e.message || "Could not check this pincode.");
     updateUI(BASE_DELIVERY_FEE, clampTip(tipInput ? tipInput.value : 0), "");
@@ -5870,6 +5874,32 @@ async function usePincode(){
     }
   }
 }
+
+
+  const recommendBlock = document.querySelector('.recommend-block');
+  const recommendOriginalPosition = document.getElementById('recommendOriginalPosition');
+  const paySubmitRow = document.querySelector('.pay-submit-row');
+  const checkoutAppView = window.matchMedia('(max-width: 760px)');
+
+  function syncRecommendedPositionForView(){
+    if (!recommendBlock || !recommendOriginalPosition || !paySubmitRow) return;
+
+    if (checkoutAppView.matches){
+      if (recommendBlock.previousElementSibling !== paySubmitRow){
+        paySubmitRow.insertAdjacentElement('afterend', recommendBlock);
+      }
+    } else {
+      recommendOriginalPosition.insertAdjacentElement('afterend', recommendBlock);
+    }
+  }
+
+  syncRecommendedPositionForView();
+
+  if (typeof checkoutAppView.addEventListener === "function"){
+    checkoutAppView.addEventListener("change", syncRecommendedPositionForView);
+  } else if (typeof checkoutAppView.addListener === "function"){
+    checkoutAppView.addListener(syncRecommendedPositionForView);
+  }
 
   radios().forEach(r => {
     r.addEventListener('change', async () => {
@@ -5901,17 +5931,31 @@ async function usePincode(){
     btnGps.addEventListener("click", useGps);
   }
 
+  if (tipInput){
+    tipInput.addEventListener("input", updateTipLive);
+  }
+
   if (btnPin) {
     btnPin.textContent = "Apply";
     btnPin.addEventListener("click", usePincode);
   }
 
-    if (pinInput) {
+  if (btnPinClear){
+    btnPinClear.addEventListener("click", clearPincodeDisplay);
+  }
+
+  if (pinInput) {
     pinInput.addEventListener("input", function(){
       const cleaned = cleanPin(pinInput.value).slice(0, 6);
 
       if (pinInput.value !== cleaned) {
         pinInput.value = cleaned;
+      }
+
+      setPincodeOutline("");
+
+      if (btnPinClear){
+        btnPinClear.disabled = pinInput.value.length === 0;
       }
     });
   }

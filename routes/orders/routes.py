@@ -6,6 +6,58 @@ Only the file location changed.
 
 from app_core import *
 import razorpay
+from zoneinfo import ZoneInfo
+from pymongo import ReturnDocument
+
+ORDER_NUMBER_TIMEZONE = ZoneInfo("Asia/Kolkata")
+ORDER_NUMBER_PREFIX = "NEO"
+
+
+def _next_public_order_number():
+    """
+    Allocate the next customer-facing order number atomically.
+
+    Format:
+        NEO-YYYY-MM-DDSSSSS
+
+    Example:
+        NEO-2026-08-1100001
+
+    YYYY / MM / DD come from the real Asia/Kolkata calendar date.
+    SSSSS is a daily serial beginning at 00001.
+
+    MongoDB _id remains the internal order identifier used by routes,
+    payments, tracking, cancellation, returns and related collections.
+    """
+    local_now = datetime.now(ORDER_NUMBER_TIMEZONE)
+    day_key = local_now.strftime("%Y-%m-%d")
+
+    counter = mongo.order_number_counters.find_one_and_update(
+        {"_id": day_key},
+        {
+            "$inc": {"sequence": 1},
+            "$set": {
+                "updated_at": local_now.isoformat(),
+            },
+            "$setOnInsert": {
+                "prefix": ORDER_NUMBER_PREFIX,
+                "date": day_key,
+                "created_at": local_now.isoformat(),
+            },
+        },
+        upsert=True,
+        return_document=ReturnDocument.AFTER,
+    ) or {}
+
+    sequence = int(counter.get("sequence") or 0)
+
+    if sequence < 1 or sequence > 99999:
+        raise RuntimeError(
+            f"Daily order-number sequence is outside the supported range for {day_key}."
+        )
+
+    return f"{ORDER_NUMBER_PREFIX}-{local_now:%Y-%m}-{local_now:%d}{sequence:05d}"
+
 
 def _money_float(value, default=0.0):
     try:
@@ -1673,6 +1725,11 @@ def checkout():
             "store_id": store_id,
             "store_name": store.get("store_name", ""),
 
+            # Customer-facing public number.
+            # COD receives it after stock reservation succeeds.
+            # Online receives it only after Razorpay verification succeeds.
+            "order_number": "",
+
             "items_subtotal": items_subtotal_amount,
 
             # Final payable amount including items + delivery fee + platform fee + tip.
@@ -1866,6 +1923,13 @@ def checkout():
             mongo.order_events.delete_many({"order_id": oid})
             flash(stock_message or "Requested stock is no longer available. Please update your cart.", "danger")
             return redirect(url_for("cart_page"))
+
+        if not is_online_order:
+            public_order_number = _next_public_order_number()
+            mongo.orders.update_one(
+                {"_id": oid},
+                {"$set": {"order_number": public_order_number}}
+            )
 
         for order_item in order_items_docs:
             order_item["order_id"] = oid
@@ -2424,6 +2488,7 @@ def api_verify_razorpay_payment(oid):
     }
 
     order_doc["_id"] = oid_obj
+    order_doc["order_number"] = (order_doc.get("order_number") or "").strip() or _next_public_order_number()
     order_doc["status"] = "PLACED"
     order_doc["payment_status"] = "PAID"
     order_doc["payment_collection_status"] = "PAID"
@@ -2712,6 +2777,8 @@ def my_orders():
 
     for o in orders:
         o["id"] = str(o["_id"])
+        o["order_number"] = (o.get("order_number") or "").strip()
+        o["display_order_number"] = o["order_number"] or f"#{o['id']}"
         o["store_name"] = o.get("store_name", "")
 
         o = normalize_order_money_fields(o)
@@ -3019,6 +3086,7 @@ def api_order_status(oid):
     return jsonify({
         "ok": True,
         "id": o.get("id"),
+        "order_number": o.get("order_number") or "",
         "status": o.get("status"),
         "payment_status": o.get("payment_status"),
 
@@ -3099,6 +3167,7 @@ def api_orders_list(user_id):
         o = decorate_order_delivery_mode_display(o)
         result.append({
             "id": str(o["_id"]),
+            "order_number": o.get("order_number") or "",
             "store_name": o.get("store_name", ""),
             "total_amount": float(o.get("total_amount") or 0),
             "items_subtotal": float(o.get("items_subtotal") or o.get("total_amount") or 0),

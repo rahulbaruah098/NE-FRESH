@@ -70,6 +70,7 @@
         </div>
 
         <button class="pf-btn" type="submit">Save Profile</button>
+        <div class="pf-action-msg" data-action-msg="profile" hidden aria-live="polite"></div>
       </form>
     </section>
 
@@ -92,6 +93,7 @@
         </div>
 
         <button class="pf-btn" type="submit">Send OTP to New Email</button>
+        <div class="pf-action-msg" data-action-msg="email-request" hidden aria-live="polite"></div>
       </form>
 
       {% if pending_new_email %}
@@ -107,6 +109,7 @@
         </div>
 
         <button class="pf-btn" type="submit">Verify OTP & Change Email</button>
+        <div class="pf-action-msg" data-action-msg="email-verify" hidden aria-live="polite"></div>
       </form>
       {% endif %}
     </section>
@@ -192,7 +195,11 @@
           <span>Set as default</span>
         </label>
 
-        <button class="pf-btn" type="submit">Save Address</button>
+        <div class="pf-address-actions">
+          <button class="pf-btn" type="submit">Save Address</button>
+          <button class="pf-btn ghost" type="button" id="clearAddressFormBtn">Clear</button>
+        </div>
+        <div class="pf-action-msg" data-action-msg="address-save" hidden aria-live="polite"></div>
       </form>
 
       <!-- Address list -->
@@ -225,13 +232,23 @@
                 </td>
                 <td>{{ 'Yes' if a.is_default else 'No' }}</td>
                 <td class="pf-actions">
-                  <form method="post" action="{{ url_for('address_delete', aid=a.id) }}">
-                    <button class="pf-btn tiny ghost" onclick="return confirm('Delete this address?')">Delete</button>
+                  <form method="post"
+                        action="{{ url_for('address_delete', aid=a.id) }}"
+                        class="pf-inline-action-form"
+                        data-action-type="address-delete">
+                    <button class="pf-btn tiny ghost"
+                            type="submit"
+                            data-confirm-message="Delete this address?">Delete</button>
+                    <div class="pf-action-msg" hidden aria-live="polite"></div>
                   </form>
 
                   {% if not a.is_default %}
-                  <form method="post" action="{{ url_for('address_set_default', aid=a.id) }}">
-                    <button class="pf-btn tiny ghost">Set Default</button>
+                  <form method="post"
+                        action="{{ url_for('address_set_default', aid=a.id) }}"
+                        class="pf-inline-action-form"
+                        data-action-type="address-default">
+                    <button class="pf-btn tiny ghost" type="submit">Set Default</button>
+                    <div class="pf-action-msg" hidden aria-live="polite"></div>
                   </form>
                   {% endif %}
                 </td>
@@ -250,6 +267,20 @@
 
   </div>
 </section>
+
+<div class="pf-modal" id="pfUniformModal" hidden aria-hidden="true">
+  <div class="pf-modal-card" role="dialog" aria-modal="true" aria-labelledby="pfModalTitle">
+    <button type="button" class="pf-modal-close" id="pfModalClose" aria-label="Close">✕</button>
+    <div class="pf-modal-icon" id="pfModalIcon" aria-hidden="true">✓</div>
+    <h3 class="pf-modal-title" id="pfModalTitle">Notice</h3>
+    <p class="pf-modal-text" id="pfModalText"></p>
+    <div class="pf-modal-actions" id="pfModalActions">
+      <button type="button" class="pf-btn ghost" id="pfModalCancel" hidden>Cancel</button>
+      <button type="button" class="pf-btn" id="pfModalConfirm">OK</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =========================
    DETECT LOCATION + AUTOFILL ADDRESS (FINAL)
@@ -262,6 +293,314 @@
 (function(){
   const btn = document.getElementById('detectBtn');
   const msgBox = document.getElementById('detectMsg');
+
+  const modal = document.getElementById('pfUniformModal');
+  const modalClose = document.getElementById('pfModalClose');
+  const modalTitle = document.getElementById('pfModalTitle');
+  const modalText = document.getElementById('pfModalText');
+  const modalIcon = document.getElementById('pfModalIcon');
+  const modalConfirm = document.getElementById('pfModalConfirm');
+  const modalCancel = document.getElementById('pfModalCancel');
+
+  let pendingConfirmResolve = null;
+  let modalAutoCloseTimer = null;
+
+  function lockProfileBackground(lock){
+    document.documentElement.classList.toggle('pf-modal-open', !!lock);
+    document.body.classList.toggle('pf-modal-open', !!lock);
+  }
+
+  function closeUniformModal(result=false){
+    if (!modal) return;
+
+    if (modalAutoCloseTimer){
+      clearTimeout(modalAutoCloseTimer);
+      modalAutoCloseTimer = null;
+    }
+
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden','true');
+    lockProfileBackground(false);
+
+    if (pendingConfirmResolve){
+      const resolver = pendingConfirmResolve;
+      pendingConfirmResolve = null;
+      resolver(result);
+    }
+  }
+
+  function openUniformModal({
+    title="Notice",
+    message="",
+    type="success",
+    confirmText="OK",
+    cancelText="",
+    confirmMode=false
+  }={}){
+    if (!modal) return Promise.resolve(true);
+
+    modalTitle.textContent = title;
+    modalText.textContent = message;
+    modalIcon.textContent = type === "error" ? "!" : (type === "warning" ? "!" : "✓");
+    modal.dataset.type = type;
+    modalConfirm.textContent = confirmText || "OK";
+    modalCancel.hidden = !confirmMode;
+    modalCancel.textContent = cancelText || "Cancel";
+
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden','false');
+    lockProfileBackground(true);
+    requestAnimationFrame(() => modalConfirm.focus());
+
+    if (modalAutoCloseTimer){
+      clearTimeout(modalAutoCloseTimer);
+    }
+
+    // Auto-dismiss the popup after 6 seconds.
+    // Confirmation popups close safely as "Cancel" if no action is taken.
+    modalAutoCloseTimer = setTimeout(() => {
+      closeUniformModal(false);
+    }, 6000);
+
+    return new Promise(resolve => {
+      pendingConfirmResolve = resolve;
+    });
+  }
+
+  function showActionMsg(container, message, type="success"){
+    if (!container) return;
+
+    clearTimeout(container._pfHideTimer);
+
+    container.hidden = false;
+    container.textContent = message || "";
+    container.className = "pf-action-msg " + type;
+
+    container._pfHideTimer = setTimeout(() => {
+      clearActionMsg(container);
+    }, 5000);
+  }
+
+  function clearActionMsg(container){
+    if (!container) return;
+
+    clearTimeout(container._pfHideTimer);
+    container._pfHideTimer = null;
+
+    container.hidden = true;
+    container.textContent = "";
+    container.className = "pf-action-msg";
+  }
+
+  function resetAddressForm(){
+    const addressForm = document.querySelector('.pf-address-form');
+    if (!addressForm) return;
+
+    addressForm.reset();
+
+    // Clear hidden coordinate mirrors used by the existing location logic.
+    const hiddenLat = document.getElementById('lat');
+    const hiddenLng = document.getElementById('lng');
+
+    if (hiddenLat) hiddenLat.value = "";
+    if (hiddenLng) hiddenLng.value = "";
+
+    // Clear visible coordinate boxes as well.
+    const visibleLat = document.getElementById('lat_view');
+    const visibleLng = document.getElementById('lng_view');
+
+    if (visibleLat) visibleLat.value = "";
+    if (visibleLng) visibleLng.value = "";
+
+    // Remove any location-result message belonging to the previous entry.
+    const detectMessage = document.getElementById('detectMsg');
+    if (detectMessage){
+      detectMessage.hidden = true;
+      detectMessage.textContent = "";
+      detectMessage.className = "pf-detect-msg";
+    }
+  }
+
+  async function readResponseMessage(response){
+    const contentType = response.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")){
+      try{
+        const json = await response.json();
+        return {
+          ok: response.ok && json?.success !== false,
+          message: json?.message || json?.error || (response.ok ? "Updated successfully." : "Something went wrong."),
+          data: json
+        };
+      }catch(e){}
+    }
+
+    const raw = await response.text();
+    const doc = new DOMParser().parseFromString(raw, "text/html");
+
+    const flash =
+      doc.querySelector(".alert-success, .flash-success, .success, [data-flash='success']") ||
+      doc.querySelector(".alert-danger, .alert-error, .flash-error, .error, [data-flash='error']") ||
+      doc.querySelector(".alert, .flash");
+
+    const message = flash?.textContent?.trim()
+      || (response.ok ? "Updated successfully." : "Something went wrong.");
+
+    return { ok: response.ok, message, data: null };
+  }
+
+  async function submitProfileFormAjax(form){
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const msg = form.querySelector('.pf-action-msg');
+    const originalText = submitBtn?.textContent || "";
+
+    clearActionMsg(msg);
+
+    if (submitBtn){
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Please wait...";
+    }
+
+    try{
+      const response = await fetch(form.action || window.location.href, {
+        method: (form.method || "POST").toUpperCase(),
+        body: new FormData(form),
+        credentials: "same-origin",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest"
+        }
+      });
+
+      const result = await readResponseMessage(response);
+      showActionMsg(msg, result.message, result.ok ? "success" : "error");
+
+      if (result.ok){
+        // Update visible profile summary immediately where applicable.
+        if (form.matches('.pf-form') && form.querySelector('[name="name"]')){
+          const nameInput = form.querySelector('[name="name"]');
+          const phoneInput = form.querySelector('[name="phone"]');
+          const nameTarget = document.querySelector('.pf-name');
+
+          if (nameTarget && nameInput) nameTarget.textContent = nameInput.value.trim();
+          if (phoneInput) phoneInput.value = phoneInput.value.trim();
+        }
+
+        // Refresh only the saved-address list after Save Address / Delete / Set Default.
+        // The existing backend routes and form actions remain unchanged.
+        if (
+          form.classList.contains('pf-inline-action-form') ||
+          form.classList.contains('pf-address-form')
+        ){
+          const pageResponse = await fetch(window.location.href, {
+            credentials: "same-origin",
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+          });
+          const pageHtml = await pageResponse.text();
+          const doc = new DOMParser().parseFromString(pageHtml, "text/html");
+          const freshTable = doc.querySelector('.pf-tablewrap');
+          const currentTable = document.querySelector('.pf-tablewrap');
+
+          if (freshTable && currentTable){
+            currentTable.replaceWith(freshTable);
+            bindInlineForms();
+          }
+
+          // After a successful address save, present a clean form for the next address.
+          if (form.classList.contains('pf-address-form')){
+            resetAddressForm();
+          }
+        }
+      }
+
+      return result.ok;
+    }catch(error){
+      console.error(error);
+      showActionMsg(msg, "Could not complete this action. Please try again.", "error");
+      return false;
+    }finally{
+      if (submitBtn){
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+    }
+  }
+
+  function bindInlineForms(){
+    document.querySelectorAll('.pf-inline-action-form').forEach(form => {
+      if (form.dataset.pfBound === "1") return;
+      form.dataset.pfBound = "1";
+
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+
+        const submitter = event.submitter || form.querySelector('button[type="submit"]');
+        const confirmMessage = submitter?.dataset.confirmMessage;
+
+        if (confirmMessage){
+          const confirmed = await openUniformModal({
+            title: "Confirm action",
+            message: confirmMessage,
+            type: "warning",
+            confirmText: "Delete",
+            cancelText: "Cancel",
+            confirmMode: true
+          });
+
+          if (!confirmed) return;
+        }
+
+        await submitProfileFormAjax(form);
+      });
+    });
+  }
+
+  document.querySelectorAll('.pf-card form:not(.pf-inline-action-form)').forEach(form => {
+    if (form.dataset.pfBound === "1") return;
+    form.dataset.pfBound = "1";
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      await submitProfileFormAjax(form);
+    });
+  });
+
+  bindInlineForms();
+
+  const clearAddressFormBtn = document.getElementById('clearAddressFormBtn');
+  clearAddressFormBtn?.addEventListener('click', () => {
+    resetAddressForm();
+
+    const addressMsg = document.querySelector('.pf-address-form .pf-action-msg');
+    clearActionMsg(addressMsg);
+  });
+
+  modalClose?.addEventListener('click', () => closeUniformModal(false));
+  modalCancel?.addEventListener('click', () => closeUniformModal(false));
+  modalConfirm?.addEventListener('click', () => closeUniformModal(true));
+
+  modal?.addEventListener('click', event => {
+    // Clicking anywhere on the darkened screen outside the popup closes it.
+    if (event.target === modal){
+      closeUniformModal(false);
+    }
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === "Escape" && modal && !modal.hidden){
+      closeUniformModal(false);
+    }
+  });
+
+  document.addEventListener('click', event => {
+    // Modal itself has its own backdrop handler above.
+    if (modal && !modal.hidden) return;
+
+    document.querySelectorAll('.pf-action-msg:not([hidden])').forEach(message => {
+      if (!message.contains(event.target)){
+        clearActionMsg(message);
+      }
+    });
+  });
 
   const latEl = document.getElementById('lat');
   const lngEl = document.getElementById('lng');
@@ -327,8 +666,8 @@
     const house = a.house_number || "";
     return {
       line1: [house,road].filter(Boolean).join(" "),
-      line2: a.suburb || a.neighbourhood || "",
-      city: a.city || a.town || a.village || "",
+      line2: "",
+      city: a.city || a.town || a.village || a.suburb || a.neighbourhood || a.county || "",
       state: a.state || "",
       pincode: a.postcode || ""
     };
@@ -371,7 +710,6 @@
         const j = await reverseGeocode(latitude,longitude);
         const m = mapNominatim(j);
         safeSet(line1El,m.line1);
-        safeSet(line2El,m.line2);
         safeSet(cityEl,m.city);
         safeSet(stateEl,m.state);
         safeSet(pinEl,m.pincode);
@@ -463,17 +801,6 @@
   text-align:center;
   margin:0 auto clamp(20px,3vw,34px);
   padding:clamp(18px,3vw,30px) 0 4px;
-}
-
-.pf-header::before{
-  content:"";
-  width:58px;
-  height:5px;
-  display:block;
-  margin:0 auto 18px;
-  border-radius:999px;
-  background:var(--pf-green);
-  opacity:.9;
 }
 
 .pf-title{
@@ -597,16 +924,6 @@
   line-height:1.18;
   letter-spacing:-.035em;
   font-weight:900;
-}
-
-.pf-h2::before{
-  content:"";
-  width:10px;
-  height:10px;
-  border-radius:50%;
-  background:var(--pf-green);
-  box-shadow:0 0 0 7px rgba(0,168,89,.10);
-  flex:0 0 auto;
 }
 
 /* Forms */
@@ -811,6 +1128,13 @@
   accent-color:var(--pf-green);
 }
 
+.pf-address-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
 /* Table */
 .pf-tablewrap{
   margin-top:clamp(16px,2.5vw,26px);
@@ -913,11 +1237,6 @@
     text-align:left;
   }
 
-  .pf-header::before{
-    margin-left:0;
-    margin-right:0;
-  }
-
   .pf-title{
     font-size:clamp(1.85rem,9vw,2.35rem);
   }
@@ -963,6 +1282,21 @@
   .pf-form > .pf-btn,
   .pf-address-form > .pf-btn{
     width:100%;
+  }
+
+  .pf-address-actions{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:8px;
+  }
+
+  .pf-address-actions .pf-btn{
+    width:100%;
+  }
+
+  .pf-address-actions .pf-btn.ghost{
+    width:auto;
+    min-width:92px;
   }
 
   .pf-check{
@@ -1110,6 +1444,239 @@
     scroll-behavior:auto !important;
   }
 }
+
+
+/* Action feedback: always displayed immediately below the relevant action */
+.pf-action-msg{
+  width:100%;
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid var(--pf-line);
+  background:#fff;
+  color:var(--pf-text);
+  font-size:.82rem;
+  line-height:1.45;
+  font-weight:750;
+  animation:pfFadeSlide .18s ease-out;
+}
+
+.pf-action-msg.success{
+  color:#14532D;
+  background:#ECFDF5;
+  border-color:rgba(0,168,89,.22);
+}
+
+.pf-action-msg.warning{
+  color:#78350F;
+  background:#FFF7ED;
+  border-color:rgba(180,83,9,.20);
+}
+
+.pf-action-msg.error{
+  color:#7F1D1D;
+  background:#FEF2F2;
+  border-color:rgba(185,28,28,.20);
+}
+
+.pf-inline-action-form{
+  display:grid;
+  gap:8px;
+}
+
+/* Uniform confirmation/modal window */
+.pf-modal{
+  --pf-green:#00A859;
+  --pf-green-dark:#008A48;
+  --pf-green-deep:#05603A;
+  --pf-green-soft:#E9FFF3;
+  --pf-green-soft-2:#F5FFF9;
+  --pf-ink:#26372E;
+  --pf-text:#52645A;
+  --pf-muted:#87958D;
+  --pf-line:#DDEFE6;
+
+  position:fixed;
+  inset:0;
+  z-index:120000;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:rgba(15,23,42,.48);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+
+.pf-modal[hidden]{
+  display:none !important;
+}
+
+.pf-modal-card{
+  position:relative;
+  width:min(440px,calc(100vw - 32px));
+  max-height:calc(100dvh - 32px);
+  overflow:auto;
+  padding:28px 24px 24px;
+  border:1px solid var(--pf-line);
+  border-radius:24px;
+  background:#fff;
+  box-shadow:0 30px 80px rgba(17,64,38,.24);
+  text-align:center;
+}
+
+.pf-modal-close{
+  position:absolute;
+  right:14px;
+  top:14px;
+  width:34px;
+  height:34px;
+  border:1px solid var(--pf-line);
+  border-radius:11px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  background:#fff;
+  color:var(--pf-muted);
+  font:inherit;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.pf-modal-icon{
+  width:58px;
+  height:58px;
+  display:grid;
+  place-items:center;
+  margin:0 auto 15px;
+  border-radius:50%;
+  background:var(--pf-green-soft);
+  color:var(--pf-green-dark);
+  font-size:1.4rem;
+  font-weight:950;
+}
+
+.pf-modal[data-type="error"] .pf-modal-icon{
+  background:#FEF2F2;
+  color:#B91C1C;
+}
+
+.pf-modal[data-type="warning"] .pf-modal-icon{
+  background:#FFF7ED;
+  color:#B45309;
+}
+
+.pf-modal-title{
+  margin:0;
+  color:var(--pf-ink);
+  font-size:1.28rem;
+  line-height:1.2;
+  font-weight:950;
+}
+
+.pf-modal-text{
+  margin:10px 0 0;
+  color:var(--pf-text);
+  font-size:.9rem;
+  line-height:1.55;
+  font-weight:650;
+  overflow-wrap:anywhere;
+}
+
+.pf-modal-actions{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  margin-top:20px;
+}
+
+#pfModalConfirm{
+  min-width:112px;
+  background:var(--pf-green) !important;
+  border-color:var(--pf-green) !important;
+  color:#FFFFFF !important;
+  box-shadow:0 12px 28px rgba(0,168,89,.18) !important;
+}
+
+#pfModalConfirm:hover{
+  background:var(--pf-green-dark) !important;
+  border-color:var(--pf-green-dark) !important;
+  color:#FFFFFF !important;
+}
+
+#pfModalCancel{
+  min-width:112px;
+  background:#FFFFFF !important;
+  border:1px solid rgba(0,168,89,.30) !important;
+  color:var(--pf-green-dark) !important;
+  box-shadow:none !important;
+}
+
+#pfModalCancel:hover{
+  background:var(--pf-green-soft) !important;
+  color:var(--pf-green-deep) !important;
+  border-color:rgba(0,168,89,.42) !important;
+}
+
+html.pf-modal-open,
+body.pf-modal-open{
+  overflow:hidden !important;
+  overscroll-behavior:none;
+}
+
+/* Extra cross-device hardening without changing form/business logic */
+.pf-fullbleed input,
+.pf-fullbleed button,
+.pf-fullbleed select,
+.pf-fullbleed textarea{
+  max-width:100%;
+}
+
+.pf-card,
+.pf-form,
+.pf-grid,
+.pf-summary,
+.pf-tablewrap,
+.pf-actions{
+  min-width:0;
+}
+
+@media (max-width:760px){
+  .pf-modal{
+    padding:14px;
+    place-items:center;
+  }
+
+  .pf-modal-card{
+    width:min(440px,100%);
+    max-height:calc(100dvh - 28px);
+    border-radius:22px;
+    padding:26px 16px 18px;
+  }
+
+  .pf-modal-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+
+  .pf-modal-actions .pf-btn{
+    width:100%;
+  }
+
+  .pf-action-msg{
+    font-size:.78rem;
+  }
+}
+
+@media (max-width:430px){
+  .pf-modal-actions{
+    grid-template-columns:1fr;
+  }
+
+  .pf-modal-card{
+    border-radius:20px;
+  }
+}
+
 
 @keyframes pfFadeSlide{
   from{
