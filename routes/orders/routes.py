@@ -332,7 +332,7 @@ def decorate_customer_payment_display(order_doc):
     if is_online_order:
         payment_method_label = "Online Payment"
     elif is_cod_order:
-        payment_method_label = "Pay Online on Delivery"
+        payment_method_label = "Cash on Delivery (COD)"
     else:
         payment_method_label = payment_method.replace("_", " ").title() if payment_method else "Payment"
 
@@ -345,9 +345,9 @@ def decorate_customer_payment_display(order_doc):
         payment_badge_class = "pending"
         payment_notice = "Please complete online payment to confirm this order."
     elif is_cod_order:
-        payment_status_label = "Pay Online on Delivery"
+        payment_status_label = "Cash on Delivery (COD)"
         payment_badge_class = "cod"
-        payment_notice = "Please complete payment at delivery as per the selected route. External Local should be paid online/UPI to Store/NE FRESH, not cash to the external rider."
+        payment_notice = "Pay with cash when your order is delivered."
     elif payment_status:
         payment_status_label = payment_status.replace("_", " ").title()
         payment_badge_class = "pending"
@@ -582,6 +582,20 @@ def _parse_order_datetime(value):
         return datetime.fromisoformat(raw)
     except Exception:
         return None
+
+
+def _format_customer_datetime(value):
+    """Customer-facing India date/time: dd/mm/yy hh:mm AM/PM, no seconds."""
+    dt = _parse_order_datetime(value)
+
+    if not dt:
+        return str(value or "")
+
+    # Current project timestamps are predominantly stored as naive UTC.
+    if dt.tzinfo is None:
+        dt = dt + timedelta(hours=5, minutes=30)
+
+    return dt.strftime("%d/%m/%y %I:%M %p")
 
 
 def get_order_return_eligibility(order_doc, settings=None):
@@ -1600,22 +1614,22 @@ def checkout():
         allow_cod_payment_for_mode = bool(serviceability.get("cod_allowed", allow_cod_payment_for_mode))
 
         if requested_payment_method == "COD" and not allow_cod_payment_for_mode:
-            flash("Pay Online on Delivery is currently disabled for this delivery route. Please choose Online Payment.", "warning")
+            flash("Cash on Delivery (COD) is currently disabled for this delivery route. Please choose Online Payment.", "warning")
             return redirect(url_for("checkout"))
 
         if requested_payment_method == "ONLINE" and not allow_online_payment_for_mode:
-            flash("Online payment is currently disabled for this delivery route. Please choose Pay Online on Delivery.", "warning")
+            flash("Online payment is currently disabled for this delivery route. Please choose Cash on Delivery (COD).", "warning")
             return redirect(url_for("checkout"))
 
         store_allows_online = bool(store.get("allow_online_payment", True))
 
         if requested_payment_method == "ONLINE":
             if not online_payment_enabled:
-                flash("Online payment is currently not enabled by Admin. Please use Pay Online on Delivery.", "warning")
+                flash("Online payment is currently not enabled by Admin. Please use Cash on Delivery (COD).", "warning")
                 return redirect(url_for("checkout"))
 
             if not store_allows_online:
-                flash("Online payment is currently not enabled for this store. Please use Pay Online on Delivery.", "warning")
+                flash("Online payment is currently not enabled for this store. Please use Cash on Delivery (COD).", "warning")
                 return redirect(url_for("checkout"))
 
             payment_method = "ONLINE"
@@ -1679,7 +1693,7 @@ def checkout():
                 rider_cash_settlement_status = "NOT_APPLICABLE"
 
             initial_payment_status = "PENDING"
-            flash_message = "Order placed! Pay Online on Delivery selected."
+            flash_message = "Order placed! Cash on Delivery (COD) selected."
 
         items_subtotal_amount = round(float(money_breakdown.get("items_subtotal") or items_total or 0), 2)
         delivery_fee_amount_final = round(float(money_breakdown.get("delivery_fee") or delivery_fee or 0), 2)
@@ -2849,6 +2863,13 @@ def my_orders():
         o["delivery_rescheduled_for"] = o.get("delivery_rescheduled_for") or ""
         o["delivery_rescheduled_note"] = o.get("delivery_rescheduled_note") or ""
 
+        # Customer-facing My Orders date/time display only.
+        # Stored timestamps and all order workflow logic remain unchanged.
+        o["created_at_display"] = _format_customer_datetime(o.get("created_at"))
+        o["delivery_rescheduled_for_display"] = _format_customer_datetime(
+            o.get("delivery_rescheduled_for")
+        )
+
     return_refund_enabled_now = is_delivery_feature_enabled("return_refund_enabled", True)
     return_policy_settings = get_return_refund_policy_settings()
 
@@ -2907,6 +2928,67 @@ def order_track(oid):
     order_doc = normalize_order_money_fields(order_doc)
     order_doc = decorate_customer_payment_display(order_doc)
     order_doc = decorate_order_delivery_mode_display(order_doc)
+
+    # Keep MongoDB _id/id for routes and relations.
+    # Use the same public customer-facing number shown on My Orders.
+    order_doc["id"] = str(order_doc.get("_id") or order_doc.get("id") or oid)
+    order_doc["order_number"] = (order_doc.get("order_number") or "").strip()
+    order_doc["display_order_number"] = (
+        order_doc["order_number"] or f"#{order_doc['id']}"
+    )
+
+    # Customer-facing display values only; stored timestamps stay unchanged.
+    for _field in [
+        "assigned_at",
+        "delivery_rescheduled_for",
+        "refund_processed_at",
+        "return_requested_at",
+    ]:
+        order_doc[f"{_field}_display"] = _format_customer_datetime(
+            order_doc.get(_field)
+        )
+
+    for _event in data.get("events", []):
+        _event["created_at_display"] = _format_customer_datetime(
+            _event.get("created_at")
+        )
+
+    # Display-only store contact for the customer Track Order page.
+    # No order/store data is modified.
+    order_doc["store_phone_display"] = ""
+    _store_id = order_doc.get("store_id")
+
+    if _store_id:
+        try:
+            _store_obj_id = (
+                _store_id
+                if isinstance(_store_id, ObjectId)
+                else ObjectId(str(_store_id))
+            )
+
+            _store_doc = mongo.stores.find_one(
+                {"_id": _store_obj_id},
+                {
+                    "phone": 1,
+                    "mobile": 1,
+                    "phone_number": 1,
+                    "mobile_number": 1,
+                    "contact_number": 1,
+                    "contact_phone": 1,
+                },
+            ) or {}
+
+            order_doc["store_phone_display"] = str(
+                _store_doc.get("phone")
+                or _store_doc.get("mobile")
+                or _store_doc.get("phone_number")
+                or _store_doc.get("mobile_number")
+                or _store_doc.get("contact_number")
+                or _store_doc.get("contact_phone")
+                or ""
+            ).strip()
+        except Exception:
+            order_doc["store_phone_display"] = ""
 
     data["order"] = order_doc
 
@@ -3080,7 +3162,8 @@ def api_order_status(oid):
             "id": str(e.get("_id")) if e.get("_id") else e.get("id"),
             "status": e.get("status"),
             "note": e.get("note", ""),
-            "created_at": e.get("created_at")
+            "created_at": e.get("created_at"),
+            "created_at_display": _format_customer_datetime(e.get("created_at"))
         })
 
     return jsonify({
