@@ -842,13 +842,13 @@
               <div class="sn-state-icon">🔔</div>
               <div>
                 <div class="sn-state-title" id="snStateTitle">Notifications are off</div>
-                <div class="sn-state-sub" id="snStateSub">Turn on alerts to receive live order notifications.</div>
+                <div class="sn-state-sub" id="snStateSub">Turn on alerts to receive live Store Panel notifications on every Store page.</div>
               </div>
             </div>
             <button class="sn-switch" type="button" id="snSwitch" aria-label="Toggle notifications"><span></span></button>
           </div>
 
-          <div class="sn-status-note" id="snPermissionNote">Browser permission will be requested when you enable notifications.</div>
+          <div class="sn-status-note" id="snPermissionNote">Browser permission will be requested when you enable live Store Panel notifications.</div>
         </aside>
       </section>
 
@@ -1110,19 +1110,12 @@
         const ding = document.getElementById('snDing');
         const toastWrap = document.getElementById('snToastWrap');
 
-        let pollTimer = null;
-        let lastId = localStorage.getItem('storeLastAlertId') || '';
-        let alertsEnabled = localStorage.getItem('alertsEnabled');
         let historyPager = null;
         let activePager = null;
 
-        if (alertsEnabled === null) {
-          alertsEnabled = serverEnabled === 1 ? '1' : '0';
-          localStorage.setItem('alertsEnabled', alertsEnabled);
-        }
-
         function getEnabled() {
-          return localStorage.getItem('alertsEnabled') === '1';
+          const manager = window.NELocalsStoreNotifications;
+          return manager ? manager.isEnabled() : serverEnabled === 1;
         }
 
         function setTab(tab) {
@@ -1164,17 +1157,23 @@
         }
 
         async function playSound() {
+          const manager = window.NELocalsStoreNotifications;
+
+          if (manager && typeof manager.playSound === 'function') {
+            return manager.playSound();
+          }
+
           try {
             if (ding) {
               ding.currentTime = 0;
               await ding.play();
-              return;
+              return true;
             }
           } catch (err) {}
 
           try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContext) return;
+            if (!AudioContext) return false;
             const ctx = new AudioContext();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
@@ -1185,15 +1184,27 @@
             gain.connect(ctx.destination);
             osc.start();
             setTimeout(function(){ osc.stop(); ctx.close(); }, 160);
-          } catch (err) {}
+            return true;
+          } catch (err) {
+            return false;
+          }
         }
 
         async function askBrowserPermission() {
+          const manager = window.NELocalsStoreNotifications;
+
+          if (manager && typeof manager.requestPermission === 'function') {
+            return manager.requestPermission();
+          }
+
           try {
             if ('Notification' in window && Notification.permission === 'default') {
-              await Notification.requestPermission();
+              return await Notification.requestPermission();
             }
-          } catch (err) {}
+            return 'Notification' in window ? Notification.permission : 'unsupported';
+          } catch (err) {
+            return 'unsupported';
+          }
         }
 
         function syncUi() {
@@ -1214,38 +1225,69 @@
 
           if (stateSub) {
             stateSub.textContent = enabled
-              ? 'New orders will trigger sound and browser notifications.'
-              : 'Turn on alerts to receive live order notifications.';
+              ? 'New Store Panel alerts will trigger sound, toast and browser notifications on every Store page.'
+              : 'Turn on alerts to receive live Store Panel notifications on every Store page.';
           }
 
           if (permissionNote) {
             let permissionText = 'Browser notification permission is not available.';
             if ('Notification' in window) {
-              permissionText = 'Browser permission: ' + Notification.permission + '. Sound alerts use this browser only.';
+              permissionText = 'Browser permission: ' + Notification.permission + '. Live alerts follow the store-wide setting.';
             }
-            permissionNote.textContent = enabled ? permissionText : 'Browser permission will be requested when you enable notifications.';
+            permissionNote.textContent = enabled ? permissionText : 'Browser permission will be requested when you enable live Store Panel notifications.';
           }
         }
 
-        function setEnabled(enabled) {
-          localStorage.setItem('alertsEnabled', enabled ? '1' : '0');
-          localStorage.setItem('soundEnabled', enabled ? '1' : '0');
+        async function setEnabled(enabled) {
+          const manager = window.NELocalsStoreNotifications;
+          const nextEnabled = !!enabled;
 
-          fetch("{{ url_for('store_notifications_toggle') }}", {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            credentials:'same-origin',
-            body:JSON.stringify({enabled: !!enabled})
-          }).catch(function(){});
+          try {
+            if (manager && typeof manager.setEnabled === 'function') {
+              const result = await manager.setEnabled(nextEnabled, {
+                feedback:false,
+                requestPermission:true,
+                playConfirmation:true
+              });
 
-          syncUi();
+              if (!result || !result.ok) {
+                throw new Error((result && result.message) || 'Could not update notifications.');
+              }
+            } else {
+              if (nextEnabled) {
+                await askBrowserPermission();
+                await playSound();
+              }
 
-          if (enabled) {
-            startPolling();
-            showToast('Notifications enabled', 'Live order alerts are now active for this browser.', 'on');
-          } else {
-            stopPolling();
-            showToast('Notifications disabled', 'Live order alerts are now turned off for this browser.', 'off');
+              const res = await fetch("{{ url_for('store_notifications_toggle') }}", {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                credentials:'same-origin',
+                body:JSON.stringify({enabled: nextEnabled})
+              });
+
+              const data = await res.json().catch(function(){ return {}; });
+
+              if (!res.ok || !data.ok) {
+                throw new Error(data.message || 'Could not update notifications.');
+              }
+            }
+
+            syncUi();
+            showToast(
+              nextEnabled ? 'Notifications enabled' : 'Notifications disabled',
+              nextEnabled
+                ? 'Live Store Panel alerts are now active on every Store page.'
+                : 'Live Store Panel alerts are now paused.',
+              nextEnabled ? 'on' : 'off'
+            );
+          } catch (error) {
+            syncUi();
+            showToast(
+              'Update failed',
+              error && error.message ? error.message : 'Could not update notifications.',
+              'off'
+            );
           }
         }
 
@@ -1504,71 +1546,27 @@
           if (historyPager) historyPager.apply();
         }
 
-        async function pollStoreOrders() {
-          if (!getEnabled()) return;
-
-          try {
-            const res = await fetch(`/api/alerts/store?last_id=${encodeURIComponent(lastId || '')}`, {
-              method:'GET',
-              cache:'no-store',
-              credentials:'same-origin'
-            });
-
-            const data = await res.json();
-            if (!data || !data.ok) return;
-
-            if (data.next_last_id) {
-              lastId = data.next_last_id;
-              localStorage.setItem('storeLastAlertId', lastId);
-            }
-
-            const newOrders = Array.isArray(data.new) ? data.new : [];
-
-            if (newOrders.length > 0) {
-              await playSound();
-
-              const msg = newOrders.length === 1 ? '1 new order received.' : `${newOrders.length} new orders received.`;
-              showToast('New order received', msg, 'on');
-
-              try {
-                if ('Notification' in window && Notification.permission === 'granted') {
-                  new Notification('New order received', { body: msg });
-                }
-              } catch (err) {}
-
-              await refreshNotifications(false);
-            }
-          } catch (err) {
-            console.warn('Notification polling failed', err);
-          }
-        }
-
-        function startPolling() {
-          if (pollTimer) clearInterval(pollTimer);
-          pollStoreOrders();
-          pollTimer = setInterval(pollStoreOrders, 5000);
-        }
-
-        function stopPolling() {
-          if (pollTimer) {
-            clearInterval(pollTimer);
-            pollTimer = null;
-          }
-        }
-
         async function refreshNotifications(showDone) {
           try {
-            const res = await fetch("{{ url_for('store_notifications_poll') }}", {
-              method:'GET',
-              credentials:'same-origin',
-              cache:'no-store'
-            });
+            const manager = window.NELocalsStoreNotifications;
+            let data = null;
 
-            const data = await res.json();
+            if (manager && typeof manager.refresh === 'function') {
+              data = await manager.refresh({announce:false});
+            } else {
+              const res = await fetch("{{ url_for('store_notifications_poll') }}", {
+                method:'GET',
+                credentials:'same-origin',
+                cache:'no-store'
+              });
+              data = await res.json();
+            }
+
             if (!data || !data.ok) return;
 
             prependNotifications(data.notifications || []);
             updateCounts(data.stats || {});
+            syncUi();
 
             if (showDone) showToast('Updated', 'Notification history refreshed.', 'on');
           } catch (err) {
@@ -1642,11 +1640,7 @@
         if (toggleBtn) {
           toggleBtn.addEventListener('click', async function(){
             const enabled = !getEnabled();
-            if (enabled) {
-              await askBrowserPermission();
-              await playSound();
-            }
-            setEnabled(enabled);
+            await setEnabled(enabled);
           });
         }
 
@@ -1676,10 +1670,20 @@
           markRead(btn.dataset.markRead, row);
         });
 
+        window.addEventListener('nf:store-notification-state', function(){
+          syncUi();
+        });
+
+        window.addEventListener('nf:store-notifications-data', function(event){
+          const detail = event && event.detail ? event.detail : {};
+          prependNotifications(detail.notifications || []);
+          updateCounts(detail.stats || {});
+          syncUi();
+        });
+
         syncUi();
         applyFilters();
-
-        if (getEnabled()) startPolling();
+        refreshNotifications(false);
       });
     })();
   </script>

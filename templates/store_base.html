@@ -507,6 +507,106 @@
     .nf-store-alert-time { margin-top: 5px; color: var(--nf-muted-2); font-size: .68rem; font-weight: 800; }
     .nf-store-alert-empty { padding: 18px 14px; color: var(--nf-muted); font-size: .82rem; font-weight: 750; text-align: center; }
 
+    .nf-icon-btn.nf-notifications-off {
+      color: var(--nf-muted);
+      background: #F7F9F8;
+    }
+
+    .nf-global-notice-wrap {
+      position: fixed;
+      top: calc(var(--nf-frame-top) + 14px);
+      right: max(14px, var(--nf-safe-right));
+      z-index: 1250;
+      width: min(390px, calc(100vw - 28px));
+      display: grid;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .nf-global-notice {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 42px minmax(0,1fr) auto;
+      gap: 11px;
+      align-items: center;
+      padding: 13px 14px;
+      border: 1px solid var(--nf-line);
+      border-left: 4px solid var(--nf-green);
+      border-radius: 16px;
+      background: rgba(255,255,255,.98);
+      box-shadow: var(--nf-shadow-heavy);
+      color: var(--nf-text);
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity .2s var(--nf-ease), transform .2s var(--nf-ease);
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .nf-global-notice.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .nf-global-notice.off {
+      border-left-color: var(--nf-orange);
+    }
+
+    .nf-global-notice.error {
+      border-left-color: var(--nf-red);
+    }
+
+    .nf-global-notice-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      background: var(--nf-green-soft);
+      color: var(--nf-green-dark);
+      font-size: 19px;
+    }
+
+    .nf-global-notice.off .nf-global-notice-icon {
+      background: var(--nf-orange-soft);
+      color: #A84700;
+    }
+
+    .nf-global-notice.error .nf-global-notice-icon {
+      background: #FFF1F2;
+      color: #B91C1C;
+    }
+
+    .nf-global-notice-title {
+      color: var(--nf-text);
+      font-size: .86rem;
+      font-weight: 900;
+      line-height: 1.25;
+    }
+
+    .nf-global-notice-message {
+      margin-top: 3px;
+      color: var(--nf-muted);
+      font-size: .76rem;
+      font-weight: 700;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+
+    .nf-global-notice-close {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 10px;
+      background: #F4F8F6;
+      color: var(--nf-muted);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+    }
+
     /* ===================== PROFILE MENU ===================== */
 
     .nf-profile { position: relative; flex: 0 0 auto; }
@@ -1917,6 +2017,11 @@
     </main>
   </div>
 
+  <audio id="nfGlobalStoreDing" preload="auto" aria-hidden="true">
+    <source src="{{ url_for('static', filename='sounds/ding.mp3') }}" type="audio/mpeg">
+  </audio>
+
+  <div class="nf-global-notice-wrap" id="nfGlobalStoreNoticeWrap" aria-live="polite"></div>
 
   <script>
     (function () {
@@ -2879,6 +2984,15 @@
       const storeAlertBadge = document.getElementById('nfStoreAlertBadge');
       const storeAlertPanel = document.getElementById('nfStoreAlertPanel');
       const storeAlertList = document.getElementById('nfStoreAlertList');
+      const storeGlobalDing = document.getElementById('nfGlobalStoreDing');
+      const storeGlobalNoticeWrap = document.getElementById('nfGlobalStoreNoticeWrap');
+
+      const STORE_NOTIFICATION_LAST_ID_KEY = 'nfStoreGlobalLastNotificationId';
+      const STORE_NOTIFICATION_ENABLED_COMPAT_KEY = 'alertsEnabled';
+      const STORE_NOTIFICATION_SOUND_COMPAT_KEY = 'soundEnabled';
+
+      let storeNotificationsEnabled = localStorage.getItem(STORE_NOTIFICATION_ENABLED_COMPAT_KEY) === '1';
+      let storeNotificationPollTimer = null;
 
       function nfEscapeHtml(value){
         return String(value || '').replace(/[&<>"']/g, function(ch){
@@ -2891,14 +3005,15 @@
         if (type === 'delivery_reassignment') return '⚠️';
         if (type === 'new_order') return '🧾';
         if (type === 'status') return '🔁';
+        if (type === 'delivery') return '🚚';
         if (type === 'system') return '⚙️';
         return '🔔';
       }
 
       function nfStoreNotificationUrl(n){
-        const type = String(n.type || '').toLowerCase();
-        if (type === 'delivery_reassignment') return "{{ url_for('store_delivery') }}";
-        if (n.order_id) return "{{ url_for('store_orders') }}";
+        const type = String((n && n.type) || '').toLowerCase();
+        if (type === 'delivery_reassignment' || type === 'delivery') return "{{ url_for('store_delivery') }}";
+        if (n && n.order_id) return "{{ url_for('store_orders') }}";
         return "{{ url_for('store_notifications') }}";
       }
 
@@ -2941,8 +3056,221 @@
         }).join('');
       }
 
-      async function nfFetchStoreAlerts(){
-        if (!storeAlertBtn || !storeAlertList) return;
+      function nfApplyStoreNotificationState(enabled, source){
+        storeNotificationsEnabled = !!enabled;
+
+        try {
+          localStorage.setItem(
+            STORE_NOTIFICATION_ENABLED_COMPAT_KEY,
+            storeNotificationsEnabled ? '1' : '0'
+          );
+          localStorage.setItem(
+            STORE_NOTIFICATION_SOUND_COMPAT_KEY,
+            storeNotificationsEnabled ? '1' : '0'
+          );
+        } catch (err) {}
+
+        if (storeAlertBtn) {
+          storeAlertBtn.classList.toggle('nf-notifications-off', !storeNotificationsEnabled);
+          storeAlertBtn.title = storeNotificationsEnabled ? 'Notifications On' : 'Notifications Off';
+          storeAlertBtn.setAttribute(
+            'aria-label',
+            storeNotificationsEnabled ? 'Store notifications are on' : 'Store notifications are off'
+          );
+        }
+
+        window.dispatchEvent(new CustomEvent('nf:store-notification-state', {
+          detail: {
+            enabled: storeNotificationsEnabled,
+            source: source || 'sync'
+          }
+        }));
+      }
+
+      function nfDismissGlobalStoreNotice(notice){
+        if (!notice) return;
+        notice.classList.remove('show');
+        window.setTimeout(function(){ notice.remove(); }, 220);
+      }
+
+      function nfShowGlobalStoreNotice(title, message, kind, targetUrl){
+        if (!storeGlobalNoticeWrap) return;
+
+        const notice = document.createElement('div');
+        const noticeKind = kind === 'off' ? 'off' : (kind === 'error' ? 'error' : 'on');
+        const icon = noticeKind === 'off' ? '🔕' : (noticeKind === 'error' ? '⚠️' : '🔔');
+
+        notice.className = 'nf-global-notice ' + noticeKind;
+        notice.innerHTML = `
+          <div class="nf-global-notice-icon">${icon}</div>
+          <div>
+            <div class="nf-global-notice-title">${nfEscapeHtml(title || 'Store notification')}</div>
+            <div class="nf-global-notice-message">${nfEscapeHtml(message || '')}</div>
+          </div>
+          <button type="button" class="nf-global-notice-close" aria-label="Dismiss notification">×</button>
+        `;
+
+        const closeButton = notice.querySelector('.nf-global-notice-close');
+
+        if (closeButton) {
+          closeButton.addEventListener('click', function(event){
+            event.stopPropagation();
+            nfDismissGlobalStoreNotice(notice);
+          });
+        }
+
+        notice.addEventListener('click', function(){
+          if (targetUrl) {
+            window.location.href = targetUrl;
+          } else {
+            nfDismissGlobalStoreNotice(notice);
+          }
+        });
+
+        storeGlobalNoticeWrap.appendChild(notice);
+        requestAnimationFrame(function(){ notice.classList.add('show'); });
+
+        window.setTimeout(function(){
+          nfDismissGlobalStoreNotice(notice);
+        }, 5200);
+      }
+
+      async function nfPlayStoreNotificationSound(){
+        try {
+          if (storeGlobalDing) {
+            storeGlobalDing.currentTime = 0;
+            await storeGlobalDing.play();
+            return true;
+          }
+        } catch (err) {}
+
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContext) return false;
+
+          const ctx = new AudioContext();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.value = 880;
+          gain.gain.value = 0.08;
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+
+          window.setTimeout(function(){
+            try { osc.stop(); } catch (err) {}
+            try { ctx.close(); } catch (err) {}
+          }, 160);
+
+          return true;
+        } catch (err) {
+          return false;
+        }
+      }
+
+      async function nfRequestStoreNotificationPermission(){
+        try {
+          if ('Notification' in window && Notification.permission === 'default') {
+            return await Notification.requestPermission();
+          }
+
+          return 'Notification' in window ? Notification.permission : 'unsupported';
+        } catch (err) {
+          return 'unsupported';
+        }
+      }
+
+      function nfGetNewStoreNotifications(notifications){
+        if (!Array.isArray(notifications) || !notifications.length) return [];
+
+        const newestId = String(notifications[0].id || '');
+        if (!newestId) return [];
+
+        let previousId = '';
+
+        try {
+          previousId = localStorage.getItem(STORE_NOTIFICATION_LAST_ID_KEY) || '';
+        } catch (err) {}
+
+        let newRows = [];
+
+        if (previousId && previousId !== newestId) {
+          const previousIndex = notifications.findIndex(function(n){
+            return String(n.id || '') === previousId;
+          });
+
+          if (previousIndex > 0) {
+            newRows = notifications.slice(0, previousIndex);
+          }
+        }
+
+        try {
+          localStorage.setItem(STORE_NOTIFICATION_LAST_ID_KEY, newestId);
+        } catch (err) {}
+
+        return newRows;
+      }
+
+      async function nfAnnounceNewStoreNotifications(notifications){
+        if (!storeNotificationsEnabled || !Array.isArray(notifications) || !notifications.length) return;
+
+        const liveRows = notifications.filter(function(n){
+          const type = String(n.type || '').toLowerCase();
+          const title = String(n.title || '');
+
+          return !(
+            type === 'system' &&
+            /^notifications (enabled|disabled)$/i.test(title)
+          );
+        });
+
+        if (!liveRows.length) return;
+
+        const latest = liveRows[0];
+        const targetUrl = nfStoreNotificationUrl(latest);
+        const isNewOrder = String(latest.type || '').toLowerCase() === 'new_order';
+
+        const title = liveRows.length === 1
+          ? (isNewOrder ? 'New order received' : (latest.title || 'New store notification'))
+          : (liveRows.length + ' new store notifications');
+
+        const message = liveRows.length === 1
+          ? (latest.message || 'A new store notification is available.')
+          : ((latest.title || 'Latest update') + ' · Open notifications to review all updates.');
+
+        await nfPlayStoreNotificationSound();
+        nfShowGlobalStoreNotice(title, message, 'on', targetUrl);
+
+        try {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            const browserNotice = new Notification(title, {
+              body: message
+            });
+
+            browserNotice.onclick = function(){
+              try { window.focus(); } catch (err) {}
+              if (targetUrl) window.location.href = targetUrl;
+              try { browserNotice.close(); } catch (err) {}
+            };
+          }
+        } catch (err) {}
+      }
+
+      function nfPublishStoreNotificationData(data){
+        window.dispatchEvent(new CustomEvent('nf:store-notifications-data', {
+          detail: {
+            notifications: Array.isArray(data.notifications) ? data.notifications : [],
+            stats: data.stats || {},
+            enabled: !!data.enabled
+          }
+        }));
+      }
+
+      async function nfFetchStoreAlerts(options){
+        const opts = options || {};
 
         try{
           const res = await fetch("{{ url_for('store_notifications_poll') }}", {
@@ -2951,13 +3279,97 @@
           });
 
           const ct = res.headers.get('content-type') || '';
-          if (!ct.includes('application/json')) return;
+          if (!ct.includes('application/json')) return null;
 
           const data = await res.json();
-          if (!data.ok) return;
-          nfRenderStoreAlerts(data.notifications || [], data.stats || {});
-        }catch(err){}
+          if (!data || !data.ok) return null;
+
+          const notifications = Array.isArray(data.notifications) ? data.notifications : [];
+
+          nfApplyStoreNotificationState(!!data.enabled, 'poll');
+          nfRenderStoreAlerts(notifications, data.stats || {});
+
+          const newRows = nfGetNewStoreNotifications(notifications);
+
+          if (opts.announce !== false && newRows.length) {
+            await nfAnnounceNewStoreNotifications(newRows);
+          }
+
+          nfPublishStoreNotificationData(data);
+          return data;
+        }catch(err){
+          return null;
+        }
       }
+
+      async function nfSetStoreNotificationsEnabled(enabled, options){
+        const opts = options || {};
+        const nextEnabled = !!enabled;
+
+        if (nextEnabled && opts.requestPermission !== false) {
+          await nfRequestStoreNotificationPermission();
+        }
+
+        try {
+          const res = await fetch("{{ url_for('store_notifications_toggle') }}", {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            credentials:'same-origin',
+            body:JSON.stringify({enabled: nextEnabled})
+          });
+
+          const ct = res.headers.get('content-type') || '';
+          const data = ct.includes('application/json') ? await res.json() : null;
+
+          if (!res.ok || !data || !data.ok) {
+            throw new Error((data && data.message) || 'Could not update notification settings.');
+          }
+
+          nfApplyStoreNotificationState(!!data.enabled, 'toggle');
+
+          if (nextEnabled && opts.playConfirmation !== false) {
+            await nfPlayStoreNotificationSound();
+          }
+
+          if (opts.feedback !== false) {
+            nfShowGlobalStoreNotice(
+              nextEnabled ? 'Notifications enabled' : 'Notifications disabled',
+              nextEnabled
+                ? 'Live Store Panel alerts are now active on every Store page.'
+                : 'Live Store Panel sound, toast and browser alerts are now paused.',
+              nextEnabled ? 'on' : 'off',
+              ''
+            );
+          }
+
+          await nfFetchStoreAlerts({announce:false});
+          return data;
+        } catch (err) {
+          if (opts.feedback !== false) {
+            nfShowGlobalStoreNotice(
+              'Notification update failed',
+              err && err.message ? err.message : 'Could not update notification settings.',
+              'error',
+              ''
+            );
+          }
+
+          return {
+            ok:false,
+            enabled:storeNotificationsEnabled,
+            message:err && err.message ? err.message : 'Could not update notification settings.'
+          };
+        }
+      }
+
+      window.NELocalsStoreNotifications = {
+        isEnabled: function(){ return !!storeNotificationsEnabled; },
+        setEnabled: nfSetStoreNotificationsEnabled,
+        refresh: nfFetchStoreAlerts,
+        playSound: nfPlayStoreNotificationSound,
+        requestPermission: nfRequestStoreNotificationPermission,
+        showToast: nfShowGlobalStoreNotice
+      };
 
       if (storeAlertBtn && storeAlertPanel) {
         storeAlertBtn.addEventListener('click', function(event){
@@ -2970,10 +3382,24 @@
             storeAlertPanel.classList.remove('show');
           }
         });
-
-        nfFetchStoreAlerts();
-        setInterval(nfFetchStoreAlerts, 10000);
       }
+
+      nfApplyStoreNotificationState(storeNotificationsEnabled, 'boot');
+      nfFetchStoreAlerts({announce:true});
+
+      if (storeNotificationPollTimer) {
+        clearInterval(storeNotificationPollTimer);
+      }
+
+      storeNotificationPollTimer = setInterval(function(){
+        nfFetchStoreAlerts({announce:true});
+      }, 5000);
+
+      document.addEventListener('visibilitychange', function(){
+        if (!document.hidden) {
+          nfFetchStoreAlerts({announce:true});
+        }
+      });
 
       clearLegacySidebarState();
       setActiveMenuByHash(window.location.hash);

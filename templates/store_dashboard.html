@@ -16,6 +16,8 @@
 {% set categories_list = categories if categories is defined else [] %}
 {% set store_online = store.is_online|default(store.is_open|default(1))|int %}
 {% set delivery_on = store.delivery_enabled|default(1 if store.delivery_available else 0)|int %}
+{% set dashboard_notification_settings = notification_settings if notification_settings is defined else {} %}
+{% set notifications_on = 1 if dashboard_notification_settings.enabled|default(false) else 0 %}
 {% set zone_ready = store.delivery_zone_configured|default(1 if store.delivery_zone_polygon else 0)|int %}
 {% set has_store_coords = store.latitude is not none and store.longitude is not none %}
 {% set mode_ui = delivery_mode_ui if delivery_mode_ui is defined else {} %}
@@ -164,7 +166,7 @@
     .sd-mode-mini span,.sd-kpi-label,.sd-payment-label,.sd-pipe-label{display:block;color:var(--muted);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.065em;line-height:1.25;}
     .sd-mode-mini strong,.sd-kpi-value,.sd-payment-value,.sd-pipe-value{display:block;margin-top:8px;color:var(--ink);font-size:clamp(22px,2.4vw,32px);font-weight:950;line-height:1;letter-spacing:-.045em;overflow-wrap:anywhere;}
     .sd-mode-mini small,.sd-kpi-sub,.sd-payment-sub,.sd-pipe-sub{display:block;margin-top:8px;color:var(--muted2);font-size:12px;font-weight:750;line-height:1.35;}
-    .sd-live-control-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:20px;}
+    .sd-live-control-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;padding:20px;}
     .sd-live-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
     .sd-live-title{font-size:15px;font-weight:950;line-height:1.25;}
     .sd-live-pill{min-height:28px;padding:6px 10px;white-space:nowrap;}
@@ -1265,6 +1267,35 @@
       <section class="sd-card" id="store-live-controls">
         <div class="sd-section-head"><div><h2 class="sd-section-title">Store Controls</h2></div><a class="sd-view-link" href="{{ url_for('store_profile') }}">Open Profile</a></div>
         <div class="sd-live-control-grid">
+          <div class="sd-live-card" data-dashboard-notification-control>
+            <div class="sd-live-top">
+              <div><div class="sd-live-title">Store Notifications</div></div>
+              <span class="sd-live-pill {{ '' if notifications_on else 'warn' }}" id="sdNotificationPill">● {{ 'On' if notifications_on else 'Off' }}</span>
+            </div>
+
+            <button
+              type="button"
+              class="sd-live-toggle {{ 'is-on' if notifications_on else 'is-off' }}"
+              id="sdNotificationToggle"
+              aria-pressed="{{ 'true' if notifications_on else 'false' }}"
+            >
+              <span class="sd-toggle-knob"><span class="sd-toggle-dot"></span></span>
+              <span class="sd-toggle-text">{{ 'Notifications On' if notifications_on else 'Notifications Off' }}</span>
+            </button>
+
+            <div class="sd-live-meta">
+              <div class="sd-live-meta-row">
+                <span>Live Store Panel alerts</span>
+                <strong id="sdNotificationLiveState">{{ 'Active' if notifications_on else 'Paused' }}</strong>
+              </div>
+              <div class="sd-live-meta-row">
+                <span>Browser permission</span>
+                <strong id="sdNotificationPermission">Checking…</strong>
+              </div>
+              <a class="sd-live-link" href="{{ url_for('store_notifications') }}">Open notification center →</a>
+            </div>
+          </div>
+
           <div class="sd-live-card">
             <div class="sd-live-top"><div><div class="sd-live-title">Store Status</div></div><span class="sd-live-pill {{ '' if store_online else 'off' }}">● {{ 'Online' if store_online else 'Offline' }}</span></div>
             <form method="post" action="{{ url_for('store_online_toggle') }}" data-store-toggle-form><button type="submit" class="sd-live-toggle {{ 'is-on' if store_online else 'is-off' }}" data-store-toggle-button><span class="sd-toggle-knob"><span class="sd-toggle-dot"></span></span><span class="sd-toggle-text">{{ 'Online' if store_online else 'Offline' }}</span></button></form>
@@ -1414,6 +1445,11 @@
     document.addEventListener('DOMContentLoaded', () => {
       const storeToggleForm = document.querySelector('[data-store-toggle-form]');
       const deliveryToggleForm = document.querySelector('[data-delivery-toggle-form]');
+      const notificationToggle = document.getElementById('sdNotificationToggle');
+      const notificationPill = document.getElementById('sdNotificationPill');
+      const notificationLiveState = document.getElementById('sdNotificationLiveState');
+      const notificationPermission = document.getElementById('sdNotificationPermission');
+      const notificationServerEnabled = {{ notifications_on|int }} === 1;
 
       function showNotifyToast(message, type = 'on') {
         let wrap = document.getElementById('notifyStateToastWrap');
@@ -1468,6 +1504,91 @@
         if (text) text.textContent = isOn ? onText : offText;
       }
 
+      function updateDashboardNotificationControl(enabled) {
+        const isOn = !!enabled;
+
+        if (notificationToggle) {
+          updateLiveToggleButton(
+            notificationToggle,
+            isOn,
+            'Notifications On',
+            'Notifications Off',
+            'is-on',
+            'is-off'
+          );
+          notificationToggle.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        }
+
+        if (notificationPill) {
+          notificationPill.textContent = '● ' + (isOn ? 'On' : 'Off');
+          notificationPill.classList.toggle('warn', !isOn);
+        }
+
+        if (notificationLiveState) {
+          notificationLiveState.textContent = isOn ? 'Active' : 'Paused';
+        }
+
+        if (notificationPermission) {
+          notificationPermission.textContent = 'Notification' in window
+            ? Notification.permission
+            : 'Not supported';
+        }
+      }
+
+      async function toggleDashboardNotifications() {
+        if (!notificationToggle) return;
+
+        const manager = window.NELocalsStoreNotifications;
+        const currentEnabled = manager
+          ? manager.isEnabled()
+          : notificationToggle.classList.contains('is-on');
+
+        notificationToggle.disabled = true;
+
+        if (manager) {
+          const result = await manager.setEnabled(!currentEnabled, {
+            feedback:true,
+            requestPermission:true,
+            playConfirmation:true
+          });
+
+          updateDashboardNotificationControl(
+            result && result.ok ? !!result.enabled : currentEnabled
+          );
+          notificationToggle.disabled = false;
+          return;
+        }
+
+        try {
+          const res = await fetch("{{ url_for('store_notifications_toggle') }}", {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            credentials:'same-origin',
+            body:JSON.stringify({enabled: !currentEnabled})
+          });
+
+          const data = await res.json().catch(function(){ return {}; });
+
+          if (!res.ok || !data.ok) {
+            throw new Error(data.message || 'Could not update notifications.');
+          }
+
+          updateDashboardNotificationControl(!!data.enabled);
+          showNotifyToast(
+            data.enabled ? 'Notifications are now active.' : 'Notifications are now paused.',
+            data.enabled ? 'on' : 'off'
+          );
+        } catch (error) {
+          updateDashboardNotificationControl(currentEnabled);
+          showNotifyToast(
+            error && error.message ? error.message : 'Could not update notifications.',
+            'off'
+          );
+        }
+
+        notificationToggle.disabled = false;
+      }
+
       function submitLiveToggle(form, button, config) {
         if (!form || !button) return;
         form.addEventListener('submit', async function(event){
@@ -1487,6 +1608,22 @@
 
       submitLiveToggle(storeToggleForm, document.querySelector('[data-store-toggle-button]'), { responseKey:'is_online', onText:'Online', offText:'Offline', onClass:'is-on', offClass:'is-off' });
       submitLiveToggle(deliveryToggleForm, document.querySelector('[data-delivery-toggle-button]'), { responseKey:'delivery_enabled', onText:'Delivery On', offText:'Delivery Off', onClass:'delivery-on', offClass:'delivery-off' });
+
+      if (notificationToggle) {
+        notificationToggle.addEventListener('click', toggleDashboardNotifications);
+      }
+
+      window.addEventListener('nf:store-notification-state', function(event){
+        const detail = event && event.detail ? event.detail : {};
+        updateDashboardNotificationControl(!!detail.enabled);
+      });
+
+      const globalNotificationManager = window.NELocalsStoreNotifications;
+      updateDashboardNotificationControl(
+        globalNotificationManager
+          ? globalNotificationManager.isEnabled()
+          : notificationServerEnabled
+      );
     });
   </script>
 </section>

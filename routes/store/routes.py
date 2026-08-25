@@ -989,10 +989,17 @@ def store_dashboard():
 
     page_context = _build_store_split_page_context(store)
 
+    notification_settings = mongo.store_notification_settings.find_one({
+        "store_id": store["_id"]
+    }) or {
+        "enabled": False
+    }
+
     return render_template(
         "store_dashboard.html",
         user=u,
         store=store,
+        notification_settings=notification_settings,
         **page_context
     )
 
@@ -4551,6 +4558,7 @@ def store_notifications_toggle():
             "$set": {
                 "store_id": store["_id"],
                 "enabled": enabled,
+                "preferences.dashboard_alert": enabled,
                 "updated_at": now
             },
             "$setOnInsert": {
@@ -4558,6 +4566,16 @@ def store_notifications_toggle():
             }
         },
         upsert=True
+    )
+
+    mongo.stores.update_one(
+        {"_id": store["_id"]},
+        {
+            "$set": {
+                "notification_preferences.dashboard_alert": enabled,
+                "updated_at": now
+            }
+        }
     )
 
     _create_store_notification(
@@ -4603,8 +4621,15 @@ def store_notifications_poll():
 
         hydrated_notifications.append(row)
 
+    notification_settings = mongo.store_notification_settings.find_one({
+        "store_id": store["_id"]
+    }) or {
+        "enabled": False
+    }
+
     return jsonify({
         "ok": True,
+        "enabled": bool(notification_settings.get("enabled")),
         "notifications": hydrated_notifications,
         "stats": _store_notification_stats(store["_id"])
     })

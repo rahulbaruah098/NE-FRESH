@@ -14,7 +14,7 @@
 {% set quantity_step = product.get('quantity_step', 0.25) or 0.25 %}
 {% set selected_qty = selected_quantity|default(quantity_min) %}
 {% set is_customer = user and user.role == 'customer' %}
-{% set is_in_stock = stock_qty is not none and stock_qty > 0 %}
+{% set is_in_stock = stock_qty is not none and stock_qty >= quantity_min %}
 {% set default_quantity = selected_qty if selected_qty else quantity_min %}
 
 <section class="nf-product-detail-page">
@@ -252,7 +252,7 @@
       height:100%;
       border-radius:999px;
       background:linear-gradient(90deg,var(--nf-green),var(--nf-green-dark));
-      width:{% if stock_qty >= 20 %}100{% elif stock_qty > 0 %}{{ (stock_qty / 20 * 100)|round(0, 'floor') }}{% else %}0{% endif %}%;
+      width:{% if is_in_stock and stock_qty >= 20 %}100{% elif is_in_stock %}{{ (stock_qty / 20 * 100)|round(0, 'floor') }}{% else %}0{% endif %}%;
     }
 
     .nf-detail-body{
@@ -1955,16 +1955,18 @@
                    alt="{{ product.name }}">
             </div>
 
-            <div class="nf-stock-panel">
-              <div class="nf-stock-panel-row">
-                <span>Available Stock</span>
-               <b>{{ '%.2f'|format(stock_qty) }} {{ unit_label }}</b>
-              </div>
+            {% if is_in_stock %}
+              <div class="nf-stock-panel">
+                <div class="nf-stock-panel-row">
+                  <span>Available Stock</span>
+                  <b>{{ '%.2f'|format(stock_qty) }} {{ unit_label }}</b>
+                </div>
 
-              <div class="nf-stock-track">
-                <div class="nf-stock-fill"></div>
+                <div class="nf-stock-track">
+                  <div class="nf-stock-fill"></div>
+                </div>
               </div>
-            </div>
+            {% endif %}
           </div>
 
           <div class="nf-detail-body">
@@ -2004,7 +2006,7 @@
 
 <div class="nf-meta-box">
   <span>Available Stock</span>
-  <b>{{ '%.2f'|format(stock_qty) }} {{ unit_label }}</b>
+  <b>{% if is_in_stock %}{{ '%.2f'|format(stock_qty) }} {{ unit_label }}{% else %}Out of stock{% endif %}</b>
 </div>
 
 <div class="nf-meta-box">
@@ -2026,7 +2028,7 @@
 
               <div class="nf-feature">
                 <b>Live Stock</b>
-                <span>{{ '%.2f'|format(stock_qty) }} {{ unit_label }} available</span>
+                <span>{% if is_in_stock %}{{ '%.2f'|format(stock_qty) }} {{ unit_label }} available{% else %}Currently unavailable{% endif %}</span>
               </div>
 
               <div class="nf-feature">
