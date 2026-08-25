@@ -85,6 +85,10 @@
       opacity: 1;
       transition: opacity .12s ease;
     }
+
+    html[data-nb-bundle-action-pending="1"] .nf-content > .nf-flash-wrap:not(.nf-flash-inline-action) {
+      display: none;
+    }
   </style>
   <script>
     (function(){
@@ -93,6 +97,8 @@
       var READY_CLASS = 'nf-view-ready';
       var STORAGE_PREFIX = 'nefresh:view-state:v2:';
       var STORE_STORAGE_PREFIX = 'neFreshStoreViewState:';
+      var PRODUCT_BUNDLES_PATH = "{{ url_for('store_product_bundles') }}";
+      var PRODUCT_BUNDLE_ACTION_KEY = 'nfStoreProductBundlesActionNotice';
       var MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
       function now(){
@@ -128,9 +134,31 @@
         }
       }
 
+      function isProductBundlesPage(){
+        try{
+          var bundleUrl = new URL(PRODUCT_BUNDLES_PATH, window.location.origin);
+          return window.location.pathname === bundleUrl.pathname;
+        }catch(_){
+          return false;
+        }
+      }
+
+      if (isProductBundlesPage()) {
+        try {
+          if (sessionStorage.getItem(PRODUCT_BUNDLE_ACTION_KEY)) {
+            document.documentElement.setAttribute('data-nb-bundle-action-pending', '1');
+          }
+        } catch (_) {}
+      }
+
       function shouldHoldForRestore(){
         try{
           if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+          if (isProductBundlesPage()) {
+            return false;
+          }
+
           if (!window.sessionStorage) return !!window.location.hash;
 
           var exactKey = STORAGE_PREFIX + window.location.pathname + window.location.search;
@@ -173,8 +201,15 @@
   <script>
     (function () {
       try {
+        var bundleUrl = new URL("{{ url_for('store_product_bundles') }}", window.location.origin);
+
+        if (window.location.pathname === bundleUrl.pathname) {
+          return;
+        }
+
         var key = 'neFreshStoreViewState:' + window.location.pathname;
         var saved = JSON.parse(sessionStorage.getItem(key) || '{}');
+
         if (window.location.hash || saved.hash || saved.y > 80) {
           document.documentElement.classList.add('nf-restore-pending');
           if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
@@ -1035,6 +1070,12 @@
     }
 
     .nf-flash-wrap { display: grid; gap: 10px; margin-bottom: 18px; }
+
+    .nf-flash-wrap.nf-flash-inline-action {
+      width: 100%;
+      margin: 8px 0 0;
+      gap: 8px;
+    }
 
     .nf-flash {
       border-radius: 15px;

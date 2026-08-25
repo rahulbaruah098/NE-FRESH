@@ -1579,6 +1579,98 @@
 
       document.addEventListener('DOMContentLoaded', function(){
         const restoreKey = 'nfStoreProductsScrollY';
+        const actionNoticeKey = 'nfStoreProductsActionNoticeContext';
+
+        function rememberActionNotificationContext(form) {
+          if (!form) return;
+
+          const card = form.closest('[data-sd-product-card]');
+          const grid = document.querySelector('[data-sd-product-grid]');
+          if (!card || !grid) return;
+
+          const cards = Array.from(grid.querySelectorAll('[data-sd-product-card]'));
+          const cardIndex = cards.indexOf(card);
+
+          sessionStorage.setItem(actionNoticeKey, JSON.stringify({
+            action: form.getAttribute('action') || '',
+            resolvedAction: form.action || '',
+            cardIndex: cardIndex
+          }));
+        }
+
+        function placeActionNotificationInline() {
+          const rawContext = sessionStorage.getItem(actionNoticeKey);
+          if (!rawContext) return;
+
+          sessionStorage.removeItem(actionNoticeKey);
+
+          const flashWrap = document.querySelector('.nf-content > .nf-flash-wrap');
+          if (!flashWrap) return;
+
+          let context = null;
+
+          try {
+            context = JSON.parse(rawContext);
+          } catch (error) {
+            return;
+          }
+
+          const forms = Array.from(document.querySelectorAll('[data-confirm-form]'));
+          const targetForm = forms.find(function(form){
+            const rawAction = form.getAttribute('action') || '';
+            const resolvedAction = form.action || '';
+
+            return (
+              (context.action && rawAction === context.action) ||
+              (context.resolvedAction && resolvedAction === context.resolvedAction)
+            );
+          });
+
+          if (targetForm) {
+            const card = targetForm.closest('[data-sd-product-card]');
+            const actionBox = card ? card.querySelector('.sd-catalog-actions') : null;
+
+            if (actionBox) {
+              actionBox.insertAdjacentElement('afterend', flashWrap);
+            }
+          } else {
+            /*
+              After a successful Delete the original product card no longer
+              exists. Keep the same normal-flow behavior by placing the
+              existing flash directly below the product grid instead of
+              floating it over page content.
+            */
+            const gridWrap = document.querySelector('.sd-product-grid-wrap');
+
+            if (gridWrap) {
+              gridWrap.insertAdjacentElement('afterend', flashWrap);
+            }
+          }
+
+          let dismissTimer = null;
+          let dismissed = false;
+
+          function dismissActionNotification() {
+            if (dismissed) return;
+            dismissed = true;
+
+            if (dismissTimer) {
+              window.clearTimeout(dismissTimer);
+            }
+
+            document.removeEventListener('pointerdown', dismissActionNotification, true);
+            flashWrap.remove();
+          }
+
+          dismissTimer = window.setTimeout(dismissActionNotification, 3200);
+
+          window.setTimeout(function(){
+            document.addEventListener('pointerdown', dismissActionNotification, {
+              capture:true,
+              once:true
+            });
+          }, 0);
+        }
 
         function restoreProductsScroll() {
           const saved = sessionStorage.getItem(restoreKey);
@@ -1598,6 +1690,7 @@
         }
 
         restoreProductsScroll();
+        placeActionNotificationInline();
 
         function bindProductSearchPagination() {
           const input = document.querySelector('[data-sd-product-search]');
@@ -1902,6 +1995,7 @@
               danger: form.dataset.confirmDanger === '1',
               okText: form.dataset.confirmDanger === '1' ? 'Yes, continue' : 'Confirm',
               onConfirm: function(){
+                rememberActionNotificationContext(form);
                 rememberProductsScroll();
                 form.dataset.confirmed = '1';
                 form.submit();

@@ -5257,10 +5257,132 @@ def _store_bundle_page_context(store, edit_bundle=None):
 
     for bundle in bundles:
         bundle["id"] = str(bundle["_id"])
-        bundle_stock = calculate_bundle_stock(bundle.get("items") or [])
-        bundle["max_bundle_stock"] = bundle_stock.get("max_bundle_stock", 0)
-        bundle["stock_status"] = bundle_stock.get("stock_status", "OUT_OF_STOCK")
-        bundle["stock_blockers"] = bundle_stock.get("stock_blockers", [])
+
+        # Rebuild from the live child-product records first. The store table now
+        # uses the same live stock state that customer pages use, so a stale
+        # snapshot cannot show LOW_STOCK while the bundle is actually unavailable.
+        customer_bundle = build_live_product_bundle(
+            dict(bundle),
+            notify_store=False,
+            notification_context="store_bundle_admin"
+        ) or dict(bundle)
+
+        bundle["max_bundle_stock"] = int(customer_bundle.get("max_bundle_stock") or 0)
+        bundle["stock_status"] = (
+            customer_bundle.get("stock_status") or "OUT_OF_STOCK"
+        ).upper()
+
+        # Deduplicate any underlying blocker text. The template shows one concise
+        # customer-facing reason instead of repeating the same warning underneath.
+        live_blockers = []
+        for blocker in customer_bundle.get("stock_blockers") or []:
+            blocker_text = str(blocker).strip()
+            if blocker_text and blocker_text not in live_blockers:
+                live_blockers.append(blocker_text)
+
+        bundle["stock_blockers"] = live_blockers
+        bundle["customer_visible"] = bool(
+            is_product_bundle_customer_available(customer_bundle)
+        )
+        bundle["customer_hidden_reason"] = ""
+        bundle["stock_note"] = ""
+
+        max_bundle_stock = int(bundle.get("max_bundle_stock") or 0)
+        stock_status = bundle.get("stock_status") or "OUT_OF_STOCK"
+
+        if stock_status == "LOW_STOCK" and max_bundle_stock > 0:
+            bundle["stock_note"] = (
+                f"Only {max_bundle_stock} complete bundle"
+                f"{'' if max_bundle_stock == 1 else 's'} can currently be sold."
+            )
+
+        if not bundle["customer_visible"]:
+            stock_issue_details = []
+
+            # Explain the actual shortage using live quantity values. A product
+            # can still have stock greater than zero but not enough for the
+            # quantity required by one bundle; that is "insufficient stock",
+            # not an inaccurate "product is out of stock" explanation.
+            for item in customer_bundle.get("items") or []:
+                if not isinstance(item, dict):
+                    continue
+
+                product_name = (
+                    item.get("product_name_snapshot")
+                    or "Product"
+                )
+                unit_label = (
+                    item.get("unit_label_snapshot")
+                    or "unit"
+                )
+
+                try:
+                    required_qty = float(item.get("quantity") or 1)
+                except (TypeError, ValueError):
+                    required_qty = 1.0
+
+                try:
+                    available_qty = float(
+                        item.get("stock_quantity_snapshot") or 0
+                    )
+                except (TypeError, ValueError):
+                    available_qty = 0.0
+
+                is_active = int(
+                    item.get("is_active_snapshot", 1) or 0
+                ) == 1
+
+                required_text = f"{required_qty:g}"
+                available_text = f"{available_qty:g}"
+
+                if not is_active:
+                    detail = f"{product_name} is inactive."
+                elif available_qty <= 0:
+                    detail = (
+                        f"{product_name} has no stock available; "
+                        f"{required_text} {unit_label} is required per bundle."
+                    )
+                elif available_qty < required_qty:
+                    detail = (
+                        f"{product_name} has only {available_text} {unit_label} available, "
+                        f"but {required_text} {unit_label} is required per bundle."
+                    )
+                else:
+                    detail = ""
+
+                if detail and detail not in stock_issue_details:
+                    stock_issue_details.append(detail)
+
+            # Keep missing/deleted-product blockers if the live rebuild could not
+            # produce an item row for them.
+            for blocker_text in live_blockers:
+                if (
+                    blocker_text
+                    and blocker_text not in stock_issue_details
+                    and (
+                        "missing" in blocker_text.lower()
+                        or "deleted" in blocker_text.lower()
+                    )
+                ):
+                    stock_issue_details.append(blocker_text)
+
+            if int(customer_bundle.get("is_deleted", 0) or 0) == 1:
+                hidden_reason = "Bundle is deleted."
+            elif int(customer_bundle.get("is_active", 0) or 0) != 1:
+                hidden_reason = "Bundle is inactive."
+            elif stock_issue_details:
+                hidden_reason = " ".join(stock_issue_details)
+            elif max_bundle_stock <= 0 or stock_status == "OUT_OF_STOCK":
+                hidden_reason = (
+                    "Available child-product stock is below the quantity required "
+                    "to build one complete bundle."
+                )
+            else:
+                hidden_reason = (
+                    "Bundle does not currently meet customer availability requirements."
+                )
+
+            bundle["customer_hidden_reason"] = hidden_reason
 
     selected_product_ids = set()
 
@@ -5402,14 +5524,6 @@ def store_product_bundle_update(bundle_id):
         return redirect(url_for("store_product_bundles"))
 
     product_ids = _store_bundle_product_ids_from_form(request.form)
-
-    if not product_ids:
-        product_ids = [
-            str(item.get("product_id_str"))
-            for item in bundle.get("items") or []
-            if item.get("product_id_str")
-        ]
-
     product_ids = normalize_bundle_product_ids(product_ids)
 
     if len(product_ids) < 2:
@@ -5441,6 +5555,10 @@ def store_product_bundle_update(bundle_id):
 
     if not bundle_doc.get("bundle_name"):
         flash("Bundle name is required.", "warning")
+        return redirect(url_for("store_product_bundle_edit", bundle_id=bundle_id))
+
+    if not bundle_doc.get("items") or len(bundle_doc.get("items")) < 2:
+        flash("A bundle must contain at least 2 valid products.", "warning")
         return redirect(url_for("store_product_bundle_edit", bundle_id=bundle_id))
 
     mongo.product_bundles.update_one(
