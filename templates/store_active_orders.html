@@ -1,0 +1,284 @@
+{% extends "store_base.html" %}
+{% set active_page = "active_orders" %}
+
+{% block title %}Active Orders | NE Locals{% endblock %}
+{% block page_title %}Active Orders{% endblock %}
+{% block page_subtitle %}See orders that are currently being prepared, handed over or delivered.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-active-orders.css', v='3f4-store-track-manage-1') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-orders.css', v='3f4-store-track-manage-1') }}">
+{% endblock %}
+
+{% block content %}
+{% set available_delivery_people_list = available_delivery_people if available_delivery_people is defined else [] %}
+{% set delivery_mode_ui = delivery_mode_ui|default({}) %}
+<section class="nf-store-page store-active-orders-page" data-page="active-orders">
+  <div class="sao-stack">
+    <section class="sao-header-card">
+      <div>
+        <span class="sao-kicker">Order Operations</span>
+        <h1>Active Orders</h1>
+        <p>Orders that are still moving through preparation, pickup or delivery.</p>
+      </div>
+      <div class="sao-header-actions">
+        <a class="sao-btn sao-btn-primary" href="{{ url_for('store_orders') }}">All Orders</a>
+        <a class="sao-btn" href="{{ url_for('store_delivered_orders') }}">Delivered Orders</a>
+      </div>
+    </section>
+
+    <section class="sao-summary-grid" aria-label="Active order summary">
+      {% set status_ns = namespace(new=0, prep=0, ready=0, moving=0, failed=0) %}
+      {% if orders %}
+        {% for o in orders %}
+          {% set st = (o.status or '')|upper %}
+          {% if st in ['PLACED','PENDING_PAYMENT','CONFIRMED'] %}{% set status_ns.new = status_ns.new + 1 %}{% endif %}
+          {% if st in ['PREPARING','PACKAGING'] %}{% set status_ns.prep = status_ns.prep + 1 %}{% endif %}
+          {% if st in ['SHIPMENT_READY','READY_FOR_PICKUP','PENDING_BOOKING','BOOKING_PENDING'] %}{% set status_ns.ready = status_ns.ready + 1 %}{% endif %}
+          {% if st in ['ASSIGNED_TO_DELIVERY','ACCEPTED_BY_DELIVERY_MAN','REACHED_STORE','PICKED_UP','OUT_FOR_DELIVERY'] %}{% set status_ns.moving = status_ns.moving + 1 %}{% endif %}
+          {% if st in ['DELIVERY_FAILED','FAILED_DELIVERY','BOOKING_FAILED','EXTERNAL_BOOKING_FAILED'] %}{% set status_ns.failed = status_ns.failed + 1 %}{% endif %}
+        {% endfor %}
+      {% endif %}
+      <div class="sao-summary-card"><span>Active Orders</span><strong>{{ active_order_count|default(orders|length if orders else 0) }}</strong></div>
+      <div class="sao-summary-card"><span>New / Confirmed</span><strong>{{ status_ns.new }}</strong></div>
+      <div class="sao-summary-card"><span>Preparing / Ready</span><strong>{{ status_ns.prep + status_ns.ready }}</strong></div>
+      <div class="sao-summary-card"><span>In Delivery</span><strong>{{ status_ns.moving }}</strong></div>
+      {% if status_ns.failed %}<div class="sao-summary-card sao-alert"><span>Needs Attention</span><strong>{{ status_ns.failed }}</strong></div>{% endif %}
+    </section>
+
+    <section class="sao-card">
+      <div class="sao-section-head">
+        <div>
+          <h2>Current Active Orders</h2>
+          <p>Use Manage to expand the complete order controls directly below the selected order.</p>
+        </div>
+      </div>
+
+      <div class="sao-toolbar">
+        <input type="search" id="saoSearch" placeholder="Search order, customer, phone or status..." aria-label="Search active orders">
+        <select id="saoStatus" aria-label="Filter active orders by status">
+          <option value="">All statuses</option>
+          <option value="PLACED">Placed</option>
+          <option value="CONFIRMED">Confirmed</option>
+          <option value="PREPARING">Preparing</option>
+          <option value="PACKAGING">Packaging</option>
+          <option value="SHIPMENT_READY">Shipment Ready</option>
+          <option value="READY_FOR_PICKUP">Ready for Pickup</option>
+          <option value="PENDING_BOOKING">Booking Pending</option>
+          <option value="BOOKING_PENDING">Booking Pending</option>
+          <option value="BOOKING_FAILED">Booking Failed</option>
+          <option value="EXTERNAL_BOOKING_FAILED">External Booking Failed</option>
+          <option value="ASSIGNED_TO_DELIVERY">Assigned</option>
+          <option value="ACCEPTED_BY_DELIVERY_MAN">Accepted by Delivery Partner</option>
+          <option value="REACHED_STORE">Reached Store</option>
+          <option value="PICKED_UP">Picked Up</option>
+          <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
+          <option value="DELIVERY_FAILED">Delivery Failed</option>
+          <option value="FAILED_DELIVERY">Delivery Failed</option>
+        </select>
+        <select id="saoPageSize" aria-label="Active orders per page">
+          <option value="10">10 / page</option>
+          <option value="25">25 / page</option>
+          <option value="50">50 / page</option>
+        </select>
+        <button type="button" id="saoClear" class="sao-btn">Clear</button>
+        <span id="saoMeta" class="sao-meta">{{ active_order_count|default(orders|length if orders else 0) }} active orders</span>
+      </div>
+
+      <div class="sao-table-wrap">
+        <table class="sao-table" id="saoTable">
+          <thead>
+            <tr>
+              <th>SL No</th>
+              <th>Order #</th>
+              <th>Customer</th>
+              <th>Phone</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Payment</th>
+              <th>Deliver To</th>
+              <th>Created</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if orders and orders|length %}
+              {% for o in orders %}
+                {% set payment_method = (o.payment_method or 'COD')|upper %}
+                {% set payment_status = (o.payment_status or 'PENDING')|upper %}
+                {% set payment_collection_status = (o.payment_collection_status or '')|upper %}
+                {% set is_online_order = payment_method in ['ONLINE', 'ONLINE_PAYMENT', 'RAZORPAY'] %}
+                {% set is_cod_order = payment_method in ['COD', 'CASH_ON_DELIVERY', 'COD_RIDER_COLLECTION'] %}
+                {% set is_online_paid = is_online_order and (payment_status in ['PAID', 'ONLINE_PAID', 'SUCCESS'] or payment_collection_status in ['PAID', 'ONLINE_PAID']) %}
+                {% set total_payable = o.total_payable|default(o.total_amount|default(0))|float %}
+                {% set items_subtotal = o.items_subtotal|default(o.store_earning|default(o.total_amount|default(0)))|float %}
+                {% set store_earning = o.store_earning|default(items_subtotal)|float %}
+                {% set amount_to_collect = o.amount_to_collect|default(0)|float %}
+                <tr data-sao-row data-status="{{ (o.status or '')|upper }}" data-search="{{ ((o.order_number or o.display_order_number or o.id or '') ~ ' ' ~ (o.customer_name or '') ~ ' ' ~ (o.customer_phone or '') ~ ' ' ~ (o.status or '') ~ ' ' ~ payment_method ~ ' ' ~ payment_status)|lower }}">
+                  <td><span class="sao-slno" data-sao-number>{{ loop.index }}</span></td>
+                  <td class="sao-order-id">{{ o.order_number or o.display_order_number or ('#' ~ o.id) }}</td>
+                  <td><strong>{{ o.customer_name or 'Customer' }}</strong></td>
+                  <td>{{ o.customer_phone or '—' }}</td>
+                  <td class="sao-total">₹{{ '%.2f'|format(total_payable or 0) }}</td>
+                  <td><span class="sao-status">{{ (o.status or 'PLACED')|replace('_',' ')|title }}</span></td>
+                  <td>
+                    <div class="sao-payment">
+                      <strong>{{ payment_method|replace('_',' ')|title }}</strong>
+                      <span>{{ payment_status|replace('_',' ')|title }}</span>
+                    </div>
+                  </td>
+                  <td class="sao-address">
+                    {% if o.addr_line1 %}
+                      {{ o.addr_line1 }}{% if o.addr_line2 %}, {{ o.addr_line2 }}{% endif %}{% if o.addr_city %}, {{ o.addr_city }}{% endif %}{% if o.addr_state %}, {{ o.addr_state }}{% endif %}{% if o.addr_pincode %} {{ o.addr_pincode }}{% endif %}
+                    {% else %}—{% endif %}
+                  </td>
+                  <td>{{ o.created_at or '—' }}</td>
+                  <td>
+                    <div class="sao-row-actions">
+                      <button type="button" class="sao-btn sao-btn-primary" data-sao-manage-toggle="{{ o.id }}" aria-expanded="false" aria-controls="sao-manage-{{ o.id }}">Manage</button>
+                      <a class="sao-btn" href="{{ url_for('store_order_track', oid=o.id) }}">Track</a>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="sao-manage-row" id="sao-manage-{{ o.id }}" data-sao-manage-row="{{ o.id }}" hidden>
+                  <td colspan="10" class="sao-manage-cell">
+                    <div class="nf-store-dashboard sao-manage-scope" data-page="orders">
+                      <div class="sd-order-manage-panel">
+                        {% include "_store_order_manage_contents.html" %}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="10" class="sao-empty">No active orders right now.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="sao-pagination" id="saoPagination" hidden>
+        <span id="saoPageInfo" class="sao-page-info"></span>
+        <div class="sao-page-buttons" id="saoPageButtons"></div>
+      </div>
+      <div class="sao-empty" id="saoNoResults" hidden>No matching active orders found.</div>
+    </section>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      const table = document.getElementById('saoTable');
+      if (!table) return;
+      const rows = Array.from(table.querySelectorAll('tbody tr[data-sao-row]'));
+      const search = document.getElementById('saoSearch');
+      const status = document.getElementById('saoStatus');
+      const pageSizeSelect = document.getElementById('saoPageSize');
+      const clear = document.getElementById('saoClear');
+      const meta = document.getElementById('saoMeta');
+      const pagination = document.getElementById('saoPagination');
+      const pageInfo = document.getElementById('saoPageInfo');
+      const pageButtons = document.getElementById('saoPageButtons');
+      const noResults = document.getElementById('saoNoResults');
+      let page = 1;
+
+      function setManageRow(button, open){
+        if (!button) return;
+        const orderId = button.getAttribute('data-sao-manage-toggle');
+        if (!orderId) return;
+        const manageRow = table.querySelector('[data-sao-manage-row="' + orderId + '"]');
+        if (!manageRow) return;
+
+        manageRow.hidden = !open;
+        button.setAttribute('aria-expanded', open ? 'true' : 'false');
+        button.classList.toggle('is-open', open);
+
+        if (open) {
+          requestAnimationFrame(function(){
+            manageRow.scrollIntoView({block:'nearest', behavior:'smooth'});
+          });
+        }
+      }
+
+      table.addEventListener('click', function(event){
+        const manageButton = event.target.closest('[data-sao-manage-toggle]');
+        if (!manageButton) return;
+        const isOpen = manageButton.getAttribute('aria-expanded') === 'true';
+
+        table.querySelectorAll('[data-sao-manage-toggle][aria-expanded="true"]').forEach(function(other){
+          if (other !== manageButton) setManageRow(other, false);
+        });
+
+        setManageRow(manageButton, !isOpen);
+      });
+
+      table.querySelectorAll('form[action*="/status"]').forEach(function(form){
+        form.addEventListener('submit', function(event){
+          const statusSelect = form.querySelector('select[name="status"]');
+          if (!statusSelect || String(statusSelect.value || '').toUpperCase() !== 'CANCELLED') return;
+          if (!window.confirm('Cancel this order? Stock and settlement state will be updated by the existing Store cancellation workflow.')) {
+            event.preventDefault();
+          }
+        });
+      });
+
+      function matchingRows(){
+        const q = (search ? search.value : '').trim().toLowerCase();
+        const st = status ? status.value : '';
+        return rows.filter(function(row){
+          return (!q || (row.dataset.search || row.textContent || '').toLowerCase().includes(q)) && (!st || row.dataset.status === st);
+        });
+      }
+
+      function button(label, target, disabled, active){
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.className = 'sao-page-btn' + (active ? ' active' : '');
+        el.textContent = label;
+        el.disabled = !!disabled;
+        if (!disabled && !active) el.addEventListener('click', function(){ page = target; render(); });
+        return el;
+      }
+
+      function renderButtons(totalPages){
+        pageButtons.innerHTML = '';
+        if (totalPages <= 1) return;
+        pageButtons.appendChild(button('Prev', Math.max(1,page-1), page === 1, false));
+        const start = Math.max(1, page - 1);
+        const end = Math.min(totalPages, page + 1);
+        for (let i=start; i<=end; i+=1) pageButtons.appendChild(button(String(i), i, false, i === page));
+        pageButtons.appendChild(button('Next', Math.min(totalPages,page+1), page === totalPages, false));
+      }
+
+      function render(){
+        const matches = matchingRows();
+        const size = Math.max(1, parseInt(pageSizeSelect ? pageSizeSelect.value : '10', 10) || 10);
+        const totalPages = Math.max(1, Math.ceil(matches.length / size));
+        if (page > totalPages) page = totalPages;
+        const fromIndex = (page - 1) * size;
+        const visible = new Set(matches.slice(fromIndex, fromIndex + size));
+        rows.forEach(function(row){
+          const isVisible = visible.has(row);
+          row.hidden = !isVisible;
+
+          if (!isVisible) {
+            const manageButton = row.querySelector('[data-sao-manage-toggle]');
+            if (manageButton) setManageRow(manageButton, false);
+          }
+        });
+        matches.forEach(function(row,index){ const n=row.querySelector('[data-sao-number]'); if(n) n.textContent=String(index+1); });
+        if (meta) meta.textContent = matches.length + ' active orders';
+        if (pageInfo) pageInfo.textContent = matches.length ? (fromIndex + 1) + '–' + Math.min(fromIndex + size, matches.length) + ' of ' + matches.length + ' orders' : 'No orders';
+        if (pagination) pagination.hidden = matches.length === 0 || totalPages <= 1;
+        if (noResults) noResults.hidden = matches.length !== 0;
+        renderButtons(totalPages);
+      }
+
+      if (search) search.addEventListener('input', function(){ page=1; render(); });
+      if (status) status.addEventListener('change', function(){ page=1; render(); });
+      if (pageSizeSelect) pageSizeSelect.addEventListener('change', function(){ page=1; render(); });
+      if (clear) clear.addEventListener('click', function(){ if(search) search.value=''; if(status) status.value=''; page=1; render(); });
+      render();
+    });
+  </script>
+</section>
+{% endblock %}

@@ -1,66 +1,25 @@
 {% extends "store_base.html" %}
 {% set active_page = "external_delivery" %}
-{% block title %}External Delivery | Store{% endblock %}
+{% block title %}External Delivery | NE Locals{% endblock %}
 {% block page_title %}External Delivery{% endblock %}
-{% block page_subtitle %}Orders waiting for external local delivery or third-party shipping booking.{% endblock %}
-{% block content %}
-<section class="sed-page">
-<style>
-  /* ==========================================================
-     NELOCALS STORE EXTERNAL DELIVERY MODE AWARE FINAL
-     Responsive card/table view. Existing routes and forms preserved.
-  ========================================================== */
-  .sed-page{display:grid;gap:16px}
-  .sed-card{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:22px;box-shadow:var(--nf-shadow);overflow:hidden}
-  .sed-mode-card{padding:18px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;background:linear-gradient(135deg,var(--nf-green-soft) 0%,#fff 100%);border-color:rgba(0,168,89,.18)}
-  .sed-kicker{display:inline-flex;width:max-content;max-width:100%;min-height:28px;align-items:center;border-radius:999px;background:#fff;border:1px solid rgba(0,168,89,.16);color:var(--nf-green-dark);padding:0 10px;font-size:.72rem;font-weight:950;letter-spacing:.06em;text-transform:uppercase}
-  .sed-title{margin:10px 0 5px;color:var(--nf-text);font-size:1.16rem;line-height:1.18;font-weight:950;letter-spacing:-.025em}
-  .sed-copy{margin:0;color:var(--nf-muted);font-size:.86rem;line-height:1.5;font-weight:760}
-  .sed-mode-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
-  .sed-table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}
-  .sed-table{width:100%;min-width:1060px;border-collapse:collapse}
-  .sed-table th,.sed-table td{padding:13px;border-bottom:1px solid var(--nf-line);text-align:left;vertical-align:top;font-size:.88rem}
-  .sed-table th{background:var(--nf-surface-2);color:var(--nf-muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;font-weight:950}
-  .sed-pill{display:inline-flex;align-items:center;justify-content:center;min-height:28px;border-radius:999px;background:var(--nf-green-soft);color:var(--nf-green-dark);border:1px solid rgba(0,168,89,.16);padding:0 10px;font-size:.76rem;font-weight:900;text-align:center}
-  .sed-pill.shipping{background:#E0F2FE;color:#0369A1;border-color:rgba(2,132,199,.20)}
-  .sed-pill.local{background:#FFF8E8;color:#A96800;border-color:rgba(255,184,77,.30)}
-  .sed-btn,.sed-link{min-height:40px;border:0;border-radius:13px;background:var(--nf-green);color:#fff;padding:0 14px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
-  .sed-link{background:#fff;color:var(--nf-green-dark);border:1px solid rgba(0,168,89,.18)}
-  .sed-empty{padding:28px;color:var(--nf-muted);font-weight:750;text-align:center}
-  .sed-card-grid{display:none}
-  .sed-order-card{display:grid;gap:12px;border:1px solid var(--nf-line);border-radius:18px;background:#fff;box-shadow:0 10px 24px rgba(17,64,38,.055);padding:14px}
-  .sed-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--nf-line);padding-bottom:10px}
-  .sed-order-title{color:var(--nf-text);font-weight:950;line-height:1.25;overflow-wrap:anywhere}
-  .sed-order-sub{margin-top:3px;color:var(--nf-muted);font-size:.78rem;font-weight:760}
-  .sed-mini-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-  .sed-mini{display:grid;gap:3px;border:1px solid var(--nf-line);border-radius:12px;background:var(--nf-surface-2);padding:9px}
-  .sed-mini span{color:var(--nf-muted);font-size:.65rem;font-weight:950;text-transform:uppercase;letter-spacing:.05em}
-  .sed-mini strong{color:var(--nf-text);font-size:.82rem;line-height:1.3;font-weight:950;overflow-wrap:anywhere}
-  @media(max-width:900px){
-    .sed-mode-card{grid-template-columns:1fr}
-    .sed-mode-actions{justify-content:flex-start}
-    .sed-table-wrap{display:none}
-    .sed-card-grid{display:grid;gap:12px;padding:12px}
-  }
-  @media(max-width:560px){
-    .sed-mode-card{padding:15px}
-    .sed-mode-actions{display:grid;grid-template-columns:1fr}
-    .sed-mini-grid{grid-template-columns:1fr}
-    .sed-btn,.sed-link{width:100%}
-  }
-</style>
+{% block page_subtitle %}Manage external delivery handoffs and tracking for Store orders.{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-external-delivery.css') }}">
+{% endblock %}
 
+{% block content %}
+<section class="sed-page nf-store-page">
 <div class="sed-card sed-mode-card">
   <div>
     <span class="sed-kicker">{{ delivery_mode_ui.icon }} {{ delivery_mode_ui.short_label }}</span>
     <h3 class="sed-title">{{ delivery_mode_ui.store_dashboard_title }}</h3>
     <p class="sed-copy">
       {{ delivery_mode_ui.store_dashboard_copy }}
-      Use this page for external local delivery / courier shipping orders. View all orders remains available in Order Management.
+      Use this page for external local delivery / courier shipping orders. You can return to All Orders at any time.
     </p>
   </div>
   <div class="sed-mode-actions">
-    <a class="sed-link" href="{{ url_for('store_orders') }}">View All Orders</a>
+    <a class="sed-link" href="{{ url_for('store_orders') }}">All Orders</a>
   </div>
 </div>
 
@@ -83,7 +42,7 @@
             {% if order.external_order_id %}<div>Order: {{ order.external_order_id }}</div>{% endif %}
             {% if order.external_shipment_id %}<div>Shipment: {{ order.external_shipment_id }}</div>{% endif %}
             {% if order.external_awb %}<div>AWB: {{ order.external_awb }}</div>{% endif %}
-            {% if order.external_tracking_url %}<a href="{{ order.external_tracking_url }}" target="_blank" rel="noopener">Partner Tracking</a>{% endif %}
+            {% if order.external_tracking_url %}<a href="{{ order.external_tracking_url }}" target="_blank" rel="noopener">Track with Partner</a>{% endif %}
             {% if not order.external_order_id and not order.external_awb and not order.external_tracking_url %}<small>Not generated yet</small>{% endif %}
           </td>
           <td>

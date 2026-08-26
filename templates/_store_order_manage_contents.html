@@ -1,0 +1,373 @@
+{% set manage_return_to = 'active_orders' if active_page|default('orders') == 'active_orders' else 'orders' %}
+                    <div class="sd-money-breakdown">
+                      <div class="sd-money-breakdown-row">
+                        <span>Items Subtotal</span>
+                        <strong>₹{{ '%.2f'|format(items_subtotal or 0) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row store-earning">
+                        <span>Store Earning</span>
+                        <strong>₹{{ '%.2f'|format(store_earning or 0) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row">
+                        <span>Delivery Fee</span>
+                        <strong>₹{{ '%.2f'|format(o.delivery_fee|default(0)|float) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row">
+                        <span>Platform Fee</span>
+                        <strong>₹{{ '%.2f'|format(o.platform_fee|default(0)|float) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row">
+                        <span>Tip</span>
+                        <strong>₹{{ '%.2f'|format(o.tip_amount|default(0)|float) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row highlight">
+                        <span>Total Customer Paid/Payable</span>
+                        <strong>₹{{ '%.2f'|format(total_payable or 0) }}</strong>
+                      </div>
+
+                      <div class="sd-money-breakdown-row {% if is_online_paid %}collect-zero{% elif is_cod_order %}collect-cod{% endif %}">
+                        <span>{% if is_online_paid %}Cash to Collect{% else %}Amount to Collect{% endif %}</span>
+                        <strong>₹{{ '%.2f'|format(amount_to_collect or 0) }}</strong>
+                      </div>
+                    </div>
+
+                    {% if is_online_paid %}
+                      <div class="sd-settlement-box online">
+                        <div class="sd-settlement-title">Online Payment Settlement</div>
+                        <div class="sd-settlement-text">
+                          Customer paid NE FRESH through Razorpay. Store payout will be handled by Admin after delivery.
+                        </div>
+                      </div>
+                    {% elif is_cod_order %}
+                      <div class="sd-settlement-box cod">
+                        <div class="sd-settlement-title">COD Settlement</div>
+                        <div class="sd-settlement-text">
+                          For Cash COD, the Delivery Partner collects the full ₹{{ '%.2f'|format(total_payable or 0) }} as business money and submits the full amount to Admin. Delivery fee + tip are paid separately through the monthly Delivery Partner settlement.
+                        </div>
+                      </div>
+                    {% endif %}
+                   {% set order_status = (o.status or '')|upper %}
+
+{% if order_status in ['PLACED', 'CONFIRMED', 'PREPARING', 'PACKAGING'] %}
+  <form method="post"
+        action="{{ url_for('store_order_status', oid=o.id) }}"
+        class="sd-row-actions sd-status-form"
+        data-order-id="{{ o.id }}"
+        data-order-ref="{{ o.order_number or o.display_order_number or (('#' ~ o.id[-6:]) if o.id else '') }}"
+        data-customer="{{ o.customer_name|default('Customer')|e }}"
+        data-total="₹{{ '%.2f'|format(total_payable or o.total_payable or o.total_amount or 0) }}">
+    <input type="hidden" name="return_to" value="{{ manage_return_to }}">
+    <select name="status">
+      <option value="PLACED" {{ 'selected' if order_status == 'PLACED' else '' }}>Placed</option>
+      <option value="CONFIRMED" {{ 'selected' if order_status == 'CONFIRMED' else '' }}>Confirmed</option>
+      <option value="PACKAGING" {{ 'selected' if order_status in ['PACKAGING', 'PREPARING'] else '' }}>Packaging</option>
+      <option value="CANCELLED" {{ 'selected' if order_status == 'CANCELLED' else '' }}>Cancelled</option>
+    </select>
+
+    <input type="hidden" name="cancel_reason" value="Cancelled by store">
+
+    <button type="submit">Update</button>
+  </form>
+{% else %}
+  <div class="sd-muted" style="margin:10px 0;font-weight:900;">
+    Status controlled by delivery workflow: {{ order_status_label(order_status) }}
+  </div>
+{% endif %}
+   {% set order_status = (o.status or '')|upper %}
+{% set order_delivery_mode = (o.active_delivery_mode|default(active_delivery_mode|default('IN_HOUSE'))) %}
+{% set order_delivery_mode = order_delivery_mode|upper %}
+{% set order_is_external = order_delivery_mode in ['EXTERNAL_LOCAL_DELIVERY', 'THIRD_PARTY_SHIPPING'] %}
+{% set order_provider_label = o.external_delivery_provider|default(o.delivery_provider_label|default(delivery_mode_ui.provider_label|default('External Partner'))) %}
+{% set has_rider = o.delivery_partner_id or o.delivery_partner_id_str %}
+{% set in_house_delivery_ui_enabled = in_house_delivery_enabled if in_house_delivery_enabled is defined else true %}
+{% set can_mark_ready = in_house_delivery_ui_enabled and order_status in ['CONFIRMED', 'PREPARING', 'PACKAGING'] and not has_rider %}
+{% set can_assign_delivery = in_house_delivery_ui_enabled and order_status in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] and not has_rider %}
+{% set can_reassign_delivery = in_house_delivery_ui_enabled and has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE'] %}
+{% set can_clear_delivery = in_house_delivery_ui_enabled and has_rider and order_status in ['ASSIGNED_TO_DELIVERY', 'ACCEPTED_BY_DELIVERY_MAN', 'REACHED_STORE'] %}
+
+<div class="sd-delivery-control">
+  {% if order_is_external %}
+    <div class="sd-external-mode-card">
+      <div class="sd-external-mode-head">
+        <span class="sd-external-mode-title">
+          {% if order_delivery_mode == 'THIRD_PARTY_SHIPPING' %}Courier / Shiprocket Delivery{% else %}External Local Delivery{% endif %}
+        </span>
+        <span class="sd-tag">{{ order_provider_label }}</span>
+      </div>
+
+      <div class="sd-external-grid">
+        <div class="sd-external-box">
+          <span>Booking Status</span>
+          <strong>{{ o.external_delivery_booking_status|default('PENDING_BOOKING')|replace('_',' ')|title }}</strong>
+        </div>
+        <div class="sd-external-box">
+          <span>External Status</span>
+          <strong>{{ o.external_delivery_status|default('Pending')|replace('_',' ')|title }}</strong>
+        </div>
+        <div class="sd-external-box">
+          <span>Tracking Code</span>
+          <strong>{{ o.external_awb or o.external_shipment_id or o.external_order_id or 'Not generated yet' }}</strong>
+        </div>
+        <div class="sd-external-box">
+          <span>Delivery Fee</span>
+          <strong>₹{{ '%.2f'|format(o.external_delivery_fee_amount|default(o.delivery_fee|default(0))|float) }}</strong>
+        </div>
+      </div>
+
+      <div class="sd-delivery-note">
+        {% if order_delivery_mode == 'THIRD_PARTY_SHIPPING' %}
+          This order uses courier/Shiprocket-style shipping. Store should pack the order and mark it ready for courier booking. In-house rider assignment is not used.
+        {% else %}
+          This order uses external local delivery. Store should prepare the order and mark it ready for partner pickup. In-house rider assignment is not used.
+        {% endif %}
+      </div>
+
+      {% if order_status in ['PLACED', 'CONFIRMED', 'PREPARING', 'PACKAGING'] %}
+        <form method="post" action="{{ url_for('store_external_delivery_ready', oid=o.id) }}" class="sd-delivery-form">
+          <div class="sd-delivery-buttons">
+            <button type="submit" class="primary">Mark Ready for External Delivery</button>
+          </div>
+        </form>
+      {% endif %}
+
+      <div class="sd-delivery-buttons">
+        <a class="blue" href="{{ url_for('store_order_track', oid=o.id) }}">Track Order</a>
+        {% if o.external_tracking_url %}
+          <a class="blue" target="_blank" href="{{ o.external_tracking_url }}">Partner Tracking</a>
+        {% endif %}
+        <a class="blue" href="{{ url_for('store_external_delivery') }}">External Delivery</a>
+      </div>
+    </div>
+  {% else %}
+  {% if not in_house_delivery_ui_enabled %}
+  <div class="sd-delivery-empty">
+    In-house delivery is disabled by Admin. In-house assignment controls are hidden for this order.
+  </div>
+{% else %}
+   <div class="sd-delivery-title">
+    <span>Delivery Assignment</span>
+    {% if has_rider %}
+      <span class="sd-tag">Assigned</span>
+    {% elif order_status in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] %}
+      <span class="sd-tag">Shipment Ready</span>
+    {% else %}
+      <span class="sd-tag">Pending</span>
+    {% endif %}
+  </div>
+
+  {% if order_status == 'DELIVERY_FAILED' %}
+  <div class="sd-delivery-note" style="background:#F7F0EA;border-color:#E8D8CA;color:#8A5A3B;">
+    <strong>Failed Delivery Action Required</strong><br>
+    The Delivery Partner marked this order as failed.
+    {% if o.delivery_failed_reason %}
+      <br>Reason: {{ o.delivery_failed_reason }}
+    {% endif %}
+    {% if o.delivery_failed_note %}
+      <br>Note: {{ o.delivery_failed_note }}
+    {% endif %}
+  </div>
+
+ <form method="post" action="/store/orders/{{ o.id }}/reschedule-failed-delivery" class="sd-delivery-form">
+    <input
+      type="datetime-local"
+      name="rescheduled_for"
+      title="Optional reschedule date/time"
+      style="min-height:42px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font-weight:800;"
+    >
+
+    <textarea
+      name="reschedule_note"
+      maxlength="500"
+      placeholder="Optional reschedule note..."
+      style="min-height:76px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:800;resize:vertical;"
+    ></textarea>
+
+    <div class="sd-delivery-buttons">
+      <button type="submit" class="primary">Reschedule / Retry Delivery</button>
+    </div>
+  </form>
+
+<form method="post" action="/store/orders/{{ o.id }}/cancel-failed-delivery" class="sd-delivery-form" style="margin-top:10px;">
+    <select name="cancel_reason" required>
+      <option value="">Select cancel reason</option>
+      <option value="Customer unavailable after delivery attempt">Customer unavailable after delivery attempt</option>
+      <option value="Customer refused delivery">Customer refused delivery</option>
+      <option value="Customer unreachable">Customer unreachable</option>
+      <option value="Address issue">Address issue</option>
+      <option value="Payment issue">Payment issue</option>
+      <option value="Other">Other</option>
+    </select>
+
+    <textarea
+      name="cancel_note"
+      maxlength="500"
+      placeholder="Optional cancellation note..."
+      style="min-height:76px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:800;resize:vertical;"
+    ></textarea>
+
+    <div class="sd-delivery-buttons">
+      <button type="submit" class="danger">Cancel Order</button>
+    </div>
+  </form>
+{% elif has_rider %}
+    <div class="sd-rider-card">
+      <strong>{{ o.delivery_partner_name or 'Delivery Partner' }}</strong>
+
+      {% if o.delivery_partner_phone %}
+        <a href="tel:{{ o.delivery_partner_phone }}">📞 {{ o.delivery_partner_phone }}</a>
+      {% else %}
+        <span>Phone not available</span>
+      {% endif %}
+
+      <span>Status: {{ order_status.replace('_',' ') }}</span>
+
+      {% if o.delivery_assignment_source_label %}
+        <span>Assignment: {{ o.delivery_assignment_source_label }}</span>
+      {% endif %}
+
+      {% if o.assigned_at %}
+        <span>Assigned at: {{ o.assigned_at }}</span>
+      {% endif %}
+
+      {% if o.reached_store_at %}
+        <span>Reached store: {{ o.reached_store_at }}</span>
+      {% endif %}
+
+      {% if o.picked_up_at %}
+        <span>Picked up: {{ o.picked_up_at }}</span>
+      {% endif %}
+
+      {% if o.out_for_delivery_at %}
+        <span>Out for delivery: {{ o.out_for_delivery_at }}</span>
+      {% endif %}
+
+      {% if o.delivered_at %}
+        <span>Delivered: {{ o.delivered_at }}</span>
+      {% endif %}
+
+      {% if o.delivery_failed_reason %}
+        <span>Failed reason: {{ o.delivery_failed_reason }}</span>
+      {% endif %}
+
+      {% if o.rider_cancel_reason %}
+        <span>Rider cancel reason: {{ o.rider_cancel_reason }}</span>
+      {% endif %}
+
+      <div class="sd-delivery-quick-grid">
+               <div class="sd-delivery-quick-box">
+          <span>Payment</span>
+          <strong>
+            {% if is_online_paid %}
+              Online Paid
+            {% elif is_cod_order %}
+              COD / Pay on Delivery
+            {% else %}
+              {{ payment_method }} / {{ payment_status }}
+            {% endif %}
+          </strong>
+        </div>
+
+        <div class="sd-delivery-quick-box">
+          <span>Collect</span>
+          <strong>₹{{ '%.2f'|format(amount_to_collect or 0) }}</strong>
+        </div>
+
+        <div class="sd-delivery-quick-box">
+          <span>Delivery + Tip</span>
+          <strong>₹{{ '%.2f'|format(o.delivery_fee_plus_tip|default(0)|float) }}</strong>
+        </div>
+
+        <div class="sd-delivery-quick-box">
+          <span>Platform Fee</span>
+          <strong>₹{{ '%.2f'|format(o.platform_fee|default(0)|float) }}</strong>
+        </div>
+      </div>
+    </div>
+  {% else %}
+   <div class="sd-delivery-note">
+  First confirm/prepare the order, then mark it shipment ready. Rider assignment opens only after that.
+</div>
+  {% endif %}
+
+  {% if can_mark_ready %}
+    <form method="post" action="{{ url_for('store_order_ready_for_pickup', oid=o.id) }}" class="sd-delivery-form">
+      <input type="hidden" name="return_to" value="{{ manage_return_to }}">
+      <div class="sd-delivery-buttons">
+        <button type="submit" class="primary">Mark Shipment Ready</button>
+      </div>
+    </form>
+  {% endif %}
+
+  {% if can_assign_delivery %}
+    {% if available_delivery_people_list and available_delivery_people_list|length %}
+      <form method="post" action="{{ url_for('store_order_assign_delivery', oid=o.id) }}" class="sd-delivery-form">
+        <select name="delivery_user_id" required>
+          <option value="">Select active Delivery Partner</option>
+          {% for d in available_delivery_people_list %}
+            <option value="{{ d.id }}">
+              {{ d.name }}
+              {% if d.distance_km is not none %} · {{ '%.2f'|format(d.distance_km) }} km{% endif %}
+              {% if d.currently_assigned_orders is defined %} · {{ d.currently_assigned_orders }} active{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+        <div class="sd-delivery-buttons">
+          <button type="submit" class="primary">Assign Delivery Partner</button>
+        </div>
+      </form>
+    {% else %}
+      <div class="sd-delivery-empty">
+        No active Delivery Partner is nearby. Ask a Delivery Partner to go online, then refresh this page.
+      </div>
+    {% endif %}
+  {% endif %}
+
+  {% if can_reassign_delivery %}
+    {% if available_delivery_people_list and available_delivery_people_list|length %}
+      <form method="post" action="{{ url_for('store_order_reassign_delivery', oid=o.id) }}" class="sd-delivery-form">
+        <select name="delivery_user_id" required>
+          <option value="">Reassign to another active Delivery Partner</option>
+          {% for d in available_delivery_people_list %}
+            {% if d.id != (o.delivery_partner_id_str or o.delivery_partner_id) %}
+              <option value="{{ d.id }}">
+                {{ d.name }}
+                {% if d.distance_km is not none %} · {{ '%.2f'|format(d.distance_km) }} km{% endif %}
+                {% if d.currently_assigned_orders is defined %} · {{ d.currently_assigned_orders }} active{% endif %}
+              </option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <div class="sd-delivery-buttons">
+          <button type="submit" class="blue">Reassign</button>
+        </div>
+      </form>
+    {% endif %}
+  {% endif %}
+
+  {% if can_clear_delivery %}
+    <form method="post" action="{{ url_for('store_order_clear_delivery', oid=o.id) }}" class="sd-delivery-form" onsubmit="return confirm('Clear delivery assignment for this order?')">
+      <input type="hidden" name="return_to" value="{{ manage_return_to }}">
+      <div class="sd-delivery-buttons">
+        <button type="submit" class="danger">Clear Assignment</button>
+      </div>
+    </form>
+  {% endif %}
+
+  {% if has_rider %}
+    <div class="sd-delivery-buttons">
+      <a class="blue" href="{{ url_for('store_order_track', oid=o.id) }}">Track Order</a>
+      {% if o.addr_lat is not none and o.addr_lng is not none %}
+        <a class="blue" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ o.addr_lat }},{{ o.addr_lng }}">
+          Customer Map
+        </a>
+      {% endif %}
+    </div>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+</div>

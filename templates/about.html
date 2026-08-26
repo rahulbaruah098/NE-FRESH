@@ -3577,71 +3577,9 @@
 
 <script>
   (function(){
-    const scrollKey = 'nf-page-scroll:' + window.location.pathname + window.location.search;
-    const navEntry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
-    const navType = navEntry ? navEntry.type : (performance.navigation && performance.navigation.type === 1 ? 'reload' : 'navigate');
-
     if('scrollRestoration' in history){
       history.scrollRestoration = 'manual';
     }
-
-    function getCurrentScroll(){
-      return window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
-    }
-
-    function saveCurrentScroll(){
-      sessionStorage.setItem(scrollKey, String(getCurrentScroll()));
-    }
-
-    function restoreSavedScroll(){
-      const savedScroll = sessionStorage.getItem(scrollKey);
-      if(savedScroll === null) return;
-
-      const targetScroll = parseInt(savedScroll, 10) || 0;
-
-      window.scrollTo(0, targetScroll);
-
-      requestAnimationFrame(function(){
-        window.scrollTo(0, targetScroll);
-      });
-
-      setTimeout(function(){
-        window.scrollTo(0, targetScroll);
-      }, 120);
-
-      setTimeout(function(){
-        window.scrollTo(0, targetScroll);
-      }, 450);
-
-      setTimeout(function(){
-        window.scrollTo(0, targetScroll);
-      }, 900);
-
-      setTimeout(function(){
-        window.scrollTo(0, targetScroll);
-      }, 1400);
-    }
-
-    if(navType === 'reload'){
-      restoreSavedScroll();
-      window.addEventListener('load', restoreSavedScroll);
-    }else{
-      sessionStorage.removeItem(scrollKey);
-      window.scrollTo(0, 0);
-    }
-
-    let scrollSaveTimer = null;
-    window.addEventListener('scroll', function(){
-      if(scrollSaveTimer) return;
-
-      scrollSaveTimer = window.setTimeout(function(){
-        scrollSaveTimer = null;
-        saveCurrentScroll();
-      }, 100);
-    }, {passive:true});
-
-    window.addEventListener('pagehide', saveCurrentScroll);
-    window.addEventListener('beforeunload', saveCurrentScroll);
 
     const carousel = document.getElementById('nfFindCarousel');
     if(carousel){

@@ -1,10 +1,14 @@
 {% extends "delivery_base.html" %}
 {% set active_page = "active_orders" %}
 
-{% block delivery_kicker %}Assigned Deliveries{% endblock %}
-{% block delivery_title %}Active Orders{% endblock %}
+
+{% block delivery_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/delivery/active-orders.css') }}">
+{% endblock %}
+{% block delivery_kicker %}In Progress{% endblock %}
+{% block delivery_title %}Active Deliveries{% endblock %}
 {% block delivery_subtitle %}
-Manage your currently assigned orders, update delivery progress, call customers, and open navigation.
+Manage assigned deliveries, update progress, contact customers, and open navigation.
 {% endblock %}
 
 {% block delivery_actions %}
@@ -13,336 +17,7 @@ Manage your currently assigned orders, update delivery progress, call customers,
 {% endblock %}
 
 {% block delivery_content %}
-<style>
-  .dao-card{
-    background:#fff;
-    border:1px solid var(--df-line);
-    border-radius:24px;
-    box-shadow:var(--df-shadow);
-    overflow:hidden;
-  }
 
-  .dao-head{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:14px;
-    padding:18px 20px;
-    border-bottom:1px solid var(--df-line);
-    background:#FBFFFD;
-  }
-
-  .dao-title{
-    margin:0;
-    color:var(--df-ink);
-    font-size:18px;
-    font-weight:900;
-    letter-spacing:-.03em;
-  }
-
-  .dao-sub{
-    margin:5px 0 0;
-    color:var(--df-muted);
-    font-size:13px;
-    font-weight:700;
-    line-height:1.45;
-  }
-
-  .dao-count{
-    min-height:34px;
-    padding:8px 12px;
-    border-radius:999px;
-    background:var(--df-blue-soft);
-    color:#0369A1;
-    border:1px solid rgba(2,132,199,.18);
-    font-size:12px;
-    font-weight:900;
-    white-space:nowrap;
-  }
-
-  .dao-list{
-    display:grid;
-    gap:16px;
-    padding:18px;
-  }
-
-  .dao-order{
-    border:1px solid var(--df-line);
-    border-radius:22px;
-    background:#fff;
-    padding:16px;
-    display:grid;
-    gap:14px;
-    box-shadow:0 10px 24px rgba(17,64,38,.05);
-  }
-
-  .dao-top{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    align-items:flex-start;
-  }
-
-  .dao-id{
-    color:var(--df-ink);
-    font-size:16px;
-    font-weight:900;
-  }
-
-  .dao-meta{
-    margin-top:5px;
-    color:var(--df-muted);
-    font-size:13px;
-    font-weight:750;
-    line-height:1.5;
-  }
-
-  .dao-pill{
-    min-height:30px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    padding:7px 11px;
-    border-radius:999px;
-    background:var(--df-blue-soft);
-    color:#0369A1;
-    border:1px solid rgba(2,132,199,.18);
-    font-size:11px;
-    font-weight:900;
-    white-space:nowrap;
-    text-transform:uppercase;
-  }
-
-  .dao-grid{
-    display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:12px;
-  }
-
-  .dao-info{
-    display:grid;
-    gap:5px;
-    padding:12px;
-    border-radius:16px;
-    background:var(--df-soft);
-    border:1px solid var(--df-line);
-  }
-
-  .dao-info span{
-    color:var(--df-muted);
-    font-size:12px;
-    font-weight:850;
-  }
-
-  .dao-info strong{
-    color:var(--df-ink);
-    font-size:14px;
-    font-weight:900;
-    word-break:break-word;
-  }
-
-    .dao-info.collect{
-    background:var(--df-mint);
-    border-color:rgba(0,168,89,.22);
-  }
-
-  .dao-info.collect strong{
-    color:var(--df-green-dark);
-    font-size:16px;
-  }
-
-  .dao-old-fee{
-    color:var(--df-muted);
-    text-decoration:line-through;
-    margin-right:5px;
-    font-weight:850;
-  }
-
-  .dao-free-fee{
-    color:var(--df-green-dark);
-    font-weight:950;
-  }
-
-  .dao-money-note{
-    padding:10px 12px;
-    border-radius:16px;
-    background:var(--df-mint);
-    border:1px solid rgba(0,168,89,.18);
-    color:var(--df-green-dark);
-    font-size:12px;
-    font-weight:850;
-    line-height:1.45;
-  }
-
-  .dao-address{
-    padding:12px;
-    border-radius:16px;
-    background:#fff;
-    border:1px solid var(--df-line);
-    color:var(--df-text);
-    font-size:13px;
-    font-weight:750;
-    line-height:1.55;
-  }
-
-  .dao-actions{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-  }
-
-  .dao-btn{
-    min-height:40px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:14px;
-    border:1px solid var(--df-line);
-    background:#fff;
-    color:var(--df-text);
-    padding:9px 12px;
-    text-decoration:none;
-    font-size:13px;
-    font-weight:900;
-    cursor:pointer;
-  }
-
-  .dao-btn.primary{
-    background:var(--df-green);
-    border-color:var(--df-green);
-    color:#fff;
-    box-shadow:0 12px 24px rgba(0,168,89,.16);
-  }
-
-  .dao-btn.blue{
-    background:var(--df-blue-soft);
-    border-color:rgba(2,132,199,.18);
-    color:#0369A1;
-  }
-
-    .dao-btn.red{
-    background:var(--df-red-soft);
-    border-color:#FECACA;
-    color:#B91C1C;
-  }
-
-  .dao-cancel-form{
-    width:100%;
-    display:none;
-    gap:8px;
-    padding:12px;
-    border-radius:18px;
-    background:#FFF7ED;
-    border:1px solid rgba(234,88,12,.18);
-  }
-
-  .dao-cancel-form.show{
-    display:grid;
-  }
-
-  .dao-cancel-form textarea{
-    width:100%;
-    min-height:70px;
-    resize:vertical;
-    border:1px solid rgba(234,88,12,.22);
-    border-radius:14px;
-    background:#fff;
-    color:var(--df-ink);
-    padding:10px 12px;
-    font:inherit;
-    font-size:13px;
-    font-weight:800;
-    outline:none;
-  }
-
-  .dao-cancel-help{
-    color:#7C2D12;
-    font-size:12px;
-    font-weight:800;
-    line-height:1.4;
-  }
-
-  .dao-status-form{
-    display:flex;
-    align-items:center;
-    flex-wrap:wrap;
-    gap:10px;
-    padding:12px;
-    border-radius:18px;
-    background:var(--df-soft);
-    border:1px solid var(--df-line);
-  }
-
-  .dao-status-form select{
-    min-height:42px;
-    min-width:230px;
-    border:1px solid var(--df-line);
-    border-radius:14px;
-    background:#fff;
-    color:var(--df-ink);
-    padding:0 12px;
-    font-size:13px;
-    font-weight:900;
-    outline:none;
-  }
-
-  .dao-check{
-    min-height:42px;
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    padding:8px 12px;
-    border-radius:14px;
-    background:#fff;
-    border:1px solid var(--df-line);
-    color:var(--df-text);
-    font-size:13px;
-    font-weight:900;
-  }
-
-  .dao-check input{
-    width:17px;
-    height:17px;
-    accent-color:var(--df-green);
-  }
-
-  .dao-empty{
-    margin:18px;
-    padding:26px;
-    border-radius:22px;
-    background:var(--df-soft);
-    border:1px dashed var(--df-line);
-    color:var(--df-muted);
-    text-align:center;
-    font-size:14px;
-    font-weight:800;
-    line-height:1.55;
-  }
-
-  @media(max-width:980px){
-    .dao-grid{
-      grid-template-columns:1fr;
-    }
-  }
-
-  @media(max-width:560px){
-    .dao-head{
-      flex-direction:column;
-    }
-
-    .dao-actions,
-    .dao-actions a,
-    .dao-actions form,
-    .dao-btn,
-    .dao-status-form select{
-      width:100%;
-    }
-
-    .dao-status-form{
-      align-items:stretch;
-    }
-  }
-</style>
 
 <section class="dao-card">
   <div class="dao-head">
@@ -374,7 +49,7 @@ Manage your currently assigned orders, update delivery progress, call customers,
 
                     <div class="dao-grid">
             <div class="dao-info collect">
-              <span>Amount to Collect</span>
+              <span>Customer Payment Due</span>
               <strong>₹ {{ '%.2f'|format(o.amount_to_collect or 0) }}</strong>
             </div>
 
@@ -406,7 +81,7 @@ Manage your currently assigned orders, update delivery progress, call customers,
             </div>
 
             <div class="dao-info">
-              <span>Delivery + Tip</span>
+              <span>Your Earning</span>
               <strong>₹ {{ '%.2f'|format(o.delivery_boy_expected_earning or 0) }}</strong>
             </div>
           </div>
@@ -450,12 +125,32 @@ Manage your currently assigned orders, update delivery progress, call customers,
             </select>
 
             {% if st == 'OUT_FOR_DELIVERY' %}
-  <label class="dao-check">
-    <input type="checkbox" name="cod_received" value="1">
-        COD amount collected from customer
-  </label>
+  {% if o.is_cod_order %}
+    <div class="dao-payment-box" data-delivery-payment-box>
+      <div class="dao-payment-title">Collect ₹{{ '%.2f'|format(o.total_payable or 0) }} · Pay on Delivery</div>
+      <div class="dao-channel-grid">
+        <label class="dao-channel"><input type="radio" name="payment_collection_channel" value="CASH" checked><span>💵 Cash</span></label>
+        <label class="dao-channel"><input type="radio" name="payment_collection_channel" value="UPI" {% if not pay_on_delivery_upi.enabled %}disabled{% endif %}><span>📱 UPI{% if not pay_on_delivery_upi.enabled %} · unavailable{% endif %}</span></label>
+      </div>
+      <div class="dao-upi-details" data-upi-details hidden>
+        {% if pay_on_delivery_upi.enabled %}
+          <div class="dao-payment-note">Official NE LOCALS UPI · Customer scans this QR with Google Pay, PhonePe, Paytm, BHIM or any UPI app.</div>
+          <img class="dao-upi-qr" src="{{ url_for('delivery_order_upi_qr', oid=o.id) }}" alt="Official NE LOCALS UPI QR for this order">
+          <div class="dao-upi-id">{{ pay_on_delivery_upi.upi_id }}</div>
+          <input class="dao-upi-ref" type="text" name="upi_delivery_reference" minlength="6" maxlength="40" pattern="[A-Za-z0-9._/\-]{6,40}" placeholder="UPI transaction / reference" autocomplete="off" autocapitalize="characters" spellcheck="false" title="Enter the 6–40 character UPI transaction/reference number." data-upi-reference>
+          <div class="dao-payment-note">Record the successful UPI reference. Admin verifies receipt in the official account before Store payout.</div>
+        {% endif %}
+      </div>
+      <label class="dao-check">
+        <input type="checkbox" name="cod_received" value="1">
+        Full Pay on Delivery amount received
+      </label>
+    </div>
+  {% else %}
+    <div class="dao-prepaid-note">Prepaid order · no Pay on Delivery collection required.</div>
+  {% endif %}
 
-  <select name="delivery_failed_reason" style="min-height:42px;border:1px solid var(--df-line);border-radius:14px;padding:0 12px;font-weight:850;">
+  <select name="delivery_failed_reason" class="dao-failure-field">
     <option value="">Failed delivery reason, only if failed</option>
     <option value="Customer not available">Customer not available</option>
     <option value="Customer phone unreachable">Customer phone unreachable</option>
@@ -469,7 +164,7 @@ Manage your currently assigned orders, update delivery progress, call customers,
     name="delivery_failed_note"
     maxlength="500"
     placeholder="Optional note for failed delivery..."
-    style="min-height:78px;border:1px solid var(--df-line);border-radius:14px;padding:10px 12px;font-weight:750;resize:vertical;"
+    class="dao-failure-note"
   ></textarea>
 {% endif %}
 
@@ -542,6 +237,30 @@ Manage your currently assigned orders, update delivery progress, call customers,
 
 
 <script>
+  document.querySelectorAll('[data-delivery-payment-box]').forEach(function(box){
+    const form = box.closest('form');
+    const statusSelect = form ? form.querySelector('select[name="status"]') : null;
+    const upiDetails = box.querySelector('[data-upi-details]');
+    const upiReference = box.querySelector('[data-upi-reference]');
+    const receivedCheck = box.querySelector('input[name="cod_received"]');
+    const radios = box.querySelectorAll('input[name="payment_collection_channel"]');
+
+    function syncChannel(){
+      const isDelivering = !statusSelect || statusSelect.value === 'DELIVERED';
+      const selected = box.querySelector('input[name="payment_collection_channel"]:checked');
+      const isUpi = !!(isDelivering && selected && selected.value === 'UPI');
+
+      box.hidden = !isDelivering;
+      if (upiDetails) upiDetails.hidden = !isUpi;
+      if (upiReference) upiReference.required = isUpi;
+      if (receivedCheck) receivedCheck.required = isDelivering;
+    }
+
+    radios.forEach(function(radio){ radio.addEventListener('change', syncChannel); });
+    if (statusSelect) statusSelect.addEventListener('change', syncChannel);
+    syncChannel();
+  });
+
   document.addEventListener("click", function(event){
     const btn = event.target.closest(".dao-cancel-toggle");
 

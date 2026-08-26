@@ -5,6 +5,8 @@ Only the file location changed.
 """
 
 from app_core import *
+import qrcode
+from urllib.parse import urlencode
 
 
 def _delivery_disabled_response():
@@ -108,6 +110,170 @@ def _block_delivery_panel_when_in_house_disabled():
 
     return _delivery_disabled_response()
 
+
+def _delivery_portal_endpoint_allowed(endpoint):
+    endpoint = (endpoint or "").strip()
+    if not endpoint:
+        return True
+    if endpoint == "static" or endpoint == "logout":
+        return True
+    if endpoint == "api_delivery_availability":
+        return True
+    if endpoint.startswith("delivery_"):
+        return True
+    if endpoint.startswith("dev_"):
+        return True
+    return False
+
+
+@app.before_request
+def _keep_delivery_accounts_inside_delivery_portal():
+    """Keep logged-in Delivery Partner accounts inside their role portal.
+
+    This prevents Delivery accounts from accidentally entering customer-profile,
+    shopping/account or public contact shells through internal links. External
+    navigation (for example Google Maps directions) is unaffected because it
+    never reaches this Flask guard.
+    """
+    user = current_user()
+    if not user or str(user.get("role") or "").strip().lower() != "delivery":
+        return None
+
+    endpoint = request.endpoint or ""
+    if _delivery_portal_endpoint_allowed(endpoint):
+        return None
+
+    if request.method in {"GET", "HEAD", "OPTIONS"}:
+        flash("That page is outside the Delivery Partner portal.", "warning")
+        return redirect(url_for("delivery_dashboard"))
+
+    abort(403)
+
+
+@app.route('/delivery/profile', methods=['GET', 'POST'])
+@login_required(role='delivery')
+def delivery_profile():
+    user = current_user()
+    availability = _get_delivery_availability(user["id"])
+
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        phone = (request.form.get('phone') or '').strip()
+        update_data = {}
+        if name:
+            update_data['name'] = name
+        if phone:
+            update_data['phone'] = normalize_phone(phone)
+        if update_data:
+            update_data['updated_at'] = datetime.utcnow().isoformat()
+            mongo.users.update_one({'_id': ObjectId(user['id'])}, {'$set': update_data})
+        flash('Delivery Partner profile updated.', 'success')
+        return redirect(url_for('delivery_profile'))
+
+    profile_stats = {
+        'active_orders': mongo.orders.count_documents({
+            '$and': [
+                {'$or': [
+                    {'delivery_partner_id': user['id']},
+                    {'delivery_partner_id': str(user['id'])}
+                ]},
+                {'status': {'$in': DELIVERY_ASSIGNED_ACTIVE_STATUSES}}
+            ]
+        }),
+        'completed_orders': mongo.orders.count_documents({
+            '$and': [
+                {'$or': [
+                    {'delivery_partner_id': user['id']},
+                    {'delivery_partner_id': str(user['id'])}
+                ]},
+                {'status': 'DELIVERED'}
+            ]
+        })
+    }
+
+    return render_template(
+        "delivery_profile.html",
+        user=user,
+        delivery_active=bool(availability.get('active')),
+        delivery_availability=availability,
+        profile_stats=profile_stats,
+        active_page="profile",
+    )
+
+
+@app.route('/delivery/support', methods=['GET', 'POST'])
+@login_required(role='delivery')
+def delivery_support():
+    user = current_user()
+
+    if request.method == "POST":
+        category = (request.form.get("category") or "Delivery Support").strip()
+        order_reference = (request.form.get("order_reference") or "").strip()
+        requested_subject = (request.form.get("subject") or "").strip()
+        email = (request.form.get("email") or user.get("email") or "").strip().lower()
+        phone = (request.form.get("phone") or user.get("phone") or "").strip()
+        message = (request.form.get("message") or "").strip()
+
+        if not category or not message:
+            flash("Please choose an issue category and describe the problem.", "warning")
+            return redirect(url_for("delivery_support"))
+        if len(message) < 10:
+            flash("Please describe the issue in at least 10 characters.", "warning")
+            return redirect(url_for("delivery_support"))
+        if email and ("@" not in email or "." not in email):
+            flash("Please enter a valid reply email address.", "warning")
+            return redirect(url_for("delivery_support"))
+
+        now = datetime.utcnow().isoformat()
+        rider_name = (user.get("name") or user.get("full_name") or user.get("email") or "Delivery Partner").strip()
+        subject_base = requested_subject or category
+        subject = subject_base if not order_reference else f"{subject_base} · Order {order_reference}"
+        contact_doc = {
+            "name": rider_name,
+            "email": email,
+            "phone": phone,
+            "subject": subject,
+            "message": message,
+            "source": "Delivery Partner Portal",
+            "recipient_type": "admin",
+            "page_context": "delivery_support",
+            "order_reference": order_reference,
+            "status": "NEW",
+            "priority": "NORMAL",
+            "user_id": str(user.get("_id") or user.get("id") or ""),
+            "user_role": "delivery",
+            "ip_address": request.headers.get("X-Forwarded-For", request.remote_addr),
+            "user_agent": request.headers.get("User-Agent", ""),
+            "created_at": now,
+            "updated_at": now,
+            "read_at": "",
+            "resolved_at": "",
+            "admin_note": "",
+        }
+        mongo.contact_messages.insert_one(contact_doc)
+        flash("Your support request has been sent to NE LOCALS Admin.", "success")
+        return redirect(url_for("delivery_support"))
+
+    recent_requests = list(
+        mongo.contact_messages.find({
+            "user_id": str(user.get("_id") or user.get("id") or ""),
+            "user_role": "delivery",
+            "source": "Delivery Partner Portal",
+        }).sort("created_at", -1).limit(8)
+    )
+    for row in recent_requests:
+        row["id"] = str(row.get("_id") or "")
+
+    return render_template(
+        "delivery_support.html",
+        user=user,
+        support_requests=recent_requests,
+        delivery_active=bool(_get_delivery_availability(user['id']).get('active')),
+        delivery_availability=_get_delivery_availability(user['id']),
+        active_page="support",
+    )
+
+
 def _delivery_notification_user_values(user_id):
     values = [str(user_id)]
 
@@ -142,6 +308,19 @@ def _delivery_money_float(value, default=0.0):
         return float(default)
 
 
+def _delivery_pay_on_delivery_upi_settings():
+    settings = get_delivery_mode_settings()
+    upi_id = (settings.get("pay_on_delivery_upi_id") or "").strip()
+    payee_name = (settings.get("pay_on_delivery_upi_name") or "NE LOCALS").strip() or "NE LOCALS"
+    enabled = bool(settings.get("pay_on_delivery_upi_enabled", False) and upi_id)
+
+    return {
+        "enabled": enabled,
+        "upi_id": upi_id,
+        "payee_name": payee_name,
+    }
+
+
 def _decorate_delivery_financials(order):
     """
     Adds delivery-boy-facing money fields.
@@ -172,18 +351,42 @@ def _decorate_delivery_financials(order):
 
     payment_method = (order.get("payment_method") or "COD").strip().upper()
     payment_status = (order.get("payment_status") or "PENDING").strip().upper()
+    payment_collection_status = (order.get("payment_collection_status") or "").strip().upper()
+    payment_collection_channel = (order.get("payment_collection_channel") or "").strip().upper()
+    upi_delivery_reconciliation_status = (order.get("upi_delivery_reconciliation_status") or "").strip().upper()
 
-    collected_payment_statuses = [
+    cod_payment_methods = {
+        "COD",
+        "CASH_ON_DELIVERY",
+        "COD_RIDER_COLLECTION"
+    }
+
+    collected_payment_statuses = {
         "PAID",
         "COLLECTED",
         "ONLINE_PAID",
         "COLLECTED_BY_RIDER",
-        "COD_COLLECTED_BY_RIDER"
-    ]
+        "COD_COLLECTED_BY_RIDER",
+        "COD_UPI_RECORDED"
+    }
 
-    if payment_method == "COD" and payment_status not in collected_payment_statuses:
+    is_cod_order = payment_method in cod_payment_methods
+    is_cod_upi = is_cod_order and payment_collection_channel == "UPI"
+    is_cod_cash = is_cod_order and not is_cod_upi
+    is_cod_collected = bool(
+        is_cod_order
+        and (
+            payment_status in collected_payment_statuses
+            or payment_collection_status in {"COLLECTED", "PAID"}
+        )
+    )
+
+    if is_cod_order and not is_cod_collected:
         amount_to_collect = total_payable
         collect_label = "Collect from customer"
+    elif is_cod_collected:
+        amount_to_collect = 0.0
+        collect_label = "UPI paid at delivery" if is_cod_upi else "COD cash collected"
     else:
         amount_to_collect = 0.0
         collect_label = "No cash collection"
@@ -210,10 +413,18 @@ def _decorate_delivery_financials(order):
 
     order["payment_method"] = payment_method
     order["payment_status"] = payment_status
+    order["payment_collection_status"] = payment_collection_status
+    order["payment_collection_channel"] = payment_collection_channel
+    order["upi_delivery_reconciliation_status"] = upi_delivery_reconciliation_status
+    order["collection_channel_label"] = (
+        "UPI" if is_cod_upi
+        else ("Cash" if is_cod_order else ("Razorpay" if payment_collection_channel == "RAZORPAY" else "Online"))
+    )
 
     order["amount_to_collect"] = round(amount_to_collect, 2)
     order["collect_label"] = collect_label
-    order["is_cod_order"] = payment_method == "COD"
+    order["is_cod_order"] = is_cod_order
+    order["is_cod_collected"] = is_cod_collected
 
     order["delivery_boy_expected_earning"] = round(delivery_boy_expected_earning, 2)
     order["delivery_fee_plus_tip"] = round(delivery_boy_expected_earning, 2)
@@ -222,9 +433,13 @@ def _decorate_delivery_financials(order):
     # Delivery-boy-facing COD settlement fields.
     # Read-only for delivery panel. Admin controls settlement.
     # ------------------------------------------------------------
-    cod_collected_amount = _delivery_money_float(
-        order.get("cod_collected_amount"),
-        total_payable if payment_method == "COD" and payment_status in collected_payment_statuses else 0
+    cod_collected_amount = (
+        _delivery_money_float(
+            order.get("cod_collected_amount"),
+            total_payable
+        )
+        if is_cod_collected
+        else 0.0
     )
 
     delivery_boy_earning = _delivery_money_float(
@@ -232,19 +447,70 @@ def _decorate_delivery_financials(order):
         delivery_boy_expected_earning
     )
 
-    rider_cash_to_submit = _delivery_money_float(
-        order.get("rider_cash_to_submit"),
-        order.get("expected_rider_cash_to_submit") or max(cod_collected_amount - delivery_boy_earning, 0)
+    # MONTHLY_V1 (and any still-undelivered in-house order that will enter
+    # MONTHLY_V1 at successful delivery) treats the FULL customer COD amount
+    # as business cash. Only already-delivered legacy records retain the old
+    # historical net-remittance fallback so they are not rewritten/repaid.
+    order_status = (order.get("status") or "").strip().upper()
+    is_monthly_delivery_payout = delivery_order_uses_monthly_payout(order)
+    uses_full_business_cash_model = bool(
+        is_monthly_delivery_payout or order_status != "DELIVERED"
+    )
+    expected_cash_fallback = (
+        total_payable
+        if uses_full_business_cash_model
+        else max(total_payable - delivery_boy_earning, 0)
     )
 
+    expected_rider_cash_to_submit = (
+        0.0
+        if is_cod_upi
+        else (
+            _delivery_money_float(
+                order.get("expected_rider_cash_to_submit"),
+                expected_cash_fallback
+            )
+            if is_cod_order
+            else 0.0
+        )
+    )
+
+    rider_cash_to_submit = (
+        0.0
+        if is_cod_upi
+        else (
+            _delivery_money_float(
+                order.get("rider_cash_to_submit"),
+                expected_rider_cash_to_submit
+            )
+            if is_cod_collected
+            else 0.0
+        )
+    )
+
+    if is_cod_collected:
+        cod_display_amount = cod_collected_amount
+        if is_cod_upi and upi_delivery_reconciliation_status == "VERIFIED":
+            cod_display_label = "UPI verified"
+        elif is_cod_upi:
+            cod_display_label = "UPI recorded · verification pending"
+        else:
+            cod_display_label = "Cash collected"
+    elif is_cod_order:
+        cod_display_amount = amount_to_collect
+        cod_display_label = "To collect"
+    else:
+        cod_display_amount = 0.0
+        cod_display_label = "Not applicable"
+
     order["cod_collected_amount"] = round(cod_collected_amount, 2)
+    order["cod_display_amount"] = round(cod_display_amount, 2)
+    order["cod_display_label"] = cod_display_label
     order["delivery_boy_earning"] = round(delivery_boy_earning, 2)
+    order["is_monthly_delivery_payout"] = is_monthly_delivery_payout
     order["delivery_boy_payout_status"] = order.get("delivery_boy_payout_status") or ""
     order["rider_cash_to_submit"] = round(rider_cash_to_submit, 2)
-    order["expected_rider_cash_to_submit"] = round(
-        _delivery_money_float(order.get("expected_rider_cash_to_submit"), rider_cash_to_submit),
-        2
-    )
+    order["expected_rider_cash_to_submit"] = round(expected_rider_cash_to_submit, 2)
     order["rider_cash_settlement_status"] = order.get("rider_cash_settlement_status") or "NOT_REQUIRED"
     order["rider_cash_received_at"] = order.get("rider_cash_received_at") or ""
     order["platform_fee_status"] = order.get("platform_fee_status") or ""
@@ -676,7 +942,8 @@ def delivery_active_orders():
         orders=orders,
         delivery_active=delivery_active,
         delivery_availability=availability,
-        delivery_accept_radius_km=DELIVERY_ACCEPT_RADIUS_KM
+        delivery_accept_radius_km=DELIVERY_ACCEPT_RADIUS_KM,
+        pay_on_delivery_upi=_delivery_pay_on_delivery_upi_settings()
     )
 
 @app.route('/delivery/cancelled-orders', methods=['GET'], endpoint='delivery_cancelled_orders')
@@ -835,7 +1102,7 @@ def delivery_successful_deliveries():
         total_tip += float(o.get("tip_amount") or 0)
         total_platform_fee += float(o.get("platform_fee") or 0)
         total_expected_earning += float(o.get("delivery_boy_expected_earning") or 0)
-        total_cod_collected += float(o.get("amount_to_collect") or 0)
+        total_cod_collected += float(o.get("cod_collected_amount") or 0)
 
     return render_template(
         "delivery_successful_deliveries.html",
@@ -862,7 +1129,7 @@ def delivery_cod_settlements():
     Delivery-boy read-only COD settlement view.
 
     Important:
-    - Delivery boy can view COD collected, own earning, and cash to submit.
+    - Delivery boy can view COD collected, monthly earning, and the full business cash to submit.
     - Delivery boy cannot mark cash submitted/received.
     - Admin marks rider cash received from Admin Payment & Settlements.
     """
@@ -893,6 +1160,9 @@ def delivery_cod_settlements():
                 },
                 {
                     "payment_status": {"$in": ["COLLECTED_BY_RIDER", "COD_COLLECTED_BY_RIDER"]}
+                },
+                {
+                    "payment_collection_channel": {"$ne": "UPI"}
                 }
             ]
         }).sort("delivered_at", -1)
@@ -949,10 +1219,22 @@ def delivery_cod_settlements():
         if (r.get("rider_cash_settlement_status") or "").upper() in ["RECEIVED", "PAID", "SETTLED"]
     ]
 
+    monthly_rows = [
+        r for r in rows
+        if bool(r.get("is_monthly_delivery_payout"))
+    ]
+    legacy_rows = [
+        r for r in rows
+        if not bool(r.get("is_monthly_delivery_payout"))
+    ]
+
     metrics = {
         "total_orders": len(rows),
         "cod_collected": round(sum(float(r.get("cod_collected_amount") or 0) for r in rows), 2),
-        "delivery_earning": round(sum(float(r.get("delivery_boy_earning") or 0) for r in rows), 2),
+        "delivery_earning": round(sum(float(r.get("delivery_boy_earning") or 0) for r in monthly_rows), 2),
+        "legacy_delivery_earning": round(sum(float(r.get("delivery_boy_earning") or 0) for r in legacy_rows), 2),
+        "monthly_orders": len(monthly_rows),
+        "legacy_orders": len(legacy_rows),
         "cash_to_submit": round(sum(float(r.get("rider_cash_to_submit") or 0) for r in rows), 2),
         "pending_cash": round(sum(float(r.get("rider_cash_to_submit") or 0) for r in pending_rows), 2),
         "received_cash": round(sum(float(r.get("rider_cash_to_submit") or 0) for r in received_rows), 2),
@@ -1309,8 +1591,90 @@ def delivery_order_detail(oid):
         active_orders=active_orders,
         current_order_id=str(oid_obj),
         delivery_active=delivery_active,
-        delivery_availability=availability
+        delivery_availability=availability,
+        pay_on_delivery_upi=_delivery_pay_on_delivery_upi_settings()
     )
+
+
+@app.route('/delivery/order/<oid>/upi-qr', methods=['GET'], endpoint='delivery_order_upi_qr')
+@login_required(role='delivery')
+def delivery_order_upi_qr(oid):
+    """
+    Render the official Pay-on-Delivery UPI QR for the assigned rider.
+
+    The QR contains only the Admin-configured public UPI receiving address,
+    payee name, exact order amount and an order reference. It does not expose
+    gateway secrets or rider personal payment details.
+    """
+    u = current_user()
+
+    try:
+        oid_obj = ObjectId(oid)
+    except Exception:
+        abort(404)
+
+    order = mongo.orders.find_one({
+        "_id": oid_obj,
+        "$or": [
+            {"delivery_partner_id": u["id"]},
+            {"delivery_partner_id": str(u["id"])}
+        ]
+    })
+
+    if not order:
+        abort(404)
+
+    payment_method = (order.get("payment_method") or "COD").strip().upper()
+    status = (order.get("status") or "").strip().upper()
+
+    if payment_method not in {"COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"}:
+        abort(404)
+
+    if status != "OUT_FOR_DELIVERY":
+        abort(404)
+
+    upi_settings = _delivery_pay_on_delivery_upi_settings()
+    if not upi_settings.get("enabled") or not upi_settings.get("upi_id"):
+        abort(404)
+
+    amount = round(_delivery_money_float(
+        order.get("total_payable"),
+        order.get("total_amount") or 0
+    ), 2)
+
+    if amount <= 0:
+        abort(404)
+
+    order_number = (order.get("order_number") or "").strip()
+    short_order_id = order_number or str(oid_obj)[-6:]
+    transaction_ref = re.sub(r"[^A-Za-z0-9]", "", f"NELOCALS{short_order_id}")[:35]
+
+    upi_payload = "upi://pay?" + urlencode({
+        "pa": upi_settings.get("upi_id") or "",
+        "pn": upi_settings.get("payee_name") or "NE LOCALS",
+        "am": f"{amount:.2f}",
+        "cu": "INR",
+        "tr": transaction_ref,
+        "tn": f"NE LOCALS Order {short_order_id}",
+    })
+
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=7,
+        border=3,
+    )
+    qr.add_data(upi_payload)
+    qr.make(fit=True)
+
+    image = qr.make_image(fill_color="black", back_color="white")
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    response = send_file(buffer, mimetype="image/png", max_age=0)
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return response
 
 @app.route('/delivery/earnings')
 @login_required(role='delivery')
@@ -1383,7 +1747,108 @@ def delivery_earnings():
         total_tip += float(o.get("tip_amount") or 0)
         total_platform_fee += float(o.get("platform_fee") or 0)
         total_expected_earning += float(o.get("delivery_boy_expected_earning") or 0)
-        total_cod_collected += float(o.get("amount_to_collect") or 0)
+        total_cod_collected += float(o.get("cod_collected_amount") or 0)
+
+    current_month = delivery_monthly_current_period()
+    monthly_groups = {}
+
+    for o in raw_orders:
+        if not delivery_order_uses_monthly_payout(o):
+            continue
+
+        period = (o.get("delivery_monthly_period") or "").strip()
+        if not period:
+            period = delivery_monthly_period_from_utc(o.get("delivered_at") or o.get("updated_at"))
+
+        group = monthly_groups.setdefault(period, {
+            "period": period,
+            "period_label": delivery_monthly_period_label(period),
+            "order_count": 0,
+            "delivery_fee": 0.0,
+            "tips": 0.0,
+            "gross_earning": 0.0,
+            "paid_order_count": 0,
+            "unreconciled_count": 0,
+        })
+
+        fee = _delivery_money_float(
+            o.get("delivery_fee_amount") if o.get("delivery_fee_amount") is not None else o.get("delivery_fee"),
+            0.0
+        )
+        tip = _delivery_money_float(
+            o.get("tip_amount") if o.get("tip_amount") is not None else o.get("delivery_tip_amount"),
+            0.0
+        )
+        earning = _delivery_money_float(
+            o.get("delivery_boy_payout_amount") if o.get("delivery_boy_payout_amount") is not None else o.get("delivery_boy_earning"),
+            fee + tip
+        )
+
+        group["order_count"] += 1
+        group["delivery_fee"] += fee
+        group["tips"] += tip
+        group["gross_earning"] += earning
+        if (o.get("delivery_boy_payout_status") or "").strip().upper() == DELIVERY_MONTHLY_STATUS_PAID:
+            group["paid_order_count"] += 1
+        elif not delivery_monthly_payment_is_reconciled(o):
+            group["unreconciled_count"] += 1
+
+    paid_batches = {
+        str(doc.get("period") or ""): doc
+        for doc in mongo.delivery_partner_monthly_settlements.find({
+            "delivery_partner_id_str": str(u["id"]),
+            "status": DELIVERY_MONTHLY_BATCH_STATUS_PAID
+        })
+    }
+
+    monthly_rows = []
+    for period, group in monthly_groups.items():
+        batch = paid_batches.get(period) or {}
+        if (batch.get("status") or "").upper() == DELIVERY_MONTHLY_BATCH_STATUS_PAID:
+            status = "PAID"
+            paid_at = batch.get("paid_at") or ""
+            payment_mode = batch.get("payment_mode") or ""
+            reference_no = batch.get("reference_no") or ""
+        elif period == current_month:
+            status = "ACCRUING"
+            paid_at = ""
+            payment_mode = ""
+            reference_no = ""
+        elif group.get("unreconciled_count", 0) > 0:
+            status = "RECONCILIATION PENDING"
+            paid_at = ""
+            payment_mode = ""
+            reference_no = ""
+        else:
+            status = "READY"
+            paid_at = ""
+            payment_mode = ""
+            reference_no = ""
+
+        group["delivery_fee"] = round(group["delivery_fee"], 2)
+        group["tips"] = round(group["tips"], 2)
+        group["gross_earning"] = round(group["gross_earning"], 2)
+        group["status"] = status
+        group["paid_at"] = paid_at
+        group["payment_mode"] = payment_mode
+        group["reference_no"] = reference_no
+        monthly_rows.append(group)
+
+    monthly_rows.sort(key=lambda row: row.get("period") or "", reverse=True)
+    current_month_summary = next((row for row in monthly_rows if row.get("period") == current_month), {
+        "period": current_month,
+        "period_label": delivery_monthly_period_label(current_month),
+        "order_count": 0,
+        "delivery_fee": 0.0,
+        "tips": 0.0,
+        "gross_earning": 0.0,
+        "status": "ACCRUING"
+    })
+    total_monthly_paid = round(sum(
+        float((paid_batches.get(row.get("period")) or {}).get("amount_paid") or 0)
+        for row in monthly_rows
+        if row.get("status") == "PAID"
+    ), 2)
 
     return render_template(
         "delivery_earnings.html",
@@ -1399,7 +1864,11 @@ def delivery_earnings():
         total_tip=total_tip,
         total_payable=total_payable,
         total_platform_fee=total_platform_fee,
-        total_expected_earning=total_expected_earning
+        total_expected_earning=total_expected_earning,
+        monthly_rows=monthly_rows,
+        current_month=current_month,
+        current_month_summary=current_month_summary,
+        total_monthly_paid=total_monthly_paid
     )
 
 
@@ -1667,6 +2136,12 @@ def delivery_status(oid):
         payment_method = (order.get("payment_method") or "COD").strip().upper()
         payment_status = (order.get("payment_status") or "PENDING").strip().upper()
         cod_received = request.form.get('cod_received')
+        payment_collection_channel = (request.form.get("payment_collection_channel") or "CASH").strip().upper()
+        upi_delivery_reference = re.sub(
+            r"\s+",
+            "",
+            (request.form.get("upi_delivery_reference") or "").strip()
+        ).upper()
 
         items_subtotal = _delivery_money_float(
             order.get("items_subtotal")
@@ -1705,20 +2180,116 @@ def delivery_status(oid):
             "COLLECTED",
             "ONLINE_PAID",
             "COLLECTED_BY_RIDER",
-            "COD_COLLECTED_BY_RIDER"
+            "COD_COLLECTED_BY_RIDER",
+            "COD_UPI_RECORDED"
         ]
 
         if payment_method == "COD" and payment_status not in collected_payment_statuses:
             if cod_received != '1':
-                flash('Please confirm that COD amount has been collected before marking Delivered.', 'warning')
+                flash('Please confirm that the Pay on Delivery amount has been received before marking Delivered.', 'warning')
                 return redirect(request.referrer or url_for('delivery_active_orders'))
 
-            rider_cash_to_submit = round(
-                max(total_payable - delivery_boy_earning, 0),
-                2
-            )
+            if payment_collection_channel not in {"CASH", "UPI"}:
+                flash('Select how the customer paid: Cash or UPI.', 'warning')
+                return redirect(request.referrer or url_for('delivery_active_orders'))
 
-            update_data.update({
+            if payment_collection_channel == "UPI":
+                upi_settings = _delivery_pay_on_delivery_upi_settings()
+
+                if not upi_settings.get("enabled"):
+                    flash('UPI at delivery is not configured by Admin. Collect payment by cash or contact Admin.', 'warning')
+                    return redirect(request.referrer or url_for('delivery_active_orders'))
+
+                if not re.match(r"^[A-Za-z0-9._/-]{6,40}$", upi_delivery_reference):
+                    flash('Enter the customer UPI transaction/reference number before marking Delivered.', 'warning')
+                    return redirect(request.referrer or url_for('delivery_active_orders'))
+
+                duplicate_upi = mongo.orders.find_one({
+                    "_id": {"$ne": oid_obj},
+                    "payment_collection_channel": "UPI",
+                    "upi_delivery_reference": {
+                        "$regex": f"^{re.escape(upi_delivery_reference)}$",
+                        "$options": "i"
+                    }
+                })
+
+                if duplicate_upi:
+                    flash('This UPI transaction/reference is already recorded on another order. Please verify the payment reference.', 'warning')
+                    return redirect(request.referrer or url_for('delivery_active_orders'))
+
+                rider_cash_to_submit = 0.0
+
+                update_data.update({
+                    "items_subtotal": store_payout_amount,
+                    "total_amount": round(total_payable, 2),
+                    "total_payable": round(total_payable, 2),
+                    "delivery_fee": delivery_fee,
+                    "delivery_fee_amount": delivery_fee,
+                    "platform_fee": platform_fee,
+                    "tip_amount": tip_amount,
+                    "delivery_tip_amount": tip_amount,
+
+                    "payment_status": "COD_UPI_RECORDED",
+                    "payment_received_by": "ADMIN_PLATFORM",
+                    "payment_collected_at": now,
+                    "payment_collection_status": "COLLECTED",
+                    "payment_collection_channel": "UPI",
+                    "payment_reconciliation_status": "PENDING_UPI_VERIFICATION",
+                    "cod_collection_status": "UPI_RECORDED",
+                    "cod_collected_amount": round(total_payable, 2),
+                    "upi_delivery_reference": upi_delivery_reference,
+                    "upi_delivery_payee_id": upi_settings.get("upi_id") or "",
+                    "upi_delivery_payee_name": upi_settings.get("payee_name") or "NE LOCALS",
+                    "upi_delivery_reconciliation_status": "PENDING_ADMIN_VERIFICATION",
+                    "upi_delivery_recorded_at": now,
+                    "upi_delivery_recorded_by": str(u.get("id") or u.get("_id") or ""),
+
+                    "expected_rider_cash_to_submit": 0.0,
+                    "rider_cash_to_submit": 0.0,
+                    "rider_cash_settlement_status": "NOT_REQUIRED",
+
+                    "delivery_boy_earning": delivery_boy_earning,
+                    "delivery_boy_payout_amount": delivery_boy_earning,
+                    "delivery_boy_payout_status": DELIVERY_MONTHLY_STATUS_ACCRUED,
+
+                    "store_earning": store_payout_amount,
+                    "store_payout_amount": store_payout_amount,
+                    "store_payout_status": "PENDING_PAYMENT_RECONCILIATION",
+
+                    "admin_platform_earning": admin_platform_earning,
+                    "platform_fee_status": "PENDING_UPI_RECONCILIATION",
+                    "platform_fee_received_at": None,
+
+                    "order_settlement_status": "UPI_RECONCILIATION_PENDING",
+                    "settlement_status": "UPI_RECONCILIATION_PENDING",
+                    "store_settlement_status": "PENDING_PAYMENT_RECONCILIATION",
+                    "admin_platform_fee_status": "PENDING_UPI_RECONCILIATION",
+                    "delivery_settlement_status": DELIVERY_MONTHLY_STATUS_ACCRUED,
+
+                    "last_settlement_event": {
+                        "action": "UPI_AT_DELIVERY_RECORDED",
+                        "amount_collected": round(total_payable, 2),
+                        "upi_reference": upi_delivery_reference,
+                        "delivery_boy_earning": delivery_boy_earning,
+                        "rider_cash_to_submit": 0.0,
+                        "platform_fee": admin_platform_earning,
+                        "store_payout_amount": store_payout_amount,
+                        "created_by": str(u.get("id") or u.get("_id") or ""),
+                        "created_by_name": u.get("name") or "Delivery Partner",
+                        "created_at": now
+                    }
+                })
+
+                event_note = (
+                    f"UPI payment ₹{total_payable:.2f} recorded at delivery. "
+                    f"Reference {upi_delivery_reference}. Pending Admin verification. Order delivered."
+                )
+            else:
+                # Customer COD cash belongs entirely to the business. The rider's
+                # delivery fee + tip are NOT deducted here; they accrue for monthly pay.
+                rider_cash_to_submit = round(max(total_payable, 0), 2)
+
+                update_data.update({
                 "items_subtotal": store_payout_amount,
                 "total_amount": round(total_payable, 2),
                 "total_payable": round(total_payable, 2),
@@ -1728,11 +2299,15 @@ def delivery_status(oid):
                 "tip_amount": tip_amount,
                 "delivery_tip_amount": tip_amount,
 
-                "payment_status": "COLLECTED_BY_RIDER",
-                "payment_received_by": "DELIVERY_BOY",
-                "payment_collected_at": now,
-                "payment_collection_status": "COLLECTED",
-                "cod_collection_status": "COLLECTED",
+                    "payment_status": "COLLECTED_BY_RIDER",
+                    "payment_received_by": "DELIVERY_BOY",
+                    "payment_collected_at": now,
+                    "payment_collection_status": "COLLECTED",
+                    "payment_collection_channel": "CASH",
+                    "payment_reconciliation_status": "PENDING_RIDER_CASH",
+                    "upi_delivery_reference": "",
+                    "upi_delivery_reconciliation_status": "NOT_APPLICABLE",
+                    "cod_collection_status": "COLLECTED",
 
                 "cod_collected_amount": round(total_payable, 2),
                 "expected_rider_cash_to_submit": rider_cash_to_submit,
@@ -1741,7 +2316,7 @@ def delivery_status(oid):
 
                 "delivery_boy_earning": delivery_boy_earning,
                 "delivery_boy_payout_amount": delivery_boy_earning,
-                "delivery_boy_payout_status": "SELF_DEDUCTED",
+                "delivery_boy_payout_status": DELIVERY_MONTHLY_STATUS_ACCRUED,
 
                 "store_earning": store_payout_amount,
                 "store_payout_amount": store_payout_amount,
@@ -1755,7 +2330,7 @@ def delivery_status(oid):
                 "settlement_status": "RIDER_CASH_PENDING",
                 "store_settlement_status": "PAYOUT_PENDING",
                 "admin_platform_fee_status": "PENDING_RIDER_CASH",
-                "delivery_settlement_status": "SELF_DEDUCTED",
+                "delivery_settlement_status": DELIVERY_MONTHLY_STATUS_ACCRUED,
 
                 "last_settlement_event": {
                     "action": "COD_COLLECTED_BY_RIDER",
@@ -1770,11 +2345,11 @@ def delivery_status(oid):
                 }
             })
 
-            event_note = (
-                f"COD ₹{total_payable:.2f} collected by delivery boy. "
-                f"Delivery earning ₹{delivery_boy_earning:.2f}. "
-                f"Cash to submit ₹{rider_cash_to_submit:.2f}. Order delivered."
-            )
+                event_note = (
+                    f"COD cash ₹{total_payable:.2f} collected by delivery boy. "
+                    f"Delivery earning ₹{delivery_boy_earning:.2f} accrued for monthly settlement. "
+                    f"Full business cash to submit ₹{rider_cash_to_submit:.2f}. Order delivered."
+                )
 
         else:
             update_data.update({
@@ -1789,11 +2364,14 @@ def delivery_status(oid):
 
                 "payment_status": payment_status if payment_status else "PAID",
                 "payment_collection_status": "NOT_REQUIRED",
+                "payment_collection_channel": order.get("payment_collection_channel") or "RAZORPAY",
+                "payment_reconciliation_status": order.get("payment_reconciliation_status") or "VERIFIED",
+                "upi_delivery_reconciliation_status": "NOT_APPLICABLE",
                 "cod_collection_status": "NOT_REQUIRED",
 
                 "delivery_boy_earning": delivery_boy_earning,
                 "delivery_boy_payout_amount": delivery_boy_earning,
-                "delivery_boy_payout_status": "PENDING",
+                "delivery_boy_payout_status": DELIVERY_MONTHLY_STATUS_ACCRUED,
 
                 "store_earning": store_payout_amount,
                 "store_payout_amount": store_payout_amount,
@@ -1805,10 +2383,25 @@ def delivery_status(oid):
                 "order_settlement_status": "STORE_PAYOUT_PENDING",
                 "settlement_status": "PAYOUT_PENDING",
                 "store_settlement_status": "PAYOUT_PENDING",
-                "delivery_settlement_status": "PENDING"
+                "delivery_settlement_status": DELIVERY_MONTHLY_STATUS_ACCRUED
             })
 
-            event_note = "Order delivered. No COD cash collection required."
+            event_note = "Order delivered. Delivery earning accrued for monthly settlement. No COD cash collection required."
+
+        in_house_order = bool(order.get("in_house_delivery_enabled_at_order", True))
+        if in_house_order and order.get("delivery_partner_id"):
+            monthly_period = delivery_monthly_period_from_utc(now)
+            update_data.update({
+                "delivery_payout_model": DELIVERY_PAYOUT_MODEL_MONTHLY_V1,
+                "delivery_monthly_period": monthly_period,
+                "delivery_monthly_settlement_status": DELIVERY_MONTHLY_STATUS_ACCRUED,
+                "delivery_monthly_earning_amount": delivery_boy_earning,
+                "delivery_monthly_accrued_at": now,
+                "delivery_monthly_settlement_id": "",
+                "delivery_monthly_paid_at": None,
+                "delivery_boy_payout_status": DELIVERY_MONTHLY_STATUS_ACCRUED,
+                "delivery_settlement_status": DELIVERY_MONTHLY_STATUS_ACCRUED,
+            })
 
         update_data["delivered_at"] = now
 
@@ -1909,14 +2502,36 @@ def delivery_status(oid):
             _delivery_money_float(order.get("total_amount"), 0.0)
         )
 
+        txn_collection_channel = (
+            update_data.get("payment_collection_channel")
+            or order.get("payment_collection_channel")
+            or ""
+        ).strip().upper()
+        txn_upi_reconciliation = (
+            update_data.get("upi_delivery_reconciliation_status")
+            or order.get("upi_delivery_reconciliation_status")
+            or ""
+        ).strip().upper()
+
+        txn_status = (
+            "PAYMENT_RECORDED_PENDING_RECONCILIATION"
+            if txn_collection_channel == "UPI" and txn_upi_reconciliation != "VERIFIED"
+            else "PAID"
+        )
+
         txn_update_data = {
-            "status": "PAID",
+            "status": txn_status,
             "amount": payable_amount,
             "payment_method": order.get("payment_method") or "COD",
             "payment_status": update_data.get("payment_status") or order.get("payment_status") or "PAID",
             "payment_received_by": update_data.get("payment_received_by") or order.get("payment_received_by"),
             "payment_collection_status": update_data.get("payment_collection_status") or order.get("payment_collection_status"),
+            "payment_collection_channel": txn_collection_channel,
+            "payment_reconciliation_status": update_data.get("payment_reconciliation_status") or order.get("payment_reconciliation_status"),
             "cod_collection_status": update_data.get("cod_collection_status") or order.get("cod_collection_status"),
+            "cod_collected_amount": update_data.get("cod_collected_amount", order.get("cod_collected_amount", 0)),
+            "upi_delivery_reference": update_data.get("upi_delivery_reference") or order.get("upi_delivery_reference") or "",
+            "upi_delivery_reconciliation_status": txn_upi_reconciliation or "NOT_APPLICABLE",
 
             "items_subtotal": update_data.get("store_earning", order.get("items_subtotal", 0)),
             "delivery_fee": update_data.get("delivery_boy_earning", order.get("delivery_fee", 0)) - _delivery_money_float(order.get("tip_amount"), 0.0),
@@ -1929,7 +2544,14 @@ def delivery_status(oid):
             "delivery_boy_earning": update_data.get("delivery_boy_earning"),
             "delivery_boy_payout_amount": update_data.get("delivery_boy_payout_amount"),
             "delivery_boy_payout_status": update_data.get("delivery_boy_payout_status"),
+            "delivery_payout_model": update_data.get("delivery_payout_model") or order.get("delivery_payout_model") or "",
+            "delivery_monthly_period": update_data.get("delivery_monthly_period") or order.get("delivery_monthly_period") or "",
+            "delivery_monthly_settlement_status": update_data.get("delivery_monthly_settlement_status") or order.get("delivery_monthly_settlement_status") or "",
+            "delivery_monthly_earning_amount": update_data.get("delivery_monthly_earning_amount", order.get("delivery_monthly_earning_amount", 0)),
+            "delivery_monthly_settlement_id": update_data.get("delivery_monthly_settlement_id") or order.get("delivery_monthly_settlement_id") or "",
+            "delivery_monthly_paid_at": update_data.get("delivery_monthly_paid_at", order.get("delivery_monthly_paid_at")),
 
+            "expected_rider_cash_to_submit": update_data.get("expected_rider_cash_to_submit", order.get("expected_rider_cash_to_submit", 0)),
             "rider_cash_to_submit": update_data.get("rider_cash_to_submit"),
             "rider_cash_settlement_status": update_data.get("rider_cash_settlement_status"),
 

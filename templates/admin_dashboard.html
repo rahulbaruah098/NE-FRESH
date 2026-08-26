@@ -3,6 +3,11 @@
 
 {% block title %}Admin Dashboard | NE Locals{% endblock %}
 {% block page_title %}Admin Dashboard{% endblock %}
+{% block page_subtitle %}Marketplace operations, delivery, finance and customer-care overview.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-dashboard.css') }}">
+{% endblock %}
 
 {% block content %}
 {% set mode_ui = delivery_mode_ui|default({}) %}
@@ -51,9 +56,9 @@
 {% if mode_ui.get('online_only') %}
   {% set payment_short = 'Online Only' %}
 {% elif mode_ui.get('cod_allowed') and mode_ui.get('online_allowed') %}
-  {% set payment_short = 'COD + Online' %}
+  {% set payment_short = 'Pay on Delivery + Online' %}
 {% elif mode_ui.get('cod_allowed') %}
-  {% set payment_short = 'COD Enabled' %}
+  {% set payment_short = 'Pay on Delivery' %}
 {% elif online_allowed %}
   {% set payment_short = 'Online Enabled' %}
 {% else %}
@@ -61,335 +66,7 @@
 {% endif %}
 
 <section class="admin-clean-dashboard" data-page="admin-dashboard">
-  <style>
-    .admin-clean-dashboard{
-      --ad-bg:#F8FFFB;
-      --ad-card:#FFFFFF;
-      --ad-soft:#F3FFF8;
-      --ad-line:#DDECE4;
-      --ad-line2:#EAF4EF;
-      --ad-text:#1F332A;
-      --ad-muted:#66756D;
-      --ad-green:#00A859;
-      --ad-green-dark:#008A48;
-      --ad-orange:#FF8A1F;
-      --ad-red:#B91C1C;
-      --ad-blue:#0284C7;
-      --ad-shadow:0 14px 36px rgba(17,64,38,.08);
-      width:100%;
-      min-width:0;
-      display:grid;
-      gap:16px;
-      color:var(--ad-text);
-      overflow-x:hidden;
-    }
-    .admin-clean-dashboard *{box-sizing:border-box;}
-    .admin-clean-dashboard a{-webkit-tap-highlight-color:transparent;}
-
-    .ad-shortcuts{
-      border:1px solid var(--ad-line);
-      border-radius:24px;
-      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
-      box-shadow:var(--ad-shadow);
-      overflow:hidden;
-    }
-    .ad-shortcuts-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
-      padding:15px 18px 12px;
-      border-bottom:1px solid var(--ad-line2);
-    }
-    .ad-shortcuts-head h2{margin:0;color:var(--ad-text);font-size:1rem;line-height:1.15;font-weight:950;letter-spacing:-.025em;}
-    .ad-shortcuts-head p{margin:4px 0 0;color:var(--ad-muted);font-size:.8rem;line-height:1.35;font-weight:740;}
-    .ad-shortcut-badge{
-      flex:0 0 auto;
-      min-height:34px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:0 12px;
-      border-radius:999px;
-      background:var(--ad-soft);
-      border:1px solid rgba(0,168,89,.16);
-      color:var(--ad-green-dark);
-      font-size:.72rem;
-      font-weight:950;
-      letter-spacing:.05em;
-      text-transform:uppercase;
-      white-space:nowrap;
-    }
-    .ad-shortcuts-body{padding:14px 18px 16px;}
-    .ad-quick-links{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(min(100%,178px),1fr));
-      gap:10px;
-      align-items:stretch;
-    }
-    .ad-footer-note{margin:12px 0 0;color:var(--ad-muted);font-size:.78rem;line-height:1.45;font-weight:720;}
-
-    .ad-hero{
-      display:grid;
-      grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr);
-      gap:14px;
-      align-items:center;
-      padding:16px 18px;
-      border:1px solid rgba(0,168,89,.18);
-      border-radius:24px;
-      background:linear-gradient(135deg,#F3FFF8 0%,#FFFFFF 60%,#FFFDF8 100%);
-      box-shadow:var(--ad-shadow);
-      overflow:hidden;
-      min-width:0;
-    }
-    .ad-hero-copy{min-width:0;}
-    .ad-kicker{
-      width:max-content;
-      max-width:100%;
-      min-height:28px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:0 11px;
-      border-radius:999px;
-      background:#fff;
-      border:1px solid rgba(0,168,89,.16);
-      color:var(--ad-green-dark);
-      font-size:.72rem;
-      font-weight:950;
-      letter-spacing:.065em;
-      text-transform:uppercase;
-      white-space:normal;
-    }
-    .ad-title{
-      margin:10px 0 6px;
-      max-width:860px;
-      font-size:clamp(1.22rem,1.9vw,1.72rem);
-      line-height:1.08;
-      font-weight:950;
-      letter-spacing:-.04em;
-      color:var(--ad-text);
-    }
-    .ad-copy{
-      margin:0;
-      max-width:860px;
-      color:var(--ad-muted);
-      font-size:.88rem;
-      line-height:1.5;
-      font-weight:720;
-    }
-    .ad-actions{display:none;}
-    .ad-btn{
-      min-height:40px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      padding:0 14px;
-      border-radius:15px;
-      border:1px solid rgba(0,168,89,.20);
-      background:#fff;
-      color:var(--ad-green-dark);
-      font-size:.83rem;
-      line-height:1.2;
-      font-weight:950;
-      text-decoration:none;
-      text-align:center;
-      white-space:normal;
-      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
-    }
-    .ad-btn:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(0,168,89,.12);border-color:rgba(0,168,89,.34);}
-    .ad-btn.primary{background:var(--ad-green);border-color:var(--ad-green);color:#fff;box-shadow:0 12px 24px rgba(0,168,89,.18);}
-    .ad-mode-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:9px;
-      min-width:0;
-    }
-    .ad-mode-mini{
-      min-height:74px;
-      padding:10px 11px;
-      border-radius:18px;
-      border:1px solid rgba(0,168,89,.13);
-      background:#fff;
-      display:grid;
-      align-content:center;
-      gap:5px;
-      min-width:0;
-    }
-    .ad-mode-mini span{color:var(--ad-muted);font-size:.6rem;font-weight:950;text-transform:uppercase;letter-spacing:.06em;line-height:1.2;}
-    .ad-mode-mini strong{font-size:clamp(.88rem,1.05vw,1rem);line-height:1.08;font-weight:950;color:var(--ad-text);letter-spacing:-.025em;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-    .ad-mode-mini small{color:var(--ad-muted);font-size:.68rem;line-height:1.25;font-weight:720;}
-    .ad-section{
-      border:1px solid var(--ad-line);
-      border-radius:24px;
-      background:var(--ad-card);
-      box-shadow:var(--ad-shadow);
-      overflow:hidden;
-      min-width:0;
-    }
-    .ad-section-head{
-      min-height:60px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:14px;
-      padding:16px 18px;
-      border-bottom:1px solid var(--ad-line2);
-      background:linear-gradient(180deg,#FFFFFF,#FBFFFD);
-    }
-    .ad-section-head h2{margin:0;font-size:1rem;font-weight:950;letter-spacing:-.025em;color:var(--ad-text);}
-    .ad-section-head p{margin:4px 0 0;color:var(--ad-muted);font-size:.8rem;font-weight:700;line-height:1.35;}
-    .ad-section-link{color:var(--ad-green-dark);font-size:.8rem;font-weight:950;text-decoration:none;white-space:nowrap;}
-    .ad-body{padding:18px;min-width:0;}
-    .ad-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:14px;}
-    .ad-kpi{
-      min-height:126px;
-      padding:15px;
-      border-radius:20px;
-      border:1px solid var(--ad-line2);
-      background:linear-gradient(180deg,#fff,#FBFFFD);
-      display:grid;
-      align-content:space-between;
-      gap:10px;
-      min-width:0;
-    }
-    .ad-kpi-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-    .ad-icon{width:42px;height:42px;min-width:42px;border-radius:16px;display:grid;place-items:center;background:var(--ad-soft);color:var(--ad-green-dark);font-size:1.22rem;border:1px solid rgba(0,168,89,.13);}
-    .ad-kpi small{color:var(--ad-muted);font-size:.72rem;font-weight:950;text-transform:uppercase;letter-spacing:.055em;line-height:1.35;}
-    .ad-kpi strong{display:block;margin-top:6px;color:var(--ad-text);font-size:clamp(1.18rem,2vw,1.5rem);line-height:1;font-weight:950;letter-spacing:-.035em;overflow-wrap:anywhere;}
-    .ad-kpi p{margin:0;color:var(--ad-muted);font-size:.76rem;line-height:1.32;font-weight:720;}
-    .ad-kpi.warn .ad-icon{background:#FFF7E8;color:#A84700;border-color:rgba(255,138,31,.18);}
-    .ad-kpi.danger .ad-icon{background:#FFF1F2;color:var(--ad-red);border-color:rgba(185,28,28,.14);}
-    .ad-kpi.blue .ad-icon{background:#EFF8FF;color:var(--ad-blue);border-color:rgba(2,132,199,.16);}
-    .ad-grid-2{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(300px,.55fr);gap:16px;min-width:0;}
-     .ad-chart{
-      height:340px;
-      min-height:340px;
-      width:100%;
-      min-width:0;
-      border-radius:20px;
-      overflow:hidden;
-      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%);
-    }
-    .ad-chart svg{display:block;width:100%;height:100%;}
-    .ad-chart .ad-chart-grid-line{stroke:#EAF4EF;stroke-width:1;}
-    .ad-chart .ad-chart-axis-line{stroke:#CFE9DC;stroke-width:1.4;}
-    .ad-chart .ad-chart-axis-label{fill:#66756D;font-size:12px;font-weight:850;font-family:Inter,Arial,sans-serif;}
-    .ad-chart .ad-chart-month-label{fill:#66756D;font-size:12px;font-weight:850;font-family:Inter,Arial,sans-serif;}
-    .ad-chart .ad-chart-value-label{fill:#FFFFFF;font-size:12px;font-weight:950;font-family:Inter,Arial,sans-serif;}
-    .ad-chart .ad-chart-zero-label{fill:#8A9890;font-size:10px;font-weight:850;font-family:Inter,Arial,sans-serif;}
-    .ad-chart .ad-chart-point{filter:drop-shadow(0 6px 10px rgba(0,168,89,.18));}
-    .ad-chart .ad-chart-line{filter:drop-shadow(0 9px 12px rgba(0,168,89,.14));}
-    .ad-list{display:grid;gap:10px;min-width:0;}
-    .ad-row{
-      min-height:58px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:10px 0;
-      border-bottom:1px solid var(--ad-line2);
-      min-width:0;
-    }
-    .ad-row:last-child{border-bottom:0;}
-    .ad-row-left{display:flex;align-items:center;gap:10px;min-width:0;}
-    .ad-thumb{width:42px;height:42px;min-width:42px;border-radius:15px;background:var(--ad-soft);border:1px solid rgba(0,168,89,.13);display:grid;place-items:center;overflow:hidden;color:var(--ad-green-dark);font-weight:900;}
-    .ad-thumb img{width:100%;height:100%;object-fit:cover;}
-    .ad-name{font-size:.88rem;font-weight:900;color:var(--ad-text);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
-    .ad-meta{margin-top:3px;color:var(--ad-muted);font-size:.74rem;font-weight:720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
-    .ad-pill{min-width:76px;display:inline-flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:999px;background:var(--ad-soft);color:var(--ad-green-dark);font-size:.75rem;font-weight:950;white-space:nowrap;}
-    .ad-table-wrap{overflow:auto;-webkit-overflow-scrolling:touch;}
-    .ad-table{width:100%;min-width:720px;border-collapse:collapse;}
-    .ad-table th{padding:12px 14px;text-align:left;background:#F3FFF8;color:var(--ad-green-dark);font-size:.72rem;font-weight:950;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid var(--ad-line);}
-    .ad-table td{padding:13px 14px;border-bottom:1px solid var(--ad-line2);color:var(--ad-text);font-size:.84rem;font-weight:750;}
-    .ad-empty{padding:16px;border:1px dashed var(--ad-line);border-radius:18px;background:#FBFFFD;color:var(--ad-muted);font-size:.84rem;font-weight:760;text-align:center;}
-    a.ad-kpi,
-    a.ad-mode-mini{
-      color:inherit;
-      text-decoration:none;
-      cursor:pointer;
-      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
-    }
-    a.ad-kpi:hover,
-    a.ad-mode-mini:hover{
-      transform:translateY(-1px);
-      border-color:rgba(0,168,89,.28);
-      box-shadow:0 12px 26px rgba(0,168,89,.10);
-    }
-    a.ad-kpi:focus-visible,
-    a.ad-mode-mini:focus-visible{
-      outline:3px solid rgba(0,168,89,.24);
-      outline-offset:2px;
-    }
-
-    @media(max-width:1280px){
-      .ad-hero{grid-template-columns:1fr;}
-      .ad-mode-grid{grid-template-columns:repeat(4,minmax(0,1fr));}
-      .ad-grid-2{grid-template-columns:1fr;}
-    }
-    @media(max-width:980px){
-      .admin-clean-dashboard{gap:14px;}
-      .ad-shortcuts-head{align-items:flex-start;flex-direction:column;gap:8px;}
-      .ad-shortcut-badge{width:max-content;max-width:100%;}
-      .ad-mode-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
-      .ad-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
-      .ad-section-head{align-items:flex-start;flex-direction:column;}
-    }
-    @media(max-width:720px){
-      .admin-clean-dashboard{gap:12px;}
-      .ad-shortcuts,.ad-hero,.ad-section{border-radius:20px;}
-      .ad-shortcuts-head,.ad-shortcuts-body,.ad-hero,.ad-body{padding:14px;}
-      .ad-title{font-size:1.22rem;}
-      .ad-copy{font-size:.84rem;}
-      .ad-mode-grid,.ad-kpi-grid{grid-template-columns:1fr;}
-      .ad-quick-links{grid-template-columns:1fr;}
-      .ad-btn{width:100%;min-height:42px;}
-      .ad-row{align-items:flex-start;}
-      .ad-name,.ad-meta{max-width:calc(100vw - 190px);}
-      .ad-chart{height:300px;min-height:300px;}
-    }
-    @media(max-width:420px){
-      .ad-shortcuts-head h2,.ad-section-head h2{font-size:.95rem;}
-      .ad-shortcut-badge{font-size:.66rem;}
-      .ad-mode-mini{min-height:70px;}
-      .ad-kpi{min-height:118px;}
-      .ad-icon,.ad-thumb{width:38px;height:38px;min-width:38px;border-radius:14px;}
-      .ad-pill{min-width:auto;padding:7px 9px;}
-      .ad-chart{height:260px;min-height:260px;}
-      .ad-name,.ad-meta{max-width:calc(100vw - 170px);}
-    }
-    @media (hover:none) and (pointer:coarse){
-      .ad-btn:hover{transform:none;box-shadow:none;}
-    }
-    @media (prefers-reduced-motion:reduce){
-      .ad-btn{transition:none;}
-    }
-  </style>
-
-  <section class="ad-shortcuts" aria-label="Admin shortcut actions">
-    <div class="ad-shortcuts-head">
-      <div>
-        <h2>Admin quick actions</h2>
-        <p>Mode-aware shortcut buttons only. Disabled-mode pages are not shown.</p>
-      </div>
-      <span class="ad-shortcut-badge">Shortcuts</span>
-    </div>
-    <div class="ad-shortcuts-body">
-      <div class="ad-quick-links">
-        {% for link in quick_links|default([]) %}
-          <a class="ad-btn" href="{{ url_for(link.endpoint) }}">{{ link.label }}</a>
-        {% else %}
-          <a class="ad-btn" href="{{ url_for('admin_store_overview') }}">Store Overview</a>
-          <a class="ad-btn" href="{{ url_for('admin_delivery_mode_settings') }}">Delivery Settings</a>
-          <a class="ad-btn" href="{{ url_for('admin_settlements') }}">Settlements</a>
-          {% if online_allowed %}<a class="ad-btn" href="{{ url_for('admin_payment_settings') }}">Payment Gateway</a>{% endif %}
-          {% if return_refund_enabled %}<a class="ad-btn" href="{{ url_for('admin_refund_processing') }}">Refunds</a>{% endif %}
-        {% endfor %}
-      </div>
-      <p class="ad-footer-note">Admin dashboard uses the same delivery-mode visibility rules as the store panel.</p>
-    </div>
-  </section>
+  
 
   <section class="ad-hero" aria-label="Delivery mode and admin summary">
     <div class="ad-hero-copy">
@@ -409,9 +86,9 @@
         <small>Payment setup</small>
       </a>
       <a class="ad-mode-mini" href="{{ url_for('admin_settlements') }}" aria-label="Open settlements for order value">
-        <span>Order Value</span>
+        <span>Delivered GMV</span>
         <strong>₹ {{ '%.2f'|format(gmv_total|float) }}</strong>
-        <small>Delivered GMV</small>
+        <small>Gross order value</small>
       </a>
       <a class="ad-mode-mini" href="{{ url_for('admin_store_overview') }}" aria-label="Open store overview">
         <span>Stores</span>
@@ -421,11 +98,33 @@
     </div>
   </section>
 
+
+  <section class="ad-shortcuts" aria-label="Admin shortcut actions">
+    <div class="ad-shortcuts-head">
+      <div>
+        <h2>Admin quick actions</h2>
+      </div>
+      <span class="ad-shortcut-badge">Shortcuts</span>
+    </div>
+    <div class="ad-shortcuts-body">
+      <div class="ad-quick-links">
+        {% for link in quick_links|default([]) %}
+          <a class="ad-btn" href="{{ url_for(link.endpoint) }}">{{ link.label }}</a>
+        {% else %}
+          <a class="ad-btn" href="{{ url_for('admin_store_overview') }}">Store Overview</a>
+          <a class="ad-btn" href="{{ url_for('admin_delivery_mode_settings') }}">Delivery Settings</a>
+          <a class="ad-btn" href="{{ url_for('admin_settlements') }}">Payment & Reconciliation</a>
+          {% if online_allowed %}<a class="ad-btn" href="{{ url_for('admin_payment_settings') }}">Payment Gateway</a>{% endif %}
+          {% if return_refund_enabled %}<a class="ad-btn" href="{{ url_for('admin_refund_processing') }}">Refunds</a>{% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
   <section class="ad-section">
     <div class="ad-section-head">
       <div>
         <h2>Core business summary</h2>
-        <p>Only current live counts are shown. Static “newly added” placeholders were removed.</p>
       </div>
       <a class="ad-section-link" href="{{ url_for('admin_exports') }}">Exports</a>
     </div>
@@ -443,7 +142,7 @@
         {% endif %}
         <a class="ad-kpi warn" href="{{ url_for('admin_settlements') }}" aria-label="Open store payout settlements"><div class="ad-kpi-top"><small>Store payout pending</small><span class="ad-icon">🏦</span></div><strong>₹ {{ '%.2f'|format(store_payout_pending_amount|float) }}</strong><p>{{ store_payout_pending_count }} payouts pending</p></a>
         {% if in_house_delivery_enabled %}
-        <a class="ad-kpi warn" href="{{ url_for('admin_settlements') }}" aria-label="Open COD rider cash settlements"><div class="ad-kpi-top"><small>COD rider cash</small><span class="ad-icon">🧾</span></div><strong>₹ {{ '%.2f'|format(cod_rider_cash_pending_amount|float) }}</strong><p>{{ cod_rider_cash_pending_count }} settlements pending</p></a>
+        <a class="ad-kpi warn" href="{{ url_for('admin_settlements') }}" aria-label="Open rider COD cash remittance queue"><div class="ad-kpi-top"><small>Rider COD cash due</small><span class="ad-icon">🧾</span></div><strong>₹ {{ '%.2f'|format(cod_rider_cash_pending_amount|float) }}</strong><p>{{ cod_rider_cash_pending_count }} cash remittances pending</p></a>
         {% endif %}
       </div>
     </div>
@@ -453,7 +152,6 @@
     <div class="ad-section-head">
       <div>
         <h2>Order workflow</h2>
-        <p>Delivery-specific buttons and cards are displayed only when that mode is active.</p>
       </div>
       {% if in_house_delivery_enabled %}
         <a class="ad-section-link" href="{{ url_for('admin_delivery_overview') }}">Delivery overview</a>
@@ -491,7 +189,6 @@
     <div class="ad-section-head">
       <div>
         <h2>Returns, refunds and adjustment work</h2>
-        <p>Hidden automatically when the return/refund module is disabled.</p>
       </div>
       <a class="ad-section-link" href="{{ url_for('admin_refund_processing') }}">Open refunds</a>
     </div>
@@ -517,7 +214,7 @@
     </div>
 
     <div class="ad-section">
-      <div class="ad-section-head"><div><h2>User mix</h2><p>Clean account split.</p></div></div>
+      <div class="ad-section-head"><div><h2>User mix</h2></div></div>
       <div class="ad-body">
         <div class="ad-list">
           <div class="ad-row"><div class="ad-row-left"><span class="ad-thumb">👥</span><div><div class="ad-name">Customers</div><div class="ad-meta">Customer login accounts</div></div></div><span class="ad-pill">{{ customers_total }}</span></div>
@@ -656,7 +353,7 @@
         const isPositive = p.value > 0;
         const r = isPositive ? 6 : 4;
         return '<g>' +
-          '<circle class="ad-chart-point" cx="'+p.x.toFixed(2)+'" cy="'+p.y.toFixed(2)+'" r="'+r+'" fill="#FFFFFF" stroke="#00A859" stroke-width="3"/>' +
+          '<circle class="ad-chart-point" cx="'+p.x.toFixed(2)+'" cy="'+p.y.toFixed(2)+'" r="'+r+'" fill="#FFFFFF" stroke="#5F8F6F" stroke-width="3"/>' +
           '<circle cx="'+p.x.toFixed(2)+'" cy="'+p.y.toFixed(2)+'" r="18" fill="transparent"><title>'+esc(p.label + ': ' + formatMoney(p.value, false))+'</title></circle>' +
         '</g>';
       }).join('');
@@ -669,25 +366,21 @@
         const x = Math.max(padL, Math.min(width - padR - w, p.x - (w / 2)));
         const y = Math.max(8, p.y - 38 - (i % 2 ? 2 : 0));
         return '<g>' +
-          '<rect x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" width="'+w.toFixed(2)+'" height="'+h+'" rx="12.5" fill="#00A859" opacity=".96"/>' +
+          '<rect x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" width="'+w.toFixed(2)+'" height="'+h+'" rx="6" fill="#5F8F6F" opacity=".96"/>' +
           '<text class="ad-chart-value-label" x="'+(x + w / 2).toFixed(2)+'" y="'+(y + 16.5).toFixed(2)+'" text-anchor="middle">'+esc(text)+'</text>' +
         '</g>';
       }).join('');
 
       const peakIndex = safeValues.indexOf(dataMax);
       const peak = pts[peakIndex] || null;
-      const peakLabel = peak && dataMax > 0 ? '<text x="'+peak.x.toFixed(2)+'" y="'+Math.max(20, peak.y - 50).toFixed(2)+'" text-anchor="middle" fill="#008A48" font-size="11" font-weight="950" font-family="Inter,Arial,sans-serif">PEAK</text>' : '';
+      const peakLabel = peak && dataMax > 0 ? '<text x="'+peak.x.toFixed(2)+'" y="'+Math.max(20, peak.y - 50).toFixed(2)+'" text-anchor="middle" fill="#466F55" font-size="11" font-weight="800" font-family="Inter,Arial,sans-serif">PEAK</text>' : '';
 
       el.innerHTML = '<svg viewBox="0 0 '+width+' '+height+'" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Gross order value chart with monthly values">' +
-        '<defs>' +
-          '<linearGradient id="adFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#00A859" stop-opacity=".28"/><stop offset="58%" stop-color="#00A859" stop-opacity=".10"/><stop offset="100%" stop-color="#00A859" stop-opacity=".02"/></linearGradient>' +
-          '<linearGradient id="adStroke" x1="0" x2="1" y1="0" y2="0"><stop offset="0%" stop-color="#00A859"/><stop offset="100%" stop-color="#008A48"/></linearGradient>' +
-        '</defs>' +
-        '<rect width="'+width+'" height="'+height+'" rx="18" fill="#FFFFFF"/>' +
+        '<rect width="'+width+'" height="'+height+'" rx="10" fill="#FFFFFF"/>' +
         grid +
         '<line class="ad-chart-axis-line" x1="'+padL+'" y1="'+(padT+innerH)+'" x2="'+(padL+innerW)+'" y2="'+(padT+innerH)+'"/>' +
-        '<path d="'+areaPath+'" fill="url(#adFill)"/>' +
-        '<path class="ad-chart-line" d="'+linePath+'" fill="none" stroke="url(#adStroke)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="'+areaPath+'" fill="#EDF5F0"/>' +
+        '<path class="ad-chart-line" d="'+linePath+'" fill="none" stroke="#5F8F6F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
         points + valueLabels + peakLabel + xLabels +
       '</svg>';
     })();
@@ -707,7 +400,7 @@
           const avg = Number(data.avg || 0);
           const count = Number(data.count || 0);
           const filled = Math.max(0, Math.min(5, Math.floor(avg)));
-          cell.innerHTML = '<span style="color:#00A859;font-weight:950;letter-spacing:1px;">' + '★'.repeat(filled).padEnd(5, '☆') + '</span> <span style="color:#8A9890;">(' + count + ')</span>';
+          cell.innerHTML = '<span class="ad-rating-stars">' + '★'.repeat(filled).padEnd(5, '☆') + '</span> <span class="ad-rating-count">(' + count + ')</span>';
         } catch (_) {}
       }
     })();

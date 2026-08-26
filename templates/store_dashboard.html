@@ -1,9 +1,13 @@
 {% extends "store_base.html" %}
 {% set active_page = "dashboard" %}
 
-{% block title %}Store Admin Dashboard | NE Locals{% endblock %}
-{% block page_title %}Store Admin Dashboard{% endblock %}
-{% block page_subtitle %}Orders, delivery, stock and payments in one clean view.{% endblock %}
+{% block title %}Store Dashboard | NE Locals{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}See today’s orders, delivery activity, stock alerts and Store payments at a glance.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-dashboard.css', v='3f4-final-3') }}">
+{% endblock %}
 
 {% block content %}
 {% set products_total = products|length if products else 0 %}
@@ -26,6 +30,7 @@
 {% set is_external_local_mode = mode_ui.is_external_local|default(false) %}
 {% set inhouse_enabled = in_house_delivery_enabled if in_house_delivery_enabled is defined else true %}
 {% set dashboard_provider_short = 'External Local' if is_external_local_mode else ('Courier' if is_third_party_mode else ('External' if is_external_mode else 'In-house')) %}
+{% set dashboard_delivery_mode_label = mode_ui.short_label|default(mode_ui.label|default('Delivery')) if is_external_mode else 'In House Delivery Partner' %}
 {% set dashboard_payment_short = 'Online Only' if mode_ui.online_only|default(false) else ('Online / COD' if not is_external_mode else 'As Set') %}
 {% set dashboard_action_short = 'Prepare' if is_external_mode else ('Assign' if inhouse_enabled else 'Orders') %}
 {% set dashboard_store_id = store.id|default(store._id) %}
@@ -119,1092 +124,21 @@
 {% set active_product_percent = ((ns.active_products or 0) / (products_total if products_total else 1) * 100) %}
 {% set stock_alert_percent = ((low_stock_total or 0) / (products_total if products_total else 1) * 100) %}
 
-<section class="nf-store-dashboard" data-page="dashboard">
-  <style>
-    .nf-store-dashboard{
-      --bg:#F8FFFB;--card:#fff;--soft:#F3FFF8;--soft2:#FBFFFD;--line:#DDECE4;--line2:#EAF4EF;
-      --ink:#1F332A;--text:#40534A;--muted:#66756D;--muted2:#8A9890;--green:#00A859;--green-dark:#008A48;
-      --orange:#FF8A1F;--orange-soft:#FFF4EA;--red:#EF4444;--red-soft:#FFF1F2;--blue:#0284C7;--blue-soft:#E0F2FE;
-      --shadow:0 14px 36px rgba(17,64,38,.08);--shadow2:0 24px 70px rgba(17,64,38,.13);--radius:24px;
-      width:100%;min-width:0;color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden;
-      -webkit-text-size-adjust:100%;text-size-adjust:100%;
-    }
-    .nf-store-dashboard,.nf-store-dashboard *{box-sizing:border-box;min-width:0;}
-    .sd-shell{width:100%;max-width:1680px;margin:0 auto;padding:clamp(12px,2vw,24px);padding-left:max(clamp(12px,2vw,24px),env(safe-area-inset-left,0px));padding-right:max(clamp(12px,2vw,24px),env(safe-area-inset-right,0px));}
-    .sd-stack{display:grid;gap:20px;}
-    .sd-card,.sd-hero{background:rgba(255,255,255,.98);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
-    .sd-hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);gap:18px;padding:clamp(18px,2vw,26px);border-radius:30px;background:linear-gradient(135deg,#fff,var(--soft));box-shadow:var(--shadow2);}
-    .sd-kicker,.sd-pill,.sd-live-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid rgba(0,168,89,.18);background:#E9FFF3;color:var(--green-dark);font-size:12px;font-weight:900;line-height:1.2;}
-    .sd-kicker{min-height:30px;padding:0 12px;letter-spacing:.08em;text-transform:uppercase;}
-    .sd-hero-title{margin:14px 0 8px;font-size:clamp(30px,4vw,54px);line-height:1;font-weight:950;letter-spacing:-.06em;overflow-wrap:anywhere;}
-    .sd-hero-copy{max-width:900px;margin:0;color:var(--muted);font-size:15px;font-weight:650;line-height:1.6;}
-    .sd-hero-actions,.sd-action-row,.sd-export-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;}
-    .sd-btn,.sd-view-link{min-height:42px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:14px;border:1px solid var(--line);background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:900;line-height:1.2;cursor:pointer;white-space:nowrap;}
-    .sd-btn:hover,.sd-view-link:hover{border-color:rgba(0,168,89,.32);color:var(--green-dark);box-shadow:0 10px 24px rgba(17,64,38,.08);}
-    .sd-btn-primary{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;box-shadow:0 12px 24px rgba(0,168,89,.18);}
-    .sd-hero-panel{display:grid;gap:12px;align-content:start;}
-    .sd-store-card{display:flex;align-items:center;gap:13px;padding:14px;border-radius:22px;border:1px solid var(--line2);background:#fff;}
-    .sd-logo{width:64px;height:64px;min-width:64px;border-radius:20px;border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;background:#fff;color:var(--green-dark);font-size:28px;font-weight:950;position:relative;isolation:isolate;}
-    .sd-logo-fallback{position:absolute;inset:0;z-index:0;display:grid;place-items:center;color:var(--green-dark);font-size:28px;font-weight:950;line-height:1;background:#fff;}
-    .sd-logo.has-logo .sd-logo-fallback{opacity:0;}
-    .sd-logo img{width:100%;height:100%;object-fit:cover;padding:0;display:block;position:relative;z-index:1;background:#fff;}
-    .sd-store-name{font-size:17px;font-weight:950;line-height:1.2;overflow-wrap:anywhere;}
-    .sd-store-meta{margin-top:5px;color:var(--muted);font-size:12px;font-weight:750;line-height:1.35;overflow-wrap:anywhere;}
-    .sd-hero-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-    .sd-hero-stat{padding:13px;border-radius:18px;border:1px solid var(--line2);background:#fff;}
-    .sd-hero-stat span{display:block;color:var(--muted);font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.07em;}
-    .sd-hero-stat strong{display:block;margin-top:7px;font-size:15px;font-weight:950;overflow-wrap:anywhere;}
-    .is-green{color:var(--green-dark)!important}.is-orange{color:#B45309!important}.is-red{color:#B91C1C!important}.is-blue{color:var(--blue)!important}
-    .sd-section-head{padding:18px 20px;border-bottom:1px solid var(--line2);background:#FBFFFD;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;}
-    .sd-section-title{margin:0;font-size:18px;font-weight:950;letter-spacing:-.03em;line-height:1.2;}
-    .sd-section-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:650;line-height:1.45;}
-    .sd-mode-panel{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:16px;padding:18px;border:1px solid rgba(0,168,89,.16);border-radius:24px;background:linear-gradient(135deg,#F3FFF8,#fff);box-shadow:var(--shadow);}
-    .sd-mode-title{margin:10px 0 6px;font-size:clamp(22px,3vw,32px);font-weight:950;letter-spacing:-.045em;}
-    .sd-mode-copy{margin:0;color:var(--muted);font-size:14px;font-weight:700;line-height:1.55;}
-    .sd-mode-mini-grid,.sd-kpi-grid,.sd-payment-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:20px;}
-    .sd-mode-mini,.sd-kpi-card,.sd-payment-card,.sd-pipe-card,.sd-live-card{border:1px solid var(--line2);border-radius:20px;background:#fff;padding:16px;box-shadow:0 8px 24px rgba(17,64,38,.045);}
-    .sd-mode-mini span,.sd-kpi-label,.sd-payment-label,.sd-pipe-label{display:block;color:var(--muted);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.065em;line-height:1.25;}
-    .sd-mode-mini strong,.sd-kpi-value,.sd-payment-value,.sd-pipe-value{display:block;margin-top:8px;color:var(--ink);font-size:clamp(22px,2.4vw,32px);font-weight:950;line-height:1;letter-spacing:-.045em;overflow-wrap:anywhere;}
-    .sd-mode-mini small,.sd-kpi-sub,.sd-payment-sub,.sd-pipe-sub{display:block;margin-top:8px;color:var(--muted2);font-size:12px;font-weight:750;line-height:1.35;}
-    .sd-live-control-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;padding:20px;}
-    .sd-live-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
-    .sd-live-title{font-size:15px;font-weight:950;line-height:1.25;}
-    .sd-live-pill{min-height:28px;padding:6px 10px;white-space:nowrap;}
-    .sd-live-pill.off,.sd-live-pill.warn{background:#FFF7E8;color:#A84700;border-color:rgba(245,158,11,.25)}
-    .sd-live-pill.bad{background:#FEF2F2;color:#B91C1C;border-color:#FECACA}
-    .sd-live-toggle{width:100%;min-height:46px;margin-top:14px;border:1px solid var(--line);border-radius:16px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;font-weight:950;cursor:pointer;}
-    .sd-live-toggle.is-on,.sd-live-toggle.delivery-on{background:#E9FFF3;border-color:rgba(0,168,89,.25);color:var(--green-dark)}
-    .sd-live-toggle.is-off,.sd-live-toggle.delivery-off{background:#FFF7E8;border-color:rgba(245,158,11,.25);color:#A84700}
-    .sd-toggle-knob{width:46px;height:28px;border-radius:999px;background:#E5E7EB;display:flex;align-items:center;padding:3px;}
-    .sd-toggle-dot{width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 5px 14px rgba(15,23,42,.18);}
-    .sd-live-toggle.is-on .sd-toggle-knob,.sd-live-toggle.delivery-on .sd-toggle-knob{background:var(--green)}
-    .sd-live-toggle.is-on .sd-toggle-dot,.sd-live-toggle.delivery-on .sd-toggle-dot{margin-left:auto;}
-    .sd-live-meta{display:grid;gap:9px;margin-top:12px;}
-    .sd-live-meta-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--line2);font-size:12px;}
-    .sd-live-meta-row span{color:var(--muted);font-weight:800}.sd-live-meta-row strong{text-align:right;font-weight:950;overflow-wrap:anywhere;}
-    .sd-live-link{display:inline-flex;margin-top:6px;color:var(--green-dark);font-size:13px;font-weight:950;text-decoration:none;}
-    .sd-pipeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;padding:20px;}
-    .sd-pipe-card{min-height:126px;display:grid;align-content:space-between;}
-    .sd-pipe-icon{width:38px;height:38px;border-radius:14px;display:grid;place-items:center;background:#E9FFF3;font-size:20px;}
-    .sd-dashboard-grid{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(340px,.82fr);gap:18px;align-items:start;}
-    .sd-kpi-card,.sd-payment-card{min-height:132px;display:grid;align-content:space-between;}
-    .sd-kpi-icon{width:42px;height:42px;border-radius:16px;display:grid;place-items:center;background:#E9FFF3;font-size:22px;}
-    .sd-payment-card.main{background:linear-gradient(135deg,#E9FFF3,#fff);border-color:rgba(0,168,89,.20);}
-    .sd-note{margin:0 20px 20px;padding:13px 14px;border-radius:16px;border:1px solid rgba(0,168,89,.16);background:#F8FFFB;color:var(--muted);font-size:12.5px;font-weight:750;line-height:1.45;}
-    .sd-priority-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
-    .sd-priority-card{min-height:120px;border-radius:22px;border:1px solid var(--line);background:#fff;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:var(--shadow);}
-    .sd-priority-label{color:var(--muted);font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.06em;}
-    .sd-priority-value{margin-top:7px;font-size:clamp(26px,3vw,38px);font-weight:950;line-height:1;}
-    .sd-priority-meta{margin-top:7px;color:var(--muted2);font-size:12px;font-weight:750;line-height:1.35;}
-    .sd-priority-icon{width:46px;height:46px;border-radius:16px;background:#E9FFF3;display:grid;place-items:center;font-size:23px;flex:0 0 auto;}
-    .sd-chart-grid,.sd-insight-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;}
-    .sd-chart-card{padding:20px;}
-    .sd-chart-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
-    .sd-money{font-size:34px;font-weight:950;letter-spacing:-.05em;margin:8px 0;}
-    .sd-bar-chart{height:260px;display:flex;align-items:stretch;gap:14px;padding:18px 4px 8px;border-bottom:1px solid var(--line2);}
-    .sd-bar-item{flex:1;display:grid;grid-template-rows:auto minmax(120px,1fr) auto;gap:9px;align-items:end;justify-items:center;}
-    .sd-bar-value{min-height:28px;padding:6px 9px;border-radius:999px;background:#E9FFF3;color:var(--green-dark);font-size:12px;font-weight:950;display:inline-flex;align-items:center;}
-    .sd-bar-slot{width:100%;height:100%;display:flex;align-items:flex-end;justify-content:center;}
-    .sd-bar{width:100%;max-width:58px;min-height:12px;border-radius:16px 16px 5px 5px;background:linear-gradient(180deg,var(--green),var(--green-dark));box-shadow:0 12px 24px rgba(0,168,89,.14);}
-    .sd-bar.is-blue{background:linear-gradient(180deg,#7DD3FC,var(--blue));}.sd-bar.is-orange{background:linear-gradient(180deg,#FFB86B,var(--orange));}.sd-bar.is-red{background:linear-gradient(180deg,#FF9CA3,var(--red));}
-    .sd-bar-label{text-align:center;color:var(--muted);font-size:12px;font-weight:900;}
-    .sd-list-card{min-height:320px;}.sd-list-body{padding:18px 20px 20px;display:grid;gap:10px;}
-    .sd-row{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px;padding:10px 0;border-bottom:1px solid var(--line2);}
-    .sd-row:last-child{border-bottom:0}.sd-row-left{display:flex;align-items:center;gap:10px;min-width:0;}
-    .sd-thumb{width:50px;height:50px;border-radius:15px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;flex:0 0 auto;color:var(--green-dark);font-weight:950;}
-    .sd-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-    .sd-name{font-size:14px;font-weight:950;color:var(--ink);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .sd-meta{margin-top:4px;color:var(--muted);font-size:12px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .sd-pill{min-height:28px;padding:6px 10px;white-space:nowrap;}.sd-alert-pill{background:#FEF2F2;color:#B91C1C;border-color:#FECACA}.sd-stock-low{background:#FFF7ED;color:#C2410C;border-color:#FED7AA;}
-    .sd-empty{padding:16px;color:var(--muted);background:#F8FFFB;border:1px dashed var(--line);border-radius:14px;text-align:center;font-size:13px;font-weight:750;}
-    .sd-table-wrap{padding:0 20px 20px;overflow:auto;}.sd-table{width:100%;min-width:780px;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;}
-    .sd-table thead{background:#075C3B;color:#fff}.sd-table th{padding:13px;text-align:left;font-size:12px;font-weight:950;text-transform:uppercase;letter-spacing:.06em}.sd-table td{padding:13px;border-bottom:1px solid var(--line2);color:var(--text);font-size:13px;font-weight:750;vertical-align:top}.sd-table tbody tr:last-child td{border-bottom:0}.sd-muted{color:var(--muted);font-size:12px;font-weight:750;}
-    @media(max-width:1450px){.sd-dashboard-grid,.sd-chart-grid{grid-template-columns:1fr}.sd-priority-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.sd-pipeline{grid-template-columns:repeat(3,minmax(0,1fr));}.sd-live-control-grid{grid-template-columns:1fr;}.sd-kpi-grid,.sd-payment-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
-    @media(max-width:1180px){.sd-hero,.sd-mode-panel,.sd-insight-grid{grid-template-columns:1fr}.sd-pipeline{grid-template-columns:repeat(2,minmax(0,1fr));}}
-    @media(max-width:760px){.sd-shell{padding:12px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));}.sd-stack{gap:15px}.sd-hero{padding:16px;border-radius:22px}.sd-hero-title{font-size:clamp(28px,10vw,40px)}.sd-hero-copy{font-size:13.5px}.sd-hero-actions,.sd-action-row,.sd-export-row{display:grid;grid-template-columns:1fr}.sd-btn,.sd-view-link{width:100%;white-space:normal;text-align:center}.sd-hero-stat-grid,.sd-kpi-grid,.sd-payment-grid,.sd-priority-grid,.sd-pipeline,.sd-chart-grid,.sd-insight-grid{grid-template-columns:1fr}.sd-section-head{padding:16px}.sd-mode-panel,.sd-live-control-grid,.sd-kpi-grid,.sd-payment-grid,.sd-pipeline,.sd-list-body,.sd-chart-card{padding:16px}.sd-bar-chart{height:230px;gap:10px}.sd-table-wrap{padding:0 14px 16px}.sd-store-card{align-items:flex-start}.sd-logo{width:58px;height:58px;min-width:58px}.sd-live-top{display:grid;grid-template-columns:1fr}.sd-priority-card{min-height:auto}.sd-row{align-items:flex-start}.sd-pill{font-size:11px}}
-    @media(max-width:420px){.sd-shell{padding:10px;padding-left:max(10px,env(safe-area-inset-left,0px));padding-right:max(10px,env(safe-area-inset-right,0px));}.sd-card,.sd-hero{border-radius:20px}.sd-kicker{width:100%;text-align:center}.sd-store-card{display:grid;grid-template-columns:58px minmax(0,1fr)}.sd-payment-value,.sd-kpi-value,.sd-priority-value,.sd-money{font-size:26px}.sd-row{display:grid;grid-template-columns:1fr}.sd-thumb{width:46px;height:46px}.sd-bar-label{font-size:11px}}
-    @media(hover:none) and (pointer:coarse){.sd-btn:hover,.sd-view-link:hover{box-shadow:none}}
+<section class="nf-store-dashboard nf-store-page" data-page="dashboard">
   
-    /* =========================================================
-       NELOCALS STORE DASHBOARD FULL CROSS DEVICE RESPONSIVE FINAL
-       CSS-only patch. Existing Jinja, routes, forms, metrics,
-       toggles, alerts, polling and backend logic are untouched.
-       ========================================================= */
-
-    .nf-store-dashboard{
-      width:100% !important;
-      max-width:100% !important;
-      overflow-x:clip !important;
-      container-type:inline-size;
-    }
-
-    .nf-store-dashboard,
-    .nf-store-dashboard *{
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    .sd-shell{
-      width:100% !important;
-      max-width:1680px !important;
-      margin-inline:auto !important;
-      padding:clamp(10px,1.45vw,24px) !important;
-      padding-left:max(clamp(10px,1.45vw,24px),env(safe-area-inset-left,0px)) !important;
-      padding-right:max(clamp(10px,1.45vw,24px),env(safe-area-inset-right,0px)) !important;
-    }
-
-    .sd-stack{
-      gap:clamp(14px,1.45vw,22px) !important;
-    }
-
-    .sd-card,
-    .sd-hero,
-    .sd-mode-panel,
-    .sd-live-card,
-    .sd-kpi-card,
-    .sd-payment-card,
-    .sd-pipe-card,
-    .sd-priority-card,
-    .sd-chart-card,
-    .sd-list-card{
-      max-width:100% !important;
-      overflow-wrap:anywhere !important;
-    }
-
-    .sd-card,
-    .sd-hero{
-      border-radius:clamp(18px,1.7vw,30px) !important;
-    }
-
-    .sd-hero{
-      grid-template-columns:minmax(0,1.08fr) minmax(280px,.92fr) !important;
-      align-items:stretch !important;
-      gap:clamp(14px,1.5vw,22px) !important;
-      padding:clamp(16px,2vw,28px) !important;
-    }
-
-    .sd-hero-title{
-      font-size:clamp(28px,4.2vw,54px) !important;
-      line-height:1.02 !important;
-      max-width:100% !important;
-    }
-
-    .sd-hero-copy,
-    .sd-mode-copy,
-    .sd-section-sub,
-    .sd-note{
-      max-width:100% !important;
-      overflow-wrap:anywhere !important;
-    }
-
-    .sd-hero-actions,
-    .sd-action-row,
-    .sd-export-row{
-      display:flex !important;
-      flex-wrap:wrap !important;
-      align-items:center !important;
-      gap:10px !important;
-    }
-
-    .sd-btn,
-    .sd-view-link{
-      max-width:100% !important;
-      min-width:0 !important;
-      white-space:normal !important;
-      text-align:center !important;
-      line-height:1.25 !important;
-    }
-
-    .sd-store-card{
-      min-width:0 !important;
-      align-items:center !important;
-    }
-
-    .sd-store-name,
-    .sd-store-meta,
-    .sd-name,
-    .sd-meta{
-      max-width:100% !important;
-      overflow-wrap:anywhere !important;
-    }
-
-    .sd-hero-stat-grid,
-    .sd-mode-mini-grid,
-    .sd-live-control-grid,
-    .sd-kpi-grid,
-    .sd-payment-grid,
-    .sd-pipeline,
-    .sd-priority-grid,
-    .sd-chart-grid,
-    .sd-insight-grid{
-      width:100% !important;
-      max-width:100% !important;
-    }
-
-    .sd-mode-mini-grid{
-      grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr)) !important;
-      gap:clamp(10px,1vw,14px) !important;
-    }
-
-    .sd-live-control-grid{
-      grid-template-columns:repeat(auto-fit,minmax(min(100%,265px),1fr)) !important;
-      gap:clamp(10px,1vw,14px) !important;
-    }
-
-    .sd-kpi-grid,
-    .sd-payment-grid{
-      grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)) !important;
-      gap:clamp(10px,1vw,14px) !important;
-      padding:clamp(14px,1.3vw,20px) !important;
-    }
-
-    .sd-pipeline{
-      grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)) !important;
-      gap:clamp(10px,1vw,14px) !important;
-      padding:clamp(14px,1.3vw,20px) !important;
-    }
-
-    .sd-priority-grid{
-      grid-template-columns:repeat(auto-fit,minmax(min(100%,235px),1fr)) !important;
-      gap:clamp(12px,1.2vw,16px) !important;
-    }
-
-    .sd-dashboard-grid{
-      grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr) !important;
-      gap:clamp(14px,1.4vw,20px) !important;
-    }
-
-    .sd-chart-grid,
-    .sd-insight-grid{
-      grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr)) !important;
-      gap:clamp(14px,1.35vw,20px) !important;
-    }
-
-    .sd-section-head{
-      padding:clamp(14px,1.25vw,20px) !important;
-      align-items:flex-start !important;
-    }
-
-    .sd-mode-panel{
-      grid-template-columns:minmax(0,1.1fr) minmax(260px,.9fr) !important;
-      gap:clamp(14px,1.35vw,18px) !important;
-      padding:clamp(16px,1.45vw,22px) !important;
-    }
-
-    .sd-live-card,
-    .sd-mode-mini,
-    .sd-kpi-card,
-    .sd-payment-card,
-    .sd-pipe-card,
-    .sd-priority-card{
-      padding:clamp(13px,1.15vw,18px) !important;
-      border-radius:clamp(16px,1.3vw,22px) !important;
-    }
-
-    .sd-live-top,
-    .sd-live-meta-row,
-    .sd-row,
-    .sd-priority-card{
-      min-width:0 !important;
-    }
-
-    .sd-live-meta-row{
-      flex-wrap:wrap !important;
-    }
-
-    .sd-live-meta-row strong{
-      max-width:100% !important;
-    }
-
-    .sd-live-toggle{
-      min-width:0 !important;
-      touch-action:manipulation !important;
-    }
-
-    .sd-payment-value,
-    .sd-kpi-value,
-    .sd-pipe-value,
-    .sd-priority-value,
-    .sd-money{
-      font-size:clamp(24px,2.5vw,34px) !important;
-      overflow-wrap:anywhere !important;
-    }
-
-    .sd-bar-chart{
-      width:100% !important;
-      min-width:0 !important;
-      height:clamp(210px,28vw,280px) !important;
-      gap:clamp(8px,1vw,14px) !important;
-      overflow-x:auto !important;
-      overflow-y:hidden !important;
-      -webkit-overflow-scrolling:touch !important;
-      scrollbar-width:thin !important;
-      scrollbar-color:rgba(0,168,89,.38) transparent !important;
-      padding-bottom:10px !important;
-    }
-
-    .sd-bar-chart::-webkit-scrollbar,
-    .sd-table-wrap::-webkit-scrollbar{
-      height:8px !important;
-      width:8px !important;
-    }
-
-    .sd-bar-chart::-webkit-scrollbar-thumb,
-    .sd-table-wrap::-webkit-scrollbar-thumb{
-      background:rgba(0,168,89,.34) !important;
-      border-radius:999px !important;
-    }
-
-    .sd-bar-item{
-      min-width:78px !important;
-    }
-
-    .sd-bar{
-      width:min(100%,54px) !important;
-    }
-
-    .sd-list-body{
-      padding:clamp(14px,1.3vw,20px) !important;
-    }
-
-    .sd-row{
-      flex-wrap:nowrap !important;
-    }
-
-    .sd-row-left{
-      flex:1 1 auto !important;
-      min-width:0 !important;
-    }
-
-    .sd-pill{
-      flex:0 0 auto !important;
-      max-width:100% !important;
-      white-space:normal !important;
-      text-align:center !important;
-    }
-
-    .sd-table-wrap{
-      width:100% !important;
-      max-width:100% !important;
-      overflow-x:auto !important;
-      overflow-y:hidden !important;
-      -webkit-overflow-scrolling:touch !important;
-      overscroll-behavior-x:contain !important;
-      touch-action:pan-x pan-y !important;
-      padding:0 clamp(12px,1.25vw,20px) clamp(14px,1.25vw,20px) !important;
-    }
-
-    .sd-table{
-      min-width:760px !important;
-      width:100% !important;
-    }
-
-    .sd-table th,
-    .sd-table td{
-      white-space:normal !important;
-      overflow-wrap:anywhere !important;
-    }
-
-    .store-new-order-toast{
-      max-width:calc(100vw - 28px) !important;
-    }
-
-    @media (max-width:1280px){
-      .sd-dashboard-grid,
-      .sd-hero,
-      .sd-mode-panel{
-        grid-template-columns:1fr !important;
-      }
-
-      .sd-hero-panel{
-        grid-template-columns:1fr !important;
-      }
-    }
-
-    @media (max-width:1024px){
-      .sd-shell{
-        padding:16px !important;
-        padding-left:max(16px,env(safe-area-inset-left,0px)) !important;
-        padding-right:max(16px,env(safe-area-inset-right,0px)) !important;
-      }
-
-      .sd-priority-grid,
-      .sd-chart-grid,
-      .sd-insight-grid{
-        grid-template-columns:1fr !important;
-      }
-
-      .sd-section-head{
-        display:grid !important;
-        grid-template-columns:1fr !important;
-      }
-
-      .sd-section-head .sd-view-link{
-        width:fit-content !important;
-      }
-
-      .sd-store-card{
-        align-items:flex-start !important;
-      }
-    }
-
-    @media (max-width:760px){
-      .nf-store-dashboard{
-        overflow-x:hidden !important;
-      }
-
-      .sd-shell{
-        padding:12px !important;
-        padding-left:max(12px,env(safe-area-inset-left,0px)) !important;
-        padding-right:max(12px,env(safe-area-inset-right,0px)) !important;
-      }
-
-      .sd-stack{
-        gap:14px !important;
-      }
-
-      .sd-card,
-      .sd-hero,
-      .sd-mode-panel{
-        border-radius:20px !important;
-      }
-
-      .sd-hero{
-        padding:15px !important;
-      }
-
-      .sd-hero-title{
-        font-size:clamp(27px,9.8vw,40px) !important;
-        letter-spacing:-.05em !important;
-      }
-
-      .sd-hero-copy{
-        font-size:13.5px !important;
-        line-height:1.55 !important;
-      }
-
-      .sd-kicker{
-        width:100% !important;
-        min-height:32px !important;
-        text-align:center !important;
-      }
-
-      .sd-hero-actions,
-      .sd-action-row,
-      .sd-export-row{
-        display:grid !important;
-        grid-template-columns:1fr !important;
-        width:100% !important;
-      }
-
-      .sd-btn,
-      .sd-view-link{
-        width:100% !important;
-        min-height:44px !important;
-      }
-
-      .sd-section-head .sd-view-link{
-        width:100% !important;
-      }
-
-      .sd-store-card{
-        display:grid !important;
-        grid-template-columns:58px minmax(0,1fr) !important;
-        gap:12px !important;
-      }
-
-      .sd-logo{
-        width:58px !important;
-        height:58px !important;
-        min-width:58px !important;
-        border-radius:18px !important;
-      }
-
-      .sd-hero-stat-grid,
-      .sd-mode-mini-grid,
-      .sd-live-control-grid,
-      .sd-kpi-grid,
-      .sd-payment-grid,
-      .sd-pipeline{
-        grid-template-columns:1fr !important;
-      }
-
-      .sd-row{
-        align-items:flex-start !important;
-        gap:10px !important;
-      }
-
-      .sd-row-left{
-        align-items:flex-start !important;
-      }
-
-      .sd-thumb{
-        width:46px !important;
-        height:46px !important;
-        min-width:46px !important;
-        border-radius:14px !important;
-      }
-
-      .sd-table{
-        min-width:680px !important;
-      }
-
-      #notifyStateToastWrap{
-        top:auto !important;
-        right:12px !important;
-        left:12px !important;
-        bottom:calc(14px + env(safe-area-inset-bottom,0px)) !important;
-        width:auto !important;
-      }
-
-      .store-new-order-toast{
-        min-width:0 !important;
-        width:100% !important;
-        max-width:100% !important;
-      }
-    }
-
-    @media (max-width:520px){
-      .sd-shell{
-        padding:10px !important;
-        padding-left:max(10px,env(safe-area-inset-left,0px)) !important;
-        padding-right:max(10px,env(safe-area-inset-right,0px)) !important;
-      }
-
-      .sd-hero,
-      .sd-mode-panel,
-      .sd-live-card,
-      .sd-mode-mini,
-      .sd-kpi-card,
-      .sd-payment-card,
-      .sd-pipe-card,
-      .sd-priority-card,
-      .sd-chart-card{
-        padding:13px !important;
-      }
-
-      .sd-section-head{
-        padding:13px !important;
-      }
-
-      .sd-section-title{
-        font-size:16px !important;
-      }
-
-      .sd-section-sub,
-      .sd-note{
-        font-size:12px !important;
-      }
-
-      .sd-hero-stat-grid{
-        gap:8px !important;
-      }
-
-      .sd-hero-stat{
-        padding:11px !important;
-        border-radius:15px !important;
-      }
-
-      .sd-priority-card{
-        display:grid !important;
-        grid-template-columns:1fr 44px !important;
-        align-items:center !important;
-      }
-
-      .sd-priority-icon{
-        width:44px !important;
-        height:44px !important;
-      }
-
-      .sd-row{
-        display:grid !important;
-        grid-template-columns:1fr !important;
-      }
-
-      .sd-row-left{
-        width:100% !important;
-      }
-
-      .sd-pill{
-        justify-self:flex-start !important;
-      }
-
-      .sd-bar-chart{
-        height:220px !important;
-      }
-
-      .sd-bar-item{
-        min-width:72px !important;
-      }
-
-      .sd-table{
-        min-width:620px !important;
-      }
-    }
-
-    @media (max-width:380px){
-      .sd-shell{
-        padding:8px !important;
-        padding-left:max(8px,env(safe-area-inset-left,0px)) !important;
-        padding-right:max(8px,env(safe-area-inset-right,0px)) !important;
-      }
-
-      .sd-hero-title{
-        font-size:26px !important;
-      }
-
-      .sd-store-card{
-        grid-template-columns:50px minmax(0,1fr) !important;
-      }
-
-      .sd-logo{
-        width:50px !important;
-        height:50px !important;
-        min-width:50px !important;
-      }
-
-      .sd-payment-value,
-      .sd-kpi-value,
-      .sd-pipe-value,
-      .sd-priority-value,
-      .sd-money{
-        font-size:23px !important;
-      }
-    }
-
-    @media (orientation:landscape) and (max-height:520px) and (max-width:980px){
-      .sd-shell{
-        padding-top:8px !important;
-        padding-bottom:8px !important;
-      }
-
-      .sd-hero{
-        min-height:auto !important;
-      }
-
-      .sd-hero-title{
-        font-size:30px !important;
-      }
-
-      .sd-bar-chart{
-        height:190px !important;
-      }
-    }
-
-    @supports (-webkit-touch-callout:none){
-      .nf-store-dashboard,
-      .sd-shell,
-      .sd-card,
-      .sd-hero{
-        -webkit-font-smoothing:antialiased;
-      }
-
-      .sd-table-wrap,
-      .sd-bar-chart,
-      .sd-sidebar-scroll{
-        -webkit-overflow-scrolling:touch !important;
-      }
-    }
-
-    @media (hover:hover) and (pointer:fine){
-      .sd-card:hover,
-      .sd-hero:hover,
-      .sd-mode-panel:hover{
-        box-shadow:0 18px 48px rgba(17,64,38,.10);
-      }
-    }
-
-    @media (prefers-reduced-motion:reduce){
-      .nf-store-dashboard *,
-      .nf-store-dashboard *::before,
-      .nf-store-dashboard *::after{
-        transition:none !important;
-        animation:none !important;
-        scroll-behavior:auto !important;
-      }
-    }
-
-  
-    /* =========================================================
-       NELOCALS STORE DASHBOARD CLEAN CONTENT REFRAME FINAL
-       Text-only/content cleanup. Existing Jinja variables, routes,
-       forms, toggles, metrics, alerts and backend logic are untouched.
-       ========================================================= */
-
-    /* =========================================================
-       NELOCALS STORE DASHBOARD APP 2X2 + CLEAN THEME + NEEDS ACTION CARDS FINAL
-       UI-only patch:
-       - app/mobile Order Pipeline, Operations Summary and Payment Summary use 2-column cards
-       - Needs Action table becomes order cards on app/mobile view
-       - colors cleaned to match NE Locals green/white website theme
-       Existing Jinja variables, routes, forms, toggles, metrics, alerts and backend logic untouched.
-       ========================================================= */
-
-    .nf-store-dashboard{
-      --bg:#F7FFFA !important;
-      --card:#FFFFFF !important;
-      --soft:#F1FFF7 !important;
-      --soft2:#FBFFFD !important;
-      --line:#D9EDE3 !important;
-      --line2:#EDF6F1 !important;
-      --ink:#10251B !important;
-      --text:#30443A !important;
-      --muted:#65766D !important;
-      --muted2:#85978E !important;
-      --green:#00A859 !important;
-      --green-dark:#075C3B !important;
-      --orange:#F59E0B !important;
-      --orange-soft:#FFF8E8 !important;
-      --red:#DC2626 !important;
-      --red-soft:#FFF1F2 !important;
-      --blue:#0EA5A3 !important;
-      --blue-soft:#E8FFFA !important;
-      --shadow:0 10px 28px rgba(17,64,38,.055) !important;
-      --shadow2:0 18px 50px rgba(17,64,38,.085) !important;
-      background:
-        radial-gradient(circle at 0% 0%, rgba(0,168,89,.055), transparent 34%),
-        linear-gradient(180deg,#F7FFFA 0%,#FFFFFF 42%,#F8FFFB 100%) !important;
-    }
-
-    .sd-card,
-    .sd-hero,
-    .sd-mode-panel{
-      background:rgba(255,255,255,.98) !important;
-      border-color:var(--line) !important;
-      box-shadow:var(--shadow) !important;
-    }
-
-    .sd-hero{
-      background:
-        radial-gradient(circle at 100% 0%, rgba(0,168,89,.10), transparent 30%),
-        linear-gradient(135deg,#FFFFFF 0%,#F2FFF8 100%) !important;
-      box-shadow:var(--shadow2) !important;
-    }
-
-    .sd-section-head{
-      background:linear-gradient(180deg,#FFFFFF 0%,#FBFFFD 100%) !important;
-      border-bottom-color:var(--line2) !important;
-    }
-
-    .sd-section-title,
-    .sd-hero-title,
-    .sd-mode-title,
-    .sd-store-name,
-    .sd-live-title,
-    .sd-name{
-      color:var(--ink) !important;
-    }
-
-    .sd-hero-copy,
-    .sd-mode-copy,
-    .sd-section-sub,
-    .sd-store-meta,
-    .sd-meta,
-    .sd-muted{
-      color:var(--muted) !important;
-    }
-
-    .sd-mode-mini,
-    .sd-live-card,
-    .sd-kpi-card,
-    .sd-payment-card,
-    .sd-pipe-card,
-    .sd-priority-card,
-    .sd-hero-stat,
-    .sd-store-card,
-    .sd-chart-card,
-    .sd-list-card{
-      background:linear-gradient(180deg,#FFFFFF 0%,#FCFFFD 100%) !important;
-      border-color:var(--line2) !important;
-      box-shadow:0 8px 22px rgba(17,64,38,.04) !important;
-    }
-
-    .sd-mode-mini:hover,
-    .sd-live-card:hover,
-    .sd-kpi-card:hover,
-    .sd-payment-card:hover,
-    .sd-pipe-card:hover,
-    .sd-priority-card:hover{
-      border-color:rgba(0,168,89,.24) !important;
-      box-shadow:0 12px 30px rgba(17,64,38,.07) !important;
-    }
-
-    .sd-payment-card.main{
-      background:linear-gradient(135deg,#E9FFF3 0%,#FFFFFF 100%) !important;
-      border-color:rgba(0,168,89,.24) !important;
-      box-shadow:0 12px 32px rgba(0,168,89,.08) !important;
-    }
-
-    .sd-kicker,
-    .sd-pill,
-    .sd-live-pill,
-    .sd-bar-value{
-      background:#E9FFF3 !important;
-      color:var(--green-dark) !important;
-      border-color:rgba(0,168,89,.22) !important;
-    }
-
-    .sd-live-pill.off,
-    .sd-live-pill.warn,
-    .sd-stock-low{
-      background:#FFF8E8 !important;
-      color:#9A5A00 !important;
-      border-color:#FDE7B2 !important;
-    }
-
-    .sd-live-pill.bad,
-    .sd-alert-pill{
-      background:#FFF1F2 !important;
-      color:#B91C1C !important;
-      border-color:#FECACA !important;
-    }
-
-    .sd-pipe-icon,
-    .sd-kpi-icon,
-    .sd-priority-icon,
-    .sd-thumb{
-      background:#E9FFF3 !important;
-      color:var(--green-dark) !important;
-      border-color:rgba(0,168,89,.16) !important;
-    }
-
-    .sd-btn,
-    .sd-view-link{
-      border-color:var(--line) !important;
-      background:#FFFFFF !important;
-      color:var(--text) !important;
-      box-shadow:none !important;
-    }
-
-    .sd-btn:hover,
-    .sd-view-link:hover{
-      border-color:rgba(0,168,89,.30) !important;
-      background:#F3FFF8 !important;
-      color:var(--green-dark) !important;
-      box-shadow:0 10px 24px rgba(17,64,38,.06) !important;
-    }
-
-    .sd-btn-primary{
-      background:linear-gradient(135deg,var(--green),var(--green-dark)) !important;
-      border-color:var(--green) !important;
-      color:#fff !important;
-      box-shadow:0 12px 26px rgba(0,168,89,.16) !important;
-    }
-
-    .sd-btn-primary:hover{
-      background:linear-gradient(135deg,var(--green-dark),#06482F) !important;
-      color:#fff !important;
-      box-shadow:0 14px 30px rgba(0,168,89,.18) !important;
-    }
-
-    .sd-table{
-      border-color:var(--line) !important;
-      box-shadow:0 8px 22px rgba(17,64,38,.035) !important;
-    }
-
-    .sd-table thead{
-      background:linear-gradient(135deg,#075C3B,#06482F) !important;
-    }
-
-    .sd-table td{
-      border-bottom-color:var(--line2) !important;
-      color:var(--text) !important;
-      background:#FFFFFF !important;
-    }
-
-    .sd-empty{
-      background:#F8FFFB !important;
-      border-color:var(--line) !important;
-      color:var(--muted) !important;
-    }
-
-    @media (max-width:760px){
-      #customer-order-pipeline .sd-pipeline,
-      #operation-summary .sd-kpi-grid,
-      #transactions-reports .sd-payment-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-        gap:10px !important;
-        padding:12px !important;
-      }
-
-      #customer-order-pipeline .sd-pipe-card,
-      #operation-summary .sd-kpi-card,
-      #transactions-reports .sd-payment-card{
-        min-height:118px !important;
-        padding:12px !important;
-        border-radius:18px !important;
-        align-content:space-between !important;
-      }
-
-      #customer-order-pipeline .sd-pipe-icon,
-      #operation-summary .sd-kpi-icon{
-        width:36px !important;
-        height:36px !important;
-        border-radius:13px !important;
-        font-size:18px !important;
-      }
-
-      #customer-order-pipeline .sd-pipe-label,
-      #operation-summary .sd-kpi-label,
-      #transactions-reports .sd-payment-label{
-        font-size:9.8px !important;
-        letter-spacing:.045em !important;
-        line-height:1.2 !important;
-      }
-
-      #customer-order-pipeline .sd-pipe-value,
-      #operation-summary .sd-kpi-value,
-      #transactions-reports .sd-payment-value{
-        font-size:clamp(20px,6vw,26px) !important;
-        line-height:1.04 !important;
-      }
-
-      #customer-order-pipeline .sd-pipe-sub,
-      #operation-summary .sd-kpi-sub,
-      #transactions-reports .sd-payment-sub{
-        font-size:10.5px !important;
-        line-height:1.25 !important;
-      }
-
-      #needs-action .sd-table-wrap{
-        padding:0 12px 14px !important;
-        overflow:visible !important;
-        touch-action:auto !important;
-      }
-
-      #needs-action .sd-table{
-        min-width:0 !important;
-        width:100% !important;
-        border:0 !important;
-        border-radius:0 !important;
-        box-shadow:none !important;
-        background:transparent !important;
-        display:block !important;
-      }
-
-      #needs-action .sd-table thead{
-        display:none !important;
-      }
-
-      #needs-action .sd-table tbody{
-        width:100% !important;
-        display:grid !important;
-        gap:12px !important;
-      }
-
-      #needs-action .sd-table tr{
-        display:grid !important;
-        gap:9px !important;
-        padding:13px !important;
-        border:1px solid var(--line) !important;
-        border-radius:18px !important;
-        background:#FFFFFF !important;
-        box-shadow:0 8px 22px rgba(17,64,38,.045) !important;
-      }
-
-      #needs-action .sd-table td{
-        width:100% !important;
-        display:grid !important;
-        grid-template-columns:82px minmax(0,1fr) !important;
-        align-items:center !important;
-        gap:10px !important;
-        border:0 !important;
-        padding:0 !important;
-        background:transparent !important;
-        color:var(--text) !important;
-        font-size:12.5px !important;
-        line-height:1.35 !important;
-      }
-
-      #needs-action .sd-table td::before{
-        content:attr(data-label);
-        color:var(--muted) !important;
-        font-size:10px !important;
-        font-weight:950 !important;
-        line-height:1.2 !important;
-        text-transform:uppercase !important;
-        letter-spacing:.055em !important;
-      }
-
-      #needs-action .sd-table td[data-label="Order"]{
-        padding-bottom:6px !important;
-        border-bottom:1px solid var(--line2) !important;
-        font-size:15px !important;
-        font-weight:950 !important;
-        color:var(--green-dark) !important;
-      }
-
-      #needs-action .sd-table td[data-label="Total"]{
-        color:var(--ink) !important;
-        font-size:14px !important;
-        font-weight:950 !important;
-      }
-
-      #needs-action .sd-table td[colspan]{
-        display:block !important;
-        text-align:center !important;
-        padding:14px !important;
-        border:1px dashed var(--line) !important;
-        border-radius:16px !important;
-        background:#F8FFFB !important;
-      }
-
-      #needs-action .sd-table td[colspan]::before{
-        display:none !important;
-        content:"" !important;
-      }
-
-      #needs-action .sd-pill{
-        justify-self:flex-start !important;
-        font-size:11px !important;
-        padding:6px 10px !important;
-      }
-
-      #needs-action .sd-muted{
-        font-size:11.5px !important;
-      }
-    }
-
-    @media (max-width:420px){
-      #customer-order-pipeline .sd-pipeline,
-      #operation-summary .sd-kpi-grid,
-      #transactions-reports .sd-payment-grid{
-        gap:8px !important;
-        padding:10px !important;
-      }
-
-      #customer-order-pipeline .sd-pipe-card,
-      #operation-summary .sd-kpi-card,
-      #transactions-reports .sd-payment-card{
-        min-height:112px !important;
-        padding:10px !important;
-        border-radius:16px !important;
-      }
-
-      #customer-order-pipeline .sd-pipe-value,
-      #operation-summary .sd-kpi-value,
-      #transactions-reports .sd-payment-value{
-        font-size:20px !important;
-      }
-
-      #needs-action .sd-table td{
-        grid-template-columns:74px minmax(0,1fr) !important;
-        gap:8px !important;
-      }
-    }
-
-</style>
 
   <div class="sd-shell">
     <div class="sd-stack">
       <section class="sd-hero" id="store-summary">
         <div>
-          <span class="sd-kicker">🏪 Store Dashboard</span>
+          <span class="sd-kicker">Store Overview</span>
           <h1 class="sd-hero-title">{{ store.store_name or 'Store Dashboard' }}</h1>
-          <p class="sd-hero-copy">Track store orders, delivery status, stock alerts and payments from one clean dashboard.</p>
+          
           <div class="sd-hero-actions">
-            <a class="sd-btn sd-btn-primary" href="{{ url_for('store_orders') }}">Manage Orders</a>
+            <a class="sd-btn sd-btn-primary" href="{{ url_for('store_active_orders') }}">Active Orders</a>
+            <a class="sd-btn" href="{{ url_for('store_orders') }}">All Orders</a>
             {% if is_external_mode %}
-              <a class="sd-btn" href="{{ url_for('store_external_delivery') }}">External Orders</a>
+              <a class="sd-btn" href="{{ url_for('store_external_delivery') }}">External Delivery</a>
             {% elif inhouse_enabled %}
               <a class="sd-btn" href="{{ url_for('store_delivery') }}">Delivery</a>
             {% endif %}
@@ -1257,15 +191,15 @@
           </div>
           <div class="sd-hero-stat-grid">
             <div class="sd-hero-stat"><span>Store Status</span><strong class="{{ 'is-green' if store_online else 'is-orange' }}">{{ 'Online' if store_online else 'Offline' }}</strong></div>
-            <div class="sd-hero-stat"><span>Delivery Mode</span><strong>{{ mode_ui.short_label|default(mode_ui.label|default('Delivery')) }}</strong></div>
-            <div class="sd-hero-stat"><span>Open Orders</span><strong>{{ ns.open_orders }}</strong></div>
+            <div class="sd-hero-stat"><span>Delivery Mode</span><strong>{{ dashboard_delivery_mode_label }}</strong></div>
+            <div class="sd-hero-stat"><span>View Orders</span><strong>{{ ns.open_orders }}</strong></div>
             <div class="sd-hero-stat"><span>Paid Value</span><strong>₹ {{ '%.2f'|format(earnings_total or 0) }}</strong></div>
           </div>
         </aside>
       </section>
 
       <section class="sd-card" id="store-live-controls">
-        <div class="sd-section-head"><div><h2 class="sd-section-title">Store Controls</h2></div><a class="sd-view-link" href="{{ url_for('store_profile') }}">Open Profile</a></div>
+        <div class="sd-section-head"><div><h2 class="sd-section-title">Store Controls</h2></div><a class="sd-view-link" href="{{ url_for('store_profile') }}">Store Profile</a></div>
         <div class="sd-live-control-grid">
           <div class="sd-live-card" data-dashboard-notification-control>
             <div class="sd-live-top">
@@ -1292,7 +226,7 @@
                 <span>Browser permission</span>
                 <strong id="sdNotificationPermission">Checking…</strong>
               </div>
-              <a class="sd-live-link" href="{{ url_for('store_notifications') }}">Open notification center →</a>
+              <a class="sd-live-link" href="{{ url_for('store_notifications') }}">View Notifications</a>
             </div>
           </div>
 
@@ -1316,7 +250,7 @@
 
           <div class="sd-live-card">
             <div class="sd-live-top"><div><div class="sd-live-title">Pickup & Service Area</div></div><span class="sd-live-pill {{ '' if zone_ready and has_store_coords else 'bad' }}">● {{ 'Ready' if zone_ready and has_store_coords else 'Setup Needed' }}</span></div>
-            <div class="sd-live-meta"><div class="sd-live-meta-row"><span>Pickup coordinates</span><strong>{{ 'Available' if has_store_coords else 'Missing' }}</strong></div><div class="sd-live-meta-row"><span>Service area</span><strong>{{ 'Configured' if zone_ready else 'Missing' }}</strong></div><a class="sd-live-link" href="{{ url_for('store_profile') }}">Update pickup and service area →</a></div>
+            <div class="sd-live-meta"><div class="sd-live-meta-row"><span>Pickup coordinates</span><strong>{{ 'Available' if has_store_coords else 'Missing' }}</strong></div><div class="sd-live-meta-row"><span>Service area</span><strong>{{ 'Configured' if zone_ready else 'Missing' }}</strong></div><a class="sd-live-link" href="{{ url_for('store_profile') }}">Edit Service Area</a></div>
           </div>
         </div>
       </section>
@@ -1324,15 +258,15 @@
 
       <section class="sd-mode-panel" id="delivery-mode-workflow">
         <div>
-          <span class="sd-kicker">{{ mode_ui.icon|default('🚚') }} {{ mode_ui.label|default('Delivery Mode') }}</span>
+          <span class="sd-kicker">{{ mode_ui.icon|default('🚚') }} {{ dashboard_delivery_mode_label }}</span>
           <h2 class="sd-mode-title">{{ mode_ui.store_dashboard_title|default('Delivery Setup') }}</h2>
           <p class="sd-mode-copy">{{ mode_ui.store_dashboard_copy|default('Current delivery setup and store action for incoming orders.') }}</p>
           <div class="sd-hero-actions">
-            <a class="sd-btn sd-btn-primary" href="{{ url_for('store_orders') }}">Open Orders</a>
+            <a class="sd-btn sd-btn-primary" href="{{ url_for('store_active_orders') }}">Active Orders</a>
             {% if is_external_mode %}
               <a class="sd-btn" href="{{ url_for('store_external_delivery') }}">External Delivery</a>
             {% elif inhouse_enabled %}
-              <a class="sd-btn" href="{{ url_for('store_delivery') }}">Open Delivery</a>
+              <a class="sd-btn" href="{{ url_for('store_delivery') }}">View Delivery</a>
             {% endif %}
           </div>
         </div>
@@ -1344,8 +278,13 @@
         </div>
       </section>
 
+      <section class="sd-chart-grid">
+        <div class="sd-card sd-chart-card"><div class="sd-chart-head"><div><h2 class="sd-section-title">Order Analytics</h2></div><a class="sd-view-link" href="{{ url_for('store_orders') }}">View Orders</a></div><div class="sd-money">{{ orders_total }}</div><div class="sd-bar-chart"><div class="sd-bar-item"><span class="sd-bar-value">{{ orders_total }}</span><div class="sd-bar-slot"><div class="sd-bar" style="height:{{ 100 if orders_total > 0 else 4 }}%;"></div></div><span class="sd-bar-label">Total</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ ns.open_orders }}</span><div class="sd-bar-slot"><div class="sd-bar is-blue" style="height:{{ '%.0f'|format(active_orders_percent if active_orders_percent > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Open</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ delivered_orders_total }}</span><div class="sd-bar-slot"><div class="sd-bar" style="height:{{ '%.0f'|format(delivered_percent if delivered_percent > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Delivered</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ ns.cancelled }}</span><div class="sd-bar-slot"><div class="sd-bar is-red" style="height:{{ '%.0f'|format(cancelled_percent if cancelled_percent > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Cancelled</span></div></div></div>
+        <div class="sd-card sd-chart-card"><div class="sd-chart-head"><div><h2 class="sd-section-title">Product Health</h2></div><a class="sd-view-link" href="{{ url_for('store_inventory') }}">View Inventory</a></div><div class="sd-money">{{ '%.0f'|format(active_product_percent) }}%</div><div class="sd-bar-chart"><div class="sd-bar-item"><span class="sd-bar-value">{{ products_total }}</span><div class="sd-bar-slot"><div class="sd-bar" style="height:{{ 100 if products_total > 0 else 4 }}%;"></div></div><span class="sd-bar-label">Products</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ ns.active_products }}</span><div class="sd-bar-slot"><div class="sd-bar" style="height:{{ '%.0f'|format(active_product_percent if active_product_percent > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Active</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ low_stock_total }}</span><div class="sd-bar-slot"><div class="sd-bar is-orange" style="height:{{ '%.0f'|format(stock_alert_percent if stock_alert_percent > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Alert</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ ns.inactive_products }}</span><div class="sd-bar-slot"><div class="sd-bar is-red" style="height:{{ '%.0f'|format((ns.inactive_products / (products_total if products_total else 1) * 100) if ns.inactive_products > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Disabled</span></div></div></div>
+      </section>
+
       <section class="sd-card" id="customer-order-pipeline">
-        <div class="sd-section-head"><div><h2 class="sd-section-title">Order Pipeline</h2></div><a class="sd-view-link" href="{{ url_for('store_orders') }}">Open Orders</a></div>
+        <div class="sd-section-head"><div><h2 class="sd-section-title">Order Pipeline</h2></div><a class="sd-view-link" href="{{ url_for('store_orders') }}">View Orders</a></div>
         <div class="sd-pipeline">
           <div class="sd-pipe-card"><div class="sd-pipe-icon">🕒</div><div><span class="sd-pipe-label">New Orders</span><strong class="sd-pipe-value is-blue">{{ ns.placed }}</strong><small class="sd-pipe-sub">Received</small></div></div>
           <div class="sd-pipe-card"><div class="sd-pipe-icon">✅</div><div><span class="sd-pipe-label">Confirmed</span><strong class="sd-pipe-value">{{ ns.confirmed }}</strong><small class="sd-pipe-sub">Accepted</small></div></div>
@@ -1396,7 +335,7 @@
         </div>
 
         <div class="sd-card" id="transactions-reports">
-          <div class="sd-section-head"><div><h2 class="sd-section-title">Payment Summary</h2></div><a class="sd-view-link" href="{{ url_for('store_txn_csv') }}?range=month">Export CSV</a></div>
+          <div class="sd-section-head"><div><h2 class="sd-section-title">Reports &amp; Payments</h2></div><a class="sd-view-link" href="{{ url_for('store_txn_csv') }}?range=month">Download Monthly CSV</a></div>
           <div class="sd-payment-grid">
             <div class="sd-payment-card main"><span class="sd-payment-label">{{ 'Online Paid Value' if mode_ui.online_only|default(false) else 'Paid Value' }}</span><strong class="sd-payment-value">₹ {{ '%.2f'|format(earnings_total or 0) }}</strong><small class="sd-payment-sub">{{ 'Delivered online-paid orders' if mode_ui.online_only|default(false) else 'Delivered paid orders' }}</small></div>
             <div class="sd-payment-card"><span class="sd-payment-label">Delivered GMV</span><strong class="sd-payment-value">₹ {{ '%.2f'|format(gmv_total or 0) }}</strong><small class="sd-payment-sub">Completed order value</small></div>
@@ -1409,14 +348,11 @@
             {% endif %}
             <div class="sd-payment-card"><span class="sd-payment-label">{{ 'Pending Online Payments' if mode_ui.online_only|default(false) else 'Pending Payments' }}</span><strong class="sd-payment-value">{{ metrics.pending_payment_orders|default(ns.pending_payment) }}</strong><small class="sd-payment-sub">₹ {{ '%.2f'|format(metrics.pending_payment_value|default(0)) }} {{ 'open online order value' if mode_ui.online_only|default(false) else 'open order value' }}</small></div>
           </div>
-          <div class="sd-export-row" style="padding:0 20px 20px;margin-top:0;"><a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=day">Daily CSV</a><a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=week">Weekly CSV</a><a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=month">Monthly CSV</a><a class="sd-btn" href="{{ url_for('store_payouts') }}">Payouts</a></div>
+          <div class="sd-export-row" style="padding:0 20px 20px;margin-top:0;"><a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=day">Download Daily CSV</a><a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=week">Download Weekly CSV</a><a class="sd-btn" href="{{ url_for('store_txn_csv') }}?range=month">Download Monthly CSV</a><a class="sd-btn" href="{{ url_for('store_payouts') }}">Payouts</a></div>
         </div>
       </section>
 
-      <section class="sd-chart-grid">
-        <div class="sd-card sd-chart-card"><div class="sd-chart-head"><div><h2 class="sd-section-title">Order Analytics</h2></div><a class="sd-view-link" href="{{ url_for('store_orders') }}">Open Orders</a></div><div class="sd-money">{{ orders_total }}</div><div class="sd-bar-chart"><div class="sd-bar-item"><span class="sd-bar-value">{{ orders_total }}</span><div class="sd-bar-slot"><div class="sd-bar" style="height:{{ 100 if orders_total > 0 else 4 }}%;"></div></div><span class="sd-bar-label">Total</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ ns.open_orders }}</span><div class="sd-bar-slot"><div class="sd-bar is-blue" style="height:{{ '%.0f'|format(active_orders_percent if active_orders_percent > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Open</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ delivered_orders_total }}</span><div class="sd-bar-slot"><div class="sd-bar" style="height:{{ '%.0f'|format(delivered_percent if delivered_percent > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Delivered</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ ns.cancelled }}</span><div class="sd-bar-slot"><div class="sd-bar is-red" style="height:{{ '%.0f'|format(cancelled_percent if cancelled_percent > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Cancelled</span></div></div></div>
-        <div class="sd-card sd-chart-card"><div class="sd-chart-head"><div><h2 class="sd-section-title">Product Health</h2></div><a class="sd-view-link" href="{{ url_for('store_inventory') }}">Open Inventory</a></div><div class="sd-money">{{ '%.0f'|format(active_product_percent) }}%</div><div class="sd-bar-chart"><div class="sd-bar-item"><span class="sd-bar-value">{{ products_total }}</span><div class="sd-bar-slot"><div class="sd-bar" style="height:{{ 100 if products_total > 0 else 4 }}%;"></div></div><span class="sd-bar-label">Products</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ ns.active_products }}</span><div class="sd-bar-slot"><div class="sd-bar" style="height:{{ '%.0f'|format(active_product_percent if active_product_percent > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Active</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ low_stock_total }}</span><div class="sd-bar-slot"><div class="sd-bar is-orange" style="height:{{ '%.0f'|format(stock_alert_percent if stock_alert_percent > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Alert</span></div><div class="sd-bar-item"><span class="sd-bar-value">{{ ns.inactive_products }}</span><div class="sd-bar-slot"><div class="sd-bar is-red" style="height:{{ '%.0f'|format((ns.inactive_products / (products_total if products_total else 1) * 100) if ns.inactive_products > 0 else 4) }}%;"></div></div><span class="sd-bar-label">Disabled</span></div></div></div>
-      </section>
+
 
       <section class="sd-insight-grid">
         <div class="sd-card sd-list-card"><div class="sd-section-head"><div><h2 class="sd-section-title">Low Stock</h2></div><a class="sd-view-link" href="{{ url_for('store_inventory') }}">Inventory</a></div><div class="sd-list-body">{% set shown_low = namespace(count=0) %}{% if products %}{% for p in products %}{% if (p.stock_quantity or 0) <= 5.0 and shown_low.count < 6 %}{% set shown_low.count = shown_low.count + 1 %}<div class="sd-row"><div class="sd-row-left"><div class="sd-thumb">{% if p.image_path %}<img src="/{{ p.image_path }}" alt="{{ p.name }}">{% else %}🛍️{% endif %}</div><div><div class="sd-name">{{ p.name }}</div><div class="sd-meta">{{ p.category or 'No category' }}{% if p.sub_category %} · {{ p.sub_category }}{% endif %}</div></div></div>{% if (p.stock_quantity or 0) <= 0 %}<span class="sd-pill sd-alert-pill">Out</span>{% else %}<span class="sd-pill sd-stock-low">{{ '%.2f'|format(p.stock_quantity or 0) }} {{ p.unit_label or 'unit' }}</span>{% endif %}</div>{% endif %}{% endfor %}{% endif %}{% if shown_low.count == 0 %}<div class="sd-empty">Stock looks good right now.</div>{% endif %}</div></div>
@@ -1430,11 +366,11 @@
          Existing routes, order logic and backend functionality untouched.
          ========================================================= #}
       <section class="sd-card" id="needs-action">
-        <div class="sd-section-head"><div><h2 class="sd-section-title">Needs Action</h2></div><a class="sd-view-link" href="{{ url_for('store_orders') }}">Open Orders</a></div>
-        <div class="sd-table-wrap sd-needs-action-wrap"><table class="sd-table sd-needs-action-table"><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th></tr></thead><tbody>{% set open_rows = namespace(count=0) %}{% if orders %}{% for o in orders %}{% set action_status = (o.status or '')|upper %}{% if (action_status in ['PLACED','PENDING_PAYMENT','CONFIRMED','PREPARING','PACKAGING'] or (action_status in ['READY_FOR_PICKUP','SHIPMENT_READY'] and (is_external_mode or not o.delivery_partner_id)) or (is_external_mode and action_status in ['PENDING_BOOKING','BOOKING_PENDING','BOOKING_FAILED','EXTERNAL_BOOKING_FAILED','DELIVERY_FAILED','FAILED_DELIVERY']) or ((not is_external_mode) and inhouse_enabled and action_status == 'DELIVERY_FAILED')) and open_rows.count < 5 %}{% set open_rows.count = open_rows.count + 1 %}<tr><td data-label="Order">#{{ o.id[-6:] if o.id else '' }}</td><td data-label="Customer"><strong>{{ o.customer_name or 'Customer' }}</strong><div class="sd-muted">{{ o.customer_phone or '—' }}</div></td><td data-label="Status"><span class="sd-pill">{{ (o.status or 'PLACED')|replace('_',' ')|title }}</span></td><td data-label="Payment">{{ o.payment_status or '—' }}</td><td data-label="Total">₹ {{ '%.2f'|format(o.total_payable|default(o.total_amount|default(0))|float) }}</td></tr>{% endif %}{% endfor %}{% endif %}{% if open_rows.count == 0 %}<tr><td colspan="5" class="sd-muted" style="text-align:center;">No orders need action right now.</td></tr>{% endif %}</tbody></table></div>
+        <div class="sd-section-head"><div><h2 class="sd-section-title">Needs Action</h2></div><a class="sd-view-link" href="{{ url_for('store_active_orders') }}">Active Orders</a></div>
+        <div class="sd-table-wrap sd-needs-action-wrap"><table class="sd-table sd-needs-action-table"><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th></tr></thead><tbody>{% set open_rows = namespace(count=0) %}{% if orders %}{% for o in orders %}{% set action_status = (o.status or '')|upper %}{% if (action_status in ['PLACED','PENDING_PAYMENT','CONFIRMED','PREPARING','PACKAGING'] or (action_status in ['READY_FOR_PICKUP','SHIPMENT_READY'] and (is_external_mode or not o.delivery_partner_id)) or (is_external_mode and action_status in ['PENDING_BOOKING','BOOKING_PENDING','BOOKING_FAILED','EXTERNAL_BOOKING_FAILED','DELIVERY_FAILED','FAILED_DELIVERY']) or ((not is_external_mode) and inhouse_enabled and action_status == 'DELIVERY_FAILED')) and open_rows.count < 5 %}{% set open_rows.count = open_rows.count + 1 %}<tr><td data-label="Order">{{ o.order_number or o.display_order_number or (("#" ~ o.id[-6:]) if o.id else "") }}</td><td data-label="Customer"><strong>{{ o.customer_name or 'Customer' }}</strong><div class="sd-muted">{{ o.customer_phone or '—' }}</div></td><td data-label="Status"><span class="sd-pill">{{ (o.status or 'PLACED')|replace('_',' ')|title }}</span></td><td data-label="Payment">{{ o.payment_status or '—' }}</td><td data-label="Total">₹ {{ '%.2f'|format(o.total_payable|default(o.total_amount|default(0))|float) }}</td></tr>{% endif %}{% endfor %}{% endif %}{% if open_rows.count == 0 %}<tr><td colspan="5" class="sd-muted" style="text-align:center;">No orders need action right now.</td></tr>{% endif %}</tbody></table></div>
         {% if ns.actionable_orders > 5 %}
           <div class="sd-action-row" style="padding:0 20px 20px;margin-top:0;justify-content:flex-end;">
-            <a class="sd-btn sd-btn-primary" href="{{ url_for('store_orders') }}">View All Orders</a>
+            <a class="sd-btn sd-btn-primary" href="{{ url_for('store_active_orders') }}">View Active Orders</a>
           </div>
         {% endif %}
       </section>
@@ -1469,15 +405,15 @@
         const toast = document.createElement('div');
         toast.className = 'store-new-order-toast';
         toast.style.background = '#fff';
-        toast.style.border = '1px solid #DDECE4';
-        toast.style.borderRadius = '16px';
-        toast.style.boxShadow = '0 18px 44px rgba(17,64,38,.16)';
+        toast.style.border = '1px solid #DCE6DF';
+        toast.style.borderRadius = '10px';
+        toast.style.boxShadow = '0 8px 24px rgba(33,48,40,.10)';
         toast.style.padding = '14px 18px';
         toast.style.minWidth = '280px';
         toast.style.maxWidth = '380px';
         toast.style.fontFamily = 'Inter, sans-serif';
         toast.style.fontWeight = '800';
-        toast.style.color = '#1F2D26';
+        toast.style.color = '#233028';
         toast.style.display = 'flex';
         toast.style.alignItems = 'center';
         toast.style.gap = '12px';
@@ -1486,8 +422,8 @@
         toast.style.opacity = '0';
         toast.style.cursor = 'pointer';
         const icon = type === 'on' ? '🔔' : '🔕';
-        const accent = type === 'on' ? '#00A859' : '#64748B';
-        toast.innerHTML = `<div style="width:42px;height:42px;background:${accent};color:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:18px;">${icon}</div><div style="flex:1;"><div style="letter-spacing:.12em;text-transform:uppercase;font-size:11px;color:#6A7A72;">${type === 'on' ? 'New Order' : 'Notifications'}</div><div style="font-size:15px;line-height:1.25;margin-top:2px;">${message}</div>${type === 'on' ? `<div style="font-size:12px;margin-top:6px;color:#6A7A72;">Click to open Order Management</div>` : ``}</div>`;
+        const accent = type === 'on' ? '#5F8F6F' : '#69766F';
+        toast.innerHTML = `<div style="width:42px;height:42px;background:${accent};color:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">${icon}</div><div style="flex:1;"><div style="letter-spacing:.12em;text-transform:uppercase;font-size:11px;color:#69766F;">${type === 'on' ? 'New Order' : 'Notifications'}</div><div style="font-size:15px;line-height:1.25;margin-top:2px;">${message}</div>${type === 'on' ? `<div style="font-size:12px;margin-top:6px;color:#69766F;">Click to open Orders</div>` : ``}</div>`;
         function dismissToast() { toast.style.transform = 'translateX(120%)'; toast.style.opacity = '0'; setTimeout(() => toast.remove(), 260); }
         if (type === 'on') toast.addEventListener('click', function(){ window.location.href = "{{ url_for('store_orders') }}"; }); else toast.addEventListener('click', dismissToast);
         wrap.appendChild(toast);

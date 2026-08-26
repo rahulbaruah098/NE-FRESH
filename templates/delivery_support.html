@@ -1,0 +1,33 @@
+{% extends "delivery_base.html" %}
+{% set active_page = "support" %}
+{% block title %}Delivery Support | NE LOCALS{% endblock %}
+{% block delivery_kicker %}Account{% endblock %}
+{% block delivery_title %}Help & Support{% endblock %}
+{% block delivery_subtitle %}Contact NE LOCALS Admin about delivery, customer payment or account issues.{% endblock %}
+{% block delivery_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/delivery/delivery-account.css') }}">{% endblock %}
+{% block delivery_content %}
+<section class="nf-delivery-page delivery-account-page">
+  <header class="delivery-account-hero">
+    <div><h2>Help & Support</h2><p>Send a role-specific support request without entering the public/customer portal. Include an Order ID when the issue is related to a delivery.</p></div>
+    <div class="delivery-account-status"><span class="delivery-account-pill">Admin Support</span></div>
+  </header>
+  <div class="delivery-account-grid">
+    <article class="delivery-account-card">
+      <h3>Send Support Request</h3><p class="helper">Use a clear subject and explain what happened so Admin can respond faster.</p>
+      <form method="post" action="{{ url_for('delivery_support') }}">
+        <div class="delivery-account-fields">
+          <div class="delivery-account-field"><label>Issue Type</label><select name="category"><option>Delivery Issue</option><option>Customer Payment / COD</option><option>UPI at Delivery</option><option>Order Assignment</option><option>Earnings / Monthly Settlement</option><option>Account / Login</option><option>General Support</option></select></div>
+          <div class="delivery-account-field"><label>Order ID / Reference</label><input name="order_reference" placeholder="Optional"></div>
+          <div class="delivery-account-field full"><label>Subject</label><input name="subject" required placeholder="Short summary of the issue"></div>
+          <div class="delivery-account-field full"><label>Message</label><textarea name="message" required minlength="10" placeholder="Describe the issue, what you expected, and what happened."></textarea></div>
+        </div>
+        <div class="delivery-account-actions"><button class="delivery-account-btn primary" type="submit">Send to Admin</button><a class="delivery-account-btn" href="{{ url_for('delivery_dashboard') }}">Back to Dashboard</a></div>
+      </form>
+    </article>
+    <aside class="delivery-account-card">
+      <h3>Recent Support Requests</h3><p class="helper">Your latest requests submitted from the Delivery portal.</p>
+      {% if support_requests %}<div class="delivery-support-list">{% for item in support_requests %}<div class="delivery-support-row"><div class="delivery-support-row-top"><strong>{{ item.subject or 'Support request' }}</strong><small>{{ item.status|default('NEW') }}</small></div><p>{{ item.message|default('')|truncate(120) }}</p></div>{% endfor %}</div>{% else %}<div class="delivery-support-empty">No Delivery Support requests yet.</div>{% endif %}
+    </aside>
+  </div>
+</section>
+{% endblock %}

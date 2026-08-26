@@ -4,401 +4,31 @@
 
 {% block title %}Payment & Settlements | NE FRESH Admin{% endblock %}
 {% block page_title %}Payment & Settlements{% endblock %}
-{% block page_subtitle %}Admin-controlled rider COD cash settlement and store payout management.{% endblock %}
+{% block page_subtitle %}Customer-payment reconciliation, monthly delivery-partner pay and store payout management.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-finance.css') }}">
+{% endblock %}
 
 {% block content %}
 <section class="nf-admin-settlements">
-  <style>
-    .nf-admin-settlements {
-      display: grid;
-      gap: 18px;
-    }
-
-    .settle-hero,
-    .settle-card,
-    .settle-kpi {
-      background: var(--nf-surface);
-      border: 1px solid var(--nf-line);
-      border-radius: 22px;
-      box-shadow: var(--nf-shadow);
-    }
-
-    .settle-hero {
-      padding: 22px;
-      background:
-        radial-gradient(circle at 8% 8%, rgba(0,168,89,.12), transparent 32%),
-        radial-gradient(circle at 92% 4%, rgba(2,132,199,.10), transparent 28%),
-        linear-gradient(135deg, #fff, var(--nf-surface-2));
-    }
-
-    .settle-hero h2 {
-      margin: 0 0 8px;
-      font-size: clamp(1.45rem, 3vw, 2.15rem);
-      line-height: 1.1;
-      letter-spacing: -.04em;
-      font-weight: 950;
-      color: var(--nf-text);
-    }
-
-    .settle-hero p {
-      margin: 0;
-      max-width: 900px;
-      color: var(--nf-muted);
-      font-size: .95rem;
-      font-weight: 650;
-      line-height: 1.6;
-    }
-
-              .settle-kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .settle-kpi {
-      padding: 18px;
-      min-height: 110px;
-      display: grid;
-      align-content: space-between;
-      gap: 10px;
-    }
-
-    .settle-kpi span {
-      color: var(--nf-muted);
-      font-size: .75rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .055em;
-    }
-
-    .settle-kpi strong {
-      color: var(--nf-text);
-      font-size: 1.55rem;
-      font-weight: 950;
-      letter-spacing: -.04em;
-    }
-
-    .settle-card {
-      overflow: hidden;
-    }
-
-    .settle-card-head {
-      padding: 18px;
-      border-bottom: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      flex-wrap: wrap;
-      align-items: flex-start;
-    }
-
-    .settle-card-head h3 {
-      margin: 0;
-      color: var(--nf-text);
-      font-size: 1.08rem;
-      font-weight: 950;
-      letter-spacing: -.03em;
-    }
-
-    .settle-card-head p {
-      margin: 5px 0 0;
-      color: var(--nf-muted);
-      font-size: .84rem;
-      font-weight: 650;
-    }
-
-    .settle-table-wrap {
-      width: 100%;
-      overflow-x: auto;
-      padding: 18px;
-    }
-
-        .settle-table {
-      width: 100%;
-      min-width: 1450px;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-
-    .settle-table th {
-      background: var(--nf-surface-2);
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 950;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      text-align: left;
-      padding: 12px;
-      border-top: 1px solid var(--nf-line);
-      border-bottom: 1px solid var(--nf-line);
-      white-space: nowrap;
-    }
-
-    .settle-table th:first-child {
-      border-left: 1px solid var(--nf-line);
-      border-top-left-radius: 14px;
-    }
-
-    .settle-table th:last-child {
-      border-right: 1px solid var(--nf-line);
-      border-top-right-radius: 14px;
-    }
-
-    .settle-table td {
-      padding: 13px 12px;
-      border-bottom: 1px solid var(--nf-line);
-      background: #fff;
-      color: var(--nf-text);
-      vertical-align: top;
-      font-size: .84rem;
-      font-weight: 750;
-    }
-
-    .settle-main {
-      display: block;
-      color: var(--nf-text);
-      font-weight: 950;
-    }
-
-    .settle-sub {
-      display: block;
-      margin-top: 3px;
-      color: var(--nf-muted);
-      font-size: .74rem;
-      font-weight: 700;
-    }
-
-    .settle-money {
-      font-weight: 950;
-      white-space: nowrap;
-    }
-
-        .settle-money.deduct {
-      color: #B91C1C;
-    }
-
-    .settle-money.adjusted {
-      color: var(--nf-green-dark);
-      font-size: .92rem;
-    }
-
-    .settle-note {
-      display: block;
-      margin-top: 4px;
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 750;
-      line-height: 1.35;
-    }
-
-    .settle-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 26px;
-      padding: 4px 9px;
-      border-radius: 999px;
-      font-size: .7rem;
-      font-weight: 950;
-      border: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-      color: var(--nf-muted);
-      white-space: nowrap;
-    }
-
-    .settle-pill.pending {
-      background: var(--nf-orange-soft);
-      color: var(--nf-orange-dark);
-      border-color: rgba(245,158,11,.24);
-    }
-
-    .settle-pill.received,
-    .settle-pill.paid,
-    .settle-pill.settled {
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-      border-color: rgba(0,168,89,.22);
-    }
-
-    .settle-form {
-      display: grid;
-      gap: 7px;
-      min-width: 190px;
-    }
-
-    .settle-input,
-    .settle-select {
-      width: 100%;
-      height: 34px;
-      border: 1px solid var(--nf-line);
-      border-radius: 10px;
-      background: #fff;
-      color: var(--nf-text);
-      padding: 0 9px;
-      font-size: .75rem;
-      font-weight: 800;
-      outline: none;
-    }
-
-    .settle-btn {
-      min-height: 34px;
-      border: 0;
-      border-radius: 10px;
-      background: var(--nf-green);
-      color: #fff;
-      padding: 0 12px;
-      font-size: .76rem;
-      font-weight: 950;
-      cursor: pointer;
-    }
-
-    .settle-btn:hover {
-      background: var(--nf-green-dark);
-    }
-
-    .settle-empty {
-      padding: 26px 18px;
-      text-align: center;
-      color: var(--nf-muted);
-      font-weight: 800;
-    }
-
-    @media (max-width: 980px) {
-      .settle-kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (max-width: 620px) {
-      .settle-kpi-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .settle-hero {
-        padding: 18px;
-      }
-    }
-
-
-    .settle-payment-flow {
-      display: grid;
-      gap: 6px;
-      min-width: 160px;
-    }
-
-    .settle-flow-pill {
-      width: max-content;
-      max-width: 100%;
-      min-height: 28px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 999px;
-      padding: 0 10px;
-      font-size: .68rem;
-      font-weight: 950;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      border: 1px solid var(--nf-line);
-      white-space: nowrap;
-    }
-
-    .settle-flow-pill.online {
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-      border-color: rgba(0,168,89,.22);
-    }
-
-    .settle-flow-pill.cod {
-      background: var(--nf-orange-soft);
-      color: var(--nf-orange-dark);
-      border-color: rgba(245,158,11,.24);
-    }
-
-    .settle-flow-pill.pending {
-      background: var(--nf-surface-2);
-      color: var(--nf-muted);
-      border-color: var(--nf-line);
-    }
-
-    .settle-flow-note {
-      display: block;
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 750;
-      line-height: 1.38;
-    }
-
-    .settle-cash-box {
-      display: grid;
-      gap: 5px;
-      padding: 9px 10px;
-      border-radius: 12px;
-      border: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-      min-width: 170px;
-    }
-
-    .settle-cash-box.online {
-      background: var(--nf-green-soft);
-      border-color: rgba(0,168,89,.18);
-    }
-
-    .settle-cash-box.cod {
-      background: var(--nf-orange-soft);
-      border-color: rgba(245,158,11,.24);
-    }
-
-    .settle-cash-box strong {
-      color: var(--nf-text);
-      font-size: .78rem;
-      font-weight: 950;
-      line-height: 1.25;
-    }
-
-    .settle-cash-box span {
-      color: var(--nf-muted);
-      font-size: .68rem;
-      font-weight: 750;
-      line-height: 1.35;
-    }
-
-    .settle-warning-note {
-      margin-top: 6px;
-      display: block;
-      color: #B91C1C;
-      font-size: .68rem;
-      font-weight: 850;
-      line-height: 1.35;
-    }
-
-  </style>
-
     <div class="settle-hero">
     <h2>Payment & Settlement Control</h2>
     <p>
-      Rider COD cash is confirmed only by Admin. Store payout is also completed only by Admin,
-      keeping the NE FRESH platform-controlled settlement flow clean and auditable.
+      Customer money and delivery-partner pay are fully separated. Cash/UPI payments are reconciled to Admin/Store first, while delivery fee + tips accrue and are paid to each delivery partner once per closed month.
     </p>
 
-    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-      <a class="settle-btn" href="{{ url_for('admin_settlements_export_csv') }}" style="text-decoration:none;display:inline-flex;align-items:center;">
+    <div class="settle-hero-actions">
+      <a class="settle-btn" href="{{ url_for('admin_settlements_export_csv') }}">
         Export CSV
       </a>
     </div>
   </div>
 
    <div class="settle-kpi-grid">
-
-        <div class="settle-kpi">
+    <div class="settle-kpi">
       <span>Online Payment Received</span>
       <strong>₹{{ "%.2f"|format(metrics.online_payment_received_amount|default(0)|float) }}</strong>
-    </div>
-
-    <div class="settle-kpi">
-      <span>Online Paid Orders</span>
-      <strong>{{ metrics.online_payment_received_count|default(0) }}</strong>
     </div>
 
     <div class="settle-kpi">
@@ -414,11 +44,31 @@
     <div class="settle-kpi">
       <span>Rider Cash Pending</span>
       <strong>₹{{ "%.2f"|format(metrics.rider_cash_pending_amount|default(0)|float) }}</strong>
+      <span class="settle-note">{{ metrics.rider_cash_pending_count|default(0) }} order(s)</span>
     </div>
 
     <div class="settle-kpi">
-      <span>Pending Rider Orders</span>
-      <strong>{{ metrics.rider_cash_pending_count|default(0) }}</strong>
+      <span>UPI Verification Pending</span>
+      <strong>₹{{ "%.2f"|format(metrics.upi_delivery_pending_amount|default(0)|float) }}</strong>
+      <span class="settle-note">{{ metrics.upi_delivery_pending_count|default(0) }} order(s)</span>
+    </div>
+
+    <div class="settle-kpi">
+      <span>Store Platform Fee Due</span>
+      <strong>₹{{ "%.2f"|format(metrics.store_platform_fee_pending_amount|default(0)|float) }}</strong>
+      <span class="settle-note">{{ metrics.store_platform_fee_pending_count|default(0) }} Store-collected order(s)</span>
+    </div>
+
+    <div class="settle-kpi">
+      <span>External Partner Remittance</span>
+      <strong>₹{{ "%.2f"|format(metrics.external_partner_remittance_pending_amount|default(0)|float) }}</strong>
+      <span class="settle-note">{{ metrics.external_partner_remittance_pending_count|default(0) }} order(s)</span>
+    </div>
+
+    <div class="settle-kpi">
+      <span>Carry-forward Store Adjustment</span>
+      <strong>₹{{ "%.2f"|format(metrics.store_carry_forward_adjustment_amount|default(0)|float) }}</strong>
+      <span class="settle-note">Outstanding refund recovery</span>
     </div>
 
     <div class="settle-kpi">
@@ -432,40 +82,267 @@
     </div>
 
     <div class="settle-kpi">
-      <span>Adjusted Store Payout</span>
+      <span>Final Store Payout Pending</span>
       <strong>₹{{ "%.2f"|format(metrics.store_payout_pending_amount|default(0)|float) }}</strong>
+      <span class="settle-note">{{ metrics.store_payout_pending_count|default(0) }} order(s)</span>
     </div>
 
     <div class="settle-kpi">
-      <span>Pending Store Orders</span>
-      <strong>{{ metrics.store_payout_pending_count|default(0) }}</strong>
+      <span>Store Payout Blocked</span>
+      <strong>{{ metrics.store_payout_blocked_count|default(0) }}</strong>
+      <span class="settle-note">Refund/return/reconciliation hold</span>
     </div>
   </div>
 
   <div class="settle-card">
     <div class="settle-card-head">
       <div>
-        <h3>Rider COD Cash Settlement</h3>
-        <p>Admin confirms the cash submitted by delivery boy after COD delivery.</p>
+        <h3>Monthly Delivery Partner Settlement</h3>
+        <p>Delivery fee + tips are paid once per closed calendar month. Customer cash/UPI is business money and must be reconciled first; rider earnings are never deducted from COD cash.</p>
+      </div>
+      <div class="settle-monthly-summary">
+        <span class="settle-pill">{{ delivery_monthly_metrics.current_period_label }} accruing: ₹{{ '%.2f'|format(delivery_monthly_metrics.current_accrued_amount|default(0)|float) }}</span>
+        <span class="settle-pill received">Ready: ₹{{ '%.2f'|format(delivery_monthly_metrics.ready_amount|default(0)|float) }}</span>
+        <span class="settle-pill paid">Paid: ₹{{ '%.2f'|format(delivery_monthly_metrics.paid_amount|default(0)|float) }}</span>
+      </div>
+    </div>
+
+    {% if delivery_monthly_rows %}
+      <div class="settle-table-wrap">
+        <table class="settle-table settle-table-monthly">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Delivery Partner</th>
+              <th>Orders</th>
+              <th>Delivery Fee</th>
+              <th>Tips</th>
+              <th>Monthly Payable</th>
+              <th>Business Payment Reconciliation</th>
+              <th>Status</th>
+              <th>Monthly Payment</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in delivery_monthly_rows %}
+              <tr>
+                <td><span class="settle-main">{{ row.period_label }}</span><span class="settle-sub">{{ row.period }}</span></td>
+                <td><span class="settle-main">{{ row.delivery_partner_name }}</span><span class="settle-sub">{{ row.delivery_partner_phone or '' }}</span></td>
+                <td><span class="settle-money">{{ row.order_count }}</span></td>
+                <td><span class="settle-money">₹{{ '%.2f'|format(row.delivery_fee|float) }}</span></td>
+                <td><span class="settle-money">₹{{ '%.2f'|format(row.tips|float) }}</span></td>
+                <td><span class="settle-money adjusted">₹{{ '%.2f'|format(row.gross_earning|float) }}</span><span class="settle-note">Delivery fee + tips only</span></td>
+                <td>
+                  {% if row.unreconciled_count|int == 0 %}
+                    <span class="settle-pill received">RECONCILED</span>
+                    <span class="settle-note">All customer payment legs are with Admin/Store.</span>
+                  {% else %}
+                    <span class="settle-pill pending">{{ row.unreconciled_count }} PENDING</span>
+                    {% if row.cash_pending_count %}<span class="settle-note">Cash: {{ row.cash_pending_count }} order(s) · ₹{{ '%.2f'|format(row.cash_pending_amount|float) }}</span>{% endif %}
+                    {% if row.upi_pending_count %}<span class="settle-note">UPI verification: {{ row.upi_pending_count }} order(s)</span>{% endif %}
+                  {% endif %}
+                </td>
+                <td>
+                  {% if row.status == 'PAID' %}
+                    <span class="settle-pill paid">PAID</span>
+                    <span class="settle-note">{{ row.paid_at or '' }}</span>
+                  {% elif row.status == 'ACCRUING' %}
+                    <span class="settle-pill pending">ACCRUING</span>
+                    <span class="settle-note">Current month closes before payment.</span>
+                  {% elif row.status == 'READY' %}
+                    <span class="settle-pill received">READY</span>
+                  {% else %}
+                    <span class="settle-pill pending">RECONCILIATION PENDING</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if row.status == 'PAID' %}
+                    <span class="settle-main">{{ row.payment_mode or '-' }}</span>
+                    <span class="settle-sub">{{ row.reference_no or 'No reference' }}</span>
+                    <span class="settle-sub">₹{{ '%.2f'|format(row.paid_amount|float) }}</span>
+                  {% elif row.can_pay %}
+                    <form class="settle-form" method="post" action="{{ url_for('admin_delivery_monthly_settlement_paid', rider_id=row.delivery_partner_id, period=row.period) }}" onsubmit="return confirm('Confirm monthly delivery-partner payment of ₹{{ '%.2f'|format(row.gross_earning|float) }} for {{ row.period_label }}?');">
+                      <select class="settle-select" name="payout_mode">
+                        <option value="UPI">UPI</option>
+                        <option value="BANK_TRANSFER">Bank Transfer</option>
+                        <option value="CASH">Cash</option>
+                      </select>
+                      <input class="settle-input" type="text" name="reference_no" maxlength="120" placeholder="Payment reference">
+                      <input class="settle-input" type="text" name="note" maxlength="250" placeholder="Optional note">
+                      <button class="settle-btn" type="submit">Pay Monthly ₹{{ '%.2f'|format(row.gross_earning|float) }}</button>
+                    </form>
+                  {% elif row.is_current %}
+                    <span class="settle-note">Available after {{ row.period_label }} closes.</span>
+                  {% else %}
+                    <span class="settle-warning-note">Reconcile all customer cash/UPI records first.</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="settle-empty">No monthly delivery-partner earnings have accrued yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="settle-card">
+    <div class="settle-card-head">
+      <div>
+        <h3>UPI at Delivery Reconciliation</h3>
+        <p>These are COD / Pay-on-Delivery orders paid to the official NE LOCALS UPI destination. Rider cash is not involved. Admin verifies the recorded UPI reference before Store payout is released.</p>
+      </div>
+    </div>
+
+    {% if upi_delivery_orders %}
+      <div class="settle-table-wrap">
+        <table class="settle-table settle-table-upi">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Store</th>
+              <th>Delivery Partner</th>
+              <th>UPI Amount</th>
+              <th>UPI Reference</th>
+              <th>Recorded At</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for o in upi_delivery_orders %}
+              <tr>
+                <td><span class="settle-main">{{ o.order_number or o.display_order_number or ("#" ~ o.id[-6:]) }}</span><span class="settle-sub">{{ o.delivered_at or o.updated_at or '-' }}</span></td>
+                <td><span class="settle-main">{{ o.store_name or '-' }}</span><span class="settle-sub">{{ o.customer_name or 'Customer' }}</span></td>
+                <td><span class="settle-main">{{ o.delivery_partner_name or '-' }}</span><span class="settle-sub">{{ o.delivery_partner_phone or '' }}</span></td>
+                <td><span class="settle-money">₹{{ '%.2f'|format(o.cod_collected_amount|default(o.total_payable|default(0))|float) }}</span></td>
+                <td><span class="settle-main">{{ o.upi_delivery_reference or '-' }}</span><span class="settle-sub">{{ o.upi_delivery_payee_id or 'Official UPI' }}</span></td>
+                <td><span class="settle-sub">{{ o.upi_delivery_recorded_at or o.payment_collected_at or '-' }}</span></td>
+                <td><span class="settle-pill pending">{{ o.upi_delivery_reconciliation_status or 'PENDING' }}</span></td>
+                <td>
+                  <form class="settle-form" method="post" action="{{ url_for('admin_settlement_upi_delivery_verified', oid=o.id) }}" onsubmit="return confirm('Confirm this UPI payment is visible in the official NE LOCALS account?');">
+                    <input class="settle-input" type="text" name="note" maxlength="250" placeholder="Optional reconciliation note">
+                    <button class="settle-btn" type="submit">Verify UPI Received</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="settle-empty">No UPI-at-delivery payments are waiting for verification.</div>
+    {% endif %}
+  </div>
+
+  <div class="settle-card">
+    <div class="settle-card-head">
+      <div>
+        <h3>Store-collected Platform Fee Remittance</h3>
+        <p>For External Local Pay-on-Delivery orders where the Store received customer money directly, no Store payout is due from Admin. Only the net Platform Fee is remitted to Admin where applicable.</p>
+      </div>
+    </div>
+
+    {% if store_platform_fee_orders %}
+      <div class="settle-table-wrap">
+        <table class="settle-table settle-table-store-fee">
+          <thead><tr><th>Order</th><th>Store</th><th>Customer Payment</th><th>Business Receiver</th><th>Platform Fee Due</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>
+          {% for o in store_platform_fee_orders %}
+            <tr>
+              <td><span class="settle-main">{{ o.order_number or o.display_order_number or ("#" ~ o.id[-6:]) }}</span><span class="settle-sub">{{ o.delivered_at or o.updated_at or '-' }}</span></td>
+              <td><span class="settle-main">{{ o.store_name or '-' }}</span><span class="settle-sub">{{ o.customer_name or 'Customer' }}</span></td>
+              <td><span class="settle-main">{{ o.payment_collection_label or 'Pay on Delivery' }}</span><span class="settle-sub">₹{{ '%.2f'|format(o.total_payable|default(0)|float) }} · {{ o.payment_reconciliation_status or 'RECONCILED' }}</span></td>
+              <td><span class="settle-main">{{ o.payment_receiver_label or 'Store' }}</span><span class="settle-sub">Store payout: NOT REQUIRED</span></td>
+              <td><span class="settle-money">₹{{ '%.2f'|format(o.net_platform_fee|default(o.platform_fee|default(0))|float) }}</span><span class="settle-note">After any platform-fee refund adjustment</span></td>
+              <td><span class="settle-pill pending">{{ o.platform_fee_reconciliation_status or o.platform_fee_status or 'DUE_FROM_STORE' }}</span></td>
+              <td>
+                <form class="settle-form" method="post" action="{{ url_for('admin_settlement_store_platform_fee_received', oid=o.id) }}" onsubmit="return confirm('Confirm the Store-remitted Platform Fee is received by Admin?');">
+                  <select class="settle-select" name="payment_mode">
+                    <option value="CASH">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                  </select>
+                  <input class="settle-input" type="text" name="reference_no" maxlength="120" placeholder="Reference (required for UPI/Bank)">
+                  <input class="settle-input" type="text" name="note" maxlength="250" placeholder="Optional note">
+                  <button class="settle-btn" type="submit">Mark Platform Fee Received</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="settle-empty">No Store-collected Platform Fee remittance is pending.</div>
+    {% endif %}
+  </div>
+
+  <div class="settle-card">
+    <div class="settle-card-head">
+      <div>
+        <h3>External Partner Customer-money Remittance</h3>
+        <p>When an external delivery partner collects Pay-on-Delivery customer money, the full customer amount remains business money. Admin confirms the partner remittance before Store payout is released.</p>
+      </div>
+    </div>
+
+    {% if external_partner_orders %}
+      <div class="settle-table-wrap">
+        <table class="settle-table settle-table-partner">
+          <thead><tr><th>Order</th><th>Store</th><th>External Partner</th><th>Customer Amount</th><th>Collection</th><th>Remittance Status</th><th>Action</th></tr></thead>
+          <tbody>
+          {% for o in external_partner_orders %}
+            <tr>
+              <td><span class="settle-main">{{ o.order_number or o.display_order_number or ("#" ~ o.id[-6:]) }}</span><span class="settle-sub">{{ o.delivered_at or o.updated_at or '-' }}</span></td>
+              <td><span class="settle-main">{{ o.store_name or '-' }}</span><span class="settle-sub">{{ o.customer_name or 'Customer' }}</span></td>
+              <td><span class="settle-main">{{ o.external_delivery_provider or o.external_delivery_partner_name or 'External Delivery Partner' }}</span><span class="settle-sub">{{ o.active_delivery_mode or 'EXTERNAL_LOCAL_DELIVERY' }}</span></td>
+              <td><span class="settle-money">₹{{ '%.2f'|format(o.external_cod_amount|default(o.cod_collected_amount|default(o.total_payable|default(0)))|float) }}</span><span class="settle-note">Full customer payment due to business</span></td>
+              <td><span class="settle-main">{{ o.payment_collection_label or 'Pay on Delivery' }}</span><span class="settle-sub">Receiver: {{ o.payment_receiver_label or 'External Delivery Partner' }}</span></td>
+              <td><span class="settle-pill pending">{{ o.external_cod_remittance_status or 'PENDING_ADMIN_REMITTANCE' }}</span></td>
+              <td>
+                <form class="settle-form" method="post" action="{{ url_for('admin_external_partner_remittance_received', oid=o.id) }}" onsubmit="return confirm('Confirm the full customer payment has been remitted by the external delivery partner?');">
+                  <select class="settle-select" name="payment_mode">
+                    <option value="CASH">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                  </select>
+                  <input class="settle-input" type="text" name="reference_no" maxlength="120" placeholder="Reference (required for UPI/Bank)">
+                  <input class="settle-input" type="text" name="note" maxlength="250" placeholder="Optional note">
+                  <button class="settle-btn" type="submit">Mark Remittance Received</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="settle-empty">No External Partner customer-money remittance is pending.</div>
+    {% endif %}
+  </div>
+
+  <div class="settle-card">
+    <div class="settle-card-head">
+      <div>
+        <h3>Rider COD Cash Remittance</h3>
+        <p>Admin confirms the full customer cash submitted by the delivery partner. Driver earnings are paid separately through the monthly settlement above.</p>
       </div>
     </div>
 
     {% if rider_cash_orders %}
       <div class="settle-table-wrap">
-        <table class="settle-table">
+        <table class="settle-table settle-table-rider-cash">
           <thead>
             <tr>
-                           <th>Order</th>
+              <th>Order</th>
               <th>Store</th>
-              <th>Payment Flow</th>
-              <th>Items Subtotal</th>
+              <th>Delivery Partner</th>
+              <th>COD Collected</th>
+              <th>Driver Earning</th>
+              <th>Cash To Submit</th>
               <th>Platform Fee</th>
-              <th>Original Store Payout</th>
-              <th>Refund Deduction</th>
-              <th>Adjusted Payable</th>
-              <th>Return / Refund</th>
-              <th>Rider Cash</th>
-              <th>Payout Status</th>
+              <th>Cash Status</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -473,7 +350,7 @@
             {% for o in rider_cash_orders %}
               <tr>
                 <td>
-                  <span class="settle-main">#{{ o.id[-6:] }}</span>
+                  <span class="settle-main">{{ o.order_number or o.display_order_number or ("#" ~ o.id[-6:]) }}</span>
                   <span class="settle-sub">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
                 </td>
                 <td>
@@ -485,8 +362,22 @@
                   <span class="settle-sub">{{ o.delivery_partner_phone or "" }}</span>
                 </td>
                 <td><span class="settle-money">₹{{ "%.2f"|format(o.cod_collected_amount|default(0)|float) }}</span></td>
-                <td><span class="settle-money">₹{{ "%.2f"|format(o.delivery_boy_earning|default(0)|float) }}</span></td>
-                <td><span class="settle-money">₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span></td>
+                <td>
+                  <span class="settle-money">₹{{ "%.2f"|format(o.delivery_boy_earning|default(0)|float) }}</span>
+                  {% if (o.delivery_payout_model or '')|upper == 'MONTHLY_V1' %}
+                    <span class="settle-note">Monthly payable · never deducted from customer cash</span>
+                  {% else %}
+                    <span class="settle-note">Legacy delivered record · not included in monthly payout</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="settle-money">₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
+                  {% if (o.delivery_payout_model or '')|upper == 'MONTHLY_V1' %}
+                    <span class="settle-note">Full customer cash due to business</span>
+                  {% else %}
+                    <span class="settle-note">Historical recorded remittance</span>
+                  {% endif %}
+                </td>
                 <td><span class="settle-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</span></td>
                 <td>
                   <span class="settle-pill pending">{{ o.rider_cash_settlement_status or "PENDING" }}</span>
@@ -510,194 +401,102 @@
     {% endif %}
   </div>
 
-    <div class="settle-card">
+  <div class="settle-card">
     <div class="settle-card-head">
       <div>
-        <h3>Store Payout Settlement</h3>
-        <p>
-          Admin pays the adjusted store payout after refund deductions are applied.
-          Original earning, refund deduction and final payable are shown separately.
-        </p>
+        <h3>Store Refund Carry-forward Adjustments</h3>
+        <p>Read-only recovery ledger for refunds processed after a Store had already received its order money. The remaining amount is automatically deducted from future Admin-to-Store payouts for the same Store.</p>
       </div>
     </div>
 
-    {% if store_payout_orders %}
+    {% if store_adjustments %}
       <div class="settle-table-wrap">
-        <table class="settle-table">
+        <table class="settle-table settle-table-adjustments">
           <thead>
-            <tr>
-              <th>Order</th>
-              <th>Store</th>
-              <th>Items Subtotal</th>
-              <th>Platform Fee</th>
-              <th>Original Store Payout</th>
-              <th>Refund Deduction</th>
-              <th>Adjusted Payable</th>
-              <th>Return / Refund</th>
-              <th>Rider Cash</th>
-              <th>Payout Status</th>
-              <th>Action</th>
-            </tr>
+            <tr><th>Store</th><th>Source Order</th><th>Reason</th><th>Original Recovery</th><th>Already Applied</th><th>Remaining</th><th>Status</th><th>Created</th></tr>
           </thead>
-
           <tbody>
-                       {% for o in store_payout_orders %}
-              {% set payment_method = (o.payment_method or '')|upper %}
-              {% set payment_status = (o.payment_status or '')|upper %}
-              {% set payment_collection_status = (o.payment_collection_status or '')|upper %}
-              {% set is_online_order = payment_method in ['ONLINE', 'ONLINE_PAYMENT', 'RAZORPAY'] %}
-              {% set is_cod_order = payment_method in ['COD', 'CASH_ON_DELIVERY', 'COD_RIDER_COLLECTION'] %}
-              {% set is_online_paid = is_online_order and (payment_status in ['PAID', 'ONLINE_PAID', 'SUCCESS'] or payment_collection_status in ['PAID', 'ONLINE_PAID']) %}
-              {% set rider_cash_status = (o.rider_cash_settlement_status or '')|upper %}
-              {% set original_payout = o.original_store_payout_amount|default(o.items_subtotal|default(0))|float %}
-              {% set refund_deduction = o.store_refund_deduction|default(0)|float %}
-              {% set adjusted_payout = o.adjusted_store_payout|default(o.store_payout_amount|default(original_payout))|float %}
-
+            {% for a in store_adjustments %}
               <tr>
-                <td>
-                  <span class="settle-main">#{{ o.id[-6:] }}</span>
-                  <span class="settle-sub">{{ o.delivered_at or o.updated_at or o.created_at or "-" }}</span>
-                </td>
-
-                               <td>
-                  <span class="settle-main">{{ o.store_name or "-" }}</span>
-                  <span class="settle-sub">Customer: {{ o.customer_name or "-" }}</span>
-                </td>
-
-                <td>
-                  <div class="settle-payment-flow">
-                    {% if is_online_paid %}
-                      <span class="settle-flow-pill online">Online Paid</span>
-                      <span class="settle-flow-note">Customer paid NE FRESH through Razorpay.</span>
-                    {% elif is_online_order %}
-                      <span class="settle-flow-pill pending">Online Pending</span>
-                      <span class="settle-flow-note">Payment not completed yet.</span>
-                    {% elif is_cod_order %}
-                      <span class="settle-flow-pill cod">COD</span>
-                      <span class="settle-flow-note">Rider collects customer cash and submits Admin share.</span>
-                    {% else %}
-                      <span class="settle-flow-pill pending">{{ payment_method or "UNKNOWN" }}</span>
-                      <span class="settle-flow-note">{{ payment_status or "PENDING" }}</span>
-                    {% endif %}
-                  </div>
-                </td>
-
-                <td>
-                  <span class="settle-money">₹{{ "%.2f"|format(o.items_subtotal|default(0)|float) }}</span>
-                </td>
-
-                <td>
-                  <span class="settle-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</span>
-                  <span class="settle-note">Admin/platform earning</span>
-                </td>
-
-                <td>
-                  <span class="settle-money">₹{{ "%.2f"|format(original_payout) }}</span>
-                  <span class="settle-note">Before refund deduction</span>
-                </td>
-
-                <td>
-                  {% if refund_deduction > 0 %}
-                    <span class="settle-money deduct">- ₹{{ "%.2f"|format(refund_deduction) }}</span>
-                    <span class="settle-note">{{ o.settlement_impact or "DEDUCT_FROM_PENDING_PAYOUT" }}</span>
-                  {% else %}
-                    <span class="settle-money">₹0.00</span>
-                    <span class="settle-note">No refund deduction</span>
-                  {% endif %}
-                </td>
-
-                <td>
-                  <span class="settle-money adjusted">₹{{ "%.2f"|format(adjusted_payout) }}</span>
-                  <span class="settle-note">Amount Admin will pay now</span>
-                </td>
-
-                <td>
-                  {% if o.return_status %}
-                    <span class="settle-pill pending">{{ o.return_status }}</span>
-                  {% else %}
-                    <span class="settle-pill">NO_RETURN</span>
-                  {% endif %}
-
-                  {% if o.refund_status %}
-                    <span class="settle-sub">Refund: {{ o.refund_status }}</span>
-                  {% endif %}
-
-                  {% if o.store_adjustment_due and o.store_adjustment_due|float > 0 %}
-                    <span class="settle-sub">Adjustment due: ₹{{ "%.2f"|format(o.store_adjustment_due|float) }}</span>
-                  {% endif %}
-                </td>
-
-                                <td>
-                  {% if is_online_paid %}
-                    <div class="settle-cash-box online">
-                      <strong>Not Required</strong>
-                      <span>Online payment already received by NE FRESH.</span>
-                    </div>
-                  {% elif is_cod_order %}
-                    <div class="settle-cash-box cod">
-                      <strong>{{ rider_cash_status or "PENDING" }}</strong>
-                      <span>Rider cash settlement is required for COD orders.</span>
-                    </div>
-
-                    {% if rider_cash_status not in ["RECEIVED_BY_ADMIN", "RECEIVED", "SETTLED"] %}
-                      <span class="settle-warning-note">Store payout should be paid only after rider cash is received.</span>
-                    {% endif %}
-                  {% else %}
-                    <span class="settle-pill pending">{{ rider_cash_status or "PENDING" }}</span>
-                  {% endif %}
-                </td>
-
-                               <td>
-                  {% if (o.store_payout_status or '')|upper == 'PAID' %}
-                    <span class="settle-pill paid">PAID</span>
-                  {% else %}
-                    <span class="settle-pill pending">{{ o.store_payout_status or "PENDING_AFTER_DELIVERY" }}</span>
-                  {% endif %}
-
-                  {% if is_online_paid %}
-                    <span class="settle-note">Online payment received. Store payout pending after delivery.</span>
-                  {% elif is_cod_order %}
-                    <span class="settle-note">COD payout depends on rider cash settlement.</span>
-                  {% endif %}
-                </td>
-
-                <td>
-                  <form class="settle-form"
-                        method="post"
-                        action="{{ url_for('admin_settlement_store_payout_paid', oid=o.id) }}"
-                        onsubmit="return confirm('Confirm adjusted store payout ₹{{ '%.2f'|format(adjusted_payout) }} paid by Admin?');">
-
-                    <select class="settle-select" name="payout_mode">
-                      <option value="CASH">Cash</option>
-                      <option value="UPI">UPI</option>
-                      <option value="BANK_TRANSFER">Bank Transfer</option>
-                      <option value="ADJUSTMENT">Adjustment</option>
-                    </select>
-
-                    <input class="settle-input" type="text" name="reference_no" maxlength="120" placeholder="Reference no.">
-                    <input class="settle-input" type="text" name="note" maxlength="250" placeholder="Optional note">
-
-                                        <button
-                      class="settle-btn"
-                      type="submit"
-                      {% if is_cod_order and rider_cash_status not in ['RECEIVED_BY_ADMIN', 'RECEIVED', 'SETTLED'] %}disabled style="opacity:.55;cursor:not-allowed;"{% endif %}
-                    >
-                      Pay ₹{{ "%.2f"|format(adjusted_payout) }}
-                    </button>
-
-                    {% if is_cod_order and rider_cash_status not in ['RECEIVED_BY_ADMIN', 'RECEIVED', 'SETTLED'] %}
-                      <span class="settle-warning-note">Receive rider COD cash first.</span>
-                    {% endif %}
-                  </form>
-                </td>
+                <td><span class="settle-main">{{ a.store_name or '-' }}</span><span class="settle-sub">Store ID: {{ a.store_id_str or a.store_id or '-' }}</span></td>
+                <td><span class="settle-main">{{ a.source_order_number or (("#" ~ a.source_order_id[-6:]) if a.source_order_id else '-') }}</span><span class="settle-sub">{{ a.source_order_number or a.source_order_id or '-' }}</span></td>
+                <td><span class="settle-main">{{ a.reason or 'REFUND_RECOVERY' }}</span><span class="settle-note">Customer refund already exceeded unpaid Store payout on the source order.</span></td>
+                <td><span class="settle-money">₹{{ '%.2f'|format(a.original_amount|default(0)|float) }}</span></td>
+                <td><span class="settle-money">₹{{ '%.2f'|format(a.applied_amount|default(0)|float) }}</span></td>
+                <td><span class="settle-money deduct">₹{{ '%.2f'|format(a.remaining_amount|default(0)|float) }}</span><span class="settle-note">Will reduce future Admin payout(s)</span></td>
+                <td><span class="settle-pill pending">{{ a.status or 'OPEN' }}</span></td>
+                <td><span class="settle-main">{{ a.created_at or '-' }}</span><span class="settle-sub">Updated: {{ a.updated_at or '-' }}</span></td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     {% else %}
-      <div class="settle-empty">No pending store payout.</div>
+      <div class="settle-empty">No outstanding Store refund carry-forward adjustment.</div>
     {% endif %}
   </div>
+
+  <div class="settle-card">
+    <div class="settle-card-head">
+      <div>
+        <h3>Store Payout Settlement</h3>
+        <p>Only orders where Admin/business actually owes the Store appear here. Direct Store customer collections are excluded. Customer money must be reconciled and unresolved refunds/returns are blocked before payout.</p>
+      </div>
+    </div>
+
+    {% if store_payout_orders %}
+      <div class="settle-table-wrap">
+        <table class="settle-table settle-table-payouts">
+          <thead>
+            <tr>
+              <th>Order</th><th>Store</th><th>Payment Flow</th><th>Items Subtotal</th><th>Net Platform Fee</th><th>Original Store Payout</th><th>Refund Deduction</th><th>Carry-forward Adjustment</th><th>Final Payable</th><th>Return / Refund</th><th>Business Reconciliation</th><th>Payout Status</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for o in store_payout_orders %}
+            {% set original_payout = o.original_store_payout_amount|default(o.items_subtotal|default(0))|float %}
+            {% set refund_deduction = o.store_refund_deduction|default(0)|float %}
+            {% set carry_preview = o.store_carry_forward_adjustment_preview|default(0)|float %}
+            {% set final_payout = o.final_store_payout_preview|default(o.adjusted_store_payout|default(o.store_payout_amount|default(original_payout)))|float %}
+            <tr>
+              <td><span class="settle-main">{{ o.order_number or o.display_order_number or ("#" ~ o.id[-6:]) }}</span><span class="settle-sub">{{ o.delivered_at or o.updated_at or o.created_at or '-' }}</span></td>
+              <td><span class="settle-main">{{ o.store_name or '-' }}</span><span class="settle-sub">Customer: {{ o.customer_name or '-' }}</span></td>
+              <td><div class="settle-payment-flow"><span class="settle-flow-pill {% if o.customer_payment_reconciled %}online{% else %}pending{% endif %}">{{ o.payment_collection_label or o.payment_method or 'Payment' }}</span><span class="settle-flow-note">Receiver: {{ o.payment_receiver_label or '-' }}</span><span class="settle-flow-note">{{ o.payment_reconciliation_status or '-' }}</span></div></td>
+              <td><span class="settle-money">₹{{ '%.2f'|format(o.items_subtotal|default(0)|float) }}</span></td>
+              <td><span class="settle-money">₹{{ '%.2f'|format(o.net_platform_fee|default(o.platform_fee|default(0))|float) }}</span><span class="settle-note">{{ o.platform_fee_reconciliation_status or o.platform_fee_status or '-' }}</span></td>
+              <td><span class="settle-money">₹{{ '%.2f'|format(original_payout) }}</span></td>
+              <td>{% if refund_deduction > 0 %}<span class="settle-money deduct">- ₹{{ '%.2f'|format(refund_deduction) }}</span>{% else %}<span class="settle-money">₹0.00</span>{% endif %}</td>
+              <td>{% if carry_preview > 0 %}<span class="settle-money deduct">- ₹{{ '%.2f'|format(carry_preview) }}</span><span class="settle-note">Outstanding Store refund recovery</span>{% else %}<span class="settle-money">₹0.00</span>{% endif %}</td>
+              <td><span class="settle-money adjusted">₹{{ '%.2f'|format(final_payout) }}</span><span class="settle-note">Amount Admin will settle now</span></td>
+              <td>
+                {% if o.return_status %}<span class="settle-pill pending">{{ o.return_status }}</span>{% else %}<span class="settle-pill">NO_RETURN</span>{% endif %}
+                {% if o.refund_status %}<span class="settle-sub">Refund: {{ o.refund_status }}</span>{% endif %}
+                {% if o.refund_unresolved %}<span class="settle-warning-note">Financial resolution still pending.</span>{% endif %}
+              </td>
+              <td>
+                {% if o.customer_payment_reconciled %}<span class="settle-pill received">CUSTOMER MONEY RECONCILED</span>{% else %}<span class="settle-pill pending">{{ o.payment_reconciliation_status or 'PENDING' }}</span>{% endif %}
+                <span class="settle-note">{{ o.payment_collection_label or o.payment_method or '-' }} · {{ o.payment_receiver_label or '-' }}</span>
+                {% if o.store_payout_block_reason %}<span class="settle-warning-note">{{ o.store_payout_block_reason }}</span>{% endif %}
+              </td>
+              <td><span class="settle-pill {% if (o.store_payout_status or '')|upper == 'PAID' %}paid{% else %}pending{% endif %}">{{ o.store_payout_status or 'PENDING_AFTER_DELIVERY' }}</span><span class="settle-note">Settlement: {{ o.order_settlement_status or '-' }}</span></td>
+              <td>
+                <form class="settle-form" method="post" action="{{ url_for('admin_settlement_store_payout_paid', oid=o.id) }}" onsubmit="return confirm('Confirm final Store payout ₹{{ '%.2f'|format(final_payout) }} paid by Admin?');">
+                  <select class="settle-select" name="payout_mode"><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="BANK_TRANSFER">Bank Transfer</option><option value="ADJUSTMENT">Adjustment</option></select>
+                  <input class="settle-input" type="text" name="reference_no" maxlength="120" placeholder="Reference no.">
+                  <input class="settle-input" type="text" name="note" maxlength="250" placeholder="Optional note">
+                  <button class="settle-btn" type="submit" {% if not o.store_payout_eligible %}disabled{% endif %}>Pay ₹{{ '%.2f'|format(final_payout) }}</button>
+                  {% if not o.store_payout_eligible %}<span class="settle-warning-note">{{ o.store_payout_block_reason or 'Complete business reconciliation before payout.' }}</span>{% endif %}
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="settle-empty">No Store payout is currently payable by Admin.</div>
+    {% endif %}
+  </div>
+
 </section>
 {% endblock %}

@@ -1,0 +1,192 @@
+/* NE LOCALS — Store Orders
+ * Clean table-first layout. Presentation only: routes, POST actions, field names,
+ * delivery/payment logic and order workflow remain unchanged.
+ */
+.nf-store-dashboard[data-page="orders"]{
+  --line:#DCE6DF;--line2:#EAF0EC;--ink:#233028;--text:#405047;--muted:#69766F;
+  --green:#5F8F6F;--green-dark:#466F55;--soft:#F3F7F4;--soft2:#EDF5F0;
+  --brown:#8A5A3B;--brown-soft:#F7F0EA;--red:#990707;--red-soft:#FAEFEF;
+  --blue:#486A78;--blue-soft:#EEF3F5;
+  width:100%;min-width:0;color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+.nf-store-dashboard[data-page="orders"] *{box-sizing:border-box;min-width:0}
+.nf-store-dashboard[data-page="orders"] .sd-shell{width:100%;max-width:none;margin:0;padding:0}
+.nf-store-dashboard[data-page="orders"] .sd-stack{display:grid;gap:14px}
+.nf-store-dashboard[data-page="orders"] .sd-card,
+.nf-store-dashboard[data-page="orders"] .sd-orders-hero,
+.nf-store-dashboard[data-page="orders"] .sd-order-overview-card{background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:none}
+
+/* Page intro */
+.nf-store-dashboard[data-page="orders"] .sd-orders-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,360px);gap:18px;padding:20px;align-items:start}
+.nf-store-dashboard[data-page="orders"] .sd-kicker{display:block;margin:0 0 5px;color:var(--green-dark);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.nf-store-dashboard[data-page="orders"] .sd-hero-title{margin:0;color:var(--ink);font-size:1.65rem;line-height:1.15;font-weight:800;letter-spacing:-.035em}
+.nf-store-dashboard[data-page="orders"] .sd-hero-copy{margin:6px 0 0;max-width:760px;color:var(--muted);font-size:12px;line-height:1.45;opacity:.78}
+.nf-store-dashboard[data-page="orders"] .sd-hero-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.nf-store-dashboard[data-page="orders"] .sd-btn,
+.nf-store-dashboard[data-page="orders"] .sd-view-link,
+.nf-store-dashboard[data-page="orders"] .sd-manage-summary,
+.nf-store-dashboard[data-page="orders"] .sd-order-clear,
+.nf-store-dashboard[data-page="orders"] .sd-orders-page-btn,
+.nf-store-dashboard[data-page="orders"] .sd-delivery-buttons a,
+.nf-store-dashboard[data-page="orders"] .sd-delivery-buttons button,
+.nf-store-dashboard[data-page="orders"] .sd-row-actions button{
+  min-height:38px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--text);font-size:12px;font-weight:750;line-height:1.2;text-decoration:none;white-space:nowrap;cursor:pointer;box-shadow:none
+}
+.nf-store-dashboard[data-page="orders"] .sd-btn-primary,
+.nf-store-dashboard[data-page="orders"] .sd-delivery-buttons .primary{background:var(--green);border-color:var(--green);color:#fff}
+.nf-store-dashboard[data-page="orders"] .sd-delivery-buttons .danger{background:var(--red-soft);border-color:#EBCACA;color:var(--red)}
+.nf-store-dashboard[data-page="orders"] .sd-delivery-buttons .blue{background:var(--blue-soft);border-color:#D6E2E7;color:var(--blue)}
+.nf-store-dashboard[data-page="orders"] .sd-view-link{min-height:34px;padding:7px 10px;color:var(--green-dark)}
+.nf-store-dashboard[data-page="orders"] .sd-orders-mode-panel{display:grid;gap:0;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#FBFCFB}
+.nf-store-dashboard[data-page="orders"] .sd-orders-mode-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 12px;border-bottom:1px solid var(--line2);font-size:11.5px}
+.nf-store-dashboard[data-page="orders"] .sd-orders-mode-row:last-child{border-bottom:0}
+.nf-store-dashboard[data-page="orders"] .sd-orders-mode-row span{color:var(--muted);font-weight:650}
+.nf-store-dashboard[data-page="orders"] .sd-orders-mode-row strong{color:var(--ink);font-weight:800;text-align:right}
+
+/* Summary */
+.nf-store-dashboard[data-page="orders"] .sd-order-overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.nf-store-dashboard[data-page="orders"] .sd-order-overview-card{display:flex;align-items:flex-start;gap:11px;padding:14px;min-height:92px}
+.nf-store-dashboard[data-page="orders"] .sd-order-overview-icon{width:34px;height:34px;display:grid;place-items:center;flex:0 0 34px;border-radius:8px;background:var(--soft2);font-size:16px}
+.nf-store-dashboard[data-page="orders"] .sd-order-overview-label{display:block;color:var(--muted);font-size:9.8px;font-weight:800;letter-spacing:.055em;text-transform:uppercase}
+.nf-store-dashboard[data-page="orders"] .sd-order-overview-value{display:block;margin-top:4px;color:var(--ink);font-size:1.35rem;line-height:1;font-weight:800}
+.nf-store-dashboard[data-page="orders"] .sd-order-overview-card small{display:block;margin-top:5px;color:var(--muted);font-size:10.5px;line-height:1.25;opacity:.72}
+
+/* Section + toolbar */
+.nf-store-dashboard[data-page="orders"] .sd-card{overflow:hidden}
+.nf-store-dashboard[data-page="orders"] .sd-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px;border-bottom:1px solid var(--line2)}
+.nf-store-dashboard[data-page="orders"] .sd-section-title{margin:0;color:var(--ink);font-size:1rem;font-weight:800}
+.nf-store-dashboard[data-page="orders"] .sd-section-sub{margin:4px 0 0;color:var(--muted);font-size:11px;line-height:1.4;opacity:.72}
+.nf-store-dashboard[data-page="orders"] .sd-section-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.nf-store-dashboard[data-page="orders"] .sd-table-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) 190px 120px auto;gap:8px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line2);background:#FBFCFB}
+.nf-store-dashboard[data-page="orders"] .sd-search-wrap{position:relative}
+.nf-store-dashboard[data-page="orders"] .sd-search-input,
+.nf-store-dashboard[data-page="orders"] .sd-order-filter,
+.nf-store-dashboard[data-page="orders"] .sd-order-page-size,
+.nf-store-dashboard[data-page="orders"] .sd-row-actions select,
+.nf-store-dashboard[data-page="orders"] .sd-delivery-form select,
+.nf-store-dashboard[data-page="orders"] .sd-delivery-form input,
+.nf-store-dashboard[data-page="orders"] .sd-delivery-form textarea{
+  width:100%;min-height:38px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);padding:8px 10px;font:inherit;font-size:12px;font-weight:650;outline:none
+}
+.nf-store-dashboard[data-page="orders"] .sd-search-input{padding-inline:11px}
+.nf-store-dashboard[data-page="orders"] .sd-orders-toolbar-meta{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted);font-size:10.5px;font-weight:650;line-height:1.3}
+
+/* Real table at every viewport. Horizontal overflow is handled by the wrapper. */
+.nf-store-dashboard[data-page="orders"] .sd-table-wrap{width:100%;max-width:100%;overflow-x:auto!important;overflow-y:visible;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.nf-store-dashboard[data-page="orders"] .sd-table{display:table!important;width:100%;min-width:1180px!important;max-width:none!important;border-collapse:separate!important;border-spacing:0!important;table-layout:auto!important;background:#fff}
+.nf-store-dashboard[data-page="orders"] .sd-table thead{display:table-header-group!important;background:var(--soft)!important}
+.nf-store-dashboard[data-page="orders"] .sd-table tbody{display:table-row-group!important}
+.nf-store-dashboard[data-page="orders"] .sd-table tr{display:table-row!important;height:auto!important;background:#fff!important;box-shadow:none!important}
+.nf-store-dashboard[data-page="orders"] .sd-table th,
+.nf-store-dashboard[data-page="orders"] .sd-table td{display:table-cell!important;height:auto!important;padding:10px 11px!important;border:0!important;border-bottom:1px solid var(--line2)!important;text-align:left!important;vertical-align:top!important;color:var(--text);font-size:11.5px;line-height:1.35;white-space:nowrap;word-break:normal;overflow-wrap:normal}
+.nf-store-dashboard[data-page="orders"] .sd-table th{color:var(--green-dark);font-size:9.8px;font-weight:800;letter-spacing:.045em;text-transform:uppercase;vertical-align:middle!important}
+.nf-store-dashboard[data-page="orders"] .sd-table td::before{content:none!important;display:none!important}
+.nf-store-dashboard[data-page="orders"] .sd-table tbody tr:last-child td{border-bottom:0!important}
+.nf-store-dashboard[data-page="orders"] .sd-table tbody tr:hover td{background:#FBFCFB!important}
+.nf-store-dashboard[data-page="orders"] .sd-table th:nth-child(1),.nf-store-dashboard[data-page="orders"] .sd-table td:nth-child(1){width:62px;min-width:62px;text-align:center!important}
+.nf-store-dashboard[data-page="orders"] .sd-table th:nth-child(2),.nf-store-dashboard[data-page="orders"] .sd-table td:nth-child(2){min-width:180px}
+.nf-store-dashboard[data-page="orders"] .sd-table th:nth-child(3),.nf-store-dashboard[data-page="orders"] .sd-table td:nth-child(3){min-width:150px}
+.nf-store-dashboard[data-page="orders"] .sd-table th:nth-child(4),.nf-store-dashboard[data-page="orders"] .sd-table td:nth-child(4){min-width:145px}
+.nf-store-dashboard[data-page="orders"] .sd-table th:nth-child(5),.nf-store-dashboard[data-page="orders"] .sd-table td:nth-child(5){min-width:115px}
+.nf-store-dashboard[data-page="orders"] .sd-table th:nth-child(6),.nf-store-dashboard[data-page="orders"] .sd-table td:nth-child(6){min-width:140px}
+.nf-store-dashboard[data-page="orders"] .sd-table th:nth-child(7),.nf-store-dashboard[data-page="orders"] .sd-table td:nth-child(7){min-width:180px}
+.nf-store-dashboard[data-page="orders"] .sd-table th:nth-child(8),.nf-store-dashboard[data-page="orders"] .sd-table td:nth-child(8){min-width:260px;max-width:340px;white-space:normal;overflow-wrap:break-word}
+.nf-store-dashboard[data-page="orders"] .sd-table th:nth-child(9),.nf-store-dashboard[data-page="orders"] .sd-table td:nth-child(9){min-width:110px}
+.nf-store-dashboard[data-page="orders"] .sd-order-id{color:var(--green-dark);font-weight:800}
+.nf-store-dashboard[data-page="orders"] .sd-order-customer strong{display:block;color:var(--ink);font-weight:750}
+.nf-store-dashboard[data-page="orders"] .sd-order-total{color:#087B42!important;font-weight:800;font-size:12.5px!important}
+.nf-store-dashboard[data-page="orders"] .sd-order-address small{display:block;margin-top:3px;color:var(--muted);font-size:10px}
+.nf-store-dashboard[data-page="orders"] .sd-order-address a{display:inline;color:var(--green-dark);font-weight:750;text-decoration:none;white-space:nowrap}
+.nf-store-dashboard[data-page="orders"] .sd-order-slno{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 7px;border:1px solid var(--line);border-radius:7px;background:var(--soft2);color:var(--green-dark);font-weight:800}
+.nf-store-dashboard[data-page="orders"] .sd-tag,
+.nf-store-dashboard[data-page="orders"] .sd-payment-pill{display:inline-flex;align-items:center;width:max-content;max-width:none;min-height:26px;padding:4px 8px;border:1px solid #D4E2D9;border-radius:7px;background:var(--soft2);color:var(--green-dark);font-size:10px;font-weight:800;white-space:nowrap!important;word-break:keep-all!important;overflow-wrap:normal!important}
+.nf-store-dashboard[data-page="orders"] .sd-payment-pill.online-pending{background:var(--brown-soft);border-color:#E8D8CA;color:var(--brown)}
+.nf-store-dashboard[data-page="orders"] .sd-payment-pill.failed{background:var(--red-soft);border-color:#EBCACA;color:var(--red)}
+.nf-store-dashboard[data-page="orders"] .sd-payment-stack{display:grid;gap:5px;min-width:0}
+.nf-store-dashboard[data-page="orders"] .sd-payment-note{display:grid;gap:2px;white-space:normal;max-width:190px}
+.nf-store-dashboard[data-page="orders"] .sd-payment-note strong{font-size:10.5px;color:var(--ink)}
+.nf-store-dashboard[data-page="orders"] .sd-payment-note span{font-size:10px;color:var(--muted);line-height:1.3}
+
+/* Manage expands into its own full-width row below the selected order.
+   It never contributes width to the Action column or stretches the table. */
+.nf-store-dashboard[data-page="orders"] .sd-manage-summary{width:max-content;min-height:32px!important;padding:6px 9px!important;color:var(--green-dark)!important;background:#fff!important}
+.nf-store-dashboard[data-page="orders"] .sd-manage-summary.is-open{background:var(--soft2)!important;border-color:#C7DACD!important}
+.nf-store-dashboard[data-page="orders"] .sd-order-manage-row[hidden]{display:none!important}
+.nf-store-dashboard[data-page="orders"] .sd-order-manage-row td.sd-order-manage-cell{padding:0!important;border-bottom:1px solid var(--line)!important;background:#F8FAF9!important;white-space:normal!important}
+.nf-store-dashboard[data-page="orders"] .sd-order-manage-panel{width:100%;max-width:none;display:grid;gap:10px;margin:0;padding:14px 16px;border:0;border-radius:0;background:#F8FAF9;white-space:normal;overflow:visible}
+.nf-store-dashboard[data-page="orders"] .sd-money-breakdown{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;border:1px solid var(--line2);border-radius:8px;overflow:hidden;background:#FBFCFB}
+.nf-store-dashboard[data-page="orders"] .sd-money-breakdown-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border-bottom:1px solid var(--line2);font-size:11px}
+.nf-store-dashboard[data-page="orders"] .sd-money-breakdown-row:nth-last-child(-n+2){border-bottom:0}
+.nf-store-dashboard[data-page="orders"] .sd-money-breakdown-row span{color:var(--muted);font-weight:650}
+.nf-store-dashboard[data-page="orders"] .sd-money-breakdown-row strong{color:var(--ink);font-weight:800;white-space:nowrap}
+.nf-store-dashboard[data-page="orders"] .sd-money-breakdown-row.store-earning strong,
+.nf-store-dashboard[data-page="orders"] .sd-money-breakdown-row.highlight strong{color:#087B42}
+.nf-store-dashboard[data-page="orders"] .sd-settlement-box,
+.nf-store-dashboard[data-page="orders"] .sd-delivery-control,
+.nf-store-dashboard[data-page="orders"] .sd-external-mode-card,
+.nf-store-dashboard[data-page="orders"] .sd-rider-card,
+.nf-store-dashboard[data-page="orders"] .sd-delivery-empty,
+.nf-store-dashboard[data-page="orders"] .sd-delivery-note{border:1px solid var(--line);border-radius:8px;background:#FBFCFB;padding:10px;color:var(--text);font-size:11px;line-height:1.4;white-space:normal}
+.nf-store-dashboard[data-page="orders"] .sd-settlement-title,.nf-store-dashboard[data-page="orders"] .sd-delivery-title,.nf-store-dashboard[data-page="orders"] .sd-external-mode-title{color:var(--ink);font-size:11.5px;font-weight:800}
+.nf-store-dashboard[data-page="orders"] .sd-settlement-text{margin-top:4px;color:var(--muted);font-size:10.5px;line-height:1.4}
+.nf-store-dashboard[data-page="orders"] .sd-row-actions,.nf-store-dashboard[data-page="orders"] .sd-delivery-form{display:grid;grid-template-columns:minmax(180px,1fr) auto;gap:8px;align-items:start}
+.nf-store-dashboard[data-page="orders"] .sd-delivery-form textarea{grid-column:1/-1;min-height:72px;resize:vertical}
+.nf-store-dashboard[data-page="orders"] .sd-delivery-buttons{display:flex;gap:7px;flex-wrap:wrap;grid-column:1/-1}
+.nf-store-dashboard[data-page="orders"] .sd-delivery-quick-grid,.nf-store-dashboard[data-page="orders"] .sd-external-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.nf-store-dashboard[data-page="orders"] .sd-delivery-quick-box,.nf-store-dashboard[data-page="orders"] .sd-external-box{display:grid;gap:3px;padding:8px;border:1px solid var(--line2);border-radius:7px;background:#fff}
+.nf-store-dashboard[data-page="orders"] .sd-delivery-quick-box span,.nf-store-dashboard[data-page="orders"] .sd-external-box span{color:var(--muted);font-size:9.5px;font-weight:700}
+.nf-store-dashboard[data-page="orders"] .sd-delivery-quick-box strong,.nf-store-dashboard[data-page="orders"] .sd-external-box strong{color:var(--ink);font-size:11px;font-weight:800;overflow-wrap:break-word}
+.nf-store-dashboard[data-page="orders"] .sd-rider-card{display:grid;gap:5px}
+
+/* Pagination */
+.nf-store-dashboard[data-page="orders"] .sd-orders-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 16px;border-top:1px solid var(--line2);background:#FBFCFB}
+.nf-store-dashboard[data-page="orders"] .sd-orders-page-info{color:var(--muted);font-size:10.5px;font-weight:650}
+.nf-store-dashboard[data-page="orders"] .sd-orders-page-buttons{display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.nf-store-dashboard[data-page="orders"] .sd-orders-page-btn{min-width:32px!important;width:auto!important;height:32px!important;min-height:32px!important;padding:0 8px!important;border-radius:7px!important}
+.nf-store-dashboard[data-page="orders"] .sd-orders-page-btn.active{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important}
+.nf-store-dashboard[data-page="orders"] .sd-orders-page-btn:disabled{opacity:.42;cursor:not-allowed}
+.nf-store-dashboard[data-page="orders"] .sd-orders-no-results{margin:12px 16px 16px;padding:16px;border:1px dashed var(--line);border-radius:8px;color:var(--muted);font-size:11px;text-align:center}
+
+/* Cancellation confirmation */
+.nf-store-dashboard[data-page="orders"] .sd-cancel-modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:18px}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-modal.open{display:flex}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-backdrop{position:absolute;inset:0;background:rgba(22,32,27,.38)}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-dialog{position:relative;width:min(520px,100%);border:1px solid var(--line);border-radius:10px;background:#fff;box-shadow:0 20px 55px rgba(20,35,28,.18);overflow:hidden}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-head,.nf-store-dashboard[data-page="orders"] .sd-cancel-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line2)}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-actions{border-bottom:0;border-top:1px solid var(--line2);justify-content:flex-end}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-title{color:var(--ink);font-weight:800}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-x{border:0;background:transparent;color:var(--muted);font-weight:800;cursor:pointer}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-body{display:grid;gap:10px;padding:16px}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-meta{color:var(--ink);font-size:12px;font-weight:800}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-msg{color:var(--muted);font-size:11px;line-height:1.45}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-reason{height:38px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 10px}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-btn{min-height:36px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:7px 11px;font-weight:750;cursor:pointer}
+.nf-store-dashboard[data-page="orders"] .sd-cancel-btn.danger{background:var(--red-soft);border-color:#EBCACA;color:var(--red)}
+
+@media(max-width:1100px){
+  .nf-store-dashboard[data-page="orders"] .sd-orders-hero{grid-template-columns:1fr}
+  .nf-store-dashboard[data-page="orders"] .sd-order-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .nf-store-dashboard[data-page="orders"] .sd-table-toolbar{grid-template-columns:minmax(0,1fr) 170px 110px auto}
+}
+@media(max-width:760px){
+  .nf-store-dashboard[data-page="orders"] .sd-orders-hero{padding:16px}
+  .nf-store-dashboard[data-page="orders"] .sd-section-head{display:grid;grid-template-columns:1fr;padding:14px}
+  .nf-store-dashboard[data-page="orders"] .sd-section-actions{justify-content:flex-start}
+  .nf-store-dashboard[data-page="orders"] .sd-table-toolbar{grid-template-columns:1fr 1fr;padding:10px 12px}
+  .nf-store-dashboard[data-page="orders"] .sd-search-wrap{grid-column:1/-1}
+  .nf-store-dashboard[data-page="orders"] .sd-order-clear{width:100%}
+  .nf-store-dashboard[data-page="orders"] .sd-orders-toolbar-meta{grid-column:1/-1}
+  .nf-store-dashboard[data-page="orders"] .sd-orders-pagination{align-items:flex-start;flex-direction:column}
+  .nf-store-dashboard[data-page="orders"] .sd-orders-page-buttons{justify-content:flex-start}
+  .nf-store-dashboard[data-page="orders"] .sd-order-manage-panel{width:100%;padding:12px}
+}
+@media(max-width:480px){
+  .nf-store-dashboard[data-page="orders"] .sd-order-overview-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .nf-store-dashboard[data-page="orders"] .sd-order-overview-card{min-height:82px;padding:11px}
+  .nf-store-dashboard[data-page="orders"] .sd-order-overview-icon{display:none}
+  .nf-store-dashboard[data-page="orders"] .sd-table-toolbar{grid-template-columns:1fr}
+  .nf-store-dashboard[data-page="orders"] .sd-search-wrap,.nf-store-dashboard[data-page="orders"] .sd-orders-toolbar-meta{grid-column:auto}
+  .nf-store-dashboard[data-page="orders"] .sd-order-filter,.nf-store-dashboard[data-page="orders"] .sd-order-page-size,.nf-store-dashboard[data-page="orders"] .sd-order-clear{width:100%}
+  .nf-store-dashboard[data-page="orders"] .sd-money-breakdown,.nf-store-dashboard[data-page="orders"] .sd-delivery-quick-grid,.nf-store-dashboard[data-page="orders"] .sd-external-grid{grid-template-columns:1fr}
+  .nf-store-dashboard[data-page="orders"] .sd-row-actions,.nf-store-dashboard[data-page="orders"] .sd-delivery-form{grid-template-columns:1fr}
+}

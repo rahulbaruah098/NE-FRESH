@@ -5,12 +5,14 @@ without changing existing in-house delivery-boy routes.
 """
 
 from app_core import *
+import re
 from services.delivery_integrations.base import build_external_delivery_payload
 from services.delivery_integrations.shiprocket_service import create_shiprocket_booking
 from services.delivery_integrations.hyperlocal_service import create_hyperlocal_booking
 
 
 EXTERNAL_ORDER_MODES = [
+    DELIVERY_MODE_EXTERNAL_LOCAL,
     DELIVERY_MODE_THIRD_PARTY,
 ]
 
@@ -162,17 +164,56 @@ def _apply_external_status_to_order(oid_obj, order, status, note="", provider_pa
     }
 
     if status in EXTERNAL_DELIVERED_STATUSES:
-        update_data.update({
+        payment_method = (order.get("payment_method") or "").strip().upper()
+        payment_flow = (order.get("payment_flow") or order.get("official_payment_mode") or "").strip().upper()
+        cod_method = (order.get("cod_collection_method") or "").strip().upper()
+
+        delivered_finance = {
             "status": "DELIVERED",
             "delivered_at": now,
-            "payment_collection_status": (
-                "PAID"
-                if (order.get("payment_method") or "").upper() == "ONLINE"
-                else order.get("payment_collection_status") or "PENDING_SETTLEMENT"
-            ),
-            "store_payout_status": order.get("store_payout_status") or "PENDING_AFTER_DELIVERY",
-            "order_settlement_status": order.get("order_settlement_status") or "STORE_PAYOUT_PENDING",
-        })
+        }
+
+        if payment_method in {"ONLINE", "ONLINE_PAYMENT", "RAZORPAY"}:
+            delivered_finance.update({
+                "payment_collection_status": "PAID",
+                "payment_reconciliation_status": "VERIFIED",
+                "store_payout_status": order.get("store_payout_status") or "PENDING_AFTER_DELIVERY",
+                "store_settlement_status": "PAYOUT_PENDING",
+                "order_settlement_status": "STORE_PAYOUT_PENDING",
+            })
+        elif cod_method == COD_COLLECTION_EXTERNAL_PARTNER or payment_flow == "COD_PARTNER_COLLECTION":
+            # External partner has completed delivery and is treated as holding the
+            # full customer payment until Admin records partner remittance.
+            total_paid = finance_money(order.get("total_payable") or order.get("total_amount"), 0)
+            delivered_finance.update({
+                "payment_status": "COLLECTED_BY_EXTERNAL_PARTNER",
+                "payment_collection_status": "COLLECTED_BY_EXTERNAL_PARTNER",
+                "cod_collection_status": "COLLECTED_BY_EXTERNAL_PARTNER",
+                "payment_collection_channel": order.get("payment_collection_channel") or "CASH",
+                "payment_received_by": "EXTERNAL_PARTNER",
+                "payment_collected_at": now,
+                "cod_collected_amount": total_paid,
+                "external_cod_amount": total_paid,
+                "external_cod_remittance_status": "PENDING_ADMIN_REMITTANCE",
+                "payment_reconciliation_status": "PENDING_PARTNER_REMITTANCE",
+                "platform_fee_status": "PENDING_PARTNER_REMITTANCE",
+                "store_payout_status": "PENDING_PAYMENT_RECONCILIATION",
+                "store_settlement_status": "PENDING_PAYMENT_RECONCILIATION",
+                "order_settlement_status": "PENDING_PARTNER_REMITTANCE",
+            })
+        else:
+            # External-local Store collection: delivery is complete but customer
+            # payment remains due to the Store until the Store records receipt.
+            delivered_finance.update({
+                "payment_collection_status": order.get("payment_collection_status") or "PENDING_STORE_COLLECTION",
+                "cod_collection_status": order.get("cod_collection_status") or "PENDING_STORE_COLLECTION",
+                "payment_reconciliation_status": order.get("payment_reconciliation_status") or "PENDING_STORE_COLLECTION",
+                "store_payout_status": "NOT_REQUIRED",
+                "store_settlement_status": "DIRECT_COLLECTION_PENDING",
+                "order_settlement_status": "PENDING_STORE_COLLECTION",
+            })
+
+        update_data.update(delivered_finance)
     elif status in EXTERNAL_FAILED_STATUSES:
         update_data.update({
             "delivery_failed_at": now,
@@ -343,8 +384,12 @@ def admin_external_delivery_orders():
     status_filter = _external_safe_text(request.args.get("status")).upper()
     q = _external_safe_text(request.args.get("q")).lower()
 
-    query = {"active_delivery_mode": DELIVERY_MODE_THIRD_PARTY}
-    mode_filter = DELIVERY_MODE_THIRD_PARTY
+    query = {"active_delivery_mode": {"$in": EXTERNAL_ORDER_MODES}}
+    mode_filter = _external_safe_text(request.args.get("mode")).upper()
+    if mode_filter in EXTERNAL_ORDER_MODES:
+        query["active_delivery_mode"] = mode_filter
+    else:
+        mode_filter = ""
     if status_filter:
         query["external_delivery_status"] = status_filter
 
@@ -390,17 +435,36 @@ def admin_external_delivery_book_order(oid):
         return redirect(url_for("admin_external_delivery_orders"))
 
     if (order.get("payment_method") or "").upper() == "ONLINE" and (order.get("payment_status") or "").upper() not in ["PAID", "SUCCESS", "COMPLETED", "CAPTURED"]:
-        flash("Online payment is not completed yet. Shiprocket shipment should be created only after payment success.", "warning")
+        flash("Online payment is not completed yet. External delivery handoff/booking can proceed only after payment success.", "warning")
         return redirect(url_for("admin_external_delivery_orders"))
 
-    provider = "SHIPROCKET"
+    mode = (order.get("active_delivery_mode") or "").strip().upper()
+    provider = (
+        "SHIPROCKET"
+        if mode == DELIVERY_MODE_THIRD_PARTY
+        else (order.get("external_delivery_provider") or "LOCAL_DELIVERY_PARTNER")
+    )
 
     payload = _load_external_order_payload(order)
     payload["provider"] = provider
 
     settings = get_external_delivery_settings()
 
-    result = create_shiprocket_booking(payload, settings)
+    if mode == DELIVERY_MODE_THIRD_PARTY:
+        result = create_shiprocket_booking(payload, settings)
+    else:
+        # External local is reference/manual-provider based. There is no fake API
+        # booking. Mark the order ready for local partner handoff instead.
+        result = {
+            "ok": True,
+            "status": "READY_FOR_LOCAL_HANDOFF",
+            "message": "External local order is ready for local delivery partner handoff.",
+            "external_order_id": order.get("external_order_id") or str(order.get("_id") or ""),
+            "external_shipment_id": order.get("external_shipment_id") or "",
+            "external_awb": order.get("external_awb") or "",
+            "external_tracking_url": order.get("external_tracking_url") or "",
+            "raw_response": {"mode": "REFERENCE_ONLY", "provider": provider},
+        }
 
     now = _external_now()
     update_data = {
@@ -476,7 +540,7 @@ def store_external_delivery():
 
     docs = list(mongo.orders.find({
         "$and": [
-            {"active_delivery_mode": DELIVERY_MODE_THIRD_PARTY},
+            {"active_delivery_mode": {"$in": EXTERNAL_ORDER_MODES}},
             _external_store_filter(store),
         ]
     }).sort("created_at", -1).limit(200))
@@ -507,7 +571,7 @@ def store_external_delivery_ready(oid):
 
     order = mongo.orders.find_one({
         "_id": oid_obj,
-        "active_delivery_mode": DELIVERY_MODE_THIRD_PARTY,
+        "active_delivery_mode": {"$in": EXTERNAL_ORDER_MODES},
         **_external_store_filter(store),
     })
 
@@ -516,10 +580,44 @@ def store_external_delivery_ready(oid):
         return redirect(url_for("store_external_delivery"))
 
     if (order.get("payment_method") or "").upper() == "ONLINE" and (order.get("payment_status") or "").upper() not in ["PAID", "SUCCESS", "COMPLETED", "CAPTURED"]:
-        flash("Online payment is not completed yet. Shiprocket shipment should be created only after payment success.", "warning")
+        flash("Online payment is not completed yet. External delivery handoff/booking can proceed only after payment success.", "warning")
         return redirect(url_for("store_external_delivery"))
 
     now = _external_now()
+    mode = (order.get("active_delivery_mode") or "").strip().upper()
+
+    if mode == DELIVERY_MODE_EXTERNAL_LOCAL:
+        update_data = {
+            "status": "SHIPMENT_READY",
+            "shipment_ready_at": now,
+            "ready_for_pickup_at": now,
+            "external_delivery_status": "READY_FOR_LOCAL_HANDOFF",
+            "external_delivery_booking_status": "REFERENCE_ONLY",
+            "external_delivery_provider": order.get("external_delivery_provider") or "LOCAL_DELIVERY_PARTNER",
+            "external_delivery_partner_name": order.get("external_delivery_partner_name") or "LOCAL_DELIVERY_PARTNER",
+            "updated_at": now,
+        }
+        mongo.orders.update_one(
+            {"_id": oid_obj},
+            {
+                "$set": update_data,
+                "$push": {
+                    "external_status_history": {
+                        "status": "READY_FOR_LOCAL_HANDOFF",
+                        "note": "Store marked package ready for external local delivery partner handoff.",
+                        "at": now,
+                        "payload": {},
+                    }
+                }
+            }
+        )
+        try:
+            add_order_event(oid_obj, "READY_FOR_LOCAL_HANDOFF", "Store marked package ready for external local delivery partner handoff.", user)
+        except Exception:
+            pass
+        flash("Package marked ready for external local delivery handoff.", "success")
+        return redirect(url_for("store_external_delivery"))
+
     mongo.orders.update_one(
         {"_id": oid_obj},
         {
@@ -580,7 +678,7 @@ def store_external_delivery_ready(oid):
             "external_delivery_booking_status": "BOOKING_FAILED",
             "external_booking_error": result.get("message") or "Shiprocket booking failed.",
         })
-        flash(result.get("message") or "Package marked ready, but Shiprocket booking failed. Admin can retry from Shiprocket Shipments.", "warning")
+        flash(result.get("message") or "Package marked ready, but Shiprocket booking failed. Admin can retry from external delivery orders.", "warning")
 
     mongo.orders.update_one(
         {"_id": oid_obj},
@@ -598,6 +696,263 @@ def store_external_delivery_ready(oid):
     )
 
     return redirect(url_for("store_external_delivery"))
+
+
+@app.route("/store/external-delivery/orders/<oid>/payment-received", methods=["POST"], endpoint="store_external_delivery_payment_received")
+@login_required(role="store")
+def store_external_delivery_payment_received(oid):
+    user, store = _current_store_doc()
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    oid_obj = _external_object_id(oid)
+    if not oid_obj:
+        flash("Invalid order.", "danger")
+        return redirect(url_for("store_external_delivery"))
+
+    order = mongo.orders.find_one({
+        "_id": oid_obj,
+        "active_delivery_mode": DELIVERY_MODE_EXTERNAL_LOCAL,
+        **_external_store_filter(store),
+    })
+    if not order:
+        flash("External local order not found for your Store.", "danger")
+        return redirect(url_for("store_external_delivery"))
+
+    if (order.get("status") or "").strip().upper() != "DELIVERED":
+        flash("Customer payment can be recorded only after external local delivery is completed.", "warning")
+        return redirect(url_for("store_external_delivery"))
+
+    if (order.get("payment_method") or "").strip().upper() not in {"COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"}:
+        flash("This order was already prepaid online.", "info")
+        return redirect(url_for("store_external_delivery"))
+
+    snapshot = finance_reconciliation_snapshot(order)
+    if not snapshot.get("is_store_collection"):
+        flash("This order is not configured for Store collection.", "warning")
+        return redirect(url_for("store_external_delivery"))
+    if snapshot.get("customer_payment_reconciled"):
+        flash("Customer payment is already recorded for this order.", "info")
+        return redirect(url_for("store_external_delivery"))
+
+    channel = _external_safe_text(
+        request.form.get("payment_collection_channel")
+        or request.form.get("payment_channel"),
+        "CASH"
+    ).upper()
+    if channel not in {"CASH", "UPI"}:
+        channel = "CASH"
+
+    reference = _external_safe_text(
+        request.form.get("payment_reference")
+        or request.form.get("reference_no")
+    )[:120]
+
+    if channel == "UPI":
+        if len(reference) < 6:
+            flash("Enter the UPI transaction/reference number before confirming payment.", "warning")
+            return redirect(url_for("store_external_delivery"))
+
+        duplicate_reference = mongo.orders.find_one({
+            "_id": {"$ne": oid_obj},
+            "store_payment_reference": {
+                "$regex": f"^{re.escape(reference)}$",
+                "$options": "i",
+            },
+        })
+        if duplicate_reference:
+            flash("This UPI reference is already recorded against another order.", "warning")
+            return redirect(url_for("store_external_delivery"))
+
+    now = _external_now()
+    amount = finance_money(order.get("total_payable") or order.get("total_amount"), 0)
+    net_platform_fee = finance_money(
+        finance_reconciliation_snapshot(order).get("net_platform_fee"),
+        order.get("platform_fee") or 0,
+    )
+
+    update_data = {
+        "payment_status": "PAID",
+        "payment_collection_status": "COLLECTED_BY_STORE",
+        "cod_collection_status": "COLLECTED_BY_STORE",
+        "payment_collection_channel": channel,
+        "payment_received_by": "STORE",
+        "payment_collected_at": now,
+        "payment_reconciliation_status": "VERIFIED_AT_STORE",
+        "cod_collected_amount": amount,
+        "external_cod_amount": amount,
+        "external_cod_remittance_status": "NOT_REQUIRED",
+        "store_payment_reference": reference,
+        "store_payment_recorded_at": now,
+        "store_payment_recorded_by": str(user.get("id") or user.get("_id") or ""),
+        "platform_fee_status": "DUE_FROM_STORE" if net_platform_fee > 0 else "NOT_REQUIRED",
+        "store_payout_status": "NOT_REQUIRED",
+        "store_settlement_status": "DIRECT_COLLECTION_RECONCILED",
+        "order_settlement_status": "STORE_DIRECT_COLLECTION_RECONCILED",
+        "settlement_status": "BUSINESS_RECONCILIATION_PENDING" if net_platform_fee > 0 else "BUSINESS_RECONCILED",
+        "updated_at": now,
+    }
+    event = {
+        "action": "STORE_CUSTOMER_PAYMENT_RECORDED",
+        "order_id": str(oid_obj),
+        "amount": amount,
+        "amount_received": amount,
+        "channel": channel,
+        "payment_mode": channel,
+        "reference": reference,
+        "reference_no": reference,
+        "payment_receiver": "STORE",
+        "platform_fee": net_platform_fee,
+        "created_by": str(user.get("id") or user.get("_id") or ""),
+        "created_by_name": user.get("name") or user.get("email") or "Store",
+        "created_by_role": "store",
+        "created_at": now,
+    }
+
+    result = mongo.orders.update_one(
+        {
+            "_id": oid_obj,
+            "payment_received_by": {"$ne": "STORE"},
+            "payment_reconciliation_status": {
+                "$nin": ["VERIFIED", "VERIFIED_AT_STORE", "STORE_CONFIRMED"]
+            },
+        },
+        {"$set": update_data, "$push": {"settlement_audit_logs": event}}
+    )
+    if result.modified_count != 1:
+        flash("Customer payment was already recorded or the order changed. Please refresh and check the latest status.", "warning")
+        return redirect(url_for("store_external_delivery"))
+
+    mongo.transactions.update_many(
+        {"order_id": oid_obj},
+        {"$set": {**update_data, "status": "PAID"}}
+    )
+    try:
+        add_order_event(
+            oid_obj,
+            "STORE_CUSTOMER_PAYMENT_RECORDED",
+            f"Store recorded customer payment ₹{amount:.2f} via {channel}.",
+            user
+        )
+    except Exception:
+        pass
+
+    flash(
+        "Customer payment recorded. Admin Store payout is not required; "
+        "only the net Platform Fee remains to be reconciled where applicable.",
+        "success"
+    )
+    return redirect(url_for("store_external_delivery"))
+
+
+@app.route("/admin/external-delivery/orders/<oid>/partner-remittance-received", methods=["POST"], endpoint="admin_external_partner_remittance_received")
+@login_required(role="admin")
+def admin_external_partner_remittance_received(oid):
+    oid_obj, order = _get_external_order_or_redirect(oid)
+    if not oid_obj or not order:
+        flash("External delivery order not found.", "danger")
+        return redirect(url_for("admin_settlements"))
+
+    snapshot = finance_reconciliation_snapshot(order)
+    if not snapshot.get("is_partner_collection"):
+        flash("This order is not configured for external-partner customer collection.", "warning")
+        return redirect(url_for("admin_settlements"))
+    if snapshot.get("customer_payment_reconciled"):
+        flash("External-partner remittance is already reconciled for this order.", "info")
+        return redirect(url_for("admin_settlements"))
+    if (order.get("status") or "").strip().upper() != "DELIVERED":
+        flash("Partner remittance can be reconciled only after delivery.", "warning")
+        return redirect(url_for("admin_settlements"))
+
+    admin_user = current_user() or {}
+    now = _external_now()
+    amount = finance_money(
+        order.get("external_cod_amount")
+        or order.get("cod_collected_amount")
+        or order.get("total_payable"),
+        0
+    )
+    net_platform_fee = finance_money(snapshot.get("net_platform_fee"), order.get("platform_fee") or 0)
+    payment_mode = _external_safe_text(request.form.get("payment_mode"), "CASH").upper()
+    if payment_mode not in {"CASH", "UPI", "BANK_TRANSFER"}:
+        payment_mode = "CASH"
+
+    reference = _external_safe_text(request.form.get("reference_no"))[:120]
+    note = _external_safe_text(request.form.get("note"))[:250]
+
+    if payment_mode in {"UPI", "BANK_TRANSFER"} and not reference:
+        flash("Payment reference is required for UPI or Bank Transfer partner remittance.", "warning")
+        return redirect(url_for("admin_settlements"))
+
+    update_data = {
+        "external_cod_remittance_status": "RECEIVED",
+        "external_cod_remittance_received_at": now,
+        "external_cod_remittance_reference": reference,
+        "external_cod_remittance_payment_mode": payment_mode,
+        "external_cod_remittance_note": note,
+        "payment_status": "PAID",
+        "payment_collection_status": "COLLECTED_BY_EXTERNAL_PARTNER",
+        "payment_reconciliation_status": "VERIFIED",
+        "payment_received_by": "ADMIN_PLATFORM",
+        "platform_fee_status": "RECEIVED" if net_platform_fee > 0 else "NOT_REQUIRED",
+        "platform_fee_received_at": now if net_platform_fee > 0 else order.get("platform_fee_received_at"),
+        "platform_fee_received_amount": net_platform_fee if net_platform_fee > 0 else 0.0,
+        "store_payout_status": "PENDING_AFTER_DELIVERY",
+        "store_settlement_status": "PAYOUT_PENDING",
+        "order_settlement_status": "STORE_PAYOUT_PENDING",
+        "settlement_status": "STORE_PAYOUT_PENDING",
+        "updated_at": now,
+    }
+    event = {
+        "action": "EXTERNAL_PARTNER_REMITTANCE_RECEIVED",
+        "order_id": str(oid_obj),
+        "amount_received": amount,
+        "platform_fee": net_platform_fee,
+        "payment_mode": payment_mode,
+        "reference_no": reference,
+        "note": note,
+        "payment_receiver": "ADMIN_PLATFORM",
+        "created_by": str(admin_user.get("id") or admin_user.get("_id") or ""),
+        "created_by_name": admin_user.get("name") or admin_user.get("email") or "Admin",
+        "created_by_role": "admin",
+        "created_at": now,
+    }
+
+    result = mongo.orders.update_one(
+        {
+            "_id": oid_obj,
+            "external_cod_remittance_status": {
+                "$nin": ["RECEIVED", "VERIFIED", "SETTLED", "PAID"]
+            },
+        },
+        {"$set": update_data, "$push": {"settlement_audit_logs": event}}
+    )
+    if result.modified_count != 1:
+        flash("External-partner remittance was already reconciled or the order changed. Please refresh.", "warning")
+        return redirect(url_for("admin_settlements"))
+
+    mongo.transactions.update_many(
+        {"order_id": oid_obj},
+        {"$set": {**update_data, "status": "PAID"}}
+    )
+    try:
+        add_order_event(
+            oid_obj,
+            "EXTERNAL_PARTNER_REMITTANCE_RECEIVED",
+            f"Admin received external-partner customer-money remittance ₹{amount:.2f} "
+            f"via {payment_mode}. Reference: {reference or '-'}.",
+            admin_user
+        )
+    except Exception:
+        pass
+
+    flash(
+        "External-partner remittance received. Store payout is now eligible "
+        "after normal return/refund checks.",
+        "success"
+    )
+    return redirect(url_for("admin_settlements"))
 
 
 @app.route("/api/external-delivery/webhook/<provider>", methods=["POST"], endpoint="api_external_delivery_webhook")

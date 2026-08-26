@@ -4,532 +4,116 @@
 
 {% block title %}Platform Earnings | NE FRESH Admin{% endblock %}
 {% block page_title %}Platform Earnings{% endblock %}
-{% block page_subtitle %}Read-only report of platform fee earned from online and COD rider-settled orders.{% endblock %}
+{% block page_subtitle %}Read-only reconciliation report for platform fee across every customer-payment flow.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-finance.css') }}">
+{% endblock %}
 
 {% block content %}
 {% set rows = earnings if earnings is defined else [] %}
 {% set m = metrics if metrics is defined else {} %}
 
 <section class="nf-admin-platform-earnings">
-  <style>
-    .nf-admin-platform-earnings {
-      display: grid;
-      gap: 18px;
-    }
-
-    .pe-hero,
-    .pe-card,
-    .pe-kpi {
-      background: var(--nf-surface);
-      border: 1px solid var(--nf-line);
-      border-radius: 22px;
-      box-shadow: var(--nf-shadow);
-    }
-
-    .pe-hero {
-      padding: 22px;
-      background:
-        radial-gradient(circle at 8% 8%, rgba(0,168,89,.12), transparent 32%),
-        radial-gradient(circle at 92% 4%, rgba(2,132,199,.10), transparent 28%),
-        linear-gradient(135deg, #fff, var(--nf-surface-2));
-    }
-
-    .pe-hero h2 {
-      margin: 0 0 8px;
-      font-size: clamp(1.45rem, 3vw, 2.15rem);
-      line-height: 1.1;
-      letter-spacing: -.04em;
-      font-weight: 950;
-      color: var(--nf-text);
-    }
-
-    .pe-hero p {
-      margin: 0;
-      max-width: 940px;
-      color: var(--nf-muted);
-      font-size: .95rem;
-      font-weight: 650;
-      line-height: 1.6;
-    }
-
-    .pe-kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .pe-kpi {
-      padding: 18px;
-      min-height: 112px;
-      display: grid;
-      align-content: space-between;
-      gap: 10px;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .pe-kpi::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 5px;
-      background: var(--nf-green);
-    }
-
-    .pe-kpi.orange::before {
-      background: var(--nf-warning);
-    }
-
-    .pe-kpi.blue::before {
-      background: var(--nf-info);
-    }
-
-    .pe-kpi.red::before {
-      background: var(--nf-danger);
-    }
-
-    .pe-kpi span {
-      color: var(--nf-muted);
-      font-size: .75rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .055em;
-    }
-
-    .pe-kpi strong {
-      color: var(--nf-text);
-      font-size: 1.45rem;
-      font-weight: 950;
-      letter-spacing: -.04em;
-      line-height: 1;
-    }
-
-    .pe-kpi small {
-      color: var(--nf-muted);
-      font-size: .75rem;
-      font-weight: 750;
-      line-height: 1.35;
-    }
-
-    .pe-card {
-      overflow: hidden;
-    }
-
-    .pe-card-head {
-      padding: 18px;
-      border-bottom: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      flex-wrap: wrap;
-      align-items: flex-start;
-    }
-
-    .pe-card-head h3 {
-      margin: 0;
-      color: var(--nf-text);
-      font-size: 1.08rem;
-      font-weight: 950;
-      letter-spacing: -.03em;
-    }
-
-    .pe-card-head p {
-      margin: 5px 0 0;
-      color: var(--nf-muted);
-      font-size: .84rem;
-      font-weight: 650;
-    }
-
-    .pe-filter {
-      padding: 16px 18px;
-      border-bottom: 1px solid var(--nf-line);
-      display: grid;
-      grid-template-columns: 1.4fr 180px 190px 160px 160px auto auto;
-      gap: 10px;
-      align-items: end;
-      background: #fff;
-    }
-
-    .pe-field {
-      display: grid;
-      gap: 6px;
-    }
-
-    .pe-field label {
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 950;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-    }
-
-    .pe-field input,
-    .pe-field select {
-      width: 100%;
-      min-height: 40px;
-      border: 1px solid var(--nf-line);
-      border-radius: 12px;
-      background: #fff;
-      color: var(--nf-text);
-      padding: 0 11px;
-      outline: none;
-      font-size: .82rem;
-      font-weight: 800;
-    }
-
-    .pe-btn {
-      min-height: 40px;
-      border: 1px solid var(--nf-line);
-      border-radius: 12px;
-      background: #fff;
-      color: var(--nf-text);
-      padding: 0 13px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: .8rem;
-      font-weight: 950;
-      cursor: pointer;
-      text-decoration: none;
-      white-space: nowrap;
-    }
-
-    .pe-btn.primary {
-      background: var(--nf-green);
-      border-color: var(--nf-green);
-      color: #fff;
-    }
-
-    .pe-table-wrap {
-      width: 100%;
-      overflow-x: auto;
-      padding: 18px;
-    }
-
-    .pe-table {
-      width: 100%;
-      min-width: 1180px;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-
-    .pe-table th {
-      background: var(--nf-surface-2);
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 950;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      text-align: left;
-      padding: 12px;
-      border-top: 1px solid var(--nf-line);
-      border-bottom: 1px solid var(--nf-line);
-      white-space: nowrap;
-    }
-
-    .pe-table th:first-child {
-      border-left: 1px solid var(--nf-line);
-      border-top-left-radius: 14px;
-    }
-
-    .pe-table th:last-child {
-      border-right: 1px solid var(--nf-line);
-      border-top-right-radius: 14px;
-    }
-
-    .pe-table td {
-      padding: 13px 12px;
-      border-bottom: 1px solid var(--nf-line);
-      background: #fff;
-      color: var(--nf-text);
-      vertical-align: top;
-      font-size: .84rem;
-      font-weight: 750;
-    }
-
-    .pe-main {
-      display: block;
-      color: var(--nf-text);
-      font-weight: 950;
-    }
-
-    .pe-sub {
-      display: block;
-      margin-top: 3px;
-      color: var(--nf-muted);
-      font-size: .74rem;
-      font-weight: 700;
-      line-height: 1.4;
-    }
-
-    .pe-money {
-      color: var(--nf-text);
-      font-weight: 950;
-      white-space: nowrap;
-    }
-
-    .pe-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 26px;
-      padding: 4px 9px;
-      border-radius: 999px;
-      font-size: .7rem;
-      font-weight: 950;
-      border: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-      color: var(--nf-muted);
-      white-space: nowrap;
-    }
-
-    .pe-pill.received,
-    .pe-pill.paid,
-    .pe-pill.settled {
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-      border-color: rgba(0,168,89,.22);
-    }
-
-    .pe-pill.pending_rider_cash,
-    .pe-pill.pending_payment,
-    .pe-pill.pending {
-      background: var(--nf-orange-soft);
-      color: var(--nf-orange-dark);
-      border-color: rgba(245,158,11,.24);
-    }
-
-    .pe-empty {
-      padding: 28px 18px;
-      text-align: center;
-      color: var(--nf-muted);
-      font-weight: 800;
-    }
-
-    .pe-mobile-list {
-      display: none;
-      padding: 0 18px 18px;
-      gap: 12px;
-    }
-
-    .pe-mobile-card {
-      padding: 16px;
-      border-radius: 18px;
-      background: #fff;
-      border: 1px solid var(--nf-line);
-      box-shadow: 0 10px 26px rgba(17,64,38,.06);
-      display: grid;
-      gap: 12px;
-    }
-
-    .pe-mobile-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .pe-mobile-metric {
-      padding: 10px;
-      border-radius: 14px;
-      background: var(--nf-surface-2);
-      display: grid;
-      gap: 3px;
-    }
-
-    .pe-mobile-metric span {
-      color: var(--nf-muted);
-      font-size: .68rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-
-    .pe-mobile-metric strong {
-      color: var(--nf-text);
-      font-size: .88rem;
-      font-weight: 950;
-    }
-
-    @media (max-width: 1260px) {
-      .pe-kpi-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .pe-filter {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    @media (max-width: 760px) {
-      .pe-kpi-grid,
-      .pe-filter {
-        grid-template-columns: 1fr;
-      }
-
-      .pe-table-wrap {
-        display: none;
-      }
-
-      .pe-mobile-list {
-        display: grid;
-      }
-    }
-
-        .pe-flow-box {
-      display: grid;
-      gap: 6px;
-      min-width: 160px;
-    }
-
-    .pe-flow-pill {
-      width: max-content;
-      max-width: 100%;
-      min-height: 28px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 999px;
-      padding: 0 10px;
-      font-size: .68rem;
-      font-weight: 950;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      border: 1px solid var(--nf-line);
-      white-space: nowrap;
-    }
-
-    .pe-flow-pill.online {
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-      border-color: rgba(0,168,89,.22);
-    }
-
-    .pe-flow-pill.cod {
-      background: var(--nf-orange-soft);
-      color: var(--nf-orange-dark);
-      border-color: rgba(245,158,11,.24);
-    }
-
-    .pe-flow-note {
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 750;
-      line-height: 1.38;
-    }
-
-    .pe-status-box {
-      display: grid;
-      gap: 5px;
-      min-width: 170px;
-      padding: 10px;
-      border-radius: 14px;
-      border: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-    }
-
-    .pe-status-box.received {
-      background: var(--nf-green-soft);
-      border-color: rgba(0,168,89,.20);
-    }
-
-    .pe-status-box.pending {
-      background: var(--nf-orange-soft);
-      border-color: rgba(245,158,11,.24);
-    }
-
-    .pe-status-box strong {
-      color: var(--nf-text);
-      font-size: .78rem;
-      font-weight: 950;
-      line-height: 1.3;
-    }
-
-    .pe-status-box span {
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 760;
-      line-height: 1.38;
-    }
-
-    .pe-danger-note {
-      color: #B91C1C !important;
-      font-weight: 850 !important;
-    }
-  </style>
-
   <div class="pe-hero">
     <h2>Platform Earnings</h2>
     <p>
-      This report separates Admin/NE FRESH platform fee from store earning and delivery boy earning.
-      COD platform fee is counted as received only after Admin confirms rider cash settlement.
+      This report tracks only the Admin/NE LOCALS platform fee. Customer money, Store earning and Delivery Partner monthly pay remain separate.
+      The collection and receiver columns show how the customer paid and which business party received that money before the platform fee was reconciled.
     </p>
   </div>
 
   <div class="pe-kpi-grid">
     <div class="pe-kpi">
-      <span>Total Platform Fee</span>
-      <strong>₹{{ "%.2f"|format(m.total_platform_fee|default(0)|float) }}</strong>
+      <span>Gross Platform Fee</span>
+      <strong>₹{{ "%.2f"|format(m.gross_platform_fee|default(0)|float) }}</strong>
       <small>{{ m.total_records|default(0) }} records in current filter</small>
+    </div>
+
+    <div class="pe-kpi orange">
+      <span>Refund Adjustment</span>
+      <strong>- ₹{{ "%.2f"|format(m.refund_platform_fee|default(0)|float) }}</strong>
+      <small>Platform-fee amount reversed by refunds</small>
+    </div>
+
+    <div class="pe-kpi">
+      <span>Net Platform Fee</span>
+      <strong>₹{{ "%.2f"|format(m.total_platform_fee|default(0)|float) }}</strong>
+      <small>Gross less platform-fee refund adjustment</small>
     </div>
 
     <div class="pe-kpi">
       <span>Received</span>
       <strong>₹{{ "%.2f"|format(m.received_amount|default(0)|float) }}</strong>
-      <small>{{ m.received_count|default(0) }} received records</small>
+      <small>{{ m.received_count|default(0) }} reconciled record(s)</small>
     </div>
 
     <div class="pe-kpi orange">
       <span>Pending</span>
       <strong>₹{{ "%.2f"|format(m.pending_amount|default(0)|float) }}</strong>
-      <small>{{ m.pending_count|default(0) }} pending records</small>
+      <small>{{ m.pending_count|default(0) }} record(s) awaiting reconciliation</small>
     </div>
 
     <div class="pe-kpi blue">
-      <span>COD Platform Fee</span>
+      <span>Due from Store</span>
+      <strong>₹{{ "%.2f"|format(m.store_due_amount|default(0)|float) }}</strong>
+      <small>{{ m.store_due_count|default(0) }} Store-collected payment record(s)</small>
+    </div>
+
+    <div class="pe-kpi blue">
+      <span>Due from External Partner</span>
+      <strong>₹{{ "%.2f"|format(m.partner_due_amount|default(0)|float) }}</strong>
+      <small>{{ m.partner_due_count|default(0) }} partner remittance record(s)</small>
+    </div>
+
+    <div class="pe-kpi blue">
+      <span>COD / Pay on Delivery</span>
       <strong>₹{{ "%.2f"|format(m.cod_amount|default(0)|float) }}</strong>
-      <small>{{ m.cod_count|default(0) }} COD records</small>
+      <small>{{ m.cod_count|default(0) }} COD record(s)</small>
     </div>
 
     <div class="pe-kpi blue">
-      <span>Online Platform Fee</span>
+      <span>Prepaid Online</span>
       <strong>₹{{ "%.2f"|format(m.online_amount|default(0)|float) }}</strong>
-      <small>{{ m.online_count|default(0) }} online records</small>
+      <small>{{ m.online_count|default(0) }} prepaid/online record(s)</small>
     </div>
   </div>
 
   <div class="pe-card">
     <div class="pe-card-head">
       <div>
-        <h3>Order-wise Platform Fee Records</h3>
-        <p>Filter by payment mode, platform fee status, date range, store, customer or order ID.</p>
+        <h3>Order-wise Platform Fee Reconciliation</h3>
+        <p>Filter by payment mode, reconciliation status, date, Store, customer or order ID.</p>
       </div>
     </div>
 
     <form class="pe-filter" method="get" action="{{ url_for('admin_platform_earnings') }}">
       <div class="pe-field">
         <label>Search</label>
-        <input type="search" name="q" value="{{ q or '' }}" placeholder="Order, store, customer, payment, status...">
+        <input type="search" name="q" value="{{ q or '' }}" placeholder="Order, store, customer, collection, receiver, status...">
       </div>
 
       <div class="pe-field">
-        <label>Status</label>
+        <label>Platform Reconciliation</label>
         <select name="status">
           <option value="">All</option>
           <option value="RECEIVED" {% if status_filter == 'RECEIVED' %}selected{% endif %}>Received</option>
+          <option value="DUE_FROM_STORE" {% if status_filter == 'DUE_FROM_STORE' %}selected{% endif %}>Due from Store</option>
+          <option value="PENDING_PARTNER_REMITTANCE" {% if status_filter == 'PENDING_PARTNER_REMITTANCE' %}selected{% endif %}>Pending External Partner</option>
           <option value="PENDING_RIDER_CASH" {% if status_filter == 'PENDING_RIDER_CASH' %}selected{% endif %}>Pending Rider Cash</option>
-          <option value="PENDING_PAYMENT" {% if status_filter == 'PENDING_PAYMENT' %}selected{% endif %}>Pending Payment</option>
+          <option value="PENDING_UPI_VERIFICATION" {% if status_filter == 'PENDING_UPI_VERIFICATION' %}selected{% endif %}>Pending UPI Verification</option>
+          <option value="PENDING_PAYMENT" {% if status_filter == 'PENDING_PAYMENT' %}selected{% endif %}>Pending Customer Payment</option>
+          <option value="ADJUSTED" {% if status_filter == 'ADJUSTED' %}selected{% endif %}>Adjusted / Refunded</option>
+          <option value="NOT_REQUIRED" {% if status_filter == 'NOT_REQUIRED' %}selected{% endif %}>Not Required</option>
         </select>
       </div>
 
       <div class="pe-field">
-        <label>Payment</label>
+        <label>Customer Payment</label>
         <select name="payment">
           <option value="">All</option>
-          <option value="COD" {% if payment_filter == 'COD' %}selected{% endif %}>COD</option>
-          <option value="ONLINE" {% if payment_filter == 'ONLINE' %}selected{% endif %}>Online</option>
+          <option value="COD" {% if payment_filter == 'COD' %}selected{% endif %}>Pay on Delivery / COD</option>
+          <option value="ONLINE" {% if payment_filter == 'ONLINE' %}selected{% endif %}>Prepaid Online</option>
         </select>
       </div>
 
@@ -543,7 +127,7 @@
         <input type="date" name="to" value="{{ date_to or '' }}">
       </div>
 
-            <button class="pe-btn primary" type="submit">Apply</button>
+      <button class="pe-btn primary" type="submit">Apply</button>
       <a class="pe-btn" href="{{ url_for('admin_platform_earnings') }}">Reset</a>
       <a class="pe-btn" href="{{ url_for('admin_platform_earnings_export_csv', q=q, status=status_filter, payment=payment_filter, **{'from': date_from, 'to': date_to}) }}">Export CSV</a>
     </form>
@@ -553,129 +137,88 @@
         <table class="pe-table">
           <thead>
             <tr>
-                            <th>Order</th>
-              <th>Store</th>
-              <th>Customer</th>
-              <th>Payment Flow</th>
-              <th>Platform Fee</th>
-              <th>Platform Status</th>
-              <th>Rider Cash / COD</th>
-              <th>Order Settlement</th>
+              <th>Order</th>
+              <th>Store / Customer</th>
+              <th>Customer Payment Flow</th>
+              <th>Gross / Refund / Net Fee</th>
+              <th>Platform Reconciliation</th>
+              <th>Business Reconciliation</th>
+              <th>Store / Driver Settlement</th>
               <th>Date</th>
             </tr>
           </thead>
-
           <tbody>
-                        {% for o in rows %}
-              {% set earning_status_class = (o.platform_earning_status or 'pending')|lower %}
-              {% set payment_method = (o.payment_method or '')|upper %}
-              {% set payment_status = (o.payment_status or '')|upper %}
-              {% set rider_cash_status = (o.rider_cash_settlement_status or '')|upper %}
-              {% set is_online_order = payment_method in ['ONLINE', 'ONLINE_PAYMENT', 'RAZORPAY'] %}
-              {% set is_cod_order = payment_method in ['COD', 'CASH_ON_DELIVERY', 'COD_RIDER_COLLECTION'] %}
-              {% set platform_status = (o.platform_earning_status or o.platform_fee_status or '')|upper %}
-              {% set platform_received = platform_status in ['RECEIVED', 'PAID', 'SETTLED'] %}
+            {% for o in rows %}
+              {% set platform_status = (o.platform_earning_status or o.platform_fee_reconciliation_status or o.platform_fee_status or 'PENDING')|upper %}
+              {% set is_received = platform_status == 'RECEIVED' %}
+              {% set gross_fee = o.gross_platform_fee|default(o.platform_fee|default(0))|float %}
+              {% set refund_fee = o.refund_platform_fee|default(0)|float %}
+              {% set net_fee = o.net_platform_fee|default(o.platform_fee|default(0))|float %}
               <tr>
                 <td>
-                  <span class="pe-main">#{{ o.id[-6:] if o.id else "-" }}</span>
-                  <span class="pe-sub">Total payable: ₹{{ "%.2f"|format(o.total_payable|default(0)|float) }}</span>
+                  <span class="pe-main">{{ o.order_number or o.display_order_number or (("#" ~ o.id[-6:]) if o.id else '-') }}</span>
+                  <span class="pe-sub">Total: ₹{{ '%.2f'|format(o.total_payable|default(o.total_amount|default(0))|float) }}</span>
                 </td>
 
                 <td>
-                  <span class="pe-main">{{ o.store_name or "-" }}</span>
-                  <span class="pe-sub">Store earning: ₹{{ "%.2f"|format(o.store_earning|default(0)|float) }}</span>
+                  <span class="pe-main">{{ o.store_name or '-' }}</span>
+                  <span class="pe-sub">Customer: {{ o.customer_name or '-' }}</span>
+                  {% if o.customer_phone %}<span class="pe-sub">{{ o.customer_phone }}</span>{% endif %}
                 </td>
 
                 <td>
-                  <span class="pe-main">{{ o.customer_name or "-" }}</span>
-                  <span class="pe-sub">{{ o.customer_phone or "" }}</span>
-                </td>
-
-                                <td>
                   <div class="pe-flow-box">
-                    {% if is_online_order %}
-                      <span class="pe-flow-pill online">Online Payment</span>
-                      <span class="pe-flow-note">Platform fee received after Razorpay payment success.</span>
-                    {% elif is_cod_order %}
-                      <span class="pe-flow-pill cod">COD</span>
-                      <span class="pe-flow-note">Platform fee received only after rider cash is confirmed by Admin.</span>
-                    {% else %}
-                      <span class="pe-flow-pill">{{ payment_method or "UNKNOWN" }}</span>
-                    {% endif %}
-
-                    <span class="pe-sub">Payment: {{ o.payment_status or "-" }}</span>
+                    <span class="pe-flow-pill {% if (o.payment_method or '')|upper in ['COD','CASH_ON_DELIVERY','COD_RIDER_COLLECTION'] %}cod{% else %}online{% endif %}">{{ o.payment_collection_label or o.payment_method or 'Payment' }}</span>
+                    <span class="pe-flow-note">Receiver: {{ o.payment_receiver_label or '-' }}</span>
+                    <span class="pe-sub">Customer payment: {{ o.payment_reconciliation_status or o.payment_status or '-' }}</span>
                   </div>
                 </td>
 
                 <td>
-                  <span class="pe-money">₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</span>
+                  <span class="pe-sub">Gross: ₹{{ '%.2f'|format(gross_fee) }}</span>
+                  <span class="pe-sub">Refund adjustment: - ₹{{ '%.2f'|format(refund_fee) }}</span>
+                  <span class="pe-money">Net: ₹{{ '%.2f'|format(net_fee) }}</span>
                 </td>
 
-                               <td>
-                  {% if platform_received %}
-                    <div class="pe-status-box received">
-                      <strong>Received</strong>
-                      {% if is_online_order %}
-                        <span>Online payment received by NE FRESH.</span>
-                      {% elif is_cod_order %}
-                        <span>COD cash received from rider by Admin.</span>
-                      {% else %}
-                        <span>Platform fee marked received.</span>
-                      {% endif %}
-
-                      {% if o.platform_fee_received_at %}
-                        <span>Received: {{ o.platform_fee_received_at }}</span>
-                      {% endif %}
-                    </div>
-                  {% else %}
-                    <div class="pe-status-box pending">
-                      <strong>{{ o.platform_earning_status or o.platform_fee_status or "PENDING" }}</strong>
-                      {% if is_cod_order %}
-                        <span>Waiting for rider cash settlement.</span>
-                      {% elif is_online_order %}
-                        <span>Waiting for online payment success.</span>
-                      {% else %}
-                        <span>Platform fee is pending.</span>
-                      {% endif %}
-                    </div>
-                  {% endif %}
-                </td>
-
-                               <td>
-                  {% if is_online_order %}
-                    <div class="pe-status-box received">
-                      <strong>Not Required</strong>
-                      <span>Customer paid NE FRESH online. Rider cash is not involved.</span>
-                    </div>
-                  {% elif is_cod_order %}
-                    {% if rider_cash_status in ['RECEIVED_BY_ADMIN', 'RECEIVED', 'SETTLED'] %}
-                      <div class="pe-status-box received">
-                        <strong>{{ o.rider_cash_settlement_status or "RECEIVED" }}</strong>
-                        <span>Admin received rider cash.</span>
-                        <span>Cash submitted: ₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
-                      </div>
+                <td>
+                  <div class="pe-status-box {% if is_received %}received{% else %}pending{% endif %}">
+                    <strong>{{ platform_status }}</strong>
+                    {% if platform_status == 'RECEIVED' %}
+                      <span>Net platform fee reconciled to Admin/NE LOCALS.</span>
+                    {% elif platform_status == 'DUE_FROM_STORE' %}
+                      <span>Customer paid the Store directly. Net platform fee is due from the Store.</span>
+                    {% elif platform_status == 'PENDING_PARTNER_REMITTANCE' %}
+                      <span>External delivery partner customer-money remittance is pending.</span>
+                    {% elif platform_status == 'PENDING_RIDER_CASH' %}
+                      <span>Waiting for in-house COD cash remittance to Admin.</span>
+                    {% elif platform_status == 'PENDING_UPI_VERIFICATION' %}
+                      <span>Waiting for Admin verification of official UPI-at-delivery receipt.</span>
+                    {% elif platform_status == 'PENDING_PAYMENT' %}
+                      <span>Customer payment itself is still pending.</span>
+                    {% elif platform_status in ['ADJUSTED','NOT_REQUIRED'] %}
+                      <span>No net platform fee remains payable after adjustment.</span>
                     {% else %}
-                      <div class="pe-status-box pending">
-                        <strong>{{ o.rider_cash_settlement_status or "PENDING" }}</strong>
-                        <span>Cash to submit: ₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
-                        <span class="pe-danger-note">Platform fee pending until rider cash is received.</span>
-                      </div>
+                      <span>Platform fee reconciliation is pending.</span>
                     {% endif %}
-                  {% else %}
-                    <span class="pe-pill pending">{{ o.rider_cash_settlement_status or "PENDING" }}</span>
-                  {% endif %}
+                  </div>
                 </td>
 
                 <td>
-                  <span class="pe-main">{{ o.order_settlement_status or "-" }}</span>
-                  {% if o.store_payout_status %}
-                    <span class="pe-sub">Store payout: {{ o.store_payout_status }}</span>
-                  {% endif %}
+                  <div class="pe-status-box {% if o.business_reconciliation_complete %}received{% else %}pending{% endif %}">
+                    <strong>{% if o.business_reconciliation_complete %}RECONCILED{% else %}PENDING{% endif %}</strong>
+                    <span>Customer: {{ o.payment_reconciliation_status or '-' }}</span>
+                    <span>Platform fee: {{ o.platform_fee_reconciliation_status or platform_status }}</span>
+                  </div>
                 </td>
 
                 <td>
-                  <span class="pe-main">{{ o.report_date or o.delivered_at or o.created_at or "-" }}</span>
+                  <span class="pe-main">Store payout: {{ o.store_payout_status or '-' }}</span>
+                  {% if o.delivery_payout_model %}<span class="pe-sub">Driver model: {{ o.delivery_payout_model }}</span>{% endif %}
+                  {% if o.rider_cash_settlement_status %}<span class="pe-sub">Rider cash: {{ o.rider_cash_settlement_status }}</span>{% endif %}
+                  <span class="pe-sub">Order settlement: {{ o.order_settlement_status or '-' }}</span>
                 </td>
+
+                <td><span class="pe-main">{{ o.report_date or o.delivered_at or o.created_at or '-' }}</span></td>
               </tr>
             {% endfor %}
           </tbody>
@@ -683,63 +226,30 @@
       </div>
 
       <div class="pe-mobile-list">
-                {% for o in rows %}
-          {% set earning_status_class = (o.platform_earning_status or 'pending')|lower %}
-          {% set payment_method = (o.payment_method or '')|upper %}
-          {% set rider_cash_status = (o.rider_cash_settlement_status or '')|upper %}
-          {% set is_online_order = payment_method in ['ONLINE', 'ONLINE_PAYMENT', 'RAZORPAY'] %}
-          {% set is_cod_order = payment_method in ['COD', 'CASH_ON_DELIVERY', 'COD_RIDER_COLLECTION'] %}
-          {% set platform_status = (o.platform_earning_status or o.platform_fee_status or '')|upper %}
-          {% set platform_received = platform_status in ['RECEIVED', 'PAID', 'SETTLED'] %}
+        {% for o in rows %}
+          {% set platform_status = (o.platform_earning_status or o.platform_fee_reconciliation_status or o.platform_fee_status or 'PENDING')|upper %}
+          {% set gross_fee = o.gross_platform_fee|default(o.platform_fee|default(0))|float %}
+          {% set refund_fee = o.refund_platform_fee|default(0)|float %}
+          {% set net_fee = o.net_platform_fee|default(o.platform_fee|default(0))|float %}
           <div class="pe-mobile-card">
             <div>
-              <span class="pe-main">#{{ o.id[-6:] if o.id else "-" }} · {{ o.store_name or "Store" }}</span>
-              <span class="pe-sub">{{ o.report_date or o.delivered_at or o.created_at or "-" }}</span>
+              <span class="pe-main">{{ o.order_number or o.display_order_number or (("#" ~ o.id[-6:]) if o.id else '-') }} · {{ o.store_name or 'Store' }}</span>
+              <span class="pe-sub">{{ o.report_date or o.delivered_at or o.created_at or '-' }}</span>
             </div>
 
             <div class="pe-mobile-grid">
-              <div class="pe-mobile-metric">
-                <span>Platform Fee</span>
-                <strong>₹{{ "%.2f"|format(o.platform_fee|default(0)|float) }}</strong>
-              </div>
-
-              <div class="pe-mobile-metric">
-                <span>Status</span>
-                <strong>{{ o.platform_earning_status or "-" }}</strong>
-              </div>
-
-                            <div class="pe-mobile-metric">
-                <span>Payment</span>
-                <strong>
-                  {% if is_online_order %}
-                    Online
-                  {% elif is_cod_order %}
-                    COD
-                  {% else %}
-                    {{ o.payment_method or "-" }}
-                  {% endif %}
-                </strong>
-              </div>
-
-              <div class="pe-mobile-metric">
-                <span>Settlement</span>
-                <strong>{{ o.order_settlement_status or "-" }}</strong>
-              </div>
+              <div class="pe-mobile-metric"><span>Gross Fee</span><strong>₹{{ '%.2f'|format(gross_fee) }}</strong></div>
+              <div class="pe-mobile-metric"><span>Refund Adj.</span><strong>₹{{ '%.2f'|format(refund_fee) }}</strong></div>
+              <div class="pe-mobile-metric"><span>Net Fee</span><strong>₹{{ '%.2f'|format(net_fee) }}</strong></div>
+              <div class="pe-mobile-metric"><span>Status</span><strong>{{ platform_status }}</strong></div>
             </div>
 
-                       <div>
-              {% if platform_received %}
-                <span class="pe-pill received">PLATFORM FEE RECEIVED</span>
-              {% else %}
-                <span class="pe-pill pending">{{ o.platform_earning_status or o.platform_fee_status or "PENDING" }}</span>
-              {% endif %}
-
-              {% if is_online_order %}
-                <span class="pe-sub">Online payment received by NE FRESH. Rider cash not required.</span>
-              {% elif is_cod_order %}
-                <span class="pe-sub">Rider cash: {{ o.rider_cash_settlement_status or "PENDING" }}</span>
-                <span class="pe-sub">Cash to submit: ₹{{ "%.2f"|format(o.rider_cash_to_submit|default(0)|float) }}</span>
-              {% endif %}
+            <div class="pe-flow-box">
+              <span class="pe-flow-pill {% if (o.payment_method or '')|upper in ['COD','CASH_ON_DELIVERY','COD_RIDER_COLLECTION'] %}cod{% else %}online{% endif %}">{{ o.payment_collection_label or o.payment_method or 'Payment' }}</span>
+              <span class="pe-flow-note">Receiver: {{ o.payment_receiver_label or '-' }}</span>
+              <span class="pe-sub">Customer: {{ o.payment_reconciliation_status or o.payment_status or '-' }}</span>
+              <span class="pe-sub">Platform: {{ o.platform_fee_reconciliation_status or platform_status }}</span>
+              <span class="pe-sub">Store payout: {{ o.store_payout_status or '-' }}</span>
             </div>
           </div>
         {% endfor %}

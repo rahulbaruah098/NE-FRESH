@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style id="nfRoleBootGuard">
+    /* Prevent raw HTML from painting before the role/page CSS is ready. */
+    html.nf-view-boot body,
+    html.nf-action-restore-pending body { visibility:hidden !important; opacity:0 !important; }
+  </style>
   <meta name="csrf-token" content="{{ csrf_token }}">
   <script>
     (function(){
@@ -65,1657 +70,85 @@
       }
     })();
   </script>
-
-
-
-  <style>
-    html.nf-view-boot,
-    html.nf-view-boot body,
-    html.nf-restore-pending,
-    html.nf-restore-pending body {
-      overflow: hidden;
-    }
-
-    html.nf-view-boot body,
-    html.nf-restore-pending body {
-      opacity: 1;
-    }
-
-    html.nf-view-ready body {
-      opacity: 1;
-      transition: opacity .12s ease;
-    }
-
-    html[data-nb-bundle-action-pending="1"] .nf-content > .nf-flash-wrap:not(.nf-flash-inline-action) {
-      display: none;
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/global-foundation.css') }}">
   <script>
     (function(){
-      var BOOT_CLASS = 'nf-view-boot';
-      var RESTORE_CLASS = 'nf-restore-pending';
-      var READY_CLASS = 'nf-view-ready';
-      var STORAGE_PREFIX = 'nefresh:view-state:v2:';
-      var STORE_STORAGE_PREFIX = 'neFreshStoreViewState:';
-      var PRODUCT_BUNDLES_PATH = "{{ url_for('store_product_bundles') }}";
-      var PRODUCT_BUNDLE_ACTION_KEY = 'nfStoreProductBundlesActionNotice';
-      var MAX_AGE_MS = 1000 * 60 * 60 * 8;
-
-      function now(){
-        return Date.now ? Date.now() : new Date().getTime();
-      }
-
-      function hasUsefulState(raw, allowSimpleStoreState){
-        if (!raw) return false;
-
-        try{
-          var state = JSON.parse(raw);
-          if (!state) return false;
-
-          if (state.t && (now() - state.t) > MAX_AGE_MS) return false;
-
-          if (Math.abs(Number(state.x || 0)) > 2 || Math.abs(Number(state.y || 0)) > 2) return true;
-          if (state.hash) return true;
-          if (state.openGroups && state.openGroups.length) return true;
-
-          if (state.containers) {
-            for (var key in state.containers) {
-              if (!Object.prototype.hasOwnProperty.call(state.containers, key)) continue;
-              var item = state.containers[key] || {};
-              if (Math.abs(Number(item.top || 0)) > 2 || Math.abs(Number(item.left || 0)) > 2) return true;
-            }
-          }
-
-          if (allowSimpleStoreState && Number(state.y || 0) > 2) return true;
-
-          return false;
-        }catch(_){
-          return false;
+      try {
+        if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+        var root = document.documentElement;
+        var raw = window.sessionStorage ? sessionStorage.getItem('nefresh:action-view:v1') : null;
+        var state = raw ? JSON.parse(raw) : null;
+        var fresh = state && state.t && (Date.now() - Number(state.t)) <= (1000 * 60 * 3);
+        root.classList.remove('nf-restore-pending', 'nf-view-ready');
+        /* Keep nf-view-boot until view-state.js reveals the fully parsed page. */
+        if (fresh && state.path === window.location.pathname) {
+          root.classList.add('nf-action-restore-pending');
+        } else {
+          root.classList.remove('nf-action-restore-pending');
         }
-      }
-
-      function isProductBundlesPage(){
-        try{
-          var bundleUrl = new URL(PRODUCT_BUNDLES_PATH, window.location.origin);
-          return window.location.pathname === bundleUrl.pathname;
-        }catch(_){
-          return false;
-        }
-      }
-
-      if (isProductBundlesPage()) {
-        try {
-          if (sessionStorage.getItem(PRODUCT_BUNDLE_ACTION_KEY)) {
-            document.documentElement.setAttribute('data-nb-bundle-action-pending', '1');
-          }
-        } catch (_) {}
-      }
-
-      function shouldHoldForRestore(){
-        try{
-          if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-
-          if (isProductBundlesPage()) {
-            return false;
-          }
-
-          if (!window.sessionStorage) return !!window.location.hash;
-
-          var exactKey = STORAGE_PREFIX + window.location.pathname + window.location.search;
-          var storeKey = STORE_STORAGE_PREFIX + window.location.pathname;
-
-          if (hasUsefulState(sessionStorage.getItem(exactKey), false)) return true;
-          if (hasUsefulState(sessionStorage.getItem(storeKey), true)) return true;
-          if (window.location.hash) return true;
-
-          return false;
-        }catch(_){
-          return !!window.location.hash;
-        }
-      }
-
-      function reveal(){
-        document.documentElement.classList.remove(BOOT_CLASS);
-        document.documentElement.classList.remove(RESTORE_CLASS);
-        document.documentElement.classList.add(READY_CLASS);
-      }
-
-      document.documentElement.classList.remove(READY_CLASS);
-
-      if (shouldHoldForRestore()) {
-        document.documentElement.classList.remove(BOOT_CLASS);
-        document.documentElement.classList.add(RESTORE_CLASS);
-        window.setTimeout(reveal, 1800);
-      } else {
-        reveal();
+      } catch (error) {
+        /* Keep the boot guard in place; the fallback below will reveal safely. */
       }
     })();
   </script>
-
 <title>{% block title %}NE Locals Store{% endblock %}</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-  <script>
-    (function () {
-      try {
-        var bundleUrl = new URL("{{ url_for('store_product_bundles') }}", window.location.origin);
-
-        if (window.location.pathname === bundleUrl.pathname) {
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/role-portal.css') }}">
+  <script src="{{ url_for('static', filename='js/soft-nav-style-runtime.js', v='3f4-final-3') }}"></script>
+  <script src="{{ url_for('static', filename='js/map-runtime.js') }}"></script>
+  <meta id="nfPageStylesStart" data-nf-page-style-boundary="start">
+  {% block extra_css %}{% endblock %}
+  <meta id="nfPageStylesEnd" data-nf-page-style-boundary="end">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-system.css', v='3f4-final-3') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/role-ui-system.css') }}">
+  <script id="nfRoleBootFallback">
+    (function(){
+      window.setTimeout(function(){
+        var root=document.documentElement;
+        if (!root.classList.contains('nf-view-boot')) return;
+        if (document.readyState !== 'complete') {
+          window.addEventListener('load', function(){
+            if (!root.classList.contains('nf-view-boot')) return;
+            root.classList.remove('nf-view-boot','nf-restore-pending','nf-action-restore-pending');
+            root.classList.add('nf-view-ready');
+          }, { once:true });
           return;
         }
-
-        var key = 'neFreshStoreViewState:' + window.location.pathname;
-        var saved = JSON.parse(sessionStorage.getItem(key) || '{}');
-
-        if (window.location.hash || saved.hash || saved.y > 80) {
-          document.documentElement.classList.add('nf-restore-pending');
-          if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-        }
-      } catch (err) {}
+        root.classList.remove('nf-view-boot','nf-restore-pending','nf-action-restore-pending');
+        root.classList.add('nf-view-ready');
+      }, 5000);
     })();
   </script>
-
-  <style>
-    :root {
-      --nf-green: #00A859;
-      --nf-green-dark: #008A48;
-      --nf-green-deep: #075C3B;
-      --nf-green-soft: #E9FFF3;
-      --nf-green-soft-2: #F3FFF8;
-      --nf-orange: #FFB84D;
-      --nf-orange-soft: #FFF7E8;
-      --nf-red: #EF4444;
-      --nf-blue: #0284C7;
-      --nf-bg: #F8FFFB;
-      --nf-surface: #FFFFFF;
-      --nf-surface-2: #F2FBF6;
-      --nf-text: #1F332A;
-      --nf-muted: #66756D;
-      --nf-muted-2: #8A9890;
-      --nf-line: #DDECE4;
-      --nf-line-2: #EAF4EF;
-      --nf-sidebar-bg: #FFFFFF;
-      --nf-sidebar-text: #1F332A;
-      --nf-sidebar-muted: #6F8177;
-      --nf-sidebar-hover: #E9FFF3;
-      --nf-shadow: 0 14px 36px rgba(17,64,38,.08);
-      --nf-shadow-heavy: 0 24px 70px rgba(17,64,38,.16);
-      --nf-radius: 18px;
-      --nf-topbar-height: 74px;
-      --nf-footer-height: 78px;
-      --nf-sidebar-width: 326px;
-      --nf-sidebar-collapsed: 88px;
-      --nf-mobile-sidebar-width: min(326px, 90vw);
-      --nf-safe-top: env(safe-area-inset-top, 0px);
-      --nf-safe-right: env(safe-area-inset-right, 0px);
-      --nf-safe-bottom: env(safe-area-inset-bottom, 0px);
-      --nf-safe-left: env(safe-area-inset-left, 0px);
-      --nf-frame-top: calc(var(--nf-topbar-height) + var(--nf-safe-top));
-      --nf-frame-bottom: calc(var(--nf-footer-height) + var(--nf-safe-bottom));
-      --nf-ease: cubic-bezier(.2,.75,.25,1);
-    }
-
-    * { box-sizing: border-box; }
-
-    html,
-    body {
-      margin: 0;
-      min-height: 100%;
-      width: 100%;
-      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: var(--nf-bg);
-      color: var(--nf-text);
-      -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
-      overflow-x: hidden;
-    }
-
-    body {
-      min-height: 100vh;
-      min-height: 100dvh;
-    }
-
-    a { color: inherit; text-decoration: none; }
-    button, input, select, textarea { font-family: inherit; }
-    button { -webkit-tap-highlight-color: transparent; }
-
-    .nf-admin-shell {
-      min-height: 100vh;
-      min-height: 100dvh;
-      width: 100%;
-      background: var(--nf-bg);
-      overflow-x: hidden;
-    }
-
-    /* ===================== TOP BAR ===================== */
-
-    .nf-topbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 1000;
-      width: 100%;
-      height: var(--nf-frame-top);
-      padding: var(--nf-safe-top) max(20px, var(--nf-safe-right)) 0 max(20px, var(--nf-safe-left));
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      background: rgba(255,255,255,.96);
-      border-bottom: 1px solid var(--nf-line);
-      box-shadow: 0 12px 30px rgba(17,64,38,.06);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-    }
-
-    .nf-topbar-logo {
-      width: 108px;
-      height: 44px;
-      display: grid;
-      place-items: center;
-      align-self: center;
-      flex: 0 0 auto;
-      position: relative;
-      top: -7px;
-    }
-
-    .nf-topbar-logo img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      filter: drop-shadow(0 10px 18px rgba(0,168,89,.14));
-      display: block;
-    }
-
-    .nf-mobile-dashboard-link {
-      display: none;
-      align-items: center;
-      justify-content: center;
-      min-height: 38px;
-      padding: 0 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(0,168,89,.20);
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-      font-size: .84rem;
-      font-weight: 900;
-      letter-spacing: -.02em;
-      white-space: nowrap;
-      box-shadow: 0 10px 22px rgba(17,64,38,.07);
-    }
-
-    .nf-topbar-spacer { flex: 1 1 auto; min-width: 8px; }
-
-    .nf-top-search {
-      width: min(330px, 34vw);
-      height: 42px;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      border: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-      border-radius: 14px;
-      padding: 0 12px;
-      flex: 0 1 auto;
-    }
-
-    .nf-top-search input {
-      width: 100%;
-      min-width: 0;
-      border: 0;
-      background: transparent;
-      outline: none;
-      color: var(--nf-text);
-      font-size: .9rem;
-      font-weight: 650;
-    }
-
-    .nf-icon-btn,
-    .nf-mobile-menu {
-      width: 42px;
-      height: 42px;
-      min-width: 42px;
-      border: 1px solid var(--nf-line);
-      border-radius: 14px;
-      background: var(--nf-surface);
-      color: var(--nf-text);
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      position: relative;
-      transition: transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease), border-color .22s var(--nf-ease), background .22s var(--nf-ease), color .22s var(--nf-ease);
-    }
-
-    .nf-icon-btn:hover,
-    .nf-mobile-menu:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--nf-shadow);
-      border-color: rgba(0,168,89,.28);
-    }
-
-    .nf-mobile-menu {
-      display: none;
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-      border-color: rgba(0,168,89,.24);
-    }
-
-    .nf-mobile-menu-lines,
-    .nf-mobile-menu-lines::before,
-    .nf-mobile-menu-lines::after {
-      content: "";
-      display: block;
-      width: 18px;
-      height: 2px;
-      border-radius: 999px;
-      background: currentColor;
-      transition: transform .22s var(--nf-ease), opacity .22s var(--nf-ease), top .22s var(--nf-ease);
-    }
-
-    .nf-mobile-menu-lines { position: relative; }
-    .nf-mobile-menu-lines::before { position: absolute; top: -6px; left: 0; }
-    .nf-mobile-menu-lines::after { position: absolute; top: 6px; left: 0; }
-
-    body.sidebar-open .nf-mobile-menu-lines { background: transparent; }
-    body.sidebar-open .nf-mobile-menu-lines::before { top: 0; transform: rotate(45deg); }
-    body.sidebar-open .nf-mobile-menu-lines::after { top: 0; transform: rotate(-45deg); }
-
-    .nf-badge {
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      min-width: 18px;
-      height: 18px;
-      border-radius: 999px;
-      background: var(--nf-orange);
-      color: #fff;
-      display: grid;
-      place-items: center;
-      font-size: .68rem;
-      font-weight: 900;
-      border: 2px solid var(--nf-surface);
-    }
-
-    /* ===================== NOTIFICATION PANEL ===================== */
-
-    .nf-store-alert-wrap {
-      position: relative;
-      display: inline-grid;
-      flex: 0 0 auto;
-    }
-
-    .nf-store-alert-panel {
-      position: absolute;
-      top: 52px;
-      right: 0;
-      width: min(390px, calc(100vw - 24px));
-      display: none;
-      z-index: 1100;
-      border: 1px solid var(--nf-line);
-      border-radius: 18px;
-      background: var(--nf-surface);
-      box-shadow: var(--nf-shadow-heavy);
-      overflow: hidden;
-    }
-
-    .nf-store-alert-panel.show { display: block; }
-
-    .nf-store-alert-head {
-      min-height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-    }
-
-    .nf-store-alert-head strong { color: var(--nf-text); font-size: .86rem; font-weight: 900; }
-    .nf-store-alert-head a { color: var(--nf-green-dark); font-size: .76rem; font-weight: 900; }
-    .nf-store-alert-list { max-height: min(360px, 58vh); overflow: auto; }
-
-    .nf-store-alert-item {
-      display: grid;
-      grid-template-columns: 34px minmax(0,1fr);
-      gap: 10px;
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--nf-line-2);
-      color: var(--nf-text);
-      text-decoration: none;
-    }
-
-    .nf-store-alert-item:last-child { border-bottom: 0; }
-    .nf-store-alert-item:hover { background: var(--nf-green-soft-2); }
-
-    .nf-store-alert-icon {
-      width: 34px;
-      height: 34px;
-      display: grid;
-      place-items: center;
-      border-radius: 12px;
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-    }
-
-    .nf-store-alert-item.reassignment .nf-store-alert-icon { background: #FFF7E8; color: #A84700; }
-    .nf-store-alert-title { color: var(--nf-text); font-size: .84rem; line-height: 1.25; font-weight: 900; }
-    .nf-store-alert-msg { margin-top: 4px; color: var(--nf-muted); font-size: .76rem; line-height: 1.4; font-weight: 650; }
-    .nf-store-alert-time { margin-top: 5px; color: var(--nf-muted-2); font-size: .68rem; font-weight: 800; }
-    .nf-store-alert-empty { padding: 18px 14px; color: var(--nf-muted); font-size: .82rem; font-weight: 750; text-align: center; }
-
-    .nf-icon-btn.nf-notifications-off {
-      color: var(--nf-muted);
-      background: #F7F9F8;
-    }
-
-    .nf-global-notice-wrap {
-      position: fixed;
-      top: calc(var(--nf-frame-top) + 14px);
-      right: max(14px, var(--nf-safe-right));
-      z-index: 1250;
-      width: min(390px, calc(100vw - 28px));
-      display: grid;
-      gap: 10px;
-      pointer-events: none;
-    }
-
-    .nf-global-notice {
-      width: 100%;
-      display: grid;
-      grid-template-columns: 42px minmax(0,1fr) auto;
-      gap: 11px;
-      align-items: center;
-      padding: 13px 14px;
-      border: 1px solid var(--nf-line);
-      border-left: 4px solid var(--nf-green);
-      border-radius: 16px;
-      background: rgba(255,255,255,.98);
-      box-shadow: var(--nf-shadow-heavy);
-      color: var(--nf-text);
-      opacity: 0;
-      transform: translateY(-8px);
-      transition: opacity .2s var(--nf-ease), transform .2s var(--nf-ease);
-      pointer-events: auto;
-      cursor: pointer;
-    }
-
-    .nf-global-notice.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .nf-global-notice.off {
-      border-left-color: var(--nf-orange);
-    }
-
-    .nf-global-notice.error {
-      border-left-color: var(--nf-red);
-    }
-
-    .nf-global-notice-icon {
-      width: 42px;
-      height: 42px;
-      display: grid;
-      place-items: center;
-      border-radius: 13px;
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-      font-size: 19px;
-    }
-
-    .nf-global-notice.off .nf-global-notice-icon {
-      background: var(--nf-orange-soft);
-      color: #A84700;
-    }
-
-    .nf-global-notice.error .nf-global-notice-icon {
-      background: #FFF1F2;
-      color: #B91C1C;
-    }
-
-    .nf-global-notice-title {
-      color: var(--nf-text);
-      font-size: .86rem;
-      font-weight: 900;
-      line-height: 1.25;
-    }
-
-    .nf-global-notice-message {
-      margin-top: 3px;
-      color: var(--nf-muted);
-      font-size: .76rem;
-      font-weight: 700;
-      line-height: 1.4;
-      overflow-wrap: anywhere;
-    }
-
-    .nf-global-notice-close {
-      width: 30px;
-      height: 30px;
-      display: grid;
-      place-items: center;
-      border: 0;
-      border-radius: 10px;
-      background: #F4F8F6;
-      color: var(--nf-muted);
-      cursor: pointer;
-      font-size: 18px;
-      line-height: 1;
-    }
-
-    /* ===================== PROFILE MENU ===================== */
-
-    .nf-profile { position: relative; flex: 0 0 auto; }
-
-    .nf-profile-btn {
-      min-height: 46px;
-      border: 1px solid var(--nf-line);
-      border-radius: 16px;
-      background: var(--nf-surface);
-      color: var(--nf-text);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 5px 10px 5px 6px;
-      cursor: pointer;
-      transition: transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease);
-    }
-
-    .nf-profile-btn:hover { box-shadow: var(--nf-shadow); transform: translateY(-1px); }
-    .nf-avatar { width: 36px; height: 36px; border-radius: 13px; display: grid; place-items: center; background: var(--nf-green); color: #fff; font-weight: 900; }
-    .nf-profile-meta { text-align: left; line-height: 1.15; }
-    .nf-profile-meta strong { display: block; font-size: .88rem; font-weight: 850; }
-    .nf-profile-meta span { color: var(--nf-muted); font-size: .73rem; font-weight: 700; }
-
-    .nf-profile-menu {
-      position: absolute;
-      top: calc(100% + 10px);
-      right: 0;
-      width: 286px;
-      padding: 10px;
-      border-radius: 22px;
-      background: rgba(255,255,255,.98);
-      border: 1px solid var(--nf-line);
-      box-shadow: var(--nf-shadow-heavy);
-      display: none;
-      z-index: 1100;
-      overflow: hidden;
-    }
-
-    .nf-profile-menu.open { display: block; }
-
-    .nf-profile-menu-head {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px;
-      margin-bottom: 8px;
-      border-radius: 18px;
-      background: var(--nf-green-soft-2);
-      border: 1px solid rgba(0,168,89,.14);
-    }
-
-    .nf-profile-menu-avatar {
-      width: 42px;
-      height: 42px;
-      border-radius: 16px;
-      display: grid;
-      place-items: center;
-      background: var(--nf-green);
-      color: #fff;
-      font-weight: 900;
-      flex: 0 0 auto;
-    }
-
-    .nf-profile-menu-head strong { display: block; color: var(--nf-text); font-size: .92rem; font-weight: 850; }
-    .nf-profile-menu-head small { display: block; margin-top: 2px; color: var(--nf-muted); font-size: .76rem; font-weight: 700; }
-
-    .nf-profile-menu a,
-    .nf-profile-menu button {
-      width: 100%;
-      min-height: 44px;
-      border: 0;
-      background: transparent;
-      color: var(--nf-text);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 0 10px;
-      border-radius: 15px;
-      cursor: pointer;
-      font-size: .88rem;
-      font-weight: 750;
-      text-align: left;
-    }
-
-    .nf-profile-menu a:hover,
-    .nf-profile-menu button:hover { background: var(--nf-green-soft); color: var(--nf-green-dark); }
-
-    .nf-profile-menu-icon {
-      width: 34px;
-      height: 34px;
-      min-width: 34px;
-      display: grid;
-      place-items: center;
-      border-radius: 13px;
-      background: #F4F9F6;
-      color: var(--nf-green-dark);
-      border: 1px solid #E2F1E9;
-    }
-
-    .nf-profile-menu-icon svg {
-      width: 17px;
-      height: 17px;
-      stroke: currentColor;
-      stroke-width: 2.1;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      fill: none;
-    }
-
-    .nf-profile-menu-logout { color: #B45309; }
-    .nf-profile-menu-logout .nf-profile-menu-icon { background: #FFF3E7; color: #B45309; border-color: rgba(255,138,31,.22); }
-
-    /* ===================== SIDEBAR FRAME ===================== */
-
-    .nf-sidebar {
-      position: fixed;
-      top: var(--nf-frame-top);
-      left: 0;
-      bottom: var(--nf-frame-bottom);
-      z-index: 900;
-      width: var(--nf-sidebar-width);
-      min-width: var(--nf-sidebar-width);
-      max-width: var(--nf-sidebar-width);
-      display: flex;
-      flex-direction: column;
-      background: var(--nf-sidebar-bg);
-      color: var(--nf-sidebar-text);
-      border-right: 1px solid var(--nf-line);
-      box-shadow: 14px 0 42px rgba(17,64,38,.08);
-      overflow: hidden;
-      transition: width .22s var(--nf-ease), min-width .22s var(--nf-ease), max-width .22s var(--nf-ease), transform .22s var(--nf-ease);
-    }
-
-    .nf-sidebar-header {
-      min-height: 74px;
-      height: 74px;
-      flex: 0 0 auto;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 14px 12px 18px;
-      border-bottom: 1px solid var(--nf-line);
-      background: var(--nf-sidebar-bg);
-    }
-
-    .nf-brand-logo {
-      width: 76px;
-      height: 58px;
-      border-radius: 0;
-      background: transparent;
-      display: grid;
-      place-items: center;
-      overflow: visible;
-      flex: 0 0 auto;
-      box-shadow: none;
-    }
-
-    .nf-brand-logo img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      padding: 0;
-      filter: drop-shadow(0 8px 14px rgba(0,168,89,.12));
-      display: block;
-    }
-
-    .nf-brand-text {
-      min-width: 0;
-      flex: 1 1 auto;
-      transition: opacity .15s var(--nf-ease);
-    }
-
-    .nf-brand-text strong {
-      display: block;
-      color: var(--nf-text);
-      font-size: 1.18rem;
-      line-height: 1.06;
-      font-weight: 900;
-      letter-spacing: -.03em;
-      white-space: nowrap;
-    }
-
-    .nf-brand-text span {
-      display: block;
-      margin-top: 4px;
-      color: var(--nf-sidebar-muted);
-      font-size: .78rem;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .nf-sidebar-title-only {
-      display: flex;
-      align-items: center;
-      min-height: 44px;
-    }
-
-    .nf-sidebar-title-only strong {
-      font-size: 1.02rem;
-      line-height: 1.12;
-      letter-spacing: -.02em;
-    }
-
-    .nf-sidebar-toggle {
-      margin-left: auto;
-      width: 38px;
-      height: 38px;
-      min-width: 38px;
-      border: 1px solid rgba(0,168,89,.18);
-      border-radius: 13px;
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      position: relative;
-      z-index: 25;
-      pointer-events: auto;
-      transition: background .22s var(--nf-ease), color .22s var(--nf-ease), transform .22s var(--nf-ease), box-shadow .22s var(--nf-ease);
-    }
-
-    .nf-sidebar-toggle:hover { background: var(--nf-green); color:#fff; transform: translateY(-1px); box-shadow:0 12px 24px rgba(0,168,89,.16); }
-    .nf-sidebar-toggle span { pointer-events: none; }
-
-    .nf-sidebar-header { position: relative; z-index: 6; }
-    .nf-sidebar-toggle {
-      flex: 0 0 auto;
-      isolation: isolate;
-      touch-action: manipulation;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-
-    .nf-sidebar-toggle::after {
-      content: "";
-      position: absolute;
-      inset: -10px;
-      border-radius: 20px;
-      z-index: -1;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-sidebar-toggle {
-      position: relative;
-      z-index: 45;
-      pointer-events: auto;
-    }
-
-    .nf-sidebar-search {
-      flex: 0 0 auto;
-      padding: 14px 14px 10px;
-      background: var(--nf-sidebar-bg);
-    }
-
-    .nf-menu-search {
-      width: 100%;
-      height: 44px;
-      border: 1px solid var(--nf-line);
-      border-radius: 14px;
-      background: var(--nf-surface);
-      color: var(--nf-text);
-      padding: 0 14px;
-      outline: none;
-      font-size: .9rem;
-      font-weight: 650;
-      box-shadow: 0 8px 18px rgba(17,64,38,.04);
-    }
-
-    .nf-menu-search::placeholder { color: var(--nf-muted-2); }
-    .nf-menu-search:focus { border-color: rgba(0,168,89,.34); box-shadow: 0 0 0 4px rgba(0,168,89,.09); }
-
-    .nf-sidebar-scroll {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding: 8px 14px 14px;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(0,168,89,.30) transparent;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    .nf-sidebar-scroll::-webkit-scrollbar { width: 7px; height: 0; }
-    .nf-sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
-    .nf-sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(0,168,89,.26); border-radius: 999px; }
-
-    .nf-menu-section {
-      margin: 18px 8px 9px;
-      color: var(--nf-sidebar-muted);
-      font-size: .68rem;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      font-weight: 900;
-    }
-
-    .nf-menu-link,
-    .nf-menu-parent {
-      width: 100%;
-      min-height: 48px;
-      border: 0;
-      border-radius: 15px;
-      background: transparent;
-      color: var(--nf-sidebar-text);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 8px 12px;
-      cursor: pointer;
-      font-size: .92rem;
-      line-height: 1.25;
-      font-weight: 750;
-      transition: background .22s var(--nf-ease), color .22s var(--nf-ease), box-shadow .22s var(--nf-ease);
-    }
-
-    .nf-menu-link:hover,
-    .nf-menu-parent:hover { background: var(--nf-sidebar-hover); color: var(--nf-green-dark); }
-
-    .nf-menu-link.active,
-    .nf-menu-parent.active {
-      background: #E9FFF3;
-      color: #007A43;
-      box-shadow: inset 4px 0 0 var(--nf-green), 0 10px 22px rgba(17,64,38,.06);
-    }
-
-    .nf-menu-icon {
-      width: 36px;
-      height: 36px;
-      min-width: 36px;
-      display: grid;
-      place-items: center;
-      border-radius: 14px;
-      background: #F4F9F6;
-      color: #007A43;
-      border: 1px solid #E2F1E9;
-      font-size: 0;
-      transition: background .22s var(--nf-ease), color .22s var(--nf-ease), border-color .22s var(--nf-ease);
-    }
-
-    .nf-menu-icon svg,
-    .nf-logout-icon svg {
-      width: 18px;
-      height: 18px;
-      stroke: currentColor;
-      stroke-width: 2.15;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      fill: none;
-      display: block;
-    }
-
-    .nf-menu-link.active .nf-menu-icon,
-    .nf-menu-parent.active .nf-menu-icon {
-      background: var(--nf-green);
-      color: #fff;
-      border-color: var(--nf-green);
-    }
-
-    .nf-menu-label {
-      flex: 1 1 auto;
-      min-width: 0;
-      white-space: normal;
-      overflow: visible;
-      text-overflow: clip;
-      text-align: left;
-      overflow-wrap: anywhere;
-    }
-
-    .nf-menu-arrow { font-size: .78rem; transition: transform .2s var(--nf-ease); opacity: .85; }
-    .nf-dropdown.open .nf-menu-arrow { transform: rotate(180deg); }
-
-    .nf-dropdown-row {
-      width: 100%;
-      display: grid;
-      grid-template-columns: minmax(0,1fr) 34px;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .nf-dropdown-row .nf-menu-parent { min-width: 0; }
-
-    .nf-parent-open {
-      width: 34px;
-      height: 34px;
-      min-width: 34px;
-      border: 1px solid rgba(0,168,89,.18);
-      border-radius: 12px;
-      color: var(--nf-green-dark);
-      background: transparent;
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      line-height: 1;
-    }
-
-    .nf-parent-open:hover { background: var(--nf-green-soft); }
-
-    .nf-submenu {
-      display: none;
-      padding: 6px 0 8px 48px;
-      margin: 0;
-    }
-
-    .nf-dropdown.open .nf-submenu { display: block; }
-
-    .nf-submenu a {
-      min-height: 38px;
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      padding: 6px 8px;
-      border-radius: 12px;
-      color: #5E7067;
-      font-size: .86rem;
-      line-height: 1.25;
-      font-weight: 750;
-      white-space: normal;
-      transition: background .2s var(--nf-ease), color .2s var(--nf-ease);
-    }
-
-    .nf-submenu-icon {
-      width: 26px;
-      height: 26px;
-      min-width: 26px;
-      display: inline-grid;
-      place-items: center;
-      border-radius: 10px;
-      background: #F4F9F6;
-      color: var(--nf-green-dark);
-      border: 1px solid #E2F1E9;
-      font-size: .83rem;
-      line-height: 1;
-    }
-
-    .nf-submenu-label {
-      min-width: 0;
-      flex: 1 1 auto;
-      overflow-wrap: anywhere;
-    }
-
-    .nf-submenu a:hover,
-    .nf-submenu a.active { background: var(--nf-green-soft); color: var(--nf-green-dark); }
-    .nf-submenu a:hover .nf-submenu-icon,
-    .nf-submenu a.active .nf-submenu-icon {
-      background: var(--nf-green);
-      color: #fff;
-      border-color: var(--nf-green);
-    }
-
-    .nf-menu-no-results {
-      margin: 18px 8px 10px;
-      padding: 18px 14px;
-      border-radius: 18px;
-      background: var(--nf-green-soft-2);
-      border: 1px dashed rgba(0,168,89,.32);
-      color: var(--nf-green-dark);
-      text-align: center;
-      display: grid;
-      gap: 5px;
-      place-items: center;
-    }
-
-    .nf-menu-no-results[hidden] { display: none; }
-
-    .nf-menu-no-results-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 16px;
-      display: grid;
-      place-items: center;
-      background: #fff;
-      color: var(--nf-green-dark);
-      border: 1px solid rgba(0,168,89,.18);
-      font-size: 1.4rem;
-      font-weight: 900;
-    }
-
-    .nf-menu-no-results strong { color: var(--nf-text); font-size: .92rem; font-weight: 850; }
-    .nf-menu-no-results small { color: var(--nf-muted); font-size: .78rem; font-weight: 650; }
-
-    .nf-sidebar-footer {
-      flex: 0 0 auto;
-      padding: 12px 14px;
-      border-top: 1px solid var(--nf-line);
-      background: var(--nf-sidebar-bg);
-    }
-
-    .nf-logout {
-      width: 100%;
-      min-height: 46px;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 10px;
-      padding: 0 12px;
-      background: #FFF3E7;
-      color: #A84700;
-      border: 1px solid rgba(255,138,31,.18);
-      font-weight: 850;
-      transition: background .22s var(--nf-ease), color .22s var(--nf-ease), box-shadow .22s var(--nf-ease);
-    }
-
-    .nf-logout-icon {
-      width: 36px;
-      height: 36px;
-      min-width: 36px;
-      display: grid;
-      place-items: center;
-      border-radius: 14px;
-      background: #fff;
-      color: #A84700;
-      border: 1px solid rgba(255,138,31,.18);
-      font-size: 0;
-    }
-
-    .nf-logout:hover { background: #FF8A1F; color: #fff; box-shadow: 0 14px 30px rgba(255,138,31,.18); }
-    .nf-logout:hover .nf-logout-icon { background: rgba(255,255,255,.18); color: #fff; border-color: rgba(255,255,255,.18); }
-
-    .nf-menu-link:focus-visible,
-    .nf-menu-parent:focus-visible,
-    .nf-sidebar-toggle:focus-visible,
-    .nf-logout:focus-visible,
-    .nf-mobile-menu:focus-visible,
-    .nf-icon-btn:focus-visible,
-    .nf-profile-btn:focus-visible {
-      outline: 3px solid rgba(0,168,89,.26);
-      outline-offset: 2px;
-    }
-
-    /* ===================== MAIN CONTENT AREA ===================== */
-
-    .nf-main {
-      min-width: 0;
-      min-height: 100vh;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      margin-left: var(--nf-sidebar-width);
-      padding-top: var(--nf-frame-top);
-      padding-bottom: var(--nf-frame-bottom);
-      transition: margin-left .22s var(--nf-ease);
-      background: var(--nf-bg);
-    }
-
-    .nf-content {
-      flex: 1 0 auto;
-      width: 100%;
-      min-width: 0;
-      min-height: calc(100vh - var(--nf-frame-top) - var(--nf-frame-bottom));
-      min-height: calc(100dvh - var(--nf-frame-top) - var(--nf-frame-bottom));
-      padding: 24px;
-    }
-
-    .nf-content-card {
-      min-height: calc(100vh - var(--nf-frame-top) - var(--nf-frame-bottom) - 48px);
-      border-radius: 24px;
-      background: transparent;
-      border: 0;
-      box-shadow: none;
-      padding: 0;
-    }
-
-    .nf-flash-wrap { display: grid; gap: 10px; margin-bottom: 18px; }
-
-    .nf-flash-wrap.nf-flash-inline-action {
-      width: 100%;
-      margin: 8px 0 0;
-      gap: 8px;
-    }
-
-    .nf-flash {
-      border-radius: 15px;
-      padding: 12px 14px;
-      font-size: .9rem;
-      font-weight: 700;
-      border: 1px solid var(--nf-line);
-      background: var(--nf-surface);
-      color: var(--nf-text);
-    }
-
-    .nf-flash.success { border-color: rgba(0,168,89,.25); background: var(--nf-green-soft); color: var(--nf-green-dark); }
-    .nf-flash.error, .nf-flash.danger { border-color: rgba(239,68,68,.25); background: #FFF1F2; color: #B91C1C; }
-    .nf-flash.warning { border-color: rgba(245,158,11,.25); background: #FFFBEB; color: #92400E; }
-
-    /* ===================== FOOTER ===================== */
-
-    .footer {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 950;
-      width: 100%;
-      min-height: var(--nf-frame-bottom);
-      margin: 0;
-      border-radius: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(255,255,255,.96);
-      border-top: 1px solid var(--nf-line);
-      box-shadow: 0 -10px 28px rgba(17,64,38,.06);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      padding-bottom: var(--nf-safe-bottom);
-    }
-
-    .footer-content {
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px 18px;
-      color: var(--nf-muted);
-      font-size: .86rem;
-      font-weight: 650;
-      text-align: center;
-      line-height: 1.42;
-    }
-
-    .footer-2line { flex-direction: column; }
-
-    .footer-row {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      flex-wrap: wrap;
-      line-height: 1.35;
-    }
-
-    .footer-link {
-      color: var(--nf-green-dark);
-      font-weight: 850;
-      text-decoration: none;
-      transition: color .2s var(--nf-ease);
-    }
-
-    .footer-link:hover { color: var(--nf-green); text-decoration: underline; }
-
-    /* ===================== SINGLE CLEAN DESKTOP COLLAPSE STATE ===================== */
-
-    body[data-sidebar-state="collapsed"] .nf-sidebar {
-      width: var(--nf-sidebar-collapsed);
-      min-width: var(--nf-sidebar-collapsed);
-      max-width: var(--nf-sidebar-collapsed);
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-main {
-      margin-left: var(--nf-sidebar-collapsed);
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-sidebar-header {
-      justify-content: center;
-      padding: 12px 0;
-      gap: 0;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-brand-logo,
-    body[data-sidebar-state="collapsed"] .nf-brand-text,
-    body[data-sidebar-state="collapsed"] .nf-sidebar-search,
-    body[data-sidebar-state="collapsed"] .nf-menu-section,
-    body[data-sidebar-state="collapsed"] .nf-menu-label,
-    body[data-sidebar-state="collapsed"] .nf-menu-no-results,
-    body[data-sidebar-state="collapsed"] .nf-logout-text {
-      display: none;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-sidebar-toggle {
-      width: 44px;
-      height: 44px;
-      min-width: 44px;
-      margin-left: 0;
-      border-radius: 16px;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-sidebar-scroll {
-      padding: 14px 10px 18px;
-      scrollbar-width: none;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-sidebar-scroll::-webkit-scrollbar { width: 0; height: 0; }
-
-    body[data-sidebar-state="collapsed"] .nf-dropdown {
-      width: 100%;
-      display: grid;
-      justify-items: center;
-      gap: 0;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-dropdown-row {
-      width: 58px;
-      height: 58px;
-      display: block;
-      position: relative;
-      margin: 0 auto 8px;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-menu-link,
-    body[data-sidebar-state="collapsed"] .nf-menu-parent {
-      width: 58px;
-      height: 58px;
-      min-height: 58px;
-      margin: 0 auto 8px;
-      padding: 0;
-      justify-content: center;
-      border-radius: 18px;
-      box-shadow: none;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-dropdown-row .nf-menu-parent {
-      margin: 0;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-menu-link.active,
-    body[data-sidebar-state="collapsed"] .nf-menu-parent.active {
-      background: var(--nf-green-soft);
-      box-shadow: none;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-menu-icon,
-    body[data-sidebar-state="collapsed"] .nf-logout-icon {
-      width: 42px;
-      height: 42px;
-      min-width: 42px;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-menu-link.active .nf-menu-icon,
-    body[data-sidebar-state="collapsed"] .nf-menu-parent.active .nf-menu-icon {
-      box-shadow: 0 12px 26px rgba(0,168,89,.18);
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-parent-open {
-      display: grid;
-      position: absolute;
-      right: -4px;
-      bottom: 3px;
-      width: 22px;
-      height: 22px;
-      min-width: 22px;
-      border-radius: 999px;
-      background: #FFFFFF;
-      color: var(--nf-green-dark);
-      border-color: rgba(0,168,89,.22);
-      box-shadow: 0 8px 16px rgba(17,64,38,.10);
-      z-index: 4;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-parent-open:hover {
-      background: var(--nf-green-soft);
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-menu-arrow {
-      display: inline;
-      font-size: .68rem;
-      line-height: 1;
-      opacity: .95;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-dropdown.open .nf-menu-arrow {
-      transform: rotate(180deg);
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-submenu {
-      display: none;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-dropdown.open .nf-submenu {
-      width: 58px;
-      display: grid;
-      justify-items: center;
-      gap: 6px;
-      padding: 0 0 10px;
-      margin: -2px auto 10px;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-submenu a {
-      width: 46px;
-      height: 42px;
-      min-height: 42px;
-      display: grid;
-      place-items: center;
-      padding: 0;
-      margin: 0 auto;
-      border-radius: 15px;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-submenu-icon {
-      width: 34px;
-      height: 34px;
-      min-width: 34px;
-      border-radius: 13px;
-      font-size: .82rem;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-submenu-label {
-      display: none;
-    }
-
-    body[data-sidebar-state="collapsed"] .nf-logout {
-      width: 58px;
-      height: 58px;
-      min-height: 58px;
-      margin: 0 auto;
-      justify-content: center;
-      padding: 0;
-      border-radius: 18px;
-    }
-
-    .nf-menu-link.active,
-    .nf-menu-parent.active,
-    .nf-submenu a.active {
-      scroll-margin-top: 18px;
-      scroll-margin-bottom: 18px;
-    }
-
-    /* ===================== RESPONSIVE FRAME ===================== */
-
-    .nf-mobile-backdrop { display: none; }
-
-    @media (max-width: 1180px) {
-      .nf-top-search { display: none; }
-    }
-
-    @media (max-width: 1024px) {
-      :root {
-        --nf-footer-height: 84px;
-        --nf-mobile-sidebar-width: min(326px, 90vw);
-      }
-
-      .nf-topbar {
-        padding-left: max(12px, var(--nf-safe-left));
-        padding-right: max(12px, var(--nf-safe-right));
-        gap: 10px;
-      }
-
-      .nf-topbar-logo { width: 92px; height: 42px; top: -5px; }
-      .nf-mobile-dashboard-link { display: inline-flex; max-width: 164px; }
-      .nf-mobile-menu { display: grid; }
-      .nf-profile,
-      .nf-top-search { display: none; }
-
-      .nf-sidebar,
-      body[data-sidebar-state="collapsed"] .nf-sidebar {
-        width: var(--nf-mobile-sidebar-width);
-        min-width: var(--nf-mobile-sidebar-width);
-        max-width: var(--nf-mobile-sidebar-width);
-        transform: translateX(-105%);
-        bottom: var(--nf-frame-bottom);
-      }
-
-      body.sidebar-open .nf-sidebar,
-      body.sidebar-open[data-sidebar-state="collapsed"] .nf-sidebar {
-        transform: translateX(0);
-      }
-
-      body.sidebar-open { overflow: hidden; touch-action: none; }
-      body.sidebar-open .nf-sidebar,
-      body.sidebar-open .nf-sidebar-scroll { touch-action: auto; -webkit-overflow-scrolling: touch; }
-
-      .nf-sidebar-header,
-      body[data-sidebar-state="collapsed"] .nf-sidebar-header {
-        min-height: 74px;
-        height: 74px;
-        justify-content: flex-start;
-        align-items: center;
-        padding: 12px 14px 12px 18px;
-        gap: 12px;
-      }
-
-      .nf-brand-logo,
-      body[data-sidebar-state="collapsed"] .nf-brand-logo {
-        display: grid;
-        width: 76px;
-        height: 58px;
-      }
-
-      .nf-brand-text,
-      .nf-sidebar-search,
-      .nf-menu-section,
-      .nf-menu-label,
-      .nf-menu-arrow,
-      .nf-parent-open,
-      .nf-logout-text,
-      body[data-sidebar-state="collapsed"] .nf-brand-text,
-      body[data-sidebar-state="collapsed"] .nf-sidebar-search,
-      body[data-sidebar-state="collapsed"] .nf-menu-section,
-      body[data-sidebar-state="collapsed"] .nf-menu-label,
-      body[data-sidebar-state="collapsed"] .nf-menu-arrow,
-      body[data-sidebar-state="collapsed"] .nf-parent-open,
-      body[data-sidebar-state="collapsed"] .nf-logout-text {
-        display: initial;
-      }
-
-      .nf-brand-text,
-      body[data-sidebar-state="collapsed"] .nf-brand-text,
-      .nf-sidebar-search,
-      body[data-sidebar-state="collapsed"] .nf-sidebar-search,
-      .nf-menu-section,
-      body[data-sidebar-state="collapsed"] .nf-menu-section {
-        display: block;
-      }
-
-      .nf-parent-open,
-      body[data-sidebar-state="collapsed"] .nf-parent-open { display: grid; }
-      .nf-logout-text,
-      body[data-sidebar-state="collapsed"] .nf-logout-text { display: inline; }
-      .nf-menu-label,
-      body[data-sidebar-state="collapsed"] .nf-menu-label { display: block; }
-      .nf-menu-arrow,
-      body[data-sidebar-state="collapsed"] .nf-menu-arrow { display: inline; }
-
-      .nf-submenu,
-      body[data-sidebar-state="collapsed"] .nf-submenu { display: none; }
-      .nf-dropdown.open .nf-submenu,
-      body[data-sidebar-state="collapsed"] .nf-dropdown.open .nf-submenu { display: block; }
-
-      .nf-sidebar-toggle,
-      body[data-sidebar-state="collapsed"] .nf-sidebar-toggle {
-        width: 38px;
-        height: 38px;
-        min-width: 38px;
-        margin-left: auto;
-        border-radius: 13px;
-      }
-
-      .nf-sidebar-scroll,
-      body[data-sidebar-state="collapsed"] .nf-sidebar-scroll {
-        padding: 8px 14px 14px;
-        scrollbar-width: thin;
-      }
-
-      .nf-sidebar-scroll::-webkit-scrollbar,
-      body[data-sidebar-state="collapsed"] .nf-sidebar-scroll::-webkit-scrollbar { width: 7px; }
-
-      .nf-dropdown,
-      body[data-sidebar-state="collapsed"] .nf-dropdown {
-        display: block;
-        width: 100%;
-        justify-items: initial;
-      }
-
-      .nf-dropdown-row,
-      body[data-sidebar-state="collapsed"] .nf-dropdown-row {
-        width: 100%;
-        display: grid;
-        grid-template-columns: minmax(0,1fr) 34px;
-        align-items: center;
-        justify-content: initial;
-        gap: 8px;
-      }
-
-      .nf-menu-link,
-      .nf-menu-parent,
-      body[data-sidebar-state="collapsed"] .nf-menu-link,
-      body[data-sidebar-state="collapsed"] .nf-menu-parent {
-        width: 100%;
-        height: auto;
-        min-height: 48px;
-        margin: 0;
-        padding: 8px 12px;
-        justify-content: flex-start;
-        border-radius: 15px;
-      }
-
-      .nf-menu-icon,
-      .nf-logout-icon,
-      body[data-sidebar-state="collapsed"] .nf-menu-icon,
-      body[data-sidebar-state="collapsed"] .nf-logout-icon {
-        width: 36px;
-        height: 36px;
-        min-width: 36px;
-      }
-
-      .nf-logout,
-      body[data-sidebar-state="collapsed"] .nf-logout {
-        width: 100%;
-        height: auto;
-        min-height: 46px;
-        margin: 0;
-        justify-content: flex-start;
-        padding: 0 12px;
-        border-radius: 14px;
-      }
-
-      .nf-mobile-backdrop {
-        position: fixed;
-        top: var(--nf-frame-top);
-        left: 0;
-        right: 0;
-        bottom: var(--nf-frame-bottom);
-        z-index: 850;
-        background: rgba(15,23,42,.42);
-        backdrop-filter: blur(3px);
-      }
-
-      body.sidebar-open .nf-mobile-backdrop { display: block; }
-
-      .nf-main,
-      body[data-sidebar-state="collapsed"] .nf-main {
-        margin-left: 0;
-      }
-
-      .nf-content { padding: 18px; }
-    }
-
-    @media (max-width: 720px) {
-      :root {
-        --nf-topbar-height: 68px;
-        --nf-footer-height: 86px;
-        --nf-mobile-sidebar-width: 100vw;
-      }
-
-      .nf-topbar {
-        padding-left: 10px;
-        padding-right: 10px;
-        gap: 8px;
-      }
-
-      .nf-topbar-logo { width: 82px; height: 40px; top: -4px; }
-      .nf-mobile-dashboard-link { max-width: 140px; min-height: 36px; padding: 0 10px; font-size: .78rem; }
-      .nf-icon-btn,
-      .nf-mobile-menu { width: 38px; height: 38px; min-width: 38px; border-radius: 13px; }
-      .nf-content { padding: 12px; }
-      .nf-content-card { border-radius: 18px; }
-      .footer-content { padding: 10px 10px; font-size: .75rem; }
-      .nf-store-alert-panel { right: -48px; width: min(360px, calc(100vw - 20px)); }
-    }
-
-    @media (max-width: 420px) {
-      .nf-mobile-dashboard-link { display: none; }
-      .nf-topbar-logo { width: 78px; height: 38px; top: -3px; }
-      .nf-store-alert-panel { right: -50px; }
-      .footer-content { font-size: .72rem; }
-    }
-
-
-
-    /* ===================== TARGETED FIX: APP VIEW FOOTER IN NORMAL PAGE FLOW ONLY ===================== */
-    @media (max-width: 1024px) {
-      .nf-main,
-      body[data-sidebar-state="collapsed"] .nf-main {
-        padding-bottom: 0 !important;
-      }
-
-      .footer {
-        position: relative !important;
-        left: auto !important;
-        right: auto !important;
-        bottom: auto !important;
-        z-index: 1 !important;
-        width: 100% !important;
-        min-height: var(--nf-frame-bottom) !important;
-        margin: 0 !important;
-        flex: 0 0 auto;
-      }
-
-      .nf-sidebar,
-      body[data-sidebar-state="collapsed"] .nf-sidebar,
-      body.sidebar-open .nf-sidebar,
-      body.sidebar-open[data-sidebar-state="collapsed"] .nf-sidebar {
-        bottom: 0 !important;
-      }
-
-      .nf-mobile-backdrop {
-        bottom: 0 !important;
-      }
-    }
-
-    @media (max-width: 720px) {
-      .footer-content {
-        padding-bottom: max(10px, var(--nf-safe-bottom)) !important;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        scroll-behavior: auto;
-        transition-duration: .01ms;
-        animation-duration: .01ms;
-        animation-iteration-count: 1;
-      }
-    }
-  </style>
-
-  {% block extra_css %}{% endblock %}
 </head>
 
-<body>
+<body data-portal="store">
   <div class="nf-admin-shell">
     <aside class="nf-sidebar" id="nfSidebar">
       <div class="nf-sidebar-header">
-        <div class="nf-brand-text nf-sidebar-title-only">
-          <strong>Store Admin Portal</strong>
-        </div>
+        <a href="{{ url_for('store_dashboard') }}" class="nf-store-brand" aria-label="NE Locals Store Dashboard">
+          <span class="nf-store-brand-mark"><img src="{{ url_for('static', filename='nelocal.png') }}" alt="NE Locals"></span>
+          <span class="nf-store-brand-copy">
+            <strong>NE Locals</strong>
+            <span>Store Management</span>
+          </span>
+        </a>
 
         <button type="button" class="nf-sidebar-toggle" id="nfSidebarToggle" aria-label="Collapse sidebar" title="Collapse / expand menu"><span id="nfSidebarToggleIcon">⇤</span></button>
       </div>
 
       <div class="nf-sidebar-search">
-        <input type="search" class="nf-menu-search" id="nfMenuSearch" placeholder="Search Store Menu...">
+        <input type="search" class="nf-menu-search" id="nfMenuSearch" placeholder="Search menu...">
       </div>
 
       <nav class="nf-sidebar-scroll" id="nfSidebarMenu">
-        <div class="nf-menu-section">Main</div>
+        <div class="nf-menu-section">Overview</div>
 
         <a href="{{ url_for('index') }}" class="nf-menu-link {% if request.endpoint == 'index' %}active{% endif %}" data-menu-item>
           <span class="nf-menu-icon"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg></span>
-          <span class="nf-menu-label">Home</span>
+          <span class="nf-menu-label">Customer Site</span>
         </a>
 
         <a href="{{ url_for('store_dashboard') }}" class="nf-menu-link {% if active_page == 'dashboard' %}active{% endif %}" data-menu-item {% if active_page == 'dashboard' %}data-active-page-link{% endif %}>
@@ -1723,180 +156,108 @@
           <span class="nf-menu-label">Dashboard</span>
         </a>
 
-        <div class="nf-menu-section">Operations</div>
+        <div class="nf-menu-section">Orders &amp; Delivery</div>
 
-                       <div class="nf-dropdown {% if active_page in ['orders', 'cancelled_orders', 'delivery', 'delivered_orders', 'delivery_history', 'payouts', 'returns'] %}open{% endif %}" data-menu-item>
+        <div class="nf-dropdown {% if active_page in ['orders', 'active_orders', 'delivery', 'external_delivery', 'delivered_orders', 'cancelled_orders', 'returns', 'delivery_history'] %}open{% endif %}" data-menu-item>
           <div class="nf-dropdown-row">
-                       <a href="{{ url_for('store_orders') }}" class="nf-menu-parent {% if active_page in ['orders', 'cancelled_orders', 'delivery', 'delivered_orders', 'delivery_history', 'payouts', 'returns'] %}active{% endif %}" {% if active_page in ['orders', 'cancelled_orders', 'delivery', 'delivered_orders', 'delivery_history', 'payouts', 'returns'] %}data-active-page-link{% endif %}>
-              <span class="nf-menu-icon">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 6h15l-2 8H8L6 6Z"></path>
-                  <path d="M6 6 5.2 3H3"></path>
-                  <path d="M9 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"></path>
-                  <path d="M18 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"></path>
-                </svg>
-              </span>
-              <span class="nf-menu-label">Orders & Delivery Work</span>
+            <a href="{{ url_for('store_orders') }}" class="nf-menu-parent {% if active_page in ['orders', 'active_orders', 'delivery', 'external_delivery', 'delivered_orders', 'cancelled_orders', 'returns', 'delivery_history'] %}active{% endif %}" {% if active_page in ['orders', 'active_orders', 'delivery', 'external_delivery', 'delivered_orders', 'cancelled_orders', 'returns', 'delivery_history'] %}data-active-page-link{% endif %}>
+              <span class="nf-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h15l-2 8H8L6 6Z"></path><path d="M6 6 5.2 3H3"></path><path d="M9 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"></path><path d="M18 20a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"></path></svg></span>
+              <span class="nf-menu-label">Orders</span>
             </a>
-            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Orders and Delivery menu">
-              <span class="nf-menu-arrow">⌄</span>
-            </button>
+            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Orders and Delivery menu"><span class="nf-menu-arrow">⌄</span></button>
           </div>
-
-              <div class="nf-submenu">
-  <a href="{{ url_for('store_orders') }}" class="{% if active_page == 'orders' %}active{% endif %}"><span class="nf-submenu-icon">🧾</span><span class="nf-submenu-label">Customer Orders</span></a>
-
-  <a href="{{ url_for('store_cancelled_orders', cancel_type='customer') }}" class="{% if active_page == 'cancelled_orders' %}active{% endif %}"><span class="nf-submenu-icon">✕</span><span class="nf-submenu-label">Cancelled Customer Orders</span></a>
-
-  {% if in_house_delivery_enabled %}
-    <a href="{{ url_for('store_delivery') }}" class="{% if active_page == 'delivery' %}active{% endif %}"><span class="nf-submenu-icon">🚚</span><span class="nf-submenu-label">Delivery Assignment</span></a>
-  {% endif %}
-
-  {% if third_party_shipping_enabled %}
-    <a href="{{ url_for('store_external_delivery') }}" class="{% if active_page == 'external_delivery' %}active{% endif %}"><span class="nf-submenu-icon">📦</span><span class="nf-submenu-label">Shiprocket / Courier Orders</span></a>
-  {% endif %}
-
-  <a href="{{ url_for('store_delivered_orders') }}" class="{% if active_page == 'delivered_orders' %}active{% endif %}"><span class="nf-submenu-icon">✅</span><span class="nf-submenu-label">Delivered Order Records</span></a>
-
-  {% if return_refund_enabled %}
-    <a href="{{ url_for('store_returns') }}" class="{% if active_page == 'returns' %}active{% endif %}"><span class="nf-submenu-icon">↩</span><span class="nf-submenu-label">Return / Refund Requests</span></a>
-  {% endif %}
-
-  {% if in_house_delivery_enabled %}
-    <a href="{{ url_for('store_delivery_history') }}" class="{% if active_page == 'delivery_history' %}active{% endif %}"><span class="nf-submenu-icon">🕘</span><span class="nf-submenu-label">In-house Delivery History</span></a>
-  {% endif %}
-</div>
+          <div class="nf-submenu">
+            <a href="{{ url_for('store_orders') }}" class="{% if active_page == 'orders' %}active{% endif %}"><span class="nf-submenu-icon">🧾</span><span class="nf-submenu-label">All Orders</span></a>
+            <a href="{{ url_for('store_active_orders') }}" class="{% if active_page == 'active_orders' %}active{% endif %}"><span class="nf-submenu-icon">●</span><span class="nf-submenu-label">Active Orders</span></a>
+            {% if in_house_delivery_enabled %}
+              <a href="{{ url_for('store_delivery') }}" class="{% if active_page == 'delivery' %}active{% endif %}"><span class="nf-submenu-icon">🚚</span><span class="nf-submenu-label">Delivery</span></a>
+            {% endif %}
+            {% if external_local_delivery_enabled or third_party_shipping_enabled %}
+              <a href="{{ url_for('store_external_delivery') }}" class="{% if active_page == 'external_delivery' %}active{% endif %}"><span class="nf-submenu-icon">📦</span><span class="nf-submenu-label">External Delivery</span></a>
+            {% endif %}
+            <a href="{{ url_for('store_delivered_orders') }}" class="{% if active_page == 'delivered_orders' %}active{% endif %}"><span class="nf-submenu-icon">✓</span><span class="nf-submenu-label">Delivered Orders</span></a>
+            <a href="{{ url_for('store_cancelled_orders', cancel_type='customer') }}" class="{% if active_page == 'cancelled_orders' %}active{% endif %}"><span class="nf-submenu-icon">✕</span><span class="nf-submenu-label">Cancelled Orders</span></a>
+            {% if return_refund_enabled %}
+              <a href="{{ url_for('store_returns') }}" class="{% if active_page == 'returns' %}active{% endif %}"><span class="nf-submenu-icon">↩</span><span class="nf-submenu-label">Returns &amp; Refunds</span></a>
+            {% endif %}
+            {% if in_house_delivery_enabled %}
+              <a href="{{ url_for('store_delivery_history') }}" class="{% if active_page == 'delivery_history' %}active{% endif %}"><span class="nf-submenu-icon">🕘</span><span class="nf-submenu-label">Delivery History</span></a>
+            {% endif %}
+          </div>
         </div>
 
-        <div class="nf-dropdown {% if active_page in ['products', 'product_bundles', 'add_product', 'inventory', 'categories'] %}open{% endif %}" data-menu-item>
-          <div class="nf-dropdown-row">
-            <a href="{{ url_for('store_products') }}" class="nf-menu-parent {% if active_page in ['products', 'product_bundles', 'add_product', 'inventory', 'categories'] %}active{% endif %}" {% if active_page in ['products', 'product_bundles', 'add_product', 'inventory', 'categories'] %}data-active-page-link{% endif %}>
-              <span class="nf-menu-icon">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 8h10"></path>
-                  <path d="M7 12h10"></path>
-                  <path d="M7 16h6"></path>
-                  <rect x="4" y="3" width="16" height="18" rx="3"></rect>
-                </svg>
-              </span>
-              <span class="nf-menu-label">Products & Inventory</span>
-            </a>
-            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Products and Inventory menu">
-              <span class="nf-menu-arrow">⌄</span>
-            </button>
-          </div>
+        <div class="nf-menu-section">Products &amp; Stock</div>
 
+        <div class="nf-dropdown {% if active_page in ['products', 'add_product', 'product_bundles', 'inventory', 'categories'] %}open{% endif %}" data-menu-item>
+          <div class="nf-dropdown-row">
+            <a href="{{ url_for('store_products') }}" class="nf-menu-parent {% if active_page in ['products', 'add_product', 'product_bundles', 'inventory', 'categories'] %}active{% endif %}" {% if active_page in ['products', 'add_product', 'product_bundles', 'inventory', 'categories'] %}data-active-page-link{% endif %}>
+              <span class="nf-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8h10"></path><path d="M7 12h10"></path><path d="M7 16h6"></path><rect x="4" y="3" width="16" height="18" rx="3"></rect></svg></span>
+              <span class="nf-menu-label">Products</span>
+            </a>
+            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Products and Stock menu"><span class="nf-menu-arrow">⌄</span></button>
+          </div>
           <div class="nf-submenu">
             <a href="{{ url_for('store_products') }}" class="{% if active_page == 'products' %}active{% endif %}"><span class="nf-submenu-icon">🛍</span><span class="nf-submenu-label">All Products</span></a>
-            <a href="{{ url_for('store_product_bundles') }}" class="{% if active_page == 'product_bundles' %}active{% endif %}"><span class="nf-submenu-icon">🎁</span><span class="nf-submenu-label">Product Bundles</span></a>
             <a href="{{ url_for('store_add_product') }}" class="{% if active_page == 'add_product' %}active{% endif %}"><span class="nf-submenu-icon">＋</span><span class="nf-submenu-label">Add Product</span></a>
-            <a href="{{ url_for('store_inventory') }}" class="{% if active_page == 'inventory' %}active{% endif %}"><span class="nf-submenu-icon">📊</span><span class="nf-submenu-label">Stock & Inventory</span></a>
+            <a href="{{ url_for('store_product_bundles') }}" class="{% if active_page == 'product_bundles' %}active{% endif %}"><span class="nf-submenu-icon">🎁</span><span class="nf-submenu-label">Product Bundles</span></a>
+            <a href="{{ url_for('store_inventory') }}" class="{% if active_page == 'inventory' %}active{% endif %}"><span class="nf-submenu-icon">📦</span><span class="nf-submenu-label">Inventory</span></a>
             <a href="{{ url_for('store_categories') }}" class="{% if active_page == 'categories' %}active{% endif %}"><span class="nf-submenu-icon">🏷</span><span class="nf-submenu-label">Categories</span></a>
           </div>
         </div>
 
-        <div class="nf-menu-section">Customer Care</div>
+        <div class="nf-menu-section">Customers</div>
 
-        <div class="nf-dropdown {% if active_page == 'product_reviews' %}open{% endif %}" data-menu-item>
+        <div class="nf-dropdown {% if active_page in ['reviews', 'product_reviews', 'complaints', 'notifications'] %}open{% endif %}" data-menu-item>
           <div class="nf-dropdown-row">
-            <a href="{{ url_for('store_product_reviews') }}" class="nf-menu-parent {% if active_page == 'product_reviews' %}active{% endif %}" {% if active_page == 'product_reviews' %}data-active-page-link{% endif %}>
-              <span class="nf-menu-icon">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 17.3 6.2 20.5l1.1-6.5-4.7-4.6 6.5-.9L12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.3Z"></path>
-                </svg>
-              </span>
-              <span class="nf-menu-label">Reviews</span>
+            <a href="{{ url_for('store_product_reviews') }}" class="nf-menu-parent {% if active_page in ['reviews', 'product_reviews', 'complaints', 'notifications'] %}active{% endif %}" {% if active_page in ['reviews', 'product_reviews', 'complaints', 'notifications'] %}data-active-page-link{% endif %}>
+              <span class="nf-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.3 6.2 20.5l1.1-6.5-4.7-4.6 6.5-.9L12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.3Z"></path></svg></span>
+              <span class="nf-menu-label">Customer Feedback</span>
             </a>
-            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Reviews menu">
-              <span class="nf-menu-arrow">⌄</span>
-            </button>
+            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Customer Feedback menu"><span class="nf-menu-arrow">⌄</span></button>
           </div>
-
           <div class="nf-submenu">
-            {# <a href="{{ url_for('store_reviews') }}" class="{% if active_page == 'reviews' %}active{% endif %}"><span class="nf-submenu-icon">⭐</span><span class="nf-submenu-label">Store Review Records</span></a> #}
-            <a href="{{ url_for('store_product_reviews') }}" class="{% if active_page == 'product_reviews' %}active{% endif %}"><span class="nf-submenu-icon">💬</span><span class="nf-submenu-label">Product Review Records</span></a>
+            <a href="{{ url_for('store_reviews') }}" class="{% if active_page == 'reviews' %}active{% endif %}"><span class="nf-submenu-icon">★</span><span class="nf-submenu-label">Store Reviews</span></a>
+            <a href="{{ url_for('store_product_reviews') }}" class="{% if active_page == 'product_reviews' %}active{% endif %}"><span class="nf-submenu-icon">💬</span><span class="nf-submenu-label">Product Reviews</span></a>
+            <a href="{{ url_for('store_complaints') }}" class="{% if active_page == 'complaints' %}active{% endif %}"><span class="nf-submenu-icon">!</span><span class="nf-submenu-label">Complaints</span></a>
+            <a href="{{ url_for('store_notifications') }}" class="{% if active_page == 'notifications' %}active{% endif %}"><span class="nf-submenu-icon">🔔</span><span class="nf-submenu-label">Notifications</span></a>
           </div>
         </div>
 
-        <a href="{{ url_for('store_complaints') }}" class="nf-menu-link {% if active_page == 'complaints' %}active{% endif %}" data-menu-item {% if active_page == 'complaints' %}data-active-page-link{% endif %}>
-          <span class="nf-menu-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 5h14v10H8l-3 3V5Z"></path>
-              <path d="M9 9h6"></path>
-              <path d="M9 12h4"></path>
-            </svg>
-          </span>
-          <span class="nf-menu-label">Customer Complaints</span>
-        </a>
-
-        <a href="{{ url_for('store_notifications') }}" class="nf-menu-link {% if active_page == 'notifications' %}active{% endif %}" data-menu-item {% if active_page == 'notifications' %}data-active-page-link{% endif %}>
-          <span class="nf-menu-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>
-              <path d="M10 20a2 2 0 0 0 4 0"></path>
-            </svg>
-          </span>
-          <span class="nf-menu-label">Store Notifications</span>
-        </a>
-
-        <div class="nf-menu-section">Insights</div>
+        <div class="nf-menu-section">Payments &amp; Reports</div>
 
         <div class="nf-dropdown {% if active_group == 'reports' or active_page == 'payouts' %}open{% endif %}" data-menu-item>
           <div class="nf-dropdown-row">
-            <a href="{{ url_for('store_dashboard') }}#transactions-reports" class="nf-menu-parent {% if active_group == 'reports' or active_page == 'payouts' %}active{% endif %}">
-              <span class="nf-menu-icon">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 19V5"></path>
-                  <path d="M4 19h16"></path>
-                  <path d="M8 16v-5"></path>
-                  <path d="M12 16V8"></path>
-                  <path d="M16 16v-3"></path>
-                </svg>
-              </span>
-              <span class="nf-menu-label">Store Payment Summary & Reports</span>
+            <a href="{{ url_for('store_payouts') }}" class="nf-menu-parent {% if active_group == 'reports' or active_page == 'payouts' %}active{% endif %}" {% if active_group == 'reports' or active_page == 'payouts' %}data-active-page-link{% endif %}>
+              <span class="nf-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5"></path><path d="M4 19h16"></path><path d="M8 16v-5"></path><path d="M12 16V8"></path><path d="M16 16v-3"></path></svg></span>
+              <span class="nf-menu-label">Payments &amp; Reports</span>
             </a>
-            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Store Payment Summary and Reports menu">
-              <span class="nf-menu-arrow">⌄</span>
-            </button>
+            <button type="button" class="nf-parent-open" data-dropdown-toggle aria-label="Toggle Payments and Reports menu"><span class="nf-menu-arrow">⌄</span></button>
           </div>
-
           <div class="nf-submenu">
-            <a href="{{ url_for('store_dashboard') }}#transactions-reports"><span class="nf-submenu-icon">📈</span><span class="nf-submenu-label">Dashboard Payment Summary</span></a>
+            <a href="{{ url_for('store_payouts') }}" class="{% if active_page == 'payouts' %}active{% endif %}"><span class="nf-submenu-icon">₹</span><span class="nf-submenu-label">Payouts</span></a>
+            <a href="{{ url_for('store_dashboard') }}#transactions-reports"><span class="nf-submenu-icon">▤</span><span class="nf-submenu-label">Payment Summary</span></a>
             <a href="{{ url_for('store_txn_csv') }}?range=day"><span class="nf-submenu-icon">D</span><span class="nf-submenu-label">Download Daily CSV</span></a>
             <a href="{{ url_for('store_txn_csv') }}?range=week"><span class="nf-submenu-icon">W</span><span class="nf-submenu-label">Download Weekly CSV</span></a>
             <a href="{{ url_for('store_txn_csv') }}?range=month"><span class="nf-submenu-icon">M</span><span class="nf-submenu-label">Download Monthly CSV</span></a>
-            <a href="{{ url_for('store_payouts') }}" class="{% if active_page == 'payouts' %}active{% endif %}"><span class="nf-submenu-icon">₹</span><span class="nf-submenu-label">View Store Payout Status</span></a>
           </div>
         </div>
 
-        <div class="nf-menu-section">Store</div>
+        <div class="nf-menu-section">Store Setup</div>
 
         <a href="{{ url_for('store_profile') }}" class="nf-menu-link {% if active_page == 'store_profile' %}active{% endif %}" data-menu-item {% if active_page == 'store_profile' %}data-active-page-link{% endif %}>
-          <span class="nf-menu-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 10h16"></path>
-              <path d="m5 10 1-5h12l1 5"></path>
-              <path d="M6 10v10h12V10"></path>
-              <path d="M9 20v-6h6v6"></path>
-            </svg>
-          </span>
-          <span class="nf-menu-label">Store Admin Profile</span>
+          <span class="nf-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h16"></path><path d="m5 10 1-5h12l1 5"></path><path d="M6 10v10h12V10"></path><path d="M9 20v-6h6v6"></path></svg></span>
+          <span class="nf-menu-label">Store Profile</span>
         </a>
 
         <a href="{{ url_for('store_settings') }}" class="nf-menu-link {% if active_page == 'settings' %}active{% endif %}" data-menu-item {% if active_page == 'settings' %}data-active-page-link{% endif %}>
-          <span class="nf-menu-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path>
-              <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1Z"></path>
-            </svg>
-          </span>
-          <span class="nf-menu-label">Store Operation Settings</span>
+          <span class="nf-menu-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1Z"></path></svg></span>
+          <span class="nf-menu-label">Store Settings</span>
         </a>
 
         <div class="nf-menu-no-results" id="nfMenuNoResults" hidden>
           <span class="nf-menu-no-results-icon">⌕</span>
-          <strong>No menu found</strong>
-          <small>Try another keyword.</small>
+          <strong>No menu item found</strong>
+          <small>Try a simpler keyword.</small>
         </div>
       </nav>
 
@@ -1912,23 +273,25 @@
 
     <main class="nf-main">
    <header class="nf-topbar">
-  <a href="{{ url_for('store_dashboard') }}" class="nf-topbar-logo" aria-label="NE Locals Store Admin Dashboard">
+  <a href="{{ url_for('store_dashboard') }}" class="nf-topbar-logo" aria-label="NE Locals Store Dashboard">
     <img src="{{ url_for('static', filename='nelocal.png') }}" alt="NE Locals">
   </a>
 
-  <a href="{{ url_for('store_dashboard') }}" class="nf-mobile-dashboard-link" aria-label="Open Store Admin Dashboard">
-    Store Admin Dashboard
-  </a>
-
-  <div class="nf-topbar-spacer"></div>
-
-  <button type="button" class="nf-mobile-menu" id="nfMobileMenu" aria-label="Open menu" aria-expanded="false">
+  <button type="button" class="nf-mobile-menu" id="nfMobileMenu" aria-label="Open Store menu" aria-expanded="false">
     <span class="nf-mobile-menu-lines" aria-hidden="true"></span>
   </button>
 
+  <div class="nf-store-page-context" aria-label="Current Store page">
+    <small>Store Management</small>
+    <strong>{% block page_title %}Dashboard{% endblock %}</strong>
+    <span class="nf-store-page-subtitle">{% block page_subtitle %}Manage your Store from one place.{% endblock %}</span>
+  </div>
+
+  <div class="nf-topbar-spacer"></div>
+
         <div class="nf-top-search">
-          <span>🔍</span>
-          <input type="search" placeholder="Search here...">
+          <span aria-hidden="true">⌕</span>
+          <input type="search" id="nfTopMenuSearch" autocomplete="off" placeholder="Find a Store page..." aria-label="Find Store tools">
         </div>
 
 
@@ -1972,7 +335,7 @@
             </div>
             <a href="{{ url_for('store_profile') }}">
   <span class="nf-profile-menu-icon"><svg viewBox="0 0 24 24"><path d="M4 10h16"/><path d="m5 10 1-5h12l1 5"/><path d="M6 10v10h12V10"/></svg></span>
-  <span>Store Admin Profile</span>
+  <span>Store Profile</span>
 </a>
             <a href="{{ url_for('logout') }}" class="nf-profile-menu-logout">
               <span class="nf-profile-menu-icon"><svg viewBox="0 0 24 24"><path d="M10 17v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v2"/><path d="M15 16l4-4-4-4"/><path d="M19 12H8"/></svg></span>
@@ -2014,6 +377,7 @@
           </div>
         </div>
       </footer>
+
     </main>
   </div>
 
@@ -2023,6 +387,7 @@
 
   <div class="nf-global-notice-wrap" id="nfGlobalStoreNoticeWrap" aria-live="polite"></div>
 
+  <script src="{{ url_for('static', filename='js/soft-nav-performance.js') }}"></script>
   <script>
     (function () {
       'use strict';
@@ -2037,6 +402,7 @@
       const profileBtn = document.getElementById('nfProfileBtn');
       const profileMenu = document.getElementById('nfProfileMenu');
       const menuSearch = document.getElementById('nfMenuSearch');
+      const topMenuSearch = document.getElementById('nfTopMenuSearch');
       const noResults = document.getElementById('nfMenuNoResults');
       const sidebarScroll = document.getElementById('nfSidebarMenu') || document.querySelector('.nf-sidebar-scroll');
       const menuItems = Array.prototype.slice.call(document.querySelectorAll('[data-menu-item]'));
@@ -2047,13 +413,13 @@
         'neLocalsStoreSidebarState:v4'
       ];
       const SIDEBAR_STATE_COOKIE = 'neLocalsStoreSidebarState';
-      const SIDEBAR_OPEN_DROPDOWNS_KEY = 'neLocalsStoreSidebarOpenDropdowns:v5';
+      const SIDEBAR_OPEN_DROPDOWNS_KEY = 'neLocalsStoreSidebarOpenDropdowns:v6';
       const SIDEBAR_ACTIVE_LINK_KEY = 'neLocalsStoreActiveMenuHref:v2';
       const SIDEBAR_SCROLL_LAST_KEY = 'neFreshStoreSidebarScroll:last';
       const SIDEBAR_SCROLL_TARGET_KEY = 'neFreshStoreSidebarScrollTarget:v2';
 
       function isMobileFrame() {
-        return window.matchMedia && window.matchMedia('(max-width: 1024px)').matches;
+        return window.matchMedia && window.matchMedia('(max-width: 1100px)').matches;
       }
 
       function normalizeSidebarState(state) {
@@ -2574,15 +940,60 @@
 
         window.scrollTo({ top: Math.max(0, top), behavior: behavior || 'smooth' });
         if (pushState) history.pushState(null, '', hash);
-        try {
-          sessionStorage.setItem('neFreshStoreViewState:' + window.location.pathname, JSON.stringify({ hash: hash, y: Math.max(0, top) }));
-        } catch (err) {}
         setActiveMenuByHash(hash);
         closeMobileMenu();
         return true;
       }
 
       let nfSoftNavBusy = false;
+      const nfSoftNavPerf = window.NEFreshSoftNavPerformance || null;
+
+      async function loadSoftNavDocument(url) {
+        if (nfSoftNavPerf && typeof nfSoftNavPerf.loadDocument === 'function') {
+          return nfSoftNavPerf.loadDocument(url.href);
+        }
+
+        try {
+          const response = await fetch(url.href, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'text/html,application/xhtml+xml'
+            },
+            cache: 'default'
+          });
+
+          const contentType = response.headers.get('content-type') || '';
+          if (!response.ok || contentType.indexOf('text/html') === -1) {
+            return { ok: false, finalUrl: response.url || url.href };
+          }
+
+          const html = await response.text();
+          return {
+            ok: true,
+            parsedDoc: new DOMParser().parseFromString(html, 'text/html'),
+            finalUrl: response.url || url.href,
+            fromCache: false
+          };
+        } catch (error) {
+          return { ok: false, error: error, finalUrl: url.href };
+        }
+      }
+
+      function queueSoftNavPrefetch(event, immediate) {
+        if (!nfSoftNavPerf || typeof nfSoftNavPerf.schedulePrefetch !== 'function') return;
+        const link = event && event.target && event.target.closest
+          ? event.target.closest('a[href]')
+          : null;
+        if (!link || !link.closest('.nf-sidebar, .nf-topbar, .nf-profile-menu')) return;
+        if (!isSoftNavLink(link, null)) return;
+
+        try {
+          const url = new URL(link.getAttribute('href'), window.location.href);
+          nfSoftNavPerf.schedulePrefetch(url.href, !!immediate);
+        } catch (err) {}
+      }
 
       function getSoftNavAssetContainer() {
         let container = document.getElementById('nfSoftNavDynamicAssets');
@@ -2595,34 +1006,16 @@
         return container;
       }
 
-      function syncSoftNavHeadAssets(parsedDoc) {
+      async function syncSoftNavHeadAssets(parsedDoc, finalUrl) {
         try {
-          const container = getSoftNavAssetContainer();
-          container.innerHTML = '';
-
-          const fetchedStyles = Array.prototype.slice.call(parsedDoc.head.querySelectorAll('style'));
-          fetchedStyles.slice(2).forEach(function (styleNode) {
-            const clone = document.createElement('style');
-            clone.textContent = styleNode.textContent || '';
-            container.appendChild(clone);
-          });
-
-          Array.prototype.slice.call(parsedDoc.head.querySelectorAll('link[rel="stylesheet"]')).forEach(function (linkNode) {
-            const href = linkNode.getAttribute('href') || '';
-            if (!href || href.indexOf('fonts.googleapis.com') !== -1) return;
-            const absoluteHref = new URL(href, window.location.href).href;
-            const exists = Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).some(function (existing) {
-              try { return new URL(existing.getAttribute('href') || '', window.location.href).href === absoluteHref; } catch (err) { return false; }
-            });
-            if (exists) return;
-
-            const clone = document.createElement('link');
-            Array.prototype.slice.call(linkNode.attributes).forEach(function (attr) {
-              clone.setAttribute(attr.name, attr.value);
-            });
-            container.appendChild(clone);
-          });
-        } catch (err) {}
+          if (!window.NEFreshStyleRuntime || typeof window.NEFreshStyleRuntime.sync !== 'function') {
+            return false;
+          }
+          await window.NEFreshStyleRuntime.sync(parsedDoc, finalUrl || window.location.href);
+          return true;
+        } catch (err) {
+          return false;
+        }
       }
 
       function shouldSkipSoftScript(scriptNode) {
@@ -2636,14 +1029,15 @@
         return false;
       }
 
-      function runSoftNavScripts(parsedDoc) {
+      async function runSoftNavScripts(parsedDoc) {
         try {
           const scripts = Array.prototype.slice.call(parsedDoc.body.querySelectorAll('script'));
-          scripts.forEach(function (scriptNode) {
-            if (shouldSkipSoftScript(scriptNode)) return;
+
+          for (const scriptNode of scripts) {
+            if (shouldSkipSoftScript(scriptNode)) continue;
 
             const type = (scriptNode.getAttribute('type') || '').trim().toLowerCase();
-            if (type && type !== 'text/javascript' && type !== 'application/javascript' && type !== 'module') return;
+            if (type && type !== 'text/javascript' && type !== 'application/javascript' && type !== 'module') continue;
 
             const clone = document.createElement('script');
             Array.prototype.slice.call(scriptNode.attributes).forEach(function (attr) {
@@ -2652,19 +1046,31 @@
 
             if (scriptNode.src) {
               const src = scriptNode.getAttribute('src');
-              if (!src) return;
+              if (!src) continue;
+
               const absoluteSrc = new URL(src, window.location.href).href;
               const alreadyLoaded = Array.prototype.slice.call(document.querySelectorAll('script[src]')).some(function (existing) {
-                try { return new URL(existing.getAttribute('src') || '', window.location.href).href === absoluteSrc; } catch (err) { return false; }
+                try {
+                  return new URL(existing.getAttribute('src') || '', window.location.href).href === absoluteSrc;
+                } catch (err) {
+                  return false;
+                }
               });
-              if (alreadyLoaded) return;
-              clone.src = absoluteSrc;
-              document.body.appendChild(clone);
-              return;
+
+              if (alreadyLoaded) continue;
+
+              await new Promise(function (resolve) {
+                clone.onload = function () { resolve(); };
+                clone.onerror = function () { resolve(); };
+                clone.src = absoluteSrc;
+                document.body.appendChild(clone);
+              });
+
+              continue;
             }
 
             const scriptText = scriptNode.textContent || '';
-            if (!scriptText.trim()) return;
+            if (!scriptText.trim()) continue;
 
             /*
               IMPORTANT:
@@ -2691,9 +1097,18 @@
               '})();\n';
 
             clone.textContent = wrapperStart + scriptText + wrapperEnd;
-            document.body.appendChild(clone);
-            document.body.removeChild(clone);
-          });
+
+            const executeInlineScript = function () {
+              document.body.appendChild(clone);
+              document.body.removeChild(clone);
+            };
+
+            if (nfSoftNavPerf && typeof nfSoftNavPerf.runTracked === 'function') {
+              nfSoftNavPerf.runTracked(executeInlineScript);
+            } else {
+              executeInlineScript();
+            }
+          }
         } catch (err) {}
       }
 
@@ -2779,12 +1194,17 @@
             Backward-compatible cleanup for Edit Product pages rendered before
             the data attribute existed.
           */
-          document.querySelectorAll('body > #epConfirmBackdrop, body > .ep-confirm-backdrop').forEach(function(node){
+          document.querySelectorAll([
+            'body > #epConfirmBackdrop', 'body > .ep-confirm-backdrop',
+            'body > #sdConfirmBackdrop', 'body > .sd-confirm-backdrop',
+            'body > #spConfirmBackdrop', 'body > .sp-confirm-backdrop',
+            'body > .sdp-modal-backdrop', 'body > .sd-modal-backdrop'
+          ].join(',')).forEach(function(node){
             if (node && node.parentNode) node.parentNode.removeChild(node);
           });
 
           document.documentElement.classList.remove('ep-modal-open');
-          document.body.classList.remove('ep-modal-open');
+          document.body.classList.remove('ep-modal-open','sd-modal-open','sp-modal-open','sdp-modal-open');
 
           if (document.body.style.position === 'fixed') {
             document.body.style.position = '';
@@ -2819,42 +1239,69 @@
           saveOpenDropdowns();
           if (sidebarScroll) saveSidebarMenuScroll(url.pathname || window.location.pathname);
 
-          const response = await fetch(url.href, {
-            method: 'GET',
-            credentials: 'same-origin',
-            headers: {
-              'X-Requested-With': 'XMLHttpRequest',
-              'Accept': 'text/html,application/xhtml+xml'
-            },
-            cache: 'no-store'
-          });
+          if (nfSoftNavPerf && typeof nfSoftNavPerf.cancelScheduledPrefetch === 'function') {
+            nfSoftNavPerf.cancelScheduledPrefetch();
+          }
 
-          const contentType = response.headers.get('content-type') || '';
-          if (!response.ok || contentType.indexOf('text/html') === -1) {
-            window.location.href = url.href;
+          const currentContentBeforeLoad = document.querySelector('.nf-content');
+          if (currentContentBeforeLoad) currentContentBeforeLoad.setAttribute('aria-busy', 'true');
+
+          const loadedPage = await loadSoftNavDocument(url);
+          if (!loadedPage || !loadedPage.ok || !loadedPage.parsedDoc) {
+            window.location.href = (loadedPage && loadedPage.finalUrl) || url.href;
             return;
           }
 
-          const html = await response.text();
-          const parsedDoc = new DOMParser().parseFromString(html, 'text/html');
+          const parsedDoc = loadedPage.parsedDoc;
           const nextContent = parsedDoc.querySelector('.nf-content');
           const currentContent = document.querySelector('.nf-content');
+          if (window.NEFreshStyleRuntime && typeof window.NEFreshStyleRuntime.beginPaintGuard === 'function') {
+            window.NEFreshStyleRuntime.beginPaintGuard();
+          }
 
           if (!nextContent || !currentContent) {
             window.location.href = url.href;
             return;
           }
 
-          syncSoftNavHeadAssets(parsedDoc);
+          /* Remove page-owned overlays before the old page stylesheet is
+             detached, otherwise a hidden modal can briefly become raw text. */
+          cleanupSoftNavPageArtifacts();
+
+          const stylesReady = await syncSoftNavHeadAssets(parsedDoc, loadedPage.finalUrl || url.href);
+          if (!stylesReady) {
+            window.location.href = url.href;
+            return;
+          }
 
           const nextTitle = parsedDoc.querySelector('title');
           if (nextTitle) document.title = nextTitle.textContent || document.title;
+
+          /* The Store topbar lives outside .nf-content, so keep its page title and
+             subtitle synchronized during soft navigation as well. */
+          const nextPageContext = parsedDoc.querySelector('.nf-store-page-context');
+          const currentPageContext = document.querySelector('.nf-store-page-context');
+          if (nextPageContext && currentPageContext) {
+            currentPageContext.innerHTML = nextPageContext.innerHTML;
+          }
 
           const nextCsrf = parsedDoc.querySelector('meta[name="csrf-token"]');
           const currentCsrf = document.querySelector('meta[name="csrf-token"]');
           if (nextCsrf && currentCsrf) currentCsrf.setAttribute('content', nextCsrf.getAttribute('content') || '');
 
-          cleanupSoftNavPageArtifacts();
+          try {
+            window.dispatchEvent(new CustomEvent('nefresh:page-before-leave', { detail: { nextUrl: url.href } }));
+          } catch (err) {}
+          if (window.NEFreshMapRuntime && typeof window.NEFreshMapRuntime.cleanupAll === 'function') {
+            window.NEFreshMapRuntime.cleanupAll();
+          }
+          if (nfSoftNavPerf && typeof nfSoftNavPerf.cleanupPageLifecycle === 'function') {
+            nfSoftNavPerf.cleanupPageLifecycle();
+          }
+
+          const previousContentHeight = Math.max(0, Math.round(currentContent.getBoundingClientRect().height || 0));
+          if (previousContentHeight) currentContent.style.minHeight = previousContentHeight + 'px';
+          currentContent.classList.add('nf-softnav-swapping');
           currentContent.innerHTML = nextContent.innerHTML;
 
           if (options.replace) {
@@ -2875,7 +1322,20 @@
             window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
           }
 
-          runSoftNavScripts(parsedDoc);
+          await runSoftNavScripts(parsedDoc);
+
+          await new Promise(function(resolve){
+            requestAnimationFrame(function(){ requestAnimationFrame(resolve); });
+          });
+          currentContent.classList.remove('nf-softnav-swapping', 'nf-softnav-style-commit');
+          if (window.NEFreshStyleRuntime && typeof window.NEFreshStyleRuntime.endPaintGuard === 'function') window.NEFreshStyleRuntime.endPaintGuard();
+          currentContent.style.minHeight = '';
+          currentContent.removeAttribute('aria-busy');
+
+          if (nfSoftNavPerf && typeof nfSoftNavPerf.pageEntered === 'function') {
+            nfSoftNavPerf.pageEntered(url.href);
+          }
+
           requestAnimationFrame(function () {
             lockHorizontalAppViewport();
             keepActiveMenuVisible();
@@ -2883,9 +1343,28 @@
         } catch (err) {
           window.location.href = url.href;
         } finally {
+          const activeContent = document.querySelector('.nf-content');
+          if (activeContent) {
+            activeContent.classList.remove('nf-softnav-swapping', 'nf-softnav-style-commit');
+            if (window.NEFreshStyleRuntime && typeof window.NEFreshStyleRuntime.endPaintGuard === 'function') window.NEFreshStyleRuntime.endPaintGuard();
+            activeContent.style.minHeight = '';
+            activeContent.removeAttribute('aria-busy');
+          }
           nfSoftNavBusy = false;
         }
       }
+
+      document.addEventListener('pointerover', function (event) {
+        queueSoftNavPrefetch(event, false);
+      }, { passive: true });
+
+      document.addEventListener('focusin', function (event) {
+        queueSoftNavPrefetch(event, true);
+      });
+
+      document.addEventListener('touchstart', function (event) {
+        queueSoftNavPrefetch(event, true);
+      }, { passive: true });
 
       document.addEventListener('click', function (event) {
         const link = event.target.closest && event.target.closest('a[href]');
@@ -2937,24 +1416,57 @@
         });
       }
 
+      function filterStoreMenu(queryValue) {
+        const query = String(queryValue || '').trim().toLowerCase();
+        let visibleCount = 0;
+
+        menuItems.forEach(function (item) {
+          const text = item.textContent.toLowerCase();
+          const matched = !query || text.includes(query);
+          item.style.display = matched ? '' : 'none';
+          if (matched && item.id !== 'nfMenuNoResults') visibleCount += 1;
+
+          if (matched && query && item.classList.contains('nf-dropdown')) {
+            item.classList.add('open');
+          }
+        });
+
+        syncMenuSectionsForSearch();
+        if (noResults) noResults.hidden = visibleCount > 0;
+      }
+
       if (menuSearch) {
         menuSearch.addEventListener('input', function () {
-          const query = menuSearch.value.trim().toLowerCase();
-          let visibleCount = 0;
+          filterStoreMenu(menuSearch.value);
+          if (topMenuSearch && topMenuSearch.value !== menuSearch.value) topMenuSearch.value = menuSearch.value;
+        });
+      }
 
-          menuItems.forEach(function (item) {
-            const text = item.textContent.toLowerCase();
-            const matched = !query || text.includes(query);
-            item.style.display = matched ? '' : 'none';
-            if (matched && item.id !== 'nfMenuNoResults') visibleCount += 1;
+      if (topMenuSearch) {
+        topMenuSearch.addEventListener('input', function () {
+          const value = topMenuSearch.value;
+          if (menuSearch) menuSearch.value = value;
+          filterStoreMenu(value);
 
-            if (matched && query && item.classList.contains('nf-dropdown')) {
-              item.classList.add('open');
+          if (value.trim()) {
+            if (isMobileFrame()) {
+              body.classList.add('sidebar-open');
+              if (mobileMenu) mobileMenu.setAttribute('aria-expanded', 'true');
+            } else if (body.getAttribute('data-sidebar-state') === 'collapsed') {
+              applySidebarState('expanded');
             }
-          });
+          }
+        });
 
-          syncMenuSectionsForSearch();
-          if (noResults) noResults.hidden = visibleCount > 0;
+        topMenuSearch.addEventListener('keydown', function (event) {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          const firstVisible = menuItems.find(function (item) {
+            return item.style.display !== 'none';
+          });
+          if (!firstVisible) return;
+          const link = firstVisible.matches('a[href]') ? firstVisible : firstVisible.querySelector('a[href]');
+          if (link) link.click();
         });
       }
 
@@ -3436,6 +1948,9 @@
   </script>
 
 
-  {% block extra_js %}{% endblock %}
+  <script defer src="{{ url_for('static', filename='js/view-state.js') }}"></script>
+
+{% block extra_js %}{% endblock %}
+  <script src="{{ url_for('static', filename='js/store-ui-runtime.js', v='3f4-final-3') }}"></script>
 </body>
 </html>

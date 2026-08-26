@@ -1,9 +1,13 @@
 {% extends "store_base.html" %}
 {% set active_page = "delivery_history" %}
 
-{% block title %}In-house Delivery Staff History | NE FRESH Store{% endblock %}
-{% block page_title %}In-house Delivery Staff History{% endblock %}
-{% block page_subtitle %}Rider-wise delivery records, COD handling, delivery earnings, failed deliveries and cancellation history for your store only.{% endblock %}
+{% block title %}Delivery History | NE Locals{% endblock %}
+{% block page_title %}Delivery History{% endblock %}
+{% block page_subtitle %}Review in-house delivery performance and order-level delivery records for this Store.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-delivery-history.css') }}">
+{% endblock %}
 
 {% block content %}
 {% set metrics = history_metrics if history_metrics is defined else {} %}
@@ -11,456 +15,21 @@
 {% set records = orders if orders is defined else [] %}
 {% set people = delivery_people if delivery_people is defined else [] %}
 
-<section class="nf-store-rider-history-page">
-  <style>
-    .nf-store-rider-history-page {
-      --srh-green: var(--nf-green, #00A859);
-      --srh-green-dark: var(--nf-green-dark, #008A48);
-      --srh-green-soft: var(--nf-green-soft, #E9FFF3);
-      --srh-blue: var(--nf-blue, #0284C7);
-      --srh-red: var(--nf-red, #EF4444);
-      --srh-orange: #F59E0B;
-      --srh-card: var(--nf-surface, #FFFFFF);
-      --srh-card-2: var(--nf-surface-2, #F2FBF6);
-      --srh-text: var(--nf-text, #1F332A);
-      --srh-muted: var(--nf-muted, #66756D);
-      --srh-muted-2: var(--nf-muted-2, #8A9890);
-      --srh-line: var(--nf-line, #DDECE4);
-      --srh-shadow: var(--nf-shadow, 0 14px 36px rgba(17,64,38,.08));
-      display: grid;
-      gap: 20px;
-      animation: srhFade .35s ease both;
-    }
-
-    .nf-store-rider-history-page,
-    .nf-store-rider-history-page * {
-      box-sizing: border-box;
-    }
-
-    @keyframes srhFade {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .srh-hero,
-    .srh-card {
-      background: var(--srh-card);
-      border: 1px solid var(--srh-line);
-      border-radius: 24px;
-      box-shadow: var(--srh-shadow);
-      overflow: hidden;
-    }
-
-    .srh-hero {
-      position: relative;
-      padding: 24px;
-      background:
-        radial-gradient(circle at 8% 12%, rgba(0,168,89,.12), transparent 32%),
-        radial-gradient(circle at 92% 8%, rgba(2,132,199,.10), transparent 30%),
-        linear-gradient(135deg, #FFFFFF, var(--srh-card-2));
-    }
-
-    .srh-kicker {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 30px;
-      padding: 0 12px;
-      border-radius: 999px;
-      background: var(--srh-green-soft);
-      color: var(--srh-green-dark);
-      border: 1px solid rgba(0,168,89,.18);
-      font-size: .76rem;
-      font-weight: 900;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-    }
-
-    .srh-hero h2 {
-      margin: 12px 0 8px;
-      color: var(--srh-text);
-      font-size: clamp(1.55rem, 3vw, 2.35rem);
-      line-height: 1.08;
-      font-weight: 950;
-      letter-spacing: -.05em;
-    }
-
-    .srh-hero p {
-      margin: 0;
-      max-width: 940px;
-      color: var(--srh-muted);
-      font-size: .95rem;
-      font-weight: 650;
-      line-height: 1.65;
-    }
-
-    .srh-kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .srh-kpi {
-      min-height: 112px;
-      padding: 18px;
-      border-radius: 22px;
-      background: var(--srh-card);
-      border: 1px solid var(--srh-line);
-      box-shadow: var(--srh-shadow);
-      display: grid;
-      align-content: space-between;
-      gap: 10px;
-    }
-
-    .srh-kpi span {
-      color: var(--srh-muted);
-      font-size: .78rem;
-      font-weight: 850;
-      text-transform: uppercase;
-      letter-spacing: .055em;
-    }
-
-    .srh-kpi strong {
-      color: var(--srh-text);
-      font-size: clamp(1.25rem, 2.2vw, 1.85rem);
-      line-height: 1;
-      font-weight: 950;
-      letter-spacing: -.04em;
-    }
-
-    .srh-kpi small {
-      color: var(--srh-muted-2);
-      font-size: .78rem;
-      font-weight: 750;
-    }
-
-    .srh-filters {
-      padding: 18px;
-    }
-
-    .srh-filter-grid {
-      display: grid;
-      grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr auto;
-      gap: 12px;
-      align-items: end;
-    }
-
-    .srh-field {
-      display: grid;
-      gap: 7px;
-    }
-
-    .srh-field label {
-      color: var(--srh-muted);
-      font-size: .75rem;
-      font-weight: 900;
-      letter-spacing: .05em;
-      text-transform: uppercase;
-    }
-
-    .srh-field input,
-    .srh-field select {
-      width: 100%;
-      min-height: 42px;
-      border-radius: 14px;
-      border: 1px solid var(--srh-line);
-      background: #fff;
-      color: var(--srh-text);
-      padding: 0 12px;
-      outline: none;
-      font-size: .88rem;
-      font-weight: 750;
-    }
-
-    .srh-field input:focus,
-    .srh-field select:focus {
-      border-color: rgba(0,168,89,.45);
-      box-shadow: 0 0 0 4px rgba(0,168,89,.10);
-    }
-
-    .srh-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .srh-btn {
-      min-height: 42px;
-      border: 1px solid var(--srh-line);
-      border-radius: 14px;
-      background: #fff;
-      color: var(--srh-text);
-      padding: 0 13px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-size: .84rem;
-      font-weight: 900;
-      text-decoration: none;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .srh-btn:hover {
-      border-color: rgba(0,168,89,.30);
-      color: var(--srh-green-dark);
-      box-shadow: 0 10px 22px rgba(17,64,38,.08);
-      transform: translateY(-1px);
-    }
-
-    .srh-btn.primary {
-      background: var(--srh-green);
-      border-color: var(--srh-green);
-      color: #fff;
-    }
-
-    .srh-section-head {
-      padding: 18px 18px 0;
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: flex-start;
-      flex-wrap: wrap;
-    }
-
-    .srh-section-head h3 {
-      margin: 0;
-      color: var(--srh-text);
-      font-size: 1.05rem;
-      font-weight: 950;
-      letter-spacing: -.03em;
-    }
-
-    .srh-section-head p {
-      margin: 5px 0 0;
-      color: var(--srh-muted);
-      font-size: .84rem;
-      font-weight: 650;
-    }
-
-    .srh-table-wrap {
-      width: 100%;
-      overflow-x: auto;
-      padding: 18px;
-    }
-
-    .srh-table {
-      width: 100%;
-      min-width: 1100px;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-
-    .srh-table th {
-      background: var(--srh-card-2);
-      color: var(--srh-muted);
-      font-size: .72rem;
-      font-weight: 950;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      text-align: left;
-      padding: 12px;
-      border-top: 1px solid var(--srh-line);
-      border-bottom: 1px solid var(--srh-line);
-      white-space: nowrap;
-    }
-
-    .srh-table th:first-child {
-      border-left: 1px solid var(--srh-line);
-      border-top-left-radius: 16px;
-    }
-
-    .srh-table th:last-child {
-      border-right: 1px solid var(--srh-line);
-      border-top-right-radius: 16px;
-    }
-
-    .srh-table td {
-      padding: 13px 12px;
-      border-bottom: 1px solid var(--srh-line);
-      color: var(--srh-text);
-      font-size: .86rem;
-      font-weight: 750;
-      vertical-align: top;
-      background: #fff;
-    }
-
-    .srh-table tr:hover td {
-      background: #FBFFFD;
-    }
-
-    .srh-main-text {
-      display: block;
-      color: var(--srh-text);
-      font-weight: 950;
-    }
-
-    .srh-sub-text {
-      display: block;
-      margin-top: 3px;
-      color: var(--srh-muted);
-      font-size: .76rem;
-      font-weight: 700;
-    }
-
-    .srh-money {
-      font-weight: 950;
-      white-space: nowrap;
-    }
-
-    .srh-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 26px;
-      padding: 4px 9px;
-      border-radius: 999px;
-      font-size: .72rem;
-      font-weight: 950;
-      border: 1px solid var(--srh-line);
-      background: var(--srh-card-2);
-      color: var(--srh-muted);
-      white-space: nowrap;
-    }
-
-    .srh-pill.delivered {
-      background: var(--srh-green-soft);
-      color: var(--srh-green-dark);
-      border-color: rgba(0,168,89,.20);
-    }
-
-    .srh-pill.failed {
-      background: #FFF1F2;
-      color: #B91C1C;
-      border-color: rgba(239,68,68,.20);
-    }
-
-    .srh-pill.cancelled,
-    .srh-pill.rider_cancelled {
-      background: #FFF7E8;
-      color: #A84700;
-      border-color: rgba(245,158,11,.24);
-    }
-
-    .srh-pill.active,
-    .srh-pill.ready {
-      background: #E0F2FE;
-      color: #0369A1;
-      border-color: rgba(2,132,199,.20);
-    }
-
-    .srh-empty {
-      padding: 34px 18px;
-      text-align: center;
-      color: var(--srh-muted);
-      font-size: .92rem;
-      font-weight: 750;
-    }
-
-    .srh-mobile-list {
-      display: none;
-      padding: 0 18px 18px;
-      gap: 12px;
-    }
-
-    .srh-mobile-card {
-      padding: 16px;
-      border-radius: 20px;
-      background: #fff;
-      border: 1px solid var(--srh-line);
-      box-shadow: 0 10px 26px rgba(17,64,38,.06);
-      display: grid;
-      gap: 12px;
-    }
-
-    .srh-mobile-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: flex-start;
-    }
-
-    .srh-mobile-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .srh-mobile-metric {
-      padding: 10px;
-      border-radius: 14px;
-      background: var(--srh-card-2);
-      display: grid;
-      gap: 3px;
-    }
-
-    .srh-mobile-metric span {
-      color: var(--srh-muted);
-      font-size: .68rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-
-    .srh-mobile-metric strong {
-      color: var(--srh-text);
-      font-size: .88rem;
-      font-weight: 950;
-    }
-
-    @media (max-width: 1200px) {
-      .srh-kpi-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .srh-filter-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (max-width: 760px) {
-      .srh-hero {
-        padding: 18px;
-      }
-
-      .srh-kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .srh-filter-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .srh-table-wrap {
-        display: none;
-      }
-
-      .srh-mobile-list {
-        display: grid;
-      }
-    }
-
-    @media (max-width: 460px) {
-      .srh-kpi-grid,
-      .srh-mobile-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+<section class="nf-store-rider-history-page nf-store-page">
+  
 
   <div class="srh-hero">
-    <span class="srh-kicker">In-house Delivery Staff History</span>
-    <h2>Rider-wise delivery performance</h2>
+    <span class="srh-kicker">Delivery History</span>
+    <h2>In-house delivery history</h2>
     <p>
-      Track every delivery boy who handled your store orders. The data below is restricted to this store only,
+      Track every Delivery Partner who handled your Store orders. The data below is restricted to this store only,
       including delivered orders, failed attempts, rider cancellations, COD handling, delivery charges and tips.
     </p>
   </div>
 
   <div class="srh-kpi-grid">
     <div class="srh-kpi">
-      <span>In-house Delivery Staff</span>
+      <span>Delivery Partner</span>
       <strong>{{ metrics.total_delivery_boys|default(0) }}</strong>
       <small>Riders found in your store records</small>
     </div>
@@ -504,7 +73,7 @@
     <div class="srh-kpi">
       <span>Delivery + Tip</span>
       <strong>₹{{ "%.2f"|format(metrics.delivery_earning|default(0)|float) }}</strong>
-      <small>Delivery-boy earning component</small>
+      <small>Delivery Partner earning component</small>
     </div>
 
     <div class="srh-kpi">
@@ -529,9 +98,9 @@
         </div>
 
         <div class="srh-field">
-          <label>In-house Delivery Staff</label>
+          <label>Delivery Partner</label>
           <select name="delivery_user_id">
-            <option value="">All delivery boys</option>
+            <option value="">All delivery partners</option>
             {% for person in people %}
               <option value="{{ person.id }}" {% if delivery_user_filter == person.id %}selected{% endif %}>
                 {{ person.name }}{% if person.phone %} - {{ person.phone }}{% endif %}
@@ -582,8 +151,8 @@
   <div class="srh-card">
     <div class="srh-section-head">
       <div>
-        <h3>Delivery-boy-wise summary</h3>
-        <p>Each row is one delivery boy’s performance for this store only.</p>
+        <h3>Delivery Partner summary</h3>
+        <p>Each row summarizes one Delivery Partner’s performance for this Store.</p>
       </div>
     </div>
 
@@ -592,7 +161,7 @@
         <table class="srh-table">
           <thead>
             <tr>
-              <th>In-house Delivery Staff</th>
+              <th>Delivery Partner</th>
               <th>Total</th>
               <th>Delivered</th>
               <th>Failed</th>
@@ -655,15 +224,15 @@
         {% endfor %}
       </div>
     {% else %}
-      <div class="srh-empty">No delivery-boy records found for the selected filters.</div>
+      <div class="srh-empty">No Delivery Partner records found for the selected filters.</div>
     {% endif %}
   </div>
 
   <div class="srh-card">
     <div class="srh-section-head">
       <div>
-        <h3>Order-wise delivery boy records</h3>
-        <p>Detailed delivery records behind the rider summary.</p>
+        <h3>Order delivery records</h3>
+        <p>Detailed order records behind the Delivery Partner summary.</p>
       </div>
     </div>
 
@@ -673,11 +242,11 @@
           <thead>
             <tr>
               <th>Order</th>
-              <th>In-house Delivery Staff</th>
+              <th>Delivery Partner</th>
               <th>Customer</th>
               <th>Status</th>
               <th>Payment</th>
-              <th>COD / Collect</th>
+              <th>COD Amount</th>
               <th>Total Payable</th>
               <th>Delivery Fee</th>
               <th>Platform Fee</th>
@@ -692,7 +261,7 @@
             {% for order in records %}
               <tr>
                 <td>
-                  <span class="srh-main-text">#{{ (order.id|string)[-6:] }}</span>
+                  <span class="srh-main-text">{{ order.order_number or order.display_order_number or ("#" ~ (order.id|string)[-6:]) }}</span>
                   <span class="srh-sub-text">{{ order.record_at or order.created_at or '-' }}</span>
                 </td>
                 <td>
@@ -709,9 +278,17 @@
                 </td>
                 <td>
                   <span class="srh-main-text">{{ order.payment_method or '-' }}</span>
+                  {% if order.is_cod_order and order.payment_collection_channel %}<span class="srh-sub-text">{{ order.collection_channel_label or order.payment_collection_channel }}</span>{% endif %}
                   <span class="srh-sub-text">{{ order.payment_status or '-' }}</span>
                 </td>
-                <td class="srh-money">₹{{ "%.2f"|format(order.amount_to_collect|default(0)|float) }}</td>
+                <td class="srh-money">
+                  {% if order.is_cod_order %}
+                    <span class="srh-main-text">₹{{ "%.2f"|format(order.cod_display_amount|default(0)|float) }}</span>
+                    <span class="srh-sub-text">{{ order.cod_display_label or "COD" }}</span>
+                  {% else %}
+                    <span class="srh-sub-text">—</span>
+                  {% endif %}
+                </td>
                 <td class="srh-money">₹{{ "%.2f"|format(order.total_payable|default(0)|float) }}</td>
                 <td class="srh-money">₹{{ "%.2f"|format(order.delivery_fee|default(0)|float) }}</td>
                 <td class="srh-money">₹{{ "%.2f"|format(order.platform_fee|default(0)|float) }}</td>
@@ -751,14 +328,14 @@
           <div class="srh-mobile-card">
             <div class="srh-mobile-top">
               <div>
-                <span class="srh-main-text">#{{ (order.id|string)[-6:] }} · {{ order.delivery_partner_name or 'Not assigned' }}</span>
+                <span class="srh-main-text">{{ order.order_number or order.display_order_number or ("#" ~ (order.id|string)[-6:]) }} · {{ order.delivery_partner_name or 'Not assigned' }}</span>
                 <span class="srh-sub-text">{{ order.customer_name or 'Customer' }} · {{ order.customer_phone or '-' }}</span>
               </div>
               <span class="srh-pill {{ order.history_type|default('record') }}">{{ order.history_label or order.status }}</span>
             </div>
 
             <div class="srh-mobile-grid">
-              <div class="srh-mobile-metric"><span>COD</span><strong>₹{{ "%.2f"|format(order.amount_to_collect|default(0)|float) }}</strong></div>
+              <div class="srh-mobile-metric"><span>COD</span><strong>{% if order.is_cod_order %}₹{{ "%.2f"|format(order.cod_display_amount|default(0)|float) }}{% else %}—{% endif %}</strong></div>
               <div class="srh-mobile-metric"><span>Total</span><strong>₹{{ "%.2f"|format(order.total_payable|default(0)|float) }}</strong></div>
               <div class="srh-mobile-metric"><span>Delivery</span><strong>₹{{ "%.2f"|format(order.delivery_fee|default(0)|float) }}</strong></div>
               <div class="srh-mobile-metric"><span>Tip</span><strong>₹{{ "%.2f"|format(order.tip_amount|default(0)|float) }}</strong></div>

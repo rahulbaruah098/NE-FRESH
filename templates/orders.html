@@ -3937,7 +3937,9 @@
         {% set order_status_upper = (o.status or '')|upper %}
         {% set is_failed_delivery = order_status_upper == 'DELIVERY_FAILED' %}
         {% set is_rescheduled_delivery = o.delivery_rescheduled and order_status_upper in ['SHIPMENT_READY', 'READY_FOR_PICKUP'] %}
-        {% set is_cancelled_after_failed = order_status_upper == 'CANCELLED' and o.delivery_failed_store_decision == 'CANCELLED' %}
+        {% set cancellation_source = (o.cancelled_by_role or o.cancelled_by or '')|lower %}
+        {% set is_store_cancelled = order_status_upper in ['CANCELLED', 'CANCELED'] and (cancellation_source == 'store' or o.delivery_failed_store_decision == 'CANCELLED') %}
+        {% set is_cancelled_after_failed = is_store_cancelled and o.delivery_failed_store_decision == 'CANCELLED' %}
         {% set is_reassigning = o.needs_reassignment or o.delivery_cancelled_by_partner %}
         {% set order_mode = (o.active_delivery_mode|default('IN_HOUSE'))|upper %}
         {% set o_return_status = (o.return_status or '')|upper %}
@@ -4034,8 +4036,8 @@
                   <span class="order-history-status history-status-danger">Delivery Failed</span>
                 {% elif is_rescheduled_delivery %}
                   <span class="order-history-status history-status-info">Rescheduled</span>
-                {% elif is_cancelled_after_failed %}
-                  <span class="order-history-status history-status-danger">Cancelled After Failed Delivery</span>
+                {% elif is_store_cancelled %}
+                  <span class="order-history-status history-status-danger">Cancelled by Store</span>
                 {% elif is_reassigning %}
                   <span class="order-history-status history-status-warning">Reassigning Rider</span>
                 {% else %}
@@ -4080,10 +4082,11 @@
             <span>Store note: {{ o.delivery_rescheduled_note }}</span>
             {% endif %}
           </div>
-          {% elif is_cancelled_after_failed %}
+          {% elif is_store_cancelled %}
           <div class="order-history-notice order-history-notice-danger">
-            <strong>Order cancelled</strong>
-            <span>This order was cancelled after a failed delivery attempt.</span>
+            <strong>Order cancelled by Store</strong>
+            <span>The Store cancelled this order{% if is_cancelled_after_failed %} after the failed delivery attempt{% endif %}.</span>
+            {% if o.cancellation_reason or o.cancel_reason %}<span>Reason: {{ o.cancellation_reason or o.cancel_reason }}</span>{% endif %}
           </div>
           {% elif is_reassigning %}
           <div class="order-history-notice order-history-notice-warning">

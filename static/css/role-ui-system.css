@@ -1,0 +1,439 @@
+/* NE LOCALS — Stage 3F.2 shared Admin / Store / Delivery UI contract.
+   This is the canonical final presentation layer for role portals only.
+   Customer/user pages are intentionally excluded. */
+
+:root{
+  --nf-ui-green:#5F8F6F;
+  --nf-ui-green-dark:#466F55;
+  --nf-ui-green-soft:#EDF5F0;
+  --nf-ui-green-soft-2:#F3F7F4;
+  --nf-ui-red:#990707;
+  --nf-ui-brown:#8A5A3B;
+  --nf-ui-blue:#456B82;
+  --nf-ui-ink:#1F2E26;
+  --nf-ui-muted:#69776F;
+  --nf-ui-line:#DCE7DF;
+  --nf-ui-line-strong:#CAD9CF;
+  --nf-ui-surface:#FFFFFF;
+  --nf-ui-surface-soft:#F8FBF9;
+  --nf-ui-shadow:0 10px 28px rgba(38,64,48,.07);
+  --nf-ui-radius:14px;
+  --nf-ui-radius-sm:10px;
+}
+
+body[data-portal="admin"],
+body[data-portal="store"],
+body[data-portal="delivery"]{
+  background:#F7FAF8;
+  color:var(--nf-ui-ink);
+}
+
+body[data-portal] .nf-main{
+  min-width:0;
+}
+
+body[data-portal] .nf-content{
+  width:100%;
+  min-width:0;
+}
+
+/* Soft-navigation keeps the currently styled page visible until the next
+   page CSS is ready. Never expose raw replacement markup while loading. */
+body[data-portal] .nf-content[aria-busy="true"]{
+  pointer-events:none;
+  cursor:progress;
+}
+body[data-portal] .nf-content[aria-busy="true"]::after{
+  content:"";
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:2px;
+  background:var(--nf-ui-green);
+  opacity:.82;
+  z-index:2000;
+  animation:nf-role-loading 1s ease-in-out infinite alternate;
+}
+@keyframes nf-role-loading{from{transform:scaleX(.16);transform-origin:left}to{transform:scaleX(1);transform-origin:left}}
+
+/* Common page hierarchy */
+body[data-portal] .nf-content :where(h1,h2,h3,h4){
+  color:var(--nf-ui-ink);
+  letter-spacing:-.015em;
+}
+body[data-portal] .nf-content :where(.nf-page-kicker,.sd-kicker,.dd-kicker,.delivery-account-eyebrow){
+  color:var(--nf-ui-green-dark);
+  font-weight:800;
+  letter-spacing:.055em;
+  text-transform:uppercase;
+  font-size:.72rem;
+}
+body[data-portal] .nf-content :where(.nf-muted,.sd-muted,.dd-muted,.helper,.hint,.help-text){
+  color:var(--nf-ui-muted);
+}
+
+/* Canonical panel/card geometry */
+body[data-portal] .nf-content :where(
+  .nf-content-card,.nf-panel,.nf-card,
+  .sd-card,.dd-card,.da-card,.dc-card,.dcs-card,.de-card,.ds-card,
+  .delivery-account-card,.delivery-account-hero,
+  .payset-card,.settle-card,.pe-card,.sal-card,.ret-card,.rf-card,.rp-card
+){
+  background:var(--nf-ui-surface);
+  border:1px solid var(--nf-ui-line);
+  border-radius:var(--nf-ui-radius);
+  box-shadow:var(--nf-ui-shadow);
+}
+
+/* Unified KPI grids */
+body[data-portal] .nf-content :where(
+  .ad-kpi-grid,.ac-kpi-grid,.arh-kpi-grid,.cu-kpi-grid,.dl-kpi-grid,.do-kpi-grid,.dr-kpi-grid,.du-kpi-grid,.nb-kpi-grid,
+  .payset-kpi-grid,.settle-kpi-grid,.pe-kpi-grid,.ret-kpi-grid,.rf-kpi-grid,.rp-kpi-grid,.sal-kpi-grid,.srh-kpi-grid,.su-kpi-grid,
+  .sd-kpi-grid,.sd-stat-grid,.sd-hero-stat-grid,.sc-kpis,.sdp-kpi-grid,.sr-kpi-grid,.sr-kpis,.sl-kpi-grid,.sp-kpi-grid,.ss-metrics,
+  .dd-kpi-grid,.da-kpi-grid,.dc-kpi-grid,.dcs-kpi-grid,.de-kpi-grid,.ds-kpi-grid,.delivery-account-stats
+){
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+  align-items:stretch;
+}
+
+/* Unified KPI / stat cards. No decorative left/gradient stripe. */
+body[data-portal] .nf-content :where(
+  .ad-kpi,.ac-kpi,.arh-kpi,.cu-kpi,.dl-kpi,.do-kpi,.dor-kpi,.dr-kpi,.du-kpi,.nb-kpi,.pr-kpi,.so-kpi,.sp-kpi,.su-kpi,
+  .payset-kpi,.settle-kpi,.pe-kpi,.ret-kpi,.rf-kpi,.rp-kpi,.sal-kpi,.srh-kpi,
+  .sd-kpi-card,.sd-stat-card,.sd-hero-stat,.sc-kpi,.sdp-kpi,.sr-kpi,.sl-kpi-card,
+  .dd-kpi,.da-kpi,.dc-kpi,.dcs-kpi,.de-kpi,.ds-kpi,.delivery-account-stat
+):hover{
+  border-color:var(--nf-ui-line-strong);
+  box-shadow:0 8px 22px rgba(38,64,48,.08);
+}
+
+body[data-portal] .nf-content :where(
+  .ad-kpi-value,.cu-kpi-value,.dl-kpi-value,.do-kpi-value,.dr-kpi-value,.du-kpi-value,.nb-kpi-value,.pr-kpi-value,.so-kpi-value,.sp-kpi-value,.su-kpi-value,
+  .sd-kpi-value,.sd-stat-value,.sdp-kpi-value,.sr-kpi-value,.sn-stat-value,.uo-kpi-value,
+  .dd-kpi-value,.da-kpi-value,.dc-kpi-value,.dcs-kpi-value,.de-kpi-value,.ds-kpi-value
+){
+  color:var(--nf-ui-ink);
+  font-size:clamp(1.42rem,2.1vw,1.9rem);
+  line-height:1.05;
+  font-weight:800;
+  letter-spacing:-.035em;
+  overflow-wrap:anywhere;
+}
+body[data-portal] .nf-content :where(
+  .ad-kpi-label,.cu-kpi-label,.dl-kpi-label,.do-kpi-label,.dr-kpi-label,.du-kpi-label,.nb-kpi-label,.pr-kpi-label,.so-kpi-label,.sp-kpi-label,.su-kpi-label,
+  .sd-kpi-label,.sd-stat-label,.sdp-kpi-label,.sr-kpi-label,.sn-stat-label,.uo-kpi-label,
+  .dd-kpi-label,.da-kpi-label,.dc-kpi-label,.dcs-kpi-label,.de-kpi-label,.ds-kpi-label
+){
+  color:var(--nf-ui-muted);
+  font-size:.78rem;
+  font-weight:700;
+}
+body[data-portal] .nf-content :where(
+  .ad-kpi-meta,.cu-kpi-meta,.dl-kpi-meta,.do-kpi-meta,.dr-kpi-meta,.du-kpi-meta,.nb-kpi-meta,.pr-kpi-sub,.so-kpi-meta,.sp-kpi-meta,.su-kpi-meta,
+  .sd-kpi-meta,.sd-kpi-sub,.sd-stat-sub,.sdp-kpi-meta,.sr-kpi-meta,.sn-stat-meta,
+  .dd-kpi-meta,.da-kpi-meta,.dc-kpi-meta,.dcs-kpi-meta,.de-kpi-meta,.ds-kpi-meta
+){
+  color:var(--nf-ui-muted);
+  font-size:.75rem;
+  line-height:1.4;
+}
+
+/* Icon treatment */
+body[data-portal] .nf-content :where(
+  .cu-kpi-icon,.dl-kpi-icon,.do-kpi-icon,.dr-kpi-icon,.du-kpi-icon,.nb-kpi-icon,.pr-kpi-icon,.sp-kpi-icon,.su-kpi-icon,
+  .sd-kpi-icon,.sd-stat-icon,.sdp-kpi-icon,.sr-kpi-icon,.sn-stat-icon,
+  .dd-kpi-icon,.da-kpi-icon,.dc-kpi-icon,.dcs-kpi-icon,.de-kpi-icon,.ds-kpi-icon
+){
+  width:36px;
+  height:36px;
+  display:inline-grid;
+  place-items:center;
+  flex:0 0 36px;
+  border-radius:10px;
+  background:var(--nf-ui-green-soft);
+  color:var(--nf-ui-green-dark);
+  border:1px solid #D9E8DE;
+}
+
+/* Forms */
+body[data-portal] .nf-content :where(input:not([type="checkbox"]):not([type="radio"]),select,textarea){
+  min-height:42px;
+  max-width:100%;
+  border:1px solid var(--nf-ui-line-strong);
+  border-radius:10px;
+  background:#fff;
+  color:var(--nf-ui-ink);
+  box-shadow:none;
+  transition:border-color .16s ease,box-shadow .16s ease;
+}
+body[data-portal] .nf-content textarea{min-height:96px;resize:vertical;}
+body[data-portal] .nf-content :where(input:not([type="checkbox"]):not([type="radio"]),select,textarea):focus{
+  outline:none;
+  border-color:var(--nf-ui-green);
+  box-shadow:0 0 0 3px rgba(95,143,111,.12);
+}
+body[data-portal] .nf-content :where(label){color:var(--nf-ui-ink);}
+
+/* Buttons — normalize geometry without changing semantic page colors. */
+body[data-portal] .nf-content :where(button,a)[class*="btn"]{
+  min-height:40px;
+  border-radius:10px;
+  font-weight:700;
+  line-height:1.2;
+  box-shadow:none;
+}
+body[data-portal] .nf-content :where(.nf-btn-primary,.sd-btn-primary,.dd-btn-primary,.delivery-account-primary){
+  background:var(--nf-ui-green-dark);
+  border-color:var(--nf-ui-green-dark);
+  color:#fff;
+}
+
+/* Tables */
+body[data-portal] .nf-content :where(table){
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+}
+body[data-portal] .nf-content :where(table thead th){
+  background:var(--nf-ui-green-soft-2);
+  color:#415047;
+  font-size:.74rem;
+  font-weight:800;
+  letter-spacing:.02em;
+  border-bottom:1px solid var(--nf-ui-line-strong);
+}
+body[data-portal] .nf-content :where(table tbody td){
+  border-bottom:1px solid #E8EFEA;
+}
+body[data-portal] .nf-content :where(table tbody tr:last-child td){border-bottom:0;}
+
+/* Tabs / filter bars */
+body[data-portal] .nf-content :where(.nf-tabs,.tabs,.filter-bar,.filters,.sd-filter-bar,.dd-filter-bar){
+  background:var(--nf-ui-surface);
+  border:1px solid var(--nf-ui-line);
+  border-radius:12px;
+}
+
+/* Status / pill restraint */
+body[data-portal] .nf-content :where(.badge,.pill,[class*="-pill"],[class*="status-pill"]){
+  border-radius:8px;
+  font-weight:700;
+}
+
+/* Empty / error states */
+body[data-portal] .nf-content :where(.empty-state,.nf-empty,.sd-empty,.dd-empty){
+  border:1px dashed var(--nf-ui-line-strong);
+  border-radius:12px;
+  background:var(--nf-ui-surface-soft);
+  color:var(--nf-ui-muted);
+}
+
+
+/* Responsive component contract */
+@media (max-width:1180px){
+  body[data-portal] .nf-content :where(
+    .ad-kpi-grid,.ac-kpi-grid,.arh-kpi-grid,.cu-kpi-grid,.dl-kpi-grid,.do-kpi-grid,.dr-kpi-grid,.du-kpi-grid,.nb-kpi-grid,
+    .payset-kpi-grid,.settle-kpi-grid,.pe-kpi-grid,.ret-kpi-grid,.rf-kpi-grid,.rp-kpi-grid,.sal-kpi-grid,.srh-kpi-grid,.su-kpi-grid,
+    .sd-kpi-grid,.sd-stat-grid,.sd-hero-stat-grid,.sc-kpis,.sdp-kpi-grid,.sr-kpi-grid,.sr-kpis,.sl-kpi-grid,.sp-kpi-grid,.ss-metrics,
+    .dd-kpi-grid,.da-kpi-grid,.dc-kpi-grid,.dcs-kpi-grid,.de-kpi-grid,.ds-kpi-grid,.delivery-account-stats
+  ){grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (max-width:680px){
+  body[data-portal] .nf-content{padding-inline:0;}
+  body[data-portal] .nf-content :where(
+    .ad-kpi-grid,.ac-kpi-grid,.arh-kpi-grid,.cu-kpi-grid,.dl-kpi-grid,.do-kpi-grid,.dr-kpi-grid,.du-kpi-grid,.nb-kpi-grid,
+    .payset-kpi-grid,.settle-kpi-grid,.pe-kpi-grid,.ret-kpi-grid,.rf-kpi-grid,.rp-kpi-grid,.sal-kpi-grid,.srh-kpi-grid,.su-kpi-grid,
+    .sd-kpi-grid,.sd-stat-grid,.sd-hero-stat-grid,.sc-kpis,.sdp-kpi-grid,.sr-kpi-grid,.sr-kpis,.sl-kpi-grid,.sp-kpi-grid,.ss-metrics,
+    .dd-kpi-grid,.da-kpi-grid,.dc-kpi-grid,.dcs-kpi-grid,.de-kpi-grid,.ds-kpi-grid,.delivery-account-stats
+  ){grid-template-columns:1fr;gap:10px;}
+  body[data-portal] .nf-content :where(
+    .ad-kpi,.ac-kpi,.arh-kpi,.cu-kpi,.dl-kpi,.do-kpi,.dor-kpi,.dr-kpi,.du-kpi,.nb-kpi,.pr-kpi,.so-kpi,.sp-kpi,.su-kpi,
+    .payset-kpi,.settle-kpi,.pe-kpi,.ret-kpi,.rf-kpi,.rp-kpi,.sal-kpi,.srh-kpi,
+    .sd-kpi-card,.sd-stat-card,.sd-hero-stat,.sc-kpi,.sdp-kpi,.sr-kpi,.sl-kpi-card,
+    .dd-kpi,.da-kpi,.dc-kpi,.dcs-kpi,.de-kpi,.ds-kpi,.delivery-account-stat
+  ){min-height:96px;padding:14px 15px;}
+  body[data-portal] .nf-content :where(button,a)[class*="btn"]{min-height:44px;}
+}
+@media (max-width:390px){
+  body[data-portal] .nf-content :where(
+    .ad-kpi-value,.cu-kpi-value,.dl-kpi-value,.do-kpi-value,.dr-kpi-value,.du-kpi-value,.nb-kpi-value,.pr-kpi-value,.so-kpi-value,.sp-kpi-value,.su-kpi-value,
+    .sd-kpi-value,.sd-stat-value,.sdp-kpi-value,.sr-kpi-value,.sn-stat-value,.uo-kpi-value,
+    .dd-kpi-value,.da-kpi-value,.dc-kpi-value,.dcs-kpi-value,.de-kpi-value,.ds-kpi-value
+  ){font-size:1.38rem;}
+}
+@media (prefers-reduced-motion:reduce){
+  body[data-portal] .nf-content[aria-busy="true"]::after{animation:none;}
+}
+
+/* Shared page headers / action bars */
+body[data-portal] .nf-content :where(
+  .ad-hero,.ac-hero,.an-hero,.ap-hero,.arh-hero,.cu-hero,.do-hero,.dms-hero,.dr-hero,.du-hero,
+  .payset-hero,.pe-hero,.pf-hero,.pr-hero,.ret-hero,.rf-hero,.rp-hero,.sal-hero,.settle-hero,
+  .nf-create-store-hero,.nf-delivery-hero,.nf-store-hero,
+  .sd-hero,.sd-orders-hero,.sc-hero,.sdp-hero,.se-hero,
+  .dd-hero,.dcs-hero,.delivery-account-hero
+){
+  background:var(--nf-ui-surface);
+  border:1px solid var(--nf-ui-line);
+  border-radius:var(--nf-ui-radius);
+  box-shadow:var(--nf-ui-shadow);
+}
+body[data-portal] .nf-content :where(
+  .ad-hero-actions,.ap-hero-actions,.cu-hero-actions,.do-hero-actions,.dr-hero-actions,.du-hero-actions,
+  .ret-hero-actions,.settle-hero-actions,.sd-hero-actions,.sc-hero-actions,.dd-actions,
+  .ac-actions,.arh-actions,.payset-actions,.rp-actions,.sdp-actions,.se-actions,.delivery-account-actions
+){
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
+}
+
+/* Shared filter/tool surfaces */
+body[data-portal] .nf-content :where(
+  .ac-toolbar,.arh-filters,.au-filter-card,.cm-toolbar,.cu-filter-card,.dl-toolbar,.dor-table-toolbar,.dr-toolbar,
+  .du-filter-card,.nb-table-toolbar,.nf-cancel-toolbar,.nf-product-toolbar,.pe-filter,.pr-table-toolbar,
+  .ret-filter,.rf-filter,.sal-filter,.sd-catalog-toolbar,.sd-orders-toolbar,.sd-table-toolbar
+){
+  background:var(--nf-ui-surface);
+  border:1px solid var(--nf-ui-line);
+  border-radius:12px;
+  box-shadow:none;
+}
+
+/* Shared modal contract */
+body[data-portal] :where(.dl-modal-backdrop,.dr-modal-backdrop,.sd-modal-backdrop,.sdp-modal-backdrop){
+  background:rgba(20,32,25,.46);
+  backdrop-filter:blur(2px);
+}
+body[data-portal] :where(.dl-modal-card,.dr-modal-card,.sd-modal-dialog,.sdp-modal,.se-confirm-modal,.sd-cancel-dialog,.nb-picker-modal){
+  border:1px solid var(--nf-ui-line);
+  border-radius:14px;
+  background:#fff;
+  box-shadow:0 24px 60px rgba(26,44,33,.18);
+}
+body[data-portal] :where(.dl-modal-head,.dr-modal-head,.sd-modal-head,.sdp-modal-head,.se-confirm-head,.sd-cancel-head){
+  border-bottom:1px solid var(--nf-ui-line);
+  background:var(--nf-ui-surface-soft);
+}
+
+/* Shared responsive action behavior */
+@media (max-width:680px){
+  body[data-portal] .nf-content :where(
+    .ad-hero-actions,.ap-hero-actions,.cu-hero-actions,.do-hero-actions,.dr-hero-actions,.du-hero-actions,
+    .ret-hero-actions,.settle-hero-actions,.sd-hero-actions,.sc-hero-actions,.dd-actions,
+    .ac-actions,.arh-actions,.payset-actions,.rp-actions,.sdp-actions,.se-actions,.delivery-account-actions
+  ){
+    width:100%;
+    align-items:stretch;
+  }
+  body[data-portal] .nf-content :where(
+    .ad-hero-actions,.ap-hero-actions,.cu-hero-actions,.do-hero-actions,.dr-hero-actions,.du-hero-actions,
+    .ret-hero-actions,.settle-hero-actions,.sd-hero-actions,.sc-hero-actions,.dd-actions,
+    .ac-actions,.arh-actions,.payset-actions,.rp-actions,.sdp-actions,.se-actions,.delivery-account-actions
+  ) > :where(a,button){
+    flex:1 1 150px;
+    justify-content:center;
+  }
+}
+
+/* Stage 3F.2 corrective stability pass -------------------------------------
+   Keep Admin/Store soft-navigation replacements invisible until their page
+   CSS and page initializers are ready. The old page stays visible during the
+   network/style-loading phase; this class only covers the actual DOM swap. */
+body[data-portal="admin"] .nf-content.nf-softnav-style-commit > *,
+body[data-portal="store"] .nf-content.nf-softnav-style-commit > *,
+body[data-portal="admin"] .nf-content.nf-softnav-swapping > *,
+body[data-portal="store"] .nf-content.nf-softnav-swapping > *{
+  visibility:hidden !important;
+}
+body[data-portal="admin"] .nf-content.nf-softnav-style-commit,
+body[data-portal="store"] .nf-content.nf-softnav-style-commit,
+body[data-portal="admin"] .nf-content.nf-softnav-swapping,
+body[data-portal="store"] .nf-content.nf-softnav-swapping{
+  position:relative;
+  min-height:180px;
+}
+body[data-portal="admin"] .nf-content.nf-softnav-style-commit::before,
+body[data-portal="store"] .nf-content.nf-softnav-style-commit::before,
+body[data-portal="admin"] .nf-content.nf-softnav-swapping::before,
+body[data-portal="store"] .nf-content.nf-softnav-swapping::before{
+  content:"Loading page…";
+  position:absolute;
+  top:28px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:3;
+  min-height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 15px;
+  border:1px solid var(--nf-ui-line);
+  border-radius:10px;
+  background:var(--nf-ui-surface);
+  color:var(--nf-ui-muted);
+  box-shadow:var(--nf-ui-shadow);
+  font-size:.78rem;
+  font-weight:750;
+  white-space:nowrap;
+}
+
+/* Human-readable text must stay horizontal and should never collapse into
+   one-character-per-line labels/buttons because a grid/flex column shrank. */
+body[data-portal] .nf-content :where(h1,h2,h3,h4,p,label,button,a,strong,span,th,td){
+  writing-mode:horizontal-tb;
+  text-orientation:mixed;
+}
+body[data-portal] .nf-content :where(h1,h2,h3,h4,label,button,[class*="btn"],.badge,.pill,[class*="status-pill"]){
+  word-break:normal;
+  overflow-wrap:normal;
+}
+@media (min-width:761px){
+  body[data-portal] .nf-content :where(table th,table td){
+    min-width:64px;
+    word-break:normal;
+    overflow-wrap:break-word;
+  }
+  body[data-portal] .nf-content :where(table th:first-child,table td:first-child){
+    min-width:44px;
+  }
+}
+
+/* Stage 3F.3 root FOUC fix: the guard lives on <html>, not only on the
+   replaceable .nf-content node. It therefore survives the entire soft-nav
+   lifecycle, including stylesheet activation, DOM replacement and scripts. */
+html.nf-softnav-transition body[data-portal="admin"] .nf-content > *,
+html.nf-softnav-transition body[data-portal="store"] .nf-content > *{
+  visibility:hidden !important;
+}
+html.nf-softnav-transition body[data-portal="admin"] .nf-content,
+html.nf-softnav-transition body[data-portal="store"] .nf-content{
+  position:relative;
+  min-height:180px;
+}
+html.nf-softnav-transition body[data-portal="admin"] .nf-content::before,
+html.nf-softnav-transition body[data-portal="store"] .nf-content::before{
+  content:"Loading page…";
+  position:absolute;
+  top:28px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:10;
+  min-height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 15px;
+  border:1px solid var(--nf-ui-line);
+  border-radius:10px;
+  background:var(--nf-ui-surface);
+  color:var(--nf-ui-muted);
+  box-shadow:var(--nf-ui-shadow);
+  font-size:.78rem;
+  font-weight:700;
+  white-space:nowrap;
+}

@@ -104,7 +104,7 @@ def _apply_dev_reload_config(enabled=True):
 @app.after_request
 def _disable_cache_in_dev(response):
     """Prevent browser cache from hiding edited HTML/CSS/JS during development."""
-    if _env_flag("NEFRESH_AUTO_RELOAD", True):
+    if _env_flag("NEFRESH_AUTO_RELOAD", False):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -239,11 +239,12 @@ if os.getenv("NEFRESH_DEBUG_LOGS", "0").strip().lower() in ["1", "true", "yes", 
 
 
 if __name__ == "__main__":
-    # Auto reload is ON by default for local development.
-    # Disable for production with:
-    #   set NEFRESH_AUTO_RELOAD=0
-    #   set FLASK_DEBUG=0
-    auto_reload_enabled = _env_flag("NEFRESH_AUTO_RELOAD", True)
+    # Auto reload is OFF by default. Enable it explicitly for local development.
+    # Production therefore stays cache-safe without extra flags.
+    # For local development enable with:
+    #   set NEFRESH_AUTO_RELOAD=1
+    #   set FLASK_DEBUG=1
+    auto_reload_enabled = _env_flag("NEFRESH_AUTO_RELOAD", False)
     debug_enabled = _env_flag("FLASK_DEBUG", auto_reload_enabled)
 
     _apply_dev_reload_config(auto_reload_enabled)
@@ -256,7 +257,7 @@ if __name__ == "__main__":
         print(f"Watching {len(extra_files or [])} files inside: routes, templates, static")
         print("Template cache disabled: HTML/Jinja edits should reflect immediately.")
         print("Open browser tabs will auto-refresh after detected changes.")
-        print("Disable with: NEFRESH_AUTO_RELOAD=0 FLASK_DEBUG=0 python app.py")
+        print("Enabled with: NEFRESH_AUTO_RELOAD=1 FLASK_DEBUG=1 python app.py")
         print("========================================\n")
 
     app.run(

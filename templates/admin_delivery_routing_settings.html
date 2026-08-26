@@ -1,86 +1,70 @@
 {% extends "admin_base.html" %}
 {% set active_group = "delivery" %}
 {% set active_page = "delivery_mode_settings" %}
-{% block title %}Delivery Operation Settings | NE FRESH Admin{% endblock %}
-{% block page_title %}Delivery Operation Settings{% endblock %}
-{% block page_subtitle %}Choose either the full in-house delivery system or the connected external delivery flow.{% endblock %}
-{% block content %}
-<section class="dr-page">
-  <style>
-    .dr-page{display:grid;gap:20px;color:var(--nf-text)}
-    .dr-hero,.dr-card{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:24px;box-shadow:var(--nf-shadow);overflow:hidden}
-    .dr-hero{padding:24px;background:radial-gradient(circle at 12% 16%,rgba(0,168,89,.16),transparent 32%),radial-gradient(circle at 90% 8%,rgba(2,132,199,.12),transparent 30%),linear-gradient(135deg,var(--nf-surface),var(--nf-surface-2))}
-    .dr-kicker{width:max-content;display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;background:var(--nf-green-soft);color:var(--nf-green-dark);font-size:.74rem;font-weight:950;text-transform:uppercase;letter-spacing:.08em}
-    .dr-hero h2{margin:14px 0 8px;font-size:clamp(1.6rem,3vw,2.45rem);line-height:1.05;font-weight:950;letter-spacing:-.045em}
-    .dr-hero p{margin:0;color:var(--nf-muted);font-size:.94rem;line-height:1.6;font-weight:680;max-width:980px}
-    .dr-form{display:grid;gap:18px;padding:20px}
-    .dr-status-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-    .dr-status{border:1px solid var(--nf-line);border-radius:18px;background:var(--nf-surface-2);padding:15px;min-height:88px}.dr-status span{display:block;color:var(--nf-muted);font-size:.7rem;font-weight:950;text-transform:uppercase;letter-spacing:.08em}.dr-status strong{display:block;margin-top:8px;font-size:1rem;font-weight:950}.dr-status.is-on strong{color:var(--nf-green-dark)}.dr-status.is-off strong{color:#b91c1c}
-    .dr-section{display:grid;gap:12px;border:1px solid var(--nf-line);border-radius:22px;background:var(--nf-surface-2);padding:16px}.dr-section h3{margin:0;font-size:1.02rem;font-weight:950}.dr-copy{margin:5px 0 0;color:var(--nf-muted);font-size:.86rem;line-height:1.55;font-weight:650}
-    .dr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.dr-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
-    .dr-option{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;border:1px solid var(--nf-line);border-radius:20px;background:#fff;padding:16px;min-height:132px;transition:.18s ease}.dr-option input{margin-top:3px;width:19px;height:19px;accent-color:var(--nf-green)}.dr-option strong{display:block;font-size:.98rem;font-weight:950}.dr-option small{display:inline-flex;width:max-content;max-width:100%;margin:8px 0 0;min-height:26px;align-items:center;border-radius:999px;background:var(--nf-green-soft);color:var(--nf-green-dark);padding:0 9px;font-size:.7rem;font-weight:950;text-transform:uppercase;letter-spacing:.04em}.dr-option p{margin:8px 0 0;color:var(--nf-muted);font-size:.84rem;line-height:1.48;font-weight:650}.dr-option:has(input:checked){border-color:rgba(0,168,89,.5);background:var(--nf-green-soft);box-shadow:0 12px 26px rgba(0,168,89,.09)}
-    .dr-info{border:1px solid rgba(2,132,199,.16);background:#eff6ff;border-radius:20px;padding:15px;color:#075985;font-size:.88rem;line-height:1.6;font-weight:750}.dr-info ul{margin:9px 0 0;padding-left:20px}.dr-info li{margin:4px 0}
-    .dr-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.dr-submit{min-height:46px;border:0;border-radius:15px;background:var(--nf-green);color:#fff;padding:0 18px;font-weight:950;cursor:pointer;box-shadow:0 12px 26px rgba(0,168,89,.18)}.dr-link{min-height:46px;display:inline-flex;align-items:center;justify-content:center;border-radius:15px;border:1px solid var(--nf-line);padding:0 16px;color:var(--nf-green-dark);font-weight:900;text-decoration:none;background:#fff}.dr-note{color:var(--nf-muted);font-size:.82rem;font-weight:650}
-    .dr-external-box{display:none}.dr-external-box.is-visible{display:grid;gap:12px}
-    @media(max-width:1050px){.dr-status-grid,.dr-grid,.dr-grid.three{grid-template-columns:1fr}}
-    @media(max-width:640px){.dr-submit,.dr-link{width:100%}.dr-actions{align-items:stretch}.dr-option{min-height:auto}}
-  </style>
+{% block title %}Delivery Mode Settings | NE LOCALS Admin{% endblock %}
+{% block page_title %}Delivery Mode Settings{% endblock %}
+{% block page_subtitle %}Configure delivery channels, customer payment methods, official UPI, and return/refund availability.{% endblock %}
 
-  {% set operation_mode = settings.delivery_operation_mode|default('IN_HOUSE_ONLY') %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-delivery.css') }}">
+{% endblock %}
+{% block content %}
+<section class="dms-page">
+{% set operation_mode = settings.delivery_operation_mode|default('IN_HOUSE_ONLY') %}
   {% set external_mode_active = operation_mode == 'EXTERNAL_CONNECTED' %}
 
-  <div class="dr-hero">
-    <span class="dr-kicker">Simple Delivery Operation</span>
-    <h2>Use either In-house Delivery or Connected External Delivery.</h2>
+  <div class="dms-hero">
+    <span class="dms-kicker">Delivery Configuration</span>
+    <h2>Choose how new orders are delivered and paid.</h2>
     <p>
-      In-house delivery is your own full delivery-boy system, so it runs alone. When Admin selects Connected External Delivery, in-house is disabled and checkout routes orders between External Local and Shiprocket based on distance/zone.
+      In-house Delivery runs as the internal delivery workflow. Connected External Delivery disables in-house routing and sends eligible orders through External Local or Shiprocket according to the saved rules.
     </p>
   </div>
 
-  <form class="dr-card dr-form" method="post" action="{{ url_for('admin_delivery_mode_settings') }}">
-    <div class="dr-status-grid">
-      <div class="dr-status is-on"><span>Operation</span><strong>{% if external_mode_active %}External Connected{% else %}In-house Only{% endif %}</strong></div>
-      <div class="dr-status {% if settings.in_house_delivery_enabled %}is-on{% else %}is-off{% endif %}"><span>In-house</span><strong>{% if settings.in_house_delivery_enabled %}ON{% else %}OFF{% endif %}</strong></div>
-      <div class="dr-status {% if settings.external_local_delivery_enabled %}is-on{% else %}is-off{% endif %}"><span>External Local</span><strong>{% if settings.external_local_delivery_enabled %}ON{% else %}OFF{% endif %}</strong></div>
-      <div class="dr-status {% if settings.third_party_shipping_enabled %}is-on{% else %}is-off{% endif %}"><span>Shiprocket</span><strong>{% if settings.third_party_shipping_enabled %}ON{% else %}OFF{% endif %}</strong></div>
+  <form class="dms-card dms-form" method="post" action="{{ url_for('admin_delivery_mode_settings') }}">
+    <div class="dms-status-grid">
+      <div class="dms-status is-on"><span>Operation</span><strong>{% if external_mode_active %}External Connected{% else %}In-house Only{% endif %}</strong></div>
+      <div class="dms-status {% if settings.in_house_delivery_enabled %}is-on{% else %}is-off{% endif %}"><span>In-house</span><strong>{% if settings.in_house_delivery_enabled %}ON{% else %}OFF{% endif %}</strong></div>
+      <div class="dms-status {% if settings.external_local_delivery_enabled %}is-on{% else %}is-off{% endif %}"><span>External Local</span><strong>{% if settings.external_local_delivery_enabled %}ON{% else %}OFF{% endif %}</strong></div>
+      <div class="dms-status {% if settings.third_party_shipping_enabled %}is-on{% else %}is-off{% endif %}"><span>Shiprocket</span><strong>{% if settings.third_party_shipping_enabled %}ON{% else %}OFF{% endif %}</strong></div>
     </div>
 
 
 
-    <div class="dr-section">
+    <div class="dms-section">
       <div>
         <h3>Quick in-house delivery page visibility</h3>
         {% if settings.in_house_delivery_enabled %}
-          <p class="dr-copy">In-house delivery is enabled, so related Admin and Store pages are visible. Use this button when you want to hide those pages and keep the panels simpler.</p>
+          <p class="dms-copy">In-house delivery pages are currently available to Admin and Store users.</p>
         {% else %}
-          <p class="dr-copy">In-house delivery is disabled, so related Admin and Store pages are hidden. Use this button when you want to show and use them again.</p>
+          <p class="dms-copy">In-house delivery pages are currently hidden and blocked from direct access.</p>
         {% endif %}
       </div>
-      <div class="dr-actions">
+      <div class="dms-actions">
         {% if settings.in_house_delivery_enabled %}
-          <button class="dr-submit" style="background:#B91C1C;" type="submit" formaction="{{ url_for('admin_disable_in_house_delivery_quick') }}">Disable & Hide In-house Delivery Pages</button>
+          <button class="dms-submit danger" type="submit" formaction="{{ url_for('admin_disable_in_house_delivery_quick') }}">Disable & Hide In-house Delivery Pages</button>
         {% else %}
-          <button class="dr-submit" type="submit" formaction="{{ url_for('admin_enable_in_house_delivery_quick') }}">Enable & Show In-house Delivery Pages</button>
+          <button class="dms-submit" type="submit" formaction="{{ url_for('admin_enable_in_house_delivery_quick') }}">Enable & Show In-house Delivery Pages</button>
         {% endif %}
-        <div class="dr-note">This uses the same delivery operation settings and keeps hidden pages blocked from direct access.</div>
+        <div class="dms-note">Visibility follows the same saved delivery-operation setting.</div>
       </div>
     </div>
 
-    <div class="dr-section">
+    <div class="dms-section">
       <div>
         <h3>1. Choose delivery operation</h3>
-        <p class="dr-copy">Choose one operation style. In-house is standalone. External Local and Shiprocket can work together only under Connected External Delivery.</p>
+        <p class="dms-copy">Choose one operation style. In-house is standalone. External Local and Shiprocket can work together only under Connected External Delivery.</p>
       </div>
-      <div class="dr-grid">
-        <label class="dr-option">
+      <div class="dms-grid">
+        <label class="dms-option">
           <input type="radio" name="delivery_operation_mode" value="IN_HOUSE_ONLY" {% if not external_mode_active %}checked{% endif %}>
           <span>
             <strong>🛵 In-house Delivery Only</strong>
             <small>Standalone</small>
-            <p>Uses existing NE FRESH delivery boys, assignment, live tracking, rider collection, settlements and existing in-house delivery fee settings.</p>
+            <p>Uses existing delivery staff, assignment, live tracking and in-house delivery fees. Customer COD cash remains business money; rider earnings remain separate and monthly.</p>
           </span>
         </label>
-        <label class="dr-option">
+        <label class="dms-option">
           <input type="radio" name="delivery_operation_mode" value="EXTERNAL_CONNECTED" {% if external_mode_active %}checked{% endif %}>
           <span>
             <strong>🌐 Connected External Delivery</strong>
@@ -91,14 +75,14 @@
       </div>
     </div>
 
-    <div class="dr-section dr-external-box {% if external_mode_active %}is-visible{% endif %}" id="externalChannelsBox">
+    <div class="dms-section dms-external-box {% if external_mode_active %}is-visible{% endif %}" id="externalChannelsBox">
       <div>
         <h3>2. External delivery channels</h3>
-        <p class="dr-copy">These switches apply only when Connected External Delivery is selected. Keep both ON for the normal external flow.</p>
+        <p class="dms-copy">These switches apply only when Connected External Delivery is selected. Keep both ON for the normal external flow.</p>
       </div>
-      <div class="dr-grid">
+      <div class="dms-grid">
         {% for channel in delivery_channels %}
-          <label class="dr-option">
+          <label class="dms-option">
             <input type="checkbox" name="{{ channel.field }}" value="1" {% if settings[channel.field] %}checked{% endif %}>
             <span>
               <strong>{{ channel.icon }} {{ channel.title }}</strong>
@@ -110,35 +94,55 @@
       </div>
     </div>
 
-    <div class="dr-section">
+    <div class="dms-section">
       <div>
         <h3>3. Customer payment methods</h3>
-        <p class="dr-copy">Backend keeps the old COD value for compatibility, but customers see Pay Online on Delivery. Shiprocket orders are always forced to Online Payment before shipment creation.</p>
+        <p class="dms-copy">The backend keeps the COD value for compatibility. In the UI, this is Pay on Delivery: Cash or official-business UPI for eligible in-house deliveries.</p>
       </div>
-      <div class="dr-grid">
-        <label class="dr-option">
+      <div class="dms-grid">
+        <label class="dms-option">
           <input type="checkbox" name="allow_online_payment" value="1" {% if settings.allow_online_payment %}checked{% endif %}>
           <span><strong>💳 Online Payment</strong><p>Customer pays through the configured online gateway before order processing.</p></span>
         </label>
-        <label class="dr-option">
-          <input type="checkbox" name="allow_cod_payment" value="1" {% if settings.allow_cod_payment %}checked{% endif %}>
-          <span><strong>📲 Pay Online on Delivery</strong><p>In-house keeps the existing delivery-boy collection flow. External Local means customer pays Store/NE FRESH by UPI/online at handover, not cash to Rapido/Ola/Uber.</p></span>
+        <label class="dms-option">
+          <input type="checkbox" id="allowCodPayment" name="allow_cod_payment" value="1" {% if settings.allow_cod_payment %}checked{% endif %}>
+          <span><strong>💵 Pay on Delivery (COD)</strong><p>Customer chooses Pay on Delivery at checkout. In-house delivery can record Cash or official-business UPI; Shiprocket remains online-only.</p></span>
         </label>
       </div>
+
+      <label class="dms-option">
+        <input type="checkbox" id="payOnDeliveryUpiEnabled" name="pay_on_delivery_upi_enabled" value="1" {% if settings.pay_on_delivery_upi_enabled %}checked{% endif %} {% if not settings.allow_cod_payment %}disabled{% endif %}>
+        <span>
+          <strong>📱 Allow UPI for Pay on Delivery</strong>
+          <p>Shows the official NE LOCALS UPI destination to the assigned in-house delivery partner. The rider records the customer UPI reference; Admin verifies receipt before Store payout becomes eligible.</p>
+        </span>
+      </label>
+
+      <div class="dms-field-grid">
+        <div class="dms-field">
+          <label for="payOnDeliveryUpiId">Official UPI ID</label>
+          <input id="payOnDeliveryUpiId" name="pay_on_delivery_upi_id" type="text" maxlength="320" value="{{ settings.pay_on_delivery_upi_id|default('') }}" placeholder="example@bank" autocomplete="off">
+        </div>
+        <div class="dms-field">
+          <label for="payOnDeliveryUpiName">UPI Payee Name</label>
+          <input id="payOnDeliveryUpiName" name="pay_on_delivery_upi_name" type="text" maxlength="80" value="{{ settings.pay_on_delivery_upi_name|default('NE LOCALS') }}" placeholder="NE LOCALS" autocomplete="organization">
+        </div>
+      </div>
+      <p class="dms-copy">Use only the official business UPI receiving address. Never enter gateway secrets, bank passwords, OTPs, or a rider personal UPI ID.</p>
     </div>
 
-    <div class="dr-section">
+    <div class="dms-section">
       <div>
         <h3>4. Return / Refund</h3>
-        <p class="dr-copy">This switch controls customer return request, store returns, and admin refund/return pages.</p>
+        <p class="dms-copy">This switch controls customer return request, store returns, and admin refund/return pages.</p>
       </div>
-      <label class="dr-option">
+      <label class="dms-option">
         <input type="checkbox" name="return_refund_enabled" value="1" {% if settings.return_refund_enabled %}checked{% endif %}>
         <span><strong>Enable Return / Refund</strong><p>Disable this only when you want to temporarily block return/refund actions.</p></span>
       </label>
     </div>
 
-    <div class="dr-info">
+    <div class="dms-info">
       <strong>Final flow:</strong>
       <ul>
         <li><strong>In-house Delivery Only:</strong> external delivery channels stay OFF and your current delivery-boy workflow stays unchanged.</li>
@@ -147,15 +151,15 @@
       </ul>
     </div>
 
-    <div class="dr-actions">
-      <button class="dr-submit" type="submit">Save Delivery Operation Settings</button>
+    <div class="dms-actions">
+      <button class="dms-submit" type="submit">Save Delivery Operation Settings</button>
       {% if settings.external_local_delivery_enabled or settings.third_party_shipping_enabled %}
-        <a class="dr-link" href="{{ url_for('admin_external_delivery_settings') }}">{% if settings.external_local_delivery_enabled and settings.third_party_shipping_enabled %}External Fare & Shiprocket Settings{% elif settings.external_local_delivery_enabled %}External Local Fare Settings{% else %}Shiprocket Settings{% endif %}</a>
+        <a class="dms-link" href="{{ url_for('admin_external_delivery_settings') }}">{% if settings.external_local_delivery_enabled and settings.third_party_shipping_enabled %}External Fare & Shiprocket Settings{% elif settings.external_local_delivery_enabled %}External Local Fare Settings{% else %}Shiprocket Settings{% endif %}</a>
       {% endif %}
       {% if settings.third_party_shipping_enabled %}
-        <a class="dr-link" href="{{ url_for('admin_external_delivery_orders') }}">Shiprocket Shipments</a>
+        <a class="dms-link" href="{{ url_for('admin_external_delivery_orders') }}">Shiprocket Shipments</a>
       {% endif %}
-      {% if settings.updated_at %}<div class="dr-note">Last updated by {{ settings.updated_by_name|default('Admin') }} on {{ settings.updated_at }}</div>{% endif %}
+      {% if settings.updated_at %}<div class="dms-note">Last updated by {{ settings.updated_by_name|default('Admin') }} on {{ settings.updated_at }}</div>{% endif %}
     </div>
   </form>
 </section>
@@ -163,11 +167,29 @@
 (function(){
   const radios = Array.from(document.querySelectorAll('input[name="delivery_operation_mode"]'));
   const box = document.getElementById('externalChannelsBox');
+  const codToggle = document.getElementById('allowCodPayment');
+  const upiToggle = document.getElementById('payOnDeliveryUpiEnabled');
+  const upiId = document.getElementById('payOnDeliveryUpiId');
+  const upiName = document.getElementById('payOnDeliveryUpiName');
+
   function sync(){
     const selected = radios.find(r => r.checked)?.value || 'IN_HOUSE_ONLY';
     if (box) box.classList.toggle('is-visible', selected === 'EXTERNAL_CONNECTED');
+
+    const codEnabled = !!(codToggle && codToggle.checked);
+    if (upiToggle) {
+      upiToggle.disabled = !codEnabled;
+      if (!codEnabled) upiToggle.checked = false;
+    }
+
+    const upiEnabled = !!(codEnabled && upiToggle && upiToggle.checked);
+    if (upiId) upiId.required = upiEnabled;
+    if (upiName) upiName.required = upiEnabled;
   }
+
   radios.forEach(r => r.addEventListener('change', sync));
+  if (codToggle) codToggle.addEventListener('change', sync);
+  if (upiToggle) upiToggle.addEventListener('change', sync);
   sync();
 })();
 </script>

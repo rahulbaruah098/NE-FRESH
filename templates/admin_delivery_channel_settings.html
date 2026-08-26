@@ -4,20 +4,15 @@
 {% block title %}{% if delivery_mode_settings.third_party_shipping_enabled and delivery_mode_settings.external_local_delivery_enabled %}External Fare & Shiprocket Settings{% elif delivery_mode_settings.third_party_shipping_enabled %}Shiprocket Settings{% else %}External Local Fare Settings{% endif %} | NE FRESH Admin{% endblock %}
 {% block page_title %}{% if delivery_mode_settings.third_party_shipping_enabled and delivery_mode_settings.external_local_delivery_enabled %}External Fare & Shiprocket Settings{% elif delivery_mode_settings.third_party_shipping_enabled %}Shiprocket Settings{% else %}External Local Fare Settings{% endif %}{% endblock %}
 {% block page_subtitle %}Set external local fare rules, Shiprocket credentials, map zone and fallback package defaults.{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/map-runtime.css') }}">
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-delivery-channel-settings.css') }}">
+
+{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <section class="dcs-page">
-  <style>
-    .dcs-page{display:grid;gap:18px;color:var(--nf-text)}
-    .dcs-card,.dcs-hero{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:24px;box-shadow:var(--nf-shadow);overflow:hidden}.dcs-card{padding:20px}.dcs-hero{padding:22px;background:linear-gradient(135deg,var(--nf-surface),var(--nf-surface-2))}
-    .dcs-kicker{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border-radius:999px;background:var(--nf-green-soft);color:var(--nf-green-dark);font-size:.74rem;font-weight:950;text-transform:uppercase;letter-spacing:.08em}.dcs-hero h2,.dcs-card h3{margin:0;font-weight:950;letter-spacing:-.025em}.dcs-hero h2{margin-top:12px;font-size:clamp(1.35rem,2.4vw,2rem)}.dcs-card h3{font-size:1.08rem;margin-bottom:8px}.dcs-help{color:var(--nf-muted);font-size:.88rem;line-height:1.6;font-weight:650;margin:0}.dcs-note{margin-top:12px;border:1px solid rgba(2,132,199,.16);background:#eff6ff;color:#075985;border-radius:16px;padding:12px;font-size:.86rem;line-height:1.55;font-weight:750}
-    .dcs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.dcs-grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.dcs-grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}.dcs-field{display:grid;gap:7px}.dcs-field label{font-size:.73rem;font-weight:950;color:var(--nf-muted);text-transform:uppercase;letter-spacing:.055em}.dcs-field input{height:44px;border:1px solid var(--nf-line);border-radius:14px;padding:0 12px;font-weight:750;outline:none;background:#fff;color:var(--nf-text)}.dcs-field input:focus{border-color:rgba(0,168,89,.5);box-shadow:0 0 0 4px rgba(0,168,89,.10)}.dcs-check{display:flex;align-items:center;gap:10px;min-height:44px;font-weight:900;background:#fff;border:1px solid var(--nf-line);border-radius:14px;padding:0 12px}.dcs-check input{width:18px;height:18px;accent-color:var(--nf-green)}
-    .dcs-split{display:grid;grid-template-columns:1fr 1fr;gap:16px}.dcs-box{border:1px solid var(--nf-line);border-radius:18px;background:var(--nf-surface-2);padding:16px;display:grid;gap:12px}.dcs-box h4{margin:0;font-size:.98rem;font-weight:950}.dcs-box p{margin:0;color:var(--nf-muted);font-size:.84rem;line-height:1.55;font-weight:650}.dcs-list{margin:10px 0 0;padding-left:18px;color:var(--nf-muted);font-size:.84rem;font-weight:650;line-height:1.55}.dcs-list li{margin:4px 0}
-    .dcs-map-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:16px;align-items:start}.dcs-map-box{border:1px solid var(--nf-line);border-radius:20px;overflow:hidden;background:#fff}.dcs-map{height:430px;width:100%}.dcs-map-tools{display:flex;gap:10px;flex-wrap:wrap;padding:12px;border-bottom:1px solid var(--nf-line);background:var(--nf-surface-2)}.dcs-tool{min-height:38px;border:1px solid var(--nf-line);border-radius:12px;background:#fff;color:var(--nf-text);font-weight:900;padding:0 12px;cursor:pointer}.dcs-tool.active,.dcs-tool.primary{background:var(--nf-green);border-color:var(--nf-green);color:#fff}.dcs-tool.danger{color:#b91c1c}.dcs-tool:disabled{opacity:.55;cursor:not-allowed}.dcs-status{margin-top:10px;border:1px dashed rgba(15,23,42,.16);border-radius:14px;background:#fff;padding:11px;color:var(--nf-muted);font-size:.84rem;font-weight:700;line-height:1.5}
-    .dcs-actions{display:flex;gap:12px;flex-wrap:wrap;position:sticky;bottom:14px;z-index:5;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border:1px solid var(--nf-line);border-radius:18px;padding:12px;box-shadow:var(--nf-shadow)}.dcs-btn{min-height:44px;border:0;border-radius:14px;background:var(--nf-green);color:#fff;padding:0 16px;font-weight:950;cursor:pointer}.dcs-link{min-height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:14px;border:1px solid var(--nf-line);background:#fff;color:var(--nf-green-dark);padding:0 16px;font-weight:900;text-decoration:none}
-    @media(max-width:1100px){.dcs-split,.dcs-map-layout{grid-template-columns:1fr}.dcs-grid.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media(max-width:720px){.dcs-grid,.dcs-grid.three,.dcs-grid.four{grid-template-columns:1fr}.dcs-actions{position:static}.dcs-btn,.dcs-link{width:100%}.dcs-map{height:360px}}
-  </style>
+  
 
   <form method="post" action="{{ url_for('admin_external_delivery_settings') }}" class="dcs-page" id="deliveryChannelSettingsForm">
     <div class="dcs-hero">
@@ -43,7 +38,7 @@
       <ul class="dcs-list">
         <li>No rider payment, Rapido fare settlement, or external local booking status is tracked in NE FRESH.</li>
         <li>The delivery charge collected from customer is your assumed local delivery charge.</li>
-        <li>For Pay Online on Delivery, customer pays Store/NE FRESH by UPI/online at handover, not the external rider in cash.</li>
+        <li>For Pay on Delivery, customer pays Store/NE FRESH by UPI/online at handover, not the external rider in cash.</li>
       </ul>
     </div>
 
@@ -60,7 +55,7 @@
             <button type="button" class="dcs-tool" id="btnUndoZonePoint">Undo Point</button>
             <button type="button" class="dcs-tool danger" id="btnClearZone">Clear Zone</button>
           </div>
-          <div id="externalDeliveryMap" class="dcs-map"></div>
+          <div id="externalDeliveryMap" class="dcs-map nf-map-stage" aria-label="External delivery pickup and service zone map"></div>
         </div>
 
         <div class="dcs-box">
@@ -123,11 +118,10 @@
   </form>
 </section>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 (function(){
   const mapEl = document.getElementById('externalDeliveryMap');
-  if (!mapEl || typeof L === 'undefined') return;
+  if (!mapEl) return;
   const latInput = document.getElementById('externalPickupLat');
   const lngInput = document.getElementById('externalPickupLng');
   const polygonInput = document.getElementById('externalServiceZonePolygon');
@@ -142,6 +136,7 @@
   let zoneMarkers = [];
   let zonePolygon = null;
   let zonePoints = [];
+  function bootExternalDeliveryMap(){
   function numberOrNull(value){ const n = Number(value); return Number.isFinite(n) ? n : null; }
   function readInitialZone(){
     try {
@@ -176,6 +171,7 @@
   const savedLat = numberOrNull(latInput.value), savedLng = numberOrNull(lngInput.value);
   const defaultCenter = savedLat !== null && savedLng !== null ? [savedLat, savedLng] : [26.1445, 91.7362];
   const map = L.map('externalDeliveryMap', {scrollWheelZoom:true}).setView(defaultCenter, savedLat !== null ? 14 : 12);
+  if (window.NEFreshMapRuntime) window.NEFreshMapRuntime.track(map);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
   if (savedLat !== null && savedLng !== null) setPickup(savedLat, savedLng, false);
   zonePoints = readInitialZone(); redrawZone();
@@ -195,6 +191,17 @@
     if (zoneEnabled && zoneEnabled.checked && zonePoints.length < 3) { e.preventDefault(); statusEl.textContent = 'Please draw at least 3 local zone points before enabling the local zone.'; setMode('zone'); }
   });
   setMode('pickup'); setTimeout(() => map.invalidateSize(), 300);
+  }
+
+  if (!window.NEFreshMapRuntime || typeof window.NEFreshMapRuntime.ensureLeaflet !== 'function') {
+    statusEl.textContent = 'Map runtime is unavailable. You can still edit the coordinates manually.';
+    return;
+  }
+  window.NEFreshMapRuntime.ensureLeaflet()
+    .then(bootExternalDeliveryMap)
+    .catch(function(){
+      statusEl.textContent = 'Map could not load. You can still edit pickup coordinates and save the other settings.';
+    });
 })();
 </script>
 {% endblock %}

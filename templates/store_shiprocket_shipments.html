@@ -1,48 +1,75 @@
 {% extends "store_base.html" %}
 {% set active_page = "external_delivery" %}
-{% block title %}Shiprocket Shipments | Store{% endblock %}
-{% block page_title %}Shiprocket Shipments{% endblock %}
-{% block page_subtitle %}Courier orders routed to Shiprocket. Mark package ready after packing and payment confirmation.{% endblock %}
+{% block title %}External Delivery | NE Locals{% endblock %}
+{% block page_title %}External Delivery{% endblock %}
+{% block page_subtitle %}Manage External Local and courier deliveries, handoff status, tracking and Store-collected payments.{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-shiprocket-shipments.css') }}">
+{% endblock %}
+
 {% block content %}
-<section class="sss-page">
-<style>
-  .sss-page{display:grid;gap:16px}.sss-card{background:var(--nf-surface);border:1px solid var(--nf-line);border-radius:22px;box-shadow:var(--nf-shadow);overflow:hidden}.sss-mode-card{padding:18px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;background:linear-gradient(135deg,var(--nf-green-soft) 0%,#fff 100%);border-color:rgba(0,168,89,.18)}.sss-kicker{display:inline-flex;width:max-content;max-width:100%;min-height:28px;align-items:center;border-radius:999px;background:#fff;border:1px solid rgba(0,168,89,.16);color:var(--nf-green-dark);padding:0 10px;font-size:.72rem;font-weight:950;letter-spacing:.06em;text-transform:uppercase}.sss-title{margin:10px 0 5px;color:var(--nf-text);font-size:1.16rem;line-height:1.18;font-weight:950;letter-spacing:-.025em}.sss-copy{margin:0;color:var(--nf-muted);font-size:.86rem;line-height:1.5;font-weight:760}.sss-mode-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}.sss-table-wrap{overflow:auto;-webkit-overflow-scrolling:touch}.sss-table{width:100%;min-width:1040px;border-collapse:collapse}.sss-table th,.sss-table td{padding:13px;border-bottom:1px solid var(--nf-line);text-align:left;vertical-align:top;font-size:.88rem}.sss-table th{background:var(--nf-surface-2);color:var(--nf-muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;font-weight:950}.sss-pill{display:inline-flex;align-items:center;justify-content:center;min-height:28px;border-radius:999px;background:#E0F2FE;color:#0369A1;border:1px solid rgba(2,132,199,.20);padding:0 10px;font-size:.76rem;font-weight:900;text-align:center}.sss-btn,.sss-link{min-height:40px;border:0;border-radius:13px;background:var(--nf-green);color:#fff;padding:0 14px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.sss-link{background:#fff;color:var(--nf-green-dark);border:1px solid rgba(0,168,89,.18)}.sss-empty{padding:28px;color:var(--nf-muted);font-weight:750;text-align:center}.sss-card-grid{display:none}@media(max-width:900px){.sss-mode-card{grid-template-columns:1fr}.sss-mode-actions{justify-content:flex-start}.sss-table-wrap{display:none}.sss-card-grid{display:grid;gap:12px;padding:12px}.sss-order-card{display:grid;gap:12px;border:1px solid var(--nf-line);border-radius:18px;background:#fff;box-shadow:0 10px 24px rgba(17,64,38,.055);padding:14px}.sss-mini-grid{display:grid;grid-template-columns:1fr;gap:8px}.sss-mini{display:grid;gap:3px;border:1px solid var(--nf-line);border-radius:12px;background:var(--nf-surface-2);padding:9px}.sss-mini span{color:var(--nf-muted);font-size:.65rem;font-weight:950;text-transform:uppercase;letter-spacing:.05em}.sss-mini strong{color:var(--nf-text);font-size:.82rem;line-height:1.3;font-weight:950;overflow-wrap:anywhere}.sss-btn,.sss-link{width:100%}}
-</style>
+<section class="sss-page nf-store-page">
+
 
 <div class="sss-card sss-mode-card">
   <div>
-    <span class="sss-kicker">📦 Shiprocket / Courier</span>
-    <h3 class="sss-title">Pack courier orders and create Shiprocket shipment</h3>
-    <p class="sss-copy">External local/Rapido-style orders are not shown here. They remain normal orders with NE FRESH order reference only.</p>
+    <span class="sss-kicker">📦 External Delivery</span>
+    <h3 class="sss-title">Prepare External Local and courier orders</h3>
+    <p class="sss-copy">External Local uses the NE FRESH order reference and your configured local provider. Shiprocket / courier orders create provider shipment IDs and tracking. If the Store is the configured Pay-on-Delivery collector, record that customer payment here after delivery.</p>
   </div>
-  <div class="sss-mode-actions"><a class="sss-link" href="{{ url_for('store_orders') }}">View All Orders</a></div>
+  <div class="sss-mode-actions"><a class="sss-link" href="{{ url_for('store_orders') }}">All Orders</a></div>
 </div>
 
 <div class="sss-card">
 {% if orders %}
   <div class="sss-table-wrap">
     <table class="sss-table">
-      <thead><tr><th>Order</th><th>Customer</th><th>Mode</th><th>Payment</th><th>Status</th><th>Shiprocket IDs</th><th>Action</th></tr></thead>
+      <thead><tr><th>Order</th><th>Customer</th><th>Mode</th><th>Payment</th><th>Status</th><th>Provider / Tracking</th><th>Action / Reconciliation</th></tr></thead>
       <tbody>
       {% for order in orders %}
+        {% set is_local = (order.active_delivery_mode or '')|upper == 'EXTERNAL_LOCAL_DELIVERY' %}
+        {% set is_cod = (order.payment_method or '')|upper in ['COD','CASH_ON_DELIVERY','COD_RIDER_COLLECTION'] %}
+        {% set store_collects = (order.cod_collection_method or '')|upper == 'STORE' %}
+        {% set store_payment_recorded = (order.payment_received_by or '')|upper == 'STORE' or (order.payment_status or '')|upper in ['COLLECTED_BY_STORE','PAID'] %}
+        {% set delivered = (order.external_delivery_status or '')|upper in ['DELIVERED','DELIVERY_DELIVERED','SHIPMENT_DELIVERED'] or (order.status or '')|upper == 'DELIVERED' %}
         <tr>
-          <td><strong>#{{ order.short_id }}</strong><br><small>{{ order.created_at|default('') }}</small></td>
+          <td><strong>{{ order.order_number or order.display_order_number or ("#" ~ order.short_id) }}</strong><br><small>{{ order.created_at|default('') }}</small></td>
           <td>{{ order.customer_name|default('Customer') }}<br><small>{{ order.customer_phone|default('') }}</small></td>
-          <td><span class="sss-pill">Shiprocket / Courier</span></td>
-          <td>{{ order.payment_method }}<br><small>₹{{ '%.2f'|format(order.total_payable) }}</small></td>
+          <td><span class="sss-pill {% if is_local %}local{% endif %}">{{ 'External Local' if is_local else 'Shiprocket / Courier' }}</span></td>
+          <td>{{ order.payment_method }}<br><small>₹{{ '%.2f'|format(order.total_payable) }}</small>{% if store_collects %}<span class="sss-note">Store collects Pay on Delivery</span>{% endif %}</td>
           <td>{{ order.external_delivery_status|replace('_',' ')|title }}</td>
           <td>
-            {% if order.external_order_id %}<div>Order: {{ order.external_order_id }}</div>{% endif %}
-            {% if order.external_shipment_id %}<div>Shipment: {{ order.external_shipment_id }}</div>{% endif %}
-            {% if order.external_awb %}<div>AWB: {{ order.external_awb }}</div>{% endif %}
-            {% if order.external_tracking_url %}<a href="{{ order.external_tracking_url }}" target="_blank" rel="noopener">Partner Tracking</a>{% endif %}
-            {% if not order.external_order_id and not order.external_awb and not order.external_tracking_url %}<small>Not generated yet</small>{% endif %}
+            {% if is_local %}
+              <strong>{{ order.external_delivery_provider or 'Local Delivery Partner' }}</strong>
+              <span class="sss-note">NE Locals reference: {{ order.order_number or order.display_order_number or ("#" ~ order.short_id) }}</span>
+            {% else %}
+              {% if order.external_order_id %}<div>Order: {{ order.external_order_id }}</div>{% endif %}
+              {% if order.external_shipment_id %}<div>Shipment: {{ order.external_shipment_id }}</div>{% endif %}
+              {% if order.external_awb %}<div>AWB: {{ order.external_awb }}</div>{% endif %}
+              {% if order.external_tracking_url %}<a href="{{ order.external_tracking_url }}" target="_blank" rel="noopener">Track with Partner</a>{% endif %}
+              {% if not order.external_order_id and not order.external_awb and not order.external_tracking_url %}<small>Not generated yet</small>{% endif %}
+            {% endif %}
           </td>
           <td>
-            {% if order.external_delivery_status in ['PENDING_SHIPROCKET_SHIPMENT','PENDING_THIRD_PARTY_SHIPMENT','READY_FOR_SHIPROCKET_BOOKING','PENDING','BOOKING_FAILED'] %}
-              <form method="post" action="{{ url_for('store_external_delivery_ready', oid=order.id) }}"><button class="sss-btn" type="submit">Package Ready / Create Shiprocket</button></form>
+            {% if is_local and order.external_delivery_status in ['PENDING','PENDING_EXTERNAL_DELIVERY','READY_FOR_LOCAL_HANDOFF'] %}
+              <form method="post" action="{{ url_for('store_external_delivery_ready', oid=order.id) }}"><button class="sss-btn" type="submit">Mark Ready for Handoff</button></form>
+            {% elif not is_local and order.external_delivery_status in ['PENDING_SHIPROCKET_SHIPMENT','PENDING_THIRD_PARTY_SHIPMENT','READY_FOR_SHIPROCKET_BOOKING','PENDING','BOOKING_FAILED'] %}
+              <form method="post" action="{{ url_for('store_external_delivery_ready', oid=order.id) }}"><button class="sss-btn" type="submit">Create Courier Shipment</button></form>
             {% else %}
-              <a class="sss-link" href="{{ url_for('order_track', oid=order.id) }}">Track</a>
+              <a class="sss-link" href="{{ url_for('store_order_track', oid=order.id) }}">Track Order</a>
+            {% endif %}
+
+            {% if is_local and delivered and is_cod and store_collects and not store_payment_recorded %}
+              <form class="sss-mini-form" method="post" action="{{ url_for('store_external_delivery_payment_received', oid=order.id) }}" onsubmit="return confirm('Confirm the Store has received the full customer payment for this delivered order?');">
+                <select name="payment_channel" required>
+                  <option value="CASH">Cash</option>
+                  <option value="UPI">UPI</option>
+                </select>
+                <input type="text" name="payment_reference" maxlength="120" placeholder="UPI reference (required for UPI)">
+                <button class="sss-btn" type="submit">Record Payment</button>
+              </form>
+            {% elif store_payment_recorded %}
+              <span class="sss-note">Customer payment received by Store · {{ order.payment_collection_channel or 'Recorded' }}</span>
             {% endif %}
           </td>
         </tr>
@@ -53,25 +80,41 @@
 
   <div class="sss-card-grid">
     {% for order in orders %}
+      {% set is_local = (order.active_delivery_mode or '')|upper == 'EXTERNAL_LOCAL_DELIVERY' %}
+      {% set is_cod = (order.payment_method or '')|upper in ['COD','CASH_ON_DELIVERY','COD_RIDER_COLLECTION'] %}
+      {% set store_collects = (order.cod_collection_method or '')|upper == 'STORE' %}
+      {% set store_payment_recorded = (order.payment_received_by or '')|upper == 'STORE' or (order.payment_status or '')|upper in ['COLLECTED_BY_STORE','PAID'] %}
+      {% set delivered = (order.external_delivery_status or '')|upper in ['DELIVERED','DELIVERY_DELIVERED','SHIPMENT_DELIVERED'] or (order.status or '')|upper == 'DELIVERED' %}
       <article class="sss-order-card">
-        <div><strong>#{{ order.short_id }}</strong><br><small>{{ order.created_at|default('') }}</small></div>
+        <div><strong>{{ order.order_number or order.display_order_number or ("#" ~ order.short_id) }}</strong><br><small>{{ order.created_at|default('') }}</small></div>
         <div class="sss-mini-grid">
           <div class="sss-mini"><span>Customer</span><strong>{{ order.customer_name|default('Customer') }}</strong></div>
-          <div class="sss-mini"><span>Phone</span><strong>{{ order.customer_phone|default('—') }}</strong></div>
+          <div class="sss-mini"><span>Mode</span><strong>{{ 'External Local' if is_local else 'Shiprocket / Courier' }}</strong></div>
           <div class="sss-mini"><span>Amount</span><strong>₹{{ '%.2f'|format(order.total_payable) }}</strong></div>
           <div class="sss-mini"><span>Status</span><strong>{{ order.external_delivery_status|replace('_',' ')|title }}</strong></div>
-          <div class="sss-mini"><span>Tracking</span><strong>{{ order.external_awb or order.external_shipment_id or order.external_order_id or 'Not generated yet' }}</strong></div>
+          <div class="sss-mini"><span>Provider</span><strong>{{ order.external_delivery_provider or ('Local Delivery Partner' if is_local else 'Shiprocket') }}</strong></div>
         </div>
-        {% if order.external_delivery_status in ['PENDING_SHIPROCKET_SHIPMENT','PENDING_THIRD_PARTY_SHIPMENT','READY_FOR_SHIPROCKET_BOOKING','PENDING','BOOKING_FAILED'] %}
-          <form method="post" action="{{ url_for('store_external_delivery_ready', oid=order.id) }}"><button class="sss-btn" type="submit">Package Ready / Create Shiprocket</button></form>
+        {% if is_local and order.external_delivery_status in ['PENDING','PENDING_EXTERNAL_DELIVERY','READY_FOR_LOCAL_HANDOFF'] %}
+          <form method="post" action="{{ url_for('store_external_delivery_ready', oid=order.id) }}"><button class="sss-btn" type="submit">Mark Ready for Handoff</button></form>
+        {% elif not is_local and order.external_delivery_status in ['PENDING_SHIPROCKET_SHIPMENT','PENDING_THIRD_PARTY_SHIPMENT','READY_FOR_SHIPROCKET_BOOKING','PENDING','BOOKING_FAILED'] %}
+          <form method="post" action="{{ url_for('store_external_delivery_ready', oid=order.id) }}"><button class="sss-btn" type="submit">Create Courier Shipment</button></form>
         {% else %}
-          <a class="sss-link" href="{{ url_for('order_track', oid=order.id) }}">Track Order</a>
+          <a class="sss-link" href="{{ url_for('store_order_track', oid=order.id) }}">Track Order</a>
+        {% endif %}
+        {% if is_local and delivered and is_cod and store_collects and not store_payment_recorded %}
+          <form class="sss-mini-form" method="post" action="{{ url_for('store_external_delivery_payment_received', oid=order.id) }}" onsubmit="return confirm('Confirm the Store has received the full customer payment?');">
+            <select name="payment_channel" required><option value="CASH">Cash</option><option value="UPI">UPI</option></select>
+            <input type="text" name="payment_reference" maxlength="120" placeholder="UPI reference (required for UPI)">
+            <button class="sss-btn" type="submit">Record Payment</button>
+          </form>
+        {% elif store_payment_recorded %}
+          <span class="sss-note">Customer payment received by Store · {{ order.payment_collection_channel or 'Recorded' }}</span>
         {% endif %}
       </article>
     {% endfor %}
   </div>
 {% else %}
-  <div class="sss-empty">No Shiprocket/courier orders for your store yet.</div>
+  <div class="sss-empty">No external delivery orders for your store yet.</div>
 {% endif %}
 </div>
 </section>

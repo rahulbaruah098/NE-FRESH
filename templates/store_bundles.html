@@ -3,28 +3,15 @@
 
 {% block title %}Product Bundles | NE Locals{% endblock %}
 {% block page_title %}Product Bundles{% endblock %}
-{% block page_subtitle %}Combine products from your own inventory and sell them at a bundle price.{% endblock %}
+{% block page_subtitle %}Create and manage grouped product bundles for customers.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-bundles.css') }}">
+{% endblock %}
 
 {% block content %}
-<section class="bundle-page">
-  <style>
-    .bundle-page{--green:#00a859;--green-dark:#087443;--ink:#20332a;--muted:#687970;--line:#dcebe3;--soft:#f5fbf7;--danger:#c62828;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);padding:24px;background:#f8fffb;min-height:100%}
-    .bundle-shell{max-width:1500px;margin:0 auto;display:grid;gap:20px}
-    .bundle-card{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 14px 34px rgba(20,70,43,.07);overflow:hidden}
-    .bundle-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px;border-bottom:1px solid var(--line);background:#fbfffd}
-    .bundle-head h2{margin:0;font-size:21px;font-weight:900;letter-spacing:-.03em}.bundle-head p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.55}
-    .bundle-form{padding:22px;display:grid;gap:18px}.bundle-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:16px}.bundle-field{display:grid;gap:7px}.bundle-field.full{grid-column:1/-1}.bundle-field label{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#50645a}
-    .bundle-field input,.bundle-field textarea,.bundle-field select{width:100%;border:1px solid var(--line);border-radius:13px;background:#fff;color:var(--ink);padding:12px 13px;font:inherit;font-size:14px;outline:none}.bundle-field textarea{min-height:94px;resize:vertical}.bundle-field input:focus,.bundle-field textarea:focus,.bundle-field select:focus{border-color:rgba(0,168,89,.55);box-shadow:0 0 0 4px rgba(0,168,89,.08)}
-    .items-box{border:1px solid var(--line);border-radius:16px;overflow:hidden}.items-title{padding:14px 16px;background:var(--soft);font-weight:900;font-size:14px;border-bottom:1px solid var(--line)}.bundle-item-row{display:grid;grid-template-columns:minmax(0,1fr) 150px 48px;gap:10px;padding:12px 14px;border-bottom:1px solid #edf4f0;align-items:end}.bundle-item-row:last-child{border-bottom:0}.remove-item{height:44px;border:1px solid #ffd2d2;background:#fff5f5;color:var(--danger);border-radius:12px;font-weight:900;cursor:pointer}.remove-item:disabled{opacity:.4;cursor:not-allowed}
-    .bundle-actions{display:flex;gap:10px;flex-wrap:wrap}.bundle-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border-radius:13px;border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:900;font-size:13px;text-decoration:none;cursor:pointer}.bundle-btn.primary{background:var(--green);border-color:var(--green);color:#fff}.bundle-btn.danger{background:#fff5f5;border-color:#ffd2d2;color:var(--danger)}.bundle-btn.warning{background:#fff8eb;border-color:#ffe0a6;color:#9a5d00}
-    .bundle-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.summary-box{border:1px solid var(--line);border-radius:16px;padding:15px;background:#fff}.summary-box span{display:block;color:var(--muted);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.summary-box strong{display:block;margin-top:7px;font-size:24px;font-weight:900}
-    .bundle-list{padding:20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.bundle-tile{border:1px solid var(--line);border-radius:18px;padding:16px;display:grid;gap:13px;background:#fff}.bundle-tile-head{display:flex;justify-content:space-between;gap:14px}.bundle-name{font-size:18px;font-weight:900}.bundle-desc{margin-top:5px;color:var(--muted);font-size:13px;line-height:1.5}.status{align-self:flex-start;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:900}.status.active{background:#e9fff3;color:#087443}.status.inactive{background:#f2f3f3;color:#66756d}.bundle-products{display:grid;gap:7px}.bundle-product{display:flex;justify-content:space-between;gap:12px;padding:9px 11px;border-radius:11px;background:var(--soft);font-size:13px}.bundle-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.bundle-meta div{padding:10px;border:1px solid #edf4f0;border-radius:12px}.bundle-meta small{display:block;color:var(--muted);font-size:10px;font-weight:900;text-transform:uppercase}.bundle-meta strong{display:block;margin-top:5px;font-size:14px}.empty-state{grid-column:1/-1;padding:44px 20px;text-align:center;color:var(--muted)}
-    .bundle-modal{position:fixed;inset:0;z-index:3000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(14,35,25,.58);backdrop-filter:blur(3px)}.bundle-modal.open{display:flex}.bundle-modal-dialog{width:min(920px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 24px 70px rgba(0,0,0,.24)}.bundle-modal-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 22px;border-bottom:1px solid var(--line);background:#fbfffd}.bundle-modal-head h3{margin:0;font-size:20px}.bundle-modal-close{width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:24px;line-height:1;cursor:pointer}.bundle-current-image{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px}.bundle-current-image img{width:68px;height:68px;border-radius:12px;object-fit:cover;border:1px solid var(--line)}body.bundle-modal-open{overflow:hidden}
-    @media(max-width:1000px){.bundle-grid{grid-template-columns:1fr 1fr}.bundle-list{grid-template-columns:1fr}.bundle-summary{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:680px){.bundle-page{padding:14px}.bundle-grid{grid-template-columns:1fr}.bundle-field.full{grid-column:auto}.bundle-item-row{grid-template-columns:1fr 110px 44px}.bundle-summary,.bundle-meta{grid-template-columns:repeat(2,1fr)}.bundle-head{padding:18px}.bundle-form{padding:16px}.bundle-list{padding:14px}.bundle-actions .bundle-btn{flex:1}}
-  </style>
-
-  <div class="bundle-shell">
+<section class="bundle-page nf-store-page">
+<div class="bundle-shell">
     <div class="bundle-card">
       <div class="bundle-head">
         <div>

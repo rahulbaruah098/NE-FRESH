@@ -1320,14 +1320,7 @@ def store_delivered_orders():
 @app.route('/store/payouts', methods=['GET'], endpoint='store_payouts')
 @login_required(role='store')
 def store_payouts_page():
-    """
-    Store-side read-only payout/settlement view.
-
-    Important:
-    - Store can only view payout status.
-    - Store cannot mark payout paid.
-    - Only Admin controls rider cash settlement and store payout settlement.
-    """
+    """Read-only Store finance view with direct-collection and Admin-payout separated."""
     u, store = _get_current_store_or_redirect()
 
     if not store:
@@ -1336,129 +1329,83 @@ def store_payouts_page():
 
     store_id = store.get("_id")
     store_id_str = str(store_id)
-
     q = (request.args.get("q") or "").strip()
     status_filter = (request.args.get("status") or "").strip().upper()
 
-    payout_docs = list(
-        mongo.orders.find({
-            "$and": [
-                {
-                    "$or": [
-                        {"store_id": store_id},
-                        {"store_id": store_id_str}
-                    ]
-                },
-                {
-                    "status": "DELIVERED"
-                }
-            ]
-        }).sort("delivered_at", -1)
-    )
+    payout_docs = list(mongo.orders.find({
+        "$and": [
+            {"$or": [{"store_id": store_id}, {"store_id": store_id_str}]},
+            {"status": "DELIVERED"}
+        ]
+    }).sort("delivered_at", -1))
 
     payout_rows = []
+    store_carry_forward_outstanding = finance_store_outstanding_adjustment_total(store_id)
 
     for order in payout_docs:
-        row = dict(order)
-
+        row = _decorate_store_delivery_order(dict(order))
         row["id"] = str(row.get("_id") or row.get("id") or "")
 
-        # Existing helper safely prepares money, rider and store earning values.
-        row = _decorate_store_delivery_order(row)
-
-        items_subtotal = _store_delivery_money_float(
-            row.get("items_subtotal"),
-            row.get("store_earning") or 0
-        )
-
-        store_refund_deduction = _store_delivery_money_float(
-            row.get("store_refund_deduction")
-            if row.get("store_refund_deduction") is not None
-            else (
-                row.get("refund_deduction")
-                if row.get("refund_deduction") is not None
-                else row.get("refund_adjustment_amount")
-            ),
-            0
-        )
-
-        store_adjustment_due = _store_delivery_money_float(
-            row.get("store_adjustment_due"),
-            0
-        )
-
+        items_subtotal = _store_delivery_money_float(row.get("items_subtotal"), row.get("store_earning") or 0)
         original_store_payout_amount = _store_delivery_money_float(
-            row.get("original_store_payout_amount")
-            if row.get("original_store_payout_amount") is not None
-            else row.get("store_earning"),
+            row.get("original_store_payout_amount") if row.get("original_store_payout_amount") is not None else row.get("store_earning"),
             items_subtotal
         )
-
-        store_payout_amount = _store_delivery_money_float(
-            row.get("store_payout_amount"),
-            original_store_payout_amount
+        store_refund_deduction = _store_delivery_money_float(
+            row.get("store_refund_deduction") if row.get("store_refund_deduction") is not None else row.get("refund_deduction"),
+            0
         )
-
         adjusted_store_payout = _store_delivery_money_float(
             row.get("adjusted_store_payout"),
             max(original_store_payout_amount - store_refund_deduction, 0)
         )
+        store_adjustment_due = _store_delivery_money_float(row.get("store_adjustment_due"), 0)
+        finance_state = finance_reconciliation_snapshot(row)
+        payout_required = bool(finance_state.get("store_payout_required"))
+        customer_reconciled = bool(finance_state.get("customer_payment_reconciled"))
+        payout_status = (row.get("store_payout_status") or finance_state.get("store_payout_status") or "").strip().upper()
 
-        payout_status_upper = (row.get("store_payout_status") or "").strip().upper()
+        carry_outstanding = store_carry_forward_outstanding
+        carry_preview = round(min(carry_outstanding, adjusted_store_payout), 2) if payout_required and payout_status != "PAID" else 0.0
+        final_preview = round(max(adjusted_store_payout - carry_preview, 0), 2)
 
-        if payout_status_upper == "PAID":
-            net_store_earning = round(store_payout_amount, 2)
-        else:
-            net_store_earning = round(adjusted_store_payout, 2)
-
-        settlement_impact = (
-            row.get("settlement_impact")
-            or (
-                "ADJUST_FROM_NEXT_PAYOUT"
-                if store_adjustment_due > 0
-                else (
-                    "DEDUCT_FROM_PENDING_PAYOUT"
-                    if store_refund_deduction > 0
-                    else "NO_DEDUCTION"
-                )
+        if not payout_required and customer_reconciled:
+            payout_status = "NOT_REQUIRED"
+            net_store_earning = round(original_store_payout_amount - store_refund_deduction, 2)
+        elif payout_status == "PAID":
+            net_store_earning = _store_delivery_money_float(
+                row.get("store_payout_paid_amount"),
+                row.get("store_payout_amount") or adjusted_store_payout
             )
-        )
+        else:
+            net_store_earning = final_preview
 
         row["items_subtotal"] = round(items_subtotal, 2)
-
         row["original_store_payout_amount"] = round(original_store_payout_amount, 2)
-
         row["store_refund_deduction"] = round(store_refund_deduction, 2)
         row["refund_deduction"] = round(store_refund_deduction, 2)
-
         row["adjusted_store_payout"] = round(adjusted_store_payout, 2)
         row["store_adjustment_due"] = round(store_adjustment_due, 2)
-
-        row["net_store_earning"] = net_store_earning
-        row["store_payout_amount"] = round(store_payout_amount, 2)
-
-        row["settlement_impact"] = settlement_impact
-
-        row["store_payout_status"] = (
-            row.get("store_payout_status")
-            or "PENDING_AFTER_DELIVERY"
+        row["store_carry_forward_adjustment_outstanding"] = carry_outstanding
+        row["store_carry_forward_adjustment_preview"] = carry_preview
+        row["final_store_payout_preview"] = final_preview
+        row["net_store_earning"] = round(net_store_earning, 2)
+        row["store_payout_status"] = payout_status or "PENDING_AFTER_DELIVERY"
+        row["store_payout_required"] = payout_required
+        row["customer_payment_reconciled"] = customer_reconciled
+        row["payment_receiver_label"] = finance_state.get("payment_receiver_label") or ""
+        row["payment_collection_label"] = finance_state.get("collection_label") or ""
+        row["store_payout_eligible"] = bool(finance_state.get("store_payout_eligible"))
+        row["store_payout_block_reason"] = finance_state.get("store_payout_block_reason") or ""
+        row["platform_fee_reconciliation_status"] = finance_state.get("platform_fee_reconciliation_status") or ""
+        row["settlement_impact"] = row.get("settlement_impact") or (
+            "ADJUST_FROM_NEXT_PAYOUT" if store_adjustment_due > 0 else (
+                "DEDUCT_FROM_PENDING_PAYOUT" if store_refund_deduction > 0 else "NO_DEDUCTION"
+            )
         )
-
-        row["store_settlement_status"] = (
-            row.get("store_settlement_status")
-            or "PAYOUT_PENDING"
-        )
-
-        row["order_settlement_status"] = (
-            row.get("order_settlement_status")
-            or "STORE_PAYOUT_PENDING"
-        )
-
-        row["rider_cash_settlement_status"] = (
-            row.get("rider_cash_settlement_status")
-            or "NOT_REQUIRED"
-        )
-
+        row["store_settlement_status"] = row.get("store_settlement_status") or ("DIRECT_COLLECTION_RECONCILED" if not payout_required and customer_reconciled else "PAYOUT_PENDING")
+        row["order_settlement_status"] = row.get("order_settlement_status") or ("BUSINESS_RECONCILED" if not payout_required and customer_reconciled else "STORE_PAYOUT_PENDING")
+        row["rider_cash_settlement_status"] = row.get("rider_cash_settlement_status") or "NOT_REQUIRED"
         row["platform_fee_status"] = row.get("platform_fee_status") or ""
         row["store_payout_paid_at"] = row.get("store_payout_paid_at") or ""
         row["store_payout_reference_no"] = row.get("store_payout_reference_no") or ""
@@ -1467,77 +1414,50 @@ def store_payouts_page():
 
         if q:
             haystack = " ".join([
-                str(row.get("id") or ""),
-                str(row.get("customer_name") or ""),
-                str(row.get("customer_phone") or ""),
-                str(row.get("payment_method") or ""),
-                str(row.get("store_payout_status") or ""),
-                str(row.get("order_settlement_status") or ""),
-                str(row.get("store_payout_reference_no") or "")
+                str(row.get("id") or ""), str(row.get("customer_name") or ""), str(row.get("customer_phone") or ""),
+                str(row.get("payment_method") or ""), str(row.get("payment_collection_label") or ""),
+                str(row.get("payment_receiver_label") or ""), str(row.get("store_payout_status") or ""),
+                str(row.get("order_settlement_status") or ""), str(row.get("store_payout_reference_no") or "")
             ]).lower()
-
             if q.lower() not in haystack:
                 continue
 
         if status_filter:
-            payout_status = (row.get("store_payout_status") or "").strip().upper()
-            settlement_status = (row.get("order_settlement_status") or "").strip().upper()
-
             if status_filter == "PENDING":
-                if payout_status in ["PAID", "SETTLED"] or settlement_status == "SETTLED":
+                if not payout_required or payout_status in ["PAID", "SETTLED"]:
                     continue
             elif status_filter == "PAID":
                 if payout_status != "PAID":
                     continue
-            elif status_filter not in [payout_status, settlement_status]:
+            elif status_filter == "DIRECT":
+                if payout_required or not customer_reconciled:
+                    continue
+            elif status_filter == "BLOCKED":
+                if not payout_required or row.get("store_payout_eligible") or payout_status == "PAID":
+                    continue
+            elif status_filter not in [payout_status, (row.get("order_settlement_status") or "").upper()]:
                 continue
 
         payout_rows.append(row)
 
+    pending_rows = [r for r in payout_rows if r.get("store_payout_required") and (r.get("store_payout_status") or "").upper() != "PAID"]
+    paid_rows = [r for r in payout_rows if (r.get("store_payout_status") or "").upper() == "PAID"]
+    direct_rows = [r for r in payout_rows if not r.get("store_payout_required") and r.get("customer_payment_reconciled")]
+
     metrics = {
         "total_orders": len(payout_rows),
-
-        "pending_orders": sum(
-            1 for r in payout_rows
-            if (r.get("store_payout_status") or "").upper() != "PAID"
-        ),
-
-        "paid_orders": sum(
-            1 for r in payout_rows
-            if (r.get("store_payout_status") or "").upper() == "PAID"
-        ),
-
-        "pending_amount": round(sum(
-            float(r.get("net_store_earning") or 0)
-            for r in payout_rows
-            if (r.get("store_payout_status") or "").upper() != "PAID"
-        ), 2),
-
-        "paid_amount": round(sum(
-            float(r.get("net_store_earning") or 0)
-            for r in payout_rows
-            if (r.get("store_payout_status") or "").upper() == "PAID"
-        ), 2),
-
-        "total_store_earning": round(sum(
-            float(r.get("original_store_payout_amount") or 0)
-            for r in payout_rows
-        ), 2),
-
-        "total_refund_deduction": round(sum(
-            float(r.get("store_refund_deduction") or 0)
-            for r in payout_rows
-        ), 2),
-
-        "total_adjusted_payout": round(sum(
-            float(r.get("adjusted_store_payout") or 0)
-            for r in payout_rows
-        ), 2),
-
-        "total_adjustment_due": round(sum(
-            float(r.get("store_adjustment_due") or 0)
-            for r in payout_rows
-        ), 2),
+        "pending_orders": len(pending_rows),
+        "paid_orders": len(paid_rows),
+        "direct_collection_orders": len(direct_rows),
+        "blocked_orders": sum(1 for r in pending_rows if not r.get("store_payout_eligible")),
+        "pending_amount": round(sum(float(r.get("final_store_payout_preview") or 0) for r in pending_rows), 2),
+        "paid_amount": round(sum(float(r.get("net_store_earning") or 0) for r in paid_rows), 2),
+        "direct_collection_amount": round(sum(float(r.get("original_store_payout_amount") or 0) for r in direct_rows), 2),
+        "total_store_earning": round(sum(float(r.get("original_store_payout_amount") or 0) for r in payout_rows), 2),
+        "total_refund_deduction": round(sum(float(r.get("store_refund_deduction") or 0) for r in payout_rows), 2),
+        "total_adjusted_payout": round(sum(float(r.get("adjusted_store_payout") or 0) for r in payout_rows if r.get("store_payout_required")), 2),
+        "total_adjustment_due": round(sum(float(r.get("store_adjustment_due") or 0) for r in payout_rows), 2),
+        "carry_forward_outstanding": store_carry_forward_outstanding,
     }
 
     store_view = dict(store)
@@ -1748,19 +1668,73 @@ def _decorate_store_delivery_order(order):
 
     payment_method = (order.get("payment_method") or "COD").strip().upper()
     payment_status = (order.get("payment_status") or "PENDING").strip().upper()
+    payment_collection_status = (order.get("payment_collection_status") or "").strip().upper()
+    payment_collection_channel = (order.get("payment_collection_channel") or "").strip().upper()
+    upi_delivery_reconciliation_status = (order.get("upi_delivery_reconciliation_status") or "").strip().upper()
+    payment_received_by = (order.get("payment_received_by") or "").strip().upper()
+    external_cod_remittance_status = (order.get("external_cod_remittance_status") or "").strip().upper()
 
-    collected_payment_statuses = [
+    cod_payment_methods = {
+        "COD",
+        "CASH_ON_DELIVERY",
+        "COD_RIDER_COLLECTION"
+    }
+
+    collected_payment_statuses = {
         "PAID",
         "COLLECTED",
         "ONLINE_PAID",
         "COLLECTED_BY_RIDER",
-        "COD_COLLECTED_BY_RIDER"
-    ]
+        "COD_COLLECTED_BY_RIDER",
+        "COD_UPI_RECORDED",
+        "COLLECTED_BY_STORE",
+        "COLLECTED_BY_EXTERNAL_PARTNER"
+    }
 
-    if payment_method == "COD" and payment_status not in collected_payment_statuses:
+    is_cod_order = payment_method in cod_payment_methods
+    is_cod_upi = is_cod_order and payment_collection_channel == "UPI"
+    is_cod_collected = bool(
+        is_cod_order
+        and (
+            payment_status in collected_payment_statuses
+            or payment_collection_status in {"COLLECTED", "PAID"}
+        )
+    )
+
+    if is_cod_order and not is_cod_collected:
         amount_to_collect = total_payable
     else:
         amount_to_collect = 0.0
+
+    cod_collected_amount = (
+        _store_delivery_money_float(
+            order.get("cod_collected_amount"),
+            total_payable
+        )
+        if is_cod_collected
+        else 0.0
+    )
+
+    if is_cod_collected:
+        cod_display_amount = cod_collected_amount
+        if payment_received_by == "STORE":
+            cod_display_label = "Received by Store"
+        elif payment_received_by == "EXTERNAL_PARTNER" and external_cod_remittance_status in {"RECEIVED", "VERIFIED", "SETTLED", "PAID"}:
+            cod_display_label = "External partner payment reconciled"
+        elif payment_received_by == "EXTERNAL_PARTNER":
+            cod_display_label = "Received by external partner · remittance pending"
+        elif is_cod_upi and upi_delivery_reconciliation_status == "VERIFIED":
+            cod_display_label = "UPI verified"
+        elif is_cod_upi:
+            cod_display_label = "UPI recorded · verification pending"
+        else:
+            cod_display_label = "Cash collected"
+    elif is_cod_order:
+        cod_display_amount = amount_to_collect
+        cod_display_label = "To collect"
+    else:
+        cod_display_amount = 0.0
+        cod_display_label = "Not applicable"
 
     free_delivery_applied = bool(order.get("free_delivery_above_applied"))
 
@@ -1823,8 +1797,30 @@ def _decorate_store_delivery_order(order):
 
     order["payment_method"] = payment_method
     order["payment_status"] = payment_status
-    order["is_cod_order"] = payment_method == "COD"
+    order["payment_collection_status"] = payment_collection_status
+    order["payment_collection_channel"] = payment_collection_channel
+    order["upi_delivery_reconciliation_status"] = upi_delivery_reconciliation_status
+    finance_state = finance_reconciliation_snapshot(order)
+    order["collection_channel_label"] = finance_state.get("collection_label") or (
+        "UPI" if is_cod_upi
+        else ("Cash" if is_cod_order else ("Razorpay" if payment_collection_channel == "RAZORPAY" else "Online"))
+    )
+    order["payment_received_by"] = payment_received_by
+    order["payment_receiver_label"] = finance_state.get("payment_receiver_label") or ""
+    order["payment_collection_label"] = finance_state.get("collection_label") or order["collection_channel_label"]
+    order["payment_reconciliation_status"] = finance_state.get("payment_reconciliation_status") or order.get("payment_reconciliation_status") or ""
+    order["customer_payment_reconciled"] = bool(finance_state.get("customer_payment_reconciled"))
+    order["platform_fee_reconciliation_status"] = finance_state.get("platform_fee_reconciliation_status") or order.get("platform_fee_status") or ""
+    order["store_payout_required"] = bool(finance_state.get("store_payout_required"))
+    order["store_payout_eligible"] = bool(finance_state.get("store_payout_eligible"))
+    order["store_payout_block_reason"] = finance_state.get("store_payout_block_reason") or ""
+    order["external_cod_remittance_status"] = external_cod_remittance_status
+    order["is_cod_order"] = is_cod_order
+    order["is_cod_collected"] = is_cod_collected
     order["amount_to_collect"] = round(amount_to_collect, 2)
+    order["cod_collected_amount"] = round(cod_collected_amount, 2)
+    order["cod_display_amount"] = round(cod_display_amount, 2)
+    order["cod_display_label"] = cod_display_label
 
     order["free_delivery_above_applied"] = free_delivery_applied
     order["original_delivery_fee"] = round(original_delivery_fee, 2)
@@ -1970,6 +1966,130 @@ def store_orders_page():
         user=u,
         store=store,
         **page_context
+    )
+
+
+@app.route('/store/active-orders', methods=['GET'], endpoint='store_active_orders')
+@login_required(role='store')
+def store_active_orders_page():
+    """Show only orders that are still in the active fulfilment/delivery workflow."""
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        return redirect(url_for("store_dashboard"))
+
+    page_context = _build_store_split_page_context(store) or {}
+    available_delivery_people = _hydrate_store_delivery_people_for_template(store)
+
+    # Keep this page aligned with the Store Dashboard definition of an open
+    # order: anything visible to the Store that has not reached a terminal
+    # delivered/cancelled state is still active. This also keeps future
+    # fulfilment statuses visible without having to maintain a fragile list.
+    terminal_statuses = {
+        "DELIVERED",
+        "DELIVERY_DELIVERED",
+        "SHIPMENT_DELIVERED",
+        "ORDER_DELIVERED",
+        "CANCELLED",
+        "CANCELED",
+        "CANCELLED_VOID",
+        "ORDER_CANCELLED_BY_CUSTOMER",
+        "ORDER_CANCELLED_BY_STORE",
+        "CUSTOMER_CANCELLED_BEFORE_DELIVERY",
+        "STORE_CANCELLED_BEFORE_DELIVERY",
+        "UNPAID_ORDER_CANCELLED",
+        "DELIVERY_CANCELLED_BY_RIDER",
+        "RIDER_CANCELLED",
+    }
+
+    active_orders = []
+    for order in page_context.get("orders") or []:
+        if not _store_should_show_order_to_store(order):
+            continue
+
+        row = dict(order)
+        row["_id"] = row.get("_id") or row.get("id")
+        row["id"] = str(row.get("_id") or row.get("id") or "")
+        row = _decorate_store_delivery_order(row)
+
+        status = str(row.get("status") or "").strip().upper()
+        # Missing legacy status is treated like the normal Store default (PLACED)
+        # rather than disappearing from the active-work queue.
+        if status not in terminal_statuses:
+            active_orders.append(row)
+
+    page_context["orders"] = active_orders
+    page_context["active_order_count"] = len(active_orders)
+    page_context["available_delivery_people"] = available_delivery_people
+    page_context["delivery_accept_radius_km"] = DELIVERY_ACCEPT_RADIUS_KM
+
+    return render_template(
+        "store_active_orders.html",
+        user=u,
+        store=store,
+        **page_context
+    )
+
+
+@app.route('/store/orders/<oid>/track', methods=['GET'], endpoint='store_order_track')
+@login_required(role='store')
+def store_order_track_page(oid):
+    """Store-contained order tracking page.
+
+    This deliberately does not reuse the customer order_track template/shell.
+    The order is first verified against the signed-in Store, then the shared
+    read-only order data is hydrated for Store operations.
+    """
+    u, store = _get_current_store_or_redirect()
+
+    if not store:
+        flash("Store not found.", "danger")
+        return redirect(url_for("store_dashboard"))
+
+    oid_obj, owned_order = _get_store_owned_order(store, oid)
+    if not oid_obj or not owned_order:
+        flash("Order not found for your store.", "danger")
+        return redirect(url_for("store_orders"))
+
+    data = get_order_full(str(oid_obj))
+    if not data or not data.get("order"):
+        flash("Order tracking information is unavailable.", "warning")
+        return redirect(url_for("store_orders"))
+
+    order = dict(data.get("order") or {})
+    order["_id"] = order.get("_id") or oid_obj
+    order["id"] = str(order.get("_id") or oid_obj)
+    order = _decorate_store_delivery_order(order)
+    public_order_number = str(order.get("order_number") or order.get("display_order_number") or "").strip()
+    order["order_number"] = str(order.get("order_number") or "").strip()
+    order["display_order_number"] = public_order_number or f"#{order['id']}"
+
+    # Customer name/phone can be absent on old orders. Fill display-only values
+    # from the owning customer record without mutating the order.
+    if not order.get("customer_name") or not order.get("customer_phone"):
+        customer = None
+        customer_id = order.get("user_id")
+        if customer_id:
+            try:
+                customer = mongo.users.find_one({"_id": ObjectId(str(customer_id))})
+            except Exception:
+                try:
+                    customer = mongo.users.find_one({"_id": str(customer_id)})
+                except Exception:
+                    customer = None
+        customer = customer or {}
+        order["customer_name"] = order.get("customer_name") or customer.get("name") or customer.get("username") or "Customer"
+        order["customer_phone"] = order.get("customer_phone") or customer.get("phone") or customer.get("contact") or ""
+
+    data["order"] = order
+    available_delivery_people = _hydrate_store_delivery_people_for_template(store)
+
+    return render_template(
+        "store_order_track.html",
+        user=u,
+        store=store,
+        available_delivery_people=available_delivery_people,
+        **data
     )
 
 
@@ -2270,6 +2390,7 @@ def store_delivery_page():
 @app.route('/store/orders/<oid>/ready-for-pickup', methods=['POST'], endpoint='store_order_ready_for_pickup')
 @login_required(role='store')
 def store_order_ready_for_pickup(oid):
+    return_endpoint = "store_active_orders" if (request.form.get("return_to") or "").strip().lower() == "active_orders" else "store_orders"
     u, store = _get_current_store_or_redirect()
 
     if not store:
@@ -2280,13 +2401,13 @@ def store_order_ready_for_pickup(oid):
 
     if not oid_obj or not order:
         flash("Order not found for your store.", "danger")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     status = (order.get("status") or "").strip().upper()
 
     if order.get("delivery_partner_id"):
         flash("This order already has a delivery boy assigned.", "warning")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     allowed_shipment_ready_statuses = {
         "CONFIRMED",
@@ -2301,11 +2422,11 @@ def store_order_ready_for_pickup(oid):
 
     if status in shipment_ready_statuses:
         flash("This order is already marked shipment ready.", "info")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     if status not in allowed_shipment_ready_statuses:
         flash("Only confirmed/packaging orders can be marked shipment ready.", "warning")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     now = datetime.utcnow().isoformat()
 
@@ -2334,7 +2455,7 @@ def store_order_ready_for_pickup(oid):
 
     if result.modified_count < 1:
         flash("This order status changed recently. Please refresh and try again.", "warning")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     add_order_event(
         oid_obj,
@@ -2353,7 +2474,7 @@ def store_order_ready_for_pickup(oid):
     )
 
     flash("Order marked shipment ready.", "success")
-    return redirect(url_for("store_orders"))
+    return redirect(url_for(return_endpoint))
 
 
 @app.route('/store/orders/<oid>/assign-delivery', methods=['POST'], endpoint='store_order_assign_delivery')
@@ -2637,9 +2758,11 @@ def store_order_cancel_failed_delivery(oid):
                 "status": "CANCELLED",
 
                 "cancelled_by": "store",
+                "cancelled_by_role": "store",
                 "cancelled_by_id": str(u.get("_id") or u.get("id")),
                 "cancelled_by_name": u.get("name") or "Store User",
                 "cancel_reason": cancel_reason,
+                "cancellation_reason": cancel_reason,
                 "cancel_note": cancel_note,
                 "cancelled_at": now,
 
@@ -2691,6 +2814,7 @@ def store_order_cancel_failed_delivery(oid):
 @app.route('/store/orders/<oid>/clear-delivery', methods=['POST'], endpoint='store_order_clear_delivery')
 @login_required(role='store')
 def store_order_clear_delivery(oid):
+    return_endpoint = "store_active_orders" if (request.form.get("return_to") or "").strip().lower() == "active_orders" else "store_orders"
     u, store = _get_current_store_or_redirect()
 
     if not store:
@@ -2701,7 +2825,7 @@ def store_order_clear_delivery(oid):
 
     if not oid_obj or not order:
         flash("Order not found for your store.", "danger")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     result = clear_delivery_assignment(
         order_id=oid_obj,
@@ -2711,7 +2835,7 @@ def store_order_clear_delivery(oid):
 
     if not result.get("ok"):
         flash(result.get("error") or "Could not clear delivery assignment.", "danger")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     _create_store_notification(
         store,
@@ -2723,7 +2847,7 @@ def store_order_clear_delivery(oid):
     )
 
     flash("Delivery assignment cleared.", "success")
-    return redirect(url_for("store_orders"))
+    return redirect(url_for(return_endpoint))
 
 
 @app.route('/store/orders/<oid>/delivery-options', methods=['GET'], endpoint='store_order_delivery_options')
@@ -4037,7 +4161,40 @@ def store_complaints_page():
         }).sort("created_at", -1)
     )
 
+    # Resolve complaint order references to the same public NEO-* order number
+    # used on the customer/store Orders pages. This is display-only and uses
+    # one batched lookup to avoid per-row database queries.
+    complaint_order_refs = {str(c.get("order_id") or "").strip() for c in complaints if str(c.get("order_id") or "").strip()}
+    complaint_order_object_ids = []
+    complaint_public_refs = []
+    for ref in complaint_order_refs:
+        if ref.upper().startswith("NEO-"):
+            complaint_public_refs.append(ref)
+        else:
+            try:
+                complaint_order_object_ids.append(ObjectId(ref))
+            except Exception:
+                complaint_public_refs.append(ref)
+
+    order_lookup = {}
+    order_matchers = []
+    if complaint_order_object_ids:
+        order_matchers.append({"_id": {"$in": complaint_order_object_ids}})
+    if complaint_public_refs:
+        order_matchers.append({"order_number": {"$in": complaint_public_refs}})
+    if order_matchers:
+        try:
+            for order_row in mongo.orders.find({"$or": order_matchers}, {"_id": 1, "order_number": 1}):
+                public_number = str(order_row.get("order_number") or "").strip()
+                if public_number:
+                    order_lookup[str(order_row.get("_id") or "")] = public_number
+                    order_lookup[public_number] = public_number
+        except Exception:
+            order_lookup = {}
+
     for c in complaints:
+        raw_order_ref = str(c.get("order_id") or "").strip()
+        c["display_order_number"] = order_lookup.get(raw_order_ref, raw_order_ref)
         c["id"] = str(c["_id"])
         c["complaint_image_path"] = c.get("complaint_image_path") or c.get("image_path") or ""
 
@@ -4278,6 +4435,24 @@ def store_profile_update():
     if "delivery_zone_polygon" in request.form:
         delivery_zone_raw = (request.form.get("delivery_zone_polygon") or "").strip()
         delivery_zone_polygon = _parse_delivery_zone_polygon(delivery_zone_raw)
+
+        # An intentional [] clears the zone. Any non-empty boundary payload that
+        # cannot produce a valid 3+ point polygon is rejected instead of being
+        # silently converted to an empty zone. This protects an existing Store
+        # service area if client-side validation is bypassed.
+        if delivery_zone_raw:
+            try:
+                submitted_zone = json.loads(delivery_zone_raw)
+            except Exception:
+                submitted_zone = None
+
+            if submitted_zone is None or not isinstance(submitted_zone, list):
+                flash("Delivery service area data is invalid. Please redraw the boundary and save again.", "warning")
+                return redirect(url_for("store_profile"))
+
+            if submitted_zone and not delivery_zone_polygon:
+                flash("Delivery service area needs at least 3 valid boundary points.", "warning")
+                return redirect(url_for("store_profile"))
     else:
         delivery_zone_polygon = existing_delivery_zone_polygon
 
@@ -6452,6 +6627,7 @@ def store_cancelled_orders(cancel_type="customer"):
 @app.route('/store/orders/<oid>/status', methods=['POST'])
 @login_required(role='store')
 def store_order_status(oid):
+    return_endpoint = "store_active_orders" if (request.form.get("return_to") or "").strip().lower() == "active_orders" else "store_orders"
     u = current_user()
 
     store = mongo.stores.find_one({"user_id": u["id"]})
@@ -6464,7 +6640,7 @@ def store_order_status(oid):
         oid_obj = ObjectId(oid)
     except Exception:
         flash("Invalid order.", "danger")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     order = mongo.orders.find_one({
         "_id": oid_obj,
@@ -6476,7 +6652,7 @@ def store_order_status(oid):
 
     if not order:
         flash("Order not found.", "danger")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     current_status = (order.get("status") or "").strip().upper()
     new_status = (request.form.get("status") or "").strip().upper()
@@ -6484,7 +6660,7 @@ def store_order_status(oid):
 
     if current_status in {"CANCELLED", "CANCELED", "DELIVERED"}:
         flash("This order can no longer be updated.", "warning")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     # Delivery workflow statuses must not be controlled by the normal order dropdown.
     delivery_locked_statuses = {
@@ -6501,7 +6677,7 @@ def store_order_status(oid):
 
     if current_status in delivery_locked_statuses:
         flash("This order is controlled by the delivery workflow. Use Delivery Control actions.", "warning")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     allowed_statuses = {
         "PLACED",
@@ -6513,7 +6689,7 @@ def store_order_status(oid):
 
     if new_status not in allowed_statuses:
         flash("Invalid order status selected.", "warning")
-        return redirect(url_for("store_orders"))
+        return redirect(url_for(return_endpoint))
 
     update_data = {
         "status": new_status,
@@ -6742,4 +6918,4 @@ def store_order_status(oid):
     else:
         flash("Order status updated successfully.", "success")
 
-    return redirect(url_for("store_orders"))
+    return redirect(url_for(return_endpoint))

@@ -1,0 +1,132 @@
+{% extends "store_base.html" %}
+{% set active_page = "active_orders" %}
+
+{% block title %}Track Order | NE Locals{% endblock %}
+{% block page_title %}Track Order{% endblock %}
+{% block page_subtitle %}Store-side order progress, customer delivery details and fulfilment history.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-order-track.css', v='3f4-store-track-1') }}">
+{% endblock %}
+
+{% block content %}
+{% set status = (order.status or 'PLACED')|upper %}
+{% set payment_method = (order.payment_method or 'COD')|upper %}
+{% set payment_status = (order.payment_status or 'PENDING')|upper %}
+{% set order_total = order.total_payable|default(order.total_amount|default(0))|float %}
+{% set order_mode = (order.active_delivery_mode or 'IN_HOUSE')|upper %}
+{% set is_external = order_mode in ['EXTERNAL_LOCAL_DELIVERY', 'THIRD_PARTY_SHIPPING'] %}
+{% set created_text = (order.created_at or '')|string %}
+{% set created_clean = created_text|replace('T',' ') %}
+
+<section class="store-order-track-page nf-store-page">
+  <div class="sot-stack">
+    <section class="sot-header-card">
+      <div class="sot-header-copy">
+        <span class="sot-kicker">Store Order Tracking</span>
+        <h1>{{ order.display_order_number }}</h1>
+        <p>This is the Store operations view. Customer shopping/profile controls are intentionally not shown here.</p>
+      </div>
+      <div class="sot-header-actions">
+        <a class="sot-btn" href="{{ url_for('store_active_orders') }}">Active Orders</a>
+        <a class="sot-btn" href="{{ url_for('store_orders') }}">All Orders</a>
+        <button class="sot-btn sot-btn-primary" type="button" onclick="window.location.reload()">Refresh Status</button>
+      </div>
+    </section>
+
+    <section class="sot-summary-grid" aria-label="Order summary">
+      <article class="sot-summary-card"><span>Order Status</span><strong>{{ order_status_label(status) }}</strong></article>
+      <article class="sot-summary-card"><span>Customer</span><strong>{{ order.customer_name or 'Customer' }}</strong><small>{{ order.customer_phone or 'Phone not available' }}</small></article>
+      <article class="sot-summary-card"><span>Payment</span><strong>{{ payment_method|replace('_',' ')|title }}</strong><small>{{ payment_status|replace('_',' ')|title }}</small></article>
+      <article class="sot-summary-card"><span>Customer Total</span><strong>₹{{ '%.2f'|format(order_total or 0) }}</strong></article>
+    </section>
+
+    <section class="sot-card">
+      <div class="sot-section-head">
+        <div>
+          <h2>Fulfilment & Delivery</h2>
+          <p>Current Store-side fulfilment state and assigned delivery information.</p>
+        </div>
+        <span class="sot-status">{{ order_status_label(status) }}</span>
+      </div>
+      <div class="sot-detail-grid">
+        <div class="sot-detail"><span>Delivery Mode</span><strong>{% if order_mode == 'IN_HOUSE' %}In House Delivery Partner{% elif order_mode == 'EXTERNAL_LOCAL_DELIVERY' %}External Local Delivery{% elif order_mode == 'THIRD_PARTY_SHIPPING' %}Courier / Third Party{% else %}{{ order.delivery_mode_label or order_mode|replace('_',' ')|title }}{% endif %}</strong></div>
+        <div class="sot-detail"><span>Delivery Partner</span><strong>{{ order.delivery_partner_name or 'Not assigned' }}</strong>{% if order.delivery_partner_phone %}<small>{{ order.delivery_partner_phone }}</small>{% endif %}</div>
+        <div class="sot-detail"><span>Assignment</span><strong>{{ order.delivery_assignment_source_label or 'Not assigned' }}</strong></div>
+        <div class="sot-detail"><span>Placed</span><strong>{{ created_clean[:10] if created_clean else '—' }}</strong>{% if created_clean|length > 11 %}<small>{{ created_clean[11:16] }}</small>{% endif %}</div>
+        {% if is_external %}
+        <div class="sot-detail"><span>External Provider</span><strong>{{ order.external_delivery_provider or order.delivery_provider_label or 'External Partner' }}</strong></div>
+        <div class="sot-detail"><span>Tracking Code</span><strong>{{ order.external_awb or order.external_shipment_id or order.external_order_id or 'Not generated yet' }}</strong></div>
+        {% endif %}
+      </div>
+
+      {% if order.delivery_failed_reason %}
+      <div class="sot-notice sot-notice-danger"><strong>Delivery issue</strong><span>{{ order.delivery_failed_reason }}</span>{% if order.delivery_failed_note %}<small>{{ order.delivery_failed_note }}</small>{% endif %}</div>
+      {% elif status in ['CANCELLED','CANCELED'] %}
+      <div class="sot-notice sot-notice-danger"><strong>Order cancelled</strong><span>{{ order.cancellation_reason or order.cancel_reason or 'This order has been cancelled.' }}</span></div>
+      {% endif %}
+    </section>
+
+    <section class="sot-card">
+      <div class="sot-section-head"><div><h2>Customer Delivery Address</h2><p>Delivery destination saved with this order.</p></div></div>
+      <div class="sot-address">
+        {% if address %}
+          <strong>{{ address.line1 or order.addr_line1 or 'Delivery address' }}</strong>
+          {% if address.line2 %}<span>{{ address.line2 }}</span>{% endif %}
+          <span>{{ address.city or order.addr_city or '' }}{% if address.state or order.addr_state %}, {{ address.state or order.addr_state }}{% endif %} {{ address.pincode or order.addr_pincode or '' }}</span>
+          {% if address.latitude is not none and address.longitude is not none %}
+          <a class="sot-inline-link" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination={{ address.latitude }},{{ address.longitude }}">Open Customer Location</a>
+          {% endif %}
+        {% else %}
+          <span>Delivery address is not available for this order.</span>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="sot-card">
+      <div class="sot-section-head"><div><h2>Order Items</h2><p>Products and bundles included in this order.</p></div></div>
+      <div class="sot-table-wrap" data-store-table-scroll>
+        <table class="sot-table">
+          <thead><tr><th>Item</th><th>Type</th><th>Quantity</th><th>Unit Price</th><th>Line Total</th></tr></thead>
+          <tbody>
+          {% if items %}
+            {% for item in items %}
+            <tr>
+              <td><strong>{{ item.name or item.product_name or 'Item' }}</strong>{% if item.is_bundle and item.bundle_items_snapshot %}<small>{{ item.bundle_items_snapshot|length }} bundle item{{ '' if item.bundle_items_snapshot|length == 1 else 's' }}</small>{% endif %}</td>
+              <td>{{ 'Bundle' if item.is_bundle else 'Product' }}</td>
+              <td>{{ item.quantity }} {{ item.unit_label or 'unit' }}</td>
+              <td>₹{{ '%.2f'|format(item.unit_price|default(item.price_per_unit|default(0))|float) }}</td>
+              <td><strong>₹{{ '%.2f'|format(item.line_total|default(0)|float) }}</strong></td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="5" class="sot-empty">No item lines were found for this order.</td></tr>
+          {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="sot-card">
+      <div class="sot-section-head"><div><h2>Order Activity</h2><p>Status history recorded for this order.</p></div></div>
+      <div class="sot-timeline">
+        {% if events %}
+          {% for event in events|reverse %}
+          {% set event_time = (event.created_at or '')|string|replace('T',' ') %}
+          <article class="sot-event">
+            <span class="sot-event-dot"></span>
+            <div>
+              <div class="sot-event-title">{{ order_status_label(event.status) if event.status else (event.action|default('Order update')|replace('_',' ')|title) }}</div>
+              {% if event.note %}<p>{{ event.note }}</p>{% endif %}
+              <small>{{ event_time[:10] if event_time else '' }}{% if event_time|length > 11 %} · {{ event_time[11:16] }}{% endif %}</small>
+            </div>
+          </article>
+          {% endfor %}
+        {% else %}
+          <div class="sot-empty">No order events have been recorded yet.</div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</section>
+{% endblock %}

@@ -8,6 +8,119 @@ from app_core import *
 import secrets
 
 
+def _products_batch_rating_stats(product_ids):
+    stats = {}
+
+    if not product_ids:
+        return stats
+
+    ratings = mongo.product_ratings.find(
+        {"product_id": {"$in": product_ids}},
+        {"product_id": 1, "rating": 1}
+    )
+
+    for rating in ratings:
+        key = str(rating.get("product_id") or "")
+        row = stats.setdefault(key, {"count": 0, "total": 0.0})
+        row["count"] += 1
+
+        try:
+            row["total"] += float(rating.get("rating") or 0)
+        except (TypeError, ValueError):
+            pass
+
+    return stats
+
+
+def _products_batch_store_documents(store_ids, include_object_id_fallback=False):
+    query_values = []
+    seen = set()
+
+    def add_value(value):
+        if value in (None, ""):
+            return
+
+        marker = (type(value).__name__, str(value))
+        if marker in seen:
+            return
+
+        seen.add(marker)
+        query_values.append(value)
+
+    for store_id in store_ids:
+        add_value(store_id)
+
+        if include_object_id_fallback:
+            try:
+                if ObjectId.is_valid(str(store_id)):
+                    add_value(ObjectId(str(store_id)))
+            except Exception:
+                pass
+
+    stores = {}
+
+    if query_values:
+        for store in mongo.stores.find({"_id": {"$in": query_values}}):
+            store_id = store.get("_id")
+            stores[(type(store_id).__name__, str(store_id))] = store
+            stores.setdefault(("text", str(store_id)), store)
+
+    return stores
+
+
+def _products_store_from_batch(store_map, store_id, allow_text_fallback=False):
+    if store_id in (None, ""):
+        return None
+
+    store = store_map.get((type(store_id).__name__, str(store_id)))
+
+    if not store and allow_text_fallback:
+        store = store_map.get(("text", str(store_id)))
+
+    return store
+
+
+def _products_batch_store_rating_stats(stores):
+    stats = {}
+    store_docs = {}
+
+    for store in stores.values():
+        if not isinstance(store, dict) or not store.get("_id"):
+            continue
+        store_docs[str(store["_id"])] = store
+
+    if not store_docs:
+        return stats
+
+    rating_store_values = []
+    seen = set()
+
+    for store in store_docs.values():
+        for value in [store["_id"], str(store["_id"])]:
+            marker = (type(value).__name__, str(value))
+            if marker in seen:
+                continue
+            seen.add(marker)
+            rating_store_values.append(value)
+
+    ratings = mongo.store_ratings.find(
+        {"store_id": {"$in": rating_store_values}},
+        {"store_id": 1, "rating": 1}
+    )
+
+    for rating in ratings:
+        key = str(rating.get("store_id") or "")
+        row = stats.setdefault(key, {"count": 0, "total": 0.0})
+        row["count"] += 1
+
+        try:
+            row["total"] += float(rating.get("rating") or 0)
+        except (TypeError, ValueError):
+            pass
+
+    return stats
+
+
 @app.route('/products')
 def products():
     allow, pin = _session_pin_is_serviceable()
@@ -77,6 +190,17 @@ def products():
                     "unit_label": ci.get("unit_label")
                 }
 
+    product_ids = [p.get("_id") for p in products if p.get("_id") is not None]
+    product_rating_stats = _products_batch_rating_stats(product_ids)
+
+    product_store_ids = [
+        p.get("store_id")
+        for p in products
+        if p.get("store_id") not in (None, "")
+    ]
+    product_store_map = _products_batch_store_documents(product_store_ids)
+    product_store_rating_stats = _products_batch_store_rating_stats(product_store_map)
+
     for p in products:
         p["id"] = str(p["_id"])
         hydrate_product_unit_fields(p)
@@ -96,33 +220,17 @@ def products():
         p["category"] = (p.get("category") or "Uncategorized").strip()
         p["sub_category"] = (p.get("sub_category") or "").strip()
 
-        ratings = list(mongo.product_ratings.find({
-            "product_id": p["_id"]
-        }))
-
-        rating_count = len(ratings)
-        total_rating = 0
-
-        for r in ratings:
-            try:
-                total_rating += float(r.get("rating") or 0)
-            except (TypeError, ValueError):
-                pass
-
-        if rating_count > 0:
-            avg_rating = round(total_rating / rating_count, 1)
-        else:
-            avg_rating = 0
-
-        p["avg_rating"] = avg_rating
+        rating_row = product_rating_stats.get(str(p["_id"]), {})
+        rating_count = int(rating_row.get("count") or 0)
+        rating_total = float(rating_row.get("total") or 0)
+        p["avg_rating"] = round(rating_total / rating_count, 1) if rating_count else 0
         p["rating_count"] = rating_count
 
-        store = None
-        if p.get("store_id"):
-            store = mongo.stores.find_one({"_id": p["store_id"]})
+        raw_store_id = p.get("store_id")
+        store = _products_store_from_batch(product_store_map, raw_store_id)
 
         p["store_name"] = store.get("store_name") if store else ""
-        p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
+        p["store_id"] = str(raw_store_id) if raw_store_id else ""
 
         if store:
             p["store_address"] = store.get("address", "")
@@ -143,22 +251,9 @@ def products():
         store_rating_count = 0
 
         if store:
-            store_rating_query = {
-                "$or": [
-                    {"store_id": store["_id"]},
-                    {"store_id": str(store["_id"])}
-                ]
-            }
-
-            store_ratings = list(mongo.store_ratings.find(store_rating_query))
-            store_rating_count = len(store_ratings)
-            store_rating_total = 0
-
-            for sr in store_ratings:
-                try:
-                    store_rating_total += float(sr.get("rating") or 0)
-                except (TypeError, ValueError):
-                    pass
+            store_rating_row = product_store_rating_stats.get(str(store["_id"]), {})
+            store_rating_count = int(store_rating_row.get("count") or 0)
+            store_rating_total = float(store_rating_row.get("total") or 0)
 
             if store_rating_count > 0:
                 store_rating_avg = round(store_rating_total / store_rating_count, 2)
@@ -166,7 +261,7 @@ def products():
         p["store_avg_rating"] = store_rating_avg
         p["store_rating_count"] = store_rating_count
 
-    visible_product_bundles = []
+    live_product_bundles = []
 
     for b in product_bundles:
         b = build_live_product_bundle(
@@ -178,6 +273,21 @@ def products():
         if not is_product_bundle_customer_available(b):
             continue
 
+        live_product_bundles.append(b)
+
+    bundle_store_ids = [
+        b.get("store_id")
+        for b in live_product_bundles
+        if b.get("store_id") not in (None, "")
+    ]
+    bundle_store_map = _products_batch_store_documents(
+        bundle_store_ids,
+        include_object_id_fallback=True
+    )
+
+    visible_product_bundles = []
+
+    for b in live_product_bundles:
         b["id"] = str(b.get("_id"))
 
         bundle_cart_info = bundle_cart_lookup.get(str(b.get("_id")))
@@ -191,20 +301,12 @@ def products():
             b["cart_item_id"] = ""
             b["cart_quantity"] = 0
 
-        store = None
         store_id = b.get("store_id")
-
-        if store_id:
-            try:
-                store = mongo.stores.find_one({"_id": store_id})
-            except Exception:
-                store = None
-
-        if not store and store_id:
-            try:
-                store = mongo.stores.find_one({"_id": ObjectId(str(store_id))})
-            except Exception:
-                store = None
+        store = _products_store_from_batch(
+            bundle_store_map,
+            store_id,
+            allow_text_fallback=True
+        )
 
         b["store_name"] = b.get("store_name") or (store.get("store_name") if store else "")
         b["store_id"] = str(store_id) if store_id else b.get("store_id_str", "")
@@ -889,24 +991,22 @@ def api_products_list():
         mongo.products.find(mongo_filter).sort("created_at", -1).limit(100)
     )
 
+    product_ids = [p.get("_id") for p in products if p.get("_id") is not None]
+    rating_stats = _products_batch_rating_stats(product_ids)
+    store_map = _products_batch_store_documents([
+        p.get("store_id")
+        for p in products
+        if p.get("store_id") not in (None, "")
+    ])
+
     result = []
 
     for p in products:
-        store = None
-
-        if p.get("store_id"):
-            store = mongo.stores.find_one({"_id": p.get("store_id")})
-
-        ratings = list(mongo.product_ratings.find({
-            "product_id": p["_id"]
-        }))
-
-        rating_count = len(ratings)
-
-        avg_rating = round(
-            sum(float(r.get("rating") or 0) for r in ratings) / rating_count,
-            1
-        ) if rating_count else 0
+        store = _products_store_from_batch(store_map, p.get("store_id"))
+        rating_row = rating_stats.get(str(p["_id"]), {})
+        rating_count = int(rating_row.get("count") or 0)
+        rating_total = float(rating_row.get("total") or 0)
+        avg_rating = round(rating_total / rating_count, 1) if rating_count else 0
 
         result.append({
             "id": str(p["_id"]),
@@ -969,14 +1069,45 @@ def api_product_detail(pid):
         1
     ) if rating_count else 0
 
+    review_rows = ratings[:20]
+    review_user_ids = []
+    seen_review_users = set()
+
+    for r in review_rows:
+        raw_user_id = r.get("user_id")
+        if not raw_user_id:
+            continue
+
+        try:
+            user_id = ObjectId(str(raw_user_id))
+        except Exception:
+            continue
+
+        key = str(user_id)
+        if key in seen_review_users:
+            continue
+
+        seen_review_users.add(key)
+        review_user_ids.append(user_id)
+
+    review_users = {}
+
+    if review_user_ids:
+        for customer in mongo.users.find(
+            {"_id": {"$in": review_user_ids}},
+            {"name": 1}
+        ):
+            review_users[str(customer.get("_id"))] = customer
+
     reviews = []
 
-    for r in ratings[:20]:
+    for r in review_rows:
         customer = None
+        raw_user_id = r.get("user_id")
 
-        if r.get("user_id"):
+        if raw_user_id:
             try:
-                customer = mongo.users.find_one({"_id": ObjectId(r.get("user_id"))})
+                customer = review_users.get(str(ObjectId(str(raw_user_id))))
             except Exception:
                 customer = None
 

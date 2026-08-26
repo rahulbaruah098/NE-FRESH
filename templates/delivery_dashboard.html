@@ -1,18 +1,22 @@
 {% extends "delivery_base.html" %}
 {% set active_page = "dashboard" %}
 
-{% block delivery_kicker %}Delivery Overview{% endblock %}
-{% block delivery_title %}Delivery Dashboard{% endblock %}
+
+{% block delivery_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/delivery/dashboard.css') }}">
+{% endblock %}
+{% block delivery_kicker %}Today’s Work{% endblock %}
+{% block delivery_title %}Dashboard{% endblock %}
 {% block delivery_subtitle %}
-Go active to view store-ready pickup orders, manage assigned deliveries, and keep your live location updated during trips.
+Go online to accept ready orders, manage active deliveries, and track today’s work.
 {% endblock %}
 
 {% block delivery_actions %}
   <button id="btnDeliveryNotify" class="df-action-btn primary" type="button" aria-pressed="{{ 'true' if delivery_active else 'false' }}">
     {% if delivery_active %}
-      🔕 Go Off Duty
+      Go Offline
     {% else %}
-      🔔 Go Active for Orders
+      Go Online
     {% endif %}
   </button>
 {% endblock %}
@@ -33,375 +37,17 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
   {% endif %}
 {% endfor %}
 
-<style>
-  .dd-grid{
-    display:grid;
-    gap:18px;
-  }
 
-.dd-kpi-grid{
-  display:grid;
-  grid-template-columns:repeat(7,minmax(0,1fr));
-  gap:14px;
-}
-
-  .dd-card{
-    background:#fff;
-    border:1px solid var(--df-line);
-    border-radius:24px;
-    box-shadow:var(--df-shadow);
-    overflow:hidden;
-  }
-
-  .dd-kpi{
-    min-height:138px;
-    padding:18px;
-    display:flex;
-    justify-content:space-between;
-    gap:14px;
-    position:relative;
-  }
-
-  .dd-kpi::before{
-    content:"";
-    position:absolute;
-    left:0;
-    top:0;
-    bottom:0;
-    width:5px;
-    background:var(--df-green);
-  }
-
-  .dd-kpi.orange::before{
-    background:var(--df-orange);
-  }
-
-  .dd-kpi.blue::before{
-    background:var(--df-blue);
-  }
-
-  .dd-kpi.red::before{
-    background:var(--df-red);
-  }
-
-  .dd-kpi-label{
-    color:var(--df-muted);
-    font-size:12px;
-    font-weight:900;
-    text-transform:uppercase;
-    letter-spacing:.08em;
-  }
-
-  .dd-kpi-value{
-    margin-top:10px;
-    color:var(--df-ink);
-    font-size:38px;
-    line-height:1;
-    font-weight:900;
-    letter-spacing:-.045em;
-  }
-
-  .dd-kpi-meta{
-    margin-top:8px;
-    color:var(--df-muted);
-    font-size:12px;
-    font-weight:750;
-    line-height:1.35;
-  }
-
-  .dd-kpi-icon{
-    width:48px;
-    height:48px;
-    border-radius:17px;
-    display:grid;
-    place-items:center;
-    background:var(--df-mint);
-    font-size:24px;
-    flex:0 0 auto;
-  }
-
-  .dd-section-head{
-    display:flex;
-    justify-content:space-between;
-    align-items:flex-start;
-    gap:14px;
-    padding:18px 20px;
-    border-bottom:1px solid var(--df-line);
-    background:#FBFFFD;
-  }
-
-  .dd-section-title{
-    margin:0;
-    color:var(--df-ink);
-    font-size:18px;
-    font-weight:900;
-    letter-spacing:-.03em;
-  }
-
-  .dd-section-sub{
-    margin:5px 0 0;
-    color:var(--df-muted);
-    font-size:13px;
-    font-weight:700;
-    line-height:1.45;
-  }
-
-  .dd-link{
-    min-height:38px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:13px;
-    border:1px solid var(--df-line);
-    background:#fff;
-    color:var(--df-green-dark);
-    padding:8px 12px;
-    text-decoration:none;
-    font-size:13px;
-    font-weight:900;
-    white-space:nowrap;
-  }
-
-  .dd-main-grid{
-    display:grid;
-    grid-template-columns:minmax(0,1fr) minmax(360px,.55fr);
-    gap:18px;
-    align-items:start;
-  }
-
-  .dd-list{
-    display:grid;
-    gap:12px;
-    padding:18px;
-  }
-
-  .dd-order{
-    border:1px solid var(--df-line);
-    border-radius:18px;
-    background:#fff;
-    padding:14px;
-    display:grid;
-    gap:10px;
-  }
-
-  .dd-order-top{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    align-items:flex-start;
-  }
-
-  .dd-order-id{
-    color:var(--df-ink);
-    font-size:14px;
-    font-weight:900;
-  }
-
-  .dd-order-meta{
-    margin-top:4px;
-    color:var(--df-muted);
-    font-size:12px;
-    font-weight:750;
-    line-height:1.45;
-  }
-
-  .dd-money-mini{
-  margin-top:8px;
-  display:grid;
-  gap:4px;
-  color:var(--df-muted);
-  font-size:12px;
-  font-weight:800;
-  line-height:1.4;
-}
-
-.dd-money-mini strong{
-  color:var(--df-ink);
-  font-weight:950;
-}
-
-.dd-money-collect{
-  color:var(--df-green-dark);
-  font-weight:950;
-}
-
-.dd-old-fee{
-  color:var(--df-muted);
-  text-decoration:line-through;
-  margin-right:5px;
-}
-
-.dd-free-fee{
-  color:var(--df-green-dark);
-  font-weight:950;
-}
-
-  .dd-pill{
-    min-height:28px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    padding:6px 10px;
-    border-radius:999px;
-    background:var(--df-mint);
-    color:var(--df-green-dark);
-    border:1px solid rgba(0,168,89,.18);
-    font-size:11px;
-    font-weight:900;
-    white-space:nowrap;
-  }
-
-  .dd-pill.blue{
-    background:var(--df-blue-soft);
-    color:#0369A1;
-    border-color:rgba(2,132,199,.22);
-  }
-
-  .dd-pill.orange{
-    background:var(--df-orange-soft);
-    color:#C2410C;
-    border-color:#FED7AA;
-  }
-
-  .dd-actions{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-  }
-
-  .dd-btn{
-    min-height:38px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:13px;
-    border:1px solid var(--df-line);
-    background:#fff;
-    color:var(--df-text);
-    padding:8px 11px;
-    text-decoration:none;
-    font-size:12px;
-    font-weight:900;
-    cursor:pointer;
-  }
-
-  .dd-btn.primary{
-    background:var(--df-green);
-    border-color:var(--df-green);
-    color:#fff;
-  }
-
-  .dd-empty{
-    padding:18px;
-    border:1px dashed var(--df-line);
-    border-radius:18px;
-    background:var(--df-soft);
-    color:var(--df-muted);
-    text-align:center;
-    font-size:13px;
-    font-weight:800;
-    line-height:1.45;
-  }
-
-  .dd-duty-card{
-    padding:18px;
-    display:grid;
-    gap:14px;
-  }
-
-  .dd-duty-status{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    align-items:center;
-    padding:14px;
-    border-radius:18px;
-    border:1px solid var(--df-line);
-    background:var(--df-soft);
-  }
-
-  .dd-duty-status strong{
-    color:var(--df-ink);
-    font-size:15px;
-    font-weight:900;
-  }
-
-  .dd-duty-status span{
-    color:var(--df-muted);
-    font-size:12px;
-    font-weight:750;
-  }
-
-  .dd-info-list{
-    display:grid;
-    gap:10px;
-  }
-
-  .dd-info-row{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    padding:12px 0;
-    border-bottom:1px solid var(--df-line);
-  }
-
-  .dd-info-row:last-child{
-    border-bottom:0;
-  }
-
-  .dd-info-row span{
-    color:var(--df-muted);
-    font-size:13px;
-    font-weight:800;
-  }
-
-  .dd-info-row strong{
-    color:var(--df-ink);
-    font-size:13px;
-    font-weight:900;
-    text-align:right;
-  }
-
-  @media(max-width:1200px){
-    .dd-kpi-grid{
-         grid-template-columns:repeat(3,minmax(0,1fr));
-    }
-
-    .dd-main-grid{
-      grid-template-columns:1fr;
-    }
-  }
-
-  @media(max-width:560px){
-    .dd-kpi-grid{
-      grid-template-columns:1fr;
-    }
-
-    .dd-section-head{
-      flex-direction:column;
-      align-items:flex-start;
-    }
-
-    .dd-actions .dd-btn,
-    .dd-actions form{
-      width:100%;
-    }
-
-    .dd-btn{
-      width:100%;
-    }
-  }
-</style>
 
 <div class="dd-grid">
 
   <section class="dd-kpi-grid">
     <div class="dd-card dd-kpi">
       <div>
-        <div class="dd-kpi-label">Duty Status</div>
-        <div class="dd-kpi-value">{{ 'ON' if delivery_active else 'OFF' }}</div>
+        <div class="dd-kpi-label">Work Status</div>
+        <div class="dd-kpi-value">{{ 'ONLINE' if delivery_active else 'OFFLINE' }}</div>
         <div class="dd-kpi-meta">
-          {{ 'You can receive ready pickup orders.' if delivery_active else 'Go active to receive delivery orders.' }}
+          {{ 'Ready to receive pickup orders.' if delivery_active else 'Go online to receive delivery orders.' }}
         </div>
       </div>
       <div class="dd-kpi-icon">📡</div>
@@ -409,7 +55,7 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
 
     <div class="dd-card dd-kpi orange">
       <div>
-        <div class="dd-kpi-label">Available Ready</div>
+        <div class="dd-kpi-label">Available Orders</div>
         <div class="dd-kpi-value">{{ available_orders|length }}</div>
         <div class="dd-kpi-meta">Unassigned orders marked ready by stores.</div>
       </div>
@@ -418,7 +64,7 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
 
     <div class="dd-card dd-kpi blue">
       <div>
-        <div class="dd-kpi-label">Active Orders</div>
+        <div class="dd-kpi-label">Active Deliveries</div>
         <div class="dd-kpi-value">{{ active_orders|length }}</div>
         <div class="dd-kpi-meta">Orders currently assigned to you.</div>
       </div>
@@ -434,27 +80,27 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
       <div class="dd-kpi-icon">📍</div>
     </div>
 
-        <a class="dd-card dd-kpi red" href="{{ url_for('delivery_cancelled_orders') }}" style="text-decoration:none;color:inherit;">
+        <a class="dd-card dd-kpi red dd-kpi-link" href="{{ url_for('delivery_cancelled_orders') }}">
       <div>
-        <div class="dd-kpi-label">Cancelled By Me</div>
+        <div class="dd-kpi-label">Cancelled</div>
         <div class="dd-kpi-value">{{ cancelled_by_me_count or 0 }}</div>
         <div class="dd-kpi-meta">Delivery assignments you cancelled before pickup.</div>
       </div>
       <div class="dd-kpi-icon">🚫</div>
     </a>
 
-    <a class="dd-card dd-kpi blue" href="{{ url_for('delivery_successful_deliveries') }}" style="text-decoration:none;color:inherit;">
+    <a class="dd-card dd-kpi blue dd-kpi-link" href="{{ url_for('delivery_successful_deliveries') }}">
   <div>
-    <div class="dd-kpi-label">Successful Deliveries</div>
+    <div class="dd-kpi-label">Completed</div>
     <div class="dd-kpi-value">{{ successful_deliveries_count or 0 }}</div>
     <div class="dd-kpi-meta">Orders successfully delivered by you.</div>
   </div>
   <div class="dd-kpi-icon">✅</div>
 </a>
 
-<a class="dd-card dd-kpi orange" href="{{ url_for('delivery_all_orders') }}" style="text-decoration:none;color:inherit;">
+<a class="dd-card dd-kpi orange dd-kpi-link" href="{{ url_for('delivery_all_orders') }}">
   <div>
-    <div class="dd-kpi-label">All Records</div>
+    <div class="dd-kpi-label">All Orders</div>
     <div class="dd-kpi-value">{{ all_delivery_records_count or 0 }}</div>
     <div class="dd-kpi-meta">Active, successful and cancelled records.</div>
   </div>
@@ -468,10 +114,10 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
       <div class="dd-duty-card">
         <div class="dd-duty-status">
           <div>
-            <strong>You are currently off duty.</strong><br>
-            <span>Click Go Active for Orders to see shipment-ready orders.</span>
+            <strong>You are currently offline.</strong><br>
+            <span>Go online to see store-ready pickup orders.</span>
           </div>
-          <span class="dd-pill orange">Off Duty</span>
+          <span class="dd-pill orange">Offline</span>
         </div>
       </div>
     </section>
@@ -481,8 +127,8 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
     <div class="dd-card">
       <div class="dd-section-head">
         <div>
-          <h2 class="dd-section-title">Nearby Available Ready Orders</h2>
-          <p class="dd-section-sub">Orders shown here are already marked ready for pickup by stores.</p>
+          <h2 class="dd-section-title">Available Orders</h2>
+          <p class="dd-section-sub">Store-ready orders available for pickup.</p>
         </div>
         <a class="dd-link" href="/delivery/available-orders">View All</a>
       </div>
@@ -532,7 +178,7 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
 
               <div class="dd-actions">
                 <form method="post" action="{{ url_for('delivery_assign', oid=o.id) }}">
-                  <button class="dd-btn primary" type="submit">Accept Ready Order</button>
+                  <button class="dd-btn primary" type="submit">Accept Order</button>
                 </form>
                 {% if o.addr_lat and o.addr_lng %}
                   <a class="dd-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ o.addr_lat }},{{ o.addr_lng }}">
@@ -548,7 +194,7 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
           </div>
         {% else %}
           <div class="dd-empty">
-            You are off duty. Go active to view ready pickup orders.
+            You are offline. Go online to view ready pickup orders.
           </div>
         {% endif %}
       </div>
@@ -557,7 +203,7 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
     <div class="dd-card">
       <div class="dd-section-head">
         <div>
-          <h2 class="dd-section-title">Your Active Deliveries</h2>
+          <h2 class="dd-section-title">Active Deliveries</h2>
           <p class="dd-section-sub">Orders assigned to you and waiting for delivery updates.</p>
         </div>
         <a class="dd-link" href="/delivery/active-orders">Open</a>
@@ -588,7 +234,7 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
     </div>
 
     <div>
-      <span>Delivery + Tip:</span>
+      <span>Your Earning:</span>
       <strong>₹ {{ '%.2f'|format(o.delivery_boy_expected_earning or 0) }}</strong>
     </div>
   </div>
@@ -624,15 +270,15 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
 
     <div class="dd-list">
       <div class="dd-actions">
-  <a class="dd-btn primary" href="{{ url_for('delivery_available_orders') }}">Available Ready Orders</a>
-  <a class="dd-btn" href="{{ url_for('delivery_active_orders') }}">Active Orders</a>
+  <a class="dd-btn primary" href="{{ url_for('delivery_available_orders') }}">Available Orders</a>
+  <a class="dd-btn" href="{{ url_for('delivery_active_orders') }}">Active Deliveries</a>
   <a class="dd-btn" href="/delivery/current">Current Delivery</a>
-  <a class="dd-btn" href="{{ url_for('delivery_successful_deliveries') }}">Successful Deliveries</a>
-  <a class="dd-btn" href="{{ url_for('delivery_cancelled_orders') }}">Cancelled By Me</a>
+  <a class="dd-btn" href="{{ url_for('delivery_successful_deliveries') }}">Completed</a>
+  <a class="dd-btn" href="{{ url_for('delivery_cancelled_orders') }}">Cancelled</a>
   <a class="dd-btn" href="{{ url_for('delivery_all_orders') }}">All Orders</a>
-    <a class="dd-btn" href="/delivery/earnings">Earnings / COD</a>
-  <a class="dd-btn" href="{{ url_for('delivery_cod_settlements') }}">COD Settlements</a>
-  <a class="dd-btn" href="/contact">Support</a>
+    <a class="dd-btn" href="/delivery/earnings">Earnings</a>
+  <a class="dd-btn" href="{{ url_for('delivery_cod_settlements') }}">COD Cash</a>
+  <a class="dd-btn" href="{{ url_for('delivery_support') }}">Support</a>
 </div>
     </div>
   </section>
@@ -640,7 +286,6 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
 
 <audio id="deliveryDing" preload="auto">
   <source src="{{ url_for('static', filename='sounds/ding.mp3') }}" type="audio/mpeg">
-  <source src="{{ url_for('static', filename='ding.mp3') }}" type="audio/mpeg">
 </audio>
 
 <script>
@@ -656,44 +301,19 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
       if (!wrap) {
         wrap = document.createElement("div");
         wrap.id = "deliveryToastWrap";
-        wrap.style.position = "fixed";
-        wrap.style.top = "24px";
-        wrap.style.right = "24px";
-        wrap.style.zIndex = "99999";
-        wrap.style.display = "flex";
-        wrap.style.flexDirection = "column";
-        wrap.style.gap = "10px";
+        wrap.className = "delivery-toast-wrap";
         document.body.appendChild(wrap);
       }
 
       const toast = document.createElement("div");
-      const accent = type === "on" ? "#00A859" : "#EF4444";
       const icon = type === "on" ? "🛵" : "🔕";
-
-      toast.style.background = "#fff";
-      toast.style.border = "1px solid #E6EEF0";
-      toast.style.boxShadow = "0 18px 40px rgba(17,64,38,.14)";
-      toast.style.borderRadius = "18px";
-      toast.style.padding = "14px 16px";
-      toast.style.minWidth = "280px";
-      toast.style.maxWidth = "380px";
-      toast.style.fontFamily = "Inter, system-ui, sans-serif";
-      toast.style.fontWeight = "800";
-      toast.style.color = "#23332A";
-      toast.style.display = "flex";
-      toast.style.alignItems = "center";
-      toast.style.gap = "12px";
-      toast.style.transform = "translateX(120%)";
-      toast.style.transition = "transform .22s ease, opacity .22s ease";
-      toast.style.opacity = "0";
+      toast.className = "delivery-toast " + (type === "on" ? "is-online" : "is-offline");
 
       toast.innerHTML = `
-        <div style="width:42px;height:42px;background:${accent};color:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:18px;">${icon}</div>
+        <div class="delivery-toast-icon">${icon}</div>
         <div>
-          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#66756D;">
-            ${type === "on" ? "Delivery Active" : "Delivery Off"}
-          </div>
-          <div style="font-size:15px;line-height:1.3;margin-top:2px;">${message}</div>
+          <div class="delivery-toast-label">${type === "on" ? "Delivery Online" : "Delivery Offline"}</div>
+          <div class="delivery-toast-message">${message}</div>
         </div>
       `;
 
@@ -718,6 +338,21 @@ Go active to view store-ready pickup orders, manage assigned deliveries, and kee
           await ding.play();
         }
       } catch (_) {}
+    }
+
+    async function askBrowserNotificationPermission() {
+      if (!("Notification" in window) || Notification.permission !== "default") return;
+      try {
+        await Notification.requestPermission();
+      } catch (_) {}
+    }
+
+    function syncDeliveryNotifyUI(active) {
+      serverActive = !!active;
+      if (!btnNotify) return;
+      btnNotify.setAttribute("aria-pressed", serverActive ? "true" : "false");
+      btnNotify.textContent = serverActive ? "Go Offline" : "Go Online";
+      btnNotify.dataset.deliveryOnline = serverActive ? "1" : "0";
     }
 
     function getGPSOnce() {

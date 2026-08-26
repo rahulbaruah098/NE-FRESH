@@ -1,16 +1,17 @@
 {% extends "store_base.html" %}
 {% set active_page = "store_profile" %}
 
-{% block title %}Store Admin Profile | NE FRESH Store{% endblock %}
-{% block page_title %}Store Admin Profile{% endblock %}
-{% block page_subtitle %}Manage only the essential store admin details, pickup location, delivery service area and operation settings.{% endblock %}
+{% block title %}Store Profile | NE Locals{% endblock %}
+{% block page_title %}Store Profile{% endblock %}
+{% block page_subtitle %}Manage Store details, pickup location, delivery service area and operating status.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-profile.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/map-runtime.css') }}">
+{% endblock %}
 
 {% block content %}
 
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-/>
 {% set owner = store_owner if store_owner is defined and store_owner else user %}
 {% set completion = profile_completion if profile_completion is defined else {} %}
 {% set checklist = profile_checklist if profile_checklist is defined else [] %}
@@ -18,1193 +19,12 @@
 {% set store_active_image_src = url_for('store_profile_image', store_id=store.id) if store.profile_image_id else '' %}
 {% set store_active_image_version = store.profile_image_updated_at|default(store.updated_at|default('')) %}
 
-<section class="nf-store-profile-page">
-  <style>
-    .nf-store-profile-page{
-      --bg:#F8FFFB;--card:#fff;--soft:#F3FFF8;--line:#DDECE4;--line2:#EAF4EF;
-      --ink:#1F332A;--text:#40534A;--muted:#66756D;--green:#00A859;--green-dark:#008A48;
-      --orange:#FF8A1F;--orange-soft:#FFF4EA;--shadow:0 14px 36px rgba(17,64,38,.08);
-      --shadow2:0 24px 70px rgba(17,64,38,.13);--radius:24px;--ease:cubic-bezier(.2,.75,.25,1);
-      width:100%;min-height:100%;background:radial-gradient(circle at 12% 0%,rgba(0,168,89,.09),transparent 34%),var(--bg);
-      color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden;
-    }
-    .nf-store-profile-page,*{box-sizing:border-box}
-    .sp-shell{max-width:1680px;margin:0 auto;padding:24px}.sp-stack{display:grid;gap:20px}
-    .sp-card,.sp-hero{background:rgba(255,255,255,.98);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}.sp-card{transition:.22s var(--ease)}.sp-card:hover{box-shadow:var(--shadow2);border-color:rgba(0,168,89,.18)}
-    .sp-hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(330px,.9fr);gap:20px;padding:24px;border-radius:30px;background:linear-gradient(135deg,#fff,var(--soft));box-shadow:var(--shadow2)}
-    .sp-kicker{display:inline-flex;align-items:center;gap:8px;min-height:30px;padding:0 12px;border-radius:999px;background:#E9FFF3;border:1px solid rgba(0,168,89,.18);color:var(--green-dark);font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
-    .sp-title{margin:14px 0 8px;font-size:clamp(30px,4vw,54px);line-height:1;font-weight:900;letter-spacing:-.06em}.sp-copy{max-width:900px;margin:0;color:var(--muted);font-size:15px;font-weight:650;line-height:1.65}
-    .sp-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.sp-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 15px;border-radius:15px;border:1px solid var(--line);background:#fff;color:var(--text);text-decoration:none;font-size:13px;font-weight:900;transition:.2s var(--ease);cursor:pointer;white-space:nowrap}.sp-btn-primary{background:var(--green)!important;border-color:var(--green)!important;color:#fff!important;box-shadow:0 12px 24px rgba(0,168,89,.18)}.sp-btn:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(17,64,38,.09)}
-    .sp-logo-row{display:flex;align-items:center;gap:14px}.sp-logo{width:82px;height:82px;border-radius:24px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;color:var(--green-dark);font-size:34px;font-weight:900;box-shadow:0 12px 28px rgba(17,64,38,.08);position:relative}.sp-logo img{width:100%;height:100%;object-fit:cover;padding:0;display:block}.sp-store-name{font-size:18px;font-weight:900}.sp-store-sub{margin-top:5px;color:var(--muted);font-size:13px;font-weight:750;line-height:1.35}
-    .sp-status-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.sp-status-pill{min-height:56px;padding:11px 12px;border-radius:18px;border:1px solid var(--line2);background:#fff}.sp-status-pill span{display:block;color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.sp-status-pill strong{display:block;margin-top:6px;font-size:14px;font-weight:900;line-height:1.25}
-    .sp-grid{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(340px,.84fr);gap:20px;align-items:start}.sp-section-head{padding:20px 22px;border-bottom:1px solid var(--line2);background:#FBFFFD}.sp-section-title{margin:0;font-size:18px;font-weight:900;letter-spacing:-.03em}.sp-section-sub{margin:5px 0 0;color:var(--muted);font-size:13px;font-weight:650;line-height:1.45}
-    .sp-form{padding:22px;display:grid;gap:18px}.sp-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.sp-field{display:grid;gap:8px}.sp-field.full{grid-column:1/-1}.sp-field label{color:var(--text);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.07em}
-    .sp-input,.sp-textarea,.sp-file{width:100%;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink);outline:none;font-weight:800;font-family:inherit}.sp-input{min-height:46px;padding:0 13px}.sp-textarea{min-height:108px;padding:13px;resize:vertical;line-height:1.5}.sp-file{height:auto;padding:12px 13px}.sp-input:focus,.sp-textarea:focus,.sp-file:focus{border-color:rgba(0,168,89,.42);box-shadow:0 0 0 4px rgba(0,168,89,.08)}
-    .sp-profile-upload{grid-column:1/-1;display:grid;grid-template-columns:96px minmax(0,1fr);gap:14px;align-items:center;padding:14px;border:1px solid var(--line2);border-radius:20px;background:linear-gradient(135deg,#fff,var(--soft))}.sp-profile-upload-preview{width:96px;height:96px;border-radius:24px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;color:var(--green-dark);font-size:36px;font-weight:900}.sp-profile-upload-preview img{width:100%;height:100%;object-fit:cover;display:block}.sp-profile-upload-copy{display:grid;gap:8px}.sp-profile-upload-copy .sp-file{background:#fff}.sp-profile-upload-copy strong{color:var(--ink);font-size:14px;font-weight:900}.sp-profile-upload-copy small{color:var(--muted);font-size:12px;font-weight:750;line-height:1.4}@media(max-width:520px){.sp-profile-upload{grid-template-columns:1fr}.sp-profile-upload-preview{width:86px;height:86px}}
-    .sp-help{color:var(--muted);font-size:12px;font-weight:700;line-height:1.4}.sp-current{display:inline-flex;align-items:center;gap:6px;width:max-content;max-width:100%;min-height:28px;padding:6px 10px;border-radius:999px;background:#E9FFF3;border:1px solid rgba(0,168,89,.16);color:var(--muted);font-size:12px;font-weight:800}.sp-current strong{color:var(--green-dark);font-weight:900}.sp-check-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sp-check{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--text);font-size:13px;font-weight:850}.sp-check input{accent-color:var(--green)}
-    .sp-side-stack{display:grid;gap:20px}.sp-preview,.sp-completion{padding:20px}.sp-preview-box{padding:18px;border:1px solid var(--line2);border-radius:22px;background:linear-gradient(135deg,#fff,var(--soft));display:grid;gap:14px}
-    
-    .sp-banner-preview{
-  grid-column:1/-1;
-  min-height:170px;
-  border:1px solid var(--line2);
-  border-radius:22px;
-  background:
-    radial-gradient(circle at 10% 10%, rgba(0,168,89,.12), transparent 34%),
-    linear-gradient(135deg,#FFFFFF,var(--soft));
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
-  position:relative;
-}
-
-.sp-banner-preview img{
-  width:100%;
-  height:100%;
-  min-height:170px;
-  object-fit:cover;
-  display:block;
-}
-
-.sp-banner-fallback{
-  padding:22px;
-  text-align:center;
-  color:var(--green-dark);
-  font-size:16px;
-  font-weight:900;
-  line-height:1.45;
-}
-
-.sp-intro-preview{
-  border:1px solid var(--line2);
-  border-radius:18px;
-  background:#fff;
-  padding:14px;
-  color:var(--text);
-  font-size:13px;
-  font-weight:800;
-  line-height:1.55;
-}
-    
-    .sp-preview-head{display:flex;align-items:center;gap:13px}.sp-preview-logo{width:64px;height:64px;border-radius:20px;border:1px solid var(--line);background:#fff;display:grid;place-items:center;overflow:hidden;font-size:28px;color:var(--green-dark);font-weight:900}.sp-preview-logo img{width:100%;height:100%;object-fit:contain;padding:7px}.sp-preview-title{font-size:17px;font-weight:900}.sp-preview-meta{margin-top:5px;color:var(--muted);font-size:12px;font-weight:750;line-height:1.4}
-    .sp-info-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line2);color:var(--text);font-size:13px;font-weight:800}.sp-info-row:last-child{border-bottom:0}.sp-info-row span{color:var(--muted)}.sp-info-row strong{text-align:right;font-weight:900}
-    .sp-progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.sp-progress-label{font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.sp-progress-value{font-size:28px;color:var(--green-dark);font-weight:900}.sp-progress-track{height:12px;border-radius:999px;background:var(--line2);overflow:hidden}.sp-progress-fill{height:100%;width:{{ completion.percent|default(0) }}%;border-radius:999px;background:linear-gradient(90deg,var(--green),var(--green-dark))}
-    .sp-checklist{display:grid;gap:10px;margin-top:16px}.sp-check-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:15px;border:1px solid var(--line2);background:#fff;color:var(--text);font-size:13px;font-weight:850}.sp-check-icon{width:28px;height:28px;border-radius:10px;display:grid;place-items:center;font-weight:900;background:#E9FFF3;color:var(--green-dark)}.sp-check-item.missing{background:#FFFCF7}.sp-check-item.missing .sp-check-icon{background:var(--orange-soft);color:#C2410C}
-   
-    /* ===== Store Profile Save Confirmation Modal ===== */
-    .sp-confirm-backdrop{
-      --modal-green:#00A859;
-      --modal-green-dark:#008A48;
-      --modal-green-soft:#E9FFF3;
-      --modal-card:#FFFFFF;
-      --modal-soft:#F8FFFB;
-      --modal-line:#DDECE4;
-      --modal-line-2:#EAF4EF;
-      --modal-ink:#1F332A;
-      --modal-text:#40534A;
-      --modal-muted:#66756D;
-      --modal-orange:#FF8A1F;
-      --modal-shadow:0 30px 90px rgba(15,23,42,.24);
-      --modal-ease:cubic-bezier(.2,.75,.25,1);
-
-      position:fixed;
-      inset:0;
-      z-index:2147483647;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      width:100vw;
-      height:100vh;
-      padding:18px;
-      background:rgba(15,23,42,.44);
-      backdrop-filter:blur(12px);
-      -webkit-backdrop-filter:blur(12px);
-    }
-
-    .sp-confirm-backdrop.is-open{
-      display:flex;
-    }
-
-    html.sp-modal-open,
-    body.sp-modal-open{
-      overflow:hidden!important;
-      height:100%!important;
-      overscroll-behavior:none!important;
-      touch-action:none!important;
-    }
-
-    body.sp-modal-open{
-      position:fixed!important;
-      width:100%!important;
-    }
-
-    .sp-confirm-box{
-      width:min(520px, calc(100vw - 32px));
-      border-radius:30px;
-      border:1px solid rgba(221,236,228,.98);
-      background:var(--modal-card);
-      box-shadow:var(--modal-shadow);
-      overflow:hidden;
-      opacity:1;
-      transform:translateY(0) scale(1);
-      animation:spConfirmIn .24s var(--modal-ease) both;
-    }
-
-    @keyframes spConfirmIn{
-      from{
-        transform:translateY(14px) scale(.97);
-        opacity:0;
-      }
-      to{
-        transform:translateY(0) scale(1);
-        opacity:1;
-      }
-    }
-
-    .sp-confirm-head{
-      padding:24px 24px 22px;
-      border-bottom:1px solid var(--modal-line-2);
-      background:
-        radial-gradient(circle at 8% 0%, rgba(0,168,89,.14), transparent 34%),
-        linear-gradient(135deg,#fff,var(--modal-green-soft));
-      display:flex;
-      align-items:flex-start;
-      gap:15px;
-    }
-
-    .sp-confirm-icon{
-      width:54px;
-      height:54px;
-      border-radius:19px;
-      background:linear-gradient(135deg,var(--modal-green),var(--modal-green-dark));
-      color:#fff;
-      display:grid;
-      place-items:center;
-      font-size:24px;
-      flex:0 0 auto;
-      box-shadow:0 14px 28px rgba(0,168,89,.24);
-    }
-
-    .sp-confirm-title{
-      margin:0;
-      color:var(--modal-ink);
-      font-size:22px;
-      line-height:1.15;
-      font-weight:900;
-      letter-spacing:-.04em;
-    }
-
-    .sp-confirm-message{
-      margin:8px 0 0;
-      color:var(--modal-muted);
-      font-size:14px;
-      font-weight:750;
-      line-height:1.55;
-    }
-
-    .sp-confirm-body{
-      padding:18px 24px 0;
-      background:#fff;
-    }
-
-    .sp-confirm-note{
-      display:flex;
-      align-items:flex-start;
-      gap:10px;
-      padding:13px 14px;
-      border-radius:16px;
-      border:1px solid rgba(0,168,89,.16);
-      background:var(--modal-green-soft);
-      color:var(--modal-green-dark);
-      font-size:13px;
-      font-weight:850;
-      line-height:1.45;
-    }
-
-    .sp-confirm-note span:first-child{
-      flex:0 0 auto;
-    }
-
-    .sp-confirm-actions{
-      padding:18px 24px 24px;
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
-      background:#fff;
-    }
-
-    .sp-confirm-actions button{
-      min-height:48px;
-      border-radius:16px;
-      border:1px solid var(--modal-line);
-      padding:10px 16px;
-      font-weight:900;
-      font-family:inherit;
-      cursor:pointer;
-      transition:.2s var(--modal-ease);
-    }
-
-    .sp-confirm-cancel{
-      background:#fff;
-      color:var(--modal-text);
-    }
-
-    .sp-confirm-cancel:hover{
-      border-color:rgba(0,168,89,.30);
-      color:var(--modal-green-dark);
-      box-shadow:0 12px 24px rgba(17,64,38,.08);
-    }
-
-    .sp-confirm-ok{
-      background:linear-gradient(135deg,var(--modal-green),var(--modal-green-dark));
-      color:#fff;
-      border-color:var(--modal-green)!important;
-      box-shadow:0 14px 28px rgba(0,168,89,.22);
-    }
-
-    .sp-confirm-ok:hover{
-      transform:translateY(-1px);
-      box-shadow:0 18px 36px rgba(0,168,89,.26);
-    }
-
-    .sp-confirm-ok:disabled{
-      opacity:.72;
-      cursor:not-allowed;
-      transform:none;
-    }
-
-    /* ===== Store Delivery Fee Slabs ===== */
-
-.sp-delivery-fee-panel{
-  grid-column:1/-1;
-  border:1px solid var(--line2);
-  border-radius:24px;
-  background:
-    radial-gradient(circle at 8% 0%, rgba(0,168,89,.10), transparent 32%),
-    linear-gradient(135deg,#fff,#F8FFFB);
-  overflow:hidden;
-}
-
-.sp-delivery-fee-head{
-  padding:18px;
-  border-bottom:1px solid var(--line2);
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:14px;
-  flex-wrap:wrap;
-}
-
-.sp-delivery-fee-title{
-  margin:0;
-  color:var(--ink);
-  font-size:17px;
-  font-weight:900;
-  letter-spacing:-.03em;
-}
-
-.sp-delivery-fee-sub{
-  margin:5px 0 0;
-  color:var(--muted);
-  font-size:13px;
-  font-weight:700;
-  line-height:1.45;
-}
-
-.sp-fee-toggle-card{
-  border:1px solid var(--line);
-  border-radius:20px;
-  background:#fff;
-  padding:15px;
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:14px;
-}
-
-.sp-fee-toggle-card strong{
-  display:block;
-  color:var(--ink);
-  font-size:14px;
-  font-weight:900;
-  margin-bottom:5px;
-}
-
-.sp-fee-toggle-card span{
-  display:block;
-  color:var(--muted);
-  font-size:12px;
-  font-weight:700;
-  line-height:1.45;
-}
-
-.sp-delivery-fee-body{
-  padding:18px;
-  display:grid;
-  gap:16px;
-}
-
-.sp-delivery-fee-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:14px;
-}
-
-.sp-slab-table-wrap{
-  border:1px solid var(--line);
-  border-radius:20px;
-  background:#fff;
-  overflow:hidden;
-}
-
-.sp-slab-table-head{
-  display:grid;
-  grid-template-columns:1fr 1fr 1fr 48px;
-  gap:10px;
-  padding:12px 14px;
-  background:#F8FFFB;
-  border-bottom:1px solid var(--line2);
-  color:var(--green-dark);
-  font-size:11px;
-  font-weight:950;
-  text-transform:uppercase;
-  letter-spacing:.06em;
-}
-
-.sp-slab-rows{
-  display:grid;
-}
-
-.sp-slab-row{
-  display:grid;
-  grid-template-columns:1fr 1fr 1fr 48px;
-  gap:10px;
-  padding:12px 14px;
-  border-bottom:1px solid var(--line2);
-  align-items:center;
-}
-
-.sp-slab-row:last-child{
-  border-bottom:0;
-}
-
-.sp-slab-input{
-  width:100%;
-  min-height:42px;
-  border:1px solid var(--line);
-  border-radius:13px;
-  background:#fff;
-  color:var(--ink);
-  outline:none;
-  padding:0 12px;
-  font-size:13px;
-  font-weight:850;
-}
-
-.sp-slab-input:focus{
-  border-color:rgba(0,168,89,.42);
-  box-shadow:0 0 0 4px rgba(0,168,89,.08);
-}
-
-.sp-slab-remove{
-  width:42px;
-  height:42px;
-  border:1px solid #FECACA;
-  border-radius:13px;
-  background:#FFF1F1;
-  color:#B91C1C;
-  cursor:pointer;
-  font-size:18px;
-  font-weight:950;
-}
-
-.sp-slab-remove:hover{
-  background:#B91C1C;
-  color:#fff;
-}
-
-.sp-slab-actions{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  flex-wrap:wrap;
-}
-
-.sp-slab-add-btn{
-  min-height:42px;
-  border-radius:14px;
-  border:1px solid var(--green);
-  background:var(--green);
-  color:#fff;
-  padding:9px 14px;
-  font-size:13px;
-  font-weight:900;
-  cursor:pointer;
-  box-shadow:0 12px 24px rgba(0,168,89,.16);
-}
-
-.sp-slab-add-btn:hover{
-  background:var(--green-dark);
-  border-color:var(--green-dark);
-}
-
-.sp-slab-preview{
-  border:1px solid rgba(0,168,89,.16);
-  border-radius:18px;
-  background:#E9FFF3;
-  color:var(--green-dark);
-  padding:12px 14px;
-  font-size:12px;
-  font-weight:850;
-  line-height:1.55;
-}
-
-@media(max-width:760px){
-  .sp-delivery-fee-grid{
-    grid-template-columns:1fr;
-  }
-
-  .sp-slab-table-head{
-    display:none;
-  }
-
-  .sp-slab-row{
-    grid-template-columns:1fr;
-    gap:8px;
-  }
-
-  .sp-slab-row::before{
-    content:"Delivery slab";
-    color:var(--green-dark);
-    font-size:11px;
-    font-weight:950;
-    text-transform:uppercase;
-    letter-spacing:.06em;
-  }
-
-  .sp-slab-remove{
-    width:100%;
-  }
-
-  .sp-slab-actions{
-    display:grid;
-  }
-
-  .sp-slab-add-btn{
-    width:100%;
-  }
-}
-
-    /* ===== Store Delivery Settings / Map ===== */
-
-.sp-delivery-box{
-  grid-column:1/-1;
-  border:1px solid var(--line2);
-  border-radius:24px;
-  background:linear-gradient(135deg,#fff,#F8FFFB);
-  overflow:hidden;
-}
-
-.sp-delivery-head{
-  padding:18px;
-  border-bottom:1px solid var(--line2);
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:14px;
-  flex-wrap:wrap;
-}
-
-.sp-delivery-title{
-  margin:0;
-  color:var(--ink);
-  font-size:17px;
-  font-weight:900;
-  letter-spacing:-.03em;
-}
-
-.sp-delivery-sub{
-  margin:5px 0 0;
-  color:var(--muted);
-  font-size:13px;
-  font-weight:700;
-  line-height:1.45;
-}
-
-.sp-delivery-body{
-  padding:18px;
-  display:grid;
-  gap:16px;
-}
-
-.sp-switch-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:14px;
-}
-
-.sp-switch-card{
-  border:1px solid var(--line);
-  border-radius:20px;
-  background:#fff;
-  padding:15px;
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:14px;
-}
-
-.sp-switch-card strong{
-  display:block;
-  color:var(--ink);
-  font-size:14px;
-  font-weight:900;
-  margin-bottom:5px;
-}
-
-.sp-switch-card span{
-  display:block;
-  color:var(--muted);
-  font-size:12px;
-  font-weight:700;
-  line-height:1.45;
-}
-
-.sp-toggle{
-  position:relative;
-  width:58px;
-  height:34px;
-  flex:0 0 auto;
-}
-
-.sp-toggle input{
-  opacity:0;
-  width:0;
-  height:0;
-}
-
-.sp-toggle-slider{
-  position:absolute;
-  inset:0;
-  cursor:pointer;
-  border-radius:999px;
-  background:#CBD5E1;
-  transition:.22s ease;
-}
-
-.sp-toggle-slider::before{
-  content:"";
-  position:absolute;
-  width:26px;
-  height:26px;
-  left:4px;
-  top:4px;
-  border-radius:50%;
-  background:#fff;
-  box-shadow:0 5px 14px rgba(15,23,42,.20);
-  transition:.22s ease;
-}
-
-.sp-toggle input:checked + .sp-toggle-slider{
-  background:linear-gradient(135deg,var(--green),var(--green-dark));
-}
-
-.sp-toggle input:checked + .sp-toggle-slider::before{
-  transform:translateX(24px);
-}
-
-.sp-delivery-map-card{
-  border:1px solid var(--line);
-  border-radius:22px;
-  overflow:hidden;
-  background:#fff;
-}
-
-.sp-map-toolbar{
-  padding:14px;
-  border-bottom:1px solid var(--line2);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  flex-wrap:wrap;
-}
-
-.sp-map-toolbar-title{
-  font-size:14px;
-  font-weight:900;
-  color:var(--ink);
-}
-
-.sp-map-toolbar-sub{
-  margin-top:4px;
-  font-size:12px;
-  font-weight:700;
-  color:var(--muted);
-  line-height:1.4;
-}
-
-.sp-map-actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-}
-
-.sp-map-btn{
-  min-height:38px;
-  border-radius:13px;
-  border:1px solid var(--line);
-  background:#fff;
-  color:var(--green-dark);
-  padding:8px 12px;
-  font-size:12px;
-  font-weight:900;
-  cursor:pointer;
-}
-
-.sp-map-btn.primary{
-  background:var(--green);
-  border-color:var(--green);
-  color:#fff;
-}
-
-.sp-map-btn.danger{
-  background:#FFF1F1;
-  border-color:#FECACA;
-  color:#B91C1C;
-}
-
-.sp-map-btn:disabled{
-  opacity:.48;
-  cursor:not-allowed;
-}
-
-#storeDeliveryMap{
-  width:100%;
-  height:420px;
-  background:#EEF7F1;
-}
-
-.sp-zone-tools{
-  padding:14px;
-  border-top:1px solid var(--line2);
-  display:grid;
-  gap:10px;
-  background:#FBFFFD;
-}
-
-.sp-zone-help{
-  display:flex;
-  align-items:flex-start;
-  gap:10px;
-  color:var(--muted);
-  font-size:12px;
-  font-weight:750;
-  line-height:1.5;
-}
-
-.sp-zone-help-icon{
-  width:28px;
-  height:28px;
-  border-radius:10px;
-  background:#E9FFF3;
-  color:var(--green-dark);
-  display:grid;
-  place-items:center;
-  flex:0 0 auto;
-  font-weight:900;
-}
-
-.sp-zone-counter{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-  padding:10px 12px;
-  border-radius:14px;
-  border:1px solid var(--line2);
-  background:#fff;
-}
-
-.sp-zone-counter span{
-  color:var(--ink);
-  font-size:13px;
-  font-weight:900;
-}
-
-.sp-zone-counter small{
-  color:var(--muted);
-  font-size:12px;
-  font-weight:750;
-}
-
-.sp-zone-status{
-  padding:13px 14px;
-  border-radius:15px;
-  border:1px solid var(--line);
-  background:#fff;
-  color:var(--muted);
-  font-size:13px;
-  font-weight:850;
-  line-height:1.45;
-}
-
-.sp-zone-status.ok{
-  color:#047857;
-  background:#ECFDF5;
-  border-color:rgba(5,150,105,.20);
-}
-
-.sp-zone-status.bad{
-  color:#B91C1C;
-  background:#FEF2F2;
-  border-color:rgba(239,68,68,.22);
-}
-
-@media(max-width:760px){
-  .sp-switch-grid{
-    grid-template-columns:1fr;
-  }
-
-  #storeDeliveryMap{
-    height:340px;
-  }
-
-  .sp-map-actions{
-    width:100%;
-  }
-
-  .sp-map-btn{
-    flex:1;
-  }
-}
-
-    @media(max-width:560px){
-      .sp-confirm-box{
-        width:calc(100vw - 24px);
-        border-radius:24px;
-      }
-
-      .sp-confirm-head{
-        padding:20px;
-      }
-
-      .sp-confirm-icon{
-        width:48px;
-        height:48px;
-        border-radius:16px;
-      }
-
-      .sp-confirm-actions{
-        grid-template-columns:1fr;
-        padding:16px 20px 20px;
-      }
-
-      .sp-confirm-body{
-        padding:16px 20px 0;
-      }
-    }
-    
-    @media(max-width:1280px){.sp-hero,.sp-grid{grid-template-columns:1fr}}@media(max-width:760px){.sp-shell{padding:14px}.sp-hero{padding:18px;border-radius:22px}.sp-form-grid,.sp-status-grid{grid-template-columns:1fr}.sp-section-head{padding:16px}.sp-form,.sp-preview,.sp-completion{padding:16px}.sp-actions .sp-btn,.sp-form .sp-btn,.sp-confirm-actions button{width:100%}.sp-title{font-size:30px}}@media(max-width:430px){.sp-shell{padding:10px}.sp-hero{padding:15px}.sp-logo{width:70px;height:70px}.sp-preview-head{align-items:flex-start}}
-
-    /* ===== Clean essential profile layout + cross-device responsive fixes ===== */
-    .nf-store-profile-page{
-      max-width:100%;
-      overflow-x:hidden;
-      -webkit-text-size-adjust:100%;
-      text-size-adjust:100%;
-    }
-
-    .sp-shell{
-      width:100%;
-      max-width:1680px;
-      min-width:0;
-      padding:clamp(12px,2vw,24px);
-      padding-left:max(clamp(12px,2vw,24px), env(safe-area-inset-left, 0px));
-      padding-right:max(clamp(12px,2vw,24px), env(safe-area-inset-right, 0px));
-    }
-
-    .sp-stack,
-    .sp-card,
-    .sp-hero,
-    .sp-grid,
-    .sp-form,
-    .sp-form-grid,
-    .sp-field,
-    .sp-delivery-box,
-    .sp-delivery-map-card,
-    .sp-map-toolbar,
-    .sp-map-actions{
-      min-width:0;
-      max-width:100%;
-    }
-
-    .sp-grid{
-      grid-template-columns:1fr!important;
-    }
-
-    .sp-form-grid{
-      grid-template-columns:repeat(2,minmax(0,1fr));
-    }
-
-    .sp-hero{
-      grid-template-columns:minmax(0,1fr) minmax(280px,420px);
-      align-items:center;
-    }
-
-    .sp-actions{
-      min-width:0;
-    }
-
-    .sp-actions .sp-btn{
-      max-width:100%;
-      min-width:0;
-      white-space:normal;
-      text-align:center;
-    }
-
-    .sp-current{
-      width:fit-content;
-      max-width:100%;
-      overflow-wrap:anywhere;
-    }
-
-    .sp-current strong,
-    .sp-store-name,
-    .sp-store-sub,
-    .sp-info-row strong,
-    .sp-copy,
-    .sp-help{
-      overflow-wrap:anywhere;
-      word-break:break-word;
-    }
-
-    .sp-delivery-box{
-      grid-column:1/-1;
-    }
-
-    #storeDeliveryMap{
-      min-height:320px;
-      max-height:520px;
-    }
-
-    @media(max-width:1280px){
-      .sp-hero{
-        grid-template-columns:1fr;
-      }
-
-      .sp-grid{
-        grid-template-columns:1fr!important;
-      }
-    }
-
-    @media(max-width:900px){
-      .sp-form-grid{
-        grid-template-columns:1fr;
-      }
-
-      .sp-switch-grid{
-        grid-template-columns:1fr;
-      }
-
-      .sp-map-toolbar{
-        display:grid;
-        grid-template-columns:1fr;
-        align-items:start;
-      }
-
-      .sp-map-actions{
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        width:100%;
-      }
-
-      .sp-map-btn{
-        width:100%;
-      }
-    }
-
-    @media(max-width:760px){
-      .sp-shell{
-        padding:12px;
-        padding-left:max(12px, env(safe-area-inset-left, 0px));
-        padding-right:max(12px, env(safe-area-inset-right, 0px));
-      }
-
-      .sp-stack{
-        gap:14px;
-      }
-
-      .sp-hero{
-        padding:16px;
-        border-radius:22px;
-        gap:16px;
-      }
-
-      .sp-title{
-        font-size:clamp(27px,9vw,36px);
-        letter-spacing:-.05em;
-      }
-
-      .sp-copy{
-        font-size:13.5px;
-        line-height:1.55;
-      }
-
-      .sp-actions{
-        display:grid;
-        grid-template-columns:1fr;
-        gap:9px;
-      }
-
-      .sp-logo-row{
-        align-items:flex-start;
-      }
-
-      .sp-logo{
-        width:64px;
-        height:64px;
-        min-width:64px;
-        border-radius:20px;
-      }
-
-      .sp-status-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-      }
-
-      .sp-section-head,
-      .sp-form,
-      .sp-delivery-head,
-      .sp-delivery-body{
-        padding:15px;
-      }
-
-      .sp-delivery-box,
-      .sp-delivery-map-card{
-        border-radius:20px;
-      }
-
-      #storeDeliveryMap{
-        height:min(58vh,360px);
-        min-height:300px;
-      }
-
-      .sp-map-actions{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-      }
-
-      .sp-check-row{
-        display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-      }
-
-      .sp-check{
-        justify-content:flex-start;
-        width:100%;
-      }
-    }
-
-    @media(max-width:430px){
-      .sp-shell{
-        padding:10px;
-        padding-left:max(10px, env(safe-area-inset-left, 0px));
-        padding-right:max(10px, env(safe-area-inset-right, 0px));
-      }
-
-      .sp-hero{
-        padding:14px;
-        border-radius:20px;
-      }
-
-      .sp-kicker{
-        width:100%;
-        justify-content:center;
-        text-align:center;
-        white-space:normal;
-      }
-
-      .sp-logo-row{
-        display:grid;
-        grid-template-columns:60px minmax(0,1fr);
-        gap:12px;
-      }
-
-      .sp-logo{
-        width:60px;
-        height:60px;
-        min-width:60px;
-        border-radius:18px;
-      }
-
-      .sp-status-grid,
-      .sp-map-actions,
-      .sp-check-row{
-        grid-template-columns:1fr;
-      }
-
-      .sp-switch-card{
-        display:grid;
-        grid-template-columns:1fr auto;
-        align-items:start;
-        padding:13px;
-      }
-
-      .sp-section-title{
-        font-size:17px;
-      }
-
-      .sp-section-sub,
-      .sp-help{
-        font-size:12px;
-      }
-
-      #storeDeliveryMap{
-        height:min(54vh,330px);
-        min-height:280px;
-      }
-    }
-
-
-    /* ===== Final compact responsive fixes for app/mobile/tablet/desktop ===== */
-    .sp-hero > div,
-    .sp-hero > aside,
-    .sp-hero aside,
-    .sp-status-grid,
-    .sp-status-pill,
-    .sp-status-pill strong{
-      min-width:0;
-      max-width:100%;
-    }
-
-    .sp-hero aside{
-      overflow:hidden;
-    }
-
-    .sp-status-pill{
-      overflow:hidden;
-    }
-
-    .sp-status-pill strong{
-      display:block;
-      overflow-wrap:anywhere;
-      word-break:break-word;
-    }
-
-    .sp-section-sub,
-    .sp-delivery-sub,
-    .sp-map-toolbar-sub,
-    .sp-zone-help,
-    .sp-zone-counter small{
-      display:none!important;
-    }
-
-    .sp-check-row{
-      display:flex!important;
-      flex-wrap:wrap!important;
-      align-items:center!important;
-      gap:8px!important;
-    }
-
-    .sp-check{
-      width:auto!important;
-      min-width:70px;
-      min-height:34px;
-      flex:0 0 auto;
-      justify-content:flex-start;
-      gap:8px;
-      padding:7px 11px;
-      border-radius:999px;
-      line-height:1;
-      white-space:nowrap;
-    }
-
-    .sp-check input{
-      width:15px;
-      height:15px;
-      min-width:15px;
-      margin:0;
-      accent-color:var(--green);
-    }
-
-    @media(max-width:1280px){
-      .sp-hero{
-        grid-template-columns:1fr!important;
-      }
-    }
-
-    @media(max-width:900px){
-      .sp-hero{
-        align-items:start;
-      }
-
-      .sp-status-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr))!important;
-      }
-    }
-
-    @media(max-width:760px){
-      .sp-copy{
-        display:none;
-      }
-
-      .sp-check-row{
-        display:flex!important;
-        grid-template-columns:none!important;
-        gap:8px!important;
-      }
-
-      .sp-check{
-        min-width:64px;
-        width:auto!important;
-        padding:7px 10px;
-        font-size:12px;
-      }
-
-      .sp-switch-card > div > span{
-        font-size:11.5px;
-        line-height:1.35;
-      }
-    }
-
-    @media(max-width:430px){
-      .sp-status-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr))!important;
-      }
-
-      .sp-check-row{
-        display:flex!important;
-        grid-template-columns:none!important;
-      }
-
-      .sp-check{
-        min-width:58px;
-        padding:7px 9px;
-        font-size:11.5px;
-      }
-    }
-
-    @media(max-width:360px){
-      .sp-status-grid{
-        grid-template-columns:1fr!important;
-      }
-
-      .sp-check{
-        min-width:54px;
-      }
-    }
-
-
-  </style>
+<section class="nf-store-profile-page nf-store-page">
+  
 
   <div class="sp-shell"><div class="sp-stack">
     <section class="sp-hero">
-      <div><span class="sp-kicker">🏪 NE FRESH Store Admin Profile</span><h1 class="sp-title">{{ store.store_name or 'Store Admin Profile' }}</h1><p class="sp-copy">Essential store admin, pickup and operation details.</p><div class="sp-actions"><button class="sp-btn sp-btn-primary" type="button" data-submit-profile>Save Store Admin Profile</button><button class="sp-btn" type="button" id="spUseLocation">Detect Store Pickup Location</button></div></div>
+      <div><span class="sp-kicker">🏪 Store Profile</span><h1 class="sp-title">{{ store.store_name or 'Store Profile' }}</h1><p class="sp-copy">Manage Store details, pickup location, service area and operating status.</p><div class="sp-actions"><button class="sp-btn sp-btn-primary" type="button" data-submit-profile>Save Store Profile</button><button class="sp-btn" type="button" id="spUseLocation">Use Current Location</button></div></div>
       <aside><div class="sp-logo-row"><div class="sp-logo" aria-label="{{ store.store_name or 'Store' }} profile picture">{% if store_active_image_src %}<img src="{{ store_active_image_src }}?v={{ store_active_image_version }}" alt="{{ store.store_name or 'Store' }}" data-store-profile-img>{% else %}<span data-store-profile-fallback>{{ (store.store_name or 'S')[:1]|upper }}</span>{% endif %}</div><div><div class="sp-store-name">{{ store.store_name or 'Store name not added' }}</div><div class="sp-store-sub">{{ store.address or 'Store address not updated yet.' }}</div></div></div><div class="sp-status-grid"><div class="sp-status-pill"><span>Admin Status</span><strong>{{ 'Active' if store.is_active else 'Inactive' }}</strong></div><div class="sp-status-pill"><span>Operation</span><strong>{{ 'Online' if store.is_online|default(store.is_open|default(1))|int else 'Offline' }}</strong></div></div></aside>
     </section>
 
@@ -1272,22 +92,49 @@
 <div class="sp-delivery-box">
   <div class="sp-delivery-head">
     <div>
+      <span class="sp-section-eyebrow">Delivery Coverage</span>
       <h3 class="sp-delivery-title">Store Operation & Delivery Service Area</h3>
+      <p class="sp-delivery-copy">Your Store team and NE Locals Admin can maintain this delivery boundary. Store-side changes become active only after you save this profile.</p>
     </div>
   </div>
 
   <div class="sp-delivery-body">
-    <div class="sp-switch-grid">
-      {% set store_online = store.is_online|default(store.is_open|default(1))|int %}
-      {% set delivery_on = store.delivery_enabled|default(1 if store.delivery_available else 0)|int %}
+    {% set store_online = store.is_online|default(store.is_open|default(1))|int %}
+    {% set delivery_on = store.delivery_enabled|default(1 if store.delivery_available else 0)|int %}
+    {% set saved_zone = store.delivery_zone_polygon or [] %}
 
+    <div class="sp-delivery-summary" aria-label="Current delivery configuration">
+      <div class="sp-summary-item">
+        <span>Store Status</span>
+        <strong id="storeStatusSummary">{{ 'Online' if store_online == 1 else 'Offline' }}</strong>
+        <small>Controls whether customers can place new orders.</small>
+      </div>
+      <div class="sp-summary-item">
+        <span>Delivery Status</span>
+        <strong id="deliveryStatusSummary">{{ 'Enabled' if delivery_on == 1 else 'Disabled' }}</strong>
+        <small>Requires a valid boundary with at least 3 points.</small>
+      </div>
+      <div class="sp-summary-item">
+        <span>Active Service Area</span>
+        <strong id="savedZonePointCount">{% if saved_zone|length >= 3 %}Configured · {{ saved_zone|length }} points{% else %}Not configured{% endif %}</strong>
+        <small>The boundary currently saved for customer delivery.</small>
+      </div>
+      <div class="sp-summary-item">
+        <span>Pickup Coordinates</span>
+        <strong id="pickupCoordinateSummary">{% if store.latitude is not none and store.longitude is not none %}{{ '%.5f'|format(store.latitude|float) }}, {{ '%.5f'|format(store.longitude|float) }}{% else %}Not set{% endif %}</strong>
+        <small>Used as the Store pickup/reference location.</small>
+      </div>
+    </div>
+
+    <div class="sp-switch-grid">
       <label class="sp-switch-card">
         <div>
           <strong>Store Operational Status</strong>
-          <span>Allow or stop new customer orders.</span>
+          <span>Turn this off when the Store should stop accepting new customer orders.</span>
         </div>
         <span class="sp-toggle">
-          <input type="checkbox" name="is_online" value="1" {{ 'checked' if store_online == 1 else '' }}>
+          <input type="hidden" name="is_online" value="0">
+          <input type="checkbox" id="storeOnlineToggle" name="is_online" value="1" {{ 'checked' if store_online == 1 else '' }}>
           <span class="sp-toggle-slider"></span>
         </span>
       </label>
@@ -1295,9 +142,10 @@
       <label class="sp-switch-card">
         <div>
           <strong>Delivery Service Enabled</strong>
-          <span>Use with a completed service area.</span>
+          <span>Enable customer delivery only after the service boundary below is complete.</span>
         </div>
         <span class="sp-toggle">
+          <input type="hidden" name="delivery_enabled" value="0">
           <input type="checkbox" id="deliveryEnabledToggle" name="delivery_enabled" value="1" {{ 'checked' if delivery_on == 1 else '' }}>
           <span class="sp-toggle-slider"></span>
         </span>
@@ -1309,32 +157,49 @@
       type="hidden"
       id="deliveryZonePolygon"
       name="delivery_zone_polygon"
-      value='{{ (store.delivery_zone_polygon or [])|tojson }}'
+      value='{{ saved_zone|tojson }}'
     >
+
+    <div class="sp-zone-guide">
+      <div class="sp-zone-guide-step"><b>1</b><span>Detect or enter the Store pickup location.</span></div>
+      <div class="sp-zone-guide-step"><b>2</b><span>Select <strong>Edit Boundary</strong>, then click around the service area.</span></div>
+      <div class="sp-zone-guide-step"><b>3</b><span>Add at least 3 points and complete the boundary.</span></div>
+      <div class="sp-zone-guide-step"><b>4</b><span>Review the status and save the Store Profile.</span></div>
+    </div>
 
     <div class="sp-delivery-map-card">
       <div class="sp-map-toolbar">
         <div>
           <div class="sp-map-toolbar-title">Delivery Service Area Map</div>
+          <div class="sp-map-toolbar-sub" id="zoneEditHint">Viewing saved delivery boundary. Choose Edit Boundary to make changes.</div>
         </div>
 
         <div class="sp-map-actions">
-          <button type="button" class="sp-map-btn primary" id="btnCenterStore">Center Pickup Location</button>
+          <button type="button" class="sp-map-btn primary" id="btnEditZone">Edit Boundary</button>
+          <button type="button" class="sp-map-btn" id="btnFitZone">Fit Active Zone</button>
+          <button type="button" class="sp-map-btn" id="btnCenterStore">Center Pickup</button>
           <button type="button" class="sp-map-btn" id="btnUndoZonePoint">Undo Point</button>
-          <button type="button" class="sp-map-btn" id="btnFinishZone">Mark Area Ready</button>
-          <button type="button" class="sp-map-btn danger" id="btnClearZone">Clear Service Area</button>
+          <button type="button" class="sp-map-btn" id="btnResetZone">Reset Unsaved</button>
+          <button type="button" class="sp-map-btn" id="btnFinishZone">Complete Boundary</button>
+          <button type="button" class="sp-map-btn danger" id="btnClearZone">Clear Zone</button>
         </div>
       </div>
 
-      <div id="storeDeliveryMap"></div>
+      <div class="sp-map-statebar">
+        <span class="store-status info" id="zoneEditModeBadge">View mode</span>
+        <span class="store-status" id="zoneDirtyBadge">Saved state</span>
+        <span class="sp-map-state-copy">Map clicks add points only while boundary editing is enabled.</span>
+      </div>
+
+      <div id="storeDeliveryMap" class="nf-map-stage" aria-label="Interactive Store delivery service area map"></div>
+      <div id="storeDeliveryMapFailure" class="nf-map-failure" role="alert">The interactive map could not load. You can still enter latitude and longitude manually. <button type="button" class="sp-map-btn" id="spRetryMap">Retry Map</button></div>
 
       <div class="sp-zone-tools">
         <div class="sp-zone-counter">
           <span id="zonePointCount">0 points added</span>
-
         </div>
 
-        <div id="zoneStatus" class="sp-zone-status bad">
+        <div id="zoneStatus" class="sp-zone-status bad" role="status" aria-live="polite">
           Delivery service area not configured.
         </div>
       </div>
@@ -1348,14 +213,13 @@
             <div class="sp-field"><label>Minimum Order Amount</label><input class="sp-input" type="number" min="0" step="0.01" name="min_order_amount" value="{{ store.min_order_amount or '' }}" placeholder="₹"><div class="sp-current">Current: <strong>{% if store.min_order_amount %}₹ {{ store.min_order_amount }}{% else %}—{% endif %}</strong></div></div>
            
           </div>
-          <div class="sp-actions"><button class="sp-btn sp-btn-primary" type="submit">Save Store Admin Profile</button><button class="sp-btn" type="button" id="spUseLocationBottom">Detect Store Pickup Location</button><a class="sp-btn" href="{{ url_for('store_dashboard') }}">Back to Store Dashboard</a></div><div class="sp-help" id="spLocationMsg"></div>
+          <div class="sp-actions"><button class="sp-btn sp-btn-primary" type="submit">Save Store Profile</button><button class="sp-btn" type="button" id="spUseLocationBottom">Use Current Location</button><a class="sp-btn" href="{{ url_for('store_dashboard') }}">Back to Dashboard</a></div><div class="sp-help" id="spLocationMsg"></div>
         </form>
       </div>
 
     </section>
   </div></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
     (function(){
@@ -1374,13 +238,24 @@ const profileImageInput = document.getElementById('storeProfileImageInput');
 const profileImageTargets = Array.from(document.querySelectorAll('[data-store-profile-img]'));
 const profileImageFallbacks = Array.from(document.querySelectorAll('[data-store-profile-fallback]'));
 
+const storeOnlineToggle = document.getElementById('storeOnlineToggle');
 const deliveryEnabledToggle = document.getElementById('deliveryEnabledToggle');
 const zoneInput = document.getElementById('deliveryZonePolygon');
 const zoneStatus = document.getElementById('zoneStatus');
 const zonePointCount = document.getElementById('zonePointCount');
+const savedZonePointCount = document.getElementById('savedZonePointCount');
+const storeStatusSummary = document.getElementById('storeStatusSummary');
+const deliveryStatusSummary = document.getElementById('deliveryStatusSummary');
+const pickupCoordinateSummary = document.getElementById('pickupCoordinateSummary');
+const zoneEditHint = document.getElementById('zoneEditHint');
+const zoneEditModeBadge = document.getElementById('zoneEditModeBadge');
+const zoneDirtyBadge = document.getElementById('zoneDirtyBadge');
 
+const btnEditZone = document.getElementById('btnEditZone');
+const btnFitZone = document.getElementById('btnFitZone');
 const btnCenterStore = document.getElementById('btnCenterStore');
 const btnUndoZonePoint = document.getElementById('btnUndoZonePoint');
+const btnResetZone = document.getElementById('btnResetZone');
 const btnFinishZone = document.getElementById('btnFinishZone');
 const btnClearZone = document.getElementById('btnClearZone');
 const deliveryFeeSlabsEnabled = document.getElementById('deliveryFeeSlabsEnabled');
@@ -1392,7 +267,9 @@ let map = null;
 let storeMarker = null;
 let zonePolygon = null;
 let zonePoints = [];
+let savedZonePoints = [];
 let zoneMarkers = [];
+let zoneEditMode = false;
         const locationButtons = [
           document.getElementById('spUseLocation'),
           document.getElementById('spUseLocationBottom')
@@ -1439,7 +316,7 @@ let zoneMarkers = [];
         function setLocationMessage(text, isError) {
           if (!locationMessage) return;
           locationMessage.textContent = text || '';
-          locationMessage.style.color = isError ? '#B91C1C' : '#008A48';
+          locationMessage.style.color = isError ? '#990707' : '#466F55';
           locationMessage.style.fontWeight = '850';
         }
 
@@ -1480,6 +357,61 @@ function loadInitialZone(){
   }catch(e){
     return [];
   }
+}
+
+function cloneZone(points){
+  return (points || []).map(function(point){
+    return [Number(point[0]), Number(point[1])];
+  });
+}
+
+function zonesEqual(a, b){
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  return a.every(function(point, index){
+    const other = b[index];
+    return Array.isArray(other) && Number(point[0]) === Number(other[0]) && Number(point[1]) === Number(other[1]);
+  });
+}
+
+function updateOperationSummaries(){
+  if (storeStatusSummary) {
+    storeStatusSummary.textContent = storeOnlineToggle && storeOnlineToggle.checked ? 'Online' : 'Offline';
+  }
+  if (deliveryStatusSummary) {
+    deliveryStatusSummary.textContent = deliveryEnabledToggle && deliveryEnabledToggle.checked ? 'Enabled' : 'Disabled';
+  }
+  if (pickupCoordinateSummary) {
+    const lat = safeFloat(latInput ? latInput.value : null);
+    const lng = safeFloat(lngInput ? lngInput.value : null);
+    pickupCoordinateSummary.textContent = lat !== null && lng !== null
+      ? `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+      : 'Not set';
+  }
+}
+
+function setZoneEditMode(enabled){
+  zoneEditMode = !!enabled;
+  if (btnEditZone) btnEditZone.textContent = zoneEditMode ? 'Stop Editing' : 'Edit Boundary';
+  if (zoneEditModeBadge) {
+    zoneEditModeBadge.textContent = zoneEditMode ? 'Edit mode' : 'View mode';
+    zoneEditModeBadge.classList.toggle('success', zoneEditMode);
+    zoneEditModeBadge.classList.toggle('info', !zoneEditMode);
+  }
+  if (zoneEditHint) {
+    zoneEditHint.textContent = zoneEditMode
+      ? 'Boundary editing is active. Click the map to add points; drag the map to inspect the area.'
+      : 'Viewing the current boundary. Choose Edit Boundary before adding or removing points.';
+  }
+  updateZoneState();
+}
+
+function fitZoneToMap(){
+  if (!map) return;
+  if (zonePoints.length >= 2) {
+    map.fitBounds(L.latLngBounds(zonePoints), { padding:[32,32], maxZoom:16 });
+    return;
+  }
+  centerMapFromInputs();
 }
 
 function getSlabRows(){
@@ -1662,35 +594,46 @@ function validateDeliveryFeeSlabsBeforeSubmit(){
 
 function updateZoneState(){
   const count = zonePoints.length;
+  const dirty = !zonesEqual(zonePoints, savedZonePoints);
 
-  if (zoneInput) {
-    zoneInput.value = JSON.stringify(zonePoints);
+  if (zoneInput) zoneInput.value = JSON.stringify(zonePoints);
+  if (zonePointCount) zonePointCount.textContent = `${count} boundary point${count === 1 ? '' : 's'}`;
+  if (savedZonePointCount) savedZonePointCount.textContent = savedZonePoints.length >= 3 ? `Configured · ${savedZonePoints.length} points` : 'Not configured';
+
+  if (btnUndoZonePoint) btnUndoZonePoint.disabled = !zoneEditMode || count === 0;
+  if (btnClearZone) btnClearZone.disabled = !zoneEditMode || count === 0;
+  if (btnResetZone) btnResetZone.disabled = !dirty;
+  if (btnFinishZone) btnFinishZone.disabled = !zoneEditMode || count < 3;
+  if (btnFitZone) btnFitZone.disabled = count < 2;
+
+  if (zoneDirtyBadge) {
+    zoneDirtyBadge.textContent = dirty ? 'Unsaved changes' : 'Saved state';
+    zoneDirtyBadge.classList.toggle('warning', dirty);
+    zoneDirtyBadge.classList.toggle('success', !dirty);
   }
 
-  if (zonePointCount) {
-    zonePointCount.textContent = `${count} point${count === 1 ? '' : 's'} added`;
-  }
-
-  if (btnUndoZonePoint) btnUndoZonePoint.disabled = count === 0;
-  if (btnClearZone) btnClearZone.disabled = count === 0;
-  if (btnFinishZone) btnFinishZone.disabled = count < 3;
-
-  if (deliveryEnabledToggle && count < 3) {
+  if (deliveryEnabledToggle && count < 3 && deliveryEnabledToggle.checked) {
     deliveryEnabledToggle.checked = false;
   }
+
+  updateOperationSummaries();
 
   if (!zoneStatus) return;
 
   if (count >= 3) {
-    zoneStatus.textContent = `Delivery zone ready with ${count} points. Click Mark Area Ready to enable delivery.`;
+    zoneStatus.textContent = dirty
+      ? `Boundary ready with ${count} points. Review it, complete editing and save the profile.`
+      : `Active delivery boundary is configured with ${count} points.`;
     zoneStatus.classList.remove('bad');
     zoneStatus.classList.add('ok');
   } else if (count > 0) {
-    zoneStatus.textContent = `Add ${3 - count} more point${3 - count === 1 ? '' : 's'} to complete delivery zone.`;
+    zoneStatus.textContent = `Boundary is incomplete. Add ${3 - count} more point${3 - count === 1 ? '' : 's'}, or reset/clear these unsaved points.`;
     zoneStatus.classList.remove('ok');
     zoneStatus.classList.add('bad');
   } else {
-    zoneStatus.textContent = 'Delivery service area not configured. Click at least 3 points on the map.';
+    zoneStatus.textContent = zoneEditMode
+      ? 'No delivery boundary yet. Click at least 3 points around the area you can serve.'
+      : 'Delivery service area is not configured. Choose Edit Boundary to create one.';
     zoneStatus.classList.remove('ok');
     zoneStatus.classList.add('bad');
   }
@@ -1714,7 +657,7 @@ function redrawZone(){
     const marker = L.circleMarker(point, {
       radius:7,
       color:'#1F5D3F',
-      fillColor:'#FF8A1F',
+      fillColor:'#5F8F6F',
       fillOpacity:1,
       weight:2
     }).addTo(map);
@@ -1732,10 +675,15 @@ function redrawZone(){
         const removeBtn = document.querySelector(`.remove-zone-point[data-index="${index}"]`);
 
         if (removeBtn) {
+          removeBtn.disabled = !zoneEditMode;
           removeBtn.addEventListener('click', function(){
+            if (!zoneEditMode) {
+              setLocationMessage('Choose Edit Boundary before removing zone points.', true);
+              return;
+            }
             zonePoints.splice(index, 1);
             redrawZone();
-            setLocationMessage('Point removed from delivery zone.', false);
+            setLocationMessage('Point removed from the delivery boundary.', false);
           });
         }
       }, 50);
@@ -1747,7 +695,7 @@ function redrawZone(){
   if (zonePoints.length >= 2) {
     zonePolygon = L.polygon(zonePoints, {
       color:'#1F5D3F',
-      fillColor:'#00A859',
+      fillColor:'#5F8F6F',
       fillOpacity:.18,
       weight:3
     }).addTo(map);
@@ -1794,6 +742,7 @@ function initDeliveryMap(){
   map = L.map('storeDeliveryMap', {
     scrollWheelZoom:true
   }).setView([defaultLat, defaultLng], 13);
+  if (window.NEFreshMapRuntime) window.NEFreshMapRuntime.track(map);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom:19,
@@ -1802,17 +751,21 @@ function initDeliveryMap(){
 
   setStoreMarker(defaultLat, defaultLng);
 
-  zonePoints = loadInitialZone();
+  savedZonePoints = loadInitialZone();
+  zonePoints = cloneZone(savedZonePoints);
   redrawZone();
+  setZoneEditMode(false);
 
   if (zonePoints.length >= 3) {
-    const bounds = L.latLngBounds(zonePoints);
-    map.fitBounds(bounds, {
-      padding:[32, 32]
-    });
+    map.fitBounds(L.latLngBounds(zonePoints), { padding:[32,32], maxZoom:16 });
   }
 
   map.on('click', function(e){
+    if (!zoneEditMode) {
+      setLocationMessage('Choose Edit Boundary before adding delivery-zone points.', true);
+      return;
+    }
+
     zonePoints.push([
       Number(e.latlng.lat.toFixed(6)),
       Number(e.latlng.lng.toFixed(6))
@@ -1823,7 +776,7 @@ function initDeliveryMap(){
     if (zonePoints.length < 3) {
       setLocationMessage(`Point ${zonePoints.length} added. Add ${3 - zonePoints.length} more point${3 - zonePoints.length === 1 ? '' : 's'}.`, false);
     } else {
-      setLocationMessage(`Point ${zonePoints.length} added. Zone is ready to finish.`, false);
+      setLocationMessage(`Boundary now has ${zonePoints.length} points. Complete the boundary when it looks correct.`, false);
     }
   });
 
@@ -1883,6 +836,7 @@ async function reverseStoreLocation(lat, lng){
                 if (lngInput) lngInput.value = lng.toFixed(6);
 
                 setStoreMarker(lat, lng);
+                updateOperationSummaries();
 
                 setLocationMessage('Location captured. Detecting address details...', false);
 
@@ -1932,58 +886,103 @@ if (deliveryFeeSlabsEnabled) {
   });
 }
 
+        if (btnEditZone) {
+          btnEditZone.addEventListener('click', function(){
+            setZoneEditMode(!zoneEditMode);
+            setLocationMessage(zoneEditMode ? 'Boundary editing enabled.' : 'Boundary editing paused. Save the profile to persist any changes.', false);
+          });
+        }
+
+        if (btnFitZone) {
+          btnFitZone.addEventListener('click', fitZoneToMap);
+        }
+
         if (btnCenterStore) {
           btnCenterStore.addEventListener('click', centerMapFromInputs);
         }
 
         if (btnUndoZonePoint) {
           btnUndoZonePoint.addEventListener('click', function(){
+            if (!zoneEditMode) {
+              setLocationMessage('Choose Edit Boundary before changing zone points.', true);
+              return;
+            }
             if (!zonePoints.length) {
-              setLocationMessage('No delivery zone point to undo.', true);
+              setLocationMessage('No delivery-zone point to undo.', true);
               return;
             }
 
             zonePoints.pop();
             redrawZone();
-            setLocationMessage('Last delivery zone point removed.', false);
+            setLocationMessage('Last boundary point removed.', false);
+          });
+        }
+
+        if (btnResetZone) {
+          btnResetZone.addEventListener('click', function(){
+            zonePoints = cloneZone(savedZonePoints);
+            redrawZone();
+            fitZoneToMap();
+            setLocationMessage('Unsaved boundary changes were reset to the currently saved zone.', false);
           });
         }
 
         if (btnFinishZone) {
           btnFinishZone.addEventListener('click', function(){
+            if (!zoneEditMode) {
+              setLocationMessage('Choose Edit Boundary before completing a new boundary.', true);
+              return;
+            }
             if (zonePoints.length < 3) {
-              setLocationMessage('Please add at least 3 delivery zone points.', true);
+              setLocationMessage('Please add at least 3 delivery-zone points.', true);
               return;
             }
 
-            if (deliveryEnabledToggle) {
-              deliveryEnabledToggle.checked = true;
-            }
-
+            setZoneEditMode(false);
+            fitZoneToMap();
             updateZoneState();
-            setLocationMessage('Delivery zone finished and delivery enabled.', false);
+            setLocationMessage(
+              deliveryEnabledToggle && deliveryEnabledToggle.checked
+                ? 'Boundary completed. Save the Store Profile to apply these changes.'
+                : 'Boundary completed. Turn on Delivery Service Enabled if you want to accept delivery orders, then save.',
+              false
+            );
           });
         }
 
         if (btnClearZone) {
           btnClearZone.addEventListener('click', function(){
+            if (!zoneEditMode) {
+              setLocationMessage('Choose Edit Boundary before clearing the service area.', true);
+              return;
+            }
+            if (!window.confirm('Clear the delivery service area? This will also switch delivery off after you save the profile.')) return;
+
             zonePoints = [];
             redrawZone();
+            if (deliveryEnabledToggle) deliveryEnabledToggle.checked = false;
+            updateOperationSummaries();
+            setLocationMessage('Delivery boundary cleared. Save the profile to apply the change.', true);
+          });
+        }
 
-            if (deliveryEnabledToggle) {
+        if (storeOnlineToggle) storeOnlineToggle.addEventListener('change', updateOperationSummaries);
+        if (deliveryEnabledToggle) {
+          deliveryEnabledToggle.addEventListener('change', function(){
+            if (deliveryEnabledToggle.checked && zonePoints.length < 3) {
               deliveryEnabledToggle.checked = false;
+              setLocationMessage('Create a valid delivery boundary with at least 3 points before enabling delivery.', true);
             }
-
-            setLocationMessage('Delivery zone cleared. Delivery disabled until a new zone is configured.', true);
+            updateOperationSummaries();
           });
         }
 
         if (latInput) {
-          latInput.addEventListener('change', centerMapFromInputs);
+          latInput.addEventListener('change', function(){ centerMapFromInputs(); updateOperationSummaries(); });
         }
 
         if (lngInput) {
-          lngInput.addEventListener('change', centerMapFromInputs);
+          lngInput.addEventListener('change', function(){ centerMapFromInputs(); updateOperationSummaries(); });
         }
 
         if (pinInput) {
@@ -1992,11 +991,48 @@ if (deliveryFeeSlabsEnabled) {
           });
         }
 
-        initDeliveryMap();
+        savedZonePoints = loadInitialZone();
+        zonePoints = cloneZone(savedZonePoints);
+        updateZoneState();
+        setZoneEditMode(false);
+
+        const mapFailure = document.getElementById('storeDeliveryMapFailure');
+        const retryMapButton = document.getElementById('spRetryMap');
+
+        function loadDeliveryMap(){
+          if (mapFailure) mapFailure.classList.remove('is-visible');
+          if (!window.NEFreshMapRuntime || typeof window.NEFreshMapRuntime.ensureLeaflet !== 'function') {
+            if (mapFailure) mapFailure.classList.add('is-visible');
+            return;
+          }
+          window.NEFreshMapRuntime.ensureLeaflet()
+            .then(function(){
+              initDeliveryMap();
+              const mapEl = document.getElementById('storeDeliveryMap');
+              if (mapEl) mapEl.classList.add('nf-map-ready');
+              if (mapFailure) mapFailure.classList.remove('is-visible');
+              window.NEFreshMapRuntime.invalidate(map, 100);
+            })
+            .catch(function(){
+              if (mapFailure) mapFailure.classList.add('is-visible');
+              setLocationMessage('Interactive map could not load. Coordinates and the saved service-area data can still be edited manually.', true);
+            });
+        }
+
+        if (retryMapButton) retryMapButton.addEventListener('click', loadDeliveryMap);
+        loadDeliveryMap();
+
+        window.addEventListener('nefresh:page-before-leave', function(){
+          if (map && typeof map.remove === 'function') {
+            try { map.remove(); } catch (e) {}
+          }
+          map = null;
+        }, { once:true });
 
         const backdrop = document.getElementById('spConfirmBackdrop');
 
         if (backdrop && backdrop.parentElement !== document.body) {
+          backdrop.setAttribute('data-nf-softnav-page-artifact', 'true');
           document.body.appendChild(backdrop);
         }
 
@@ -2083,19 +1119,22 @@ if (deliveryFeeSlabsEnabled) {
   return;
 }
 
+if (!validateDeliveryFeeSlabsBeforeSubmit()) return;
+
 const deliveryEnabled = deliveryEnabledToggle && deliveryEnabledToggle.checked;
 
-if (deliveryEnabled && zonePoints.length < 3) {
-  setLocationMessage('Delivery enabled requires at least 3 delivery zone points.', true);
+if (zonePoints.length > 0 && zonePoints.length < 3) {
+  setLocationMessage('The delivery boundary is incomplete. Add at least 3 points, or reset/clear the unfinished boundary before saving.', true);
+  if (!zoneEditMode) setZoneEditMode(true);
   return;
 }
 
-  setLocationMessage('Delivery enabled requires at least 3 delivery zone points.', true);
-
-if (zoneInput) {
-  zoneInput.value = JSON.stringify(zonePoints);
+if (deliveryEnabled && zonePoints.length < 3) {
+  setLocationMessage('Delivery can be enabled only after a valid service boundary is configured.', true);
+  return;
 }
 
+if (zoneInput) zoneInput.value = JSON.stringify(zonePoints);
 openConfirm();
           });
         }
@@ -2137,9 +1176,9 @@ openConfirm();
     <div class="sp-confirm-head">
       <div class="sp-confirm-icon">✓</div>
       <div>
-        <h3 class="sp-confirm-title" id="spConfirmTitle">Save store admin profile?</h3>
+        <h3 class="sp-confirm-title" id="spConfirmTitle">Save Store Profile?</h3>
         <p class="sp-confirm-message">
-          This will update internal store admin identity, owner contact, pickup location, delivery area and operation details.
+          This will update Store details, owner contact, pickup location, delivery area and operating settings.
         </p>
       </div>
     </div>
@@ -2147,13 +1186,13 @@ openConfirm();
     <div class="sp-confirm-body">
       <div class="sp-confirm-note">
         <span>ℹ️</span>
-        <span>Please confirm only after checking the updated store admin details.</span>
+        <span>Please confirm after checking the Store details and service area.</span>
       </div>
     </div>
 
     <div class="sp-confirm-actions">
       <button type="button" class="sp-confirm-cancel" id="spConfirmCancel">Cancel</button>
-      <button type="button" class="sp-confirm-ok" id="spConfirmOk">Save Store Admin Profile</button>
+      <button type="button" class="sp-confirm-ok" id="spConfirmOk">Save Store Profile</button>
     </div>
   </div>
 </div>

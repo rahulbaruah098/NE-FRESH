@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 
+<script src="{{ url_for('static', filename='js/map-runtime.js') }}"></script>
+
 <section class="track-order-page" data-page="track-order">
   <style>
     /* =========================================================
@@ -2267,7 +2269,7 @@
                   </div>
 {% if order.cod_collection_required %}
                   <div class="payment-info-row">
-                    <span>Amount to Cash on Delivery (COD)</span>
+                    <span>Amount due on delivery (COD)</span>
                     <strong>₹{{ '%.2f'|format(order.amount_to_collect_from_customer or 0) }}</strong>
                   </div>
                   {% endif %}
@@ -3423,20 +3425,19 @@ if (elDeliveryStagePill) {
       }
 
       function loadLeaflet(cb){
-        if (window.L) {
+        if (window.L && typeof window.L.map === "function") {
           cb();
           return;
         }
-
-        const lcss = document.createElement("link");
-        lcss.rel = "stylesheet";
-        lcss.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-        document.head.appendChild(lcss);
-
-        const js = document.createElement("script");
-        js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-        js.onload = cb;
-        document.body.appendChild(js);
+        if (!window.NEFreshMapRuntime || typeof window.NEFreshMapRuntime.ensureLeaflet !== "function") {
+          const mapEl = document.getElementById("liveMap");
+          if (mapEl) mapEl.innerHTML = '<div style="padding:18px;color:#7b2f25;font-weight:700">Live map is temporarily unavailable. Delivery status and location links remain available.</div>';
+          return;
+        }
+        window.NEFreshMapRuntime.ensureLeaflet().then(cb).catch(function(){
+          const mapEl = document.getElementById("liveMap");
+          if (mapEl) mapEl.innerHTML = '<div style="padding:18px;color:#7b2f25;font-weight:700">Live map is temporarily unavailable. Delivery status and location links remain available.</div>';
+        });
       }
 
             function makeIcon(className, html){

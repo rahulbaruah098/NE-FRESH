@@ -4,631 +4,68 @@
 
 {% block title %}Settlement Audit Logs | NE FRESH Admin{% endblock %}
 {% block page_title %}Settlement Audit Logs{% endblock %}
-{% block page_subtitle %}Read-only settlement history for rider cash, store payout and refund processing actions.{% endblock %}
+{% block page_subtitle %}Read-only business reconciliation, payout, refund and monthly Delivery Partner settlement history.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-finance.css') }}">
+{% endblock %}
 
 {% block content %}
 {% set rows = logs if logs is defined else [] %}
 {% set m = metrics if metrics is defined else {} %}
 
 <section class="nf-admin-settlement-logs">
-  <style>
-    .nf-admin-settlement-logs {
-      display: grid;
-      gap: 18px;
-    }
-
-    .sal-hero,
-    .sal-card,
-    .sal-kpi {
-      background: var(--nf-surface);
-      border: 1px solid var(--nf-line);
-      border-radius: 22px;
-      box-shadow: var(--nf-shadow);
-    }
-
-    .sal-hero {
-      padding: 22px;
-      background:
-        radial-gradient(circle at 8% 8%, rgba(0,168,89,.12), transparent 32%),
-        radial-gradient(circle at 92% 4%, rgba(2,132,199,.10), transparent 28%),
-        linear-gradient(135deg, #fff, var(--nf-surface-2));
-    }
-
-    .sal-hero h2 {
-      margin: 0 0 8px;
-      font-size: clamp(1.45rem, 3vw, 2.15rem);
-      line-height: 1.1;
-      letter-spacing: -.04em;
-      font-weight: 950;
-      color: var(--nf-text);
-    }
-
-    .sal-hero p {
-      margin: 0;
-      max-width: 940px;
-      color: var(--nf-muted);
-      font-size: .95rem;
-      font-weight: 650;
-      line-height: 1.6;
-    }
-
-        .sal-kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .sal-kpi {
-      padding: 18px;
-      min-height: 112px;
-      display: grid;
-      align-content: space-between;
-      gap: 10px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .sal-kpi::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 5px;
-      background: var(--nf-green);
-    }
-
-    .sal-kpi.orange::before {
-      background: var(--nf-warning);
-    }
-
-    .sal-kpi.blue::before {
-      background: var(--nf-info);
-    }
-
-    .sal-kpi span {
-      color: var(--nf-muted);
-      font-size: .75rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .055em;
-    }
-
-    .sal-kpi strong {
-      color: var(--nf-text);
-      font-size: 1.35rem;
-      font-weight: 950;
-      letter-spacing: -.04em;
-      line-height: 1;
-    }
-
-    .sal-kpi small {
-      color: var(--nf-muted);
-      font-size: .75rem;
-      font-weight: 750;
-      line-height: 1.35;
-    }
-
-    .sal-card {
-      overflow: hidden;
-    }
-
-    .sal-card-head {
-      padding: 18px;
-      border-bottom: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      flex-wrap: wrap;
-      align-items: flex-start;
-    }
-
-    .sal-card-head h3 {
-      margin: 0;
-      color: var(--nf-text);
-      font-size: 1.08rem;
-      font-weight: 950;
-      letter-spacing: -.03em;
-    }
-
-    .sal-card-head p {
-      margin: 5px 0 0;
-      color: var(--nf-muted);
-      font-size: .84rem;
-      font-weight: 650;
-    }
-
-    .sal-filter {
-      padding: 16px 18px;
-      border-bottom: 1px solid var(--nf-line);
-      display: grid;
-      grid-template-columns: 1.4fr 260px 160px 160px auto auto;
-      gap: 10px;
-      align-items: end;
-      background: #fff;
-    }
-
-    .sal-field {
-      display: grid;
-      gap: 6px;
-    }
-
-    .sal-field label {
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 950;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-    }
-
-    .sal-field input,
-    .sal-field select {
-      width: 100%;
-      min-height: 40px;
-      border: 1px solid var(--nf-line);
-      border-radius: 12px;
-      background: #fff;
-      color: var(--nf-text);
-      padding: 0 11px;
-      outline: none;
-      font-size: .82rem;
-      font-weight: 800;
-    }
-
-    .sal-btn {
-      min-height: 40px;
-      border: 1px solid var(--nf-line);
-      border-radius: 12px;
-      background: #fff;
-      color: var(--nf-text);
-      padding: 0 13px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: .8rem;
-      font-weight: 950;
-      cursor: pointer;
-      text-decoration: none;
-      white-space: nowrap;
-    }
-
-    .sal-btn.primary {
-      background: var(--nf-green);
-      border-color: var(--nf-green);
-      color: #fff;
-    }
-
-    .sal-table-wrap {
-      width: 100%;
-      overflow-x: auto;
-      padding: 18px;
-    }
-
-        .sal-table {
-      width: 100%;
-      min-width: 1680px;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-
-    .sal-table th {
-      background: var(--nf-surface-2);
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 950;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      text-align: left;
-      padding: 12px;
-      border-top: 1px solid var(--nf-line);
-      border-bottom: 1px solid var(--nf-line);
-      white-space: nowrap;
-    }
-
-    .sal-table th:first-child {
-      border-left: 1px solid var(--nf-line);
-      border-top-left-radius: 14px;
-    }
-
-    .sal-table th:last-child {
-      border-right: 1px solid var(--nf-line);
-      border-top-right-radius: 14px;
-    }
-
-    .sal-table td {
-      padding: 13px 12px;
-      border-bottom: 1px solid var(--nf-line);
-      background: #fff;
-      color: var(--nf-text);
-      vertical-align: top;
-      font-size: .84rem;
-      font-weight: 750;
-    }
-
-    .sal-main {
-      display: block;
-      color: var(--nf-text);
-      font-weight: 950;
-    }
-
-    .sal-sub {
-      display: block;
-      margin-top: 3px;
-      color: var(--nf-muted);
-      font-size: .74rem;
-      font-weight: 700;
-      line-height: 1.4;
-    }
-
-    .sal-money {
-      color: var(--nf-text);
-      font-weight: 950;
-      white-space: nowrap;
-    }
-
-    .sal-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 26px;
-      padding: 4px 9px;
-      border-radius: 999px;
-      font-size: .7rem;
-      font-weight: 950;
-      border: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-      color: var(--nf-muted);
-      white-space: nowrap;
-    }
-
-    .sal-pill.rider_cash_received_by_admin {
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-      border-color: rgba(0,168,89,.22);
-    }
-
-    .sal-pill.store_payout_paid_by_admin {
-      background: var(--nf-orange-soft);
-      color: var(--nf-orange-dark);
-      border-color: rgba(245,158,11,.24);
-    }
-
-        .sal-pill.refund_processed_by_admin {
-      background: #FFF1F2;
-      color: #B91C1C;
-      border-color: rgba(239,68,68,.22);
-    }
-
-    .sal-money.refund {
-      color: #B91C1C;
-    }
-
-    .sal-money.adjusted {
-      color: var(--nf-green-dark);
-    }
-
-    .sal-empty {
-      padding: 28px 18px;
-      text-align: center;
-      color: var(--nf-muted);
-      font-weight: 800;
-    }
-
-    .sal-mobile-list {
-      display: none;
-      padding: 0 18px 18px;
-      gap: 12px;
-    }
-
-    .sal-mobile-card {
-      padding: 16px;
-      border-radius: 18px;
-      background: #fff;
-      border: 1px solid var(--nf-line);
-      box-shadow: 0 10px 26px rgba(17,64,38,.06);
-      display: grid;
-      gap: 12px;
-    }
-
-    .sal-mobile-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .sal-mobile-metric {
-      padding: 10px;
-      border-radius: 14px;
-      background: var(--nf-surface-2);
-      display: grid;
-      gap: 3px;
-    }
-
-    .sal-mobile-metric span {
-      color: var(--nf-muted);
-      font-size: .68rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-
-    .sal-mobile-metric strong {
-      color: var(--nf-text);
-      font-size: .88rem;
-      font-weight: 950;
-    }
-
-    @media (max-width: 1260px) {
-      .sal-kpi-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .sal-filter {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    @media (max-width: 760px) {
-      .sal-kpi-grid,
-      .sal-filter {
-        grid-template-columns: 1fr;
-      }
-
-      .sal-table-wrap {
-        display: none;
-      }
-
-      .sal-mobile-list {
-        display: grid;
-      }
-    }
-
-
-        .sal-action-flow {
-      display: grid;
-      gap: 6px;
-      min-width: 180px;
-    }
-
-    .sal-action-title {
-      width: max-content;
-      max-width: 100%;
-      min-height: 28px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 999px;
-      padding: 0 10px;
-      font-size: .68rem;
-      font-weight: 950;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      border: 1px solid var(--nf-line);
-      white-space: nowrap;
-    }
-
-    .sal-action-title.rider {
-      background: var(--nf-green-soft);
-      color: var(--nf-green-dark);
-      border-color: rgba(0,168,89,.22);
-    }
-
-    .sal-action-title.store {
-      background: var(--nf-orange-soft);
-      color: var(--nf-orange-dark);
-      border-color: rgba(245,158,11,.24);
-    }
-
-    .sal-action-title.refund {
-      background: #FFF1F2;
-      color: #B91C1C;
-      border-color: rgba(239,68,68,.22);
-    }
-
-    .sal-flow-note {
-      display: block;
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 750;
-      line-height: 1.38;
-    }
-
-    .sal-amount-box {
-      display: grid;
-      gap: 5px;
-      min-width: 165px;
-      padding: 10px;
-      border-radius: 14px;
-      border: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-    }
-
-    .sal-amount-box.received {
-      background: var(--nf-green-soft);
-      border-color: rgba(0,168,89,.20);
-    }
-
-    .sal-amount-box.paid {
-      background: var(--nf-orange-soft);
-      border-color: rgba(245,158,11,.24);
-    }
-
-    .sal-amount-box.refund {
-      background: #FFF1F2;
-      border-color: rgba(239,68,68,.20);
-    }
-
-    .sal-amount-box strong {
-      color: var(--nf-text);
-      font-size: .82rem;
-      font-weight: 950;
-      line-height: 1.3;
-    }
-
-    .sal-amount-box span {
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 760;
-      line-height: 1.38;
-    }
-
-    .sal-impact-box {
-      display: grid;
-      gap: 5px;
-      min-width: 180px;
-      padding: 10px;
-      border-radius: 14px;
-      border: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-    }
-
-    .sal-impact-box.deduct {
-      background: var(--nf-orange-soft);
-      border-color: rgba(245,158,11,.24);
-    }
-
-    .sal-impact-box.refund {
-      background: #FFF1F2;
-      border-color: rgba(239,68,68,.20);
-    }
-
-    .sal-impact-box.clear {
-      background: var(--nf-green-soft);
-      border-color: rgba(0,168,89,.20);
-    }
-
-    .sal-impact-box strong {
-      color: var(--nf-text);
-      font-size: .78rem;
-      font-weight: 950;
-      line-height: 1.3;
-    }
-
-    .sal-impact-box span {
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 760;
-      line-height: 1.38;
-    }
-
-    .sal-status-box {
-      display: grid;
-      gap: 5px;
-      min-width: 175px;
-      padding: 10px;
-      border-radius: 14px;
-      border: 1px solid var(--nf-line);
-      background: var(--nf-surface-2);
-    }
-
-    .sal-status-box strong {
-      color: var(--nf-text);
-      font-size: .78rem;
-      font-weight: 950;
-      line-height: 1.3;
-    }
-
-    .sal-status-box span {
-      color: var(--nf-muted);
-      font-size: .7rem;
-      font-weight: 760;
-      line-height: 1.38;
-    }
-
-    .sal-danger-note {
-      color: #B91C1C !important;
-      font-weight: 850 !important;
-    }
-  </style>
-
   <div class="sal-hero">
     <h2>Settlement Audit Logs</h2>
-        <p>
-      This is a read-only record of Admin settlement actions. It tracks rider cash received,
-      store payout paid, refund processed, references, notes, responsible admin, refund deduction,
-      adjusted payout and order settlement status.
+    <p>
+      Read-only finance history covering customer-money collection, UPI verification, rider cash remittance, Store platform-fee remittance,
+      external-partner remittance, Store payout, monthly Delivery Partner pay, refunds and carry-forward Store refund recovery.
     </p>
   </div>
 
-    <div class="sal-kpi-grid">
-    <div class="sal-kpi">
-      <span>Total Logs</span>
-      <strong>{{ m.total_logs|default(0) }}</strong>
-      <small>Settlement audit entries</small>
-    </div>
-
-    <div class="sal-kpi blue">
-      <span>Rider Cash Logs</span>
-      <strong>{{ m.rider_cash_logs|default(0) }}</strong>
-      <small>Cash received by Admin</small>
-    </div>
-
-    <div class="sal-kpi orange">
-      <span>Store Payout Logs</span>
-      <strong>{{ m.store_payout_logs|default(0) }}</strong>
-      <small>Store payout paid records</small>
-    </div>
-
-    <div class="sal-kpi orange">
-      <span>Refund Logs</span>
-      <strong>{{ m.refund_logs|default(0) }}</strong>
-      <small>Refund processed by Admin</small>
-    </div>
-
-    <div class="sal-kpi blue">
-      <span>Rider Cash Received</span>
-      <strong>₹{{ "%.2f"|format(m.rider_cash_received_amount|default(0)|float) }}</strong>
-      <small>Total rider cash confirmed</small>
-    </div>
-
-    <div class="sal-kpi">
-      <span>Store Payout Paid</span>
-      <strong>₹{{ "%.2f"|format(m.store_payout_paid_amount|default(0)|float) }}</strong>
-      <small>Total store payout marked paid</small>
-    </div>
-
-    <div class="sal-kpi orange">
-      <span>Refund Processed</span>
-      <strong>₹{{ "%.2f"|format(m.refund_processed_amount|default(0)|float) }}</strong>
-      <small>Customer refund processed</small>
-    </div>
+  <div class="sal-kpi-grid">
+    <div class="sal-kpi"><span>Total Logs</span><strong>{{ m.total_logs|default(0) }}</strong><small>Audit entries in current filter</small></div>
+    <div class="sal-kpi blue"><span>Official UPI Verified</span><strong>₹{{ '%.2f'|format(m.upi_verified_amount|default(0)|float) }}</strong><small>{{ m.upi_verification_logs|default(0) }} verification log(s)</small></div>
+    <div class="sal-kpi blue"><span>Rider Cash Received</span><strong>₹{{ '%.2f'|format(m.rider_cash_received_amount|default(0)|float) }}</strong><small>{{ m.rider_cash_logs|default(0) }} cash remittance log(s)</small></div>
+    <div class="sal-kpi blue"><span>Store Customer Money</span><strong>₹{{ '%.2f'|format(m.store_customer_payment_amount|default(0)|float) }}</strong><small>{{ m.store_customer_payment_logs|default(0) }} direct Store collection log(s)</small></div>
+    <div class="sal-kpi blue"><span>Store Platform Fee</span><strong>₹{{ '%.2f'|format(m.store_platform_fee_received_amount|default(0)|float) }}</strong><small>{{ m.store_platform_fee_logs|default(0) }} remittance log(s)</small></div>
+    <div class="sal-kpi blue"><span>External Partner Remittance</span><strong>₹{{ '%.2f'|format(m.external_partner_remittance_amount|default(0)|float) }}</strong><small>{{ m.external_partner_remittance_logs|default(0) }} remittance log(s)</small></div>
+    <div class="sal-kpi blue"><span>Monthly Driver Pay</span><strong>₹{{ '%.2f'|format(m.delivery_monthly_paid_amount|default(0)|float) }}</strong><small>{{ m.delivery_monthly_logs|default(0) }} monthly settlement log(s)</small></div>
+    <div class="sal-kpi"><span>Store Payout Paid</span><strong>₹{{ '%.2f'|format(m.store_payout_paid_amount|default(0)|float) }}</strong><small>{{ m.store_payout_logs|default(0) }} Store payout log(s)</small></div>
+    <div class="sal-kpi orange"><span>Refund Processed</span><strong>₹{{ '%.2f'|format(m.refund_processed_amount|default(0)|float) }}</strong><small>{{ m.refund_logs|default(0) }} refund log(s)</small></div>
+    <div class="sal-kpi orange"><span>Carry-forward Created</span><strong>₹{{ '%.2f'|format(m.store_refund_adjustment_created_amount|default(0)|float) }}</strong><small>{{ m.store_refund_adjustment_logs|default(0) }} Store recovery adjustment(s)</small></div>
   </div>
 
   <div class="sal-card">
     <div class="sal-card-head">
       <div>
-        <h3>Order-wise Settlement Activity</h3>
-        <p>Filter by action, date range, order ID, store, customer, delivery boy, admin, reference no. or note.</p>
+        <h3>Order-wise Finance Activity</h3>
+        <p>Filter by action, date, order, Store, customer, Delivery Partner, receiver, reconciliation status, Admin, reference or note.</p>
       </div>
     </div>
 
     <form class="sal-filter" method="get" action="{{ url_for('admin_settlement_audit_logs') }}">
       <div class="sal-field">
         <label>Search</label>
-        <input type="search" name="q" value="{{ q or '' }}" placeholder="Order, store, delivery boy, admin, ref, note...">
+        <input type="search" name="q" value="{{ q or '' }}" placeholder="Order, store, customer, receiver, status, ref, note...">
       </div>
-
       <div class="sal-field">
         <label>Action</label>
         <select name="action">
           <option value="">All</option>
-                  <option value="RIDER_CASH_RECEIVED_BY_ADMIN" {% if action_filter == 'RIDER_CASH_RECEIVED_BY_ADMIN' %}selected{% endif %}>Rider Cash Received</option>
+          <option value="STORE_CUSTOMER_PAYMENT_RECORDED" {% if action_filter == 'STORE_CUSTOMER_PAYMENT_RECORDED' %}selected{% endif %}>Store Customer Payment Recorded</option>
+          <option value="UPI_AT_DELIVERY_VERIFIED_BY_ADMIN" {% if action_filter == 'UPI_AT_DELIVERY_VERIFIED_BY_ADMIN' %}selected{% endif %}>UPI at Delivery Verified</option>
+          <option value="RIDER_CASH_RECEIVED_BY_ADMIN" {% if action_filter == 'RIDER_CASH_RECEIVED_BY_ADMIN' %}selected{% endif %}>Rider Cash Received</option>
+          <option value="STORE_PLATFORM_FEE_RECEIVED_BY_ADMIN" {% if action_filter == 'STORE_PLATFORM_FEE_RECEIVED_BY_ADMIN' %}selected{% endif %}>Store Platform Fee Received</option>
+          <option value="EXTERNAL_PARTNER_REMITTANCE_RECEIVED" {% if action_filter == 'EXTERNAL_PARTNER_REMITTANCE_RECEIVED' %}selected{% endif %}>External Partner Remittance Received</option>
+          <option value="DELIVERY_PARTNER_MONTHLY_SETTLEMENT_PAID" {% if action_filter == 'DELIVERY_PARTNER_MONTHLY_SETTLEMENT_PAID' %}selected{% endif %}>Monthly Delivery Partner Paid</option>
           <option value="STORE_PAYOUT_PAID_BY_ADMIN" {% if action_filter == 'STORE_PAYOUT_PAID_BY_ADMIN' %}selected{% endif %}>Store Payout Paid</option>
           <option value="REFUND_PROCESSED_BY_ADMIN" {% if action_filter == 'REFUND_PROCESSED_BY_ADMIN' %}selected{% endif %}>Refund Processed</option>
+          <option value="STORE_REFUND_ADJUSTMENT_CREATED" {% if action_filter == 'STORE_REFUND_ADJUSTMENT_CREATED' %}selected{% endif %}>Store Refund Carry-forward Created</option>
         </select>
       </div>
-
-      <div class="sal-field">
-        <label>From</label>
-        <input type="date" name="from" value="{{ date_from or '' }}">
-      </div>
-
-      <div class="sal-field">
-        <label>To</label>
-        <input type="date" name="to" value="{{ date_to or '' }}">
-      </div>
-
+      <div class="sal-field"><label>From</label><input type="date" name="from" value="{{ date_from or '' }}"></div>
+      <div class="sal-field"><label>To</label><input type="date" name="to" value="{{ date_to or '' }}"></div>
       <button class="sal-btn primary" type="submit">Apply</button>
       <a class="sal-btn" href="{{ url_for('admin_settlement_audit_logs') }}">Reset</a>
       <a class="sal-btn" href="{{ url_for('admin_settlement_audit_logs_export_csv', q=q, action=action_filter, **{'from': date_from, 'to': date_to}) }}">Export CSV</a>
@@ -637,186 +74,91 @@
     {% if rows %}
       <div class="sal-table-wrap">
         <table class="sal-table">
-                    <thead>
+          <thead>
             <tr>
-              <th>Order</th>
-              <th>Action</th>
+              <th>Order / Action</th>
               <th>Store / Customer</th>
-              <th>In-house Delivery Staff</th>
-              <th>Amount</th>
-              <th>Refund Breakup</th>
-              <th>Platform / Store</th>
-              <th>Settlement Impact</th>
+              <th>Delivery Partner</th>
+              <th>Recorded Amount</th>
+              <th>Customer Money</th>
+              <th>Platform Fee</th>
+              <th>Store / Refund Impact</th>
               <th>Reference</th>
               <th>Done By</th>
-              <th>Status</th>
+              <th>Reconciliation Status</th>
               <th>Date</th>
             </tr>
           </thead>
-
           <tbody>
-                        {% for log in rows %}
-              {% set action_class = (log.action or '')|lower %}
+            {% for log in rows %}
               {% set action_name = (log.action or '')|upper %}
-              {% set is_rider_cash = action_name == 'RIDER_CASH_RECEIVED_BY_ADMIN' %}
-              {% set is_store_payout = action_name == 'STORE_PAYOUT_PAID_BY_ADMIN' %}
               {% set is_refund = action_name == 'REFUND_PROCESSED_BY_ADMIN' %}
-              {% set refund_amount = log.refund_amount|default(0)|float %}
+              {% set is_adjustment = action_name == 'STORE_REFUND_ADJUSTMENT_CREATED' %}
               {% set amount_received = log.amount_received|default(0)|float %}
               {% set amount_paid = log.amount_paid|default(0)|float %}
-              {% set store_deduction = log.store_refund_deduction|default(0)|float %}
-              {% set adjusted_store_payout = log.adjusted_store_payout|default(log.store_payout_amount|default(0))|float %}
-              {% set store_adjustment_due = log.store_adjustment_due|default(0)|float %}
+              {% set refund_amount = log.refund_amount|default(0)|float %}
+              {% set recorded_amount = refund_amount if is_refund else (log.store_adjustment_due|default(0)|float if is_adjustment else (amount_received if amount_received > 0 else amount_paid)) %}
               <tr>
                 <td>
-                  <span class="sal-main">#{{ log.short_order_id or "-" }}</span>
-                  <span class="sal-sub">{{ log.order_id }}</span>
+                  <span class="sal-main">{{ log.source_order_number or log.order_number or log.short_order_id or '-' }}</span>
+                  <span class="sal-pill {{ (log.action or '')|lower }}">{{ log.action_label }}</span>
+                  {% if log.note %}<span class="sal-sub">{{ log.note }}</span>{% endif %}
                 </td>
-
-                               <td>
-                  <div class="sal-action-flow">
-                    {% if is_rider_cash %}
-                      <span class="sal-action-title rider">Rider Cash Received</span>
-                      <span class="sal-flow-note">Admin confirmed COD cash submitted by delivery boy.</span>
-                    {% elif is_store_payout %}
-                      <span class="sal-action-title store">Store Payout Paid</span>
-                      <span class="sal-flow-note">Admin marked adjusted store payout as paid.</span>
-                    {% elif is_refund %}
-                      <span class="sal-action-title refund">Refund Processed</span>
-                      <span class="sal-flow-note">Admin recorded customer refund and settlement impact.</span>
-                    {% else %}
-                      <span class="sal-pill {{ action_class }}">{{ log.action_label }}</span>
-                    {% endif %}
-
-                    {% if log.note %}
-                      <span class="sal-sub">Note: {{ log.note }}</span>
-                    {% endif %}
+                <td>
+                  <span class="sal-main">{{ log.store_name or '-' }}</span>
+                  <span class="sal-sub">Customer: {{ log.customer_name or '-' }}</span>
+                  {% if log.customer_phone %}<span class="sal-sub">{{ log.customer_phone }}</span>{% endif %}
+                </td>
+                <td>
+                  <span class="sal-main">{{ log.delivery_partner_name or '-' }}</span>
+                  {% if log.delivery_partner_phone %}<span class="sal-sub">{{ log.delivery_partner_phone }}</span>{% endif %}
+                  {% if log.delivery_payout_model %}<span class="sal-sub">Pay model: {{ log.delivery_payout_model }}</span>{% endif %}
+                </td>
+                <td>
+                  <div class="sal-amount-box {% if is_refund or is_adjustment %}refund{% elif recorded_amount > 0 %}received{% endif %}">
+                    <strong>₹{{ '%.2f'|format(recorded_amount) }}</strong>
+                    <span>{{ log.action_label }}</span>
                   </div>
                 </td>
-
                 <td>
-                  <span class="sal-main">{{ log.store_name or "-" }}</span>
-                  <span class="sal-sub">Customer: {{ log.customer_name or "-" }}</span>
-                  {% if log.customer_phone %}
-                    <span class="sal-sub">{{ log.customer_phone }}</span>
-                  {% endif %}
+                  <span class="sal-main">{{ log.payment_collection_label or log.payment_method or '-' }}</span>
+                  <span class="sal-sub">Receiver: {{ log.payment_receiver_label or '-' }}</span>
+                  <span class="sal-sub">Payment: {{ log.payment_reconciliation_status or log.payment_status or '-' }}</span>
                 </td>
-
                 <td>
-                  <span class="sal-main">{{ log.delivery_partner_name or "-" }}</span>
-                  {% if log.delivery_partner_phone %}
-                    <span class="sal-sub">{{ log.delivery_partner_phone }}</span>
-                  {% endif %}
+                  <span class="sal-main">₹{{ '%.2f'|format(log.platform_fee|default(0)|float) }}</span>
+                  <span class="sal-sub">{{ log.platform_fee_reconciliation_status or log.platform_fee_status or '-' }}</span>
                 </td>
-
-                                     <td>
-                  {% if is_refund and refund_amount > 0 %}
-                    <div class="sal-amount-box refund">
-                      <strong>Refund ₹{{ "%.2f"|format(refund_amount) }}</strong>
-                      <span>Customer refund processed by Admin.</span>
-                    </div>
-                  {% elif is_rider_cash and amount_received > 0 %}
-                    <div class="sal-amount-box received">
-                      <strong>Received ₹{{ "%.2f"|format(amount_received) }}</strong>
-                      <span>Rider COD cash received by Admin.</span>
-                    </div>
-                  {% elif is_store_payout and amount_paid > 0 %}
-                    <div class="sal-amount-box paid">
-                      <strong>Paid ₹{{ "%.2f"|format(amount_paid) }}</strong>
-                      <span>Store payout paid by Admin.</span>
-                    </div>
-                  {% else %}
-                    <div class="sal-amount-box">
-                      <strong>₹{{ "%.2f"|format(log.amount_display|default(0)|float) }}</strong>
-                      <span>Amount recorded in audit log.</span>
-                    </div>
-                  {% endif %}
-                </td>
-
                 <td>
-                  {% if log.refund_amount and log.refund_amount > 0 %}
-                    <span class="sal-sub">Items: ₹{{ "%.2f"|format(log.refund_items_amount|default(0)|float) }}</span>
-                    <span class="sal-sub">Delivery: ₹{{ "%.2f"|format(log.refund_delivery_fee|default(0)|float) }}</span>
-                    <span class="sal-sub">Platform: ₹{{ "%.2f"|format(log.refund_platform_fee|default(0)|float) }}</span>
-                    <span class="sal-sub">Tip: ₹{{ "%.2f"|format(log.refund_tip_amount|default(0)|float) }}</span>
-                  {% else %}
-                    <span class="sal-sub">Not a refund event</span>
-                  {% endif %}
-                </td>
-
-                                <td>
-                  <span class="sal-sub">Platform: ₹{{ "%.2f"|format(log.platform_fee|default(0)|float) }}</span>
-                  <span class="sal-sub">Original store: ₹{{ "%.2f"|format(log.original_store_payout_amount|default(0)|float) }}</span>
-                  <span class="sal-sub">Deduction: ₹{{ "%.2f"|format(log.store_refund_deduction|default(0)|float) }}</span>
-                  <span class="sal-sub">Adjusted: ₹{{ "%.2f"|format(log.adjusted_store_payout|default(log.store_payout_amount|default(0))|float) }}</span>
-                </td>
-
-                                <td>
                   {% if is_refund %}
-                    <div class="sal-impact-box refund">
-                      <strong>{{ log.settlement_impact or "REFUND_PROCESSED" }}</strong>
-                      <span>Store deduction: ₹{{ "%.2f"|format(store_deduction) }}</span>
-                      <span>Adjusted store payout: ₹{{ "%.2f"|format(adjusted_store_payout) }}</span>
-
-                      {% if store_adjustment_due > 0 %}
-                        <span class="sal-danger-note">Adjustment due: ₹{{ "%.2f"|format(store_adjustment_due) }}</span>
-                      {% endif %}
-                    </div>
-                  {% elif is_store_payout %}
-                    <div class="sal-impact-box clear">
-                      <strong>{{ log.settlement_impact or "STORE_PAYOUT_PAID" }}</strong>
-                      <span>Store payout marked paid.</span>
-                      <span>Paid amount: ₹{{ "%.2f"|format(amount_paid) }}</span>
-                    </div>
-                  {% elif is_rider_cash %}
-                    <div class="sal-impact-box deduct">
-                      <strong>{{ log.settlement_impact or "RIDER_CASH_RECEIVED" }}</strong>
-                      <span>Platform fee received.</span>
-                      <span>Store payout unlocked after COD cash receipt.</span>
-                    </div>
+                    <span class="sal-sub">Refund: ₹{{ '%.2f'|format(refund_amount) }}</span>
+                    <span class="sal-sub">Store deduction: ₹{{ '%.2f'|format(log.store_refund_deduction|default(0)|float) }}</span>
+                    {% if log.store_adjustment_due|default(0)|float > 0 %}<span class="sal-danger-note">Carry-forward due: ₹{{ '%.2f'|format(log.store_adjustment_due|float) }}</span>{% endif %}
+                  {% elif is_adjustment %}
+                    <span class="sal-danger-note">Store recovery created: ₹{{ '%.2f'|format(log.store_adjustment_due|default(recorded_amount)|float) }}</span>
                   {% else %}
-                    <div class="sal-impact-box">
-                      <strong>{{ log.settlement_impact or "-" }}</strong>
-                    </div>
+                    <span class="sal-sub">Original Store: ₹{{ '%.2f'|format(log.original_store_payout_amount|default(0)|float) }}</span>
+                    <span class="sal-sub">Adjusted Store: ₹{{ '%.2f'|format(log.adjusted_store_payout|default(log.store_payout_amount|default(0))|float) }}</span>
                   {% endif %}
+                  {% if log.settlement_impact %}<span class="sal-sub">Impact: {{ log.settlement_impact }}</span>{% endif %}
                 </td>
-
-                                <td>
-                  {% if log.payment_mode %}
-                    <span class="sal-main">{{ log.payment_mode }}</span>
-                  {% endif %}
-
-                  {% if log.reference_no %}
-                    <span class="sal-sub">Ref: {{ log.reference_no }}</span>
-                  {% elif log.refund_reference %}
-                    <span class="sal-sub">Refund Ref: {{ log.refund_reference }}</span>
-                  {% else %}
-                    <span class="sal-sub">No reference</span>
-                  {% endif %}
-
-                  {% if log.refund_method %}
-                    <span class="sal-sub">Refund method: {{ log.refund_method }}</span>
-                  {% endif %}
-                </td>
-
                 <td>
-                  <span class="sal-main">{{ log.created_by_name or "Admin" }}</span>
-                  <span class="sal-sub">{{ log.created_by_role or "admin" }}</span>
+                  <span class="sal-main">{{ log.payment_mode or '-' }}</span>
+                  <span class="sal-sub">Ref: {{ log.reference_no or log.refund_reference or '-' }}</span>
+                  {% if log.refund_method %}<span class="sal-sub">Refund: {{ log.refund_method }}</span>{% endif %}
                 </td>
-
-                                <td>
+                <td><span class="sal-main">{{ log.created_by_name or 'Admin' }}</span><span class="sal-sub">{{ log.created_by_role or 'admin' }}</span></td>
+                <td>
                   <div class="sal-status-box">
-                    <strong>{{ log.order_settlement_status or "-" }}</strong>
-                    <span>Payment: {{ log.payment_status or "-" }}</span>
-                    <span>Rider cash: {{ log.rider_cash_settlement_status or "-" }}</span>
-                    <span>Platform fee: {{ log.platform_fee_status or "-" }}</span>
-                    <span>Store payout: {{ log.store_payout_status or "-" }}</span>
+                    <strong>{% if log.business_reconciliation_complete %}BUSINESS RECONCILED{% else %}BUSINESS PENDING{% endif %}</strong>
+                    <span>Customer: {{ log.payment_reconciliation_status or log.payment_status or '-' }}</span>
+                    <span>Platform: {{ log.platform_fee_reconciliation_status or log.platform_fee_status or '-' }}</span>
+                    <span>Store payout: {{ log.store_payout_status or '-' }}</span>
+                    <span>Driver cash: {{ log.rider_cash_settlement_status or '-' }}</span>
+                    <span>Order: {{ log.order_settlement_status or '-' }}</span>
                   </div>
                 </td>
-
-                <td>
-                  <span class="sal-main">{{ log.created_at or "-" }}</span>
-                </td>
+                <td><span class="sal-main">{{ log.created_at or '-' }}</span></td>
               </tr>
             {% endfor %}
           </tbody>
@@ -824,87 +166,32 @@
       </div>
 
       <div class="sal-mobile-list">
-                {% for log in rows %}
-          {% set action_class = (log.action or '')|lower %}
+        {% for log in rows %}
           {% set action_name = (log.action or '')|upper %}
-          {% set is_rider_cash = action_name == 'RIDER_CASH_RECEIVED_BY_ADMIN' %}
-          {% set is_store_payout = action_name == 'STORE_PAYOUT_PAID_BY_ADMIN' %}
           {% set is_refund = action_name == 'REFUND_PROCESSED_BY_ADMIN' %}
-          {% set refund_amount = log.refund_amount|default(0)|float %}
+          {% set is_adjustment = action_name == 'STORE_REFUND_ADJUSTMENT_CREATED' %}
           {% set amount_received = log.amount_received|default(0)|float %}
           {% set amount_paid = log.amount_paid|default(0)|float %}
+          {% set refund_amount = log.refund_amount|default(0)|float %}
+          {% set recorded_amount = refund_amount if is_refund else (log.store_adjustment_due|default(0)|float if is_adjustment else (amount_received if amount_received > 0 else amount_paid)) %}
           <div class="sal-mobile-card">
             <div>
-              <span class="sal-main">#{{ log.short_order_id or "-" }} · {{ log.action_label }}</span>
-              <span class="sal-sub">{{ log.created_at or "-" }}</span>
+              <span class="sal-main">{{ log.source_order_number or log.order_number or log.short_order_id or '-' }} · {{ log.action_label }}</span>
+              <span class="sal-sub">{{ log.created_at or '-' }}</span>
             </div>
-
             <div class="sal-mobile-grid">
-                            <div class="sal-mobile-metric">
-                <span>Amount</span>
-                <strong>
-                  {% if is_refund and refund_amount > 0 %}
-                    Refund ₹{{ "%.2f"|format(refund_amount) }}
-                  {% elif is_rider_cash and amount_received > 0 %}
-                    Received ₹{{ "%.2f"|format(amount_received) }}
-                  {% elif is_store_payout and amount_paid > 0 %}
-                    Paid ₹{{ "%.2f"|format(amount_paid) }}
-                  {% else %}
-                    ₹{{ "%.2f"|format(log.amount_display|default(0)|float) }}
-                  {% endif %}
-                </strong>
-              </div>
-
-              <div class="sal-mobile-metric">
-                <span>Platform</span>
-                <strong>₹{{ "%.2f"|format(log.platform_fee|default(0)|float) }}</strong>
-              </div>
-
-                            <div class="sal-mobile-metric">
-                <span>Store / Adjusted</span>
-                <strong>₹{{ "%.2f"|format(log.adjusted_store_payout|default(log.store_payout_amount|default(0))|float) }}</strong>
-              </div>
-
-              <div class="sal-mobile-metric">
-                <span>By</span>
-                <strong>{{ log.created_by_name or "Admin" }}</strong>
-              </div>
+              <div class="sal-mobile-metric"><span>Amount</span><strong>₹{{ '%.2f'|format(recorded_amount) }}</strong></div>
+              <div class="sal-mobile-metric"><span>Store</span><strong>{{ log.store_name or '-' }}</strong></div>
+              <div class="sal-mobile-metric"><span>Customer Money</span><strong>{{ log.payment_reconciliation_status or log.payment_status or '-' }}</strong></div>
+              <div class="sal-mobile-metric"><span>Platform Fee</span><strong>{{ log.platform_fee_reconciliation_status or log.platform_fee_status or '-' }}</strong></div>
             </div>
-
             <div>
-                            {% if is_rider_cash %}
-                <span class="sal-action-title rider">Rider Cash Received</span>
-                <span class="sal-sub">Admin confirmed COD cash submitted by rider.</span>
-              {% elif is_store_payout %}
-                <span class="sal-action-title store">Store Payout Paid</span>
-                <span class="sal-sub">Admin marked adjusted store payout as paid.</span>
-              {% elif is_refund %}
-                <span class="sal-action-title refund">Refund Processed</span>
-                <span class="sal-sub">Customer refund and settlement impact recorded.</span>
-              {% else %}
-                <span class="sal-pill {{ action_class }}">{{ log.action_label }}</span>
-              {% endif %}
-
-              <span class="sal-sub">Store: {{ log.store_name or "-" }}</span>
-              <span class="sal-sub">Order settlement: {{ log.order_settlement_status or "-" }}</span>
-                            {% if log.refund_amount and log.refund_amount|float > 0 %}
-                <span class="sal-sub">Refund: ₹{{ "%.2f"|format(log.refund_amount|float) }}</span>
-                <span class="sal-sub">Refund ref: {{ log.refund_reference or log.reference_no or "-" }}</span>
-              {% endif %}
-
-              {% if log.store_refund_deduction and log.store_refund_deduction|float > 0 %}
-                <span class="sal-sub">Store deduction: ₹{{ "%.2f"|format(log.store_refund_deduction|float) }}</span>
-              {% endif %}
-
-              {% if log.settlement_impact %}
-                <span class="sal-sub">Impact: {{ log.settlement_impact }}</span>
-              {% endif %}
-              {% if log.reference_no %}
-                <span class="sal-sub">Ref: {{ log.reference_no }}</span>
-              {% endif %}
-              {% if log.note %}
-                <span class="sal-sub">Note: {{ log.note }}</span>
-              {% endif %}
+              <span class="sal-sub">Collection: {{ log.payment_collection_label or log.payment_method or '-' }}</span>
+              <span class="sal-sub">Receiver: {{ log.payment_receiver_label or '-' }}</span>
+              <span class="sal-sub">Store payout: {{ log.store_payout_status or '-' }}</span>
+              {% if log.reference_no or log.refund_reference %}<span class="sal-sub">Ref: {{ log.reference_no or log.refund_reference }}</span>{% endif %}
+              {% if log.settlement_impact %}<span class="sal-sub">Impact: {{ log.settlement_impact }}</span>{% endif %}
+              {% if log.note %}<span class="sal-sub">Note: {{ log.note }}</span>{% endif %}
             </div>
           </div>
         {% endfor %}

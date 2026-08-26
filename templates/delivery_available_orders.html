@@ -1,10 +1,14 @@
 {% extends "delivery_base.html" %}
 {% set active_page = "available" %}
 
-{% block delivery_kicker %}Shipment Ready Orders{% endblock %}
-{% block delivery_title %}Available Shipment Ready Orders{% endblock %}
+
+{% block delivery_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/delivery/available-orders.css') }}">
+{% endblock %}
+{% block delivery_kicker %}Ready for Pickup{% endblock %}
+{% block delivery_title %}Available Orders{% endblock %}
 {% block delivery_subtitle %}
-Accept only store-ready orders. These orders are unassigned and already marked shipment ready by the store.
+Choose from nearby store-ready orders that are available for pickup.
 {% endblock %}
 
 {% block delivery_actions %}
@@ -12,224 +16,12 @@ Accept only store-ready orders. These orders are unassigned and already marked s
 {% endblock %}
 
 {% block delivery_content %}
-<style>
-  .dao-card{
-    background:#fff;
-    border:1px solid var(--df-line);
-    border-radius:24px;
-    box-shadow:var(--df-shadow);
-    overflow:hidden;
-  }
 
-  .dao-head{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:14px;
-    padding:18px 20px;
-    border-bottom:1px solid var(--df-line);
-    background:#FBFFFD;
-  }
-
-  .dao-title{
-    margin:0;
-    color:var(--df-ink);
-    font-size:18px;
-    font-weight:900;
-    letter-spacing:-.03em;
-  }
-
-  .dao-sub{
-    margin:5px 0 0;
-    color:var(--df-muted);
-    font-size:13px;
-    font-weight:700;
-    line-height:1.45;
-  }
-
-  .dao-count{
-    min-height:34px;
-    padding:8px 12px;
-    border-radius:999px;
-    background:var(--df-mint);
-    color:var(--df-green-dark);
-    border:1px solid rgba(0,168,89,.18);
-    font-size:12px;
-    font-weight:900;
-    white-space:nowrap;
-  }
-
-  .dao-grid{
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:16px;
-    padding:18px;
-  }
-
-  .dao-order{
-    border:1px solid var(--df-line);
-    border-radius:20px;
-    background:#fff;
-    padding:16px;
-    display:grid;
-    gap:14px;
-    box-shadow:0 10px 24px rgba(17,64,38,.05);
-  }
-
-  .dao-top{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    align-items:flex-start;
-  }
-
-  .dao-id{
-    color:var(--df-ink);
-    font-size:15px;
-    font-weight:900;
-  }
-
-  .dao-meta{
-    margin-top:5px;
-    color:var(--df-muted);
-    font-size:12px;
-    font-weight:750;
-    line-height:1.5;
-  }
-
-  .dao-pill{
-    min-height:28px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    padding:6px 10px;
-    border-radius:999px;
-    background:var(--df-mint);
-    color:var(--df-green-dark);
-    border:1px solid rgba(0,168,89,.18);
-    font-size:11px;
-    font-weight:900;
-    white-space:nowrap;
-  }
-
-  .dao-info{
-    display:grid;
-    gap:8px;
-    padding:12px;
-    border-radius:16px;
-    background:var(--df-soft);
-    border:1px solid var(--df-line);
-  }
-
-  .dao-row{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    color:var(--df-muted);
-    font-size:13px;
-    font-weight:800;
-  }
-
-  .dao-row strong{
-    color:var(--df-ink);
-    font-weight:900;
-    text-align:right;
-  }
-  .dao-old-fee{
-  color:var(--df-muted);
-  text-decoration:line-through;
-  margin-right:5px;
-}
-
-.dao-free-fee{
-  color:var(--df-green-dark);
-  font-weight:950;
-}
-
-.dao-money-note{
-  margin-top:-4px;
-  padding:9px 10px;
-  border-radius:14px;
-  background:var(--df-mint);
-  border:1px solid rgba(0,168,89,.18);
-  color:var(--df-green-dark);
-  font-size:12px;
-  font-weight:850;
-  line-height:1.45;
-}
-
-  .dao-address{
-    color:var(--df-text);
-    font-size:13px;
-    font-weight:750;
-    line-height:1.55;
-  }
-
-  .dao-actions{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-  }
-
-  .dao-btn{
-    min-height:40px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:14px;
-    border:1px solid var(--df-line);
-    background:#fff;
-    color:var(--df-text);
-    padding:9px 12px;
-    text-decoration:none;
-    font-size:13px;
-    font-weight:900;
-    cursor:pointer;
-  }
-
-  .dao-btn.primary{
-    background:var(--df-green);
-    border-color:var(--df-green);
-    color:#fff;
-    box-shadow:0 12px 24px rgba(0,168,89,.16);
-  }
-
-  .dao-empty{
-    margin:18px;
-    padding:26px;
-    border-radius:22px;
-    background:var(--df-soft);
-    border:1px dashed var(--df-line);
-    color:var(--df-muted);
-    text-align:center;
-    font-size:14px;
-    font-weight:800;
-    line-height:1.55;
-  }
-
-  @media(max-width:980px){
-    .dao-grid{
-      grid-template-columns:1fr;
-    }
-  }
-
-  @media(max-width:560px){
-    .dao-head{
-      flex-direction:column;
-    }
-
-    .dao-actions,
-    .dao-actions form,
-    .dao-btn{
-      width:100%;
-    }
-  }
-</style>
 
 <section class="dao-card">
   <div class="dao-head">
     <div>
-            <h2 class="dao-title">Available Shipment Ready Orders</h2>
+            <h2 class="dao-title">Available Orders</h2>
       <p class="dao-sub">Only unassigned orders marked shipment ready are shown here.</p>
     </div>
     <span class="dao-count">{{ orders|length }} Available</span>
@@ -237,7 +29,7 @@ Accept only store-ready orders. These orders are unassigned and already marked s
 
   {% if not delivery_active %}
     <div class="dao-empty">
-      You are currently off duty. Go to the dashboard and click <b>Go Active for Orders</b> to view available ready orders.
+      You are offline. Go to Dashboard and choose <b>Go Online</b> to receive available orders.
     </div>
   {% elif orders and orders|length %}
     <div class="dao-grid">
@@ -258,7 +50,7 @@ Accept only store-ready orders. These orders are unassigned and already marked s
 
           <div class="dao-info">
   <div class="dao-row">
-    <span>Amount to Collect</span>
+    <span>Customer Payment Due</span>
     <strong>
       {% if o.amount_to_collect and o.amount_to_collect > 0 %}
         ₹ {{ '%.2f'|format(o.amount_to_collect or 0) }}
@@ -302,7 +94,7 @@ Accept only store-ready orders. These orders are unassigned and already marked s
   </div>
 
   <div class="dao-row">
-    <span>Delivery + Tip</span>
+    <span>Your Earning</span>
     <strong>₹ {{ '%.2f'|format(o.delivery_boy_expected_earning or 0) }}</strong>
   </div>
 </div>

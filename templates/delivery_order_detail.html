@@ -1,10 +1,14 @@
 {% extends "delivery_base.html" %}
 {% set active_page = "current" %}
 
-{% block delivery_kicker %}Delivery Control{% endblock %}
+
+{% block delivery_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/delivery/order-detail.css') }}">
+{% endblock %}
+{% block delivery_kicker %}Current Delivery{% endblock %}
 {% block delivery_title %}Order #{{ order.id[-6:] if order.id else '' }}{% endblock %}
 {% block delivery_subtitle %}
-Pickup, delivery, navigation, customer call, live location and status update for this assigned order.
+Everything needed to complete this delivery safely: pickup, navigation, payment and status.
 {% endblock %}
 
 {% block delivery_actions %}
@@ -15,556 +19,7 @@ Pickup, delivery, navigation, customer call, live location and status update for
 {% block delivery_content %}
 {% set st = (order.status or '')|upper %}
 
-<style>
-  .dod-grid{
-    display:grid;
-    grid-template-columns:minmax(0,1.1fr) minmax(360px,.55fr);
-    gap:18px;
-    align-items:start;
-  }
 
-  .dod-card{
-    background:#fff;
-    border:1px solid var(--df-line);
-    border-radius:24px;
-    box-shadow:var(--df-shadow);
-    overflow:hidden;
-  }
-
-  .dod-head{
-    display:flex;
-    justify-content:space-between;
-    gap:14px;
-    align-items:flex-start;
-    padding:18px 20px;
-    border-bottom:1px solid var(--df-line);
-    background:#FBFFFD;
-  }
-
-  .dod-title{
-    margin:0;
-    color:var(--df-ink);
-    font-size:18px;
-    font-weight:900;
-    letter-spacing:-.03em;
-  }
-
-  .dod-sub{
-    margin:5px 0 0;
-    color:var(--df-muted);
-    font-size:13px;
-    font-weight:700;
-    line-height:1.45;
-  }
-
-  .dod-pill{
-    min-height:30px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    padding:7px 11px;
-    border-radius:999px;
-    background:var(--df-blue-soft);
-    color:#0369A1;
-    border:1px solid rgba(2,132,199,.18);
-    font-size:11px;
-    font-weight:900;
-    white-space:nowrap;
-    text-transform:uppercase;
-  }
-
-  .dod-body{
-    padding:18px;
-    display:grid;
-    gap:16px;
-  }
-
-  .dod-info-grid{
-    display:grid;
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:12px;
-  }
-
-  .dod-info{
-    padding:14px;
-    border-radius:18px;
-    border:1px solid var(--df-line);
-    background:var(--df-soft);
-    display:grid;
-    gap:6px;
-  }
-
-  .dod-info span{
-    color:var(--df-muted);
-    font-size:12px;
-    font-weight:900;
-    text-transform:uppercase;
-    letter-spacing:.06em;
-  }
-
-  .dod-info strong{
-    color:var(--df-ink);
-    font-size:15px;
-    font-weight:900;
-    line-height:1.35;
-    word-break:break-word;
-  }
-
-  .dod-info.collect{
-  background:var(--df-mint);
-  border-color:rgba(0,168,89,.22);
-}
-
-.dod-info.collect strong{
-  color:var(--df-green-dark);
-  font-size:18px;
-}
-
-.dod-old-fee{
-  color:var(--df-muted);
-  text-decoration:line-through;
-  margin-right:6px;
-  font-weight:850;
-}
-
-.dod-free-fee{
-  color:var(--df-green-dark);
-  font-weight:950;
-}
-
-.dod-money-note{
-  padding:11px 12px;
-  border-radius:16px;
-  background:var(--df-mint);
-  border:1px solid rgba(0,168,89,.18);
-  color:var(--df-green-dark);
-  font-size:13px;
-  font-weight:850;
-  line-height:1.45;
-}
-
-  .dod-box{
-    padding:14px;
-    border-radius:18px;
-    border:1px solid var(--df-line);
-    background:#fff;
-    display:grid;
-    gap:8px;
-  }
-
-  .dod-box-title{
-    color:var(--df-ink);
-    font-size:14px;
-    font-weight:900;
-  }
-
-  .dod-box-text{
-    color:var(--df-text);
-    font-size:13px;
-    font-weight:750;
-    line-height:1.55;
-  }
-
-  .dod-actions{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-  }
-
-  .dod-btn{
-    min-height:40px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    border-radius:14px;
-    border:1px solid var(--df-line);
-    background:#fff;
-    color:var(--df-text);
-    padding:9px 12px;
-    text-decoration:none;
-    font-size:13px;
-    font-weight:900;
-    cursor:pointer;
-  }
-
-  .dod-btn.primary{
-    background:var(--df-green);
-    border-color:var(--df-green);
-    color:#fff;
-    box-shadow:0 12px 24px rgba(0,168,89,.16);
-  }
-
-  .dod-btn.blue{
-    background:var(--df-blue-soft);
-    border-color:rgba(2,132,199,.18);
-    color:#0369A1;
-  }
-
-  .dod-btn.red{
-    background:var(--df-red-soft);
-    border-color:#FECACA;
-    color:#B91C1C;
-  }
-
-  .dod-status-form{
-    display:grid;
-    gap:12px;
-    padding:14px;
-    border-radius:18px;
-    background:var(--df-soft);
-    border:1px solid var(--df-line);
-  }
-
-    .dod-cancel-box{
-    display:grid;
-    gap:10px;
-    padding:14px;
-    border-radius:18px;
-    background:#FFF7ED;
-    border:1px solid rgba(234,88,12,.18);
-  }
-
-  .dod-cancel-title{
-    color:#9A3412;
-    font-size:14px;
-    font-weight:900;
-    letter-spacing:-.01em;
-  }
-
-  .dod-cancel-text{
-    color:#7C2D12;
-    font-size:12px;
-    font-weight:750;
-    line-height:1.45;
-  }
-
-  .dod-cancel-box textarea{
-    width:100%;
-    min-height:78px;
-    resize:vertical;
-    border:1px solid rgba(234,88,12,.22);
-    border-radius:14px;
-    background:#fff;
-    color:var(--df-ink);
-    padding:11px 12px;
-    font:inherit;
-    font-size:13px;
-    font-weight:800;
-    outline:none;
-  }
-
-  .dod-cancel-box textarea:focus{
-    border-color:#EA580C;
-    box-shadow:0 0 0 4px rgba(234,88,12,.10);
-  }
-
-  .dod-status-form select{
-    width:100%;
-    min-height:44px;
-    border:1px solid var(--df-line);
-    border-radius:14px;
-    background:#fff;
-    color:var(--df-ink);
-    padding:0 12px;
-    font-size:13px;
-    font-weight:900;
-    outline:none;
-  }
-
-  .dod-check{
-    min-height:42px;
-    display:flex;
-    align-items:center;
-    gap:8px;
-    padding:8px 12px;
-    border-radius:14px;
-    background:#fff;
-    border:1px solid var(--df-line);
-    color:var(--df-text);
-    font-size:13px;
-    font-weight:900;
-  }
-
-  .dod-check input{
-    width:17px;
-    height:17px;
-    accent-color:var(--df-green);
-  }
-
-  .dod-items{
-    display:grid;
-    gap:10px;
-  }
-
-  .dod-item{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    padding:12px;
-    border-radius:16px;
-    background:var(--df-soft);
-    border:1px solid var(--df-line);
-  }
-
-  .dod-item strong{
-    color:var(--df-ink);
-    font-size:13px;
-    font-weight:900;
-  }
-
-  .dod-item span{
-    color:var(--df-muted);
-    font-size:12px;
-    font-weight:800;
-  }
-
-  .dod-timeline{
-    display:grid;
-    gap:12px;
-  }
-
-  .dod-event{
-    position:relative;
-    padding-left:22px;
-    color:var(--df-text);
-    font-size:13px;
-    font-weight:750;
-    line-height:1.45;
-  }
-
-  .dod-event::before{
-    content:"";
-    position:absolute;
-    left:0;
-    top:4px;
-    width:10px;
-    height:10px;
-    border-radius:50%;
-    background:var(--df-green);
-  }
-
-  .dod-event strong{
-    display:block;
-    color:var(--df-ink);
-    font-weight:900;
-  }
-
-  .dod-live{
-    padding:12px;
-    border-radius:16px;
-    background:var(--df-mint);
-    border:1px solid rgba(0,168,89,.18);
-    color:var(--df-green-dark);
-    font-size:13px;
-    font-weight:900;
-    line-height:1.45;
-  }
-
-  .dod-switcher{
-  margin-bottom:18px;
-  background:#fff;
-  border:1px solid var(--df-line);
-  border-radius:24px;
-  box-shadow:var(--df-shadow);
-  overflow:hidden;
-}
-
-.dod-switcher-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:14px;
-  padding:16px 18px;
-  border-bottom:1px solid var(--df-line);
-  background:#FBFFFD;
-}
-
-.dod-switcher-title{
-  margin:0;
-  color:var(--df-ink);
-  font-size:17px;
-  font-weight:900;
-  letter-spacing:-.03em;
-}
-
-.dod-switcher-sub{
-  margin:5px 0 0;
-  color:var(--df-muted);
-  font-size:13px;
-  font-weight:700;
-  line-height:1.45;
-}
-
-.dod-switcher-count{
-  min-height:32px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:7px 11px;
-  border-radius:999px;
-  background:var(--df-mint);
-  color:var(--df-green-dark);
-  border:1px solid rgba(0,168,89,.18);
-  font-size:12px;
-  font-weight:900;
-  white-space:nowrap;
-}
-
-.dod-order-strip{
-  display:flex;
-  gap:12px;
-  padding:16px 18px;
-  overflow-x:auto;
-  scroll-snap-type:x mandatory;
-  scrollbar-width:thin;
-  scrollbar-color:rgba(0,168,89,.30) transparent;
-}
-
-.dod-order-strip::-webkit-scrollbar{
-  height:7px;
-}
-
-.dod-order-strip::-webkit-scrollbar-thumb{
-  background:rgba(0,168,89,.30);
-  border-radius:999px;
-}
-
-.dod-switch-card{
-  width:280px;
-  min-width:280px;
-  scroll-snap-align:start;
-  display:grid;
-  gap:10px;
-  padding:14px;
-  border-radius:18px;
-  border:1px solid var(--df-line);
-  background:#fff;
-  box-shadow:0 10px 24px rgba(17,64,38,.05);
-  transition:.2s ease;
-}
-
-.dod-switch-card:hover{
-  transform:translateY(-2px);
-  box-shadow:0 16px 34px rgba(17,64,38,.10);
-}
-
-.dod-switch-card.active{
-  border-color:rgba(0,168,89,.34);
-  background:linear-gradient(135deg,#F3FFF8,#FFFFFF);
-  box-shadow:0 16px 34px rgba(0,168,89,.12);
-}
-
-.dod-switch-top{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:10px;
-}
-
-.dod-switch-id{
-  color:var(--df-ink);
-  font-size:14px;
-  font-weight:900;
-}
-
-.dod-switch-meta{
-  margin-top:4px;
-  color:var(--df-muted);
-  font-size:12px;
-  font-weight:750;
-  line-height:1.45;
-}
-
-.dod-switch-status{
-  min-height:26px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:6px 9px;
-  border-radius:999px;
-  background:var(--df-blue-soft);
-  color:#0369A1;
-  border:1px solid rgba(2,132,199,.18);
-  font-size:10px;
-  font-weight:900;
-  text-transform:uppercase;
-  white-space:nowrap;
-}
-
-.dod-switch-line{
-  display:grid;
-  gap:4px;
-  color:var(--df-text);
-  font-size:12px;
-  font-weight:750;
-  line-height:1.4;
-}
-
-.dod-switch-line strong{
-  color:var(--df-ink);
-  font-weight:900;
-}
-
-.dod-switch-actions{
-  display:flex;
-  gap:8px;
-}
-
-.dod-switch-btn{
-  width:100%;
-  min-height:36px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  border-radius:13px;
-  border:1px solid var(--df-line);
-  background:#fff;
-  color:var(--df-text);
-  padding:8px 10px;
-  text-decoration:none;
-  font-size:12px;
-  font-weight:900;
-}
-
-.dod-switch-card.active .dod-switch-btn{
-  background:var(--df-green);
-  border-color:var(--df-green);
-  color:#fff;
-}
-
-@media(max-width:560px){
-  .dod-switcher-head{
-    flex-direction:column;
-  }
-
-  .dod-switch-card{
-    width:84vw;
-    min-width:84vw;
-  }
-}
-
-  @media(max-width:1100px){
-    .dod-grid{
-      grid-template-columns:1fr;
-    }
-  }
-
-  @media(max-width:560px){
-    .dod-info-grid{
-      grid-template-columns:1fr;
-    }
-
-    .dod-actions,
-    .dod-actions a,
-    .dod-btn{
-      width:100%;
-    }
-
-    .dod-head{
-      flex-direction:column;
-    }
-  }
-</style>
 
 {% if active_orders and active_orders|length > 1 %}
   <section class="dod-switcher">
@@ -637,8 +92,8 @@ Pickup, delivery, navigation, customer call, live location and status update for
   <section class="dod-card">
     <div class="dod-head">
       <div>
-        <h2 class="dod-title">Delivery Order Detail</h2>
-        <p class="dod-sub">Use this page during pickup and delivery.</p>
+        <h2 class="dod-title">Delivery Details</h2>
+        <p class="dod-sub">Use this screen from pickup through customer handoff.</p>
       </div>
       <span class="dod-pill">{{ st.replace('_', ' ') }}</span>
     </div>
@@ -646,7 +101,7 @@ Pickup, delivery, navigation, customer call, live location and status update for
     <div class="dod-body">
       <div class="dod-info-grid">
   <div class="dod-info collect">
-    <span>Amount to Collect</span>
+    <span>Customer Payment Due</span>
     <strong>₹ {{ '%.2f'|format(order.amount_to_collect or 0) }}</strong>
   </div>
 
@@ -691,7 +146,7 @@ Pickup, delivery, navigation, customer call, live location and status update for
   </div>
 
   <div class="dod-info">
-    <span>Delivery + Tip</span>
+    <span>Monthly Earning</span>
     <strong>₹ {{ '%.2f'|format(order.delivery_boy_expected_earning or 0) }}</strong>
   </div>
 </div>
@@ -761,7 +216,7 @@ Pickup, delivery, navigation, customer call, live location and status update for
           </button>
         </div>
 
-        <div class="dod-live" id="gpsInfo" style="display:none;"></div>
+        <div class="dod-live is-hidden" id="gpsInfo"></div>
       </div>
 
       {% if st in ['ASSIGNED_TO_DELIVERY', 'REACHED_STORE', 'PICKED_UP', 'OUT_FOR_DELIVERY'] %}
@@ -783,12 +238,42 @@ Pickup, delivery, navigation, customer call, live location and status update for
           </select>
 
           {% if st == 'OUT_FOR_DELIVERY' %}
-  <label class="dod-check">
-    <input type="checkbox" name="cod_received" value="1">
-    Payment received from customer
-  </label>
+  {% if order.is_cod_order %}
+    <div class="dod-payment-box" data-delivery-payment-box>
+      <div class="dod-payment-title">Collect ₹{{ '%.2f'|format(order.total_payable or 0) }} · Pay on Delivery</div>
+      <div class="dod-payment-note">Choose how the customer paid. UPI uses the official NE LOCALS UPI destination configured by Admin; never use a rider's personal UPI account.</div>
 
-  <select name="delivery_failed_reason" style="min-height:42px;border:1px solid var(--df-line);border-radius:14px;padding:0 12px;font-weight:850;">
+      <div class="dod-channel-grid">
+        <label class="dod-channel">
+          <input type="radio" name="payment_collection_channel" value="CASH" checked>
+          <span>💵 Cash</span>
+        </label>
+        <label class="dod-channel">
+          <input type="radio" name="payment_collection_channel" value="UPI" {% if not pay_on_delivery_upi.enabled %}disabled{% endif %}>
+          <span>📱 UPI{% if not pay_on_delivery_upi.enabled %} · unavailable{% endif %}</span>
+        </label>
+      </div>
+
+      <div class="dod-upi-details" data-upi-details hidden>
+        {% if pay_on_delivery_upi.enabled %}
+          <div class="dod-payment-note">Official NE LOCALS UPI · Customer scans this QR with Google Pay, PhonePe, Paytm, BHIM or any UPI app.</div>
+          <img class="dod-upi-qr" src="{{ url_for('delivery_order_upi_qr', oid=order.id) }}" alt="Official NE LOCALS UPI QR for this order">
+          <div class="dod-upi-id">{{ pay_on_delivery_upi.upi_id }}</div>
+          <input class="dod-upi-ref" type="text" name="upi_delivery_reference" minlength="6" maxlength="40" pattern="[A-Za-z0-9._/\-]{6,40}" placeholder="UPI transaction / reference number" autocomplete="off" autocapitalize="characters" spellcheck="false" title="Enter the 6–40 character UPI transaction/reference number." data-upi-reference>
+          <div class="dod-payment-note">Confirm the customer shows a successful payment, then record the UPI reference. Admin verifies receipt in the official account before Store payout.</div>
+        {% endif %}
+      </div>
+
+      <label class="dod-check">
+        <input type="checkbox" name="cod_received" value="1">
+        I confirm the full Pay on Delivery amount was received from the customer
+      </label>
+    </div>
+  {% else %}
+    <div class="dod-prepaid-note">This order is prepaid. No Pay on Delivery collection is required.</div>
+  {% endif %}
+
+  <select name="delivery_failed_reason" class="dod-failure-field">
     <option value="">Failed delivery reason, only if failed</option>
     <option value="Customer not available">Customer not available</option>
     <option value="Customer phone unreachable">Customer phone unreachable</option>
@@ -802,7 +287,7 @@ Pickup, delivery, navigation, customer call, live location and status update for
     name="delivery_failed_note"
     maxlength="500"
     placeholder="Optional note for failed delivery..."
-    style="min-height:78px;border:1px solid var(--df-line);border-radius:14px;padding:10px 12px;font-weight:750;resize:vertical;"
+    class="dod-failure-note"
   ></textarea>
 {% endif %}
 
@@ -899,6 +384,30 @@ Pickup, delivery, navigation, customer call, live location and status update for
 
 <script>
 (() => {
+  document.querySelectorAll('[data-delivery-payment-box]').forEach(function(box){
+    const form = box.closest('form');
+    const statusSelect = form ? form.querySelector('select[name="status"]') : null;
+    const upiDetails = box.querySelector('[data-upi-details]');
+    const upiReference = box.querySelector('[data-upi-reference]');
+    const receivedCheck = box.querySelector('input[name="cod_received"]');
+    const radios = box.querySelectorAll('input[name="payment_collection_channel"]');
+
+    function syncChannel(){
+      const isDelivering = !statusSelect || statusSelect.value === 'DELIVERED';
+      const selected = box.querySelector('input[name="payment_collection_channel"]:checked');
+      const isUpi = !!(isDelivering && selected && selected.value === 'UPI');
+
+      box.hidden = !isDelivering;
+      if (upiDetails) upiDetails.hidden = !isUpi;
+      if (upiReference) upiReference.required = isUpi;
+      if (receivedCheck) receivedCheck.required = isDelivering;
+    }
+
+    radios.forEach(function(radio){ radio.addEventListener('change', syncChannel); });
+    if (statusSelect) statusSelect.addEventListener('change', syncChannel);
+    syncChannel();
+  });
+
   const gpsInfo = document.getElementById('gpsInfo');
   const shareBtn = document.querySelector('.share-btn');
 
@@ -943,7 +452,7 @@ Pickup, delivery, navigation, customer call, live location and status update for
     }
 
     if (gpsInfo) {
-      gpsInfo.style.display = "none";
+      gpsInfo.classList.add("is-hidden");
       gpsInfo.textContent = "";
     }
   }
@@ -967,7 +476,7 @@ Pickup, delivery, navigation, customer call, live location and status update for
     }
 
     if (gpsInfo) {
-      gpsInfo.style.display = "block";
+      gpsInfo.classList.remove("is-hidden");
       gpsInfo.textContent = "Starting live location sharing…";
     }
 

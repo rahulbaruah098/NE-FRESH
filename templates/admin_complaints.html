@@ -3,579 +3,20 @@
 {% set active_group = "operations" %}
 
 {% block title %}Complaints | NE LOCALS Admin{% endblock %}
-{% block page_title %}Complaint Management{% endblock %}
-{% block page_subtitle %}Review customer complaints, take over store issues when required, and update complaint progress.{% endblock %}
+{% block page_title %}Complaints{% endblock %}
+{% block page_subtitle %}Review, filter and resolve customer complaints without leaving the Admin workspace.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-complaints.css') }}">
+{% endblock %}
 
 {% block content %}
 <section class="admin-complaints-page" data-page="admin-complaints">
-  <style>
-    .admin-complaints-page,
-    .admin-complaints-page *{
-      box-sizing:border-box;
-      font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    }
-
-    .admin-complaints-page{
-      --ac-green:#00A859;
-      --ac-green-dark:#008A48;
-      --ac-green-soft:#E9FFF3;
-      --ac-bg:#F8FFFB;
-      --ac-card:#FFFFFF;
-      --ac-ink:#1F332A;
-      --ac-text:#40534A;
-      --ac-muted:#66756D;
-      --ac-line:#DDECE4;
-      --ac-line-2:#EAF4EF;
-      --ac-orange:#FFB84D;
-      --ac-orange-soft:#FFF7E8;
-      --ac-red:#EF4444;
-      --ac-red-soft:#FEF2F2;
-      --ac-blue:#0284C7;
-      --ac-blue-soft:#E0F2FE;
-      --ac-shadow:0 14px 36px rgba(17,64,38,.08);
-      --ac-shadow-soft:0 10px 26px rgba(17,64,38,.055);
-      display:grid;
-      gap:18px;
-      width:100%;
-      color:var(--ac-text);
-      -webkit-text-size-adjust:100%;
-      text-size-adjust:100%;
-    }
-
-    .ac-hero{
-      position:relative;
-      overflow:hidden;
-      border:1px solid var(--ac-line);
-      border-radius:24px;
-      background:
-        radial-gradient(circle at 10% 0%,rgba(0,168,89,.12),transparent 34%),
-        radial-gradient(circle at 88% 10%,rgba(255,184,77,.12),transparent 30%),
-        linear-gradient(135deg,#FFFFFF 0%,#F3FFF8 100%);
-      box-shadow:var(--ac-shadow);
-      padding:22px;
-      display:grid;
-      gap:18px;
-    }
-
-    .ac-hero-top{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:16px;
-      flex-wrap:wrap;
-    }
-
-    .ac-kicker{
-      min-height:30px;
-      display:inline-flex;
-      align-items:center;
-      border-radius:999px;
-      background:#fff;
-      color:var(--ac-green-dark);
-      border:1px solid rgba(0,168,89,.18);
-      padding:0 12px;
-      font-size:.74rem;
-      font-weight:950;
-      letter-spacing:.06em;
-      text-transform:uppercase;
-    }
-
-    .ac-title{
-      margin:10px 0 6px;
-      color:var(--ac-ink);
-      font-size:clamp(1.6rem,3vw,2.35rem);
-      line-height:1.05;
-      font-weight:950;
-      letter-spacing:-.045em;
-    }
-
-    .ac-subtitle{
-      max-width:780px;
-      margin:0;
-      color:var(--ac-muted);
-      font-size:.95rem;
-      line-height:1.55;
-      font-weight:700;
-    }
-
-    .ac-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:flex-end;
-    }
-
-    .ac-btn,
-    .admin-complaints-page button,
-    .admin-complaints-page select,
-    .admin-complaints-page textarea,
-    .admin-complaints-page input{
-      font:inherit;
-    }
-
-    .ac-btn,
-    .admin-complaints-page button{
-      min-height:40px;
-      border:1px solid var(--ac-line);
-      border-radius:13px;
-      background:#fff;
-      color:var(--ac-green-dark);
-      padding:0 13px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      text-decoration:none;
-      cursor:pointer;
-      font-size:.82rem;
-      font-weight:950;
-      transition:.2s ease;
-      white-space:nowrap;
-    }
-
-    .ac-btn.primary,
-    .admin-complaints-page button.primary,
-    .admin-complaints-page form.ac-admin-form button[type="submit"]{
-      background:var(--ac-green);
-      border-color:var(--ac-green);
-      color:#fff;
-      box-shadow:0 10px 22px rgba(0,168,89,.18);
-    }
-
-    .ac-btn:hover,
-    .admin-complaints-page button:hover{
-      transform:translateY(-1px);
-      border-color:rgba(0,168,89,.28);
-      box-shadow:0 12px 24px rgba(17,64,38,.08);
-    }
-
-    .ac-kpi-grid{
-      display:grid;
-      grid-template-columns:repeat(6,minmax(0,1fr));
-      gap:12px;
-    }
-
-    .ac-kpi{
-      min-height:94px;
-      border:1px solid var(--ac-line);
-      border-radius:18px;
-      background:#fff;
-      box-shadow:var(--ac-shadow-soft);
-      padding:15px;
-      display:grid;
-      align-content:space-between;
-      gap:10px;
-    }
-
-    .ac-kpi span{
-      color:var(--ac-muted);
-      font-size:.72rem;
-      line-height:1.25;
-      font-weight:950;
-      letter-spacing:.055em;
-      text-transform:uppercase;
-    }
-
-    .ac-kpi strong{
-      color:var(--ac-ink);
-      font-size:1.8rem;
-      line-height:1;
-      font-weight:950;
-      letter-spacing:-.04em;
-    }
-
-    .ac-kpi.green strong{color:var(--ac-green-dark);}
-    .ac-kpi.orange strong{color:#A66A00;}
-    .ac-kpi.red strong{color:#B91C1C;}
-    .ac-kpi.blue strong{color:#0369A1;}
-
-    .ac-card{
-      border:1px solid var(--ac-line);
-      border-radius:22px;
-      background:#fff;
-      box-shadow:var(--ac-shadow);
-      overflow:hidden;
-    }
-
-    .ac-toolbar{
-      display:grid;
-      grid-template-columns:minmax(260px,1fr) 180px 180px auto;
-      gap:10px;
-      align-items:center;
-      padding:16px;
-      border-bottom:1px solid var(--ac-line-2);
-      background:#fff;
-    }
-
-    .ac-search,
-    .ac-select,
-    .ac-page-size{
-      width:100%;
-      height:42px;
-      border:1px solid var(--ac-line);
-      border-radius:14px;
-      background:#fff;
-      color:var(--ac-ink);
-      padding:0 12px;
-      outline:none;
-      font-size:.86rem;
-      font-weight:850;
-    }
-
-    .ac-search:focus,
-    .ac-select:focus,
-    .ac-page-size:focus,
-    .ac-admin-form textarea:focus,
-    .ac-admin-form select:focus,
-    .ac-takeover-form textarea:focus{
-      border-color:rgba(0,168,89,.42);
-      box-shadow:0 0 0 4px rgba(0,168,89,.08);
-    }
-
-    .ac-count-line{
-      grid-column:1 / -1;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-      color:var(--ac-muted);
-      font-size:.82rem;
-      font-weight:850;
-    }
-
-    .ac-count-line strong{
-      color:var(--ac-green-dark);
-      font-weight:950;
-    }
-
-    .ac-list{
-      padding:16px;
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:16px;
-    }
-
-    .ac-complaint-card{
-      border:1px solid var(--ac-line);
-      border-radius:20px;
-      background:#fff;
-      box-shadow:0 10px 26px rgba(17,64,38,.045);
-      overflow:hidden;
-      display:grid;
-      align-content:start;
-    }
-
-    .ac-complaint-card[hidden]{display:none !important;}
-
-    .ac-complaint-head{
-      padding:15px;
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-      border-bottom:1px solid var(--ac-line-2);
-      background:linear-gradient(180deg,#FFFFFF 0%,#F8FFFB 100%);
-    }
-
-    .ac-id{
-      color:var(--ac-green-dark);
-      font-size:.78rem;
-      font-weight:950;
-      letter-spacing:.06em;
-      text-transform:uppercase;
-    }
-
-    .ac-date{
-      display:block;
-      margin-top:4px;
-      color:var(--ac-muted);
-      font-size:.76rem;
-      font-weight:800;
-    }
-
-    .ac-status-stack{
-      display:flex;
-      gap:6px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
-    .ac-pill{
-      min-height:26px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      border-radius:999px;
-      padding:0 9px;
-      font-size:.68rem;
-      font-weight:950;
-      letter-spacing:.035em;
-      text-transform:uppercase;
-      border:1px solid rgba(0,168,89,.16);
-      background:var(--ac-green-soft);
-      color:var(--ac-green-dark);
-    }
-
-    .ac-pill.store{background:var(--ac-orange-soft);color:#A66A00;border-color:rgba(255,184,77,.32);}
-    .ac-pill.open{background:#FFF1F2;color:#B91C1C;border-color:#FECACA;}
-    .ac-pill.in_progress{background:#FFF7E8;color:#A66A00;border-color:#FED7AA;}
-    .ac-pill.resolved{background:var(--ac-green-soft);color:var(--ac-green-dark);}
-    .ac-pill.rejected{background:#FEF2F2;color:#B91C1C;border-color:#FECACA;}
-    .ac-pill.takeover{background:var(--ac-blue-soft);color:#0369A1;border-color:rgba(2,132,199,.18);}
-
-    .ac-complaint-body{
-      padding:15px;
-      display:grid;
-      gap:13px;
-    }
-
-    .ac-info-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .ac-info{
-      border:1px solid var(--ac-line-2);
-      border-radius:14px;
-      background:#FBFFFD;
-      padding:10px;
-      display:grid;
-      gap:4px;
-      min-width:0;
-    }
-
-    .ac-info span{
-      color:var(--ac-muted);
-      font-size:.68rem;
-      font-weight:950;
-      text-transform:uppercase;
-      letter-spacing:.045em;
-    }
-
-    .ac-info strong,
-    .ac-info a{
-      color:var(--ac-ink);
-      font-size:.84rem;
-      font-weight:900;
-      text-decoration:none;
-      overflow-wrap:anywhere;
-    }
-
-    .ac-message-box{
-      display:grid;
-      gap:8px;
-      color:var(--ac-text);
-      font-size:.86rem;
-      line-height:1.55;
-      font-weight:750;
-    }
-
-    .ac-message-box h3{
-      margin:0;
-      color:var(--ac-ink);
-      font-size:1rem;
-      line-height:1.25;
-      font-weight:950;
-      overflow-wrap:anywhere;
-    }
-
-    .ac-note{
-      display:grid;
-      gap:4px;
-      border-radius:14px;
-      background:#F8FAFC;
-      border:1px solid #E2E8F0;
-      padding:10px;
-      color:#475569;
-      font-size:.8rem;
-      line-height:1.45;
-      font-weight:780;
-      overflow-wrap:anywhere;
-    }
-
-    .ac-evidence{
-      width:82px;
-      height:82px;
-      border-radius:14px;
-      border:1px solid var(--ac-line);
-      object-fit:cover;
-      background:#fff;
-      box-shadow:0 8px 20px rgba(17,64,38,.06);
-    }
-
-    .ac-complaint-actions{
-      padding:15px;
-      border-top:1px solid var(--ac-line-2);
-      background:#FBFFFD;
-    }
-
-    .ac-admin-form,
-    .ac-takeover-form{
-      display:grid;
-      gap:10px;
-    }
-
-    .ac-admin-form .ac-form-row{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-    }
-
-    .ac-admin-form select,
-    .ac-admin-form textarea,
-    .ac-takeover-form textarea{
-      width:100%;
-      border:1px solid var(--ac-line);
-      border-radius:14px;
-      background:#fff;
-      color:var(--ac-ink);
-      outline:none;
-      font-size:.84rem;
-      font-weight:800;
-    }
-
-    .ac-admin-form select{
-      height:42px;
-      padding:0 11px;
-    }
-
-    .ac-admin-form textarea,
-    .ac-takeover-form textarea{
-      min-height:84px;
-      padding:10px 11px;
-      resize:vertical;
-      line-height:1.45;
-    }
-
-    .ac-view-only{
-      display:grid;
-      gap:10px;
-      border:1px solid rgba(255,184,77,.34);
-      border-radius:16px;
-      background:#FFF8E8;
-      color:#7C4A03;
-      padding:12px;
-      font-size:.82rem;
-      line-height:1.45;
-      font-weight:800;
-    }
-
-    .ac-view-only strong{
-      color:#A66A00;
-      font-weight:950;
-    }
-
-    .ac-empty{
-      margin:16px;
-      border:1px dashed rgba(0,168,89,.28);
-      border-radius:18px;
-      background:#fff;
-      padding:28px 16px;
-      text-align:center;
-      color:var(--ac-muted);
-      font-size:.9rem;
-      font-weight:850;
-    }
-
-    .ac-pagination{
-      margin:0 16px 16px;
-      border:1px solid var(--ac-line);
-      border-radius:18px;
-      background:#fff;
-      padding:12px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .ac-page-info{
-      color:var(--ac-muted);
-      font-size:.82rem;
-      font-weight:850;
-    }
-
-    .ac-page-buttons{
-      display:flex;
-      gap:7px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
-    .ac-page-btn{
-      min-width:38px;
-      min-height:38px;
-      border-radius:12px;
-      border:1px solid var(--ac-line);
-      background:#fff;
-      color:var(--ac-ink);
-      font-size:.78rem;
-      font-weight:950;
-      cursor:pointer;
-    }
-
-    .ac-page-btn.active,
-    .ac-page-btn:hover:not(:disabled){
-      background:var(--ac-green);
-      border-color:var(--ac-green);
-      color:#fff;
-    }
-
-    .ac-page-btn:disabled{
-      opacity:.45;
-      cursor:not-allowed;
-    }
-
-    @media(max-width:1280px){
-      .ac-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
-      .ac-list{grid-template-columns:1fr;}
-    }
-
-    @media(max-width:900px){
-      .ac-toolbar{grid-template-columns:1fr 1fr;}
-      .ac-count-line{align-items:flex-start;flex-direction:column;}
-      .ac-info-grid{grid-template-columns:1fr;}
-    }
-
-    @media(max-width:640px){
-      .ac-hero{padding:16px;border-radius:20px;}
-      .ac-hero-top{display:grid;grid-template-columns:1fr;}
-      .ac-actions{justify-content:stretch;}
-      .ac-actions .ac-btn{width:100%;}
-      .ac-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-      .ac-kpi{min-height:86px;padding:13px;}
-      .ac-kpi strong{font-size:1.45rem;}
-      .ac-toolbar{grid-template-columns:1fr;padding:12px;}
-      .ac-list{padding:12px;gap:12px;}
-      .ac-complaint-head{display:grid;grid-template-columns:1fr;}
-      .ac-status-stack{justify-content:flex-start;}
-      .ac-admin-form .ac-form-row{grid-template-columns:1fr;}
-      .ac-pagination{justify-content:center;text-align:center;}
-      .ac-page-info,.ac-page-buttons{width:100%;justify-content:center;}
-    }
-
-    @media(max-width:420px){
-      .ac-kpi-grid{grid-template-columns:1fr;}
-    }
-
-    @media(hover:none) and (pointer:coarse){
-      .ac-btn:hover,
-      .admin-complaints-page button:hover{transform:none;}
-    }
-  </style>
-
   <div class="ac-hero">
     <div class="ac-hero-top">
-      <div>
-        <span class="ac-kicker">Admin Complaints</span>
-        <h1 class="ac-title">Complaint Management</h1>
-        <p class="ac-subtitle">
-          Admin can update direct NE LOCALS complaints. Store complaints remain view-only unless Admin takes over the case for escalation.
-        </p>
+      <div class="ac-heading-copy">
+        <h2 class="ac-title">Complaint workspace</h2>
+        <p class="ac-subtitle">Direct Admin cases can be updated here. Store cases remain view-only until Admin takes over the complaint.</p>
       </div>
       <div class="ac-actions">
         <a class="ac-btn" href="{{ url_for('admin_dashboard') }}">Dashboard</a>
@@ -585,17 +26,20 @@
 
     <div class="ac-kpi-grid" aria-label="Complaint metrics">
       <div class="ac-kpi"><span>Total</span><strong id="acKpiTotal">{{ complaint_metrics.total|default(complaints|length) }}</strong></div>
-      <div class="ac-kpi blue"><span>Admin Cases</span><strong>{{ complaint_metrics.admin|default(0) }}</strong></div>
-      <div class="ac-kpi orange"><span>Store Cases</span><strong>{{ complaint_metrics.store|default(0) }}</strong></div>
-      <div class="ac-kpi red"><span>Open</span><strong id="acKpiOpen">{{ complaint_metrics.open|default(0) }}</strong></div>
-      <div class="ac-kpi orange"><span>In Progress</span><strong id="acKpiProgress">{{ complaint_metrics.in_progress|default(0) }}</strong></div>
-      <div class="ac-kpi green"><span>Resolved</span><strong id="acKpiResolved">{{ complaint_metrics.resolved|default(0) }}</strong></div>
+      <div class="ac-kpi"><span>Admin cases</span><strong>{{ complaint_metrics.admin|default(0) }}</strong></div>
+      <div class="ac-kpi"><span>Store cases</span><strong>{{ complaint_metrics.store|default(0) }}</strong></div>
+      <div class="ac-kpi attention"><span>Open</span><strong id="acKpiOpen">{{ complaint_metrics.open|default(0) }}</strong></div>
+      <div class="ac-kpi warning"><span>In progress</span><strong id="acKpiProgress">{{ complaint_metrics.in_progress|default(0) }}</strong></div>
+      <div class="ac-kpi success"><span>Resolved</span><strong id="acKpiResolved">{{ complaint_metrics.resolved|default(0) }}</strong></div>
     </div>
   </div>
 
   <div class="ac-card">
     <div class="ac-toolbar">
-      <input id="acSearch" class="ac-search" type="search" placeholder="Search complaint, customer, order, store, message...">
+      <div class="ac-search-wrap">
+        <span class="ac-search-icon" aria-hidden="true">⌕</span>
+        <input id="acSearch" class="ac-search" type="search" placeholder="Search complaint, customer, order, store or message">
+      </div>
       <select id="acTarget" class="ac-select" aria-label="Filter by target">
         <option value="">All targets</option>
         <option value="admin">NE LOCALS Admin</option>
@@ -616,7 +60,7 @@
       </select>
       <div class="ac-count-line">
         <span id="acResultText">Showing complaints</span>
-        <button type="button" id="acClear" class="ac-btn">Clear filters</button>
+        <button type="button" id="acClear" class="ac-btn quiet">Clear filters</button>
       </div>
     </div>
 
@@ -628,17 +72,20 @@
           {% set kind = (c.target_type or c.assigned_to or 'admin')|lower %}
           {% set admin_can_update = c.admin_can_update is sameas true %}
           {% set img_path = c.complaint_image_path or c.image_path or '' %}
-          {% set search_text = (c.id ~ ' ' ~ (c.customer_name or c.reporter_name or '') ~ ' ' ~ (c.customer_phone or '') ~ ' ' ~ (c.customer_email or '') ~ ' ' ~ (c.subject or c.title or '') ~ ' ' ~ (c.message or c.description or '') ~ ' ' ~ (c.store_name or '') ~ ' ' ~ (c.order_id or '') ~ ' ' ~ status_value ~ ' ' ~ kind)|lower %}
+          {% set linked_order_number = c.display_order_number or c.order_number or c.order_id or '' %}
+          {% set search_text = (c.id ~ ' ' ~ (c.customer_name or c.reporter_name or '') ~ ' ' ~ (c.customer_phone or '') ~ ' ' ~ (c.customer_email or '') ~ ' ' ~ (c.subject or c.title or '') ~ ' ' ~ (c.message or c.description or '') ~ ' ' ~ (c.store_name or '') ~ ' ' ~ linked_order_number ~ ' ' ~ status_value ~ ' ' ~ kind)|lower %}
 
           <article class="ac-complaint-card" data-complaint-card data-target="{{ kind }}" data-status="{{ status_value }}" data-search="{{ search_text|e }}">
             <div class="ac-complaint-head">
-              <div>
-                <div class="ac-id">C{{ c.id[-6:] if c.id else '-' }}</div>
-                <span class="ac-date">{{ c.created_at_display or c.created_at or '-' }}</span>
-                {% if c.updated_at_display %}<span class="ac-date">Updated: {{ c.updated_at_display }}</span>{% endif %}
+              <div class="ac-reference-block">
+                <div class="ac-id">Complaint · C{{ c.id[-6:] if c.id else '-' }}</div>
+                <div class="ac-date-line">
+                  <span>{{ c.created_at_display or c.created_at or '-' }}</span>
+                  {% if c.updated_at_display %}<span>Updated {{ c.updated_at_display }}</span>{% endif %}
+                </div>
               </div>
               <div class="ac-status-stack">
-                <span class="ac-pill {{ kind }}">{{ kind|upper }}</span>
+                <span class="ac-pill {{ kind }}">{{ 'Admin' if kind == 'admin' else 'Store' }}</span>
                 <span class="ac-pill {{ status_value }}">{{ status_value|replace('_',' ')|title }}</span>
                 {% if c.admin_takeover_status == 'TAKEN_OVER' %}<span class="ac-pill takeover">Taken Over</span>{% endif %}
               </div>
@@ -646,26 +93,50 @@
 
             <div class="ac-complaint-body">
               <div class="ac-info-grid">
-                <div class="ac-info"><span>Customer</span><strong>{{ c.customer_name or c.reporter_name or 'Customer' }}</strong>{% if c.customer_phone %}<a href="tel:{{ c.customer_phone }}">{{ c.customer_phone }}</a>{% endif %}{% if c.customer_email %}<a href="mailto:{{ c.customer_email }}">{{ c.customer_email }}</a>{% endif %}</div>
-                <div class="ac-info"><span>Target</span><strong>{{ c.assigned_label or c.store_name or 'NE FRESH Admin' }}</strong>{% if c.original_store_name %}<strong>Original: {{ c.original_store_name }}</strong>{% endif %}</div>
-                <div class="ac-info"><span>Order / Product</span><strong>{% if c.order_id %}#{{ c.order_id }}{% else %}No order linked{% endif %}</strong>{% if c.product_name %}<strong>{{ c.product_name }}</strong>{% endif %}</div>
-                <div class="ac-info"><span>Progress</span><strong>{{ progress_value|replace('_',' ')|title }}</strong>{% if c.complaint_type %}<strong>{{ c.complaint_type|replace('_',' ')|title }}</strong>{% endif %}</div>
+                <div class="ac-info">
+                  <span>Customer</span>
+                  <strong>{{ c.customer_name or c.reporter_name or 'Customer' }}</strong>
+                  <div class="ac-inline-meta">
+                    {% if c.customer_phone %}<a href="tel:{{ c.customer_phone }}">{{ c.customer_phone }}</a>{% endif %}
+                    {% if c.customer_email %}<a href="mailto:{{ c.customer_email }}">{{ c.customer_email }}</a>{% endif %}
+                  </div>
+                </div>
+                <div class="ac-info">
+                  <span>Assigned to</span>
+                  <strong>{{ c.assigned_label or c.store_name or 'NE FRESH Admin' }}</strong>
+                  {% if c.original_store_name %}<small>Original store: {{ c.original_store_name }}</small>{% endif %}
+                </div>
+                <div class="ac-info">
+                  <span>Order</span>
+                  <strong class="ac-order-number">{% if linked_order_number %}{{ linked_order_number }}{% else %}No order linked{% endif %}</strong>
+                  {% if c.product_name %}<small>{{ c.product_name }}</small>{% endif %}
+                </div>
+                <div class="ac-info">
+                  <span>Progress</span>
+                  <strong>{{ progress_value|replace('_',' ')|title }}</strong>
+                  {% if c.complaint_type %}<small>{{ c.complaint_type|replace('_',' ')|title }}</small>{% endif %}
+                </div>
               </div>
 
               <div class="ac-message-box">
                 <h3>{{ c.subject or c.title or 'Complaint details' }}</h3>
-                <div>{{ c.message or c.description or '-' }}</div>
+                <div class="ac-message">{{ c.message or c.description or '-' }}</div>
                 {% if img_path %}
-                  <a href="{% if img_path[:1] == '/' %}{{ img_path }}{% else %}/{{ img_path }}{% endif %}" target="_blank" rel="noopener">
+                  <a class="ac-evidence-link" href="{% if img_path[:1] == '/' %}{{ img_path }}{% else %}/{{ img_path }}{% endif %}" target="_blank" rel="noopener">
                     <img class="ac-evidence" src="{% if img_path[:1] == '/' %}{{ img_path }}{% else %}/{{ img_path }}{% endif %}" alt="Complaint evidence">
+                    <span>View evidence</span>
                   </a>
                 {% endif %}
               </div>
 
-              {% if c.admin_reply %}<div class="ac-note"><strong>Admin Reply</strong>{{ c.admin_reply }}</div>{% endif %}
-              {% if c.admin_progress_note %}<div class="ac-note"><strong>Admin Note</strong>{{ c.admin_progress_note }}</div>{% endif %}
-              {% if c.store_reply %}<div class="ac-note"><strong>Store Reply</strong>{{ c.store_reply }}</div>{% endif %}
-              {% if c.store_progress_note %}<div class="ac-note"><strong>Store Note</strong>{{ c.store_progress_note }}</div>{% endif %}
+              {% if c.admin_reply or c.admin_progress_note or c.store_reply or c.store_progress_note %}
+              <div class="ac-notes-grid">
+                {% if c.admin_reply %}<div class="ac-note"><strong>Admin reply</strong><span>{{ c.admin_reply }}</span></div>{% endif %}
+                {% if c.admin_progress_note %}<div class="ac-note"><strong>Admin note</strong><span>{{ c.admin_progress_note }}</span></div>{% endif %}
+                {% if c.store_reply %}<div class="ac-note"><strong>Store reply</strong><span>{{ c.store_reply }}</span></div>{% endif %}
+                {% if c.store_progress_note %}<div class="ac-note"><strong>Store note</strong><span>{{ c.store_progress_note }}</span></div>{% endif %}
+              </div>
+              {% endif %}
             </div>
 
             <div class="ac-complaint-actions">
@@ -673,30 +144,28 @@
                 <form class="ac-admin-form" method="post" action="{{ url_for('admin_complaint_set_status', cid=c.id) }}">
                   {{ csrf_field()|safe }}
                   <div class="ac-form-row">
-                    <select name="status" required>
+                    <label><span>Status</span><select name="status" required>
                       <option value="open" {% if status_value == 'open' %}selected{% endif %}>Open</option>
                       <option value="in_progress" {% if status_value == 'in_progress' %}selected{% endif %}>In Progress</option>
                       <option value="resolved" {% if status_value == 'resolved' %}selected{% endif %}>Resolved</option>
                       <option value="rejected" {% if status_value == 'rejected' %}selected{% endif %}>Rejected</option>
-                    </select>
-
-                    <select name="progress_status" required>
+                    </select></label>
+                    <label><span>Progress</span><select name="progress_status" required>
                       <option value="received" {% if progress_value == 'received' %}selected{% endif %}>Received</option>
                       <option value="in_progress" {% if progress_value == 'in_progress' %}selected{% endif %}>In Progress</option>
                       <option value="resolved" {% if progress_value == 'resolved' %}selected{% endif %}>Resolved</option>
                       <option value="rejected" {% if progress_value == 'rejected' %}selected{% endif %}>Rejected</option>
-                    </select>
+                    </select></label>
                   </div>
-
-                  <textarea name="admin_reply" placeholder="Reply to customer">{{ c.admin_reply or '' }}</textarea>
-                  <textarea name="admin_progress_note" placeholder="Internal admin note">{{ c.admin_progress_note or '' }}</textarea>
-                  <button type="submit" class="primary">Update Complaint</button>
+                  <div class="ac-form-row textareas">
+                    <label><span>Customer reply</span><textarea name="admin_reply" placeholder="Reply to customer">{{ c.admin_reply or '' }}</textarea></label>
+                    <label><span>Internal note</span><textarea name="admin_progress_note" placeholder="Internal admin note">{{ c.admin_progress_note or '' }}</textarea></label>
+                  </div>
+                  <div class="ac-form-actions"><button type="submit" class="primary">Update Complaint</button></div>
                 </form>
               {% else %}
                 <div class="ac-view-only">
-                  <strong>Store complaint</strong>
-                  <span>This complaint is assigned to the store. Admin can only view it unless it is taken over.</span>
-
+                  <div><strong>Store-managed complaint</strong><span>View-only until Admin takes over this case.</span></div>
                   <form class="ac-takeover-form" method="post" action="{{ url_for('admin_complaint_takeover', cid=c.id) }}">
                     {{ csrf_field()|safe }}
                     <textarea name="takeover_reason" placeholder="Reason for Admin takeover / escalation"></textarea>
@@ -710,7 +179,6 @@
       </div>
 
       <div class="ac-empty" id="acNoResults" hidden>No complaints found for the selected filters.</div>
-
       <div class="ac-pagination" id="acPagination" hidden>
         <div class="ac-page-info" id="acPageInfo">Showing complaints</div>
         <div class="ac-page-buttons" id="acPageButtons"></div>

@@ -1,257 +1,202 @@
-/* NE FRESH view-state persistence
-   Keeps page display position stable when users refresh, reload, go forward/back,
-   or return from another internal page. It is intentionally UI-only and does not
-   change backend routes, forms, submissions, filters, or business logic. */
-(function () {
+/* NE LOCALS global view-state contract
+   Normal navigation/reload/back-forward starts at the top.
+   Only an explicit form/data action may restore its prior page position once. */
+(function(){
   'use strict';
 
-  var STORAGE_PREFIX = 'nefresh:view-state:v2:';
-  var VIEW_BOOT_CLASS = 'nf-view-boot';
-  var RESTORE_CLASS = 'nf-restore-pending';
-  var VIEW_READY_CLASS = 'nf-view-ready';
-  var SAVE_THROTTLE_MS = 160;
-  var MAX_AGE_MS = 1000 * 60 * 60 * 8;
-  var saveTimer = null;
-  var restoreReleased = false;
+  var ACTION_KEY='nefresh:action-view:v1';
+  var LEGACY_PREFIX='nefresh:view-state:v2:';
+  var LEGACY_STORE_PREFIX='neFreshStoreViewState:';
+  var ACTION_TTL_MS=1000*60*3;
+  var READY_CLASS='nf-view-ready';
+  var PENDING_CLASS='nf-action-restore-pending';
+  var TOP_THRESHOLD=420;
 
-  function now() {
-    return Date.now ? Date.now() : new Date().getTime();
+  function now(){return Date.now?Date.now():(new Date()).getTime();}
+  function safeGet(key){try{return window.sessionStorage?sessionStorage.getItem(key):null;}catch(_){return null;}}
+  function safeSet(key,value){try{if(window.sessionStorage)sessionStorage.setItem(key,value);}catch(_){}}
+  function safeRemove(key){try{if(window.sessionStorage)sessionStorage.removeItem(key);}catch(_){}}
+
+  function clearLegacyViewState(){
+    try{
+      if(!window.sessionStorage)return;
+      var keys=[];
+      for(var i=0;i<sessionStorage.length;i+=1){
+        var key=sessionStorage.key(i);
+        if(!key)continue;
+        if(key.indexOf(LEGACY_PREFIX)===0||key.indexOf(LEGACY_STORE_PREFIX)===0)keys.push(key);
+      }
+      keys.forEach(function(key){sessionStorage.removeItem(key);});
+    }catch(_){}
   }
 
-  function pageKey() {
-    return STORAGE_PREFIX + window.location.pathname + window.location.search;
-  }
-
-  function safeSessionGet(key) {
-    try { return window.sessionStorage ? sessionStorage.getItem(key) : null; }
-    catch (_) { return null; }
-  }
-
-  function safeSessionSet(key, value) {
-    try { if (window.sessionStorage) sessionStorage.setItem(key, value); }
-    catch (_) {}
-  }
-
-  function parseState() {
-    var raw = safeSessionGet(pageKey());
-    if (!raw) return null;
-
-    try {
-      var state = JSON.parse(raw);
-      if (!state || !state.t || (now() - state.t) > MAX_AGE_MS) return null;
+  function parseActionState(){
+    var raw=safeGet(ACTION_KEY);
+    if(!raw)return null;
+    try{
+      var state=JSON.parse(raw);
+      if(!state||!state.t||!state.path){safeRemove(ACTION_KEY);return null;}
+      if((now()-Number(state.t))>ACTION_TTL_MS){safeRemove(ACTION_KEY);return null;}
       return state;
-    } catch (_) {
-      return null;
+    }catch(_){safeRemove(ACTION_KEY);return null;}
+  }
+
+  function absoluteTop(el){
+    if(!el||!el.getBoundingClientRect)return 0;
+    return el.getBoundingClientRect().top+(window.pageYOffset||0);
+  }
+
+  function anchorForForm(form){
+    if(!form||!form.closest)return null;
+    var anchor=form.closest('[data-action-view-anchor], [id]');
+    if(!anchor||!anchor.id)return null;
+    return {id:anchor.id,offset:Math.round((window.pageYOffset||0)-absoluteTop(anchor))};
+  }
+
+  function rememberAction(form){
+    if(form&&form.closest&&form.closest('[data-view-state-managed="page"]'))return;
+    if(form&&form.matches&&form.matches('[data-no-view-persist]'))return;
+    var anchor=anchorForForm(form);
+    safeSet(ACTION_KEY,JSON.stringify({
+      t:now(),
+      path:window.location.pathname,
+      y:Math.max(0,Math.round(window.pageYOffset||document.documentElement.scrollTop||0)),
+      anchorId:anchor?anchor.id:'',
+      anchorOffset:anchor?anchor.offset:0
+    }));
+  }
+
+  function restoreTargetY(state){
+    if(state&&state.anchorId){
+      var anchor=document.getElementById(state.anchorId);
+      if(anchor)return Math.max(0,Math.round(absoluteTop(anchor)+Number(state.anchorOffset||0)));
     }
+    return Math.max(0,Math.round(Number(state&&state.y||0)));
   }
 
-  function indexedKey(prefix, el, index) {
-    if (el && el.id) return prefix + ':#' + el.id;
-    return prefix + ':' + index;
+  function reveal(){
+    document.documentElement.classList.remove(PENDING_CLASS,'nf-view-boot','nf-restore-pending');
+    document.documentElement.classList.add(READY_CLASS);
   }
 
-  function scrollContainers() {
-    var selectors = [
-      '.nf-sidebar-scroll',
-      '.nf-content',
-      '.nf-main',
-      '.table-responsive',
-      '.table-wrap',
-      '.table-container',
-      '.nf-table-wrap',
-      '.admin-table-wrap',
-      '.store-table-wrap',
-      '.orders-table-wrap',
-      '.order-table-wrap',
-      '.scroll-table',
-      '.scroll-area',
-      '.scroll-box',
-      '.overflow-auto',
-      '[data-persist-scroll]',
-      '[data-restore-scroll]'
-    ];
-
-    var seen = [];
-    var out = [];
-
-    selectors.forEach(function (selector) {
-      document.querySelectorAll(selector).forEach(function (el) {
-        if (!el || seen.indexOf(el) !== -1) return;
-        seen.push(el);
-        out.push(el);
-      });
+  function waitForStylesBeforeReveal(callback){
+    var links=Array.prototype.slice.call(document.querySelectorAll('head link[rel="stylesheet"]'));
+    var pending=links.filter(function(link){
+      try{return !link.sheet;}catch(_){return true;}
     });
-
-    return out;
+    var finished=false;
+    var remaining=pending.length;
+    function done(){
+      if(finished)return;
+      finished=true;
+      requestAnimationFrame(function(){requestAnimationFrame(callback);});
+    }
+    if(!remaining){done();return;}
+    function settle(){remaining-=1;if(remaining<=0)done();}
+    pending.forEach(function(link){
+      link.addEventListener('load',settle,{once:true});
+      link.addEventListener('error',settle,{once:true});
+    });
+    window.setTimeout(done,5000);
   }
 
-  function openGroups() {
-    var groups = [];
-    document.querySelectorAll('details[open], .nf-dropdown.open, .dropdown.open').forEach(function (el, index) {
-      groups.push(indexedKey('open', el, index));
-    });
-    return groups;
+  function scrollTopNow(){
+    try{window.scrollTo({top:0,left:0,behavior:'auto'});}catch(_){window.scrollTo(0,0);}
   }
 
-  function collectState() {
-    var containerState = {};
+  function scrollToExplicitHash(){
+    var hash=window.location.hash||'';
+    if(!hash||hash==='#')return false;
+    var target=null;
+    try{target=document.querySelector(hash);}catch(_){target=null;}
+    if(!target)return false;
+    var top=absoluteTop(target);
+    var header=document.querySelector('.nf-topbar, .header-strip, header, .navbar');
+    var offset=header?header.offsetHeight+12:12;
+    try{window.scrollTo({top:Math.max(0,top-offset),left:0,behavior:'auto'});}catch(_){window.scrollTo(0,Math.max(0,top-offset));}
+    return true;
+  }
 
-    scrollContainers().forEach(function (el, index) {
-      containerState[indexedKey('scroll', el, index)] = {
-        top: el.scrollTop || 0,
-        left: el.scrollLeft || 0
-      };
-    });
-
-    return {
-      t: now(),
-      x: window.scrollX || window.pageXOffset || 0,
-      y: window.scrollY || window.pageYOffset || 0,
-      hash: window.location.hash || '',
-      containers: containerState,
-      openGroups: openGroups()
+  function restoreOneShotAction(state){
+    if(!state||state.path!==window.location.pathname)return false;
+    safeRemove(ACTION_KEY);
+    var apply=function(){
+      var y=restoreTargetY(state);
+      try{window.scrollTo({top:y,left:0,behavior:'auto'});}catch(_){window.scrollTo(0,y);}
     };
+    requestAnimationFrame(function(){
+      apply();
+      requestAnimationFrame(function(){apply();reveal();});
+    });
+    window.setTimeout(function(){apply();reveal();},140);
+    return true;
   }
 
-  function saveStateNow() {
-    safeSessionSet(pageKey(), JSON.stringify(collectState()));
+  function initialisePagePosition(){
+    clearLegacyViewState();
+    var actionState=parseActionState();
+    if(actionState&&actionState.path===window.location.pathname){restoreOneShotAction(actionState);return;}
+    if(window.location.hash&&scrollToExplicitHash()){reveal();return;}
+    scrollTopNow();
+    reveal();
   }
 
-  function scheduleSave() {
-    if (saveTimer) return;
-    saveTimer = window.setTimeout(function () {
-      saveTimer = null;
-      saveStateNow();
-    }, SAVE_THROTTLE_MS);
+  function initialiseScrollTopButton(){
+    var existingLocal=document.querySelector('#backToTop, #termsBackToTop, #privacyBackToTop, #securityBackToTop, #helpBackToTop, .back-to-top, [data-back-to-top]');
+    if(existingLocal)return;
+    var button=document.createElement('button');
+    button.type='button';
+    button.className='nf-global-scroll-top';
+    button.setAttribute('aria-label','Scroll to top');
+    button.setAttribute('title','Back to top');
+    button.innerHTML='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    document.body.appendChild(button);
+    var raf=null;
+    function update(){raf=null;var y=window.pageYOffset||document.documentElement.scrollTop||0;button.classList.toggle('is-visible',y>TOP_THRESHOLD);}
+    function schedule(){if(raf)return;raf=requestAnimationFrame(update);}
+    button.addEventListener('click',function(){
+      var reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      try{window.scrollTo({top:0,left:0,behavior:reduced?'auto':'smooth'});}catch(_){window.scrollTo(0,0);}
+    });
+    window.addEventListener('scroll',schedule,{passive:true});
+    window.addEventListener('resize',schedule,{passive:true});
+    update();
   }
 
-  function releaseRestoreHold() {
-    if (restoreReleased) return;
-    restoreReleased = true;
-    document.documentElement.classList.remove(VIEW_BOOT_CLASS);
-    document.documentElement.classList.remove(RESTORE_CLASS);
-    document.documentElement.classList.add(VIEW_READY_CLASS);
-  }
+  try{if('scrollRestoration'in history)history.scrollRestoration='manual';}catch(_){}
 
-  function restoreOpenGroups(state) {
-    if (!state || !Array.isArray(state.openGroups)) return;
+  document.addEventListener('submit',function(event){
+    if(event.defaultPrevented)return;
+    var form=event.target;
+    if(!form||String(form.tagName||'').toLowerCase()!=='form')return;
+    rememberAction(form);
+  },false);
 
-    var saved = state.openGroups;
-    document.querySelectorAll('details, .nf-dropdown, .dropdown').forEach(function (el, index) {
-      var key = indexedKey('open', el, index);
-      if (saved.indexOf(key) === -1) return;
+  document.addEventListener('click',function(event){
+    var trigger=event.target&&event.target.closest?event.target.closest('[data-action-view-persist]'):null;
+    if(!trigger)return;
+    rememberAction(trigger.closest?trigger.closest('form'):null);
+  },false);
 
-      if (String(el.tagName).toLowerCase() === 'details') {
-        el.open = true;
-      } else {
-        el.classList.add('open');
-      }
+  window.NEFreshViewState={rememberAction:rememberAction,clearAction:function(){safeRemove(ACTION_KEY);},scrollTop:scrollTopNow};
+
+  function bootReady(){
+    waitForStylesBeforeReveal(function(){
+      initialisePagePosition();
+      initialiseScrollTopButton();
     });
   }
 
-  function restoreContainers(state) {
-    if (!state || !state.containers) return;
-
-    scrollContainers().forEach(function (el, index) {
-      var saved = state.containers[indexedKey('scroll', el, index)];
-      if (!saved) return;
-
-      if (typeof saved.top === 'number') el.scrollTop = saved.top;
-      if (typeof saved.left === 'number') el.scrollLeft = saved.left;
-    });
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',bootReady,{once:true});
+  }else{
+    bootReady();
   }
 
-  function restoreWindowPosition(state) {
-    var y = Number(state && state.y || 0);
-    var x = Number(state && state.x || 0);
-
-    if (y > 0 || x > 0) {
-      window.scrollTo(x, y);
-    } else if (state && state.hash && document.querySelector(state.hash)) {
-      try { document.querySelector(state.hash).scrollIntoView(); }
-      catch (_) {}
-    }
-  }
-
-  function restoreState() {
-    restoreReleased = false;
-
-    var state = parseState();
-    if (!state) {
-      releaseRestoreHold();
-      return;
-    }
-
-    restoreOpenGroups(state);
-
-    var tries = 0;
-    var maxTries = 12;
-
-    function applyRestore() {
-      tries += 1;
-      restoreContainers(state);
-      restoreWindowPosition(state);
-
-      /* Reveal after the first stable restore pass, then keep correcting quietly.
-         This prevents the visible top-page flash without holding a blank page too long. */
-      if (tries >= 2) {
-        releaseRestoreHold();
-      }
-
-      if (tries < maxTries) {
-        window.setTimeout(applyRestore, tries < 4 ? 40 : 120);
-      } else {
-        releaseRestoreHold();
-      }
-    }
-
-    window.requestAnimationFrame(function () {
-      applyRestore();
-      window.setTimeout(releaseRestoreHold, 650);
-    });
-  }
-
-  try {
-    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-  } catch (_) {}
-
-  window.addEventListener('scroll', scheduleSave, { passive: true });
-  document.addEventListener('scroll', scheduleSave, true);
-  document.addEventListener('input', scheduleSave, true);
-  document.addEventListener('change', scheduleSave, true);
-  document.addEventListener('submit', saveStateNow, true);
-
-  document.addEventListener('click', function (event) {
-    var link = event.target && event.target.closest ? event.target.closest('a[href]') : null;
-    if (!link) return;
-    try {
-      var target = new URL(link.getAttribute('href'), window.location.href);
-      if (target.origin === window.location.origin) saveStateNow();
-    } catch (_) {}
-  }, true);
-
-  window.addEventListener('pagehide', saveStateNow);
-  window.addEventListener('beforeunload', saveStateNow);
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'hidden') saveStateNow();
-  });
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', restoreState, { once: true });
-  } else {
-    restoreState();
-  }
-
-  window.addEventListener('pageshow', function () {
-    restoreState();
-  });
-
-
-  window.addEventListener('load', function () {
-    window.setTimeout(releaseRestoreHold, 450);
-  });
-
-  window.addEventListener('pageshow', function () {
-    window.setTimeout(releaseRestoreHold, 120);
+  window.addEventListener('pageshow',function(event){
+    if(!event.persisted)return;
+    var actionState=parseActionState();
+    if(actionState&&actionState.path===window.location.pathname){restoreOneShotAction(actionState);return;}
+    if(!window.location.hash)scrollTopNow();
   });
 })();

@@ -3,450 +3,12 @@
 {% set active_group = "delivery" %}
 {% set active_page = "delivery_history" %}
 
-{% block title %}In-house Delivery Staff History | NE FRESH Admin{% endblock %}
+{% block title %}In-house Delivery Staff History | NE LOCALS Admin{% endblock %}
 {% block page_title %}In-house Delivery Staff History{% endblock %}
 {% block page_subtitle %}Global delivery-boy-wise history across all stores, COD handling, earnings, failed deliveries and rider cancellations.{% endblock %}
 
 {% block extra_css %}
-<style>
-  .nf-admin-rider-history-page {
-    --arh-green: var(--nf-green, #00A859);
-    --arh-green-dark: var(--nf-green-dark, #008A48);
-    --arh-green-soft: var(--nf-green-soft, #E9FFF3);
-    --arh-green-soft-2: var(--nf-green-soft-2, #F3FFF8);
-    --arh-blue: var(--nf-blue, #0284C7);
-    --arh-red: var(--nf-red, #EF4444);
-    --arh-orange: #F59E0B;
-    --arh-card: var(--nf-surface, #FFFFFF);
-    --arh-card-2: var(--nf-surface-2, #F2FBF6);
-    --arh-text: var(--nf-text, #1F332A);
-    --arh-muted: var(--nf-muted, #66756D);
-    --arh-muted-2: var(--nf-muted-2, #8A9890);
-    --arh-line: var(--nf-line, #DDECE4);
-    --arh-shadow: var(--nf-shadow, 0 14px 36px rgba(17,64,38,.08));
-    --arh-shadow-soft: var(--nf-shadow-soft, 0 10px 26px rgba(17,64,38,.06));
-    display: grid;
-    gap: 20px;
-    animation: arhFade .38s ease both;
-  }
-
-  .nf-admin-rider-history-page,
-  .nf-admin-rider-history-page * {
-    box-sizing: border-box;
-  }
-
-  @keyframes arhFade {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .arh-hero,
-  .arh-card {
-    background: var(--arh-card);
-    border: 1px solid var(--arh-line);
-    border-radius: 24px;
-    box-shadow: var(--arh-shadow);
-    overflow: hidden;
-  }
-
-  .arh-hero {
-    position: relative;
-    padding: 24px;
-    background:
-      radial-gradient(circle at 8% 12%, rgba(0,168,89,.13), transparent 32%),
-      radial-gradient(circle at 92% 8%, rgba(2,132,199,.11), transparent 30%),
-      linear-gradient(135deg, #FFFFFF, var(--arh-card-2));
-  }
-
-  .arh-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 30px;
-    padding: 0 12px;
-    border-radius: 999px;
-    background: var(--arh-green-soft);
-    color: var(--arh-green-dark);
-    border: 1px solid rgba(0,168,89,.18);
-    font-size: .76rem;
-    font-weight: 900;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-  }
-
-  .arh-hero h2 {
-    margin: 12px 0 8px;
-    color: var(--arh-text);
-    font-size: clamp(1.55rem, 3vw, 2.35rem);
-    line-height: 1.08;
-    font-weight: 950;
-    letter-spacing: -.05em;
-  }
-
-  .arh-hero p {
-    margin: 0;
-    max-width: 980px;
-    color: var(--arh-muted);
-    font-size: .95rem;
-    font-weight: 650;
-    line-height: 1.65;
-  }
-
-  .arh-kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 14px;
-  }
-
-  .arh-kpi {
-    min-height: 112px;
-    padding: 18px;
-    border-radius: 22px;
-    background: var(--arh-card);
-    border: 1px solid var(--arh-line);
-    box-shadow: var(--arh-shadow-soft);
-    display: grid;
-    align-content: space-between;
-    gap: 10px;
-  }
-
-  .arh-kpi span {
-    color: var(--arh-muted);
-    font-size: .76rem;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: .055em;
-  }
-
-  .arh-kpi strong {
-    color: var(--arh-text);
-    font-size: clamp(1.2rem, 2.2vw, 1.78rem);
-    line-height: 1;
-    font-weight: 950;
-    letter-spacing: -.04em;
-  }
-
-  .arh-kpi small {
-    color: var(--arh-muted-2);
-    font-size: .76rem;
-    font-weight: 750;
-  }
-
-  .arh-filters {
-    padding: 18px;
-  }
-
-  .arh-filter-grid {
-    display: grid;
-    grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr 1fr auto;
-    gap: 12px;
-    align-items: end;
-  }
-
-  .arh-field {
-    display: grid;
-    gap: 7px;
-  }
-
-  .arh-field label {
-    color: var(--arh-muted);
-    font-size: .74rem;
-    font-weight: 900;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-  }
-
-  .arh-field input,
-  .arh-field select {
-    width: 100%;
-    min-height: 42px;
-    border-radius: 14px;
-    border: 1px solid var(--arh-line);
-    background: #fff;
-    color: var(--arh-text);
-    padding: 0 12px;
-    outline: none;
-    font-size: .86rem;
-    font-weight: 750;
-  }
-
-  .arh-field input:focus,
-  .arh-field select:focus {
-    border-color: rgba(0,168,89,.45);
-    box-shadow: 0 0 0 4px rgba(0,168,89,.10);
-  }
-
-  .arh-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .arh-btn {
-    min-height: 42px;
-    border: 1px solid var(--arh-line);
-    border-radius: 14px;
-    background: #fff;
-    color: var(--arh-text);
-    padding: 0 13px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    font-size: .82rem;
-    font-weight: 900;
-    text-decoration: none;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: .2s ease;
-  }
-
-  .arh-btn:hover {
-    border-color: rgba(0,168,89,.30);
-    color: var(--arh-green-dark);
-    box-shadow: 0 10px 22px rgba(17,64,38,.08);
-    transform: translateY(-1px);
-  }
-
-  .arh-btn.primary {
-    background: var(--arh-green);
-    border-color: var(--arh-green);
-    color: #fff;
-  }
-
-  .arh-section-head {
-    padding: 18px 18px 0;
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .arh-section-head h3 {
-    margin: 0;
-    color: var(--arh-text);
-    font-size: 1.05rem;
-    font-weight: 950;
-    letter-spacing: -.03em;
-  }
-
-  .arh-section-head p {
-    margin: 5px 0 0;
-    color: var(--arh-muted);
-    font-size: .84rem;
-    font-weight: 650;
-  }
-
-  .arh-table-wrap {
-    width: 100%;
-    overflow-x: auto;
-    padding: 18px;
-  }
-
-  .arh-table {
-    width: 100%;
-    min-width: 1280px;
-    border-collapse: separate;
-    border-spacing: 0;
-  }
-
-  .arh-table th {
-    background: var(--arh-card-2);
-    color: var(--arh-muted);
-    font-size: .7rem;
-    font-weight: 950;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    text-align: left;
-    padding: 12px;
-    border-top: 1px solid var(--arh-line);
-    border-bottom: 1px solid var(--arh-line);
-    white-space: nowrap;
-  }
-
-  .arh-table th:first-child {
-    border-left: 1px solid var(--arh-line);
-    border-top-left-radius: 16px;
-  }
-
-  .arh-table th:last-child {
-    border-right: 1px solid var(--arh-line);
-    border-top-right-radius: 16px;
-  }
-
-  .arh-table td {
-    padding: 13px 12px;
-    border-bottom: 1px solid var(--arh-line);
-    color: var(--arh-text);
-    font-size: .84rem;
-    font-weight: 750;
-    vertical-align: top;
-    background: #fff;
-  }
-
-  .arh-table tr:hover td {
-    background: #FBFFFD;
-  }
-
-  .arh-main-text {
-    display: block;
-    color: var(--arh-text);
-    font-weight: 950;
-  }
-
-  .arh-sub-text {
-    display: block;
-    margin-top: 3px;
-    color: var(--arh-muted);
-    font-size: .74rem;
-    font-weight: 700;
-  }
-
-  .arh-money {
-    font-weight: 950;
-    white-space: nowrap;
-  }
-
-  .arh-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 26px;
-    padding: 4px 9px;
-    border-radius: 999px;
-    font-size: .7rem;
-    font-weight: 950;
-    border: 1px solid var(--arh-line);
-    background: var(--arh-card-2);
-    color: var(--arh-muted);
-    white-space: nowrap;
-  }
-
-  .arh-pill.delivered {
-    background: var(--arh-green-soft);
-    color: var(--arh-green-dark);
-    border-color: rgba(0,168,89,.20);
-  }
-
-  .arh-pill.failed {
-    background: #FFF1F2;
-    color: #B91C1C;
-    border-color: rgba(239,68,68,.20);
-  }
-
-  .arh-pill.cancelled,
-  .arh-pill.rider_cancelled {
-    background: #FFF7E8;
-    color: #A84700;
-    border-color: rgba(245,158,11,.24);
-  }
-
-  .arh-pill.active,
-  .arh-pill.ready {
-    background: #E0F2FE;
-    color: #0369A1;
-    border-color: rgba(2,132,199,.20);
-  }
-
-  .arh-empty {
-    padding: 34px 18px;
-    text-align: center;
-    color: var(--arh-muted);
-    font-size: .92rem;
-    font-weight: 750;
-  }
-
-  .arh-mobile-list {
-    display: none;
-    padding: 0 18px 18px;
-    gap: 12px;
-  }
-
-  .arh-mobile-card {
-    padding: 16px;
-    border-radius: 20px;
-    background: #fff;
-    border: 1px solid var(--arh-line);
-    box-shadow: 0 10px 26px rgba(17,64,38,.06);
-    display: grid;
-    gap: 12px;
-  }
-
-  .arh-mobile-top {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: flex-start;
-  }
-
-  .arh-mobile-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .arh-mobile-metric {
-    padding: 10px;
-    border-radius: 14px;
-    background: var(--arh-card-2);
-    display: grid;
-    gap: 3px;
-  }
-
-  .arh-mobile-metric span {
-    color: var(--arh-muted);
-    font-size: .68rem;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-  }
-
-  .arh-mobile-metric strong {
-    color: var(--arh-text);
-    font-size: .88rem;
-    font-weight: 950;
-  }
-
-  @media (max-width: 1300px) {
-    .arh-kpi-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .arh-filter-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 760px) {
-    .arh-hero {
-      padding: 18px;
-    }
-
-    .arh-kpi-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .arh-filter-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .arh-table-wrap {
-      display: none;
-    }
-
-    .arh-mobile-list {
-      display: grid;
-    }
-  }
-
-  @media (max-width: 460px) {
-    .arh-kpi-grid,
-    .arh-mobile-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-delivery.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -506,7 +68,7 @@
 
     <div class="arh-kpi">
       <span>COD Handled</span>
-      <strong>₹{{ "%.2f"|format(metrics.cod_to_collect|default(0)|float) }}</strong>
+      <strong>₹{{ "%.2f"|format(metrics.cod_collected|default(0)|float) }}</strong>
       <small>Online-paid records show zero collection</small>
     </div>
 
@@ -658,7 +220,7 @@
                 <td>{{ rider.failed|default(0) }}</td>
                 <td>{{ rider.rider_cancelled|default(0) }}</td>
                 <td>{{ rider.active|default(0) }}</td>
-                <td class="arh-money">₹{{ "%.2f"|format(rider.cod_to_collect|default(0)|float) }}</td>
+                <td class="arh-money">₹{{ "%.2f"|format(rider.cod_collected|default(0)|float) }}</td>
                 <td class="arh-money">₹{{ "%.2f"|format(rider.delivery_fee|default(0)|float) }}</td>
                 <td class="arh-money">₹{{ "%.2f"|format(rider.tip|default(0)|float) }}</td>
                 <td class="arh-money">₹{{ "%.2f"|format(rider.delivery_earning|default(0)|float) }}</td>
@@ -690,7 +252,7 @@
               <div class="arh-mobile-metric"><span>Total</span><strong>{{ rider.total_orders|default(0) }}</strong></div>
               <div class="arh-mobile-metric"><span>Delivered</span><strong>{{ rider.delivered|default(0) }}</strong></div>
               <div class="arh-mobile-metric"><span>Failed</span><strong>{{ rider.failed|default(0) }}</strong></div>
-              <div class="arh-mobile-metric"><span>COD</span><strong>₹{{ "%.2f"|format(rider.cod_to_collect|default(0)|float) }}</strong></div>
+              <div class="arh-mobile-metric"><span>COD</span><strong>₹{{ "%.2f"|format(rider.cod_collected|default(0)|float) }}</strong></div>
               <div class="arh-mobile-metric"><span>Delivery + Tip</span><strong>₹{{ "%.2f"|format(rider.delivery_earning|default(0)|float) }}</strong></div>
             </div>
           </div>
@@ -720,7 +282,7 @@
               <th>Customer</th>
               <th>Status</th>
               <th>Payment</th>
-              <th>COD / Collect</th>
+              <th>COD Amount</th>
               <th>Total Payable</th>
               <th>Delivery Fee</th>
               <th>Platform Fee</th>
@@ -736,7 +298,7 @@
             {% for order in records %}
               <tr>
                 <td>
-                  <span class="arh-main-text">#{{ (order.id|string)[-6:] }}</span>
+                  <span class="arh-main-text">{{ order.order_number or order.display_order_number or ("#" ~ (order.id|string)[-6:]) }}</span>
                   <span class="arh-sub-text">{{ order.record_at or order.created_at or '-' }}</span>
                 </td>
                 <td>
@@ -757,9 +319,17 @@
                 </td>
                 <td>
                   <span class="arh-main-text">{{ order.payment_method or '-' }}</span>
+                  {% if order.is_cod_order and order.payment_collection_channel %}<span class="arh-sub-text">{{ order.collection_channel_label or order.payment_collection_channel }}</span>{% endif %}
                   <span class="arh-sub-text">{{ order.payment_status or '-' }}</span>
                 </td>
-                <td class="arh-money">₹{{ "%.2f"|format(order.amount_to_collect|default(0)|float) }}</td>
+                <td class="arh-money">
+                  {% if order.is_cod_order %}
+                    <span class="arh-main-text">₹{{ "%.2f"|format(order.cod_display_amount|default(0)|float) }}</span>
+                    <span class="arh-sub-text">{{ order.cod_display_label or "COD" }}</span>
+                  {% else %}
+                    <span class="arh-sub-text">—</span>
+                  {% endif %}
+                </td>
                 <td class="arh-money">₹{{ "%.2f"|format(order.total_payable|default(0)|float) }}</td>
                 <td class="arh-money">₹{{ "%.2f"|format(order.delivery_fee|default(0)|float) }}</td>
                 <td class="arh-money">₹{{ "%.2f"|format(order.platform_fee|default(0)|float) }}</td>
@@ -800,14 +370,14 @@
           <div class="arh-mobile-card">
             <div class="arh-mobile-top">
               <div>
-                <span class="arh-main-text">#{{ (order.id|string)[-6:] }} · {{ order.delivery_partner_name or 'Not assigned' }}</span>
+                <span class="arh-main-text">{{ order.order_number or order.display_order_number or ("#" ~ (order.id|string)[-6:]) }} · {{ order.delivery_partner_name or 'Not assigned' }}</span>
                 <span class="arh-sub-text">{{ order.store_name or 'Unknown Store' }} · {{ order.customer_name or 'Customer' }}</span>
               </div>
               <span class="arh-pill {{ order.history_type|default('record') }}">{{ order.history_label or order.status }}</span>
             </div>
 
             <div class="arh-mobile-grid">
-              <div class="arh-mobile-metric"><span>COD</span><strong>₹{{ "%.2f"|format(order.amount_to_collect|default(0)|float) }}</strong></div>
+              <div class="arh-mobile-metric"><span>COD</span><strong>{% if order.is_cod_order %}₹{{ "%.2f"|format(order.cod_display_amount|default(0)|float) }}{% else %}—{% endif %}</strong></div>
               <div class="arh-mobile-metric"><span>Total</span><strong>₹{{ "%.2f"|format(order.total_payable|default(0)|float) }}</strong></div>
               <div class="arh-mobile-metric"><span>Delivery</span><strong>₹{{ "%.2f"|format(order.delivery_fee|default(0)|float) }}</strong></div>
               <div class="arh-mobile-metric"><span>Tip</span><strong>₹{{ "%.2f"|format(order.tip_amount|default(0)|float) }}</strong></div>

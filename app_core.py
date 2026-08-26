@@ -4,7 +4,7 @@ import re
 import math
 from io import BytesIO
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from random import randint
 import csv, zipfile, json
 from datetime import date,datetime
@@ -1731,6 +1731,586 @@ def build_order_money_breakdown(items_total, delivery_fee=0, tip_amount=0, payme
     }
 
 
+# =========================================================
+# DELIVERY PARTNER MONTHLY PAYOUT MODEL
+# =========================================================
+# Customer/order money always remains business money. A delivery partner's
+# compensation is never deducted from Cash/UPI collections in MONTHLY_V1.
+# Delivery fee + tip accrue separately and are paid once per closed calendar month.
+DELIVERY_PAYOUT_MODEL_MONTHLY_V1 = "MONTHLY_V1"
+DELIVERY_PAYOUT_MODEL_NOT_REQUIRED = "NOT_REQUIRED"
+DELIVERY_MONTHLY_STATUS_PENDING_DELIVERY = "PENDING_DELIVERY"
+DELIVERY_MONTHLY_STATUS_ACCRUED = "MONTHLY_ACCRUED"
+DELIVERY_MONTHLY_STATUS_PAID = "PAID_MONTHLY"
+DELIVERY_MONTHLY_BATCH_STATUS_PAID = "PAID"
+
+_DELIVERY_SETTLEMENT_IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def delivery_monthly_period_from_utc(value=None):
+    """
+    Return YYYY-MM in India time for a delivery timestamp.
+
+    Existing order timestamps are mostly naive UTC ISO strings created with
+    datetime.utcnow().  Treat naive values as UTC before converting to IST so a
+    delivery just after midnight in India is assigned to the correct month.
+    """
+    dt = None
+
+    if isinstance(value, datetime):
+        dt = value
+    elif value not in [None, ""]:
+        raw = str(value).strip()
+        if raw:
+            try:
+                if raw.endswith("Z"):
+                    raw = raw[:-1] + "+00:00"
+                dt = datetime.fromisoformat(raw)
+            except Exception:
+                try:
+                    dt = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S")
+                except Exception:
+                    dt = None
+
+    if dt is None:
+        dt = datetime.utcnow().replace(tzinfo=timezone.utc)
+    elif dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+
+    return dt.astimezone(_DELIVERY_SETTLEMENT_IST).strftime("%Y-%m")
+
+
+def delivery_monthly_period_label(period):
+    try:
+        return datetime.strptime(str(period) + "-01", "%Y-%m-%d").strftime("%B %Y")
+    except Exception:
+        return str(period or "")
+
+
+def delivery_monthly_current_period():
+    return datetime.now(_DELIVERY_SETTLEMENT_IST).strftime("%Y-%m")
+
+
+def delivery_monthly_period_is_closed(period):
+    period = str(period or "").strip()
+    if not re.match(r"^\d{4}-\d{2}$", period):
+        return False
+    return period < delivery_monthly_current_period()
+
+
+def delivery_partner_id_values(value):
+    values = []
+    raw = str(value or "").strip()
+    if not raw:
+        return values
+
+    values.append(raw)
+    try:
+        if ObjectId.is_valid(raw):
+            values.append(ObjectId(raw))
+    except Exception:
+        pass
+    return values
+
+
+def delivery_order_uses_monthly_payout(order):
+    return (
+        isinstance(order, dict)
+        and (order.get("delivery_payout_model") or "").strip().upper() == DELIVERY_PAYOUT_MODEL_MONTHLY_V1
+    )
+
+
+FINANCE_PAYMENT_RECONCILED = "VERIFIED"
+FINANCE_PAYMENT_PENDING = "PENDING"
+FINANCE_STORE_ADJUSTMENT_OPEN = "OPEN"
+FINANCE_STORE_ADJUSTMENT_PARTIAL = "PARTIAL"
+FINANCE_STORE_ADJUSTMENT_APPLIED = "APPLIED"
+
+
+def finance_money(value, default=0.0):
+    try:
+        if value is None or str(value).strip() == "":
+            return round(float(default), 2)
+        return round(float(value), 2)
+    except Exception:
+        return round(float(default), 2)
+
+
+def finance_order_has_unresolved_refund(order):
+    """Return True only while a return/refund can still change the business payout."""
+    if not isinstance(order, dict):
+        return False
+
+    refund_status = (order.get("refund_status") or "").strip().upper()
+    return_status = (order.get("return_status") or "").strip().upper()
+
+    closed_refund = {
+        "", "NOT_REQUIRED", "PROCESSED", "ADJUSTED", "REJECTED", "VOID", "REFUNDED"
+    }
+    active_return = {
+        "RETURN_REQUESTED", "RETURN_PICKED_UP", "RETURNED_TO_STORE",
+        "STORE_APPROVED", "NEED_ADMIN_REVIEW", "ADMIN_RETURN_REVIEW_PENDING"
+    }
+
+    if refund_status and refund_status not in closed_refund:
+        return True
+    return return_status in active_return
+
+
+def finance_reconciliation_snapshot(order):
+    """
+    Canonical read-only interpretation of the customer-payment / business-money leg.
+
+    Customer/order money always belongs to Admin/Store/business. Delivery-partner
+    earnings are handled separately by the monthly payout model.
+    """
+    order = order or {}
+
+    payment_method = (order.get("payment_method") or "").strip().upper()
+    payment_status = (order.get("payment_status") or "").strip().upper()
+    payment_flow = (order.get("payment_flow") or order.get("official_payment_mode") or "").strip().upper()
+    active_mode = (order.get("active_delivery_mode") or "").strip().upper()
+    cod_method = (order.get("cod_collection_method") or "").strip().upper()
+    channel = (order.get("payment_collection_channel") or "").strip().upper()
+    payment_received_by = (order.get("payment_received_by") or "").strip().upper()
+    payment_reconciliation = (order.get("payment_reconciliation_status") or "").strip().upper()
+    upi_reconciliation = (order.get("upi_delivery_reconciliation_status") or "").strip().upper()
+    rider_cash_status = (order.get("rider_cash_settlement_status") or "").strip().upper()
+    partner_remittance = (order.get("external_cod_remittance_status") or "").strip().upper()
+    platform_fee_status = (order.get("platform_fee_status") or "").strip().upper()
+    store_payout_status = (order.get("store_payout_status") or "").strip().upper()
+    status = (order.get("status") or "").strip().upper()
+
+    paid_values = {"PAID", "ONLINE_PAID", "SUCCESS", "COMPLETED", "CAPTURED"}
+    verified_values = {"VERIFIED", "RECEIVED", "RECEIVED_BY_ADMIN", "SETTLED", "PAID"}
+
+    is_cod = payment_method in {"COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"}
+    is_online = payment_method in {"ONLINE", "ONLINE_PAYMENT", "RAZORPAY"}
+    store_collection = bool(
+        is_cod and (
+            cod_method == COD_COLLECTION_STORE
+            or payment_flow in {"COD_STORE_COLLECTION", "PAY_ON_DELIVERY_STORE_ONLINE"}
+            or payment_received_by == "STORE"
+        )
+    )
+    partner_collection = bool(
+        is_cod and (
+            cod_method == COD_COLLECTION_EXTERNAL_PARTNER
+            or payment_flow == "COD_PARTNER_COLLECTION"
+        )
+    )
+    in_house_upi = bool(is_cod and channel == "UPI" and not store_collection and not partner_collection)
+    in_house_cash = bool(is_cod and not store_collection and not partner_collection and not in_house_upi)
+
+    customer_reconciled = False
+    customer_status = "PENDING_PAYMENT"
+    receiver = "PENDING"
+    receiver_label = "Pending"
+    collection_label = "Pending"
+
+    if is_online:
+        customer_reconciled = payment_status in paid_values or payment_reconciliation in verified_values
+        customer_status = "VERIFIED" if customer_reconciled else "PENDING_PAYMENT"
+        receiver = "ADMIN_PLATFORM" if customer_reconciled else "PENDING"
+        receiver_label = "Admin / Platform" if customer_reconciled else "Pending"
+        collection_label = "Prepaid Online"
+    elif store_collection:
+        store_payment_recorded = bool(
+            payment_received_by == "STORE"
+            and (
+                payment_reconciliation in {"VERIFIED", "VERIFIED_AT_STORE", "STORE_CONFIRMED"}
+                or payment_status in paid_values
+                or (order.get("payment_collection_status") or "").strip().upper() in {"COLLECTED_BY_STORE", "PAID"}
+            )
+        )
+        customer_reconciled = store_payment_recorded
+        customer_status = "VERIFIED_AT_STORE" if customer_reconciled else "PENDING_STORE_COLLECTION"
+        receiver = "STORE" if customer_reconciled else "PENDING"
+        receiver_label = "Store" if customer_reconciled else "Pending Store Collection"
+        collection_label = "Pay on Delivery · Store"
+    elif partner_collection:
+        customer_reconciled = partner_remittance in verified_values
+        customer_status = "VERIFIED" if customer_reconciled else "PENDING_PARTNER_REMITTANCE"
+        receiver = "ADMIN_PLATFORM" if customer_reconciled else "EXTERNAL_PARTNER"
+        receiver_label = "Admin / Business" if customer_reconciled else "External Partner · Remittance Pending"
+        collection_label = "Pay on Delivery · External Partner"
+    elif in_house_upi:
+        customer_reconciled = upi_reconciliation == "VERIFIED"
+        customer_status = "VERIFIED" if customer_reconciled else "PENDING_UPI_VERIFICATION"
+        receiver = "ADMIN_PLATFORM" if customer_reconciled else "PENDING"
+        receiver_label = "Admin / Official UPI" if customer_reconciled else "Official UPI · Verification Pending"
+        collection_label = "Pay on Delivery · UPI"
+    elif in_house_cash:
+        customer_reconciled = rider_cash_status in verified_values
+        customer_status = "VERIFIED" if customer_reconciled else "PENDING_RIDER_CASH"
+        receiver = "ADMIN_PLATFORM" if customer_reconciled else "DELIVERY_PARTNER"
+        receiver_label = "Admin / Business" if customer_reconciled else "Delivery Partner · Cash Pending"
+        collection_label = "Pay on Delivery · Cash"
+    else:
+        customer_reconciled = payment_reconciliation in verified_values or payment_status in paid_values
+        customer_status = "VERIFIED" if customer_reconciled else "PENDING_PAYMENT"
+        receiver = payment_received_by or ("ADMIN_PLATFORM" if customer_reconciled else "PENDING")
+        receiver_label = receiver.replace("_", " ").title() if receiver else "Pending"
+        collection_label = payment_method.replace("_", " ").title() if payment_method else "Payment"
+
+    platform_fee = finance_money(order.get("platform_fee"), 0)
+    refund_platform_fee = finance_money(
+        order.get("refund_platform_fee")
+        if order.get("refund_platform_fee") is not None
+        else order.get("platform_fee_adjustment"),
+        0,
+    )
+    net_platform_fee = round(max(platform_fee - refund_platform_fee, 0), 2)
+
+    if net_platform_fee <= 0:
+        platform_reconciled = True
+        platform_status = "NOT_REQUIRED" if platform_fee <= 0 else "ADJUSTED"
+    elif platform_fee_status == "RECEIVED":
+        platform_reconciled = True
+        platform_status = "RECEIVED"
+    elif store_collection and customer_reconciled:
+        platform_reconciled = False
+        platform_status = "DUE_FROM_STORE"
+    elif partner_collection and not customer_reconciled:
+        platform_reconciled = False
+        platform_status = "PENDING_PARTNER_REMITTANCE"
+    elif in_house_upi and not customer_reconciled:
+        platform_reconciled = False
+        platform_status = "PENDING_UPI_VERIFICATION"
+    elif in_house_cash and not customer_reconciled:
+        platform_reconciled = False
+        platform_status = "PENDING_RIDER_CASH"
+    elif is_online and not customer_reconciled:
+        platform_reconciled = False
+        platform_status = "PENDING_PAYMENT"
+    elif customer_reconciled:
+        # Admin/official business received the customer payment, so the Platform Fee
+        # is already part of business money for every non-Store-direct collection.
+        platform_reconciled = True
+        platform_status = "RECEIVED"
+    else:
+        platform_reconciled = False
+        platform_status = platform_fee_status or "PENDING_PAYMENT_RECONCILIATION"
+
+    store_payout_required = not store_collection
+    if store_collection and customer_reconciled:
+        store_payout_status_effective = "NOT_REQUIRED"
+    else:
+        store_payout_status_effective = store_payout_status or "PENDING_AFTER_DELIVERY"
+
+    unresolved_refund = finance_order_has_unresolved_refund(order)
+    store_payout_eligible = bool(
+        status == "DELIVERED"
+        and store_payout_required
+        and customer_reconciled
+        and not unresolved_refund
+        and store_payout_status_effective not in {"PAID", "SETTLED", "PROCESSING", "NOT_REQUIRED"}
+    )
+
+    if store_collection and not customer_reconciled:
+        payout_block_reason = "Store is configured to receive the customer payment directly. Record/reconcile that customer payment; Admin Store payout is not required."
+    elif not store_payout_required:
+        payout_block_reason = "Store already received the customer payment directly. Admin Store payout is not required."
+    elif not customer_reconciled:
+        payout_block_reason = "Customer payment must be reconciled to the business before Store payout."
+    elif unresolved_refund:
+        payout_block_reason = "Resolve the active return/refund before Store payout."
+    elif store_payout_status_effective in {"PAID", "SETTLED"}:
+        payout_block_reason = "Store payout is already settled."
+    elif store_payout_status_effective == "PROCESSING":
+        payout_block_reason = "Store payout is currently being processed."
+    else:
+        payout_block_reason = ""
+
+    return {
+        "payment_method": payment_method,
+        "payment_flow": payment_flow,
+        "active_delivery_mode": active_mode,
+        "cod_collection_method": cod_method,
+        "collection_channel": channel,
+        "collection_label": collection_label,
+        "customer_payment_reconciled": bool(customer_reconciled),
+        "payment_reconciliation_status": customer_status,
+        "payment_receiver": receiver,
+        "payment_receiver_label": receiver_label,
+        "is_store_collection": bool(store_collection),
+        "is_partner_collection": bool(partner_collection),
+        "is_in_house_upi": bool(in_house_upi),
+        "is_in_house_cash": bool(in_house_cash),
+        "platform_fee": platform_fee,
+        "refund_platform_fee": refund_platform_fee,
+        "net_platform_fee": net_platform_fee,
+        "platform_fee_reconciled": bool(platform_reconciled),
+        "platform_fee_reconciliation_status": platform_status,
+        "business_reconciliation_complete": bool(customer_reconciled and platform_reconciled),
+        "store_payout_required": bool(store_payout_required),
+        "store_payout_status": store_payout_status_effective,
+        "store_payout_eligible": bool(store_payout_eligible),
+        "store_payout_block_reason": payout_block_reason,
+        "refund_unresolved": bool(unresolved_refund),
+    }
+
+
+def finance_store_id_values(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return []
+    values = [raw]
+    try:
+        if ObjectId.is_valid(raw):
+            values.append(ObjectId(raw))
+    except Exception:
+        pass
+    return values
+
+
+def finance_create_store_adjustment(order, amount, reason="REFUND_AFTER_STORE_RECEIPT", actor=None):
+    """Create one idempotent carry-forward Store adjustment for a source order."""
+    order = order or {}
+    amount = finance_money(amount, 0)
+    if amount <= 0:
+        return None
+
+    store_id = order.get("store_id")
+    source_order_id = str(order.get("_id") or order.get("id") or "")
+    if not store_id or not source_order_id:
+        return None
+
+    actor = actor or {}
+    now = datetime.utcnow().isoformat()
+    key = f"STORE_REFUND_ADJUSTMENT:{source_order_id}"
+    doc = {
+        "adjustment_key": key,
+        "store_id": store_id,
+        "store_id_str": str(store_id),
+        "store_name": order.get("store_name") or "",
+        "source_order_id": source_order_id,
+        "source_order_number": order.get("order_number") or "",
+        "type": "REFUND_RECOVERY",
+        "reason": reason,
+        "original_amount": amount,
+        "remaining_amount": amount,
+        "applied_amount": 0.0,
+        "status": FINANCE_STORE_ADJUSTMENT_OPEN,
+        "applications": [],
+        "created_at": now,
+        "created_by": str(actor.get("id") or actor.get("_id") or ""),
+        "created_by_name": actor.get("name") or actor.get("email") or "Admin",
+        "updated_at": now,
+    }
+
+    mongo.store_finance_adjustments.update_one(
+        {"adjustment_key": key},
+        {"$setOnInsert": doc},
+        upsert=True,
+    )
+    return mongo.store_finance_adjustments.find_one({"adjustment_key": key})
+
+
+def finance_store_outstanding_adjustment_total(store_id):
+    values = finance_store_id_values(store_id)
+    if not values:
+        return 0.0
+    docs = mongo.store_finance_adjustments.find({
+        "$or": [{"store_id": {"$in": values}}, {"store_id_str": str(store_id)}],
+        "status": {"$in": [FINANCE_STORE_ADJUSTMENT_OPEN, FINANCE_STORE_ADJUSTMENT_PARTIAL]},
+        "remaining_amount": {"$gt": 0},
+    })
+    return round(sum(finance_money(d.get("remaining_amount"), 0) for d in docs), 2)
+
+
+def finance_apply_store_adjustments(store_id, payout_order_id, available_amount, actor=None):
+    """
+    Apply oldest carry-forward Store adjustments against a current Admin payout.
+    Uses compare-and-set on remaining_amount to avoid double application.
+    """
+    available_amount = finance_money(available_amount, 0)
+    if available_amount <= 0:
+        return 0.0, []
+
+    values = finance_store_id_values(store_id)
+    if not values:
+        return 0.0, []
+
+    actor = actor or {}
+    total_applied = 0.0
+    applications = []
+    remaining_budget = available_amount
+
+    candidates = list(mongo.store_finance_adjustments.find({
+        "$or": [{"store_id": {"$in": values}}, {"store_id_str": str(store_id)}],
+        "status": {"$in": [FINANCE_STORE_ADJUSTMENT_OPEN, FINANCE_STORE_ADJUSTMENT_PARTIAL]},
+        "remaining_amount": {"$gt": 0},
+    }).sort("created_at", 1))
+
+    for candidate in candidates:
+        if remaining_budget <= 0:
+            break
+
+        adj_id = candidate.get("_id")
+        current_remaining = finance_money(candidate.get("remaining_amount"), 0)
+        if current_remaining <= 0:
+            continue
+
+        apply_amount = round(min(current_remaining, remaining_budget), 2)
+        new_remaining = round(current_remaining - apply_amount, 2)
+        new_applied = round(finance_money(candidate.get("applied_amount"), 0) + apply_amount, 2)
+        new_status = FINANCE_STORE_ADJUSTMENT_APPLIED if new_remaining <= 0 else FINANCE_STORE_ADJUSTMENT_PARTIAL
+        now = datetime.utcnow().isoformat()
+        application = {
+            "payout_order_id": str(payout_order_id or ""),
+            "amount": apply_amount,
+            "applied_at": now,
+            "applied_by": str(actor.get("id") or actor.get("_id") or ""),
+            "applied_by_name": actor.get("name") or actor.get("email") or "Admin",
+        }
+
+        result = mongo.store_finance_adjustments.update_one(
+            {
+                "_id": adj_id,
+                "remaining_amount": current_remaining,
+                "status": {"$in": [FINANCE_STORE_ADJUSTMENT_OPEN, FINANCE_STORE_ADJUSTMENT_PARTIAL]},
+            },
+            {
+                "$set": {
+                    "remaining_amount": new_remaining,
+                    "applied_amount": new_applied,
+                    "status": new_status,
+                    "updated_at": now,
+                },
+                "$push": {"applications": application},
+            },
+        )
+
+        if result.modified_count != 1:
+            continue
+
+        total_applied = round(total_applied + apply_amount, 2)
+        remaining_budget = round(remaining_budget - apply_amount, 2)
+        applications.append({
+            "adjustment_id": str(adj_id),
+            "source_order_id": candidate.get("source_order_id") or "",
+            "amount": apply_amount,
+            "remaining_after": new_remaining,
+        })
+
+        source_oid = candidate.get("source_order_id")
+        try:
+            source_oid_obj = ObjectId(str(source_oid)) if ObjectId.is_valid(str(source_oid)) else None
+        except Exception:
+            source_oid_obj = None
+        if source_oid_obj:
+            mongo.orders.update_one(
+                {"_id": source_oid_obj},
+                {"$set": {"store_adjustment_due": new_remaining, "updated_at": now}},
+            )
+
+    return round(total_applied, 2), applications
+
+
+def finance_rollback_store_adjustments(applications, payout_order_id):
+    """
+    Best-effort rollback used only if a Store payout fails before the order itself
+    is finalized as PAID. It reverses carry-forward adjustment applications made
+    for this payout claim so the adjustment ledger cannot be consumed without a
+    matching Store payout.
+    """
+    if not applications:
+        return 0.0
+
+    payout_order_id = str(payout_order_id or "")
+    rolled_back = 0.0
+
+    for application in reversed(list(applications)):
+        adj_id_raw = application.get("adjustment_id")
+        amount = finance_money(application.get("amount"), 0)
+        if not adj_id_raw or amount <= 0:
+            continue
+
+        try:
+            adj_id = ObjectId(str(adj_id_raw)) if ObjectId.is_valid(str(adj_id_raw)) else None
+        except Exception:
+            adj_id = None
+        if not adj_id:
+            continue
+
+        doc = mongo.store_finance_adjustments.find_one({"_id": adj_id}) or {}
+        apps = doc.get("applications") or []
+        matching = [
+            a for a in apps
+            if isinstance(a, dict)
+            and str(a.get("payout_order_id") or "") == payout_order_id
+            and abs(finance_money(a.get("amount"), 0) - amount) < 0.001
+        ]
+        if not matching:
+            continue
+
+        current_remaining = finance_money(doc.get("remaining_amount"), 0)
+        current_applied = finance_money(doc.get("applied_amount"), 0)
+        original_amount = finance_money(doc.get("original_amount"), current_remaining + current_applied)
+
+        new_remaining = round(min(original_amount, current_remaining + amount), 2)
+        new_applied = round(max(current_applied - amount, 0), 2)
+        new_status = (
+            FINANCE_STORE_ADJUSTMENT_OPEN
+            if new_applied <= 0
+            else FINANCE_STORE_ADJUSTMENT_PARTIAL
+        )
+        now = datetime.utcnow().isoformat()
+
+        result = mongo.store_finance_adjustments.update_one(
+            {
+                "_id": adj_id,
+                "remaining_amount": current_remaining,
+                "applied_amount": current_applied,
+            },
+            {
+                "$set": {
+                    "remaining_amount": new_remaining,
+                    "applied_amount": new_applied,
+                    "status": new_status,
+                    "updated_at": now,
+                },
+                "$pull": {
+                    "applications": {
+                        "payout_order_id": payout_order_id,
+                        "amount": amount,
+                    }
+                },
+            },
+        )
+        if result.modified_count != 1:
+            continue
+
+        rolled_back = round(rolled_back + amount, 2)
+
+        source_oid = doc.get("source_order_id")
+        try:
+            source_oid_obj = ObjectId(str(source_oid)) if ObjectId.is_valid(str(source_oid)) else None
+        except Exception:
+            source_oid_obj = None
+        if source_oid_obj:
+            mongo.orders.update_one(
+                {"_id": source_oid_obj},
+                {"$set": {"store_adjustment_due": new_remaining, "updated_at": now}},
+            )
+
+    return rolled_back
+
+
+def delivery_monthly_payment_is_reconciled(order):
+    """
+    Whether the customer/business payment leg for an in-house delivered order
+    is already safely with Admin/Store and no driver-held business money remains.
+    This controls whether a closed rider month can be paid.
+    """
+    if not isinstance(order, dict):
+        return False
+    return bool(finance_reconciliation_snapshot(order).get("customer_payment_reconciled"))
+
+
 def _delivery_int(value, default=0):
     try:
         if value is None or str(value).strip() == "":
@@ -1966,12 +2546,20 @@ DEFAULT_DELIVERY_MODE_SETTINGS = {
     # Related return/refund module.
     "return_refund_enabled": True,
 
-    # Customer payment methods. Backend value COD is retained for compatibility,
-    # but UI now displays it as Pay Online on Delivery.
+    # Customer payment methods. Backend value COD is retained for compatibility.
+    # Customer-facing meaning is Pay on Delivery: payment is due when the order
+    # arrives and can be collected as cash or, when configured, official UPI.
     "delivery_payment_methods": DELIVERY_PAYMENT_ONLINE_AND_COD,
     "allow_online_payment": True,
     "allow_cod_payment": True,
     "cod_collection_method": COD_COLLECTION_DELIVERY_BOY,
+
+    # Optional official UPI destination for COD / Pay-on-Delivery orders.
+    # This is a public payment address, not a secret. Delivery partners never
+    # receive/store any UPI credentials.
+    "pay_on_delivery_upi_enabled": False,
+    "pay_on_delivery_upi_id": "",
+    "pay_on_delivery_upi_name": "NE LOCALS",
 
     # Backward-compatible field used internally by older external-delivery code.
     "external_payment_rule": EXTERNAL_PAYMENT_RULE_COD_STORE,
@@ -2243,9 +2831,9 @@ def get_delivery_mode_settings():
         allow_online_payment = True
         delivery_payment_methods = DELIVERY_PAYMENT_ONLINE_ONLY
 
-    # Backend keeps COD internally for compatibility. UI/business wording is
-    # "Pay Online on Delivery". In-house keeps old rider collection flow.
-    # External Local means customer pays Store/NE FRESH by UPI/online at handover;
+    # Backend keeps COD internally for compatibility. Customer-facing meaning is
+    # Pay on Delivery. In-house delivery can record the final collection channel as
+    # CASH or official UPI. External Local continues to use Store/NE FRESH collection;
     # Shiprocket is forced Online-only per order to avoid courier COD conflicts.
     cod_collection_method = (
         COD_COLLECTION_DELIVERY_BOY
@@ -2445,16 +3033,16 @@ def _delivery_payment_rule_label(settings):
 
     if methods == DELIVERY_PAYMENT_COD_ONLY:
         if cod_method == COD_COLLECTION_EXTERNAL_PARTNER:
-            return "Pay Online on Delivery - partner collection"
+            return "Pay on Delivery - partner collection"
         if cod_method == COD_COLLECTION_STORE:
-            return "Pay Online on Delivery - store/NE FRESH collection"
-        return "Pay Online on Delivery - delivery boy collection"
+            return "Pay on Delivery - store/NE FRESH collection"
+        return "Pay on Delivery - delivery boy collection"
 
     if cod_method == COD_COLLECTION_EXTERNAL_PARTNER:
-        return "Online + Pay Online on Delivery - partner collection"
+        return "Online + Pay on Delivery - partner collection"
     if cod_method == COD_COLLECTION_STORE:
-        return "Online + Pay Online on Delivery - store/NE FRESH collection"
-    return "Online + Pay Online on Delivery - delivery boy collection"
+        return "Online + Pay on Delivery - store/NE FRESH collection"
+    return "Online + Pay on Delivery - delivery boy collection"
 
 
 def get_delivery_mode_ui_context(settings=None):
@@ -7752,14 +8340,25 @@ def _build_store_split_page_context(store):
     ]
 
     paid_transactions = []
-    paid_txn_order_ids = set()
+    paid_online_transactions = []
+    paid_online_order_ids = set()
 
     if delivered_order_ids:
         paid_transactions = list(mongo.transactions.find({
             "order_id": {"$in": _order_identity_values(delivered_order_ids)},
             "status": {"$in": ["PAID", "ONLINE_PAID", "SUCCESS", "COMPLETED", "CAPTURED"]}
         }))
-        paid_txn_order_ids = {str(t.get("order_id")) for t in paid_transactions if t.get("order_id")}
+
+        cod_methods = {"COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"}
+        paid_online_transactions = [
+            t for t in paid_transactions
+            if str(t.get("payment_method") or t.get("method") or "").strip().upper() not in cod_methods
+        ]
+        paid_online_order_ids = {
+            str(t.get("order_id"))
+            for t in paid_online_transactions
+            if t.get("order_id")
+        }
 
     # Delivered Customer GMV is delivery-mode agnostic:
     # it sums the final customer payable captured on delivered orders. That
@@ -7772,34 +8371,50 @@ def _build_store_split_page_context(store):
     delivered_platform_fee_total = sum(_store_order_money(o.get("platform_fee")) for o in delivered_orders)
     delivered_tip_total = sum(_store_order_money(o.get("tip_amount")) for o in delivered_orders)
 
-    paid_online_total = sum(_store_order_money(t.get("amount")) for t in paid_transactions)
+    paid_online_total = sum(_store_order_money(t.get("amount")) for t in paid_online_transactions)
+
+    cod_methods = {"COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"}
+    cod_collected_statuses = {
+        "COD_COLLECTED",
+        "COLLECTED",
+        "PAID",
+        "RECEIVED",
+        "COLLECTED_BY_RIDER",
+        "COD_COLLECTED_BY_RIDER",
+        "COD_UPI_RECORDED",
+    }
 
     cod_collected_total = 0.0
+    cod_collected_order_ids = set()
+
     for o in delivered_orders:
-        payment_method = str(o.get("payment_method") or "").upper()
-        payment_status = str(o.get("payment_status") or "").upper()
+        payment_method = str(o.get("payment_method") or "").strip().upper()
+        payment_status = str(o.get("payment_status") or "").strip().upper()
+        collection_status = str(o.get("payment_collection_status") or "").strip().upper()
         order_id_text = str(o.get("_id"))
 
-        if order_id_text in paid_txn_order_ids:
+        is_cod_order = payment_method in cod_methods
+        is_cod_collected = bool(
+            is_cod_order
+            and (
+                payment_status in cod_collected_statuses
+                or collection_status in {"COLLECTED", "PAID", "RECEIVED"}
+            )
+        )
+
+        if not is_cod_collected:
             continue
 
-        if payment_method == "COD" or payment_status in {"COD_COLLECTED", "COLLECTED", "PAID", "RECEIVED"}:
-            cod_collected_total += _store_order_total_payable(o)
+        collected_amount = _store_order_money(
+            o.get("cod_collected_amount"),
+            _store_order_total_payable(o)
+        )
+        cod_collected_total += collected_amount
+        cod_collected_order_ids.add(order_id_text)
 
     paid_total = paid_online_total + cod_collected_total
 
-    paid_delivered_orders = 0
-    for o in delivered_orders:
-        payment_method = str(o.get("payment_method") or "").upper()
-        payment_status = str(o.get("payment_status") or "").upper()
-        order_id_text = str(o.get("_id"))
-
-        if (
-            order_id_text in paid_txn_order_ids
-            or payment_method == "COD"
-            or payment_status in {"COD_COLLECTED", "COLLECTED", "PAID", "RECEIVED", "ONLINE_PAID", "SUCCESS", "COMPLETED", "CAPTURED"}
-        ):
-            paid_delivered_orders += 1
+    paid_delivered_orders = len(paid_online_order_ids | cod_collected_order_ids)
 
     pending_payment_orders = [
         o for o in orders

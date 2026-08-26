@@ -1,0 +1,1350 @@
+/*
+ * NE LOCALS — Admin Finance UI (Stage 3C)
+ * Presentation only. Financial truth, actions, reconciliation states and amounts
+ * continue to come from the existing Stage 2C backend/routes/templates.
+ */
+
+/* =========================================================
+   Shared finance surface language
+   ========================================================= */
+.nf-admin-payment-settings,
+.nf-platform-fee-page,
+.nf-admin-settlements,
+.nf-admin-platform-earnings,
+.nf-admin-settlement-logs,
+.nf-admin-returns,
+.nf-refund-processing,
+.nf-return-policy {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.payset-hero,
+.pf-hero,
+.settle-hero,
+.pe-hero,
+.sal-hero,
+.ret-hero,
+.rf-hero,
+.rp-hero {
+  min-width: 0;
+  padding: 20px 22px;
+  background: var(--nf-surface);
+  border: 1px solid var(--nf-line);
+  border-left: 4px solid var(--nf-green);
+  border-radius: var(--nf-radius);
+  box-shadow: var(--nf-shadow-soft);
+}
+
+.payset-hero h2,
+.settle-hero h2,
+.pe-hero h2,
+.sal-hero h2,
+.ret-hero h2,
+.rf-hero h2,
+.rp-hero h2,
+.pf-title {
+  margin: 0;
+  color: var(--nf-ink);
+  font-size: clamp(1.08rem, 2vw, 1.32rem);
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+
+.payset-hero p,
+.settle-hero p,
+.pe-hero p,
+.sal-hero p,
+.ret-hero p,
+.rf-hero p,
+.rp-hero p,
+.pf-subtitle {
+  max-width: 930px;
+  margin: 7px 0 0;
+  color: var(--nf-muted);
+  font-size: .82rem;
+  line-height: 1.58;
+  font-weight: 500;
+}
+
+.settle-hero-actions,
+.ret-hero-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.payset-card,
+.pf-card,
+.settle-card,
+.pe-card,
+.sal-card,
+.ret-card,
+.rf-card,
+.rp-card,
+.payset-kpi,
+.settle-kpi,
+.pe-kpi,
+.sal-kpi,
+.ret-kpi,
+.rf-kpi,
+.rp-kpi {
+  min-width: 0;
+  background: var(--nf-surface);
+  border: 1px solid var(--nf-line);
+  border-radius: var(--nf-radius);
+  box-shadow: var(--nf-shadow-soft);
+}
+
+.settle-card,
+.pe-card,
+.sal-card,
+.ret-card,
+.rf-card,
+.rp-card,
+.pf-card,
+.payset-card {
+  overflow: hidden;
+}
+
+.settle-card-head,
+.pe-card-head,
+.sal-card-head,
+.ret-card-head,
+.rf-card-head,
+.rp-card-head,
+.pf-card-head {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 18px 15px;
+  border-bottom: 1px solid var(--nf-line-2);
+  background: #fff;
+}
+
+.settle-card-head h3,
+.pe-card-head h3,
+.sal-card-head h3,
+.ret-card-head h3,
+.rf-card-head h3,
+.rp-card-head h3,
+.pf-card-title,
+.payset-card h3 {
+  margin: 0;
+  color: var(--nf-ink);
+  font-size: .96rem;
+  line-height: 1.35;
+  font-weight: 800;
+  letter-spacing: -.012em;
+}
+
+.settle-card-head p,
+.pe-card-head p,
+.sal-card-head p,
+.ret-card-head p,
+.rf-card-head p,
+.rp-card-head p,
+.pf-card-sub,
+.payset-card > div > p {
+  margin: 5px 0 0;
+  max-width: 900px;
+  color: var(--nf-muted);
+  font-size: .76rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+/* KPI language: compact financial summaries, not decorative tiles. */
+.payset-kpi-grid,
+.settle-kpi-grid,
+.pe-kpi-grid,
+.sal-kpi-grid,
+.ret-kpi-grid,
+.rf-kpi-grid,
+.rp-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+
+.payset-kpi,
+.settle-kpi,
+.pe-kpi,
+.sal-kpi,
+.ret-kpi,
+.rf-kpi,
+.rp-kpi {
+  position: relative;
+  min-height: 96px;
+  padding: 15px 15px 14px;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  box-shadow: none;
+}
+
+
+.payset-kpi > span:first-child,
+.settle-kpi > span:first-child,
+.pe-kpi > span:first-child,
+.sal-kpi > span:first-child,
+.ret-kpi > span:first-child,
+.rf-kpi > span:first-child,
+.rp-kpi > span:first-child {
+  color: var(--nf-muted);
+  font-size: .66rem;
+  line-height: 1.3;
+  font-weight: 750;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.payset-kpi strong,
+.settle-kpi strong,
+.pe-kpi strong,
+.sal-kpi strong,
+.ret-kpi strong,
+.rf-kpi strong,
+.rp-kpi strong {
+  min-width: 0;
+  color: var(--nf-ink);
+  font-size: 1.02rem;
+  line-height: 1.25;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.payset-kpi small,
+.pe-kpi small,
+.sal-kpi small,
+.ret-kpi small,
+.rf-kpi small,
+.rp-kpi small,
+.settle-note {
+  color: var(--nf-muted-2);
+  font-size: .69rem;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+/* Buttons */
+.payset-btn,
+.pf-btn,
+.settle-btn,
+.pe-btn,
+.sal-btn,
+.ret-btn,
+.rf-btn,
+.rp-btn {
+  min-height: 38px;
+  max-width: 100%;
+  border: 1px solid var(--nf-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--nf-green-dark);
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: .76rem;
+  line-height: 1.2;
+  font-weight: 750;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color .16s ease, background-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.payset-btn:focus-visible,
+.pf-btn:focus-visible,
+.settle-btn:focus-visible,
+.pe-btn:focus-visible,
+.sal-btn:focus-visible,
+.ret-btn:focus-visible,
+.rf-btn:focus-visible,
+.rp-btn:focus-visible {
+  outline: 3px solid rgba(95, 143, 111, .18);
+  outline-offset: 2px;
+}
+
+
+.payset-btn:hover,
+.pf-btn:hover,
+.settle-btn:hover,
+.pe-btn:hover,
+.sal-btn:hover,
+.ret-btn:hover,
+.rf-btn:hover,
+.rp-btn:hover {
+  border-color: #BFD1C4;
+  background: var(--nf-green-soft-2);
+  color: var(--nf-green-deep);
+}
+
+.payset-btn.primary,
+.pf-btn.primary,
+.pe-btn.primary,
+.sal-btn.primary,
+.ret-btn.primary,
+.rf-btn.primary,
+.rp-btn.primary,
+.settle-btn {
+  background: var(--nf-green);
+  border-color: var(--nf-green);
+  color: #fff;
+}
+
+.payset-btn.primary:hover,
+.pf-btn.primary:hover,
+.pe-btn.primary:hover,
+.sal-btn.primary:hover,
+.ret-btn.primary:hover,
+.rf-btn.primary:hover,
+.rp-btn.primary:hover,
+.settle-btn:hover {
+  background: var(--nf-green-dark);
+  border-color: var(--nf-green-dark);
+  color: #fff;
+}
+
+.rf-btn.danger {
+  background: #fff;
+  border-color: #D9B7B7;
+  color: var(--nf-red);
+}
+
+.rf-btn.danger:hover {
+  background: var(--nf-red-soft);
+  border-color: #C99595;
+}
+
+.settle-btn[disabled],
+.rf-btn[disabled],
+.rp-btn[disabled],
+.payset-btn[disabled],
+.pf-btn[disabled] {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Form language */
+.payset-form,
+.pf-form,
+.rp-form {
+  display: grid;
+  gap: 16px;
+}
+
+.payset-field,
+.pf-field,
+.settle-form,
+.pe-field,
+.sal-field,
+.ret-field,
+.rf-field,
+.rp-field {
+  min-width: 0;
+}
+
+.payset-field label,
+.pf-label,
+.pe-field label,
+.sal-field label,
+.ret-field label,
+.rf-field label,
+.rp-field label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--nf-text);
+  font-size: .71rem;
+  line-height: 1.3;
+  font-weight: 750;
+}
+
+.payset-field input,
+.payset-field select,
+.pf-input,
+.pf-select,
+.pf-textarea,
+.settle-input,
+.settle-select,
+.pe-field input,
+.pe-field select,
+.sal-field input,
+.sal-field select,
+.ret-field input,
+.ret-field select,
+.rf-field input,
+.rf-field select,
+.rf-field textarea,
+.rp-field input,
+.rp-field select,
+.rp-field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid #CFDBD3;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--nf-ink);
+  padding: 9px 11px;
+  outline: none;
+  font-size: .78rem;
+  line-height: 1.35;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+
+.pf-textarea,
+.rf-field textarea,
+.rp-field textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.payset-field input:focus,
+.payset-field select:focus,
+.pf-input:focus,
+.pf-select:focus,
+.pf-textarea:focus,
+.settle-input:focus,
+.settle-select:focus,
+.pe-field input:focus,
+.pe-field select:focus,
+.sal-field input:focus,
+.sal-field select:focus,
+.ret-field input:focus,
+.ret-field select:focus,
+.rf-field input:focus,
+.rf-field select:focus,
+.rf-field textarea:focus,
+.rp-field input:focus,
+.rp-field select:focus,
+.rp-field textarea:focus {
+  border-color: var(--nf-green);
+  box-shadow: 0 0 0 3px rgba(95, 143, 111, .11);
+}
+
+.payset-field input[readonly],
+.rp-field input[readonly] {
+  background: var(--nf-green-soft-2);
+  color: var(--nf-muted);
+}
+
+.payset-help,
+.pf-help {
+  margin-top: 5px;
+  color: var(--nf-muted-2);
+  font-size: .68rem;
+  line-height: 1.42;
+  font-weight: 500;
+}
+
+/* Filters */
+.pe-filter,
+.sal-filter,
+.ret-filter,
+.rf-filter {
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: minmax(190px, 1.45fr) repeat(4, minmax(130px, .75fr)) auto;
+  gap: 10px;
+  align-items: end;
+  background: var(--nf-green-soft-2);
+  border-bottom: 1px solid var(--nf-line);
+}
+
+/* Table language */
+.settle-table-wrap,
+.pe-table-wrap,
+.sal-table-wrap,
+.ret-table-wrap,
+.rf-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #C3D2C8 transparent;
+}
+
+.settle-table,
+.pe-table,
+.sal-table,
+.ret-table,
+.rf-table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+}
+
+.settle-table th,
+.pe-table th,
+.sal-table th,
+.ret-table th,
+.rf-table th {
+  padding: 10px 11px;
+  background: var(--nf-green-soft-2);
+  border-bottom: 1px solid var(--nf-line);
+  color: #56655D;
+  font-size: .64rem;
+  line-height: 1.3;
+  font-weight: 800;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.settle-table td,
+.pe-table td,
+.sal-table td,
+.ret-table td,
+.rf-table td {
+  padding: 11px;
+  border-bottom: 1px solid var(--nf-line-2);
+  color: var(--nf-text);
+  font-size: .75rem;
+  line-height: 1.4;
+  vertical-align: top;
+}
+
+.settle-table tbody tr:last-child td,
+.pe-table tbody tr:last-child td,
+.sal-table tbody tr:last-child td,
+.ret-table tbody tr:last-child td,
+.rf-table tbody tr:last-child td { border-bottom: 0; }
+
+.settle-table tbody tr:hover td,
+.pe-table tbody tr:hover td,
+.sal-table tbody tr:hover td,
+.ret-table tbody tr:hover td,
+.rf-table tbody tr:hover td { background: #FBFDFC; }
+
+.settle-main,
+.pe-main,
+.sal-main,
+.ret-main,
+.rf-main {
+  display: block;
+  color: var(--nf-ink);
+  font-size: .76rem;
+  line-height: 1.38;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.settle-sub,
+.pe-sub,
+.sal-sub,
+.ret-sub,
+.rf-sub {
+  display: block;
+  margin-top: 3px;
+  color: var(--nf-muted);
+  font-size: .68rem;
+  line-height: 1.38;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.settle-money,
+.pe-money,
+.ret-money,
+.rf-money {
+  display: block;
+  color: var(--nf-ink);
+  font-size: .79rem;
+  line-height: 1.35;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.settle-money.adjusted { color: var(--nf-green-dark); }
+.settle-money.deduct { color: var(--nf-red); }
+
+/* Statuses are intentionally modest rectangles, not oversized pills. */
+.settle-pill,
+.settle-flow-pill,
+.pe-flow-pill,
+.sal-pill,
+.ret-pill,
+.ret-flow-pill,
+.rf-pill,
+.rf-flow-pill,
+.pf-status-pill,
+.payset-badge {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 25px;
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--nf-line);
+  border-radius: 7px;
+  background: #F7FAF8;
+  color: var(--nf-text);
+  font-size: .62rem;
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: .025em;
+  text-transform: uppercase;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.settle-pill.received,
+.settle-pill.paid,
+.settle-flow-pill.online,
+.pe-flow-pill.online,
+.ret-flow-pill.online,
+.rf-flow-pill.online,
+.pf-status-pill.on {
+  background: var(--nf-green-soft);
+  border-color: #CDE0D3;
+  color: var(--nf-green-deep);
+}
+
+.settle-pill.pending,
+.settle-flow-pill.cod,
+.settle-flow-pill.pending,
+.pe-flow-pill.cod,
+.ret-flow-pill.cod,
+.rf-flow-pill.cod {
+  background: var(--nf-orange-soft);
+  border-color: #E7D6CA;
+  color: var(--nf-orange-dark);
+}
+
+.ret-flow-pill.refunded,
+.rf-flow-pill.refund,
+.pf-status-pill.off {
+  background: var(--nf-red-soft);
+  border-color: #E9CACA;
+  color: var(--nf-red);
+}
+
+.settle-flow-note,
+.pe-flow-note,
+.ret-flow-note,
+.rf-flow-note {
+  color: var(--nf-muted);
+  font-size: .67rem;
+  line-height: 1.38;
+  font-weight: 500;
+}
+
+.settle-warning-note,
+.pe-danger-note,
+.sal-danger-note,
+.ret-danger-note,
+.rf-danger-note {
+  display: block;
+  margin-top: 5px;
+  color: var(--nf-red);
+  font-size: .67rem;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.settle-empty,
+.pe-empty,
+.sal-empty,
+.ret-empty,
+.rf-empty {
+  padding: 28px 18px;
+  color: var(--nf-muted);
+  background: #fff;
+  font-size: .78rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* =========================================================
+   Online Payment Settings
+   ========================================================= */
+.payset-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.payset-badge {
+  flex: 0 0 auto;
+  background: var(--nf-green-soft);
+  border-color: #CDE0D3;
+  color: var(--nf-green-dark);
+}
+
+.payset-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(260px, .55fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.payset-form { padding: 18px; }
+.payset-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
+.payset-switch-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--nf-green-soft-2);
+  border: 1px solid var(--nf-line);
+  border-radius: 9px;
+}
+
+.payset-check {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--nf-line-2);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--nf-text);
+  font-size: .78rem;
+  line-height: 1.35;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.payset-check input {
+  width: 17px;
+  height: 17px;
+  margin: 1px 0 0;
+  accent-color: var(--nf-green);
+}
+
+.payset-check .payset-help { display: block; }
+
+.payset-actions {
+  padding-top: 14px;
+  border-top: 1px solid var(--nf-line-2);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.payset-warning {
+  padding: 12px 13px;
+  border: 1px solid #E7D6CA;
+  border-radius: 9px;
+  background: var(--nf-orange-soft);
+  color: var(--nf-orange-dark);
+  font-size: .74rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+/* =========================================================
+   Platform Fee Settings
+   ========================================================= */
+.pf-hero { padding: 20px 22px; }
+.pf-hero-inner { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; }
+.pf-kicker {
+  margin-bottom: 6px;
+  color: var(--nf-green-dark);
+  font-size: .64rem;
+  line-height: 1.2;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.pf-hero-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #CDE0D3;
+  border-radius: 10px;
+  background: var(--nf-green-soft);
+  color: var(--nf-green-dark);
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.pf-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, .5fr); gap: 14px; align-items: start; }
+.pf-card-body { padding: 18px; }
+
+.pf-switch-card {
+  padding: 13px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--nf-line);
+  border-radius: 9px;
+  background: var(--nf-green-soft-2);
+}
+
+.pf-switch-copy strong { display: block; color: var(--nf-ink); font-size: .82rem; font-weight: 800; }
+.pf-switch-copy span { display: block; margin-top: 3px; color: var(--nf-muted); font-size: .7rem; line-height: 1.42; }
+
+.pf-switch { position: relative; width: 42px; height: 24px; flex: 0 0 42px; }
+.pf-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.pf-slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #CBD5CE;
+  cursor: pointer;
+  transition: background-color .16s ease;
+}
+.pf-slider::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(35,48,40,.2);
+  transition: transform .16s ease;
+}
+.pf-switch input:checked + .pf-slider { background: var(--nf-green); }
+.pf-switch input:checked + .pf-slider::after { transform: translateX(18px); }
+.pf-switch input:focus-visible + .pf-slider { box-shadow: 0 0 0 3px rgba(95,143,111,.15); }
+
+.pf-field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.pf-field.full { grid-column: 1 / -1; }
+.pf-actions { padding-top: 14px; border-top: 1px solid var(--nf-line-2); display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+.pf-info-box,
+.pf-current-box {
+  padding: 14px;
+  border: 1px solid var(--nf-line);
+  border-radius: 9px;
+  background: var(--nf-green-soft-2);
+}
+.pf-info-box { color: var(--nf-muted); font-size: .73rem; line-height: 1.5; }
+.pf-preview-amount { margin-top: 8px; color: var(--nf-green-dark); font-size: 1.35rem; line-height: 1.2; font-weight: 800; }
+.pf-preview-list { display: grid; gap: 0; }
+.pf-preview-list-spaced { margin-top: 14px; }
+.pf-preview-row,
+.pf-current-item {
+  padding: 9px 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--nf-line);
+  color: var(--nf-muted);
+  font-size: .73rem;
+  line-height: 1.4;
+}
+.pf-preview-row:last-child,
+.pf-current-item:last-child { border-bottom: 0; }
+.pf-preview-row strong,
+.pf-current-item strong { color: var(--nf-ink); font-weight: 800; text-align: right; overflow-wrap: anywhere; }
+.pf-current-list { display: grid; margin-top: 8px; }
+
+/* =========================================================
+   Payment & Settlements
+   ========================================================= */
+.settle-card { overflow: visible; }
+.settle-card-head { border-radius: var(--nf-radius) var(--nf-radius) 0 0; }
+.settle-monthly-summary { display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.settle-monthly-summary .settle-pill { min-height: 27px; }
+.settle-form { display: grid; gap: 6px; min-width: 172px; }
+.settle-form .settle-btn { width: 100%; }
+
+.settle-payment-flow,
+.pe-flow-box,
+.ret-payment-flow,
+.rf-payment-flow {
+  display: grid;
+  gap: 5px;
+  min-width: 150px;
+}
+
+.settle-cash-box,
+.pe-status-box,
+.sal-status-box,
+.sal-amount-box,
+.sal-impact-box,
+.ret-impact-box,
+.rf-impact-box,
+.rf-action-summary {
+  display: grid;
+  gap: 4px;
+  min-width: 160px;
+  padding: 9px 10px;
+  border: 1px solid var(--nf-line);
+  border-radius: 8px;
+  background: var(--nf-green-soft-2);
+}
+
+.settle-cash-box.online,
+.pe-status-box.received,
+.sal-impact-box.clear,
+.ret-impact-box.clear {
+  background: var(--nf-green-soft);
+  border-color: #CDE0D3;
+}
+.settle-cash-box.cod,
+.pe-status-box.pending,
+.sal-impact-box.deduct,
+.ret-impact-box.return,
+.rf-impact-box.return {
+  background: var(--nf-orange-soft);
+  border-color: #E7D6CA;
+}
+.sal-impact-box.refund,
+.ret-impact-box.cancel,
+.rf-impact-box.cancel {
+  background: var(--nf-red-soft);
+  border-color: #E9CACA;
+}
+
+.settle-cash-box strong,
+.pe-status-box strong,
+.sal-status-box strong,
+.sal-amount-box strong,
+.sal-impact-box strong,
+.ret-impact-box strong,
+.rf-impact-box strong,
+.rf-action-summary strong {
+  color: var(--nf-ink);
+  font-size: .74rem;
+  line-height: 1.35;
+  font-weight: 800;
+}
+.settle-cash-box span,
+.pe-status-box span,
+.sal-status-box span,
+.sal-amount-box span,
+.sal-impact-box span,
+.ret-impact-box span,
+.rf-impact-box span,
+.rf-action-summary {
+  color: var(--nf-muted);
+  font-size: .66rem;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+/* =========================================================
+   Platform Earnings / Audit / Return reports
+   ========================================================= */
+.pe-main,
+.sal-main { font-weight: 750; }
+
+.pe-mobile-list,
+.sal-mobile-list { display: none; }
+
+.pe-mobile-card,
+.sal-mobile-card {
+  padding: 14px;
+  border: 1px solid var(--nf-line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--nf-shadow-soft);
+}
+
+.pe-mobile-grid,
+.sal-mobile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.pe-mobile-metric,
+.sal-mobile-metric { min-width: 0; padding: 9px; border: 1px solid var(--nf-line-2); border-radius: 8px; background: var(--nf-green-soft-2); }
+.pe-mobile-metric span,
+.sal-mobile-metric span { display: block; color: var(--nf-muted); font-size: .63rem; font-weight: 650; text-transform: uppercase; letter-spacing: .03em; }
+.pe-mobile-metric strong,
+.sal-mobile-metric strong { display: block; margin-top: 4px; color: var(--nf-ink); font-size: .76rem; line-height: 1.35; font-weight: 800; overflow-wrap: anywhere; }
+
+.sal-pill.blue { background: var(--nf-blue-soft); border-color: #D0E0E5; color: var(--nf-blue); }
+.sal-pill.orange { background: var(--nf-orange-soft); border-color: #E7D6CA; color: var(--nf-orange-dark); }
+.sal-pill.red { background: var(--nf-red-soft); border-color: #E9CACA; color: var(--nf-red); }
+
+.ret-danger-note,
+.sal-danger-note { color: var(--nf-red); }
+
+/* =========================================================
+   Refund Processing
+   ========================================================= */
+.rf-action-box {
+  min-width: 220px;
+  display: grid;
+  gap: 8px;
+}
+.rf-action-title { color: var(--nf-ink); font-size: .73rem; line-height: 1.3; font-weight: 800; }
+.rf-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.rf-form-grid.full { grid-template-columns: 1fr; }
+.rf-review-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.rf-space-top { margin-top: 8px; }
+.rf-note {
+  padding: 10px 11px;
+  border: 1px solid var(--nf-line);
+  border-radius: 8px;
+  background: var(--nf-green-soft-2);
+  color: var(--nf-muted);
+  font-size: .68rem;
+  line-height: 1.45;
+}
+
+/* =========================================================
+   Return / Refund Policy
+   ========================================================= */
+.rp-form { padding: 18px; }
+.rp-check-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.rp-check {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  padding: 11px;
+  border: 1px solid var(--nf-line);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+.rp-check input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: var(--nf-green); }
+.rp-check strong { display: block; color: var(--nf-ink); font-size: .78rem; line-height: 1.35; font-weight: 800; }
+.rp-check span span { display: block; margin-top: 3px; color: var(--nf-muted); font-size: .68rem; line-height: 1.42; font-weight: 500; }
+.rp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.rp-actions { padding-top: 14px; border-top: 1px solid var(--nf-line-2); display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.rp-note {
+  padding: 12px 13px;
+  border: 1px solid #E7D6CA;
+  border-radius: 9px;
+  background: var(--nf-orange-soft);
+  color: var(--nf-orange-dark);
+  font-size: .72rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+/* =========================================================
+   Responsive finance tables / cards
+   ========================================================= */
+@media (max-width: 1180px) {
+  .pe-filter,
+  .sal-filter,
+  .ret-filter,
+  .rf-filter {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pe-filter .pe-btn,
+  .sal-filter .sal-btn,
+  .ret-filter .ret-btn,
+  .rf-filter .rf-btn { width: 100%; }
+}
+
+@media (max-width: 980px) {
+  .payset-grid,
+  .pf-grid { grid-template-columns: 1fr; }
+  .payset-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .settle-card-head { flex-direction: column; }
+  .settle-monthly-summary { justify-content: flex-start; }
+
+  .pe-table-wrap,
+  .sal-table-wrap { display: none; }
+  .pe-mobile-list,
+  .sal-mobile-list { display: grid; gap: 10px; padding: 12px; }
+}
+
+@media (max-width: 760px) {
+  .nf-admin-payment-settings,
+  .nf-platform-fee-page,
+  .nf-admin-settlements,
+  .nf-admin-platform-earnings,
+  .nf-admin-settlement-logs,
+  .nf-admin-returns,
+  .nf-refund-processing,
+  .nf-return-policy { gap: 13px; }
+
+  .payset-hero,
+  .pf-hero,
+  .settle-hero,
+  .pe-hero,
+  .sal-hero,
+  .ret-hero,
+  .rf-hero,
+  .rp-hero { padding: 16px; border-left-width: 3px; }
+
+  .payset-hero { flex-direction: column; }
+  .pf-hero-inner { grid-template-columns: 1fr; }
+  .pf-hero-icon { display: none; }
+
+  .payset-kpi-grid,
+  .settle-kpi-grid,
+  .pe-kpi-grid,
+  .sal-kpi-grid,
+  .ret-kpi-grid,
+  .rf-kpi-grid,
+  .rp-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .payset-row,
+  .pf-field-grid,
+  .rp-check-grid,
+  .rp-grid,
+  .rf-form-grid { grid-template-columns: 1fr; }
+
+  .pf-field.full { grid-column: auto; }
+
+  .pe-filter,
+  .sal-filter,
+  .ret-filter,
+  .rf-filter { grid-template-columns: 1fr; padding: 12px; }
+
+  .settle-card-head,
+  .pe-card-head,
+  .sal-card-head,
+  .ret-card-head,
+  .rf-card-head,
+  .rp-card-head,
+  .pf-card-head { padding: 14px; }
+
+  .payset-form,
+  .pf-card-body,
+  .rp-form { padding: 14px; }
+
+  .settle-table-wrap,
+  .ret-table-wrap,
+  .rf-table-wrap {
+    overflow: visible;
+    padding: 10px;
+    background: var(--nf-green-soft-2);
+  }
+
+  .settle-table,
+  .ret-table,
+  .rf-table {
+    display: block;
+    min-width: 0;
+    background: transparent;
+  }
+
+  .settle-table thead,
+  .ret-table thead,
+  .rf-table thead { display: none; }
+
+  .settle-table tbody,
+  .ret-table tbody,
+  .rf-table tbody { display: grid; gap: 10px; }
+
+  .settle-table tbody tr,
+  .ret-table tbody tr,
+  .rf-table tbody tr {
+    display: grid;
+    min-width: 0;
+    border: 1px solid var(--nf-line);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(40,61,49,.035);
+    overflow: hidden;
+  }
+
+  .settle-table tbody tr:hover td,
+  .ret-table tbody tr:hover td,
+  .rf-table tbody tr:hover td { background: #fff; }
+
+  .settle-table td,
+  .ret-table td,
+  .rf-table td {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(105px, 34%) minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--nf-line-2);
+    background: #fff;
+  }
+
+  .settle-table td:last-child,
+  .ret-table td:last-child,
+  .rf-table td:last-child { border-bottom: 0; }
+
+  .settle-table td::before,
+  .ret-table td::before,
+  .rf-table td::before {
+    color: var(--nf-muted);
+    font-size: .61rem;
+    line-height: 1.35;
+    font-weight: 800;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+  }
+
+  .settle-form,
+  .rf-action-box { min-width: 0; width: 100%; }
+
+  .settle-input,
+  .settle-select,
+  .settle-form .settle-btn,
+  .rf-action-box .rf-btn { width: 100%; }
+
+  .settle-payment-flow,
+  .pe-flow-box,
+  .ret-payment-flow,
+  .rf-payment-flow,
+  .settle-cash-box,
+  .pe-status-box,
+  .sal-status-box,
+  .sal-amount-box,
+  .sal-impact-box,
+  .ret-impact-box,
+  .rf-impact-box,
+  .rf-action-summary { min-width: 0; }
+
+  /* Payment & Settlements mobile labels */
+  .settle-table-monthly td:nth-child(1)::before { content: "Month"; }
+  .settle-table-monthly td:nth-child(2)::before { content: "Delivery Partner"; }
+  .settle-table-monthly td:nth-child(3)::before { content: "Orders"; }
+  .settle-table-monthly td:nth-child(4)::before { content: "Delivery Fee"; }
+  .settle-table-monthly td:nth-child(5)::before { content: "Tips"; }
+  .settle-table-monthly td:nth-child(6)::before { content: "Monthly Payable"; }
+  .settle-table-monthly td:nth-child(7)::before { content: "Business Payment"; }
+  .settle-table-monthly td:nth-child(8)::before { content: "Status"; }
+  .settle-table-monthly td:nth-child(9)::before { content: "Monthly Payment"; }
+
+  .settle-table-upi td:nth-child(1)::before { content: "Order"; }
+  .settle-table-upi td:nth-child(2)::before { content: "Store"; }
+  .settle-table-upi td:nth-child(3)::before { content: "Delivery Partner"; }
+  .settle-table-upi td:nth-child(4)::before { content: "UPI Amount"; }
+  .settle-table-upi td:nth-child(5)::before { content: "UPI Reference"; }
+  .settle-table-upi td:nth-child(6)::before { content: "Recorded At"; }
+  .settle-table-upi td:nth-child(7)::before { content: "Status"; }
+  .settle-table-upi td:nth-child(8)::before { content: "Action"; }
+
+  .settle-table-store-fee td:nth-child(1)::before { content: "Order"; }
+  .settle-table-store-fee td:nth-child(2)::before { content: "Store"; }
+  .settle-table-store-fee td:nth-child(3)::before { content: "Customer Payment"; }
+  .settle-table-store-fee td:nth-child(4)::before { content: "Business Receiver"; }
+  .settle-table-store-fee td:nth-child(5)::before { content: "Platform Fee Due"; }
+  .settle-table-store-fee td:nth-child(6)::before { content: "Status"; }
+  .settle-table-store-fee td:nth-child(7)::before { content: "Action"; }
+
+  .settle-table-partner td:nth-child(1)::before { content: "Order"; }
+  .settle-table-partner td:nth-child(2)::before { content: "Store"; }
+  .settle-table-partner td:nth-child(3)::before { content: "External Partner"; }
+  .settle-table-partner td:nth-child(4)::before { content: "Customer Amount"; }
+  .settle-table-partner td:nth-child(5)::before { content: "Collection"; }
+  .settle-table-partner td:nth-child(6)::before { content: "Remittance"; }
+  .settle-table-partner td:nth-child(7)::before { content: "Action"; }
+
+  .settle-table-rider-cash td:nth-child(1)::before { content: "Order"; }
+  .settle-table-rider-cash td:nth-child(2)::before { content: "Store"; }
+  .settle-table-rider-cash td:nth-child(3)::before { content: "Delivery Partner"; }
+  .settle-table-rider-cash td:nth-child(4)::before { content: "COD Collected"; }
+  .settle-table-rider-cash td:nth-child(5)::before { content: "Driver Earning"; }
+  .settle-table-rider-cash td:nth-child(6)::before { content: "Cash To Submit"; }
+  .settle-table-rider-cash td:nth-child(7)::before { content: "Platform Fee"; }
+  .settle-table-rider-cash td:nth-child(8)::before { content: "Cash Status"; }
+  .settle-table-rider-cash td:nth-child(9)::before { content: "Action"; }
+
+  .settle-table-adjustments td:nth-child(1)::before { content: "Store"; }
+  .settle-table-adjustments td:nth-child(2)::before { content: "Source Order"; }
+  .settle-table-adjustments td:nth-child(3)::before { content: "Reason"; }
+  .settle-table-adjustments td:nth-child(4)::before { content: "Original Recovery"; }
+  .settle-table-adjustments td:nth-child(5)::before { content: "Already Applied"; }
+  .settle-table-adjustments td:nth-child(6)::before { content: "Remaining"; }
+  .settle-table-adjustments td:nth-child(7)::before { content: "Status"; }
+  .settle-table-adjustments td:nth-child(8)::before { content: "Created"; }
+
+  .settle-table-payouts td:nth-child(1)::before { content: "Order"; }
+  .settle-table-payouts td:nth-child(2)::before { content: "Store"; }
+  .settle-table-payouts td:nth-child(3)::before { content: "Payment Flow"; }
+  .settle-table-payouts td:nth-child(4)::before { content: "Items Subtotal"; }
+  .settle-table-payouts td:nth-child(5)::before { content: "Net Platform Fee"; }
+  .settle-table-payouts td:nth-child(6)::before { content: "Original Store Payout"; }
+  .settle-table-payouts td:nth-child(7)::before { content: "Refund Deduction"; }
+  .settle-table-payouts td:nth-child(8)::before { content: "Carry-forward"; }
+  .settle-table-payouts td:nth-child(9)::before { content: "Final Payable"; }
+  .settle-table-payouts td:nth-child(10)::before { content: "Return / Refund"; }
+  .settle-table-payouts td:nth-child(11)::before { content: "Business Reconciliation"; }
+  .settle-table-payouts td:nth-child(12)::before { content: "Payout Status"; }
+  .settle-table-payouts td:nth-child(13)::before { content: "Action"; }
+
+  /* Return/refund impact mobile labels */
+  .ret-table-impact td:nth-child(1)::before { content: "Order"; }
+  .ret-table-impact td:nth-child(2)::before { content: "Store / Customer"; }
+  .ret-table-impact td:nth-child(3)::before { content: "Refund Type"; }
+  .ret-table-impact td:nth-child(4)::before { content: "Payment"; }
+  .ret-table-impact td:nth-child(5)::before { content: "Original Amount"; }
+  .ret-table-impact td:nth-child(6)::before { content: "Refund Breakup"; }
+  .ret-table-impact td:nth-child(7)::before { content: "Store Impact"; }
+  .ret-table-impact td:nth-child(8)::before { content: "Platform Impact"; }
+  .ret-table-impact td:nth-child(9)::before { content: "Status"; }
+  .ret-table-impact td:nth-child(10)::before { content: "Refund Processing"; }
+  .ret-table-impact td:nth-child(11)::before { content: "Settlement"; }
+  .ret-table-impact td:nth-child(12)::before { content: "Date"; }
+
+  /* Refund queue mobile labels */
+  .rf-table-queue td:nth-child(1)::before { content: "Order"; }
+  .rf-table-queue td:nth-child(2)::before { content: "Store / Customer"; }
+  .rf-table-queue td:nth-child(3)::before { content: "Queue"; }
+  .rf-table-queue td:nth-child(4)::before { content: "Payment Flow"; }
+  .rf-table-queue td:nth-child(5)::before { content: "Original Amount"; }
+  .rf-table-queue td:nth-child(6)::before { content: "Refund Breakup"; }
+  .rf-table-queue td:nth-child(7)::before { content: "Store Impact"; }
+  .rf-table-queue td:nth-child(8)::before { content: "Reason / Notes"; }
+  .rf-table-queue td:nth-child(9)::before { content: "Current Status"; }
+  .rf-table-queue td:nth-child(10)::before { content: "Action"; }
+}
+
+@media (max-width: 520px) {
+  .payset-kpi-grid,
+  .settle-kpi-grid,
+  .pe-kpi-grid,
+  .sal-kpi-grid,
+  .ret-kpi-grid,
+  .rf-kpi-grid,
+  .rp-kpi-grid { grid-template-columns: 1fr; }
+
+  .payset-actions,
+  .pf-actions,
+  .rp-actions,
+  .settle-hero-actions,
+  .ret-hero-actions { display: grid; grid-template-columns: 1fr; }
+
+  .payset-btn,
+  .pf-btn,
+  .settle-btn,
+  .ret-btn,
+  .rp-btn { width: 100%; }
+
+  .pe-mobile-grid,
+  .sal-mobile-grid { grid-template-columns: 1fr; }
+
+  .settle-table td,
+  .ret-table td,
+  .rf-table td {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .settle-table td::before,
+  .ret-table td::before,
+  .rf-table td::before { margin-bottom: 1px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payset-btn,
+  .pf-btn,
+  .settle-btn,
+  .pe-btn,
+  .sal-btn,
+  .ret-btn,
+  .rf-btn,
+  .rp-btn,
+  .pf-slider,
+  .pf-slider::after { transition: none; }
+}

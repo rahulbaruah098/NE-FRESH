@@ -286,6 +286,9 @@ def decorate_customer_payment_display(order_doc):
     payment_method = (order_doc.get("payment_method") or "COD").strip().upper()
     payment_status = (order_doc.get("payment_status") or "").strip().upper()
     payment_collection_status = (order_doc.get("payment_collection_status") or "").strip().upper()
+    payment_collection_channel = (order_doc.get("payment_collection_channel") or "").strip().upper()
+    payment_reconciliation_status = (order_doc.get("payment_reconciliation_status") or "").strip().upper()
+    upi_delivery_reconciliation_status = (order_doc.get("upi_delivery_reconciliation_status") or "").strip().upper()
     status = (order_doc.get("status") or "").strip().upper()
 
     is_cod_order = payment_method in [
@@ -336,6 +339,30 @@ def decorate_customer_payment_display(order_doc):
     else:
         payment_method_label = payment_method.replace("_", " ").title() if payment_method else "Payment"
 
+    cod_payment_recorded = bool(
+        is_cod_order
+        and (
+            payment_status in [
+                "COLLECTED_BY_RIDER",
+                "COD_COLLECTED_BY_RIDER",
+                "COD_UPI_RECORDED",
+                "COLLECTED_BY_STORE",
+                "COLLECTED_BY_EXTERNAL_PARTNER",
+                "PAID",
+            ]
+            or payment_collection_status in [
+                "COLLECTED",
+                "COLLECTED_BY_STORE",
+                "COLLECTED_BY_EXTERNAL_PARTNER",
+                "PAID",
+            ]
+        )
+    )
+
+    payment_received_by = (order_doc.get("payment_received_by") or "").strip().upper()
+    cod_collection_method = (order_doc.get("cod_collection_method") or "").strip().upper()
+    external_cod_remittance_status = (order_doc.get("external_cod_remittance_status") or "").strip().upper()
+
     if online_payment_paid:
         payment_status_label = "Paid"
         payment_badge_class = "paid"
@@ -344,10 +371,30 @@ def decorate_customer_payment_display(order_doc):
         payment_status_label = "Payment Pending"
         payment_badge_class = "pending"
         payment_notice = "Please complete online payment to confirm this order."
+    elif is_cod_order and payment_received_by == "STORE" and cod_payment_recorded:
+        payment_status_label = "Paid on Delivery · Store"
+        payment_badge_class = "paid"
+        payment_notice = "Your Pay-on-Delivery payment was received by the Store."
+    elif is_cod_order and payment_received_by == "EXTERNAL_PARTNER" and cod_payment_recorded:
+        payment_status_label = "Paid on Delivery"
+        payment_badge_class = "paid"
+        payment_notice = "Your Pay-on-Delivery payment was received by the external delivery partner."
+    elif is_cod_order and payment_collection_channel == "UPI" and upi_delivery_reconciliation_status == "VERIFIED":
+        payment_status_label = "Paid via UPI at Delivery"
+        payment_badge_class = "paid"
+        payment_notice = "UPI payment received and verified by NE FRESH."
+    elif is_cod_order and payment_collection_channel == "UPI" and cod_payment_recorded:
+        payment_status_label = "UPI Paid · Verification Pending"
+        payment_badge_class = "pending"
+        payment_notice = "UPI payment reference was recorded at delivery and is awaiting Admin reconciliation."
+    elif is_cod_order and payment_collection_channel == "CASH" and cod_payment_recorded:
+        payment_status_label = "Paid on Delivery · Cash"
+        payment_badge_class = "paid"
+        payment_notice = "Cash payment was collected by the delivery partner."
     elif is_cod_order:
-        payment_status_label = "Cash on Delivery (COD)"
+        payment_status_label = "Pay on Delivery (COD)"
         payment_badge_class = "cod"
-        payment_notice = "Pay with cash when your order is delivered."
+        payment_notice = "Pay when your order is delivered using cash or supported UPI."
     elif payment_status:
         payment_status_label = payment_status.replace("_", " ").title()
         payment_badge_class = "pending"
@@ -357,10 +404,14 @@ def decorate_customer_payment_display(order_doc):
         payment_badge_class = "pending"
         payment_notice = ""
 
-    payment_received_by = (order_doc.get("payment_received_by") or "").strip().upper()
-
-    if payment_received_by == "ADMIN_PLATFORM":
+    if payment_received_by == "ADMIN_PLATFORM" and payment_collection_channel == "UPI":
+        payment_received_by_label = "NE FRESH / Official UPI"
+    elif payment_received_by == "ADMIN_PLATFORM":
         payment_received_by_label = "NE FRESH / Platform"
+    elif payment_received_by == "STORE":
+        payment_received_by_label = "Store"
+    elif payment_received_by == "EXTERNAL_PARTNER":
+        payment_received_by_label = "External Delivery Partner"
     elif payment_received_by:
         payment_received_by_label = payment_received_by.replace("_", " ").title()
     elif is_cod_order:
@@ -373,6 +424,11 @@ def decorate_customer_payment_display(order_doc):
     order_doc["payment_method"] = payment_method
     order_doc["payment_status"] = payment_status
     order_doc["payment_collection_status"] = payment_collection_status
+    order_doc["payment_collection_channel"] = payment_collection_channel
+    order_doc["payment_reconciliation_status"] = payment_reconciliation_status
+    order_doc["upi_delivery_reconciliation_status"] = upi_delivery_reconciliation_status
+    order_doc["external_cod_remittance_status"] = external_cod_remittance_status
+    order_doc["cod_collection_method"] = cod_collection_method
 
     order_doc["is_cod_order"] = is_cod_order
     order_doc["is_online_order"] = is_online_order
@@ -388,10 +444,10 @@ def decorate_customer_payment_display(order_doc):
     order_doc["payment_notice"] = payment_notice
     order_doc["payment_received_by_label"] = payment_received_by_label
 
-    order_doc["cod_collection_required"] = bool(is_cod_order and not online_payment_paid)
+    order_doc["cod_collection_required"] = bool(is_cod_order and not cod_payment_recorded)
     order_doc["amount_to_collect_from_customer"] = (
         float(order_doc.get("total_payable") or order_doc.get("total_amount") or 0)
-        if is_cod_order
+        if is_cod_order and not cod_payment_recorded
         else 0.0
     )
 
@@ -1648,7 +1704,7 @@ def checkout():
         # ------------------------------------------------------------
         # Platform-controlled payment / settlement base fields
         # ------------------------------------------------------------
-        # COD_RIDER_COLLECTION = customer pays rider, rider submits remaining cash to Admin.
+        # COD_RIDER_COLLECTION = customer pays rider as collection agent; the full customer cash is business money and is remitted to Admin.
         # ONLINE_PLATFORM = customer pays NE FRESH through platform gateway.
         # ------------------------------------------------------------
         is_online_order = payment_method == "ONLINE"
@@ -1661,8 +1717,13 @@ def checkout():
             initial_payment_status = "PENDING_PAYMENT"
             payment_collection_status = "ONLINE_PENDING"
             cod_collection_status = "NOT_REQUIRED"
+            initial_payment_reconciliation_status = "PENDING_PAYMENT"
+            external_cod_remittance_status = "NOT_REQUIRED"
             platform_fee_status = "PENDING_PAYMENT"
             rider_cash_settlement_status = "NOT_REQUIRED"
+            initial_store_payout_status = "PENDING_AFTER_DELIVERY"
+            initial_store_settlement_status = "PAYOUT_PENDING"
+            initial_order_settlement_status = "PENDING_PAYMENT"
             expected_rider_cash_to_submit = 0.0
             rider_cash_to_submit = 0.0
             flash_message = "Order created. Please complete online payment in the next step."
@@ -1671,24 +1732,40 @@ def checkout():
                 platform_payment_flow = "COD_RIDER_COLLECTION"
                 payment_collection_status = "PENDING"
                 cod_collection_status = "PENDING"
+                initial_payment_reconciliation_status = "PENDING_COLLECTION"
+                external_cod_remittance_status = "NOT_REQUIRED"
                 platform_fee_status = "PENDING_COLLECTION"
                 rider_cash_settlement_status = "NOT_COLLECTED_YET"
+                initial_store_payout_status = "PENDING_AFTER_DELIVERY"
+                initial_store_settlement_status = "PAYOUT_PENDING"
+                initial_order_settlement_status = "PENDING_COLLECTION"
             else:
                 if external_payment_rule == EXTERNAL_PAYMENT_RULE_COD_PARTNER:
                     platform_payment_flow = "COD_PARTNER_COLLECTION"
                     payment_collection_status = "PENDING_PARTNER_COLLECTION"
                     cod_collection_status = "PENDING_PARTNER_COLLECTION"
+                    initial_payment_reconciliation_status = "PENDING_PARTNER_COLLECTION"
+                    external_cod_remittance_status = "PENDING_PARTNER_COLLECTION"
                     platform_fee_status = "PENDING_PARTNER_REMITTANCE"
+                    initial_store_payout_status = "PENDING_AFTER_DELIVERY"
+                    initial_store_settlement_status = "PAYOUT_PENDING"
+                    initial_order_settlement_status = "PENDING_PARTNER_COLLECTION"
                 else:
-                    if active_delivery_mode == DELIVERY_MODE_EXTERNAL_LOCAL:
-                        platform_payment_flow = "PAY_ON_DELIVERY_STORE_ONLINE"
-                        payment_collection_status = "PENDING_PAY_ON_DELIVERY"
-                        cod_collection_status = "PENDING_PAY_ON_DELIVERY"
-                    else:
-                        platform_payment_flow = "COD_STORE_COLLECTION"
-                        payment_collection_status = "PENDING_STORE_COLLECTION"
-                        cod_collection_status = "PENDING_STORE_COLLECTION"
+                    platform_payment_flow = (
+                        "PAY_ON_DELIVERY_STORE_ONLINE"
+                        if active_delivery_mode == DELIVERY_MODE_EXTERNAL_LOCAL
+                        else "COD_STORE_COLLECTION"
+                    )
+                    payment_collection_status = "PENDING_STORE_COLLECTION"
+                    cod_collection_status = "PENDING_STORE_COLLECTION"
+                    initial_payment_reconciliation_status = "PENDING_STORE_COLLECTION"
+                    external_cod_remittance_status = "NOT_REQUIRED"
                     platform_fee_status = "DUE_FROM_STORE"
+                    # The Store will receive the customer money directly. Admin does not owe
+                    # a separate Store payout for this order.
+                    initial_store_payout_status = "NOT_REQUIRED"
+                    initial_store_settlement_status = "DIRECT_COLLECTION_PENDING"
+                    initial_order_settlement_status = "PENDING_STORE_COLLECTION"
 
                 rider_cash_settlement_status = "NOT_APPLICABLE"
 
@@ -1718,11 +1795,13 @@ def checkout():
         )
 
         if not is_online_order and in_house_delivery_enabled_at_order:
-            expected_rider_cash_to_submit = round(
-                max(float(total_payable or 0) - float(delivery_boy_earning_amount or 0), 0),
-                2
-            )
-            rider_cash_to_submit = expected_rider_cash_to_submit
+            # MONTHLY_V1 keeps customer money and delivery-partner pay completely separate.
+            # The rider may physically collect COD cash, but must remit the FULL customer
+            # payment. Delivery fee + tip are paid later through the monthly settlement.
+            expected_rider_cash_to_submit = round(max(float(total_payable or 0), 0), 2)
+
+            # Actual rider cash liability starts only after COD is physically collected.
+            rider_cash_to_submit = 0.0
         elif not is_online_order:
             expected_rider_cash_to_submit = 0.0
             rider_cash_to_submit = 0.0
@@ -1791,7 +1870,7 @@ def checkout():
             "external_label_url": "",
             "external_manifest_url": "",
             "external_cod_amount": float(total_payable) if (not is_online_order and external_delivery_enabled_at_order) else 0.0,
-            "external_cod_remittance_status": "NOT_REQUIRED",
+            "external_cod_remittance_status": external_cod_remittance_status,
             "external_delivery_payload": {},
             "external_delivery_response": {},
             "external_delivery_quote": serviceability.get("external_delivery_quote") or {},
@@ -1802,10 +1881,14 @@ def checkout():
             "external_delivery_eta_minutes": serviceability.get("eta_minutes"),
             "external_status_history": [],
 
-            # At order creation, COD money is not collected yet.
-            # It will be collected by delivery boy at delivery time.
+            # At order creation, COD / Pay-on-Delivery money is not collected yet.
+            # At delivery, the assigned rider records either Cash or official UPI.
             "payment_received_by": None,
             "payment_collected_at": None,
+            "payment_collection_channel": "RAZORPAY" if payment_method == "ONLINE" else "",
+            "payment_reconciliation_status": initial_payment_reconciliation_status,
+            "upi_delivery_reference": "",
+            "upi_delivery_reconciliation_status": "NOT_APPLICABLE",
             "payment_collection_status": payment_collection_status,
             "cod_collection_status": cod_collection_status,
 
@@ -1854,7 +1937,7 @@ def checkout():
             "platform_fee_received_at": None,
 
             "store_payout_amount": store_earning_amount,
-            "store_payout_status": "PENDING_AFTER_DELIVERY",
+            "store_payout_status": initial_store_payout_status,
             "store_payout_paid_at": None,
             "store_payout_marked_by": None,
             "store_payout_note": "",
@@ -1865,8 +1948,24 @@ def checkout():
             "delivery_boy_payout_paid_at": None,
             "delivery_boy_payout_marked_by": None,
             "delivery_boy_payout_note": "",
+            "delivery_payout_model": (
+                DELIVERY_PAYOUT_MODEL_MONTHLY_V1
+                if in_house_delivery_enabled_at_order
+                else DELIVERY_PAYOUT_MODEL_NOT_REQUIRED
+            ),
+            "delivery_monthly_period": "",
+            "delivery_monthly_settlement_status": (
+                DELIVERY_MONTHLY_STATUS_PENDING_DELIVERY
+                if in_house_delivery_enabled_at_order
+                else "NOT_REQUIRED"
+            ),
+            "delivery_monthly_earning_amount": delivery_boy_earning_amount,
+            "delivery_monthly_settlement_id": "",
+            "delivery_monthly_paid_at": None,
 
-            "cod_collected_amount": float(total_payable) if not is_online_order else 0.0,
+            # No COD has been collected at order creation.
+            # The delivered-status workflow writes the actual collected amount.
+            "cod_collected_amount": 0.0,
             "expected_rider_cash_to_submit": expected_rider_cash_to_submit,
             "rider_cash_to_submit": rider_cash_to_submit,
             "rider_cash_settlement_status": rider_cash_settlement_status,
@@ -1874,7 +1973,8 @@ def checkout():
             "rider_cash_received_by": None,
             "rider_cash_settlement_note": "",
 
-            "order_settlement_status": "NOT_STARTED",
+            "order_settlement_status": initial_order_settlement_status,
+            "store_settlement_status": initial_store_settlement_status,
             "settlement_audit_logs": [],
 
             "distance_km": float(km) if km is not None else None,
@@ -1988,6 +2088,20 @@ def checkout():
 
             "delivery_boy_payout_amount": delivery_boy_earning_amount,
             "delivery_boy_payout_status": "PENDING_DELIVERY",
+            "delivery_payout_model": (
+                DELIVERY_PAYOUT_MODEL_MONTHLY_V1
+                if in_house_delivery_enabled_at_order
+                else DELIVERY_PAYOUT_MODEL_NOT_REQUIRED
+            ),
+            "delivery_monthly_period": "",
+            "delivery_monthly_settlement_status": (
+                DELIVERY_MONTHLY_STATUS_PENDING_DELIVERY
+                if in_house_delivery_enabled_at_order
+                else "NOT_REQUIRED"
+            ),
+            "delivery_monthly_earning_amount": delivery_boy_earning_amount,
+            "delivery_monthly_settlement_id": "",
+            "delivery_monthly_paid_at": None,
 
             "expected_rider_cash_to_submit": expected_rider_cash_to_submit,
             "rider_cash_to_submit": rider_cash_to_submit,
@@ -2508,6 +2622,9 @@ def api_verify_razorpay_payment(oid):
     order_doc["payment_collection_status"] = "PAID"
     order_doc["payment_received_by"] = "ADMIN_PLATFORM"
     order_doc["payment_collected_at"] = now
+    order_doc["payment_collection_channel"] = "RAZORPAY"
+    order_doc["payment_reconciliation_status"] = "VERIFIED"
+    order_doc["upi_delivery_reconciliation_status"] = "NOT_APPLICABLE"
 
     order_doc["razorpay_order_id"] = razorpay_order_id
     order_doc["razorpay_payment_id"] = razorpay_payment_id
@@ -2556,6 +2673,9 @@ def api_verify_razorpay_payment(oid):
         tx_doc["payment_collection_status"] = "PAID"
         tx_doc["payment_received_by"] = "ADMIN_PLATFORM"
         tx_doc["payment_collected_at"] = now
+        tx_doc["payment_collection_channel"] = "RAZORPAY"
+        tx_doc["payment_reconciliation_status"] = "VERIFIED"
+        tx_doc["upi_delivery_reconciliation_status"] = "NOT_APPLICABLE"
         tx_doc["razorpay_order_id"] = razorpay_order_id
         tx_doc["razorpay_payment_id"] = razorpay_payment_id
         tx_doc["payment_gateway"] = "RAZORPAY"
@@ -2907,6 +3027,11 @@ def my_orders():
 @login_required()
 def order_track(oid):
     u = current_user()
+
+    # Store users must stay inside the Store operations shell.  Keep this
+    # redirect as a defensive fallback for old bookmarks or stale links.
+    if (u.get("role") or "").strip().lower() == "store":
+        return redirect(url_for("store_order_track", oid=oid))
 
     data = get_order_full(
         oid,

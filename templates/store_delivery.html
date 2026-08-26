@@ -1,9 +1,13 @@
 {% extends "store_base.html" %}
 {% set active_page = "delivery" %}
 
-{% block title %}Delivery Control | NE FRESH Store{% endblock %}
-{% block page_title %}Delivery Control{% endblock %}
-{% block page_subtitle %}Manage delivery assignment, rider movement, pickup readiness and delivery performance.{% endblock %}
+{% block title %}Delivery | NE Locals{% endblock %}
+{% block page_title %}Delivery{% endblock %}
+{% block page_subtitle %}Assign in-house delivery staff, track active deliveries and handle delivery exceptions.{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/store/store-delivery.css') }}">
+{% endblock %}
 
 {% block content %}
 {% set dm = delivery_metrics if delivery_metrics is defined else {} %}
@@ -19,872 +23,8 @@
 {% set zone_ready = store.delivery_zone_configured|default(1 if store.delivery_zone_polygon else 0)|int %}
 {% set has_store_coords = store.latitude is not none and store.longitude is not none %}
 
-<section class="nf-store-delivery-page">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
-
-    .nf-store-delivery-page{
-      --bg:#F8FFFB;
-      --card:#FFFFFF;
-      --card2:#FBFFFD;
-      --soft:#F3FFF8;
-      --soft2:#F7FBF9;
-      --line:#DDECE4;
-      --line2:#EAF4EF;
-      --ink:#1F332A;
-      --text:#40534A;
-      --muted:#66756D;
-      --muted2:#8A9890;
-      --green:#00A859;
-      --green-dark:#008A48;
-      --green-deep:#075C3B;
-      --green-soft:#E9FFF3;
-      --orange:#FF8A1F;
-      --orange-soft:#FFF4EA;
-      --red:#EF4444;
-      --red-soft:#FFF1F2;
-      --blue:#0284C7;
-      --blue-soft:#E0F2FE;
-      --shadow:0 14px 36px rgba(17,64,38,.08);
-      --shadow2:0 24px 70px rgba(17,64,38,.13);
-      --radius:24px;
-      --ease:cubic-bezier(.2,.75,.25,1);
-      width:100%;
-      min-height:100%;
-      background:
-        radial-gradient(circle at 10% 0%, rgba(0,168,89,.09), transparent 34%),
-        radial-gradient(circle at 95% 10%, rgba(2,132,199,.08), transparent 30%),
-        var(--bg);
-      color:var(--ink);
-      font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-      overflow-x:hidden;
-    }
-
-    .nf-store-delivery-page,
-    .nf-store-delivery-page *{
-      box-sizing:border-box;
-    }
-
-    .sdp-shell{
-      width:100%;
-      max-width:1680px;
-      margin:0 auto;
-      padding:24px;
-    }
-
-    .sdp-stack{
-      display:grid;
-      gap:20px;
-    }
-
-    .sdp-card{
-      background:rgba(255,255,255,.98);
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .sdp-card:hover{
-      box-shadow:var(--shadow2);
-    }
-
-    .sdp-hero{
-      position:relative;
-      display:grid;
-      grid-template-columns:minmax(0,1fr) auto;
-      gap:20px;
-      align-items:center;
-      padding:24px;
-      border-radius:30px;
-      background:
-        linear-gradient(135deg,rgba(255,255,255,.98),rgba(243,255,248,.92)),
-        #fff;
-      border:1px solid var(--line);
-      box-shadow:var(--shadow2);
-      overflow:hidden;
-    }
-
-    .sdp-hero::after{
-      content:"";
-      position:absolute;
-      right:-110px;
-      top:-120px;
-      width:320px;
-      height:320px;
-      border-radius:999px;
-      background:rgba(0,168,89,.10);
-      pointer-events:none;
-    }
-
-    .sdp-hero-main,
-    .sdp-hero-side{
-      position:relative;
-      z-index:1;
-    }
-
-    .sdp-kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:30px;
-      padding:0 12px;
-      border-radius:999px;
-      background:var(--green-soft);
-      border:1px solid rgba(0,168,89,.18);
-      color:var(--green-dark);
-      font-size:12px;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-
-    .sdp-title{
-      margin:14px 0 8px;
-      color:var(--ink);
-      font-size:clamp(30px,4vw,52px);
-      line-height:1;
-      font-weight:900;
-      letter-spacing:-.06em;
-    }
-
-    .sdp-copy{
-      max-width:920px;
-      margin:0;
-      color:var(--muted);
-      font-size:15px;
-      font-weight:650;
-      line-height:1.65;
-    }
-
-    .sdp-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:18px;
-    }
-
-    .sdp-btn,
-    .sdp-table button,
-    .sdp-table a,
-    .sdp-small-btn,
-    .sdp-form button{
-      min-height:40px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      padding:9px 13px;
-      border-radius:14px;
-      border:1px solid var(--line);
-      background:#fff;
-      color:var(--text);
-      text-decoration:none;
-      font-size:13px;
-      font-weight:900;
-      transition:.2s var(--ease);
-      cursor:pointer;
-      white-space:nowrap;
-    }
-
-    .sdp-btn:hover,
-    .sdp-small-btn:hover,
-    .sdp-table button:hover,
-    .sdp-table a:hover{
-      transform:translateY(-1px);
-      border-color:rgba(0,168,89,.30);
-      color:var(--green-dark);
-      box-shadow:0 12px 24px rgba(17,64,38,.09);
-    }
-
-    .sdp-form button.danger,
-.sdp-btn.danger,
-.sdp-small-btn.danger{
-  background:var(--red);
-  border-color:var(--red);
-  color:#fff;
-}
-
-.sdp-form button.danger:hover,
-.sdp-btn.danger:hover,
-.sdp-small-btn.danger:hover{
-  background:#DC2626;
-  border-color:#DC2626;
-  color:#fff;
-}
-
-    .sdp-btn-primary,
-    .sdp-form button.primary{
-      background:var(--green)!important;
-      border-color:var(--green)!important;
-      color:#fff!important;
-      box-shadow:0 12px 24px rgba(0,168,89,.18);
-    }
-
-    .sdp-btn-blue,
-    .sdp-form button.blue{
-      background:var(--blue-soft)!important;
-      border-color:rgba(2,132,199,.20)!important;
-      color:#0369A1!important;
-    }
-
-    .sdp-btn-danger,
-    .sdp-form button.danger{
-      background:var(--red-soft)!important;
-      border-color:#FECACA!important;
-      color:#B91C1C!important;
-    }
-
-        .sdp-pill.danger{
-      background:#FFF1F2;
-      color:#B91C1C;
-      border-color:#FECACA;
-    }
-
-    .sdp-rider-cancel-note{
-      margin-top:8px;
-      display:grid;
-      gap:5px;
-      padding:9px 10px;
-      border-radius:12px;
-      background:#FFF7ED;
-      border:1px solid rgba(234,88,12,.22);
-      color:#7C2D12;
-      font-size:12px;
-      font-weight:800;
-      line-height:1.4;
-      max-width:320px;
-    }
-
-    .sdp-rider-cancel-note strong{
-      color:#9A3412;
-      font-size:12px;
-      font-weight:950;
-    }
-
-    .sdp-next-step{
-      margin-top:7px;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:6px 9px;
-      border-radius:999px;
-      background:var(--green-soft);
-      color:var(--green-dark);
-      border:1px solid rgba(0,168,89,.18);
-      font-size:11px;
-      font-weight:950;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-      width:max-content;
-      max-width:100%;
-    }
-
-    .sdp-hero-side{
-      min-width:260px;
-      border-radius:24px;
-      background:#fff;
-      border:1px solid var(--line2);
-      padding:18px;
-      display:grid;
-      gap:12px;
-      box-shadow:0 10px 28px rgba(17,64,38,.06);
-    }
-
-    .sdp-hero-stat{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      padding-bottom:11px;
-      border-bottom:1px solid var(--line2);
-    }
-
-    .sdp-hero-stat:last-child{
-      border-bottom:0;
-      padding-bottom:0;
-    }
-
-    .sdp-hero-stat span{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:850;
-    }
-
-    .sdp-hero-stat strong{
-      color:var(--ink);
-      font-size:16px;
-      font-weight:950;
-      text-align:right;
-    }
-
-    .sdp-kpi-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:14px;
-    }
-
-    .sdp-kpi{
-      min-height:126px;
-      border-radius:22px;
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 10px 28px rgba(17,64,38,.06);
-      padding:18px;
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:14px;
-      transition:.22s var(--ease);
-      overflow:hidden;
-      position:relative;
-    }
-
-    .sdp-kpi::before{
-      content:"";
-      position:absolute;
-      left:0;
-      top:0;
-      bottom:0;
-      width:5px;
-      background:var(--green);
-    }
-
-    .sdp-kpi.warning::before{background:var(--orange);}
-    .sdp-kpi.info::before{background:var(--blue);}
-    .sdp-kpi.danger::before{background:var(--red);}
-
-    .sdp-kpi:hover{
-      transform:translateY(-3px);
-      box-shadow:var(--shadow2);
-      border-color:rgba(0,168,89,.26);
-    }
-
-    .sdp-kpi-label{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.08em;
-    }
-
-    .sdp-kpi-value{
-      margin-top:8px;
-      color:var(--ink);
-      font-size:clamp(28px,3vw,42px);
-      line-height:1;
-      font-weight:900;
-      letter-spacing:-.045em;
-    }
-
-    .sdp-kpi-meta{
-      margin-top:8px;
-      color:var(--muted2);
-      font-size:12px;
-      font-weight:800;
-      line-height:1.35;
-    }
-
-    .sdp-kpi-icon{
-      width:48px;
-      height:48px;
-      border-radius:17px;
-      display:grid;
-      place-items:center;
-      background:var(--green-soft);
-      font-size:24px;
-      flex:0 0 auto;
-    }
-
-    .sdp-section-head{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:14px;
-      padding:20px 22px;
-      border-bottom:1px solid var(--line2);
-      background:var(--card2);
-    }
-
-    .sdp-section-title{
-      margin:0;
-      color:var(--ink);
-      font-size:18px;
-      font-weight:900;
-      letter-spacing:-.03em;
-    }
-
-    .sdp-section-sub{
-      margin:5px 0 0;
-      color:var(--muted);
-      font-size:13px;
-      font-weight:650;
-      line-height:1.45;
-    }
-
-    .sdp-view-link{
-      color:var(--green-dark);
-      text-decoration:none;
-      font-size:13px;
-      font-weight:900;
-      white-space:nowrap;
-    }
-
-    .sdp-setup-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:14px;
-      padding:20px;
-    }
-
-    .sdp-setup-card{
-      border:1px solid var(--line2);
-      border-radius:20px;
-      background:#fff;
-      padding:16px;
-      display:grid;
-      gap:12px;
-      min-height:126px;
-    }
-
-    .sdp-setup-title{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      color:var(--ink);
-      font-size:14px;
-      font-weight:950;
-    }
-
-    .sdp-pill{
-      min-height:28px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding:6px 10px;
-      border-radius:999px;
-      background:var(--green-soft);
-      color:var(--green-dark);
-      border:1px solid rgba(0,168,89,.18);
-      font-size:11px;
-      font-weight:950;
-      white-space:nowrap;
-    }
-
-    .sdp-pill.orange{
-      background:var(--orange-soft);
-      color:#C2410C;
-      border-color:#FED7AA;
-    }
-
-    .sdp-pill.red{
-      background:var(--red-soft);
-      color:#B91C1C;
-      border-color:#FECACA;
-    }
-
-    .sdp-pill.blue{
-      background:var(--blue-soft);
-      color:#0369A1;
-      border-color:rgba(2,132,199,.22);
-    }
-
-    .sdp-setup-text{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:750;
-      line-height:1.45;
-    }
-
-    .sdp-main-grid{
-      display:grid;
-      grid-template-columns:minmax(0,1.35fr) minmax(340px,.65fr);
-      gap:20px;
-      align-items:start;
-    }
-
-    .sdp-rider-list{
-      padding:20px;
-      display:grid;
-      gap:12px;
-    }
-
-    .sdp-rider-card{
-      border:1px solid var(--line2);
-      border-radius:20px;
-      background:#fff;
-      padding:15px;
-      display:grid;
-      gap:10px;
-    }
-
-    .sdp-rider-top{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:flex-start;
-    }
-
-    .sdp-rider-name{
-      color:var(--ink);
-      font-size:14px;
-      font-weight:950;
-    }
-
-    .sdp-rider-meta{
-      margin-top:4px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:750;
-      line-height:1.45;
-    }
-
-    .sdp-rider-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    .sdp-table-wrap{
-      padding:0 20px 20px;
-      overflow:auto;
-    }
-
-    .sdp-table{
-      width:100%;
-      min-width:1100px;
-      border-collapse:separate;
-      border-spacing:0;
-      border:1px solid var(--line);
-      border-radius:16px;
-      overflow:hidden;
-      background:#fff;
-    }
-
-    .sdp-table thead{
-      background:var(--green-deep);
-      color:#fff;
-    }
-
-    .sdp-table th{
-      padding:14px;
-      text-align:left;
-      font-size:12px;
-      font-weight:900;
-      text-transform:uppercase;
-      letter-spacing:.07em;
-    }
-
-    .sdp-table td{
-      padding:14px;
-      border-bottom:1px solid var(--line2);
-      color:var(--text);
-      font-size:13px;
-      font-weight:700;
-      vertical-align:top;
-    }
-
-    .sdp-table tbody tr:last-child td{
-      border-bottom:0;
-    }
-
-    .sdp-table tbody tr:nth-child(even){
-      background:#FCFFFD;
-    }
-
-    .sdp-table tbody tr:hover{
-      background:#F7FFFB;
-    }
-
-    .sdp-order-id{
-      color:var(--ink);
-      font-weight:950;
-      max-width:130px;
-      display:block;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .sdp-muted{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:700;
-      line-height:1.45;
-    }
-
-    .sdp-form{
-      display:grid;
-      gap:8px;
-      min-width:220px;
-    }
-
-    .sdp-form select{
-      width:100%;
-      min-height:40px;
-      border:1px solid var(--line);
-      border-radius:14px;
-      background:#fff;
-      color:var(--ink);
-      padding:0 12px;
-      font-size:13px;
-      font-weight:800;
-      outline:none;
-    }
-
-    .sdp-form-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    .sdp-empty{
-      padding:18px;
-      color:var(--muted);
-      background:var(--soft2);
-      border:1px dashed var(--line);
-      border-radius:14px;
-      text-align:center;
-      font-size:13px;
-      font-weight:750;
-    }
-
-    .sdp-attention-list{
-      padding:20px;
-      display:grid;
-      gap:12px;
-    }
-
-    .sdp-attention-card{
-      border:1px solid #FED7AA;
-      border-radius:18px;
-      background:#FFF7ED;
-      padding:14px;
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:flex-start;
-    }
-
-    .sdp-attention-title{
-      color:#9A3412;
-      font-size:13px;
-      font-weight:950;
-    }
-
-    .sdp-attention-meta{
-      margin-top:4px;
-      color:#C2410C;
-      font-size:12px;
-      font-weight:750;
-    }
-
-body.sdp-modal-open{
-  overflow:hidden !important;
-}
-
-.sdp-modal-backdrop{
-  position:fixed;
-  top:0;
-  right:0;
-  bottom:0;
-  left:0;
-  width:100vw;
-  height:100vh;
-  height:100dvh;
-  z-index:999999;
-  display:none;
-  align-items:center;
-  justify-content:center;
-  padding:18px;
-  margin:0;
-  background:rgba(15,35,25,.52);
-  backdrop-filter:blur(8px);
-  overflow-y:auto;
-  overscroll-behavior:contain;
-}
-
-.sdp-modal-backdrop.is-open{
-  display:flex;
-}
-
-.sdp-modal{
-  position:relative;
-  width:min(560px,100%);
-  max-height:calc(100dvh - 36px);
-  overflow:auto;
-  margin:auto;
-  border-radius:26px;
-  background:#fff;
-  border:1px solid var(--line);
-  box-shadow:0 30px 90px rgba(0,0,0,.22);
-}
-
-.sdp-modal-head{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-  padding:20px 22px;
-  border-bottom:1px solid var(--line2);
-  background:var(--card2);
-}
-
-.sdp-modal-title{
-  margin:0;
-  color:var(--ink);
-  font-size:20px;
-  font-weight:950;
-  letter-spacing:-.04em;
-}
-
-.sdp-modal-sub{
-  margin:6px 0 0;
-  color:var(--muted);
-  font-size:13px;
-  font-weight:750;
-  line-height:1.45;
-}
-
-.sdp-modal-close{
-  width:38px;
-  height:38px;
-  border-radius:14px;
-  border:1px solid var(--line);
-  background:#fff;
-  color:var(--ink);
-  font-size:20px;
-  font-weight:950;
-  cursor:pointer;
-}
-
-.sdp-modal-body{
-  padding:20px 22px 22px;
-  display:grid;
-  gap:12px;
-}
-
-.sdp-modal-info{
-  padding:12px 14px;
-  border-radius:16px;
-  background:#FFF7ED;
-  border:1px solid #FED7AA;
-  color:#9A3412;
-  font-size:13px;
-  font-weight:800;
-  line-height:1.55;
-}
-
-.sdp-modal-form{
-  display:grid;
-  gap:12px;
-}
-
-.sdp-modal-form input,
-.sdp-modal-form select,
-.sdp-modal-form textarea{
-  width:100%;
-  min-height:44px;
-  border:1px solid var(--line);
-  border-radius:15px;
-  background:#fff;
-  color:var(--ink);
-  padding:10px 12px;
-  font-size:13px;
-  font-weight:800;
-  outline:none;
-}
-
-.sdp-modal-form textarea{
-  min-height:96px;
-  resize:vertical;
-}
-
-.sdp-modal-actions{
-  display:flex;
-  justify-content:flex-end;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.sdp-modal-actions button{
-  min-height:42px;
-  border-radius:14px;
-  border:1px solid var(--line);
-  padding:10px 15px;
-  font-size:13px;
-  font-weight:950;
-  cursor:pointer;
-}
-
-.sdp-modal-actions .secondary{
-  background:#fff;
-  color:var(--text);
-}
-
-.sdp-modal-actions .primary{
-  background:var(--green);
-  border-color:var(--green);
-  color:#fff;
-}
-
-.sdp-modal-actions .danger{
-  background:var(--red);
-  border-color:var(--red);
-  color:#fff;
-}
-
-    @media(max-width:1450px){
-      .sdp-kpi-grid,
-      .sdp-setup-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .sdp-main-grid{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media(max-width:900px){
-      .sdp-hero{
-        grid-template-columns:1fr;
-      }
-
-      .sdp-hero-side{
-        min-width:0;
-      }
-    }
-
-    @media(max-width:760px){
-      .sdp-shell{
-        padding:14px;
-      }
-
-      .sdp-kpi-grid,
-      .sdp-setup-grid{
-        grid-template-columns:1fr;
-      }
-
-      .sdp-section-head{
-        padding:16px;
-        flex-direction:column;
-      }
-
-      .sdp-table-wrap,
-      .sdp-rider-list,
-      .sdp-setup-grid,
-      .sdp-attention-list{
-        padding:16px;
-      }
-
-      .sdp-actions a,
-      .sdp-btn,
-      .sdp-form button,
-      .sdp-small-btn{
-        width:100%;
-      }
-    }
-  </style>
+<section class="nf-store-delivery-page nf-store-page">
+  
 
   <div class="sdp-shell">
     <div class="sdp-stack">
@@ -893,17 +33,17 @@ body.sdp-modal-open{
 
       <section class="sdp-hero">
         <div class="sdp-hero-main">
-          <span class="sdp-kicker">🛵 Store Delivery Control</span>
-          <h1 class="sdp-title">Delivery Control Center</h1>
+          <span class="sdp-kicker">🚚 Delivery</span>
+          <h1 class="sdp-title">Manage Deliveries</h1>
           <p class="sdp-copy">
             Manage rider assignment, pickup readiness, active delivery movement and recent completed deliveries from one dedicated store page.
           </p>
 
           <div class="sdp-actions">
-            <a class="sdp-btn sdp-btn-primary" href="#needs-rider">Needs Rider</a>
+            <a class="sdp-btn sdp-btn-primary" href="#needs-rider">Needs Delivery Partner</a>
             <a class="sdp-btn" href="#active-deliveries">Active Deliveries</a>
-            <a class="sdp-btn" href="{{ url_for('store_orders') }}">Open Orders</a>
-            <a class="sdp-btn" href="{{ url_for('store_profile') }}">Delivery Settings</a>
+            <a class="sdp-btn" href="{{ url_for('store_orders') }}">All Orders</a>
+            <a class="sdp-btn" href="{{ url_for('store_profile') }}">Store Profile</a>
           </div>
         </div>
 
@@ -926,7 +66,7 @@ body.sdp-modal-open{
       <section class="sdp-kpi-grid">
         <div class="sdp-kpi warning">
           <div>
-            <div class="sdp-kpi-label">Needs Rider</div>
+            <div class="sdp-kpi-label">Needs Delivery Partner</div>
             <div class="sdp-kpi-value">{{ dm.needs_rider|default(0) }}</div>
             <div class="sdp-kpi-meta">Ready/preparing orders without rider</div>
           </div>
@@ -1019,7 +159,7 @@ body.sdp-modal-open{
     </div>
 
     <div class="sdp-table-wrap">
-      <table class="sdp-table">
+      <table class="sdp-table sdp-failed-table">
         <thead>
           <tr>
             <th>Order</th>
@@ -1034,7 +174,7 @@ body.sdp-modal-open{
           {% for o in failed_delivery_list %}
             <tr>
               <td>
-                <strong>#{{ o.id }}</strong>
+                <strong>{{ o.order_number or o.display_order_number or ("#" ~ o.id) }}</strong>
                 <div class="sdp-muted">
                   Failed at: {{ o.delivery_failed_at or o.updated_at or '—' }}
                 </div>
@@ -1097,7 +237,7 @@ body.sdp-modal-open{
         <div>
           <h3 class="sdp-modal-title">Reschedule Failed Delivery</h3>
           <p class="sdp-modal-sub">
-            Order #{{ o.id }} will go back to Ready For Pickup and can be assigned again.
+            Order {{ o.order_number or o.display_order_number or ("#" ~ o.id) }} will go back to Ready For Pickup and can be assigned again.
           </p>
         </div>
         <button type="button" class="sdp-modal-close" data-sdp-modal-close>&times;</button>
@@ -1139,7 +279,7 @@ body.sdp-modal-open{
         <div>
           <h3 class="sdp-modal-title">Cancel Failed Delivery Order</h3>
           <p class="sdp-modal-sub">
-            This will cancel Order #{{ o.id }} after failed delivery attempt.
+            This will cancel Order {{ o.order_number or o.display_order_number or ("#" ~ o.id) }} after failed delivery attempt.
           </p>
         </div>
         <button type="button" class="sdp-modal-close" data-sdp-modal-close>&times;</button>
@@ -1193,7 +333,7 @@ body.sdp-modal-open{
             <h2 class="sdp-section-title">Delivery Setup Status</h2>
             <p class="sdp-section-sub">These settings affect checkout serviceability and delivery assignment.</p>
           </div>
-          <a class="sdp-view-link" href="{{ url_for('store_profile') }}">Open Store Profile</a>
+          <a class="sdp-view-link" href="{{ url_for('store_profile') }}">Store Profile</a>
         </div>
 
         <div class="sdp-setup-grid">
@@ -1260,16 +400,16 @@ body.sdp-modal-open{
           <div class="sdp-section-head">
             <div>
   <h2 class="sdp-section-title">Orders Needing Rider</h2>
-  <p class="sdp-section-sub">Assign online delivery boys only after the order is marked ready for pickup.</p>
-  <p class="sdp-section-sub" style="margin-top:6px;color:#008A48;font-weight:800;">
+  <p class="sdp-section-sub">Assign an online Delivery Partner after the order is ready for pickup.</p>
+  <p class="sdp-section-sub" style="margin-top:6px;color:#466F55;font-weight:800;">
     Step: Confirm / Prepare order → Mark Ready for Pickup → Assign Rider.
   </p>
 </div>
-            <a class="sdp-view-link" href="{{ url_for('store_orders') }}">Open Orders</a>
+            <a class="sdp-view-link" href="{{ url_for('store_orders') }}">All Orders</a>
           </div>
 
           <div class="sdp-table-wrap">
-            <table class="sdp-table">
+            <table class="sdp-table sdp-needs-table">
               <thead>
                 <tr>
                   <th>Order</th>
@@ -1285,7 +425,7 @@ body.sdp-modal-open{
                   {% set st = (o.status or '')|upper %}
                   <tr>
                     <td>
-                      <span class="sdp-order-id">#{{ o.id }}</span>
+                      <span class="sdp-order-id">{{ o.order_number or o.display_order_number or ("#" ~ o.id) }}</span>
                       <div class="sdp-muted">{{ o.created_at or '' }}</div>
                     </td>
 
@@ -1352,7 +492,7 @@ body.sdp-modal-open{
                       {% if available_delivery_people_list and available_delivery_people_list|length %}
                         <form method="post" action="{% if o.delivery_cancelled_by_partner or o.needs_reassignment %}{{ url_for('store_order_reassign_delivery', oid=o.id) }}{% else %}{{ url_for('store_order_assign_delivery', oid=o.id) }}{% endif %}" class="sdp-form">
                           <select name="delivery_user_id" required>
-                            <option value="">Select active delivery boy</option>
+                            <option value="">Select active Delivery Partner</option>
                             {% for d in available_delivery_people_list %}
                               <option value="{{ d.id }}">
                                 {{ d.name }}
@@ -1363,7 +503,7 @@ body.sdp-modal-open{
                           </select>
                                                     <button type="submit" class="{% if o.delivery_cancelled_by_partner or o.needs_reassignment %}blue{% else %}primary{% endif %}">
                             {% if o.delivery_cancelled_by_partner or o.needs_reassignment %}
-                              Reassign In-house Delivery Staff
+                              Reassign Delivery Partner
                             {% else %}
                               Assign Delivery
                             {% endif %}
@@ -1389,7 +529,7 @@ body.sdp-modal-open{
         <div class="sdp-card">
           <div class="sdp-section-head">
             <div>
-              <h2 class="sdp-section-title">Online In-house Delivery Staff</h2>
+              <h2 class="sdp-section-title">Online Delivery Partners</h2>
               <p class="sdp-section-sub">Riders currently available for this store assignment.</p>
             </div>
           </div>
@@ -1428,7 +568,7 @@ body.sdp-modal-open{
                 </div>
               </div>
             {% else %}
-              <div class="sdp-empty">No delivery boy is online right now.</div>
+              <div class="sdp-empty">No Delivery Partner is online right now.</div>
             {% endfor %}
           </div>
         </div>
@@ -1443,12 +583,12 @@ body.sdp-modal-open{
         </div>
 
         <div class="sdp-table-wrap">
-          <table class="sdp-table">
+          <table class="sdp-table sdp-active-table">
             <thead>
               <tr>
                 <th>Order</th>
                 <th>Customer</th>
-                <th>In-house Delivery Staff</th>
+                <th>Delivery Partner</th>
                 <th>Status</th>
                 <th>Tracking</th>
                 <th>Controls</th>
@@ -1460,7 +600,7 @@ body.sdp-modal-open{
                 {% set can_change_assignment = st in ['ASSIGNED_TO_DELIVERY', 'ACCEPTED_BY_DELIVERY_MAN', 'REACHED_STORE'] %}
                 <tr>
                   <td>
-                    <span class="sdp-order-id">#{{ o.id }}</span>
+                    <span class="sdp-order-id">{{ o.order_number or o.display_order_number or ("#" ~ o.id) }}</span>
                     <div class="sdp-muted">{{ o.created_at or '' }}</div>
                   </td>
 
@@ -1473,7 +613,7 @@ body.sdp-modal-open{
                     <strong>{{ o.delivery_partner_name or 'Assigned Rider' }}</strong>
                     <div class="sdp-muted">{{ o.delivery_partner_phone or 'No phone' }}</div>
                     {% if o.delivery_partner_phone %}
-                      <a class="sdp-small-btn" href="tel:{{ o.delivery_partner_phone }}">Call Rider</a>
+                      <a class="sdp-small-btn" href="tel:{{ o.delivery_partner_phone }}">Call Partner</a>
                     {% endif %}
                   </td>
 
@@ -1486,7 +626,7 @@ body.sdp-modal-open{
 
                   <td>
                     <div class="sdp-form-row">
-                      <a class="sdp-small-btn" href="{{ url_for('order_track', oid=o.id) }}">Track Order</a>
+                      <a class="sdp-small-btn" href="{{ url_for('store_order_track', oid=o.id) }}">Track Order</a>
 
                       {% if o.addr_lat is not none and o.addr_lng is not none %}
                         <a class="sdp-small-btn" target="_blank" href="https://www.google.com/maps/dir/?api=1&destination={{ o.addr_lat }},{{ o.addr_lng }}">
@@ -1553,7 +693,7 @@ body.sdp-modal-open{
         {% if att_status == 'DELIVERY_FAILED' %}
           <div class="sdp-attention-title">Failed delivery needs store decision</div>
           <div class="sdp-attention-meta">
-            #{{ o.id }} · {{ o.customer_name or 'Customer' }} · {{ o.delivery_failed_reason or 'Delivery failed' }}
+            {{ o.order_number or o.display_order_number or ("#" ~ o.id) }} · {{ o.customer_name or 'Customer' }} · {{ o.delivery_failed_reason or 'Delivery failed' }}
           </div>
 
           {% if o.delivery_failed_note %}
@@ -1568,7 +708,7 @@ body.sdp-modal-open{
         {% elif o.delivery_cancelled_by_partner or o.needs_reassignment %}
           <div class="sdp-attention-title">Delivery cancelled by rider</div>
           <div class="sdp-attention-meta">
-            #{{ o.id }} · {{ o.customer_name or 'Customer' }} · Needs reassignment
+            {{ o.order_number or o.display_order_number or ("#" ~ o.id) }} · {{ o.customer_name or 'Customer' }} · Needs reassignment
           </div>
 
           <div class="sdp-rider-cancel-note">
@@ -1586,15 +726,15 @@ body.sdp-modal-open{
           <div class="sdp-next-step">Next Step: Reassign Rider</div>
 
         {% else %}
-          <div class="sdp-attention-title">Order needs delivery boy</div>
+          <div class="sdp-attention-title">Order needs a Delivery Partner</div>
           <div class="sdp-attention-meta">
-            #{{ o.id }} · {{ o.customer_name or 'Customer' }} · {{ (o.status or 'PLACED').replace('_', ' ') }}
+            {{ o.order_number or o.display_order_number or ("#" ~ o.id) }} · {{ o.customer_name or 'Customer' }} · {{ (o.status or 'PLACED').replace('_', ' ') }}
           </div>
         {% endif %}
       </div>
 
       {% if att_status == 'DELIVERY_FAILED' %}
-       <a class="sdp-small-btn" href="#failed-deliveries">Review Failed Delivery</a>
+       <a class="sdp-small-btn" href="#failed-deliveries">Review Failure</a>
       {% else %}
         <a class="sdp-small-btn" href="#needs-rider">
           {% if o.delivery_cancelled_by_partner or o.needs_reassignment %}
@@ -1617,7 +757,7 @@ body.sdp-modal-open{
               <h2 class="sdp-section-title">Recent Delivered Orders</h2>
               <p class="sdp-section-sub">Latest completed deliveries for this store.</p>
             </div>
-            <a class="sdp-view-link" href="{{ url_for('store_delivered_orders') }}">View all</a>
+            <a class="sdp-view-link" href="{{ url_for('store_delivered_orders') }}">View All</a>
           </div>
 
           <div class="sdp-rider-list">
@@ -1625,7 +765,7 @@ body.sdp-modal-open{
               <div class="sdp-rider-card">
                 <div class="sdp-rider-top">
                   <div>
-                    <div class="sdp-rider-name">#{{ o.id }}</div>
+                    <div class="sdp-rider-name">{{ o.order_number or o.display_order_number or ("#" ~ o.id) }}</div>
                     <div class="sdp-rider-meta">
                       {{ o.customer_name or 'Customer' }} · ₹ {{ '%.2f'|format(o.total_payable or ((o.total_amount or 0) + (o.delivery_fee or 0) + (o.tip_amount or 0))) }}
                     </div>
@@ -1666,6 +806,7 @@ body.sdp-modal-open{
         Moving it to <body> makes position:fixed work relative to the visible browser window.
       */
       if (modal.parentElement !== document.body) {
+        modal.setAttribute('data-nf-softnav-page-artifact', 'true');
         document.body.appendChild(modal);
       }
 

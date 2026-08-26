@@ -2,24 +2,6 @@
 {% block content %}
 
 <style>
-  html.nf-products-restoring,
-  html.nf-products-restoring body{
-    overflow-anchor:none;
-    scroll-behavior:auto !important;
-  }
-
-  html.nf-products-restoring #productsPage,
-  #productsPage.nf-restore-preparing{
-    opacity:0 !important;
-    visibility:hidden !important;
-  }
-
-  #productsPage.nf-restore-ready{
-    opacity:1 !important;
-    visibility:visible !important;
-  }
-
-
 
     .nf-shop-tab-count{
       min-width:22px;
@@ -995,24 +977,7 @@
 
 </style>
 
-<script>
-  (function(){
-    try{
-      if('scrollRestoration' in history){
-        history.scrollRestoration = 'manual';
-      }
-
-      var navEntry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
-      var isReload = navEntry ? navEntry.type === 'reload' : (performance.navigation && performance.navigation.type === 1);
-
-      if(isReload && sessionStorage.getItem('nf_products_page_reload_state::' + window.location.pathname)){
-        document.documentElement.classList.add('nf-products-restoring');
-      }
-    }catch(error){}
-  })();
-</script>
-
-<section class="nf-products-page nf-restore-preparing" id="productsPage">
+<section class="nf-products-page" id="productsPage">
   <style>
     /* =========================================================
        NE-FRESH PRODUCTS PAGE — Grocery + Stores listing UI
@@ -7135,148 +7100,6 @@ document.addEventListener('click', function(event){
   }
 });
 
-      const NF_PAGE_STATE_KEY = 'nf_products_page_reload_state::' + window.location.pathname;
-
-      function getNavigationType(){
-        const navEntry = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
-        if(navEntry && navEntry.type) return navEntry.type;
-
-        if(performance.navigation && performance.navigation.type === 1) return 'reload';
-        return 'navigate';
-      }
-
-      function shouldRestoreReloadState(){
-        return getNavigationType() === 'reload';
-      }
-
-      function safeReadReloadState(){
-        try{
-          const raw = sessionStorage.getItem(NF_PAGE_STATE_KEY);
-          if(!raw) return null;
-
-          const state = JSON.parse(raw);
-          if(!state || state.path !== window.location.pathname) return null;
-
-          return state;
-        }catch(error){
-          return null;
-        }
-      }
-
-      function saveReloadState(){
-        try{
-          const state = {
-            path: window.location.pathname,
-            scrollY: Math.max(0, window.scrollY || document.documentElement.scrollTop || 0),
-            activeShopTab: activeShopTab,
-            activeCategory: activeCategory,
-            activeSubcategory: activeSubcategory,
-            activeView: activeView,
-            activeStoreFilter: activeStoreFilter,
-            productDisplayLimit: productDisplayLimit,
-            productViewAll: productViewAll,
-            searchValue: searchInput ? searchInput.value : '',
-            sortValue: sortSelect ? sortSelect.value : 'default',
-            savedAt: Date.now()
-          };
-
-          sessionStorage.setItem(NF_PAGE_STATE_KEY, JSON.stringify(state));
-        }catch(error){}
-      }
-
-      function finishRestoreDisplay(){
-  page.classList.remove('nf-restore-preparing');
-  page.classList.add('nf-restore-ready');
-  document.documentElement.classList.remove('nf-products-restoring');
-}
-
-function restoreScrollPosition(savedY){
-  const targetY = Math.max(0, Number(savedY || 0));
-
-  const doRestore = function(){
-    window.scrollTo(0, targetY);
-  };
-
-  doRestore();
-
-  window.requestAnimationFrame(function(){
-    doRestore();
-    finishRestoreDisplay();
-  });
-
-  window.setTimeout(doRestore, 80);
-  window.setTimeout(doRestore, 260);
-}
-
-      function markSelectedStoreFromState(store){
-        const selectedStore = normalize(store);
-        if(!selectedStore) return;
-
-        page.querySelectorAll('.nf-store-card').forEach(function(card){
-          card.classList.toggle('is-selected', normalize(card.dataset.store) === selectedStore);
-        });
-
-        const selectedCard = page.querySelector('.nf-store-card[data-store="' + cssEscape(selectedStore) + '"]');
-        const label = selectedCard ? prettify(selectedCard.querySelector('.nf-store-name-title')?.textContent || selectedStore) : prettify(selectedStore);
-
-        if(activeStoreNote) activeStoreNote.hidden = false;
-        if(activeStoreName) activeStoreName.textContent = label;
-      }
-
-      function restoreReloadState(state){
-        if(!state) return false;
-
-        if(searchInput) searchInput.value = state.searchValue || '';
-        if(sortSelect && state.sortValue) sortSelect.value = state.sortValue;
-
-        activeView = state.activeView || 'grid';
-
-        const savedTab = state.activeShopTab === 'bundles'
-          ? 'bundles'
-          : ((canViewStoreSection && state.activeShopTab === 'stores') ? 'stores' : 'groceries');
-        setShopTab(savedTab);
-        setView(activeView);
-
-        if(savedTab === 'groceries'){
-          activeStoreFilter = normalize(state.activeStoreFilter || '');
-
-          if(activeStoreFilter){
-            activeCategory = 'all';
-            activeSubcategory = 'all';
-            markSelectedStoreFromState(activeStoreFilter);
-
-            page.querySelectorAll('.nf-category-btn, .nf-rail-chip').forEach(function(btn){
-              btn.classList.toggle('active', normalize(btn.getAttribute('data-category')) === 'all');
-            });
-
-            page.querySelectorAll('.nf-subcategory-btn').forEach(function(btn){
-              btn.classList.toggle('active', false);
-            });
-          }else if(state.activeSubcategory && normalize(state.activeSubcategory) !== 'all'){
-            setSubcategory(state.activeCategory || 'all', state.activeSubcategory || 'all');
-          }else{
-            setCategory(state.activeCategory || 'all');
-          }
-        }
-
-        productDisplayLimit = Math.max(10, Number(state.productDisplayLimit || 10));
-        productViewAll = state.productViewAll === true;
-
-        updateSearchClear();
-        closeEmptyStates();
-        applyFilters();
-        restoreScrollPosition(state.scrollY);
-
-        return true;
-      }
-
-      if('scrollRestoration' in history){
-        history.scrollRestoration = 'manual';
-      }
-
-      window.addEventListener('pagehide', saveReloadState);
-      window.addEventListener('beforeunload', saveReloadState);
-
       function normalize(value){
         return (value || '').toString().trim().toLowerCase();
       }
@@ -8882,18 +8705,12 @@ window.location.href = url.toString();
   });
 });
 
-      const reloadState = shouldRestoreReloadState() ? safeReadReloadState() : null;
-
-      if(!restoreReloadState(reloadState)){
-  setShopTab('groceries');
-  setView('grid');
-  resetProductDisplayLimit();
-  updateSearchClear();
-  closeEmptyStates();
-  applyFilters();
-  sessionStorage.removeItem(NF_PAGE_STATE_KEY);
-  finishRestoreDisplay();
-}
+      setShopTab('groceries');
+      setView('grid');
+      resetProductDisplayLimit();
+      updateSearchClear();
+      closeEmptyStates();
+      applyFilters();
     })();
   </script>
   <script>
