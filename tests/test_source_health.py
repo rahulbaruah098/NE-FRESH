@@ -62,3 +62,22 @@ def test_live_role_routes_stay_role_scoped():
                 assert row["role"] == "store", row
         if row["path"].startswith("/delivery"):
             assert row["role"] in {"delivery", "api_authenticated"}, row
+
+
+@pytest.mark.static
+def test_step95_repository_cleanup_does_not_regress():
+    """Keep proven-dead migration/UI/history artifacts out of the active source tree."""
+    forbidden = [
+        ROOT / "scripts" / "migrate_sqlite_to_mongo.py",
+        ROOT / "services" / "README.md",
+        ROOT / "templates" / "admin_approvals.html",
+        ROOT / "templates" / "admin_delivery_mode_settings.html",
+        ROOT / "templates" / "admin_external_delivery_orders.html",
+        ROOT / "templates" / "admin_external_delivery_settings.html",
+        ROOT / "templates" / "admin_users.html",
+        ROOT / "templates" / "store_external_delivery.html",
+        ROOT / "templates" / "verify_otp.html",
+        ROOT / "static" / "css" / "store" / "store-external-delivery.css",
+    ]
+    assert [str(p.relative_to(ROOT)) for p in forbidden if p.exists()] == []
+    assert list(ROOT.glob("STEP_*")) == []

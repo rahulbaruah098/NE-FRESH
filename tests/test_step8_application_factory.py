@@ -128,7 +128,7 @@ def test_step8_route_form_and_alias_baselines_remain_exact():
     assert form_contracts() == expected_forms
     assert build_only_aliases() == expected_aliases
     assert len(expected_routes) == 282
-    assert len(expected_forms) == 182
+    assert len(expected_forms) == 170
     assert len(expected_aliases) == 2
 
 
