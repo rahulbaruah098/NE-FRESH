@@ -4,18 +4,29 @@ The adapter is credential-ready. If credentials are missing, it returns a safe
 manual booking response instead of breaking checkout/order flow.
 """
 
+import os
 import requests
 from .base import manual_booking_response
 
 SHIPROCKET_BASE_URL = "https://apiv2.shiprocket.in"
 
 
+def _shiprocket_credentials(settings):
+    """Resolve runtime credentials with environment secrets taking priority.
+
+    This keeps existing Mongo-backed Admin settings backward compatible while
+    allowing production EC2 to keep the password outside normal application
+    data (for example in /etc/nefresh/nefresh.env or AWS SSM-derived env).
+    """
+    settings = settings or {}
+    email = (os.getenv("SHIPROCKET_EMAIL") or settings.get("shiprocket_email") or "").strip()
+    password = (os.getenv("SHIPROCKET_PASSWORD") or settings.get("shiprocket_password") or "").strip()
+    return email, password
+
+
 def _has_shiprocket_credentials(settings):
-    return bool(
-        settings.get("shiprocket_enabled")
-        and settings.get("shiprocket_email")
-        and settings.get("shiprocket_password")
-    )
+    email, password = _shiprocket_credentials(settings)
+    return bool(settings.get("shiprocket_enabled") and email and password)
 
 
 def create_shiprocket_booking(payload, settings):
@@ -29,11 +40,12 @@ def create_shiprocket_booking(payload, settings):
         }
 
     try:
+        shiprocket_email, shiprocket_password = _shiprocket_credentials(settings)
         login_res = requests.post(
             f"{SHIPROCKET_BASE_URL}/v1/external/auth/login",
             json={
-                "email": settings.get("shiprocket_email"),
-                "password": settings.get("shiprocket_password"),
+                "email": shiprocket_email,
+                "password": shiprocket_password,
             },
             timeout=20,
         )
@@ -146,11 +158,12 @@ def quote_shiprocket_delivery(payload, settings):
         }
 
     try:
+        shiprocket_email, shiprocket_password = _shiprocket_credentials(settings)
         login_res = requests.post(
             f"{SHIPROCKET_BASE_URL}/v1/external/auth/login",
             json={
-                "email": settings.get("shiprocket_email"),
-                "password": settings.get("shiprocket_password"),
+                "email": shiprocket_email,
+                "password": shiprocket_password,
             },
             timeout=20,
         )

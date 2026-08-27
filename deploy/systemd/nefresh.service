@@ -1,0 +1,36 @@
+[Unit]
+Description=NE FRESH Flask Application (Gunicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nefresh
+Group=www-data
+WorkingDirectory=/srv/nefresh/current
+EnvironmentFile=/etc/nefresh/nefresh.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/srv/nefresh/current/.venv/bin/gunicorn --config /srv/nefresh/current/deploy/gunicorn.conf.py wsgi:app
+ExecReload=/bin/kill -s HUP $MAINPID
+KillSignal=SIGQUIT
+TimeoutStopSec=45
+Restart=on-failure
+RestartSec=5
+UMask=0027
+
+# Moderate systemd hardening. The application is read-only except for the
+# persistent shared runtime directory used for uploads.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/srv/nefresh/shared
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nefresh
+
+[Install]
+WantedBy=multi-user.target

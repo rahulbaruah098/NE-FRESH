@@ -1185,13 +1185,12 @@ def legal_security():
 def legal_terms():
     return render_template('legal/terms.html', user=current_user())
 
-@app.route('/help')
-def legal_help():
-    return render_template('legal/help.html', user=current_user())
-
-@app.route('/report-fraud')
-def legal_report_fraud():
-    return render_template('legal/report_fraud.html', user=current_user())
+# Compatibility-only endpoint aliases.
+# The actual GET handlers live later in this module as help_page and
+# report_fraud_page. build_only=True keeps old url_for(...) endpoint names
+# working without registering a second live matcher for the same URL.
+app.add_url_rule('/help', endpoint='legal_help', build_only=True)
+app.add_url_rule('/report-fraud', endpoint='legal_report_fraud', build_only=True)
 
 @app.route('/about')
 def about():
@@ -1642,7 +1641,7 @@ def contact():
 
 @app.route("/help")
 def help_page():
-    return render_template("legal/help.html")
+    return render_template("legal/help.html", user=current_user())
 
 
 @app.route("/privacy")
@@ -1652,7 +1651,7 @@ def privacy_page():
 
 @app.route("/report-fraud")
 def report_fraud_page():
-    return render_template("legal/report_fraud.html")
+    return render_template("legal/report_fraud.html", user=current_user())
 
 
 @app.route("/security")

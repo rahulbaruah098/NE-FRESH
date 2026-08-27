@@ -25,7 +25,26 @@ if not MONGO_URI:
 if _is_production_env() and "localhost" in MONGO_URI.lower():
     print("[PRODUCTION WARNING] MONGO_URI points to localhost. Confirm production MongoDB backups are enabled.")
 
-client = MongoClient(MONGO_URI)
+def _env_int(name, default):
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return int(default)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return int(default)
+    return max(500, value)
+
+
+# Keep import deterministic: creating the client does not itself require a live
+# network connection. The readiness endpoint and explicit init command perform
+# the actual dependency checks.
+client = MongoClient(
+    MONGO_URI,
+    connect=False,
+    serverSelectionTimeoutMS=_env_int("MONGO_SERVER_SELECTION_TIMEOUT_MS", 5000),
+    connectTimeoutMS=_env_int("MONGO_CONNECT_TIMEOUT_MS", 5000),
+)
 mongo = client.get_database()
 
 

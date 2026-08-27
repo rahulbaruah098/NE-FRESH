@@ -10,13 +10,11 @@ import csv, zipfile, json
 from datetime import date,datetime
 import time
 import html
-from flask import Flask, render_template, request,Response, redirect, url_for, session, flash, jsonify, send_file, abort
-from flask_cors import CORS
+from flask import render_template, request,Response, redirect, url_for, session, flash, jsonify, send_file, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
 from flask import make_response
-from markupsafe import Markup
 from collections import defaultdict
 import smtplib
 
@@ -27,199 +25,182 @@ from email.mime.multipart import MIMEMultipart
 # MongoDB imports
 from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
-from mongo_db import mongo, ensure_mongo_indexes
 
-# ---- Env + Twilio
-from dotenv import load_dotenv
-load_dotenv()  # reads .env
+# ---- Extracted infrastructure (Step 3)
+from config import (
+    _env_bool,
+)
+from extensions import mongo
+from logging_config import is_debug_logging_enabled, log_debug, log_warning
+from security import (
+    CSRF_EXEMPT_PATH_PREFIXES,
+    _get_csrf_token,
+    _inject_csrf_helpers,
+    _protect_html_form_posts,
+    add_no_cache_headers,
+)
+from template_context import (
+    FOOTER_LINKS,
+    configure_template_context,
+    inject_cart_count,
+    inject_footer_links,
+    inject_globals,
+    inject_site_brand_settings,
+    register_template_context_processors,
+)
+from uploads import ALLOWED_EXTS, allowed_file
 
+# ---- Extracted low-risk domain helpers/services (Step 4)
+from helpers.formatting import (
+    _clean_pin,
+    _clean_state,
+    _norm_role,
+    _norm_status,
+    is_assam_state,
+    normalize_phone,
+    order_status_label,
+)
+from helpers.identifiers import _order_identity_values, _store_identity_values
+from services.product_pricing import _calculate_product_pricing_from_form, _safe_float
+from services.product_units import (
+    UNIT_OPTIONS,
+    UNIT_TYPE_LABELS,
+    build_unit_product_update_from_form,
+    cart_item_quantity,
+    hydrate_product_unit_fields,
+    normalize_quantity_by_unit,
+    normalize_unit_label,
+    normalize_unit_type,
+    product_mrp_per_unit,
+    product_original_price_per_unit,
+    product_price_per_unit,
+    product_stock_quantity,
+    product_unit_label,
+    product_unit_type,
+    unit_quantity_rules,
+)
+from services.store_notifications import (
+    _create_store_notification,
+    _hydrate_store_notification,
+    _store_id_values,
+    _store_notification_stats,
+    _sync_store_order_notifications,
+)
+from services.product_bundles import (
+    BUNDLE_DISCOUNT_TYPES,
+    _bundle_money_float,
+    _bundle_object_id_string,
+    _bundle_quantity_float,
+    build_bundle_cart_snapshot,
+    build_bundle_item_snapshots,
+    build_live_product_bundle,
+    build_product_bundle_document,
+    calculate_bundle_pricing,
+    calculate_bundle_stock,
+    is_product_bundle_customer_available,
+    normalize_bundle_discount_type,
+    normalize_bundle_product_ids,
+    notify_store_bundle_restock_needed,
+    validate_product_bundle_for_cart,
+)
+from services.store_categories import (
+    DEFAULT_STORE_CATEGORIES,
+    _category_slug,
+    _ensure_store_categories,
+    _get_category_product_count,
+    _get_store_categories,
+    _get_store_category_by_id,
+    _get_store_category_by_name,
+)
+from services.store_catalog import _get_store_products
+from services.store_profile import _build_store_profile_context
+from helpers.numbers import (
+    _delivery_float_or_default,
+    _delivery_float_or_none,
+    _delivery_int,
+    _get_float_or_none,
+)
+from services.delivery_operations import (
+    BASE_DELIVERY_FEE_INR,
+    DELIVERY_ACCEPT_RADIUS_KM,
+    DELIVERY_ACTIONABLE_STATUSES,
+    DELIVERY_ASSIGNED_ACTIVE_STATUSES,
+    DELIVERY_MODE,
+    DELIVERY_PROGRESS_STATUSES,
+    DELIVERY_REASSIGN_BLOCKED_STATUSES,
+    DELIVERY_STORE_ASSIGNABLE_STATUSES,
+    DELIVERY_SURCHARGE_SLABS,
+    MAX_DELIVERY_KM,
+    _delivery_actor_snapshot,
+    _delivery_now,
+    _delivery_user_id,
+    _driver_distance_to_store_km,
+    _get_delivery_availability,
+    _hydrate_delivery_order,
+    _is_delivery_active,
+    add_order_event,
+    assign_delivery_partner_to_order,
+    calculate_delivery_fee_by_distance,
+    clear_delivery_assignment,
+    get_delivery_partner_snapshot,
+    get_online_delivery_people_near_store,
+    haversine_km,
+)
+from services.order_lifecycle import CANCELLABLE_STATUSES, is_cancellable
+from services.order_tracking import get_order_full
 
-app = Flask(__name__)
-
-def _env_bool(name, default=False):
-    raw = os.getenv(name)
-    if raw is None:
-        return bool(default)
-    return str(raw).strip().lower() in ["1", "true", "yes", "on"]
-
-
-def _is_production_env():
-    raw = (
-        os.getenv("APP_ENV")
-        or os.getenv("FLASK_ENV")
-        or os.getenv("ENV")
-        or ""
-    ).strip().lower()
-    return raw in {"production", "prod", "live"}
-
-
-def is_debug_logging_enabled():
-    return _env_bool("NEFRESH_DEBUG_LOGS", False) or _env_bool("FLASK_DEBUG", False)
-
-
-def log_debug(*args):
-    if is_debug_logging_enabled():
-        print(*args)
-
-
-def log_warning(*args):
-    print(*args)
-
-
-# Production-safe secret handling.
-# In production, set APP_SECRET_KEY or SECRET_KEY in .env / server environment.
-# A random runtime key is used only as a last-resort fallback so the old hardcoded
-# development key is never reused.
-_app_secret = (os.getenv("APP_SECRET_KEY") or os.getenv("SECRET_KEY") or "").strip()
-if not _app_secret:
-    if _is_production_env():
-        raise RuntimeError("APP_SECRET_KEY or SECRET_KEY must be set in the production server environment.")
-    _app_secret = secrets.token_urlsafe(48)
-    log_warning("[SECURITY WARNING] APP_SECRET_KEY/SECRET_KEY is not set. Using a temporary runtime key; sessions will reset on restart.")
-elif len(_app_secret) < 32:
-    log_warning("[SECURITY WARNING] APP_SECRET_KEY/SECRET_KEY is shorter than recommended. Use at least 32 random characters in production.")
-app.secret_key = _app_secret
-
-
-# WebView Session Configuration
-from datetime import timedelta
-_session_cookie_httponly = _env_bool("SESSION_COOKIE_HTTPONLY", False)  # set true unless WebView needs JS-readable cookies
-if _is_production_env() and not _session_cookie_httponly:
-    log_warning("[SECURITY WARNING] SESSION_COOKIE_HTTPONLY=false. Set SESSION_COOKIE_HTTPONLY=true in production unless WebView requires JS-readable cookies.")
-app.config['SESSION_COOKIE_HTTPONLY'] = _session_cookie_httponly
-_session_cookie_secure = _env_bool("SESSION_COOKIE_SECURE", _is_production_env())  # true by default when APP_ENV/FLASK_ENV=production
-if _is_production_env() and not _session_cookie_secure:
-    log_warning("[SECURITY WARNING] SESSION_COOKIE_SECURE=false. Set SESSION_COOKIE_SECURE=true on HTTPS production.")
-_session_cookie_samesite = (os.getenv("SESSION_COOKIE_SAMESITE") or "").strip()
-
-# CSRF needs the browser session cookie to survive from GET /login to POST /login.
-# Chrome/Safari reject SameSite=None cookies unless Secure=True; on localhost/http this
-# made the CSRF token disappear and caused login to fail with "Security token expired".
-# Use Lax for local/http by default, and allow None only when HTTPS/Secure is enabled.
-if not _session_cookie_samesite:
-    _session_cookie_samesite = "None" if _session_cookie_secure else "Lax"
-elif _session_cookie_samesite.lower() == "none" and not _session_cookie_secure:
-    log_warning("[SECURITY WARNING] SESSION_COOKIE_SAMESITE=None requires SESSION_COOKIE_SECURE=true. Falling back to Lax for local/http login compatibility.")
-    _session_cookie_samesite = "Lax"
-
-app.config['SESSION_COOKIE_SECURE'] = _session_cookie_secure
-app.config['SESSION_COOKIE_SAMESITE'] = _session_cookie_samesite
-app.config['SESSION_COOKIE_NAME'] = 'session'  # Consistent cookie name
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
-app.config['ENABLE_CSRF_PROTECTION'] = _env_bool("ENABLE_CSRF_PROTECTION", True)
-
-
-# API CORS is restricted by default for production safety.
-# Set CORS_ORIGINS in production, for example:
-# CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
-def _get_api_cors_origins():
-    raw = (os.getenv("CORS_ORIGINS") or "").strip()
-    if raw:
-        if raw == "*":
-            return "*"
-        return [origin.strip() for origin in raw.split(",") if origin.strip()]
-    return [
-        "http://localhost:5000",
-        "http://127.0.0.1:5000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ]
-
-
-_api_cors_origins = _get_api_cors_origins()
-CORS(app, resources={
-    r"/api/*": {
-        "origins": _api_cors_origins,
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": bool(_api_cors_origins != "*"),
-    }
-})
-
-log_debug("[RUNNING]", __file__)
-
-
-def _warn_missing_production_sender_settings():
-    if not _is_production_env():
-        return
-
-    required_email_settings = ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"]
-    missing_email_settings = [name for name in required_email_settings if not (os.getenv(name) or "").strip()]
-
-    if missing_email_settings:
-        log_warning(
-            "[PRODUCTION WARNING] Email/OTP sender is not fully configured. Missing: "
-            + ", ".join(missing_email_settings)
-        )
-
-
-_warn_missing_production_sender_settings()
-
-
-# =========================================================
-# BASIC CSRF PROTECTION FOR HTML FORMS
-# =========================================================
-# API endpoints remain exempt because the mobile app and third-party callbacks use
-# token/header based flows. HTML forms automatically receive the token through the
-# base templates and this validator checks unsafe same-origin form posts.
-CSRF_EXEMPT_PATH_PREFIXES = (
-    "/api/",
-    "/static/",
+# ---- Extracted protected finance services (Step 6)
+from services.platform_fees import (
+    DEFAULT_PLATFORM_FEE_SETTINGS,
+    PLATFORM_FEE_SETTINGS_KEY,
+    _platform_fee_safe_float,
+    build_order_money_breakdown,
+    calculate_platform_fee,
+    get_platform_fee_settings,
+)
+from services.finance_reconciliation import (
+    COD_COLLECTION_DELIVERY_BOY,
+    COD_COLLECTION_EXTERNAL_PARTNER,
+    COD_COLLECTION_STORE,
+    FINANCE_PAYMENT_PENDING,
+    FINANCE_PAYMENT_RECONCILED,
+    VALID_COD_COLLECTION_METHODS,
+    finance_money,
+    finance_order_has_unresolved_refund,
+    finance_reconciliation_snapshot,
+)
+from services.store_finance_adjustments import (
+    FINANCE_STORE_ADJUSTMENT_APPLIED,
+    FINANCE_STORE_ADJUSTMENT_OPEN,
+    FINANCE_STORE_ADJUSTMENT_PARTIAL,
+    finance_apply_store_adjustments,
+    finance_create_store_adjustment,
+    finance_rollback_store_adjustments,
+    finance_store_id_values,
+    finance_store_outstanding_adjustment_total,
+)
+from services.delivery_monthly_settlement import (
+    DELIVERY_MONTHLY_BATCH_STATUS_PAID,
+    DELIVERY_MONTHLY_STATUS_ACCRUED,
+    DELIVERY_MONTHLY_STATUS_PAID,
+    DELIVERY_MONTHLY_STATUS_PENDING_DELIVERY,
+    DELIVERY_PAYOUT_MODEL_MONTHLY_V1,
+    DELIVERY_PAYOUT_MODEL_NOT_REQUIRED,
+    _DELIVERY_SETTLEMENT_IST,
+    delivery_monthly_current_period,
+    delivery_monthly_payment_is_reconciled,
+    delivery_monthly_period_from_utc,
+    delivery_monthly_period_is_closed,
+    delivery_monthly_period_label,
+    delivery_order_uses_monthly_payout,
+    delivery_partner_id_values,
 )
 
+from app_factory import get_base_app
 
-def _get_csrf_token():
-    token = session.get("_csrf_token")
-    if not token:
-        token = secrets.token_urlsafe(32)
-        session["_csrf_token"] = token
-    return token
+app = get_base_app()
 
-
-@app.context_processor
-def _inject_csrf_helpers():
-    def csrf_field():
-        token = html.escape(_get_csrf_token(), quote=True)
-        return Markup(f'<input type="hidden" name="csrf_token" value="{token}">')
-
-    return {
-        "csrf_token": _get_csrf_token(),
-        "csrf_field": csrf_field,
-    }
-
-
-@app.before_request
-def _protect_html_form_posts():
-    if not app.config.get("ENABLE_CSRF_PROTECTION", True):
-        return None
-
-    if request.method in ["GET", "HEAD", "OPTIONS", "TRACE"]:
-        return None
-
-    path = request.path or ""
-    if any(path.startswith(prefix) for prefix in CSRF_EXEMPT_PATH_PREFIXES):
-        return None
-
-    # Keep JSON API-style calls outside /api usable when they send an Authorization
-    # header, but still protect normal browser form submissions.
-    if request.is_json and request.headers.get("Authorization"):
-        return None
-
-    expected = session.get("_csrf_token")
-    received = (
-        request.form.get("csrf_token")
-        or request.form.get("_csrf_token")
-        or request.headers.get("X-CSRFToken")
-        or request.headers.get("X-CSRF-Token")
-        or ""
-    )
-
-    if not expected or not received or not secrets.compare_digest(str(expected), str(received)):
-        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
-            return jsonify({"ok": False, "error": "Security token expired. Please refresh and try again."}), 400
-        abort(400, description="Security token expired. Please refresh and try again.")
-
-    return None
+log_debug("[RUNNING]", __file__)
 
 
 
@@ -259,128 +240,20 @@ def _parse_since_to_sqlite(since_raw: str):
         dt = datetime.utcnow() - timedelta(minutes=2)
 
     return dt.strftime("%Y-%m-%d %H:%M:%S")
-# ---------------------------
-# CONTEXT (globals to templates)
-# ---------------------------
-# ---------------------------
-# CONTEXT (globals to templates)
-# ---------------------------
-@app.context_processor
-def inject_globals():
-    delivery_mode_settings = get_delivery_mode_settings()
-
-    try:
-        payment_gateway_row = mongo.platform_settings.find_one({"key": "payment_gateway_settings"}) or {}
-    except Exception:
-        payment_gateway_row = {}
-
-    try:
-        platform_fee_settings = get_platform_fee_settings()
-    except Exception:
-        platform_fee_settings = {"enabled": False}
-
-    online_payment_allowed = bool(delivery_mode_settings.get("allow_online_payment", True))
-    pay_on_delivery_allowed = bool(delivery_mode_settings.get("allow_cod_payment", True))
-    platform_fee_enabled = bool(platform_fee_settings.get("enabled", False))
-    payment_gateway_enabled = bool(payment_gateway_row.get("enabled", False))
-
-    return {
-        "datetime": datetime,
-        "current_user": current_user(),
-        "service_area": session.get("service_area"),
-        "order_status_label": order_status_label,
-        "delivery_mode_settings": delivery_mode_settings,
-        "active_delivery_mode": delivery_mode_settings.get("active_delivery_mode", "IN_HOUSE"),
-        "in_house_delivery_enabled": bool(delivery_mode_settings.get("in_house_delivery_enabled", True)),
-        "external_delivery_enabled": bool(delivery_mode_settings.get("external_delivery_enabled", False)),
-        "external_local_delivery_enabled": bool(delivery_mode_settings.get("external_local_delivery_enabled", False)),
-        "third_party_shipping_enabled": bool(delivery_mode_settings.get("third_party_shipping_enabled", False)),
-        "return_refund_enabled": bool(delivery_mode_settings.get("return_refund_enabled", True)),
-        "online_payment_allowed": online_payment_allowed,
-        "pay_on_delivery_allowed": pay_on_delivery_allowed,
-        "payment_gateway_enabled": payment_gateway_enabled,
-        "platform_fee_enabled": platform_fee_enabled,
-        "delivery_mode_ui": get_delivery_mode_ui_context(delivery_mode_settings),
-    }
-
-
-
-
-@app.context_processor
-def inject_cart_count():
-    try:
-        u = current_user()
-        if not u:
-            return dict(cart_count=0)
-
-        cid = get_or_create_cart(u["id"])
-        cart_count = mongo.cart_items.count_documents({"cart_id": cid})
-
-        return dict(cart_count=cart_count)
-    except Exception:
-        return dict(cart_count=0)
-
-
-# ---- Footer links site-wide ----
-FOOTER_LINKS = [
-    {"label": "Privacy", "endpoint": "legal_privacy"},
-    {"label": "Security", "endpoint": "legal_security"},
-    {"label": "Terms of Service", "endpoint": "legal_terms"},
-    {"label": "Help & Support", "endpoint": "legal_help"},
-    {"label": "Report a Fraud", "endpoint": "legal_report_fraud"},
-]
-@app.context_processor
-def inject_footer_links():
-    return {"FOOTER_LINKS": FOOTER_LINKS}
-
-
-# ---- Brand/support/social config site-wide ----
-def _env_text(name, default=""):
-    return (os.getenv(name) or default or "").strip()
-
-
-@app.context_processor
-def inject_site_brand_settings():
-    return {
-        "APP_BRAND_NAME": _env_text("APP_BRAND_NAME", "NELOCALS"),
-        "SUPPORT_EMAIL": _env_text("SUPPORT_EMAIL", "support@nelocals.in"),
-        "SOCIAL_FACEBOOK_URL": _env_text("SOCIAL_FACEBOOK_URL", ""),
-        "SOCIAL_INSTAGRAM_URL": _env_text("SOCIAL_INSTAGRAM_URL", ""),
-        "SOCIAL_YOUTUBE_URL": _env_text("SOCIAL_YOUTUBE_URL", ""),
-    }
+# Template context processors were extracted to template_context.py in Step 3.
+# They are configured and registered near the end of this module after the
+# legacy business providers they depend on have been defined.
 
 # ----------------------
 # ----------------------
 # DELIVERY CONFIG
 # ----------------------
-BASE_DELIVERY_FEE_INR = 40
 
 # Assam-wide delivery enabled:
 # no fixed pincode list and no max-distance blocking.
 # Delivery fee is calculated by distance slabs.
-DELIVERY_SURCHARGE_SLABS = [
-    (0, 2, 0),       # 0 - 2 km: ₹40
-    (2, 5, 15),      # 2 - 5 km: ₹55
-    (5, 10, 30),     # 5 - 10 km: ₹70
-    (10, 20, 50),    # 10 - 20 km: ₹90
-    (20, 50, 80),    # 20 - 50 km: ₹120
-    (50, 9999, 120), # 50+ km: ₹160
-]
 
-MAX_DELIVERY_KM = None
-DELIVERY_MODE = "ASSAM_STATE_WIDE_DISTANCE_FEE"
 
-def haversine_km(lat1, lon1, lat2, lon2):
-    if None in (lat1, lon1, lat2, lon2):
-        return None
-    R = 6371.0
-    phi1 = math.radians(float(lat1))
-    phi2 = math.radians(float(lat2))
-    dphi = math.radians(float(lat2) - float(lat1))
-    dlmb = math.radians(float(lon2) - float(lon1))
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
 
 
 # ----------------------
@@ -389,725 +262,77 @@ def haversine_km(lat1, lon1, lat2, lon2):
 # Delivery boys should see only store shipment-ready, unassigned orders.
 # New status: SHIPMENT_READY
 # Legacy supported status: READY_FOR_PICKUP
-DELIVERY_ACTIONABLE_STATUSES = ["SHIPMENT_READY", "READY_FOR_PICKUP"]
 
 # Active orders already assigned to a delivery boy.
-DELIVERY_ASSIGNED_ACTIVE_STATUSES = [
-    "ASSIGNED_TO_DELIVERY",
-    "REACHED_STORE",
-    "PICKED_UP",
-    "OUT_FOR_DELIVERY"
-]
 
 # Only drivers within this radius from the store pickup point can accept.
 # If store coordinates are missing, distance check is skipped.
-DELIVERY_ACCEPT_RADIUS_KM = 15.0
 
 
-def _delivery_now():
-    return datetime.utcnow().isoformat()
 
 
-def _get_delivery_availability(user_id):
-    return mongo.delivery_availability.find_one({"user_id": str(user_id)}) or {}
 
 
-def _is_delivery_active(user_id):
-    row = _get_delivery_availability(user_id)
-    return bool(row.get("active"))
 
 
-def _get_float_or_none(value):
-    try:
-        if value is None or str(value).strip() == "":
-            return None
-        return float(value)
-    except Exception:
-        return None
 
 # =========================================================
 # PRODUCT DISCOUNT HELPERS
 # =========================================================
-def _safe_float(value, default=0.0):
-    try:
-        if value is None or str(value).strip() == "":
-            return float(default)
-        return float(value)
-    except Exception:
-        return float(default)
-
-# =========================================================
-# PRODUCT DISCOUNT HELPERS
-# =========================================================
-def _safe_float(value, default=0.0):
-    try:
-        if value is None or str(value).strip() == "":
-            return float(default)
-        return float(value)
-    except Exception:
-        return float(default)
 
 
-def _calculate_product_pricing_from_form(request_form, fallback_original_price=0):
-    """
-    Product pricing rules:
-    - original_price_per_unit = store-entered base price for selected unit
-    - price_per_unit = final customer selling price after discount
-    - discount can be disabled, percent-based, or fixed-amount based
-    """
 
-    original_price = _safe_float(
-        request_form.get("original_price_per_unit") or request_form.get("price_per_unit"),
-        fallback_original_price
-    )
 
-    if original_price < 0:
-        original_price = -1
-
-    discount_enabled_raw = (
-        request_form.get("discount_enabled")
-        or request_form.get("is_discount_enabled")
-        or ""
-    )
-
-    discount_enabled = str(discount_enabled_raw).strip().lower() in {
-        "1",
-        "true",
-        "on",
-        "yes",
-        "enabled"
-    }
-
-    discount_type = (request_form.get("discount_type") or "percent").strip().lower()
-
-    if discount_type not in {"percent", "amount"}:
-        discount_type = "percent"
-
-    discount_value = _safe_float(request_form.get("discount_value"), 0)
-
-    if discount_value < 0:
-        discount_value = 0
-
-    discount_amount = 0.0
-    discount_percent = 0.0
-    final_price = original_price
-
-    if discount_enabled and original_price > 0 and discount_value > 0:
-        if discount_type == "percent":
-            if discount_value > 100:
-                discount_value = 100
-
-            discount_percent = discount_value
-            discount_amount = original_price * (discount_percent / 100)
-            final_price = original_price - discount_amount
-
-        elif discount_type == "amount":
-            if discount_value > original_price:
-                discount_value = original_price
-
-            discount_amount = discount_value
-            final_price = original_price - discount_amount
-            discount_percent = (discount_amount / original_price * 100) if original_price else 0
-
-    if final_price < 0:
-        final_price = 0
-
-    return {
-        "original_price_per_unit": round(original_price, 2),
-        "price_per_unit": round(final_price, 2),
-        "discount_enabled": bool(discount_enabled and discount_amount > 0),
-        "discount_type": discount_type,
-        "discount_value": round(discount_value, 2),
-        "discount_amount_per_unit": round(discount_amount, 2),
-        "discount_percent": round(discount_percent, 2)
-    }
 
 
 
 # =========================================================
 # PRODUCT BUNDLE HELPERS
 # =========================================================
-BUNDLE_DISCOUNT_TYPES = {
-    "none",
-    "fixed_price",
-    "percent",
-    "amount",
-}
 
 
-def _bundle_money_float(value, default=0.0):
-    try:
-        if value is None or str(value).strip() == "":
-            return float(default)
-        return float(value)
-    except Exception:
-        return float(default)
 
 
-def _bundle_quantity_float(value, default=1.0):
-    try:
-        if value is None or str(value).strip() == "":
-            return float(default)
-        qty = float(value)
-    except Exception:
-        qty = float(default)
 
-    if qty <= 0:
-        qty = float(default)
 
-    return round(qty, 3)
 
 
-def normalize_bundle_discount_type(value):
-    value = (value or "none").strip().lower()
 
-    if value in {"fixed", "fixed-price", "bundle_fixed_price"}:
-        value = "fixed_price"
 
-    if value in {"percentage", "bundle_percent", "bundle_percentage", "bundle_percentage_discount"}:
-        value = "percent"
 
-    if value in {"fixed_amount", "bundle_amount", "bundle_amount_discount"}:
-        value = "amount"
 
-    if value not in BUNDLE_DISCOUNT_TYPES:
-        value = "none"
 
-    return value
 
 
-def _bundle_object_id_string(value):
-    if value is None:
-        return ""
 
-    try:
-        if isinstance(value, ObjectId):
-            return str(value)
-    except Exception:
-        pass
 
-    return str(value)
 
 
-def normalize_bundle_product_ids(values):
-    """
-    Keeps selected products unique and valid.
-    Used by store bundle create/edit and later cart/checkout bundle validation.
-    """
-    if values is None:
-        values = []
 
-    if isinstance(values, str):
-        values = [values]
 
-    cleaned = []
-    seen = set()
 
-    for raw in values:
-        value = str(raw or "").strip()
 
-        if not value or value in seen:
-            continue
 
-        if not ObjectId.is_valid(value):
-            continue
 
-        seen.add(value)
-        cleaned.append(value)
 
-    return cleaned
 
 
-def build_bundle_item_snapshots(products, quantities_by_product_id=None):
-    """
-    Creates safe child-product snapshots for a product bundle.
-    This does not mutate product stock and does not write to DB.
-    """
-    quantities_by_product_id = quantities_by_product_id or {}
-    snapshots = []
 
-    for product in products or []:
-        if not product:
-            continue
-
-        product_id = product.get("_id") or product.get("id")
-        product_id_str = _bundle_object_id_string(product_id)
-
-        if not product_id_str:
-            continue
-
-        hydrate_product_unit_fields(product)
-
-        quantity = _bundle_quantity_float(
-            quantities_by_product_id.get(product_id_str)
-            if product_id_str in quantities_by_product_id
-            else product.get("bundle_quantity"),
-            1.0
-        )
-
-        # Important:
-        # Bundle base total must use the product's ORIGINAL/base price, not the
-        # current product offer/final selling price. Bundle discounts are applied
-        # separately at bundle level, so product-level discounts do not double-apply.
-        original_price_per_unit = _bundle_money_float(
-            product.get("original_price_per_unit")
-            if product.get("original_price_per_unit") is not None
-            else product.get("original_price")
-            if product.get("original_price") is not None
-            else product.get("mrp")
-            if product.get("mrp") is not None
-            else product_price_per_unit(product),
-            0
-        )
-
-        current_selling_price = product_price_per_unit(product)
-
-        line_total = original_price_per_unit * quantity
-        current_line_total = current_selling_price * quantity
-
-        snapshot = {
-            "product_id": product_id if isinstance(product_id, ObjectId) else ObjectId(product_id_str),
-            "product_id_str": product_id_str,
-            "product_name_snapshot": product.get("name") or product.get("product_name") or "Product",
-            "unit_type_snapshot": product.get("unit_type") or "WEIGHT",
-            "unit_label_snapshot": product.get("unit_label") or "kg",
-            "quantity": round(quantity, 3),
-
-            # Original/base price used for bundle pricing.
-            "price_per_unit_snapshot": round(original_price_per_unit, 2),
-            "line_total_snapshot": round(line_total, 2),
-
-            # Current product selling price kept only for display/reference.
-            "current_price_per_unit_snapshot": round(current_selling_price, 2),
-            "current_line_total_snapshot": round(current_line_total, 2),
-
-            "stock_quantity_snapshot": round(product_stock_quantity(product), 3),
-            "is_active_snapshot": int(product.get("is_active", 1) or 0),
-        }
-
-        snapshots.append(snapshot)
-
-    return snapshots
-
-
-def calculate_bundle_pricing(items, discount_type="none", discount_value=0, bundle_price=None):
-    """
-    Calculates bundle price and savings from child product snapshots.
-    Discount is applied at bundle-line level only. Child products are not double-discounted here.
-    """
-    items_total = 0.0
-
-    for item in items or []:
-        items_total += _bundle_money_float(item.get("line_total_snapshot"), 0)
-
-    discount_type = normalize_bundle_discount_type(discount_type)
-    discount_value = _bundle_money_float(discount_value, 0)
-
-    if discount_value < 0:
-        discount_value = 0
-
-    final_price = items_total
-    discount_amount = 0.0
-    discount_percent = 0.0
-
-    if discount_type == "fixed_price":
-        fixed_price = _bundle_money_float(bundle_price if bundle_price is not None else discount_value, 0)
-
-        # If no manual final bundle price is entered, do not turn the bundle price into 0.
-        # The bundle should keep the selected products' original total unless a real bundle offer is added.
-        if fixed_price <= 0:
-            discount_type = "none"
-            discount_value = 0
-            final_price = items_total
-            discount_amount = 0.0
-            discount_percent = 0.0
-        else:
-            if fixed_price > items_total and items_total > 0:
-                fixed_price = items_total
-
-            final_price = fixed_price
-            discount_amount = max(items_total - final_price, 0)
-            discount_percent = (discount_amount / items_total * 100) if items_total else 0
-
-    elif discount_type == "percent" and items_total > 0:
-        if discount_value > 100:
-            discount_value = 100
-
-        discount_percent = discount_value
-        discount_amount = items_total * (discount_percent / 100)
-        final_price = items_total - discount_amount
-
-    elif discount_type == "amount" and items_total > 0:
-        if discount_value > items_total:
-            discount_value = items_total
-
-        discount_amount = discount_value
-        final_price = items_total - discount_amount
-        discount_percent = (discount_amount / items_total * 100) if items_total else 0
-
-    else:
-        discount_type = "none"
-        discount_value = 0
-        final_price = items_total
-
-    if final_price < 0:
-        final_price = 0
-
-    return {
-        "items_total": round(items_total, 2),
-        "bundle_price": round(final_price, 2),
-        "discount_type": discount_type,
-        "discount_value": round(discount_value, 2),
-        "discount_amount": round(discount_amount, 2),
-        "discount_percent": round(discount_percent, 2),
-        "savings_amount": round(discount_amount, 2),
-    }
-
-
-def calculate_bundle_stock(items):
-    """
-    Bundle stock is limited by the least available child product stock.
-    Example: if the bundle needs 2 kg potato and 1 kg onion, stock is min(potato/2, onion/1).
-    """
-    if not items:
-        return {
-            "max_bundle_stock": 0,
-            "stock_status": "OUT_OF_STOCK",
-            "stock_blockers": ["No products added to bundle."],
-        }
-
-    max_counts = []
-    blockers = []
-
-    for item in items:
-        product_name = item.get("product_name_snapshot") or "Product"
-        required_qty = _bundle_quantity_float(item.get("quantity"), 1)
-        available_qty = _bundle_money_float(item.get("stock_quantity_snapshot"), 0)
-        is_active = int(item.get("is_active_snapshot", 1) or 0) == 1
-
-        if not is_active:
-            blockers.append(f"{product_name} is inactive.")
-            max_counts.append(0)
-            continue
-
-        if required_qty <= 0:
-            blockers.append(f"{product_name} has invalid bundle quantity.")
-            max_counts.append(0)
-            continue
-
-        possible = math.floor(available_qty / required_qty)
-
-        if possible <= 0:
-            blockers.append(f"{product_name} is out of stock for this bundle.")
-
-        max_counts.append(max(possible, 0))
-
-    max_bundle_stock = int(min(max_counts)) if max_counts else 0
-
-    if max_bundle_stock <= 0:
-        stock_status = "OUT_OF_STOCK"
-    elif max_bundle_stock <= 5:
-        stock_status = "LOW_STOCK"
-    else:
-        stock_status = "IN_STOCK"
-
-    return {
-        "max_bundle_stock": max_bundle_stock,
-        "stock_status": stock_status,
-        "stock_blockers": blockers,
-    }
-
-
-def build_live_product_bundle(bundle, notify_store=False, notification_context="product_bundle"):
-    """
-    Rebuilds bundle price and stock from current child product records.
-
-    Customer-facing bundle display and cart validation must use live stock, not
-    old stock snapshots saved when the bundle was created. If any bundle child
-    product is inactive, missing, or out of stock for the required quantity, the
-    bundle becomes unavailable for customers. When notify_store=True, the store
-    gets one restock notification per bundle per day.
-    """
-    if not bundle:
-        return None
-
-    bundle = dict(bundle)
-    original_items = bundle.get("items") or []
-    product_ids = []
-    quantities = {}
-    missing_product_names = []
-
-    for item in original_items:
-        if not isinstance(item, dict):
-            continue
-
-        pid = str(item.get("product_id_str") or item.get("product_id") or "").strip()
-        product_name = item.get("product_name_snapshot") or "Product"
-
-        if not pid:
-            missing_product_names.append(product_name)
-            continue
-
-        product_ids.append(pid)
-        quantities[pid] = item.get("quantity") or 1
-
-    product_ids = normalize_bundle_product_ids(product_ids)
-    object_ids = [ObjectId(pid) for pid in product_ids if ObjectId.is_valid(pid)]
-
-    products = list(mongo.products.find({"_id": {"$in": object_ids}})) if object_ids else []
-    product_map = {str(p.get("_id")): p for p in products}
-    ordered_products = []
-    blockers = []
-
-    for pid in product_ids:
-        product = product_map.get(pid)
-
-        if not product:
-            blockers.append("A product in this bundle is missing or deleted.")
-            continue
-
-        ordered_products.append(product)
-
-    for name in missing_product_names:
-        blockers.append(f"{name} is missing from this bundle.")
-
-    items = build_bundle_item_snapshots(
-        ordered_products,
-        quantities_by_product_id=quantities
-    )
-
-    pricing = calculate_bundle_pricing(
-        items,
-        discount_type=bundle.get("discount_type") or "none",
-        discount_value=bundle.get("discount_value") or 0,
-        bundle_price=bundle.get("bundle_price")
-    )
-
-    stock = calculate_bundle_stock(items)
-
-    if blockers:
-        stock["max_bundle_stock"] = 0
-        stock["stock_status"] = "OUT_OF_STOCK"
-        stock["stock_blockers"] = list(stock.get("stock_blockers") or []) + blockers
-
-    bundle["items"] = items
-    bundle.update(pricing)
-    bundle.update(stock)
-
-    if notify_store and int(bundle.get("max_bundle_stock") or 0) <= 0:
-        notify_store_bundle_restock_needed(bundle, notification_context=notification_context)
-
-    return bundle
-
-
-def is_product_bundle_customer_available(bundle):
-    """
-    True only when the bundle should be visible/orderable for customers.
-    """
-    if not bundle:
-        return False
-
-    if int(bundle.get("is_deleted", 0) or 0) == 1:
-        return False
-
-    if int(bundle.get("is_active", 0) or 0) != 1:
-        return False
-
-    if int(bundle.get("max_bundle_stock") or 0) <= 0:
-        return False
-
-    if (bundle.get("stock_status") or "").upper() == "OUT_OF_STOCK":
-        return False
-
-    return True
-
-
-def notify_store_bundle_restock_needed(bundle, notification_context="product_bundle"):
-    """
-    Creates a store notification when a customer-facing bundle becomes unavailable
-    because one or more child products need restocking/reactivation.
-    """
-    try:
-        store_id = bundle.get("store_id")
-        store = None
-
-        if store_id:
-            store = mongo.stores.find_one({"_id": store_id})
-
-        if not store and store_id:
-            try:
-                store = mongo.stores.find_one({"_id": ObjectId(str(store_id))})
-            except Exception:
-                store = None
-
-        if not store and bundle.get("store_id_str"):
-            try:
-                store = mongo.stores.find_one({"_id": ObjectId(str(bundle.get("store_id_str")))})
-            except Exception:
-                store = None
-
-        if not store:
-            return None
-
-        bundle_id = _bundle_object_id_string(bundle.get("_id")) or _bundle_object_id_string(bundle.get("id"))
-        today_key = datetime.utcnow().date().isoformat()
-        event_key = f"bundle-restock-{bundle_id}-{today_key}"
-
-        blockers = bundle.get("stock_blockers") or []
-        blocker_text = "; ".join([str(x) for x in blockers if x]) or "One or more products in this bundle need restocking."
-
-        return _create_store_notification(
-            store,
-            title="Bundle restock needed",
-            message=f"Bundle '{bundle.get('bundle_name') or 'Product Bundle'}' is hidden from customers because: {blocker_text}",
-            notif_type="bundle_restock",
-            order=None,
-            event_key=event_key
-        )
-    except Exception:
-        return None
-
-
-
-def build_product_bundle_document(store, form, products, quantities_by_product_id=None, existing_bundle=None, image_path=None, actor=None):
-    """
-    Builds the DB document/update payload for a product bundle.
-    Used by store bundle create/edit routes.
-    """
-    existing_bundle = existing_bundle or {}
-    now = datetime.utcnow().isoformat()
-
-    bundle_name = (
-        form.get("bundle_name")
-        or form.get("name")
-        or existing_bundle.get("bundle_name")
-        or ""
-    ).strip()
-
-    description = (form.get("description") or existing_bundle.get("description") or "").strip()
-
-    # Product bundles are intentionally independent from category/sub-category.
-    # A store can combine products from different categories in one bundle.
-    category_id = ""
-    category = ""
-    sub_category = ""
-
-    items = build_bundle_item_snapshots(products, quantities_by_product_id=quantities_by_product_id)
-
-    discount_type = normalize_bundle_discount_type(form.get("discount_type") or existing_bundle.get("discount_type"))
-    discount_value = _bundle_money_float(form.get("discount_value"), existing_bundle.get("discount_value", 0))
-    fixed_bundle_price = form.get("bundle_price") if form.get("bundle_price") not in [None, ""] else existing_bundle.get("bundle_price")
-
-    pricing = calculate_bundle_pricing(
-        items,
-        discount_type=discount_type,
-        discount_value=discount_value,
-        bundle_price=fixed_bundle_price,
-    )
-
-    stock = calculate_bundle_stock(items)
-
-    active_raw = form.get("is_active")
-    if active_raw is None:
-        is_active = int(existing_bundle.get("is_active", 1) or 0)
-    else:
-        is_active = 1 if str(active_raw).strip().lower() in {"1", "true", "yes", "on", "active"} else 0
-
-    doc = {
-        "store_id": store.get("_id"),
-        "store_id_str": str(store.get("_id")),
-        "store_name": store.get("store_name") or store.get("name") or "",
-        "bundle_name": bundle_name,
-        "bundle_slug": re.sub(r"[^a-z0-9]+", "-", bundle_name.lower()).strip("-"),
-        "description": description,
-        "category_id": category_id,
-        "category": category,
-        "sub_category": sub_category,
-        "items": items,
-        **pricing,
-        **stock,
-        "is_active": is_active,
-        "is_deleted": int(existing_bundle.get("is_deleted", 0) or 0),
-        "start_date": (form.get("start_date") or existing_bundle.get("start_date") or "").strip(),
-        "end_date": (form.get("end_date") or existing_bundle.get("end_date") or "").strip(),
-        "updated_at": now,
-    }
-
-    if image_path is not None:
-        doc["image_path"] = image_path
-    elif existing_bundle.get("image_path"):
-        doc["image_path"] = existing_bundle.get("image_path")
-    else:
-        doc["image_path"] = ""
-
-    if actor:
-        doc["updated_by"] = str(actor.get("_id") or actor.get("id") or "")
-        doc["updated_by_name"] = actor.get("name") or "Store User"
-
-    if not existing_bundle:
-        doc["created_at"] = now
-        if actor:
-            doc["created_by"] = str(actor.get("_id") or actor.get("id") or "")
-            doc["created_by_name"] = actor.get("name") or "Store User"
-
-    return doc
-
-
-def validate_product_bundle_for_cart(bundle, quantity=1):
-    """
-    Read-only cart/checkout validation. It does not reduce stock.
-    """
-    if not bundle:
-        return False, "Bundle not found."
-
-    if int(bundle.get("is_deleted", 0) or 0) == 1:
-        return False, "This bundle is no longer available."
-
-    if int(bundle.get("is_active", 0) or 0) != 1:
-        return False, "This bundle is currently inactive."
-
-    stock = calculate_bundle_stock(bundle.get("items") or [])
-    max_stock = int(stock.get("max_bundle_stock") or 0)
-
-    requested_qty = int(_bundle_quantity_float(quantity, 1))
-
-    if requested_qty <= 0:
-        requested_qty = 1
-
-    if max_stock < requested_qty:
-        return False, "Not enough stock available for this bundle."
-
-    return True, ""
-
-
-def build_bundle_cart_snapshot(bundle, quantity=1):
-    """
-    Builds a snapshot suitable for cart_items/order_items.
-    """
-    quantity = int(_bundle_quantity_float(quantity, 1))
-
-    if quantity <= 0:
-        quantity = 1
-
-    bundle_price = _bundle_money_float(bundle.get("bundle_price"), 0)
-    savings = _bundle_money_float(bundle.get("savings_amount"), 0)
-
-    return {
-        "item_type": "bundle",
-        "bundle_id": bundle.get("_id"),
-        "bundle_id_str": _bundle_object_id_string(bundle.get("_id")),
-        "product_id": None,
-        "bundle_name_snapshot": bundle.get("bundle_name") or "Product Bundle",
-        "bundle_items_snapshot": bundle.get("items") or [],
-        "cart_quantity": quantity,
-        "quantity": quantity,
-        "unit_type": "COUNT",
-        "unit_label": "bundle",
-        "price_per_unit_snapshot": round(bundle_price, 2),
-        "bundle_price_snapshot": round(bundle_price, 2),
-        "bundle_savings_snapshot": round(savings, 2),
-        "line_total": round(bundle_price * quantity, 2),
-    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # =========================================================
 # PRODUCT UNIT HELPERS
@@ -1116,394 +341,54 @@ def build_bundle_cart_snapshot(bundle, quantity=1):
 # quantity, unit_type, unit_label, price_per_unit, stock_quantity
 # =========================================================
 
-UNIT_OPTIONS = {
-    "WEIGHT": ["kg", "gram"],
-    "VOLUME": ["liter", "ml"],
-    "COUNT": [
-        "piece",
-        "packet",
-        "bottle",
-        "box",
-        "tray",
-        "dozen",
-        "bunch",
-        "bundle",
-        "set",
-        "jar",
-        "can",
-        "pouch",
-        "tin",
-        "bag",
-        "crate",
-        "roll",
-        "custom",
-    ],
-}
-
-UNIT_TYPE_LABELS = {
-    "WEIGHT": "Weight",
-    "VOLUME": "Volume",
-    "COUNT": "Count / Unit",
-}
-
-
-def normalize_unit_type(value):
-    value = (value or "").strip().upper()
-
-    if value in UNIT_OPTIONS:
-        return value
 
-    return "WEIGHT"
 
 
-def normalize_unit_label(unit_type, unit_label, custom_unit_label=None):
-    unit_type = normalize_unit_type(unit_type)
-
-    unit_label = (unit_label or "").strip().lower()
-    custom_unit_label = (custom_unit_label or "").strip().lower()
 
-    allowed_labels = UNIT_OPTIONS.get(unit_type, [])
 
-    if unit_label == "custom" and custom_unit_label:
-        return custom_unit_label
 
-    if unit_label in allowed_labels and unit_label != "custom":
-        return unit_label
 
-    if unit_type == "VOLUME":
-        return "liter"
 
-    if unit_type == "COUNT":
-        return "piece"
 
-    return "kg"
 
 
-def unit_quantity_rules(unit_type, unit_label):
-    unit_type = normalize_unit_type(unit_type)
-    unit_label = (unit_label or "").strip().lower()
 
-    if unit_label == "kg":
-        return {
-            "min": 0.25,
-            "step": 0.25,
-            "message": "Minimum 0.25 kg",
-        }
 
-    if unit_label == "gram":
-        return {
-            "min": 50,
-            "step": 50,
-            "message": "Minimum 50 gram",
-        }
 
-    if unit_label == "liter":
-        return {
-            "min": 0.25,
-            "step": 0.25,
-            "message": "Minimum 0.25 liter",
-        }
 
-    if unit_label == "ml":
-        return {
-            "min": 50,
-            "step": 50,
-            "message": "Minimum 50 ml",
-        }
 
-    return {
-        "min": 1,
-        "step": 1,
-        "message": f"Minimum 1 {unit_label or 'unit'}",
-    }
 
 
-def normalize_quantity_by_unit(quantity, unit_type, unit_label):
-    unit_type = normalize_unit_type(unit_type)
-    unit_label = (unit_label or "").strip().lower()
 
-    try:
-        quantity = float(quantity or 0)
-    except (TypeError, ValueError):
-        quantity = 0
 
-    rules = unit_quantity_rules(unit_type, unit_label)
-    min_value = float(rules["min"])
-    step_value = float(rules["step"])
 
-    if quantity < min_value:
-        return None, rules["message"]
 
-    if step_value > 0:
-        quantity = round(round(quantity / step_value) * step_value, 2)
 
-    if unit_type == "COUNT":
-        quantity = int(round(quantity))
 
-        if quantity < 1:
-            return None, rules["message"]
 
-    return quantity, None
 
 
-def product_unit_type(product):
-    return normalize_unit_type(product.get("unit_type") or "WEIGHT")
 
 
-def product_unit_label(product):
-    unit_type = product_unit_type(product)
 
-    return normalize_unit_label(
-        unit_type,
-        product.get("unit_label") or "kg",
-        product.get("custom_unit_label")
-    )
 
 
-def product_price_per_unit(product):
-    try:
-        return float(product.get("price_per_unit") or 0)
-    except (TypeError, ValueError):
-        return 0.0
 
 
-def product_original_price_per_unit(product):
-    value = product.get("original_price_per_unit")
 
-    if value is None:
-        value = product.get("price_per_unit")
 
-    try:
-        return float(value or 0)
-    except (TypeError, ValueError):
-        return 0.0
 
 
-def product_mrp_per_unit(product):
-    try:
-        return float(product.get("mrp_per_unit") or product.get("old_price") or 0)
-    except (TypeError, ValueError):
-        return 0.0
 
 
-def product_stock_quantity(product):
-    try:
-        return float(product.get("stock_quantity") or 0)
-    except (TypeError, ValueError):
-        return 0.0
 
 
-def hydrate_product_unit_fields(product):
-    unit_type = product_unit_type(product)
-    unit_label = product_unit_label(product)
-    rules = unit_quantity_rules(unit_type, unit_label)
 
-    price_per_unit = product_price_per_unit(product)
-    original_price_per_unit = product_original_price_per_unit(product)
-    mrp_per_unit = product_mrp_per_unit(product)
-    stock_quantity = product_stock_quantity(product)
 
-    default_min = float(rules["min"])
-    quantity_step = float(rules["step"])
 
-    try:
-        custom_min = float(
-            product.get("quantity_min")
-            if product.get("quantity_min") is not None
-            else product.get("min_order_quantity")
-            if product.get("min_order_quantity") is not None
-            else default_min
-        )
-    except (TypeError, ValueError):
-        custom_min = default_min
 
-    if custom_min < default_min:
-        custom_min = default_min
 
-    if unit_type == "COUNT":
-        custom_min = int(round(custom_min))
 
-        if custom_min < 1:
-            custom_min = 1
-
-    product["unit_type"] = unit_type
-    product["unit_type_label"] = UNIT_TYPE_LABELS.get(unit_type, unit_type.title())
-    product["unit_label"] = unit_label
-    product["price_per_unit"] = price_per_unit
-    product["original_price_per_unit"] = original_price_per_unit
-    product["mrp_per_unit"] = mrp_per_unit
-    product["stock_quantity"] = stock_quantity
-    product["quantity_min"] = custom_min
-    product["quantity_step"] = quantity_step
-    product["quantity_message"] = f"Minimum {custom_min:g} {unit_label or 'unit'}"
-
-    return product
-
-
-def cart_item_quantity(cart_item):
-    value = cart_item.get("cart_quantity")
-
-    if value is None:
-        value = cart_item.get("quantity")
-
-    try:
-        return float(value or 0)
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def build_unit_product_update_from_form(form, fallback_original_price=0):
-    unit_type = normalize_unit_type(form.get("unit_type"))
-
-    unit_label = normalize_unit_label(
-        unit_type,
-        form.get("unit_label"),
-        form.get("custom_unit_label")
-    )
-
-    pricing = _calculate_product_pricing_from_form(
-        form,
-        fallback_original_price=fallback_original_price
-    )
-
-    original_price_per_unit = float(pricing.get("original_price_per_unit") or 0)
-    price_per_unit = float(pricing.get("price_per_unit") or 0)
-    discount_amount_per_unit = float(pricing.get("discount_amount_per_unit") or 0)
-
-    try:
-        mrp_per_unit = float(form.get("mrp_per_unit") or 0)
-    except (TypeError, ValueError):
-        mrp_per_unit = 0.0
-
-    try:
-        stock_quantity = float(form.get("stock_quantity") or 0)
-    except (TypeError, ValueError):
-        stock_quantity = 0.0
-
-    rules = unit_quantity_rules(unit_type, unit_label)
-    default_min = float(rules["min"])
-    quantity_step = float(rules["step"])
-
-    try:
-        quantity_min = float(
-            form.get("quantity_min")
-            or form.get("min_order_quantity")
-            or default_min
-        )
-    except (TypeError, ValueError):
-        quantity_min = default_min
-
-    if quantity_min < default_min:
-        quantity_min = default_min
-
-    if unit_type == "COUNT":
-        quantity_min = int(round(quantity_min))
-
-        if quantity_min < 1:
-            quantity_min = 1
-
-    return {
-        "unit_type": unit_type,
-        "unit_label": unit_label,
-        "original_price_per_unit": round(original_price_per_unit, 2),
-        "price_per_unit": round(price_per_unit, 2),
-        "mrp_per_unit": round(mrp_per_unit, 2),
-        "stock_quantity": round(stock_quantity, 2),
-        "quantity_min": quantity_min,
-        "quantity_step": quantity_step,
-        "quantity_message": f"Minimum {quantity_min:g} {unit_label or 'unit'}",
-
-        "discount_enabled": pricing.get("discount_enabled", False),
-        "discount_type": pricing.get("discount_type", "percent"),
-        "discount_value": pricing.get("discount_value", 0),
-        "discount_amount_per_unit": round(discount_amount_per_unit, 2),
-        "discount_percent": pricing.get("discount_percent", 0),
-    }
-
-
-def _driver_distance_to_store_km(order_doc, availability_doc):
-    driver_lat = _get_float_or_none(availability_doc.get("latitude"))
-    driver_lng = _get_float_or_none(availability_doc.get("longitude"))
-
-    if driver_lat is None or driver_lng is None:
-        return None
-
-    store = None
-    if order_doc.get("store_id"):
-        store = mongo.stores.find_one({"_id": order_doc.get("store_id")})
-
-    if not store:
-        return None
-
-    store_lat = _get_float_or_none(store.get("latitude"))
-    store_lng = _get_float_or_none(store.get("longitude"))
-
-    if store_lat is None or store_lng is None:
-        return None
-
-    return haversine_km(driver_lat, driver_lng, store_lat, store_lng)
-
-
-def _hydrate_delivery_order(o):
-    store = mongo.stores.find_one({"_id": o.get("store_id")}) if o.get("store_id") else None
-
-    customer = None
-    if o.get("user_id"):
-        try:
-            customer = mongo.users.find_one({"_id": ObjectId(o.get("user_id"))})
-        except Exception:
-            customer = None
-
-    addr = mongo.order_addresses.find_one({"order_id": o["_id"]})
-
-    o["id"] = str(o["_id"])
-    o["store_name"] = store.get("store_name") if store else o.get("store_name", "")
-    o["customer_name"] = customer.get("name") if customer else o.get("customer_name", "")
-    o["customer_phone"] = customer.get("phone") if customer else o.get("customer_phone", "")
-
-    o["addr_line1"] = addr.get("line1") if addr else ""
-    o["addr_line2"] = addr.get("line2") if addr else ""
-    o["addr_city"] = addr.get("city") if addr else ""
-    o["addr_state"] = addr.get("state") if addr else ""
-    o["addr_pincode"] = addr.get("pincode") if addr else ""
-    o["addr_lat"] = addr.get("latitude") if addr else None
-    o["addr_lng"] = addr.get("longitude") if addr else None
-
-    o["total_amount"] = float(o.get("total_amount") or 0)
-    o["delivery_fee"] = float(o.get("delivery_fee") or 0)
-    o["tip_amount"] = float(o.get("tip_amount") or 0)
-    o["total_payable"] = (
-        float(o.get("total_amount") or 0)
-        + float(o.get("delivery_fee") or 0)
-        + float(o.get("tip_amount") or 0)
-    )
-
-    return o
-
-
-def calculate_delivery_fee_by_distance(km):
-    """
-    Assam-wide delivery:
-    - No distance blocking.
-    - If distance is unavailable, charge base fee.
-    - If distance is available, add slab surcharge.
-    """
-    if km is None:
-        return float(BASE_DELIVERY_FEE_INR)
-
-    try:
-        km = float(km)
-    except Exception:
-        return float(BASE_DELIVERY_FEE_INR)
-
-    surcharge = 0
-
-    for low, high, fee in DELIVERY_SURCHARGE_SLABS:
-        if km >= low and km < high:
-            surcharge = fee
-            break
-
-    return float(BASE_DELIVERY_FEE_INR + surcharge)
 
     # =========================================================
 # PLATFORM FEE HELPERS
@@ -1512,223 +397,15 @@ def calculate_delivery_fee_by_distance(km):
 # until admin enables it from platform fee settings.
 # =========================================================
 
-PLATFORM_FEE_SETTINGS_KEY = "platform_fee"
-
-DEFAULT_PLATFORM_FEE_SETTINGS = {
-    "key": PLATFORM_FEE_SETTINGS_KEY,
-    "enabled": False,
-
-    # fixed / percent / fixed_plus_percent
-    "fee_type": "fixed",
-
-    # Fixed fee amount in INR.
-    "fixed_amount": 0.0,
-
-    # Percentage on product subtotal.
-    "percent": 0.0,
-
-    # Optional bounds.
-    "min_fee": 0.0,
-    "max_fee": 0.0,
-
-    "display_name": "Platform Fee",
-    "description": "Platform fee supports secure ordering, customer support, and platform operations.",
-}
 
 
-def _platform_fee_safe_float(value, default=0.0):
-    try:
-        if value is None or str(value).strip() == "":
-            return float(default)
-
-        number = float(value)
-
-        if number < 0:
-            return float(default)
-
-        return float(number)
-    except Exception:
-        return float(default)
 
 
-def get_platform_fee_settings():
-    """
-    Reads platform fee configuration from MongoDB.
-
-    Collection:
-        platform_settings
-
-    Document:
-        {
-            "key": "platform_fee",
-            "enabled": true/false,
-            "fee_type": "fixed" / "percent" / "fixed_plus_percent",
-            "fixed_amount": 10,
-            "percent": 2,
-            "min_fee": 5,
-            "max_fee": 30,
-            "display_name": "Platform Fee"
-        }
-
-    If no setting exists, returns safe disabled defaults.
-    """
-    settings = dict(DEFAULT_PLATFORM_FEE_SETTINGS)
-
-    try:
-        row = mongo.platform_settings.find_one({
-            "key": PLATFORM_FEE_SETTINGS_KEY
-        }) or {}
-
-        if row:
-            settings.update(row)
-    except Exception:
-        pass
-
-    settings["enabled"] = bool(settings.get("enabled"))
-
-    fee_type = (settings.get("fee_type") or "fixed").strip().lower()
-
-    if fee_type not in ["fixed", "percent", "fixed_plus_percent"]:
-        fee_type = "fixed"
-
-    settings["fee_type"] = fee_type
-    settings["fixed_amount"] = round(_platform_fee_safe_float(settings.get("fixed_amount"), 0), 2)
-    settings["percent"] = round(_platform_fee_safe_float(settings.get("percent"), 0), 2)
-    settings["min_fee"] = round(_platform_fee_safe_float(settings.get("min_fee"), 0), 2)
-    settings["max_fee"] = round(_platform_fee_safe_float(settings.get("max_fee"), 0), 2)
-    settings["display_name"] = (settings.get("display_name") or "Platform Fee").strip() or "Platform Fee"
-    settings["description"] = (
-        settings.get("description")
-        or "Platform fee supports secure ordering, customer support, and platform operations."
-    ).strip()
-
-    return settings
 
 
-def calculate_platform_fee(items_total):
-    """
-    Calculates admin/platform fee from item subtotal.
-
-    Returns:
-        {
-            "platform_fee": 10.0,
-            "admin_platform_earning": 10.0,
-            "platform_fee_source": "admin_global_setting",
-            "platform_fee_settings": {...}
-        }
-
-    If disabled:
-        platform_fee = 0
-        platform_fee_source = "disabled"
-    """
-    try:
-        items_total = float(items_total or 0)
-    except Exception:
-        items_total = 0.0
-
-    if items_total < 0:
-        items_total = 0.0
-
-    settings = get_platform_fee_settings()
-
-    if not settings.get("enabled"):
-        return {
-            "platform_fee": 0.0,
-            "admin_platform_earning": 0.0,
-            "platform_fee_source": "disabled",
-            "platform_fee_settings": settings
-        }
-
-    fee_type = settings.get("fee_type") or "fixed"
-    fixed_amount = _platform_fee_safe_float(settings.get("fixed_amount"), 0)
-    percent = _platform_fee_safe_float(settings.get("percent"), 0)
-    min_fee = _platform_fee_safe_float(settings.get("min_fee"), 0)
-    max_fee = _platform_fee_safe_float(settings.get("max_fee"), 0)
-
-    platform_fee = 0.0
-
-    if fee_type == "fixed":
-        platform_fee = fixed_amount
-
-    elif fee_type == "percent":
-        platform_fee = items_total * (percent / 100)
-
-    elif fee_type == "fixed_plus_percent":
-        platform_fee = fixed_amount + (items_total * (percent / 100))
-
-    if min_fee > 0 and platform_fee < min_fee:
-        platform_fee = min_fee
-
-    if max_fee > 0 and platform_fee > max_fee:
-        platform_fee = max_fee
-
-    platform_fee = round(platform_fee, 2)
-
-    return {
-        "platform_fee": platform_fee,
-        "admin_platform_earning": platform_fee,
-        "platform_fee_source": "admin_global_setting",
-        "platform_fee_settings": settings
-    }
 
 
-def build_order_money_breakdown(items_total, delivery_fee=0, tip_amount=0, payment_method="COD"):
-    """
-    Central money breakdown for orders.
 
-    Customer pays:
-        items_total + delivery_fee + platform_fee + tip_amount
-
-    Ownership:
-        items_total => store earning
-        platform_fee => admin earning
-        delivery_fee/tip => delivery/delivery-settlement logic
-
-    For COD:
-        admin_platform_fee_status = DUE
-
-    For online payment:
-        admin_platform_fee_status = COLLECTED
-    """
-    items_total = round(_platform_fee_safe_float(items_total), 2)
-    delivery_fee = round(_platform_fee_safe_float(delivery_fee), 2)
-    tip_amount = round(_platform_fee_safe_float(tip_amount), 2)
-
-    platform_result = calculate_platform_fee(items_total)
-    platform_fee = round(_platform_fee_safe_float(platform_result.get("platform_fee")), 2)
-
-    total_payable = round(items_total + delivery_fee + platform_fee + tip_amount, 2)
-
-    payment_method_normalized = (payment_method or "COD").strip().upper()
-
-    if payment_method_normalized in ["COD", "CASH", "CASH_ON_DELIVERY"]:
-        admin_platform_fee_status = "DUE"
-    else:
-        admin_platform_fee_status = "COLLECTED"
-
-    return {
-        "items_subtotal": items_total,
-        "total_amount": items_total,
-
-        "delivery_fee": delivery_fee,
-        "delivery_fee_amount": delivery_fee,
-
-        "platform_fee": platform_fee,
-        "admin_platform_earning": platform_fee,
-        "platform_fee_source": platform_result.get("platform_fee_source"),
-        "platform_fee_settings_snapshot": platform_result.get("platform_fee_settings"),
-
-        "tip_amount": tip_amount,
-        "delivery_tip_amount": tip_amount,
-
-        "store_earning": items_total,
-        "total_payable": total_payable,
-
-        "settlement_status": "PENDING",
-        "store_settlement_status": "PENDING",
-        "admin_platform_fee_status": admin_platform_fee_status,
-        "delivery_settlement_status": "PENDING",
-    }
 
 
 # =========================================================
@@ -1737,628 +414,45 @@ def build_order_money_breakdown(items_total, delivery_fee=0, tip_amount=0, payme
 # Customer/order money always remains business money. A delivery partner's
 # compensation is never deducted from Cash/UPI collections in MONTHLY_V1.
 # Delivery fee + tip accrue separately and are paid once per closed calendar month.
-DELIVERY_PAYOUT_MODEL_MONTHLY_V1 = "MONTHLY_V1"
-DELIVERY_PAYOUT_MODEL_NOT_REQUIRED = "NOT_REQUIRED"
-DELIVERY_MONTHLY_STATUS_PENDING_DELIVERY = "PENDING_DELIVERY"
-DELIVERY_MONTHLY_STATUS_ACCRUED = "MONTHLY_ACCRUED"
-DELIVERY_MONTHLY_STATUS_PAID = "PAID_MONTHLY"
-DELIVERY_MONTHLY_BATCH_STATUS_PAID = "PAID"
-
-_DELIVERY_SETTLEMENT_IST = timezone(timedelta(hours=5, minutes=30))
-
-
-def delivery_monthly_period_from_utc(value=None):
-    """
-    Return YYYY-MM in India time for a delivery timestamp.
-
-    Existing order timestamps are mostly naive UTC ISO strings created with
-    datetime.utcnow().  Treat naive values as UTC before converting to IST so a
-    delivery just after midnight in India is assigned to the correct month.
-    """
-    dt = None
-
-    if isinstance(value, datetime):
-        dt = value
-    elif value not in [None, ""]:
-        raw = str(value).strip()
-        if raw:
-            try:
-                if raw.endswith("Z"):
-                    raw = raw[:-1] + "+00:00"
-                dt = datetime.fromisoformat(raw)
-            except Exception:
-                try:
-                    dt = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S")
-                except Exception:
-                    dt = None
-
-    if dt is None:
-        dt = datetime.utcnow().replace(tzinfo=timezone.utc)
-    elif dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    else:
-        dt = dt.astimezone(timezone.utc)
-
-    return dt.astimezone(_DELIVERY_SETTLEMENT_IST).strftime("%Y-%m")
-
-
-def delivery_monthly_period_label(period):
-    try:
-        return datetime.strptime(str(period) + "-01", "%Y-%m-%d").strftime("%B %Y")
-    except Exception:
-        return str(period or "")
-
-
-def delivery_monthly_current_period():
-    return datetime.now(_DELIVERY_SETTLEMENT_IST).strftime("%Y-%m")
-
-
-def delivery_monthly_period_is_closed(period):
-    period = str(period or "").strip()
-    if not re.match(r"^\d{4}-\d{2}$", period):
-        return False
-    return period < delivery_monthly_current_period()
-
-
-def delivery_partner_id_values(value):
-    values = []
-    raw = str(value or "").strip()
-    if not raw:
-        return values
-
-    values.append(raw)
-    try:
-        if ObjectId.is_valid(raw):
-            values.append(ObjectId(raw))
-    except Exception:
-        pass
-    return values
-
-
-def delivery_order_uses_monthly_payout(order):
-    return (
-        isinstance(order, dict)
-        and (order.get("delivery_payout_model") or "").strip().upper() == DELIVERY_PAYOUT_MODEL_MONTHLY_V1
-    )
-
-
-FINANCE_PAYMENT_RECONCILED = "VERIFIED"
-FINANCE_PAYMENT_PENDING = "PENDING"
-FINANCE_STORE_ADJUSTMENT_OPEN = "OPEN"
-FINANCE_STORE_ADJUSTMENT_PARTIAL = "PARTIAL"
-FINANCE_STORE_ADJUSTMENT_APPLIED = "APPLIED"
-
-
-def finance_money(value, default=0.0):
-    try:
-        if value is None or str(value).strip() == "":
-            return round(float(default), 2)
-        return round(float(value), 2)
-    except Exception:
-        return round(float(default), 2)
-
-
-def finance_order_has_unresolved_refund(order):
-    """Return True only while a return/refund can still change the business payout."""
-    if not isinstance(order, dict):
-        return False
-
-    refund_status = (order.get("refund_status") or "").strip().upper()
-    return_status = (order.get("return_status") or "").strip().upper()
-
-    closed_refund = {
-        "", "NOT_REQUIRED", "PROCESSED", "ADJUSTED", "REJECTED", "VOID", "REFUNDED"
-    }
-    active_return = {
-        "RETURN_REQUESTED", "RETURN_PICKED_UP", "RETURNED_TO_STORE",
-        "STORE_APPROVED", "NEED_ADMIN_REVIEW", "ADMIN_RETURN_REVIEW_PENDING"
-    }
-
-    if refund_status and refund_status not in closed_refund:
-        return True
-    return return_status in active_return
-
-
-def finance_reconciliation_snapshot(order):
-    """
-    Canonical read-only interpretation of the customer-payment / business-money leg.
-
-    Customer/order money always belongs to Admin/Store/business. Delivery-partner
-    earnings are handled separately by the monthly payout model.
-    """
-    order = order or {}
-
-    payment_method = (order.get("payment_method") or "").strip().upper()
-    payment_status = (order.get("payment_status") or "").strip().upper()
-    payment_flow = (order.get("payment_flow") or order.get("official_payment_mode") or "").strip().upper()
-    active_mode = (order.get("active_delivery_mode") or "").strip().upper()
-    cod_method = (order.get("cod_collection_method") or "").strip().upper()
-    channel = (order.get("payment_collection_channel") or "").strip().upper()
-    payment_received_by = (order.get("payment_received_by") or "").strip().upper()
-    payment_reconciliation = (order.get("payment_reconciliation_status") or "").strip().upper()
-    upi_reconciliation = (order.get("upi_delivery_reconciliation_status") or "").strip().upper()
-    rider_cash_status = (order.get("rider_cash_settlement_status") or "").strip().upper()
-    partner_remittance = (order.get("external_cod_remittance_status") or "").strip().upper()
-    platform_fee_status = (order.get("platform_fee_status") or "").strip().upper()
-    store_payout_status = (order.get("store_payout_status") or "").strip().upper()
-    status = (order.get("status") or "").strip().upper()
-
-    paid_values = {"PAID", "ONLINE_PAID", "SUCCESS", "COMPLETED", "CAPTURED"}
-    verified_values = {"VERIFIED", "RECEIVED", "RECEIVED_BY_ADMIN", "SETTLED", "PAID"}
-
-    is_cod = payment_method in {"COD", "CASH_ON_DELIVERY", "COD_RIDER_COLLECTION"}
-    is_online = payment_method in {"ONLINE", "ONLINE_PAYMENT", "RAZORPAY"}
-    store_collection = bool(
-        is_cod and (
-            cod_method == COD_COLLECTION_STORE
-            or payment_flow in {"COD_STORE_COLLECTION", "PAY_ON_DELIVERY_STORE_ONLINE"}
-            or payment_received_by == "STORE"
-        )
-    )
-    partner_collection = bool(
-        is_cod and (
-            cod_method == COD_COLLECTION_EXTERNAL_PARTNER
-            or payment_flow == "COD_PARTNER_COLLECTION"
-        )
-    )
-    in_house_upi = bool(is_cod and channel == "UPI" and not store_collection and not partner_collection)
-    in_house_cash = bool(is_cod and not store_collection and not partner_collection and not in_house_upi)
-
-    customer_reconciled = False
-    customer_status = "PENDING_PAYMENT"
-    receiver = "PENDING"
-    receiver_label = "Pending"
-    collection_label = "Pending"
-
-    if is_online:
-        customer_reconciled = payment_status in paid_values or payment_reconciliation in verified_values
-        customer_status = "VERIFIED" if customer_reconciled else "PENDING_PAYMENT"
-        receiver = "ADMIN_PLATFORM" if customer_reconciled else "PENDING"
-        receiver_label = "Admin / Platform" if customer_reconciled else "Pending"
-        collection_label = "Prepaid Online"
-    elif store_collection:
-        store_payment_recorded = bool(
-            payment_received_by == "STORE"
-            and (
-                payment_reconciliation in {"VERIFIED", "VERIFIED_AT_STORE", "STORE_CONFIRMED"}
-                or payment_status in paid_values
-                or (order.get("payment_collection_status") or "").strip().upper() in {"COLLECTED_BY_STORE", "PAID"}
-            )
-        )
-        customer_reconciled = store_payment_recorded
-        customer_status = "VERIFIED_AT_STORE" if customer_reconciled else "PENDING_STORE_COLLECTION"
-        receiver = "STORE" if customer_reconciled else "PENDING"
-        receiver_label = "Store" if customer_reconciled else "Pending Store Collection"
-        collection_label = "Pay on Delivery · Store"
-    elif partner_collection:
-        customer_reconciled = partner_remittance in verified_values
-        customer_status = "VERIFIED" if customer_reconciled else "PENDING_PARTNER_REMITTANCE"
-        receiver = "ADMIN_PLATFORM" if customer_reconciled else "EXTERNAL_PARTNER"
-        receiver_label = "Admin / Business" if customer_reconciled else "External Partner · Remittance Pending"
-        collection_label = "Pay on Delivery · External Partner"
-    elif in_house_upi:
-        customer_reconciled = upi_reconciliation == "VERIFIED"
-        customer_status = "VERIFIED" if customer_reconciled else "PENDING_UPI_VERIFICATION"
-        receiver = "ADMIN_PLATFORM" if customer_reconciled else "PENDING"
-        receiver_label = "Admin / Official UPI" if customer_reconciled else "Official UPI · Verification Pending"
-        collection_label = "Pay on Delivery · UPI"
-    elif in_house_cash:
-        customer_reconciled = rider_cash_status in verified_values
-        customer_status = "VERIFIED" if customer_reconciled else "PENDING_RIDER_CASH"
-        receiver = "ADMIN_PLATFORM" if customer_reconciled else "DELIVERY_PARTNER"
-        receiver_label = "Admin / Business" if customer_reconciled else "Delivery Partner · Cash Pending"
-        collection_label = "Pay on Delivery · Cash"
-    else:
-        customer_reconciled = payment_reconciliation in verified_values or payment_status in paid_values
-        customer_status = "VERIFIED" if customer_reconciled else "PENDING_PAYMENT"
-        receiver = payment_received_by or ("ADMIN_PLATFORM" if customer_reconciled else "PENDING")
-        receiver_label = receiver.replace("_", " ").title() if receiver else "Pending"
-        collection_label = payment_method.replace("_", " ").title() if payment_method else "Payment"
-
-    platform_fee = finance_money(order.get("platform_fee"), 0)
-    refund_platform_fee = finance_money(
-        order.get("refund_platform_fee")
-        if order.get("refund_platform_fee") is not None
-        else order.get("platform_fee_adjustment"),
-        0,
-    )
-    net_platform_fee = round(max(platform_fee - refund_platform_fee, 0), 2)
-
-    if net_platform_fee <= 0:
-        platform_reconciled = True
-        platform_status = "NOT_REQUIRED" if platform_fee <= 0 else "ADJUSTED"
-    elif platform_fee_status == "RECEIVED":
-        platform_reconciled = True
-        platform_status = "RECEIVED"
-    elif store_collection and customer_reconciled:
-        platform_reconciled = False
-        platform_status = "DUE_FROM_STORE"
-    elif partner_collection and not customer_reconciled:
-        platform_reconciled = False
-        platform_status = "PENDING_PARTNER_REMITTANCE"
-    elif in_house_upi and not customer_reconciled:
-        platform_reconciled = False
-        platform_status = "PENDING_UPI_VERIFICATION"
-    elif in_house_cash and not customer_reconciled:
-        platform_reconciled = False
-        platform_status = "PENDING_RIDER_CASH"
-    elif is_online and not customer_reconciled:
-        platform_reconciled = False
-        platform_status = "PENDING_PAYMENT"
-    elif customer_reconciled:
-        # Admin/official business received the customer payment, so the Platform Fee
-        # is already part of business money for every non-Store-direct collection.
-        platform_reconciled = True
-        platform_status = "RECEIVED"
-    else:
-        platform_reconciled = False
-        platform_status = platform_fee_status or "PENDING_PAYMENT_RECONCILIATION"
-
-    store_payout_required = not store_collection
-    if store_collection and customer_reconciled:
-        store_payout_status_effective = "NOT_REQUIRED"
-    else:
-        store_payout_status_effective = store_payout_status or "PENDING_AFTER_DELIVERY"
-
-    unresolved_refund = finance_order_has_unresolved_refund(order)
-    store_payout_eligible = bool(
-        status == "DELIVERED"
-        and store_payout_required
-        and customer_reconciled
-        and not unresolved_refund
-        and store_payout_status_effective not in {"PAID", "SETTLED", "PROCESSING", "NOT_REQUIRED"}
-    )
-
-    if store_collection and not customer_reconciled:
-        payout_block_reason = "Store is configured to receive the customer payment directly. Record/reconcile that customer payment; Admin Store payout is not required."
-    elif not store_payout_required:
-        payout_block_reason = "Store already received the customer payment directly. Admin Store payout is not required."
-    elif not customer_reconciled:
-        payout_block_reason = "Customer payment must be reconciled to the business before Store payout."
-    elif unresolved_refund:
-        payout_block_reason = "Resolve the active return/refund before Store payout."
-    elif store_payout_status_effective in {"PAID", "SETTLED"}:
-        payout_block_reason = "Store payout is already settled."
-    elif store_payout_status_effective == "PROCESSING":
-        payout_block_reason = "Store payout is currently being processed."
-    else:
-        payout_block_reason = ""
-
-    return {
-        "payment_method": payment_method,
-        "payment_flow": payment_flow,
-        "active_delivery_mode": active_mode,
-        "cod_collection_method": cod_method,
-        "collection_channel": channel,
-        "collection_label": collection_label,
-        "customer_payment_reconciled": bool(customer_reconciled),
-        "payment_reconciliation_status": customer_status,
-        "payment_receiver": receiver,
-        "payment_receiver_label": receiver_label,
-        "is_store_collection": bool(store_collection),
-        "is_partner_collection": bool(partner_collection),
-        "is_in_house_upi": bool(in_house_upi),
-        "is_in_house_cash": bool(in_house_cash),
-        "platform_fee": platform_fee,
-        "refund_platform_fee": refund_platform_fee,
-        "net_platform_fee": net_platform_fee,
-        "platform_fee_reconciled": bool(platform_reconciled),
-        "platform_fee_reconciliation_status": platform_status,
-        "business_reconciliation_complete": bool(customer_reconciled and platform_reconciled),
-        "store_payout_required": bool(store_payout_required),
-        "store_payout_status": store_payout_status_effective,
-        "store_payout_eligible": bool(store_payout_eligible),
-        "store_payout_block_reason": payout_block_reason,
-        "refund_unresolved": bool(unresolved_refund),
-    }
-
-
-def finance_store_id_values(value):
-    raw = str(value or "").strip()
-    if not raw:
-        return []
-    values = [raw]
-    try:
-        if ObjectId.is_valid(raw):
-            values.append(ObjectId(raw))
-    except Exception:
-        pass
-    return values
-
-
-def finance_create_store_adjustment(order, amount, reason="REFUND_AFTER_STORE_RECEIPT", actor=None):
-    """Create one idempotent carry-forward Store adjustment for a source order."""
-    order = order or {}
-    amount = finance_money(amount, 0)
-    if amount <= 0:
-        return None
-
-    store_id = order.get("store_id")
-    source_order_id = str(order.get("_id") or order.get("id") or "")
-    if not store_id or not source_order_id:
-        return None
-
-    actor = actor or {}
-    now = datetime.utcnow().isoformat()
-    key = f"STORE_REFUND_ADJUSTMENT:{source_order_id}"
-    doc = {
-        "adjustment_key": key,
-        "store_id": store_id,
-        "store_id_str": str(store_id),
-        "store_name": order.get("store_name") or "",
-        "source_order_id": source_order_id,
-        "source_order_number": order.get("order_number") or "",
-        "type": "REFUND_RECOVERY",
-        "reason": reason,
-        "original_amount": amount,
-        "remaining_amount": amount,
-        "applied_amount": 0.0,
-        "status": FINANCE_STORE_ADJUSTMENT_OPEN,
-        "applications": [],
-        "created_at": now,
-        "created_by": str(actor.get("id") or actor.get("_id") or ""),
-        "created_by_name": actor.get("name") or actor.get("email") or "Admin",
-        "updated_at": now,
-    }
-
-    mongo.store_finance_adjustments.update_one(
-        {"adjustment_key": key},
-        {"$setOnInsert": doc},
-        upsert=True,
-    )
-    return mongo.store_finance_adjustments.find_one({"adjustment_key": key})
-
-
-def finance_store_outstanding_adjustment_total(store_id):
-    values = finance_store_id_values(store_id)
-    if not values:
-        return 0.0
-    docs = mongo.store_finance_adjustments.find({
-        "$or": [{"store_id": {"$in": values}}, {"store_id_str": str(store_id)}],
-        "status": {"$in": [FINANCE_STORE_ADJUSTMENT_OPEN, FINANCE_STORE_ADJUSTMENT_PARTIAL]},
-        "remaining_amount": {"$gt": 0},
-    })
-    return round(sum(finance_money(d.get("remaining_amount"), 0) for d in docs), 2)
-
-
-def finance_apply_store_adjustments(store_id, payout_order_id, available_amount, actor=None):
-    """
-    Apply oldest carry-forward Store adjustments against a current Admin payout.
-    Uses compare-and-set on remaining_amount to avoid double application.
-    """
-    available_amount = finance_money(available_amount, 0)
-    if available_amount <= 0:
-        return 0.0, []
-
-    values = finance_store_id_values(store_id)
-    if not values:
-        return 0.0, []
-
-    actor = actor or {}
-    total_applied = 0.0
-    applications = []
-    remaining_budget = available_amount
-
-    candidates = list(mongo.store_finance_adjustments.find({
-        "$or": [{"store_id": {"$in": values}}, {"store_id_str": str(store_id)}],
-        "status": {"$in": [FINANCE_STORE_ADJUSTMENT_OPEN, FINANCE_STORE_ADJUSTMENT_PARTIAL]},
-        "remaining_amount": {"$gt": 0},
-    }).sort("created_at", 1))
-
-    for candidate in candidates:
-        if remaining_budget <= 0:
-            break
-
-        adj_id = candidate.get("_id")
-        current_remaining = finance_money(candidate.get("remaining_amount"), 0)
-        if current_remaining <= 0:
-            continue
-
-        apply_amount = round(min(current_remaining, remaining_budget), 2)
-        new_remaining = round(current_remaining - apply_amount, 2)
-        new_applied = round(finance_money(candidate.get("applied_amount"), 0) + apply_amount, 2)
-        new_status = FINANCE_STORE_ADJUSTMENT_APPLIED if new_remaining <= 0 else FINANCE_STORE_ADJUSTMENT_PARTIAL
-        now = datetime.utcnow().isoformat()
-        application = {
-            "payout_order_id": str(payout_order_id or ""),
-            "amount": apply_amount,
-            "applied_at": now,
-            "applied_by": str(actor.get("id") or actor.get("_id") or ""),
-            "applied_by_name": actor.get("name") or actor.get("email") or "Admin",
-        }
-
-        result = mongo.store_finance_adjustments.update_one(
-            {
-                "_id": adj_id,
-                "remaining_amount": current_remaining,
-                "status": {"$in": [FINANCE_STORE_ADJUSTMENT_OPEN, FINANCE_STORE_ADJUSTMENT_PARTIAL]},
-            },
-            {
-                "$set": {
-                    "remaining_amount": new_remaining,
-                    "applied_amount": new_applied,
-                    "status": new_status,
-                    "updated_at": now,
-                },
-                "$push": {"applications": application},
-            },
-        )
-
-        if result.modified_count != 1:
-            continue
-
-        total_applied = round(total_applied + apply_amount, 2)
-        remaining_budget = round(remaining_budget - apply_amount, 2)
-        applications.append({
-            "adjustment_id": str(adj_id),
-            "source_order_id": candidate.get("source_order_id") or "",
-            "amount": apply_amount,
-            "remaining_after": new_remaining,
-        })
-
-        source_oid = candidate.get("source_order_id")
-        try:
-            source_oid_obj = ObjectId(str(source_oid)) if ObjectId.is_valid(str(source_oid)) else None
-        except Exception:
-            source_oid_obj = None
-        if source_oid_obj:
-            mongo.orders.update_one(
-                {"_id": source_oid_obj},
-                {"$set": {"store_adjustment_due": new_remaining, "updated_at": now}},
-            )
-
-    return round(total_applied, 2), applications
-
-
-def finance_rollback_store_adjustments(applications, payout_order_id):
-    """
-    Best-effort rollback used only if a Store payout fails before the order itself
-    is finalized as PAID. It reverses carry-forward adjustment applications made
-    for this payout claim so the adjustment ledger cannot be consumed without a
-    matching Store payout.
-    """
-    if not applications:
-        return 0.0
-
-    payout_order_id = str(payout_order_id or "")
-    rolled_back = 0.0
-
-    for application in reversed(list(applications)):
-        adj_id_raw = application.get("adjustment_id")
-        amount = finance_money(application.get("amount"), 0)
-        if not adj_id_raw or amount <= 0:
-            continue
-
-        try:
-            adj_id = ObjectId(str(adj_id_raw)) if ObjectId.is_valid(str(adj_id_raw)) else None
-        except Exception:
-            adj_id = None
-        if not adj_id:
-            continue
-
-        doc = mongo.store_finance_adjustments.find_one({"_id": adj_id}) or {}
-        apps = doc.get("applications") or []
-        matching = [
-            a for a in apps
-            if isinstance(a, dict)
-            and str(a.get("payout_order_id") or "") == payout_order_id
-            and abs(finance_money(a.get("amount"), 0) - amount) < 0.001
-        ]
-        if not matching:
-            continue
-
-        current_remaining = finance_money(doc.get("remaining_amount"), 0)
-        current_applied = finance_money(doc.get("applied_amount"), 0)
-        original_amount = finance_money(doc.get("original_amount"), current_remaining + current_applied)
-
-        new_remaining = round(min(original_amount, current_remaining + amount), 2)
-        new_applied = round(max(current_applied - amount, 0), 2)
-        new_status = (
-            FINANCE_STORE_ADJUSTMENT_OPEN
-            if new_applied <= 0
-            else FINANCE_STORE_ADJUSTMENT_PARTIAL
-        )
-        now = datetime.utcnow().isoformat()
-
-        result = mongo.store_finance_adjustments.update_one(
-            {
-                "_id": adj_id,
-                "remaining_amount": current_remaining,
-                "applied_amount": current_applied,
-            },
-            {
-                "$set": {
-                    "remaining_amount": new_remaining,
-                    "applied_amount": new_applied,
-                    "status": new_status,
-                    "updated_at": now,
-                },
-                "$pull": {
-                    "applications": {
-                        "payout_order_id": payout_order_id,
-                        "amount": amount,
-                    }
-                },
-            },
-        )
-        if result.modified_count != 1:
-            continue
-
-        rolled_back = round(rolled_back + amount, 2)
-
-        source_oid = doc.get("source_order_id")
-        try:
-            source_oid_obj = ObjectId(str(source_oid)) if ObjectId.is_valid(str(source_oid)) else None
-        except Exception:
-            source_oid_obj = None
-        if source_oid_obj:
-            mongo.orders.update_one(
-                {"_id": source_oid_obj},
-                {"$set": {"store_adjustment_due": new_remaining, "updated_at": now}},
-            )
-
-    return rolled_back
-
-
-def delivery_monthly_payment_is_reconciled(order):
-    """
-    Whether the customer/business payment leg for an in-house delivered order
-    is already safely with Admin/Store and no driver-held business money remains.
-    This controls whether a closed rider month can be paid.
-    """
-    if not isinstance(order, dict):
-        return False
-    return bool(finance_reconciliation_snapshot(order).get("customer_payment_reconciled"))
-
-
-def _delivery_int(value, default=0):
-    try:
-        if value is None or str(value).strip() == "":
-            return int(default)
-
-        if isinstance(value, bool):
-            return 1 if value else 0
-
-        value_str = str(value).strip().lower()
-
-        if value_str in ["true", "yes", "on"]:
-            return 1
-
-        if value_str in ["false", "no", "off"]:
-            return 0
-
-        return int(value)
-    except Exception:
-        return int(default)
-
-
-def _delivery_float_or_none(value):
-    try:
-        if value is None or str(value).strip() == "":
-            return None
-
-        return float(value)
-    except Exception:
-        return None
-
-
-def _delivery_float_or_default(value, default=0.0, minimum=0.0):
-    try:
-        if value is None or str(value).strip() == "":
-            value = default
-        value = float(value)
-    except Exception:
-        value = float(default)
-
-    try:
-        minimum = float(minimum)
-    except Exception:
-        minimum = 0.0
-
-    if value < minimum:
-        value = minimum
-
-    return round(value, 3)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def parse_product_shipping_package_from_form(form, existing=None):
@@ -2508,15 +602,7 @@ VALID_DELIVERY_PAYMENT_METHODS = {
     DELIVERY_PAYMENT_ONLINE_AND_COD,
 }
 
-COD_COLLECTION_DELIVERY_BOY = "DELIVERY_BOY"
-COD_COLLECTION_STORE = "STORE"
-COD_COLLECTION_EXTERNAL_PARTNER = "EXTERNAL_PARTNER"
 
-VALID_COD_COLLECTION_METHODS = {
-    COD_COLLECTION_DELIVERY_BOY,
-    COD_COLLECTION_STORE,
-    COD_COLLECTION_EXTERNAL_PARTNER,
-}
 
 DEFAULT_DELIVERY_MODE_SETTINGS = {
     "key": DELIVERY_MODE_SETTINGS_KEY,
@@ -4423,594 +2509,22 @@ def check_checkout_delivery_quote(store, customer_lat, customer_lng, customer_pi
 # STORE-CONTROLLED DELIVERY ASSIGNMENT HELPERS
 # =========================================================
 
-DELIVERY_STORE_ASSIGNABLE_STATUSES = {
-    "SHIPMENT_READY",
-    "READY_FOR_PICKUP",  # legacy support
-    "ASSIGNED_TO_DELIVERY",
-    "REACHED_STORE"
-}
 
-DELIVERY_REASSIGN_BLOCKED_STATUSES = {
-    "PICKED_UP",
-    "OUT_FOR_DELIVERY",
-    "DELIVERED",
-    "CANCELLED"
-}
 
-DELIVERY_PROGRESS_STATUSES = {
-    "ASSIGNED_TO_DELIVERY",
-    "REACHED_STORE",
-    "PICKED_UP",
-    "OUT_FOR_DELIVERY",
-    "DELIVERED"
-}
 
 
-def _delivery_user_id(value):
-    if value is None:
-        return ""
 
-    try:
-        if isinstance(value, ObjectId):
-            return str(value)
-    except Exception:
-        pass
 
-    return str(value).strip()
 
 
-def _delivery_actor_snapshot(actor=None):
-    actor = actor or {}
 
-    return {
-        "actor_id": _delivery_user_id(actor.get("_id") or actor.get("id")),
-        "actor_role": actor.get("role") or "",
-        "actor_name": actor.get("name") or actor.get("full_name") or ""
-    }
 
 
-def add_order_event(order_id, status, note="", actor=None):
-    """
-    Consistent order timeline insert.
-    Works for store, delivery boy, customer and admin events.
-    """
-    try:
-        oid_obj = order_id if isinstance(order_id, ObjectId) else ObjectId(str(order_id))
-    except Exception:
-        oid_obj = order_id
 
-    now = datetime.utcnow().isoformat()
-    actor_data = _delivery_actor_snapshot(actor)
 
-    doc = {
-        "order_id": oid_obj,
-        "status": (status or "").strip().upper(),
-        "note": note or "",
-        "created_at": now,
-        "actor_id": actor_data.get("actor_id"),
-        "actor_role": actor_data.get("actor_role"),
-        "actor_name": actor_data.get("actor_name")
-    }
 
-    mongo.order_events.insert_one(doc)
-    return doc
 
 
-def get_delivery_partner_snapshot(delivery_user_id):
-    """
-    Returns safe delivery-boy details for saving inside orders.
-    """
-    uid = _delivery_user_id(delivery_user_id)
-
-    if not uid:
-        return None
-
-    user = None
-
-    try:
-        user = mongo.users.find_one({"_id": ObjectId(uid)})
-    except Exception:
-        user = mongo.users.find_one({"_id": uid})
-
-    if not user:
-        return None
-
-    if (user.get("role") or "").strip().lower() != "delivery":
-        return None
-
-    return {
-        "id": str(user.get("_id")),
-        "name": user.get("name") or user.get("full_name") or "Delivery Partner",
-        "phone": user.get("phone") or "",
-        "email": user.get("email") or "",
-        "is_active": int(user.get("is_active", 1) or 0)
-    }
-
-
-def get_online_delivery_people_near_store(store, max_km=None):
-    """
-    Store-side helper.
-
-    Returns active delivery boys with latest online GPS from delivery_availability.
-    If store coordinates are present, distance from store is calculated.
-    """
-    store = store or {}
-
-    store_lat = _delivery_float_or_none(store.get("latitude"))
-    store_lng = _delivery_float_or_none(store.get("longitude"))
-
-    max_km_value = None
-    if max_km is not None:
-        try:
-            max_km_value = float(max_km)
-        except Exception:
-            max_km_value = None
-
-    users = list(
-        mongo.users.find({
-            "role": "delivery",
-            "$or": [
-                {"is_active": 1},
-                {"is_active": True},
-                {"is_active": {"$exists": False}}
-            ]
-        }).sort("name", 1)
-    )
-
-    output = []
-
-    for user in users:
-        uid = str(user.get("_id"))
-
-        availability = mongo.delivery_availability.find_one({
-            "user_id": uid,
-            "active": True
-        })
-
-        if not availability:
-            continue
-
-        rider_lat = _delivery_float_or_none(availability.get("latitude"))
-        rider_lng = _delivery_float_or_none(availability.get("longitude"))
-
-        distance_km = None
-
-        if (
-            store_lat is not None and
-            store_lng is not None and
-            rider_lat is not None and
-            rider_lng is not None
-        ):
-            distance_km = haversine_km(store_lat, store_lng, rider_lat, rider_lng)
-
-        if max_km_value is not None and distance_km is not None and distance_km > max_km_value:
-            continue
-
-        assigned_count = mongo.orders.count_documents({
-            "delivery_partner_id": uid,
-            "status": {
-                "$in": [
-                    "ASSIGNED_TO_DELIVERY",
-                    "REACHED_STORE",
-                    "PICKED_UP",
-                    "OUT_FOR_DELIVERY"
-                ]
-            }
-        })
-
-        output.append({
-            "id": uid,
-            "name": user.get("name") or "Delivery Partner",
-            "phone": user.get("phone") or "",
-            "email": user.get("email") or "",
-            "is_online": True,
-            "latitude": rider_lat,
-            "longitude": rider_lng,
-            "distance_km": round(distance_km, 2) if distance_km is not None else None,
-            "current_order_id": availability.get("current_order_id"),
-            "currently_assigned_orders": assigned_count,
-            "updated_at": availability.get("updated_at"),
-            "active_since": availability.get("active_since")
-        })
-
-    output.sort(
-        key=lambda row: (
-            999999 if row.get("distance_km") is None else row.get("distance_km"),
-            row.get("currently_assigned_orders", 0),
-            row.get("name", "")
-        )
-    )
-
-    return output
-
-
-def assign_delivery_partner_to_order(order_id, delivery_user_id, actor=None, source="store_manual", allow_reassign=False):
-    """
-    Conflict-safe delivery assignment.
-
-    Used by:
-    - Store manual assignment
-    - Store reassignment when allow_reassign=True
-    - Delivery-boy self accept
-
-    Handles:
-    - Normal first assignment
-    - Store reassignment before pickup
-    - Reassignment after delivery boy cancelled delivery
-    """
-
-    try:
-        oid_obj = order_id if isinstance(order_id, ObjectId) else ObjectId(str(order_id))
-    except Exception:
-        return {
-            "ok": False,
-            "error": "Invalid order id."
-        }
-
-    partner = get_delivery_partner_snapshot(delivery_user_id)
-
-    if not partner:
-        return {
-            "ok": False,
-            "error": "Delivery boy not found."
-        }
-
-    if int(partner.get("is_active") or 0) != 1:
-        return {
-            "ok": False,
-            "error": "This delivery-boy account is disabled."
-        }
-
-    availability = mongo.delivery_availability.find_one({
-        "user_id": partner["id"],
-        "active": True
-    })
-
-    if not availability:
-        return {
-            "ok": False,
-            "error": "This delivery boy is currently offline."
-        }
-
-    order = mongo.orders.find_one({"_id": oid_obj})
-
-    if not order:
-        return {
-            "ok": False,
-            "error": "Order not found."
-        }
-
-    status = (order.get("status") or "").strip().upper()
-
-    if status in DELIVERY_REASSIGN_BLOCKED_STATUSES:
-        return {
-            "ok": False,
-            "error": "Delivery assignment cannot be changed for this order status."
-        }
-
-    if status not in DELIVERY_STORE_ASSIGNABLE_STATUSES:
-        return {
-            "ok": False,
-            "error": "Store must mark this order shipment ready before delivery assignment."
-        }
-
-    existing_partner = order.get("delivery_partner_id")
-    existing_partner_id = _delivery_user_id(existing_partner)
-    new_partner_id = _delivery_user_id(partner["id"])
-
-    was_delivery_cancelled = bool(
-        order.get("needs_reassignment")
-        or order.get("delivery_cancelled_by_partner")
-        or order.get("delivery_cancel_reason")
-    )
-
-    if existing_partner and not allow_reassign:
-        if existing_partner_id == new_partner_id:
-            return {
-                "ok": True,
-                "message": "This order is already assigned to this delivery boy.",
-                "order_id": str(oid_obj),
-                "delivery_partner": partner
-            }
-
-        return {
-            "ok": False,
-            "error": "This order already has an assigned delivery boy."
-        }
-
-    now = datetime.utcnow().isoformat()
-    actor_data = _delivery_actor_snapshot(actor)
-
-    old_partner_id = _delivery_user_id(
-        order.get("delivery_partner_id")
-        or order.get("previous_delivery_partner_id")
-    )
-
-    old_partner_name = (
-        order.get("delivery_partner_name")
-        or order.get("previous_delivery_partner_name")
-        or ""
-    )
-
-    old_partner_phone = (
-        order.get("delivery_partner_phone")
-        or order.get("previous_delivery_partner_phone")
-        or ""
-    )
-
-    previous_cancel_reason = (
-        order.get("delivery_cancel_reason")
-        or order.get("delivery_status_note")
-        or ""
-    )
-
-    is_normal_reassign = bool(
-        allow_reassign
-        and existing_partner_id
-        and existing_partner_id != new_partner_id
-    )
-
-    update_data = {
-        "delivery_partner_id": partner["id"],
-        "delivery_partner_name": partner["name"],
-        "delivery_partner_phone": partner["phone"],
-
-        "delivery_assigned_by": actor_data.get("actor_id"),
-        "delivery_assigned_by_role": actor_data.get("actor_role"),
-        "delivery_assigned_by_name": actor_data.get("actor_name"),
-        "delivery_assignment_source": source,
-
-        "assigned_at": now,
-        "updated_at": now,
-        "status": "ASSIGNED_TO_DELIVERY",
-
-        # Clear rider-cancelled state after successful new assignment
-        "needs_reassignment": False,
-        "delivery_cancelled_by_partner": False,
-        "delivery_cancel_reason": "",
-        "delivery_cancelled_status_from": "",
-
-        # Reassignment audit fields
-        "delivery_reassigned_at": now if (was_delivery_cancelled or is_normal_reassign) else order.get("delivery_reassigned_at"),
-        "delivery_reassigned_by": actor_data.get("actor_id") if (was_delivery_cancelled or is_normal_reassign) else order.get("delivery_reassigned_by"),
-        "delivery_reassigned_by_name": actor_data.get("actor_name") if (was_delivery_cancelled or is_normal_reassign) else order.get("delivery_reassigned_by_name")
-    }
-
-    if old_partner_id and old_partner_id != new_partner_id:
-        update_data["previous_delivery_partner_id"] = old_partner_id
-        update_data["previous_delivery_partner_name"] = old_partner_name
-        update_data["previous_delivery_partner_phone"] = old_partner_phone
-
-    unassigned_filter = {
-        "_id": oid_obj,
-        "status": {
-            "$in": [
-                "SHIPMENT_READY",
-                "READY_FOR_PICKUP"  # legacy support
-            ]
-        },
-        "$or": [
-            {"delivery_partner_id": {"$exists": False}},
-            {"delivery_partner_id": None},
-            {"delivery_partner_id": ""}
-        ]
-    }
-
-    reassign_filter = {
-        "_id": oid_obj,
-        "status": {
-            "$in": [
-                "SHIPMENT_READY",
-                "READY_FOR_PICKUP",  # legacy support
-                "ASSIGNED_TO_DELIVERY",
-                "REACHED_STORE"
-            ]
-        },
-        "$or": [
-            {
-                "$and": [
-                    {"delivery_partner_id": {"$exists": True}},
-                    {"delivery_partner_id": {"$ne": None}},
-                    {"delivery_partner_id": {"$ne": ""}}
-                ]
-            },
-            {"needs_reassignment": True},
-            {"delivery_cancelled_by_partner": True}
-        ]
-    }
-
-    if allow_reassign:
-        update_filter = reassign_filter
-    else:
-        update_filter = unassigned_filter
-
-    update_payload = {
-        "$set": update_data
-    }
-
-    if was_delivery_cancelled or is_normal_reassign:
-        history_entry = {
-            "action": "reassigned_after_delivery_cancel" if was_delivery_cancelled else "reassigned_by_store",
-            "previous_delivery_partner_id": old_partner_id,
-            "previous_delivery_partner_name": old_partner_name,
-            "previous_delivery_partner_phone": old_partner_phone,
-            "previous_cancel_reason": previous_cancel_reason,
-            "new_delivery_partner_id": partner["id"],
-            "new_delivery_partner_name": partner["name"],
-            "new_delivery_partner_phone": partner["phone"],
-            "at": now,
-            "by": actor_data.get("actor_role") or "store",
-            "actor_id": actor_data.get("actor_id"),
-            "actor_name": actor_data.get("actor_name")
-        }
-
-        update_payload["$push"] = {
-            "delivery_history": history_entry
-        }
-
-    result = mongo.orders.update_one(
-        update_filter,
-        update_payload
-    )
-
-    if result.modified_count < 1:
-        latest = mongo.orders.find_one({"_id": oid_obj}) or {}
-        latest_partner = latest.get("delivery_partner_id")
-        latest_status = (latest.get("status") or "").strip().upper()
-
-        if latest_partner and not allow_reassign:
-            return {
-                "ok": False,
-                "error": "This order has just been assigned to another delivery boy."
-            }
-
-        if latest_status in DELIVERY_REASSIGN_BLOCKED_STATUSES:
-            return {
-                "ok": False,
-                "error": "This order has moved forward and delivery partner cannot be changed now."
-            }
-
-        if latest_status not in ["SHIPMENT_READY", "READY_FOR_PICKUP"] and not allow_reassign:
-            return {
-                "ok": False,
-                "error": "This order is no longer available for delivery assignment."
-        }
-
-        return {
-            "ok": False,
-            "error": "Delivery assignment could not be updated. Please refresh and try again."
-        }
-
-    # Set new delivery boy current order
-    mongo.delivery_availability.update_one(
-        {"user_id": partner["id"]},
-        {
-            "$set": {
-                "current_order_id": str(oid_obj),
-                "updated_at": now
-            }
-        },
-        upsert=True
-    )
-
-    # Clear old delivery boy current order during reassignment
-    if old_partner_id and old_partner_id != new_partner_id:
-        mongo.delivery_availability.update_one(
-            {
-                "user_id": old_partner_id,
-                "current_order_id": str(oid_obj)
-            },
-            {
-                "$set": {
-                    "current_order_id": None,
-                    "updated_at": now
-                }
-            }
-        )
-
-    if was_delivery_cancelled:
-        add_order_event(
-            oid_obj,
-            "DELIVERY_REASSIGNED",
-            f"Delivery reassigned to {partner['name']} after previous rider cancellation.",
-            actor
-        )
-    elif is_normal_reassign:
-        add_order_event(
-            oid_obj,
-            "DELIVERY_REASSIGNED",
-            f"Delivery reassigned to {partner['name']}.",
-            actor
-        )
-    else:
-        add_order_event(
-            oid_obj,
-            "ASSIGNED_TO_DELIVERY",
-            f"Assigned to {partner['name']}",
-            actor
-        )
-
-    return {
-        "ok": True,
-        "message": "Delivery boy reassigned successfully." if (was_delivery_cancelled or is_normal_reassign) else "Delivery boy assigned successfully.",
-        "order_id": str(oid_obj),
-        "delivery_partner": partner,
-        "was_reassignment": bool(was_delivery_cancelled or is_normal_reassign)
-    }
-
-
-def clear_delivery_assignment(order_id, actor=None, reason="Delivery assignment cleared."):
-    """
-    Clears delivery assignment before pickup/out-for-delivery.
-    Store can use this for correction/reassignment.
-    """
-    try:
-        oid_obj = order_id if isinstance(order_id, ObjectId) else ObjectId(str(order_id))
-    except Exception:
-        return {
-            "ok": False,
-            "error": "Invalid order id."
-        }
-
-    order = mongo.orders.find_one({"_id": oid_obj})
-
-    if not order:
-        return {
-            "ok": False,
-            "error": "Order not found."
-        }
-
-    status = (order.get("status") or "").strip().upper()
-
-    if status in DELIVERY_REASSIGN_BLOCKED_STATUSES:
-        return {
-            "ok": False,
-            "error": "Delivery assignment cannot be cleared after pickup/out-for-delivery/delivery."
-        }
-
-    old_partner_id = order.get("delivery_partner_id")
-    now = datetime.utcnow().isoformat()
-
-    mongo.orders.update_one(
-        {"_id": oid_obj},
-        {
-            "$set": {
-                "status": "SHIPMENT_READY",
-                "delivery_partner_id": None,
-                "delivery_partner_name": "",
-                "delivery_partner_phone": "",
-                "delivery_assignment_source": "",
-                "delivery_status_note": reason,
-                "updated_at": now
-            }
-        }
-    )
-
-    if old_partner_id:
-        mongo.delivery_availability.update_one(
-            {
-                "user_id": str(old_partner_id),
-                "current_order_id": str(oid_obj)
-            },
-            {
-                "$set": {
-                    "current_order_id": None,
-                    "updated_at": now
-                }
-            }
-        )
-
-    add_order_event(
-        oid_obj,
-        "SHIPMENT_READY",
-        reason,
-        actor
-    )
-
-    return {
-        "ok": True,
-        "message": "Delivery assignment cleared."
-    }
 
 def _ensure_contact_messages_status_column():
     # MongoDB does not need table/column migration.
@@ -5021,37 +2535,25 @@ def _ensure_contact_messages_status_column():
 # ======================
 
 def _seed_pincodes_if_empty():
-    # Kept as a safe no-op because app startup still calls it.
-    # Old fixed pincode seeding is disabled.
+    # Backward-compatible no-op. Old fixed pincode seeding is disabled.
+    # Database initialization is now explicit via scripts/init_db.py.
     return
 
 
-def _clean_pin(pin) -> str:
-    """Keep digits only and trim spaces."""
-    if pin is None:
-        return ""
-    s = str(pin).strip()
-    return "".join(ch for ch in s if ch.isdigit())
-
-
-def _clean_state(state) -> str:
-    return (state or "").strip().lower()
-
-
-def is_assam_state(state) -> bool:
-    return _clean_state(state) in {
-        "assam",
-        "as"
-    }
 
 
 
-def _norm_status(value):
-    return (str(value).strip().upper() if value is not None else "")
 
 
-def _norm_role(value):
-    return (str(value).strip().lower() if value is not None else "")
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5175,49 +2677,17 @@ def _ensure_api_sessions_table():
     # MongoDB collection is created automatically on first insert.
     return
 
-with app.app_context():
-    ensure_mongo_indexes()
-    _seed_pincodes_if_empty()
+# Database indexes and seed operations are intentionally NOT executed during
+# module import. Run `python scripts/init_db.py` explicitly during initial
+# setup/deployment so multi-worker production servers do not repeat mutations.
 
 
 # ----------------------
 # MISC UTILS
 # ----------------------
-_upload_folder_env = (os.getenv("UPLOAD_FOLDER") or os.getenv("NELOCALS_UPLOAD_FOLDER") or "").strip()
-app.config["UPLOAD_FOLDER"] = (
-    os.path.abspath(_upload_folder_env)
-    if _upload_folder_env
-    else os.path.join(os.path.dirname(__file__), "uploads")
-)
-if _is_production_env() and not _upload_folder_env:
-    log_warning("[PRODUCTION WARNING] UPLOAD_FOLDER is not set. Using local ./uploads; configure a persistent upload path in production to prevent file loss.")
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
-os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+# Upload configuration and allowed_file() were extracted to uploads.py.
 
-ALLOWED_EXTS = {"jpg","jpeg","png","webp"}
-def allowed_file(filename): 
-    return "." in filename and filename.rsplit(".",1)[1].lower() in ALLOWED_EXTS
 
-def normalize_phone(phone):
-    phone = (phone or "").strip()
-    if not phone:
-        return ""
-
-    # Keep leading + if present, remove spaces/dashes/brackets
-    has_plus = phone.startswith("+")
-    digits = "".join(ch for ch in phone if ch.isdigit())
-
-    if not digits:
-        return ""
-
-    if has_plus:
-        return "+" + digits
-
-    # Default India format for 10-digit numbers
-    if len(digits) == 10:
-        return "+91" + digits
-
-    return digits
 
 def _row_get(row, key, default=0):
     try:
@@ -5231,56 +2701,14 @@ def order_total_payable(order_row):
            float(_row_get(order_row, 'delivery_fee', 0)) + \
            float(_row_get(order_row, 'tip_amount', 0))
 
-def ensure_admin_seed_password():
-    """
-    Security-safe admin seeding.
-    The old hardcoded demo admin fallback has been removed.
-    To seed an admin on a fresh database, set ADMIN_SEED_EMAIL and
-    ADMIN_SEED_PASSWORD in the environment before first run.
-    """
-    admin_email = (os.getenv("ADMIN_SEED_EMAIL") or os.getenv("ADMIN_EMAIL") or "").strip().lower()
-    admin_password = (os.getenv("ADMIN_SEED_PASSWORD") or os.getenv("ADMIN_PASSWORD") or "").strip()
-    admin_name = (os.getenv("ADMIN_SEED_NAME") or "Administrator").strip() or "Administrator"
-    admin_phone = (os.getenv("ADMIN_SEED_PHONE") or "").strip()
-
-    if not admin_email:
-        return
-
-    admin = mongo.users.find_one({"email": admin_email})
-
-    if not admin:
-        if not admin_password or len(admin_password) < 10:
-            log_warning("[SECURITY WARNING] ADMIN_SEED_PASSWORD is missing/too short. Admin seed skipped.")
-            return
-
-        mongo.users.insert_one({
-            "name": admin_name,
-            "email": admin_email,
-            "phone": admin_phone,
-            "password_hash": generate_password_hash(admin_password),
-            "role": "admin",
-            "phone_verified": 1,
-            "is_active": 1,
-            "created_at": datetime.utcnow().isoformat()
-        })
-        return
-
-    if admin.get("password_hash") == "!!set_in_app!!":
-        if not admin_password or len(admin_password) < 10:
-            log_warning("[SECURITY WARNING] Existing admin placeholder password found, but ADMIN_SEED_PASSWORD is missing/too short.")
-            return
-
-        mongo.users.update_one(
-            {"_id": admin["_id"]},
-            {"$set": {"password_hash": generate_password_hash(admin_password)}}
-        )
+# Optional admin database bootstrap was extracted to database_init.py.
 
 def send_sms(phone: str, message: str) -> bool:
     log_debug(f"[DEV SMS] to={phone} :: {message}")
     return True
 
-with app.app_context():
-    ensure_admin_seed_password()
+# Admin seeding is deployment/setup work, not application import work.
+# Run `python scripts/init_db.py` explicitly when a fresh environment needs it.
 
 # =========================================================
 # CUSTOMER CANCEL ORDER
@@ -5292,48 +2720,10 @@ with app.app_context():
 # PREPARING is kept because old orders may already have it.
 #
 # Customer can cancel before shipment is ready / delivery assignment.
-CANCELLABLE_STATUSES = {
-    "PLACED",
-    "CONFIRMED",
-    "PACKAGING",
-    "PREPARING"
-}
-
-def is_cancellable(status: str) -> bool:
-    return status and status.upper() in CANCELLABLE_STATUSES
 
 
-def order_status_label(status):
-    """
-    Display label helper for old and new order statuses.
-    Keeps old DB statuses readable while showing the new business wording.
-    """
-    status = (status or "").strip().upper()
 
-    labels = {
-        "PLACED": "Placed",
-        "CONFIRMED": "Confirmed",
-        "PREPARING": "Packaging",
-        "PACKAGING": "Packaging",
-        "READY_FOR_PICKUP": "Shipment Ready",
-        "SHIPMENT_READY": "Shipment Ready",
-        "ASSIGNED_TO_DELIVERY": "Assigned To Delivery",
-        "ACCEPTED_BY_DELIVERY_MAN": "Accepted By Delivery Boy",
-        "REACHED_STORE": "Reached Store",
-        "PICKED_UP": "Picked Up",
-        "OUT_FOR_DELIVERY": "Out For Delivery",
-        "DELIVERED": "Delivered",
-        "DELIVERY_FAILED": "Delivery Failed",
-        "CANCELLED": "Cancelled",
-        "CANCELED": "Cancelled",
-        "RETURN_REQUESTED": "Return Requested",
-        "STORE_APPROVED": "Store Approved",
-        "STORE_REJECTED": "Store Rejected",
-        "NEED_ADMIN_REVIEW": "Need Admin Review",
-        "RETURN_COMPLETED": "Return Completed",
-    }
 
-    return labels.get(status, status.replace("_", " ").title() if status else "")
 
 # ----------------------
 # PUBLIC PAGES (with pincode gating)
@@ -5550,281 +2940,6 @@ def _get_api_or_web_user():
 # Orders list
 
 # ---------- Order tracking ----------
-def get_order_full(oid, for_user_id=None):
-    try:
-        oid_obj = ObjectId(oid)
-    except Exception:
-        return None
-
-    query_filter = {"_id": oid_obj}
-
-    if for_user_id is not None:
-        query_filter["user_id"] = str(for_user_id)
-
-    order = mongo.orders.find_one(query_filter)
-
-    if not order:
-        return None
-
-    order["id"] = str(order["_id"])
-
-    def _track_float(value):
-        try:
-            if value is None or str(value).strip() == "":
-                return None
-            number = float(value)
-            if not math.isfinite(number):
-                return None
-            return number
-        except Exception:
-            return None
-
-    def _clean_lat_lng(lat_value, lng_value):
-        """
-        Returns clean map-safe coordinates.
-
-        Also fixes accidental swapped lat/lng values:
-        - correct Assam example: lat 26.x, lng 92.x
-        - wrong swapped example: lat 92.x, lng 26.x
-        """
-        lat = _track_float(lat_value)
-        lng = _track_float(lng_value)
-
-        if lat is None or lng is None:
-            return None, None
-
-        # Fix swapped lat/lng when lat looks like longitude and lng looks like latitude.
-        if abs(lat) > 90 and abs(lng) <= 90:
-            lat, lng = lng, lat
-
-        # Extra swap guard for India/Assam-style values.
-        if 65 <= lat <= 100 and 5 <= lng <= 40:
-            lat, lng = lng, lat
-
-        if lat < -90 or lat > 90:
-            return None, None
-
-        if lng < -180 or lng > 180:
-            return None, None
-
-        return round(lat, 7), round(lng, 7)
-
-    def _safe_id(value):
-        if value is None:
-            return ""
-        try:
-            if isinstance(value, ObjectId):
-                return str(value)
-        except Exception:
-            pass
-        return str(value)
-
-    items = list(mongo.order_items.find({"order_id": oid_obj}))
-
-    for item in items:
-        item["id"] = str(item["_id"])
-
-        item_type = (item.get("item_type") or "product").strip().lower()
-        is_bundle = item_type == "bundle" or bool(item.get("bundle_id"))
-
-        item["item_type"] = "bundle" if is_bundle else "product"
-        item["is_bundle"] = is_bundle
-
-        if is_bundle:
-            item["product_id"] = ""
-            item["bundle_id"] = _safe_id(item.get("bundle_id") or item.get("bundle_id_str"))
-            item["bundle_id_str"] = item.get("bundle_id_str") or item["bundle_id"]
-            item["name"] = item.get("bundle_name_snapshot") or item.get("product_name") or "Product Bundle"
-            item["product_name"] = item["name"]
-            item["bundle_items_snapshot"] = item.get("bundle_items_snapshot") or []
-            item["bundle_savings_snapshot"] = float(item.get("bundle_savings_snapshot") or 0)
-            item["items_total_snapshot"] = float(item.get("items_total_snapshot") or 0)
-        else:
-            item["product_id"] = _safe_id(item.get("product_id"))
-            item["name"] = item.get("product_name", "")
-
-        item["quantity"] = float(item.get("quantity") or item.get("cart_quantity") or 0)
-        item["unit_label"] = item.get("unit_label") or ("bundle" if is_bundle else "unit")
-        item["unit_type"] = item.get("unit_type") or ("COUNT" if is_bundle else "COUNT")
-        item["price_per_unit"] = float(item.get("price_per_unit") or item.get("unit_price") or 0)
-        item["unit_price"] = item["price_per_unit"]
-        item["line_total"] = float(item.get("line_total") or (item["quantity"] * item["price_per_unit"]))
-
-    addr = mongo.order_addresses.find_one({"order_id": oid_obj})
-
-    if addr:
-        addr["id"] = str(addr["_id"])
-    else:
-        addr = None
-
-    # ------------------------------------------------------------
-    # Customer delivery point
-    # Priority:
-    # 1. order_addresses final checkout latitude/longitude
-    # 2. order.delivery_latitude / order.delivery_longitude snapshot
-    # 3. saved address latitude/longitude snapshot
-    # ------------------------------------------------------------
-    customer_lat, customer_lng = _clean_lat_lng(
-        addr.get("latitude") if addr else None,
-        addr.get("longitude") if addr else None
-    )
-
-    customer_source = (addr.get("location_source") if addr else "") or ""
-
-    if customer_lat is None or customer_lng is None:
-        customer_lat, customer_lng = _clean_lat_lng(
-            order.get("delivery_latitude"),
-            order.get("delivery_longitude")
-        )
-        customer_source = order.get("delivery_location_source") or "order_delivery_snapshot"
-
-    if (customer_lat is None or customer_lng is None) and addr:
-        customer_lat, customer_lng = _clean_lat_lng(
-            addr.get("saved_address_latitude"),
-            addr.get("saved_address_longitude")
-        )
-        customer_source = "saved_address_snapshot"
-
-    if addr:
-        addr["latitude"] = customer_lat
-        addr["longitude"] = customer_lng
-        addr["location_source"] = customer_source
-
-    # ------------------------------------------------------------
-    # Store pickup point
-    # Priority:
-    # 1. stores collection current latitude/longitude
-    # 2. order store_latitude/store_longitude snapshot
-    # ------------------------------------------------------------
-    store_doc = None
-    store_id = order.get("store_id")
-
-    if store_id:
-        try:
-            store_doc = mongo.stores.find_one({"_id": store_id})
-        except Exception:
-            store_doc = None
-
-        if not store_doc:
-            try:
-                store_doc = mongo.stores.find_one({"_id": ObjectId(str(store_id))})
-            except Exception:
-                store_doc = mongo.stores.find_one({"_id": str(store_id)})
-
-    store_lat, store_lng = _clean_lat_lng(
-        store_doc.get("latitude") if store_doc else None,
-        store_doc.get("longitude") if store_doc else None
-    )
-
-    if store_lat is None or store_lng is None:
-        store_lat, store_lng = _clean_lat_lng(
-            order.get("store_latitude"),
-            order.get("store_longitude")
-        )
-
-    store_view = {
-        "id": _safe_id(store_doc.get("_id") if store_doc else store_id),
-        "store_name": (
-            store_doc.get("store_name")
-            if store_doc
-            else order.get("store_name")
-            or "Store"
-        ),
-        "address": store_doc.get("address") if store_doc else "",
-        "latitude": store_lat,
-        "longitude": store_lng,
-    }
-
-    order["store_latitude"] = store_lat
-    order["store_longitude"] = store_lng
-
-    # ------------------------------------------------------------
-    # Rider live point
-    # Priority:
-    # 1. latest delivery_locations for this order
-    # 2. delivery_availability for assigned rider
-    # ------------------------------------------------------------
-    latest_rider_location = mongo.delivery_locations.find_one(
-        {"order_id": oid_obj},
-        sort=[("recorded_at", -1)]
-    )
-
-    rider_lat = None
-    rider_lng = None
-    rider_updated_at = ""
-    rider_source = ""
-
-    if latest_rider_location:
-        rider_lat, rider_lng = _clean_lat_lng(
-            latest_rider_location.get("latitude"),
-            latest_rider_location.get("longitude")
-        )
-        rider_updated_at = latest_rider_location.get("recorded_at") or ""
-        rider_source = "delivery_locations"
-
-    if rider_lat is None or rider_lng is None:
-        delivery_partner_id = _safe_id(order.get("delivery_partner_id"))
-
-        if delivery_partner_id:
-            availability = mongo.delivery_availability.find_one({
-                "user_id": delivery_partner_id,
-                "active": True
-            }) or {}
-
-            rider_lat, rider_lng = _clean_lat_lng(
-                availability.get("latitude"),
-                availability.get("longitude")
-            )
-            rider_updated_at = availability.get("updated_at") or ""
-            rider_source = "delivery_availability"
-
-    rider_view = {
-        "id": _safe_id(order.get("delivery_partner_id")),
-        "name": order.get("delivery_partner_name") or "",
-        "phone": order.get("delivery_partner_phone") or "",
-        "latitude": rider_lat,
-        "longitude": rider_lng,
-        "updated_at": rider_updated_at,
-        "source": rider_source,
-    }
-
-    tracking_map = {
-        "order_id": str(oid_obj),
-        "customer": {
-            "label": "Delivery Address",
-            "latitude": customer_lat,
-            "longitude": customer_lng,
-            "source": customer_source,
-            "address": {
-                "line1": addr.get("line1") if addr else "",
-                "line2": addr.get("line2") if addr else "",
-                "city": addr.get("city") if addr else "",
-                "state": addr.get("state") if addr else "",
-                "pincode": addr.get("pincode") if addr else "",
-            }
-        },
-        "store": {
-            "label": store_view.get("store_name") or "Store",
-            "latitude": store_lat,
-            "longitude": store_lng,
-            "address": store_view.get("address") or "",
-        },
-        "rider": rider_view
-    }
-
-    events = list(mongo.order_events.find({"order_id": oid_obj}).sort("created_at", 1))
-
-    for e in events:
-        e["id"] = str(e["_id"])
-
-    return {
-        "order": order,
-        "items": items,
-        "address": addr,
-        "events": events,
-        "store": store_view,
-        "tracking_map": tracking_map,
-    }
 
 
 
@@ -7988,64 +5103,13 @@ def _get_current_store_or_redirect():
     return u, store_view
 
 
-def _store_identity_values(store_id):
-    """Return ObjectId/string store ids so legacy and new rows both match.
-
-    Some old records were saved with store_id as a string, while current store
-    records use ObjectId. Dashboard/report queries must read both shapes to keep
-    GMV, products and order counts accurate after migrations/imports.
-    """
-    values = []
-
-    def add(value):
-        if value is None:
-            return
-        if value not in values:
-            values.append(value)
-
-    add(store_id)
-    add(str(store_id))
-
-    try:
-        add(ObjectId(str(store_id)))
-    except Exception:
-        pass
-
-    return values
 
 
-def _order_identity_values(order_ids):
-    """Return ObjectId/string order ids for transaction joins."""
-    values = []
-
-    def add(value):
-        if value is None:
-            return
-        if value not in values:
-            values.append(value)
-
-    for oid in order_ids or []:
-        add(oid)
-        add(str(oid))
-        try:
-            add(ObjectId(str(oid)))
-        except Exception:
-            pass
-
-    return values
 
 
-def _get_store_products(store_id):
-    products = list(
-        mongo.products.find({"store_id": {"$in": _store_identity_values(store_id)}}).sort("created_at", -1)
-    )
 
-    for p in products:
-        p["id"] = str(p["_id"])
-        p["store_id"] = str(p.get("store_id")) if p.get("store_id") else ""
-        hydrate_product_unit_fields(p)
 
-    return products
+
 
 
 def _store_order_money(value, default=0.0):
@@ -8199,125 +5263,25 @@ def _save_store_category_image(file_obj, store_id, category_id_prefix="category"
 # STORE CATEGORY HELPERS
 # =========================================================
 
-DEFAULT_STORE_CATEGORIES = [
-    {
-        "name": "Fresh cuts",
-        "sub_categories": ["Curry cuts", "Boneless & Mince", "Offals"],
-    },
-    {
-        "name": "Ready to cook",
-        "sub_categories": [],
-    },
-    {
-        "name": "Spices",
-        "sub_categories": [],
-    },
-]
 
 
-def _category_slug(name):
-    name = (name or "").strip().lower()
-    name = re.sub(r"[^a-z0-9]+", "-", name)
-    return name.strip("-")
 
 
-def _ensure_store_categories(store_id):
-    existing_count = mongo.store_categories.count_documents({
-        "store_id": store_id
-    })
-
-    if existing_count > 0:
-        return
-
-    now = datetime.utcnow().isoformat()
-
-    docs = []
-    for cat in DEFAULT_STORE_CATEGORIES:
-        docs.append({
-            "store_id": store_id,
-            "name": cat["name"],
-            "slug": _category_slug(cat["name"]),
-            "sub_categories": cat.get("sub_categories", []),
-            "image_path": "",
-            "category_image_path": "",
-            "emoji": "🛒",
-            "is_active": 1,
-            "is_default": 1,
-            "created_at": now,
-            "updated_at": now,
-})
-
-    if docs:
-        mongo.store_categories.insert_many(docs)
 
 
-def _get_store_categories(store_id, active_only=False):
-    _ensure_store_categories(store_id)
-
-    query = {"store_id": store_id}
-
-    if active_only:
-        query["is_active"] = 1
-
-    categories = list(
-        mongo.store_categories.find(query).sort([
-            ("is_active", -1),
-            ("name", 1)
-        ])
-    )
-
-    for cat in categories:
-        cat["id"] = str(cat["_id"])
-
-    return categories
 
 
-def _get_store_category_by_id(store_id, category_id, active_only=False):
-    try:
-        category_obj_id = ObjectId(category_id)
-    except Exception:
-        return None
-
-    query = {
-        "_id": category_obj_id,
-        "store_id": store_id
-    }
-
-    if active_only:
-        query["is_active"] = 1
-
-    cat = mongo.store_categories.find_one(query)
-
-    if cat:
-        cat["id"] = str(cat["_id"])
-
-    return cat
 
 
-def _get_store_category_by_name(store_id, name, active_only=False):
-    slug = _category_slug(name)
-
-    query = {
-        "store_id": store_id,
-        "slug": slug
-    }
-
-    if active_only:
-        query["is_active"] = 1
-
-    cat = mongo.store_categories.find_one(query)
-
-    if cat:
-        cat["id"] = str(cat["_id"])
-
-    return cat
 
 
-def _get_category_product_count(store_id, category_name):
-    return mongo.products.count_documents({
-        "store_id": store_id,
-        "category": category_name
-    })
+
+
+
+
+
+
+
 
 # =========================================================
 # STORE SPLIT PAGES
@@ -8535,87 +5499,7 @@ def _build_store_split_page_context(store):
 # STORE PROFILE
 # =========================================================
 
-def _build_store_profile_context(store, owner):
-    notification_settings = mongo.store_notification_settings.find_one({
-        "store_id": store["_id"]
-    }) or {
-        "enabled": False
-    }
 
-    checklist = [
-        {
-            "label": "Store name added",
-            "done": bool((store.get("store_name") or "").strip())
-        },
-        {
-            "label": "Owner name added",
-            "done": bool((owner.get("name") or store.get("owner_name") or "").strip())
-        },
-        {
-            "label": "Phone number added",
-            "done": bool((owner.get("phone") or store.get("phone") or "").strip())
-        },
-        {
-            "label": "Store address added",
-            "done": bool((store.get("address") or "").strip())
-        },
-        {
-            "label": "Pincode added",
-            "done": bool((store.get("pincode") or "").strip())
-        },
-        {
-            "label": "Latitude and longitude added",
-            "done": store.get("latitude") is not None and store.get("longitude") is not None
-        },
-        {
-            "label": "Store description added",
-            "done": bool((store.get("description") or "").strip())
-        },
-
-{
-    "label": "Store intro line added",
-    "done": bool((store.get("profile_intro") or "").strip())
-},
-{
-    "label": "Store banner uploaded",
-    "done": bool((store.get("banner_path") or "").strip())
-},
-
-        {
-            "label": "Store logo uploaded",
-            "done": bool((store.get("logo_path") or "").strip())
-        },
-        {
-            "label": "Operating time added",
-            "done": bool((store.get("opening_time") or "").strip()) and bool((store.get("closing_time") or "").strip())
-        },
-        {
-            "label": "Working days selected",
-            "done": bool(store.get("working_days"))
-        },
-        {
-            "label": "Notifications configured",
-            "done": bool(notification_settings.get("enabled"))
-        },
-        {
-            "label": "Store account active",
-            "done": bool(store.get("is_active"))
-        }
-    ]
-
-    done = sum(1 for item in checklist if item["done"])
-    total = len(checklist)
-    percent = round((done / total) * 100) if total else 0
-
-    return {
-        "profile_checklist": checklist,
-        "profile_completion": {
-            "done": done,
-            "total": total,
-            "percent": percent
-        },
-        "notification_settings": notification_settings
-    }
 
 
 
@@ -8625,157 +5509,19 @@ def _build_store_profile_context(store, owner):
 # STORE NOTIFICATIONS
 # =========================================================
 
-def _store_id_values(store_id):
-    return [store_id, str(store_id)]
 
 
-def _store_notification_stats(store_id):
-    store_id_values = _store_id_values(store_id)
-    today_prefix = datetime.utcnow().date().isoformat()
-
-    total = mongo.store_notifications.count_documents({
-        "store_id": {"$in": store_id_values}
-    })
-
-    unread = mongo.store_notifications.count_documents({
-        "store_id": {"$in": store_id_values},
-        "is_read": False
-    })
-
-    today = mongo.store_notifications.count_documents({
-        "store_id": {"$in": store_id_values},
-        "created_at": {"$regex": f"^{today_prefix}"}
-    })
-
-    active = mongo.orders.count_documents({
-        "store_id": {"$in": store_id_values},
-        "status": {"$nin": ["DELIVERED", "CANCELLED"]}
-    })
-
-    return {
-        "total": total,
-        "unread": unread,
-        "today": today,
-        "active": active
-    }
 
 
-def _create_store_notification(store, title, message, notif_type="system", order=None, event_key=None):
-    now = datetime.utcnow().isoformat()
-    store_id = store["_id"]
-
-    if event_key:
-        existing = mongo.store_notifications.find_one({
-            "store_id": {"$in": _store_id_values(store_id)},
-            "event_key": event_key
-        })
-
-        if existing:
-            return existing
-
-    doc = {
-        "store_id": store_id,
-        "store_name": store.get("store_name", ""),
-        "title": title,
-        "message": message,
-        "type": notif_type,
-        "is_read": False,
-        "is_active": True,
-        "created_at": now,
-        "updated_at": now
-    }
-
-    if event_key:
-        doc["event_key"] = event_key
-
-    if order:
-        doc["order_id"] = order.get("_id")
-        doc["order_ref"] = str(order.get("_id"))
-        doc["order_status"] = order.get("status", "")
-        doc["payment_status"] = order.get("payment_status", "")
-        doc["customer_name"] = order.get("customer_name", "")
-        doc["customer_phone"] = order.get("customer_phone", "")
-        doc["total_payable"] = (
-            float(order.get("total_amount") or 0)
-            + float(order.get("delivery_fee") or 0)
-            + float(order.get("tip_amount") or 0)
-        )
-
-    mongo.store_notifications.insert_one(doc)
-    return doc
 
 
-def _hydrate_store_notification(n):
-    n["id"] = str(n["_id"])
-    n["store_id"] = str(n.get("store_id")) if n.get("store_id") else ""
-    n["order_id"] = str(n.get("order_id")) if n.get("order_id") else ""
-    n["title"] = n.get("title", "Notification")
-    n["message"] = n.get("message", "")
-    n["type"] = n.get("type", "system")
-    n["is_read"] = bool(n.get("is_read"))
-    n["is_active"] = bool(n.get("is_active", True))
-    return n
 
 
-def _sync_store_order_notifications(store):
-    store_id_values = _store_id_values(store["_id"])
 
-    recent_orders = list(
-        mongo.orders.find({
-            "store_id": {"$in": store_id_values}
-        }).sort("created_at", -1).limit(60)
-    )
 
-    for order in recent_orders:
-        oid = str(order["_id"])
-        status = (order.get("status") or "PLACED").upper()
 
-        total_payable = (
-            float(order.get("total_amount") or 0)
-            + float(order.get("delivery_fee") or 0)
-            + float(order.get("tip_amount") or 0)
-        )
 
-        if status not in ["DELIVERED", "CANCELLED"]:
-            _create_store_notification(
-                store,
-                title="Active order needs attention",
-                message=f"Order #{oid[-6:]} is currently {status}. Payable amount ₹ {total_payable:.2f}.",
-                notif_type="new_order",
-                order=order,
-                event_key=f"order-active-{oid}"
-            )
 
-    recent_events = list(
-        mongo.order_events.find({}).sort("created_at", -1).limit(120)
-    )
-
-    for event in recent_events:
-        order_id = event.get("order_id")
-
-        if not order_id:
-            continue
-
-        order = mongo.orders.find_one({
-            "_id": order_id,
-            "store_id": {"$in": store_id_values}
-        })
-
-        if not order:
-            continue
-
-        oid = str(order["_id"])
-        status = (event.get("status") or order.get("status") or "").upper()
-        event_id = str(event.get("_id"))
-
-        _create_store_notification(
-            store,
-            title="Order status updated",
-            message=f"Order #{oid[-6:]} status changed to {status}.",
-            notif_type="status",
-            order=order,
-            event_key=f"order-event-{event_id}"
-        )
 
 
 
@@ -9070,12 +5816,7 @@ def send_contact_auto_reply(contact_doc):
 # ----------------------
 
 
-@app.after_request
-def add_no_cache_headers(resp):
-    # help fetch() always get fresh data
-    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    resp.headers["Pragma"] = "no-cache"
-    return resp
+# Response cache headers are registered by security.py.
 
 
 
@@ -9139,17 +5880,25 @@ def add_no_cache_headers(resp):
 
 
 
-log_debug("\n=== ROUTES LOADED ===")
-log_debug(app.url_map)
-log_debug("=====================\n")
+# Register extracted template context processors only after all legacy business
+# providers are defined. This keeps current template globals identical while
+# avoiding a circular import back into app_core.py.
+configure_template_context(
+    mongo=mongo,
+    current_user=current_user,
+    get_or_create_cart=get_or_create_cart,
+    get_delivery_mode_settings=get_delivery_mode_settings,
+    get_platform_fee_settings=get_platform_fee_settings,
+    order_status_label=order_status_label,
+    get_delivery_mode_ui_context=get_delivery_mode_ui_context,
+)
+register_template_context_processors(app)
+
+log_debug("\n=== APP CORE READY ===")
+log_debug("Shared helpers/context processors loaded; route registration is owned by app_factory.py.")
+log_debug("======================\n")
 
 
-
-if __name__ == '__main__':
-    app.run(host="0.0.0.0",
-        port=int(os.getenv("PORT", "5000")),
-        debug=os.getenv("FLASK_DEBUG", "0").strip().lower() in ["1", "true", "yes", "on"],
-        use_reloader=False)
 
 # Export all shared globals/helpers, including underscore-prefixed legacy helpers,
 # so split route modules can preserve original app.py logic unchanged.

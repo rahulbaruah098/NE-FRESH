@@ -5,6 +5,8 @@ without changing existing in-house delivery-boy routes.
 """
 
 from app_core import *
+from services.finance_reconciliation import finance_money, finance_reconciliation_snapshot
+import os
 import re
 from services.delivery_integrations.base import build_external_delivery_payload
 from services.delivery_integrations.shiprocket_service import create_shiprocket_booking
@@ -309,7 +311,10 @@ def admin_external_delivery_settings():
             "shiprocket_pickup_location": _external_safe_text(request.form.get("shiprocket_pickup_location")),
             "shiprocket_pickup_pincode": _external_safe_text(request.form.get("shiprocket_pickup_pincode")),
             "shiprocket_channel_id": _external_safe_text(request.form.get("shiprocket_channel_id")),
-            "shiprocket_webhook_token": _external_safe_text(request.form.get("shiprocket_webhook_token")),
+            "shiprocket_webhook_token": (
+                "" if (os.getenv("SHIPROCKET_WEBHOOK_TOKEN") or "").strip()
+                else _external_safe_text(request.form.get("shiprocket_webhook_token"))
+            ),
 
             "hyperlocal_enabled": False,
             "hyperlocal_provider": "LOCAL_DELIVERY_PARTNER",
@@ -343,12 +348,16 @@ def admin_external_delivery_settings():
 
         # Do not overwrite saved secrets if fields are left blank.
         shiprocket_password = _external_safe_text(request.form.get("shiprocket_password"))
-        if shiprocket_password:
+        if (os.getenv("SHIPROCKET_PASSWORD") or "").strip():
+            # Production environment owns this secret; clear any legacy Mongo copy.
+            update_data["shiprocket_password"] = ""
+        elif shiprocket_password:
             update_data["shiprocket_password"] = shiprocket_password
 
         if update_data.get("shiprocket_enabled"):
-            effective_shiprocket_password = update_data.get("shiprocket_password") or existing.get("shiprocket_password") or ""
-            if not update_data.get("shiprocket_email") or not effective_shiprocket_password:
+            effective_shiprocket_email = (os.getenv("SHIPROCKET_EMAIL") or update_data.get("shiprocket_email") or "").strip()
+            effective_shiprocket_password = (os.getenv("SHIPROCKET_PASSWORD") or update_data.get("shiprocket_password") or existing.get("shiprocket_password") or "").strip()
+            if not effective_shiprocket_email or not effective_shiprocket_password:
                 flash("Shiprocket API needs API user email and password before it can be enabled.", "danger")
                 return redirect(url_for("admin_external_delivery_settings"))
             if not update_data.get("shiprocket_pickup_location") or not update_data.get("shiprocket_pickup_pincode"):
@@ -963,7 +972,7 @@ def api_external_delivery_webhook(provider):
 
     token = request.headers.get("x-api-key") or request.headers.get("X-API-Key") or request.args.get("token") or ""
     expected_token = (
-        settings.get("shiprocket_webhook_token")
+        (os.getenv("SHIPROCKET_WEBHOOK_TOKEN") or settings.get("shiprocket_webhook_token"))
         if provider == "SHIPROCKET"
         else settings.get("hyperlocal_webhook_token")
     ) or ""
