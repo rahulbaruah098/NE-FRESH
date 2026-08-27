@@ -45,7 +45,10 @@ def _send_customer_email_change_otp(to_email, otp, name=""):
 </body>
 </html>
 """
-    send_email(to_email, subject, html)
+    result = send_email(to_email, subject, html)
+    if not result or not result.get("ok"):
+        raise RuntimeError("SMTP did not confirm email-change OTP acceptance.")
+    return result
 
 
 def _pending_customer_email_change():
@@ -151,7 +154,7 @@ def profile_email_change_request():
     try:
         _send_customer_email_change_otp(new_email, otp, u.get("name") or "")
     except Exception as exc:
-        log_warning(f"[EMAIL CHANGE OTP ERROR] {new_email}: {exc}")
+        log_warning(f"[EMAIL CHANGE OTP ERROR] {type(exc).__name__}: {exc}")
         flash("Could not send OTP to the new email. Please check SMTP settings or try again later.", "danger")
         return redirect(url_for("profile"))
 

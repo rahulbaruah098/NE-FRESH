@@ -131,12 +131,60 @@ def configure_application(app, log_warning: Callable[..., None] = print) -> None
 
 
 def warn_missing_production_sender_settings(log_warning: Callable[..., None] = print) -> None:
+    """Warn about unsafe/incomplete production SMTP settings without exposing secrets."""
     if not _is_production_env():
         return
+
     required = ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"]
-    missing = [name for name in required if not (os.getenv(name) or "").strip()]
+    values = {name: (os.getenv(name) or "").strip() for name in required}
+    missing = [name for name in required if not values[name]]
     if missing:
         log_warning(
             "[PRODUCTION WARNING] Email/OTP sender is not fully configured. Missing: "
             + ", ".join(missing)
+        )
+        return
+
+    try:
+        smtp_port = int((os.getenv("SMTP_PORT") or "587").strip())
+    except (TypeError, ValueError):
+        log_warning("[PRODUCTION WARNING] SMTP_PORT is not a valid integer.")
+        return
+
+    smtp_use_ssl = _env_bool("SMTP_USE_SSL", smtp_port == 465)
+    smtp_use_tls = _env_bool("SMTP_USE_TLS", not smtp_use_ssl)
+    smtp_debug = _env_bool("SMTP_DEBUG", False)
+    smtp_host = values["SMTP_HOST"].lower()
+
+    if smtp_use_ssl and smtp_use_tls:
+        log_warning(
+            "[PRODUCTION WARNING] SMTP_USE_SSL and SMTP_USE_TLS cannot both be enabled."
+        )
+
+    if smtp_host == "smtp.gmail.com":
+        if smtp_port == 587 and (not smtp_use_tls or smtp_use_ssl):
+            log_warning(
+                "[PRODUCTION WARNING] Gmail port 587 requires STARTTLS: "
+                "SMTP_USE_TLS=true and SMTP_USE_SSL=false."
+            )
+        elif smtp_port == 465 and (not smtp_use_ssl or smtp_use_tls):
+            log_warning(
+                "[PRODUCTION WARNING] Gmail port 465 requires SSL: "
+                "SMTP_USE_SSL=true and SMTP_USE_TLS=false."
+            )
+        elif smtp_port not in {465, 587}:
+            log_warning(
+                "[PRODUCTION WARNING] Gmail SMTP should use port 587 (STARTTLS) or 465 (SSL)."
+            )
+
+        if values["SMTP_USER"].lower() != values["SMTP_FROM"].lower():
+            log_warning(
+                "[PRODUCTION WARNING] SMTP_USER and SMTP_FROM differ. This is valid only "
+                "when the authenticated Google account has the From address configured as an approved send-as alias."
+            )
+
+    if smtp_debug:
+        log_warning(
+            "[PRODUCTION WARNING] SMTP_DEBUG=true is not recommended in production. "
+            "Raw SMTP protocol debugging is disabled by the sender to protect credentials."
         )

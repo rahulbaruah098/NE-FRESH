@@ -165,12 +165,89 @@ def validate(force_production: bool = False):
 
     smtp_names = ["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"]
     smtp_values = {name: env_text(name) for name in smtp_names}
-    smtp_present = [name for name, value in smtp_values.items() if value]
-    if smtp_present and len(smtp_present) != len(smtp_names):
+
+    # SMTP_HOST may be prefilled as smtp.gmail.com in example files, so actual
+    # sender configuration is considered started only when a credential/from
+    # field is present. Once started, all required values must be complete.
+    smtp_started = any(smtp_values[name] for name in ["SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"])
+
+    if smtp_started:
         missing = [name for name in smtp_names if not smtp_values[name]]
-        errors.append("SMTP configuration is partial; missing: " + ", ".join(missing))
-    elif production and not smtp_present:
-        warnings.append("SMTP is not configured. Email/OTP/password-recovery features that require outbound email will not be production-ready.")
+        if missing:
+            errors.append("SMTP configuration is partial; missing: " + ", ".join(missing))
+        else:
+            smtp_host = smtp_values["SMTP_HOST"].lower()
+
+            port_raw = env_text("SMTP_PORT") or "587"
+            try:
+                smtp_port = int(port_raw)
+                if smtp_port < 1 or smtp_port > 65535:
+                    errors.append("SMTP_PORT must be between 1 and 65535.")
+            except ValueError:
+                smtp_port = None
+                errors.append("SMTP_PORT must be a valid integer.")
+
+            smtp_tls = env_bool("SMTP_USE_TLS", True)
+            smtp_ssl = env_bool("SMTP_USE_SSL", False)
+            smtp_debug = env_bool("SMTP_DEBUG", False)
+
+            if env_text("SMTP_USE_TLS") and smtp_tls is None:
+                errors.append("SMTP_USE_TLS must be true or false.")
+            if env_text("SMTP_USE_SSL") and smtp_ssl is None:
+                errors.append("SMTP_USE_SSL must be true or false.")
+            if env_text("SMTP_DEBUG") and smtp_debug is None:
+                errors.append("SMTP_DEBUG must be true or false.")
+
+            if smtp_tls is True and smtp_ssl is True:
+                errors.append("SMTP_USE_TLS and SMTP_USE_SSL cannot both be true.")
+
+            if "@" not in smtp_values["SMTP_USER"]:
+                errors.append("SMTP_USER must be a valid email address.")
+            if "@" not in smtp_values["SMTP_FROM"]:
+                errors.append("SMTP_FROM must be a valid sender email address.")
+
+            if looks_placeholder(smtp_values["SMTP_USER"]):
+                errors.append("SMTP_USER still appears to contain placeholder/example text.")
+            if looks_placeholder(smtp_values["SMTP_PASSWORD"]):
+                errors.append("SMTP_PASSWORD still appears to contain placeholder/example text.")
+            if looks_placeholder(smtp_values["SMTP_FROM"]):
+                errors.append("SMTP_FROM still appears to contain placeholder/example text.")
+
+            if smtp_host == "smtp.gmail.com" and smtp_port is not None:
+                if smtp_port == 587:
+                    if smtp_tls is not True or smtp_ssl is True:
+                        errors.append(
+                            "Gmail SMTP port 587 requires SMTP_USE_TLS=true and SMTP_USE_SSL=false."
+                        )
+                elif smtp_port == 465:
+                    if smtp_ssl is not True or smtp_tls is True:
+                        errors.append(
+                            "Gmail SMTP port 465 requires SMTP_USE_SSL=true and SMTP_USE_TLS=false."
+                        )
+                else:
+                    errors.append("Gmail SMTP must use port 587 (STARTTLS) or 465 (SSL).")
+
+                if smtp_values["SMTP_USER"].lower() != smtp_values["SMTP_FROM"].lower():
+                    warnings.append(
+                        "SMTP_USER and SMTP_FROM differ. Confirm the authenticated Google account has "
+                        "SMTP_FROM configured as an approved send-as alias."
+                    )
+            elif smtp_host:
+                warnings.append(
+                    "SMTP_HOST is not smtp.gmail.com. The mail service is provider-neutral, but the current "
+                    "OTP migration is intended to use Gmail/Google Workspace SMTP."
+                )
+
+            if production and smtp_debug is True:
+                warnings.append(
+                    "SMTP_DEBUG is enabled in production. Raw SMTP protocol debugging remains disabled "
+                    "by the sender to prevent credential leakage."
+                )
+    elif production:
+        warnings.append(
+            "SMTP sender credentials are not configured. Email/OTP/password-recovery features that "
+            "require outbound email will not be production-ready."
+        )
 
     live_key_id = env_text("RAZORPAY_LIVE_KEY_ID")
     live_key_secret = env_text("RAZORPAY_LIVE_KEY_SECRET")

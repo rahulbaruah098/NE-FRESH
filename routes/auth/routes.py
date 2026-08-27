@@ -1,7 +1,6 @@
 
 from app_core import *
 import random
-import threading
 
 
 
@@ -79,17 +78,16 @@ def send_registration_otp_email(email, otp, name=""):
 </html>
 """
 
-    try:
-        mail_sender = globals().get("send_email")
-        if callable(mail_sender):
-            mail_sender(email, subject, html)
-            log_debug(f"[OTP SENT] {email}")
-            return
-    except Exception as e:
-        log_warning(f"[OTP EMAIL ERROR] {str(e)}")
-        raise
+    mail_sender = globals().get("send_email")
+    if not callable(mail_sender):
+        raise RuntimeError("send_email function is not available from app_core.py")
 
-    log_debug(f"[DEV OTP EMAIL] To: {email} | Subject: {subject} | OTP: {otp}")
+    result = mail_sender(email, subject, html)
+    if not result or not result.get("ok"):
+        raise RuntimeError("SMTP did not confirm OTP email acceptance.")
+
+    log_debug("[OTP EMAIL ACCEPTED]")
+    return result
 
 
 
@@ -275,7 +273,7 @@ def forgot_password():
                     reset_link
                 )
 
-                print(f"[PASSWORD RESET EMAIL CONFIRMED] to={email_to_send} result={email_result}")
+                log_debug("[PASSWORD RESET EMAIL CONFIRMED]")
 
                 session['forgot_notice'] = {
                     "type": "success",
@@ -284,7 +282,7 @@ def forgot_password():
                 return redirect(url_for('forgot_password'))
 
             except Exception as e:
-                log_warning(f"[PASSWORD RESET EMAIL ERROR] {email_to_send}: {str(e)}")
+                log_warning(f"[PASSWORD RESET EMAIL ERROR] {type(e).__name__}: {e}")
 
                 session['forgot_notice'] = {
                     "type": "danger",
@@ -472,7 +470,7 @@ def register_send_email_otp():
         }
     )
 
-    mongo.register_email_otps.insert_one({
+    insert_result = mongo.register_email_otps.insert_one({
         "email": email,
         "purpose": "customer_register_inline",
         "otp_code": otp,
@@ -480,16 +478,41 @@ def register_send_email_otp():
         "resend_after": (now + timedelta(seconds=resend_seconds)).isoformat(),
         "attempts": 0,
         "consumed": 0,
+        "delivery_status": "pending",
         "created_at": now.isoformat()
     })
 
     session.pop('register_inline_email_verified', None)
+    session.pop('register_inline_email_verified_at', None)
 
-    threading.Thread(
-        target=send_registration_otp_email,
-        args=(email, otp, name),
-        daemon=True
-    ).start()
+    try:
+        send_registration_otp_email(email, otp, name)
+    except Exception as exc:
+        failed_at = datetime.utcnow().isoformat()
+        mongo.register_email_otps.update_one(
+            {"_id": insert_result.inserted_id},
+            {
+                "$set": {
+                    "consumed": 1,
+                    "consumed_at": failed_at,
+                    "consumed_reason": "smtp_send_failed",
+                    "delivery_status": "failed",
+                    "send_failed_at": failed_at
+                }
+            }
+        )
+        log_warning(f"[REGISTER OTP EMAIL ERROR] {type(exc).__name__}: {exc}")
+        return jsonify({
+            "success": False,
+            "error": "We could not send the OTP email right now. Please try again.",
+            "retryable": True
+        }), 503
+
+    sent_at = datetime.utcnow().isoformat()
+    mongo.register_email_otps.update_one(
+        {"_id": insert_result.inserted_id},
+        {"$set": {"delivery_status": "sent", "sent_at": sent_at}}
+    )
 
     return jsonify({
         "success": True,
@@ -700,9 +723,11 @@ def register():
                     {"_id": existing["_id"]},
                     {"$set": user_payload}
                 )
+                user_object_id = existing["_id"]
                 user_id = str(existing["_id"])
             else:
                 result = mongo.users.insert_one(user_payload)
+                user_object_id = result.inserted_id
                 user_id = str(result.inserted_id)
 
         except DuplicateKeyError:
@@ -711,11 +736,42 @@ def register():
 
         session['pending_verification_user_id'] = user_id
 
-        threading.Thread(
-            target=send_registration_otp_email,
-            args=(email, otp, name),
-            daemon=True
-        ).start()
+        try:
+            send_registration_otp_email(email, otp, name)
+        except Exception as exc:
+            failed_at = datetime.utcnow().isoformat()
+            mongo.users.update_one(
+                {"_id": user_object_id},
+                {
+                    "$set": {
+                        "otp_send_status": "failed",
+                        "otp_send_failed_at": failed_at
+                    },
+                    "$unset": {
+                        "otp_code": "",
+                        "otp_expires_at": "",
+                        "otp_resend_after": "",
+                        "otp_attempts": ""
+                    }
+                }
+            )
+            log_warning(f"[REGISTER OTP EMAIL ERROR] {type(exc).__name__}: {exc}")
+            flash(
+                'Account saved, but we could not send the verification code. Please use Resend OTP to try again.',
+                'danger'
+            )
+            return redirect(url_for('verify_email', user_id=user_id))
+
+        mongo.users.update_one(
+            {"_id": user_object_id},
+            {
+                "$set": {
+                    "otp_send_status": "sent",
+                    "otp_sent_at": datetime.utcnow().isoformat()
+                },
+                "$unset": {"otp_send_failed_at": ""}
+            }
+        )
 
         flash(
             'Account created. We sent a verification code to your email.',
@@ -915,15 +971,51 @@ def resend_otp(user_id):
                 "otp_resend_after": (
                     now + timedelta(seconds=get_register_email_otp_resend_seconds())
                 ).isoformat(),
-                "otp_attempts": 0
+                "otp_attempts": 0,
+                "otp_send_status": "pending"
             }
         }
     )
 
-    send_registration_otp_email(
-        user["email"],
-        otp,
-        user.get("name")
+    try:
+        send_registration_otp_email(
+            user["email"],
+            otp,
+            user.get("name")
+        )
+    except Exception as exc:
+        failed_at = datetime.utcnow().isoformat()
+        mongo.users.update_one(
+            {"_id": user["_id"]},
+            {
+                "$set": {
+                    "otp_send_status": "failed",
+                    "otp_send_failed_at": failed_at
+                },
+                "$unset": {
+                    "otp_code": "",
+                    "otp_expires_at": "",
+                    "otp_resend_after": "",
+                    "otp_attempts": ""
+                }
+            }
+        )
+        log_warning(f"[RESEND OTP EMAIL ERROR] {type(exc).__name__}: {exc}")
+        flash(
+            'We could not send a new OTP right now. Please try again.',
+            'danger'
+        )
+        return redirect(url_for('verify_email', user_id=user_id))
+
+    mongo.users.update_one(
+        {"_id": user["_id"]},
+        {
+            "$set": {
+                "otp_send_status": "sent",
+                "otp_sent_at": datetime.utcnow().isoformat()
+            },
+            "$unset": {"otp_send_failed_at": ""}
+        }
     )
 
     flash(
