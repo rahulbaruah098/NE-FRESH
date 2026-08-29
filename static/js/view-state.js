@@ -181,6 +181,39 @@
   window.NEFreshViewState={rememberAction:rememberAction,clearAction:function(){safeRemove(ACTION_KEY);},scrollTop:scrollTopNow};
 
   function bootReady(){
+    var actionState=parseActionState();
+    var hasExplicitHash=!!(window.location.hash&&window.location.hash!=='#');
+
+    /*
+      Normal page loads must finish their initial position immediately.
+      Previously every load waited for all stylesheets before calling
+      initialisePagePosition(), whose normal branch calls scrollTopNow().
+      If the user had already started scrolling during that wait, the delayed
+      callback forcibly returned the page to the top and caused the one-time
+      hard-refresh flash/jump.
+
+      Only explicit action restoration or hash navigation needs the final
+      stylesheet geometry. Those flows remain hidden/controlled until their
+      deliberate target position is applied.
+    */
+    if(!(actionState&&actionState.path===window.location.pathname)&&!hasExplicitHash){
+      var currentY=Math.max(
+        0,
+        Math.round(window.pageYOffset||document.documentElement.scrollTop||0)
+      );
+
+      /*
+        Do not steal the user's first scroll if interaction happened before
+        this boot callback. On an untouched normal load the browser is already
+        at the top because scrollRestoration is manual, so normal behaviour is
+        preserved without a late forced reset.
+      */
+      if(currentY<=2)scrollTopNow();
+      reveal();
+      initialiseScrollTopButton();
+      return;
+    }
+
     waitForStylesBeforeReveal(function(){
       initialisePagePosition();
       initialiseScrollTopButton();
